@@ -902,6 +902,12 @@ catch or replacement alone is not sufficient proof. Ordinary source `free` of
 caught/thrown objects remains rejected; reclaimable retained exceptions are a
 separate ownership extension outside P5.
 
+Callback carriers inside a translated native wrapper's cause or secondary-failure
+graph preserve the original Java throwable as an existing graph node. Do not
+reconstruct its Java class or overwrite its existing Java cause, suppression or
+stack trace. Native snapshot nodes retain the ordinary bounded translation rules.
+This transport rule grants no native reclamation permission.
+
 ## 9. Values and performance
 
 **Accepted performance goal, D190:** a scalar JNI call can be inexpensive.

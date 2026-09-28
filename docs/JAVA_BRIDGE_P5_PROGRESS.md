@@ -313,9 +313,48 @@ rejection. Existing destruction and foreign-effect controls cover shared consume
   `p5-carrier-cleanup-controls.log`. Corrected the fixture source filename to
   match its public Listener type; no production proof was relaxed.
 
+Exception-graph checkpoint review: a native wrapper's cause or secondary failure
+can be a retained callback carrier. Extend only the callback-enabled snapshot
+factory/transport to carry existing Java throwables as graph leaves. Keep their
+identity, Java cause/suppression and stack trace untouched; native snapshot nodes
+still use existing bounded traversal and construction. Require matching carrier
+entries before enabling the extended factory ABI. Callback-free factory/transport
+keeps its current ABI. Test cause/secondary identity and existing native graph
+controls; no carrier cleanup permission follows from this translation.
+
+- `ff98eedf`: committed proof-bound temporary cleanup and real proxy transport.
+  Estonia physical Linux x86-64 passes the carrier runtime O0/O3, all-mode carrier
+  proofs and complete destruction controls at this revision. Pinned image
+  `sha256:dd4c1e82b2f999db86e75538f7d32adcaa364452f99a8f615eca693707c382a7`,
+  Java 21.0.12.1+1 / LLVM 23.1.0, isolated CPUs 1-4/9-12, network disabled.
+  Payload SHA-256 `ba6d7a10008fa9bc32411a1b2f9dec8f29126b90ef5c987ee9f6235041b01f6d`.
+  O0 image `1834bc41519766cb95939fcf96b78a01683eea1f30ff8ed2867d92654dbf7e50`;
+  O3 `dbc03357a8fc95c1e06eefba0640b2a7430fbe83fb84320c5565acba4c5ebda9`.
+  Remote evidence: `~/temp/java-bridge/p5-ff98eedf/`; local copy:
+  `workspace/java-bridge/p5-estonia-ff98eedf/`. Every collected evidence file
+  verifies against the remote SHA-256 manifest. Large duplicate pinned support
+  source archives stay in the existing support directory and are identified in
+  the complete evidence manifest. No installs or pre-existing deletions.
+- Callback-enabled native exception graphs now include existing Java throwable
+  nodes for native wrapper causes and secondary failures. Java identity, cause,
+  suppression and trace survive unchanged. Factory and native transport enable
+  the extra graph argument only with matching carrier entries; callback-free
+  transport keeps its ABI. No native getters run without protected entries.
+- Initial secondary-case test correctly exposed an unclassified context edge.
+  Audited `ironwood_exception_add_secondary`: native metadata association with no
+  user dispatch. Classified only its callback reachability; allocation/retention
+  effects remain conservative and carrier cleanup still rejects secondary chains.
+  macOS ARM64 carrier O0/O3 tests pass along with carrier lifetime and callback
+  reachability controls. Existing built-in factory and custom native graph tests
+  pass. Logs: `p5-callback-exception-graphs.log`, `p5-callback-graphs-retry.log`.
+  Evidence: `workspace/java-bridge/evidence/p5/carriers/run-13198360491727219061/`.
+  Native additions to a carrier's own cause/secondary metadata still require a
+  separate transport/admission decision before public producer enablement; the
+  graph test currently covers original Java throwables nested in native snapshots.
+
 ## Next step
 
-Validate the carrier runtime on Linux, then implement retained listener lifecycle
+Implement retained listener lifecycle and complete carrier enrichment handling
 before producer admission. Unknown carrier retention remains process-live under
 D227. Guard components still need actual
 receiver/dependent-owner placement and native refusal tests in that admission.

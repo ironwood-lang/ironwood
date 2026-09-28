@@ -18,6 +18,10 @@ final class BridgeExceptionGraphSources {
     }
 
     static String generate(BridgeExceptionProjection projection, BridgeCustomSnapshotSources.Context custom) {
+        return generate(projection, custom, false);
+    }
+
+    static String generate(BridgeExceptionProjection projection, BridgeCustomSnapshotSources.Context custom, boolean callbacks) {
         String required = projection.types().stream().filter(type -> requiresCause(type.nativeName())
                         || custom != null && requiresCause(custom.layout().builtinBases().getOrDefault(type.nativeName(), "")))
                 .map(type -> Integer.toString(type.typeId())).collect(Collectors.joining(", "));
@@ -28,10 +32,21 @@ final class BridgeExceptionGraphSources {
                 .replace("@NATIVE_FRAMES@", Integer.toString(NATIVE_FRAME_LIMIT))
                 .replace("@JAVA_FRAMES@", Integer.toString(JAVA_FRAME_LIMIT))
                 .replace("@REQUIRED@", predicate)
+                .replace("@CALLBACK_PARAMETERS@", callbacks ? ", Throwable[] originals" : "")
+                .replace("@CALLBACK_VALIDATE@", callbacks ? "if (!snapshotArray(originals, count)) throw invalidGraph();" : "")
+                .replace("@CALLBACK_LEAF@", callbacks ? """
+                        if (originals[i] != null) {
+                            if (causes[i] != -1 || secondary[i] != null || frames[i] != null) throw invalidGraph();
+                            continue;
+                        }
+                        """ : "")
+                .replace("@CALLBACK_VALUE@", callbacks ? "if (originals[i] != null) { values[i] = originals[i]; continue; }" : "")
+                .replace("@CALLBACK_SKIP@", callbacks ? "if (originals[i] != null) continue;" : "")
                 .replace("@CUSTOM_PARAMETERS@", custom == null ? "" : ", long[][] copiedNumbers, String[][] copiedTexts")
                 .replace("@CUSTOM_VALIDATE@", custom == null ? "" : "if (!snapshotArray(copiedNumbers, count) || !snapshotArray(copiedTexts, count)) throw invalidGraph();")
                 .replace("@CUSTOM_DATA@", custom == null ? "" : "SnapshotData[] copied = new SnapshotData[count];\n"
-                        + "        for (int i = 0; i < count; i++) copied[i] = snapshotData(types[i], messages[i], copiedNumbers[i], copiedTexts[i]);")
+                        + "        for (int i = 0; i < count; i++) " + (callbacks ? "if (originals[i] == null) " : "")
+                        + "copied[i] = snapshotData(types[i], messages[i], copiedNumbers[i], copiedTexts[i]);")
                 .replace("@CUSTOM_ARGUMENT@", custom == null ? "" : ", copied[i]")
                 .replace("@CUSTOM_BUILTIN@", custom == null ? "" : "copied[i] == null && ")
                 .replace("@CUSTOM_EDGES@", custom == null ? "" : """
@@ -50,11 +65,12 @@ final class BridgeExceptionGraphSources {
 
     private static final String SOURCE = """
                 // Indices: -1 is no cause; -2 is an explicitly omitted edge.
-                // All nodes are copied snapshots. The returned array lets JNI finish
+                // Native nodes are snapshots; callback leaves retain Java identity.
+                // The returned array lets JNI finish
                 // nonfinal message fields before any throwable reaches user code.
                 private static Throwable[] graph(int[] types, String[] messages, String[] first,
                         String[] second, String[] third, int[] numbers, int[] causes,
-                        int[][] secondary, StackTraceElement[][] frames@CUSTOM_PARAMETERS@) {
+                        int[][] secondary, StackTraceElement[][] frames@CUSTOM_PARAMETERS@@CALLBACK_PARAMETERS@) {
                     if (types == null || types.length == 0 || types.length > @NODES@) throw invalidGraph();
                     int count = types.length;
                     if (!snapshotArray(messages, count) || !snapshotArray(first, count)
@@ -64,8 +80,10 @@ final class BridgeExceptionGraphSources {
                         throw invalidGraph();
                     }
                     @CUSTOM_VALIDATE@
+                    @CALLBACK_VALIDATE@
                     boolean omitted = false;
                     for (int i = 0; i < count; i++) {
+                        @CALLBACK_LEAF@
                         if (causes[i] < -2 || causes[i] >= count || secondary[i] == null
                                 || secondary[i].length > @SECONDARY@ || frames[i] == null
                                 || frames[i].length > @NATIVE_FRAMES@) throw invalidGraph();
@@ -84,11 +102,13 @@ final class BridgeExceptionGraphSources {
                     Throwable[] values = new Throwable[count];
                     @CUSTOM_DATA@
                     for (int i = 0; i < count; i++) {
+                        @CALLBACK_VALUE@
                         if (!requiredCause(types[i])) {
                             values[i] = create(types[i], messages[i], null, first[i], second[i], third[i], numbers[i]@CUSTOM_ARGUMENT@);
                         }
                     }
                     for (int i = 0; i < count; i++) {
+                        @CALLBACK_SKIP@
                         if (requiredCause(types[i])) {
                             Throwable cause = edge(values, causes[i], i, marker);
                             if (@CUSTOM_BUILTIN@!(cause instanceof java.io.IOException)) throw invalidGraph();
@@ -101,6 +121,7 @@ final class BridgeExceptionGraphSources {
                     int javaCount = Math.min(javaFrames.length - start, @JAVA_FRAMES@);
                     boolean javaTruncated = javaFrames.length - start > javaCount;
                     for (int i = 0; i < count; i++) {
+                        @CALLBACK_SKIP@
                         Throwable value = values[i];
                         @CUSTOM_EDGES@
                         if (@CUSTOM_BUILTIN@!requiredCause(types[i]) && causes[i] != -1) value.initCause(edge(values, causes[i], i, marker));
