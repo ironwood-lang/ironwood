@@ -192,11 +192,32 @@ complete safety and transport path is implemented and tested.
   nonescaping compiler-owned carriers can be cleaned after all native uses end.
   This resolves the ownership choice without weakening source `free` rules.
 
+- Active-use component now emits counter/check/methods only for a final admitted
+  image containing foreign calls. Existing callback-free root state has no new
+  field or operation. Generated nested `try/finally` scopes balance successful
+  receiver/argument-owner acquisitions, including aliases, null inputs and nested
+  invocations. Only stable pre-evaluated root locals are accepted by the wrapper
+  generator. Full producer integration remains gated on P5 lifetime admission.
+- Exact new test passes: `Java Bridge active callback guards balance aliases
+  failures and refused frees without allocation`. It compiles the actual state
+  and guard templates, checks exact artifact-private refusal identity and
+  unchanged destruction counts, failure during partial acquisition, nesting
+  overflow, Java callback exceptions, aliased owners, and 500,000 warmed guard
+  operations with zero allocated Java bytes (`-XX:-DoEscapeAnalysis`). Existing
+  root-state weak-cache/fault controls also pass. Logs:
+  `workspace/java-bridge/p5-active-use-test.log` and `p5-active-use-final.log`.
+  This is Java component evidence, not an admitted native-facade callback test.
+
 ## Next step
 
-Complete the active-use guard component and its focused Java allocation/refusal
-checks. Then implement native foreign-failure carriers under D227 and retained
-listener lifecycle before producer admission.
+Implement native foreign-failure carriers under D227 and retained listener
+lifecycle before producer admission. Reuse protected factory/destruction entries
+for carrier allocation failure and cleanup; never let a JNI pending exception
+coexist with ordinary JNI work. Carrier identity must be attached to the native
+object, not just a frame flag, so catch/replace and later retained rethrow work.
+Prove absence of native retention before invocation-end cleanup; unknown carrier
+retention remains process-live under D227. Guard components still need actual
+receiver/dependent-owner placement and native refusal tests in that admission.
 Source/class/archive
 callback parity, native runtime containment, listener lifetime and performance
 qualification remain pending.
