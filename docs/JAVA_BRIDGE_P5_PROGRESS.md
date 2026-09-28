@@ -392,7 +392,7 @@ source/class/archive proxy, foreign effect and pool helper safety controls.
   receiver publication facts; it does not grant arbitrary callback borrowing or
   admit public callbacks. License audit and diff checks pass.
 
-## Next step
+## Checkpoint at 639c9375
 
 Implement retained listener lifecycle and complete carrier enrichment handling
 before producer admission. Unknown carrier retention remains process-live under
@@ -576,3 +576,39 @@ with the native test after adding this audited classification.
   `p5-callback-string-proofs.log`, `p5-string-adapter-control.log`.
   Evidence: `workspace/java-bridge/evidence/p5/carriers/run-13151588596172180576/`.
   License and diff checks pass. No public callback admission has been enabled.
+
+- `f51d03db`: committed D206 copied-input proof/transport and regressions. The
+  complete private fixture at this revision passes O0/O3 on Linux ARM64 and
+  physical Estonia x86-64, including all five child modes. Same pinned Java 21
+  and LLVM 23 images; no critical-region JNI warnings. Payload SHA-256
+  `acc66c4443e89533cfcbfcd36b360443e6c3a46c54e0094d17855a830e5344d8`.
+  Evidence: `workspace/java-bridge/p5-linux-f51d03db/{arm64,x86_64}/` and
+  `~/temp/java-bridge/p5-f51d03db/`; collected files verify against their manifests.
+  ARM64 O0 `b825d67350843bfcbea5fb292e8aac78b69178489376522db7159b7ca177238f`,
+  O3 `6df7ba54dfc9f5061c270f1068be237f898d8012caa32aaa1445525dd1b2ac45`.
+  x86-64 O0 `5cb3617f0f19dd38f3e4d64df5f753c92bd18fdda3eb915a2fc7b0930ed324d6`,
+  O3 `fa9f42606e58507b7b46801c0a0032fab7f239be651d0cf865deaa3692b8c566`.
+  Rebuilt the pinned compiler JAR after final source changes and checked its
+  compiler entries against the validated payload's input hashes. Build log:
+  `workspace/java-bridge/p5-final-build.log`.
+
+## Next step
+
+Complete invocation admission and producer integration using these components.
+No public callback signature is accepted yet. Prove the complete exposed native
+closure, dependent-owner guard placement and listener-field lifecycle before
+enabling it; preserve the initial rejection of callbacks combined with
+independent-root retention mutations. Never reinterpret foreign effects as pure
+or non-retaining to make ordinary root analysis pass.
+
+Carrier-primary native cause/secondary enrichment still needs complete transport
+handling; current identity restoration must not silently discard native additions.
+The generated callback ABI currently accepts long arguments and long/void results;
+other primitives require explicit ABI lowering, and reference callbacks need
+separate value/ownership proofs. Callback-bearing implicit initialization/cleanup
+also remains rejected. Keep D227 retained carrier ownership unchanged.
+
+Then finish the dedicated listener example, equivalent Linux native/native,
+Java/Java and native/Java measurements, nested-stack qualification and P5's
+Java 21-23 platform matrix. Current cross-platform evidence is the private Java 21
+component fixture. It does not complete P5 or its performance qualification.
