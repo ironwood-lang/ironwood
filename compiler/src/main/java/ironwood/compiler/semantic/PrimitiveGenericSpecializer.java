@@ -325,7 +325,8 @@ final class PrimitiveGenericSpecializer {
                 throw new IllegalArgumentException("foreign callback signature cannot be specialized without a matching adapter");
             }
             return new IrForeignCallInstruction(call.result().map(result -> value(result, substitutions)),
-                    call.targetLinkageName(), returnType, arguments, call.sourceSpan());
+                    call.targetLinkageName(), returnType, arguments,
+                    call.invocationContext().map(context -> operand(context, substitutions, function)), call.sourceSpan());
         }
         if (instruction instanceof IrAllocateInstruction value) {
             IrValueReference result = value(value.result(), substitutions);

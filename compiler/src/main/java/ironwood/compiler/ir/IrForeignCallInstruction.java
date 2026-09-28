@@ -15,12 +15,22 @@ import java.util.Optional;
  */
 public record IrForeignCallInstruction(Optional<IrValueReference> result, String targetLinkageName,
                                        IrType returnType, List<IrOperand> arguments,
+                                       Optional<IrOperand> invocationContext,
                                        SourceSpan sourceSpan) implements IrInstruction {
+    public IrForeignCallInstruction(Optional<IrValueReference> result, String targetLinkageName,
+                                    IrType returnType, List<IrOperand> arguments, SourceSpan sourceSpan) {
+        this(result, targetLinkageName, returnType, arguments, Optional.empty(), sourceSpan);
+    }
+
     public IrForeignCallInstruction {
         result = Objects.requireNonNull(result);
         Objects.requireNonNull(returnType);
         Objects.requireNonNull(sourceSpan);
         arguments = List.copyOf(arguments);
+        invocationContext = Objects.requireNonNull(invocationContext);
+        if (invocationContext.isPresent() && !invocationContext.orElseThrow().type().equals(IrType.I64)) {
+            throw new IllegalArgumentException("foreign invocation context must be an address carrier");
+        }
         if (targetLinkageName == null || !targetLinkageName.matches("ironwood_bridge_callback_[A-Za-z0-9_]+")) {
             throw new IllegalArgumentException("foreign call requires a compiler-owned callback target");
         }
