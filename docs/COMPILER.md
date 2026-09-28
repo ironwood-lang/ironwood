@@ -578,8 +578,10 @@ native closure, listener proxy lifetime, carrier cleanup and owner guard/slot
 protocol to paired Java/JNI generation. The retained-owner subset has exact final
 primitive/listener layouts, primitive constructors and primitive/void methods.
 Borrowed String inputs reuse P0 protected copy cleanup and noncritical JNI
-buffers; reference callback values still reject. General
-inheritance, arrays and optional TLS dependencies remain rejected at their pending
+buffers. Exact final owners may be passed into callbacks as stable facades, with
+all originating entry inputs guarded and native publication excluded by the complete
+closure proof. Java retention does not grant source borrowing or safe-free facts.
+Other reference callback values still reject. General inheritance, arrays and optional TLS dependencies remain rejected at their pending
 implementation boundaries. Linux payloads use the pinned native support closure.
 
 `BridgeProducer` requires a Java 21 JDK with compiler/Javadoc tools and JNI headers,

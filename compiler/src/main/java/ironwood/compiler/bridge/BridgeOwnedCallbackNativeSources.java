@@ -32,7 +32,7 @@ public final class BridgeOwnedCallbackNativeSources {
             throw new IllegalArgumentException("owner adapters require exact admitted facade declarations and guard partition");
         }
         var artifact = admission.artifact(); var exceptions = admission.exceptions();
-        var callbacks = BridgeCallbackNativeSources.generate(artifact, admission.listeners());
+        var callbacks = BridgeCallbackNativeSources.generateOwned(admission, java);
         var listeners = BridgeListenerNativeSources.generateAll(artifact, admission.proxies());
         var index = BridgeRootIndexSources.generateOwnedCallbacks(admission, generation);
         var text = new StringBuilder(BridgeExceptionNativeSources.generate(artifact, exceptions.projection(), exceptions.entries(), admission.carriers()))
@@ -40,6 +40,7 @@ public final class BridgeOwnedCallbackNativeSources {
                 .append(BridgeCallbackCarrierNativeSources.generate(artifact, admission.carriers()))
                 .append(BridgeCallbackCarrierNativeSources.cleanup(artifact, admission.carriers(),
                         BridgeRootSet.resolve(artifact.program().orElseThrow(), admission.callbacks().entries().stream().map(BridgeOwnedCallbackEntries.Entry::callable).toList()), admission.cleanup()))
+                .append("__attribute__((unused)) static jobject iw_owned_wrap(JNIEnv *, int, void *);\n")
                 .append(callbacks.source()).append(listeners.source()).append(BridgeListenerNativeSources.ownersAll(admission)).append(index.source());
         metadata(text, generation, java, callbacks);
         text.append(FAILURE);
@@ -64,6 +65,7 @@ public final class BridgeOwnedCallbackNativeSources {
             BridgeCallbackNativeSources.Sources callbacks) {
         int count = java.facades().size();
         text.append("static jclass iw_owned_types[").append(count).append("], iw_owned_refusal;\n")
+                .append("static jmethodID iw_owned_constructors[").append(count).append("], iw_owned_lookup, iw_owned_remember;\n")
                 .append("static jfieldID iw_owned_addresses[").append(count).append("], iw_owned_states[").append(count).append("], iw_owned_active;\n")
                 .append("static const char *const iw_owned_address_names[] = {").append(java.facades().stream()
                         .map(facade -> BridgeJavaSources.quote(facade.addressField())).collect(Collectors.joining(", "))).append("};\n")
@@ -71,14 +73,18 @@ public final class BridgeOwnedCallbackNativeSources {
                         .map(facade -> BridgeJavaSources.quote(facade.stateField())).collect(Collectors.joining(", "))).append("};\n")
                 .append("static void iw_owned_metadata_dispose(JNIEnv *env) {\n")
                 .append("    for (int i = 0; i < ").append(count).append("; i++) { if (iw_owned_types[i] != NULL) (*env)->DeleteGlobalRef(env, iw_owned_types[i]);\n")
-                .append("        iw_owned_types[i] = NULL; iw_owned_addresses[i] = NULL; iw_owned_states[i] = NULL; }\n")
+                .append("        iw_owned_types[i] = NULL; iw_owned_addresses[i] = NULL; iw_owned_states[i] = NULL; iw_owned_constructors[i] = NULL; }\n")
                 .append("    if (iw_owned_refusal != NULL) (*env)->DeleteGlobalRef(env, iw_owned_refusal);\n")
-                .append("    iw_owned_refusal = NULL; iw_owned_active = NULL; iw_root_metadata_dispose(env);\n}\n")
+                .append("    iw_owned_refusal = NULL; iw_owned_active = NULL; iw_owned_lookup = NULL; iw_owned_remember = NULL; iw_root_metadata_dispose(env);\n}\n")
                 .append("static int iw_owned_metadata_init(JNIEnv *env, jclass *classes) {\n");
         int state = java.declarations().generatedTypes().indexOf(generation.supportPackage() + ".RootState");
         int refusal = java.declarations().generatedTypes().indexOf(generation.supportPackage() + ".BridgeLifetimeException");
         if (state < 0 || refusal < 0 || count == 0) throw new IllegalArgumentException("owner support is absent from validated inventory");
         text.append("    if (!iw_root_metadata_init(env, classes[").append(state).append("])) return 0;\n")
+                .append("    iw_owned_lookup = (*env)->GetMethodID(env, classes[").append(state).append("], \"lookup\", \"(J)Ljava/lang/Object;\");\n")
+                .append("    if (iw_owned_lookup == NULL) goto failed;\n")
+                .append("    iw_owned_remember = (*env)->GetMethodID(env, classes[").append(state).append("], \"remember\", \"(JLjava/lang/Object;)Ljava/lang/Object;\");\n")
+                .append("    if (iw_owned_remember == NULL) goto failed;\n")
                 .append("    iw_owned_active = (*env)->GetFieldID(env, classes[").append(state).append("], \"activeUses\", \"J\");\n")
                 .append("    if (iw_owned_active == NULL) goto failed;\n")
                 .append("    iw_owned_refusal = (*env)->NewGlobalRef(env, classes[").append(refusal).append("]);\n")
@@ -97,7 +103,8 @@ public final class BridgeOwnedCallbackNativeSources {
                     .append("    if (").append(method.methodField()).append(" == NULL) goto failed;\n");
         }
         text.append("    return 1;\nfailed:\n    iw_owned_metadata_dispose(env); return 0;\n}\n")
-                .append(INPUT.replace("@STATE@", "L" + generation.supportPackage().replace('.', '/') + "/RootState;"));
+                .append(INPUT.replace("@STATE@", "L" + generation.supportPackage().replace('.', '/') + "/RootState;"))
+                .append(WRAP.replace("@CONSTRUCTOR@", java.facades().getFirst().constructorDescriptor()));
     }
 
     private static void emit(StringBuilder text, BridgeOwnedCallbackAdmission admission, BridgeOwnedCallbackJavaSources.Sources java,
@@ -277,6 +284,30 @@ public final class BridgeOwnedCallbackNativeSources {
             __attribute__((unused)) static void iw_owned_leave(JNIEnv *env, jobject state) {
                 jlong active = (*env)->GetLongField(env, state, iw_owned_active);
                 (*env)->SetLongField(env, state, iw_owned_active, active - 1);
+            }
+            """;
+
+    private static final String WRAP = """
+            // The bounded invocation proof derives every exposed owner from a
+            // guarded input. Resolve its already registered state and stable cache.
+            __attribute__((unused)) static jobject iw_owned_wrap(JNIEnv *env, int kind, void *address) {
+                if (address == NULL) return NULL;
+                struct iw_root_record **found = iw_root_find(address);
+                if (found == NULL) abort();
+                jobject state = (*found)->state;
+                jlong bits = (jlong)(uintptr_t)address;
+                jobject existing = (*env)->CallObjectMethod(env, state, iw_owned_lookup, bits);
+                if ((*env)->ExceptionCheck(env)) return NULL;
+                if (existing != NULL) return existing;
+                if (iw_owned_constructors[kind] == NULL) {
+                    iw_owned_constructors[kind] = (*env)->GetMethodID(env, iw_owned_types[kind], "<init>", "@CONSTRUCTOR@");
+                    if (iw_owned_constructors[kind] == NULL) return NULL;
+                }
+                jobject created = (*env)->NewObject(env, iw_owned_types[kind], iw_owned_constructors[kind], bits, state, (jobject)NULL);
+                if ((*env)->ExceptionCheck(env) || created == NULL) return NULL;
+                jobject result = (*env)->CallObjectMethod(env, state, iw_owned_remember, bits, created);
+                int failed = (*env)->ExceptionCheck(env);
+                (*env)->DeleteLocalRef(env, created); return failed ? NULL : result;
             }
             """;
 }

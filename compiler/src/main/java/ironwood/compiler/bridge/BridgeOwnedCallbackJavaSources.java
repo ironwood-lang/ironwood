@@ -70,6 +70,11 @@ public final class BridgeOwnedCallbackJavaSources {
                 text.append("    private final long ").append(address).append(";\n    private final ").append(stateType).append(' ').append(state)
                         .append(";\n    private final java.lang.String ").append(typeName).append(" = ").append(BridgeJavaSources.quote(type.binaryName())).append(";\n");
                 facades.add(new BridgePermanentJavaSources.Facade(type.binaryName(), address, typeName, state, stateType));
+                // Reconstitutes only an existing authoritative owner and never
+                // allocates native storage or retargets a live Java reference.
+                text.append("    private ").append(simple).append("(long address, ").append(stateType)
+                        .append(" state, java.lang.Void marker) { this.").append(address).append(" = address; this.")
+                        .append(state).append(" = state; }\n");
                 String destroy = unique(occupied, "$ironwood$destroy");
                 text.append("    /** Reclaims this owner after its active callback invocations finish. */\n")
                         .append("    public void free() { if (this.").append(state).append(".prepareFree(this.").append(address).append(")) ")

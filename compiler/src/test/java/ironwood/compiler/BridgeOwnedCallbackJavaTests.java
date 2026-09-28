@@ -54,6 +54,9 @@ final class BridgeOwnedCallbackJavaTests {
                         return result + other.value + foreign.call(n);
                     }
                     public static long direct(Holder self, Listener input, long n) { return self.value + input.call(n); }
+                    public long expose(OwnerListener input, Holder other, OtherOwner foreign) {
+                        return input.call(this, other, foreign);
+                    }
                 }
                 """), SourceFile.of("OtherOwner.iron", """
                 package ownerfacades;
@@ -63,6 +66,9 @@ final class BridgeOwnedCallbackJavaTests {
                     public void store(Listener input) { listener = input; }
                     public long call(long n) { return listener.call(n); }
                 }
+                """), SourceFile.of("OwnerListener.iron", """
+                package ownerfacades;
+                public interface OwnerListener { long call(Holder self, Holder other, OtherOwner foreign); }
                 """));
     }
 
@@ -82,6 +88,12 @@ final class BridgeOwnedCallbackJavaTests {
 
     static void projection() throws Exception {
         var admission = admission();
+        var exposed = admission.artifact().program().orElseThrow().functions().stream()
+                .filter(function -> function.sourceName().equals("expose")).findFirst().orElseThrow();
+        var facts = admission.artifact().bridgeConstructionFacts().orElseThrow();
+        for (int index : List.of(0, 2, 3)) check(!facts.borrowsInput(BridgeCallableId.of(exposed), index),
+                "facade transport incorrectly granted native owner borrowing");
+        check(facts.borrowsInput(BridgeCallableId.of(exposed), 1), "listener receiver escaped");
         var generation = BridgeGeneration.createOwnedCallbacks("owners.jar", admission, "test", "1".repeat(64), "2".repeat(64));
         var projected = BridgeOwnedCallbackJavaSources.generate(admission, generation);
         var call = projected.calls().stream().filter(value -> value.binding().method().name().equals("fire")).findFirst().orElseThrow();

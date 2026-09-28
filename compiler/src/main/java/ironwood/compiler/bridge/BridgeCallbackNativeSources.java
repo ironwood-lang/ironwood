@@ -3,11 +3,13 @@
 package ironwood.compiler.bridge;
 
 import ironwood.compiler.CompilationArtifact;
+import ironwood.compiler.BridgeOwnedCallbackAdmission;
 import ironwood.compiler.ir.IrForeignCallInstruction;
 import ironwood.compiler.ir.IrType;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 /** JNI callback bodies bound to exact generated proxies; loading and lifetime are separate gates. */
 public final class BridgeCallbackNativeSources {
@@ -18,6 +20,22 @@ public final class BridgeCallbackNativeSources {
     private BridgeCallbackNativeSources() {}
 
     public static Sources generate(CompilationArtifact artifact, BridgeListenerProxies proxies) {
+        return generate(artifact, proxies, Map.of());
+    }
+
+    public static Sources generateOwned(BridgeOwnedCallbackAdmission admission, BridgeOwnedCallbackJavaSources.Sources java) {
+        var owners = new java.util.LinkedHashMap<IrType, Integer>();
+        for (int index = 0; index < java.facades().size(); index++) {
+            var type = IrType.reference(java.facades().get(index).binaryName());
+            if (!admission.lifetime().protocol().constructedRootTypes().contains(type)) {
+                throw new IllegalArgumentException("callback facade lacks exact owner storage");
+            }
+            owners.put(type, index);
+        }
+        return generate(admission.artifact(), admission.listeners(), owners);
+    }
+
+    private static Sources generate(CompilationArtifact artifact, BridgeListenerProxies proxies, Map<IrType, Integer> owners) {
         proxies.validateArtifact(artifact);
         var methods = new ArrayList<Method>();
         var source = new StringBuilder();
@@ -25,8 +43,8 @@ public final class BridgeCallbackNativeSources {
         for (var proxy : proxies.proxies()) {
             for (var method : proxy.methods()) {
                 if ((!method.result().isPrimitive() && !method.result().equals(IrType.VOID))
-                        || method.parameters().stream().anyMatch(type -> !type.isPrimitive())) {
-                    throw new IllegalArgumentException("callback JNI transport requires primitive parameters and primitive/void result");
+                        || method.parameters().stream().anyMatch(type -> !type.isPrimitive() && !owners.containsKey(type))) {
+                    throw new IllegalArgumentException("callback JNI transport requires proved argument conversion and primitive/void result");
                 }
                 var function = program.functions().stream().filter(candidate -> candidate.ownerClass().equals(proxy.binaryName())
                         && candidate.sourceName().equals(method.name()) && candidate.returnType().equals(method.result())
@@ -37,7 +55,7 @@ public final class BridgeCallbackNativeSources {
                         .findFirst().orElseThrow();
                 String field = "iw_callback_method_" + methods.size();
                 boolean returns = !method.result().equals(IrType.VOID);
-                String descriptor = "(" + method.parameters().stream().map(type -> primitive(type).descriptor())
+                String descriptor = "(" + method.parameters().stream().map(BridgeJavaTypes::descriptor)
                         .collect(java.util.stream.Collectors.joining()) + ")" + primitive(method.result()).descriptor();
                 methods.add(new Method(proxy.listener().binaryName(), method.name(), descriptor, field, foreign.targetLinkageName()));
                 source.append("static jmethodID ").append(field).append(";\n")
@@ -48,9 +66,25 @@ public final class BridgeCallbackNativeSources {
                 }
                 source.append(") {\n    struct iw_callback_frame *frame = (struct iw_callback_frame *)(uintptr_t)invocation;\n")
                         .append("    JNIEnv *env = frame->env;\n");
+                var references = new ArrayList<Integer>();
+                for (int index = 0; index < method.parameters().size(); index++) {
+                    if (owners.containsKey(method.parameters().get(index))) {
+                        references.add(index);
+                        source.append("    jobject reference").append(index).append(" = NULL;\n");
+                    }
+                }
+                for (int index : references) {
+                    source.append("    reference").append(index).append(" = iw_owned_wrap(env, ")
+                            .append(owners.get(method.parameters().get(index))).append(", argument").append(index).append(");\n")
+                            .append("    if ((*env)->ExceptionCheck(env)) goto conversion_failed;\n");
+                }
                 if (!method.parameters().isEmpty()) {
                     source.append("    const jvalue arguments[] = {\n");
                     for (int index = 0; index < method.parameters().size(); index++) {
+                        if (references.contains(index)) {
+                            source.append("        { .l = reference").append(index).append(" },\n");
+                            continue;
+                        }
                         var parameter = primitive(method.parameters().get(index));
                         source.append("        { .").append(parameter.descriptor().toLowerCase(java.util.Locale.ROOT))
                                 .append(" = (").append(parameter.jniType()).append(")argument").append(index).append(" },\n");
@@ -60,9 +94,16 @@ public final class BridgeCallbackNativeSources {
                 source.append("    ").append(returns ? primitive(method.result()).jniType() + " result = " : "")
                         .append("(*env)->Call").append(primitive(method.result()).name())
                         .append("MethodA(env, (jobject)(uintptr_t)handle, ").append(field)
-                        .append(method.parameters().isEmpty() ? ", NULL);\n" : ", arguments);\n")
-                        .append("    if ((*env)->ExceptionCheck(env)) iw_callback_capture(frame);\n");
+                        .append(method.parameters().isEmpty() ? ", NULL);\n" : ", arguments);\n");
+                releaseReferences(source, references);
+                source.append("    if ((*env)->ExceptionCheck(env)) iw_callback_capture(frame);\n");
                 if (returns) source.append("    return (").append(carrierC(method.result())).append(")result;\n");
+                else if (!references.isEmpty()) source.append("    return;\n");
+                if (!references.isEmpty()) {
+                    source.append("conversion_failed:\n");
+                    releaseReferences(source, references);
+                    source.append("    iw_callback_capture(frame);\n");
+                }
                 source.append("}\n");
             }
         }
@@ -70,6 +111,11 @@ public final class BridgeCallbackNativeSources {
     }
 
     private record Primitive(String descriptor, String name, String jniType) {}
+
+    private static void releaseReferences(StringBuilder source, List<Integer> references) {
+        for (int index : references.reversed()) source.append("    if (reference").append(index)
+                .append(" != NULL) (*env)->DeleteLocalRef(env, reference").append(index).append(");\n");
+    }
 
     private static Primitive primitive(IrType type) {
         return switch (type.kind()) {
@@ -87,6 +133,7 @@ public final class BridgeCallbackNativeSources {
     }
 
     private static String carrierC(IrType type) {
+        if (type.isReference()) return "void *";
         return switch (BridgeCallbackAbi.carrier(type).kind()) {
             case I64 -> "int64_t";
             case F32 -> "float";

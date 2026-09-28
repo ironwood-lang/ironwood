@@ -8825,3 +8825,22 @@ occurrence order. If no
 - **Scope:** Refines P5's previously unspecified modified-carrier translation.
   Existing bounded graph copying and D227 ownership still apply. This adds no
   source reclamation permission and does not enable public callback exports.
+
+
+## D229 - Preserve stable owner facades in synchronous callbacks
+
+- **Status:** Implementation convention within D226 and the accepted P5 lifetime contract.
+- **Decision:** Exact final owners admitted by the bounded callback proof may be
+  passed to Java listeners as stable facades. The complete native closure proves
+  that exposed owners originate only from guarded entry inputs. Java can retain
+  the facade; later explicit owner free invalidates all aliases through shared
+  root state. Resolve existing authoritative ownership and weak identity caching;
+  never retarget a Java reference or create a second native owner.
+- **Safety:** This host projection proof does not declare foreign arguments
+  borrowed. Typed reference arguments retain unknown Java effects in ordinary
+  source analysis, including mandatory free rejection. Native publication, hidden
+  owner creation and unguarded owner origins remain producer errors. Balance
+  temporary JNI references on success, callback failure and partial conversion.
+- **Boundary:** Primitive/void callback results remain required. Other reference
+  arguments, arbitrary escaping graphs and asynchronous callbacks remain rejected.
+  Primitive-only callbacks gain no identity conversion or lookup on dispatch.

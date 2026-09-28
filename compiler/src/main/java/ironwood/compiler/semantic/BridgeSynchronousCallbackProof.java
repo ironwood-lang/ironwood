@@ -53,8 +53,8 @@ public final class BridgeSynchronousCallbackProof {
         for (var proxy : proxies.proxies()) {
             for (var method : proxy.methods()) {
                 if (!(method.result().isPrimitive() || method.result().equals(IrType.VOID))
-                        || method.parameters().stream().anyMatch(type -> !type.isPrimitive())) {
-                    throw new IllegalArgumentException("synchronous callback requires primitive listener methods");
+                        || method.parameters().stream().anyMatch(type -> !type.isPrimitive() && !owners.contains(type))) {
+                    throw new IllegalArgumentException("synchronous callback requires primitive results and primitive or proved owner arguments");
                 }
             }
         }
@@ -71,7 +71,8 @@ public final class BridgeSynchronousCallbackProof {
                 var type = id.parameters().get(index);
                 if (type.isPrimitive()) continue;
                 if ((!listeners.contains(type) && !owners.contains(type)
-                        && !type.equals(IrType.reference("ironwood.lang.String"))) || !facts.borrowsInput(id, index)) {
+                        && !type.equals(IrType.reference("ironwood.lang.String")))
+                        || !owners.contains(type) && !facts.borrowsInput(id, index)) {
                     throw new IllegalArgumentException("synchronous callback requires borrowed listener inputs: " + id.linkage());
                 }
                 listener |= listeners.contains(type) || owners.contains(type);
@@ -80,6 +81,11 @@ public final class BridgeSynchronousCallbackProof {
                 throw new IllegalArgumentException("synchronous callback requires a complete callback-bearing closure");
             }
         }
+        // Owner references may escape to Java as stable facades. The complete
+        // closure below forbids native publication and every other owner source
+        // (allocation, reference fields/statics, foreign reference results).
+        // Thus each exposed owner derives from a guarded root input. This is a
+        // host projection proof, not a borrowing fact for ordinary source free.
         return new BridgeSynchronousCallbackProof(program, roots, verifyClosure(artifact, proxies, roots, owners, false));
     }
 

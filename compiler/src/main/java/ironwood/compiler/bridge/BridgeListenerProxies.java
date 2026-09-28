@@ -158,6 +158,14 @@ public final class BridgeListenerProxies {
         return BridgeAbi.carrierFor(type).isPresent();
     }
 
+    /** Discovery only. Complete owner/closure proofs must authorize facade transport. */
+    static boolean ownerArgument(IrType type, BridgeApiFacts facts) {
+        var declaration = type.isNominalReference() ? facts.types().get(type.referenceName()) : null;
+        return declaration != null && type.typeArguments().isEmpty() && declaration.kind() == BridgeApiFacts.Kind.CLASS
+                && declaration.finalType() && !declaration.abstractType() && !declaration.throwable()
+                && declaration.accessible() && !declaration.generic() && declaration.enclosingType().isEmpty();
+    }
+
     private static String sourceType(IrType type, BridgeApiFacts facts) {
         if (!type.isReference()) return type.displayName();
         var declaration = facts.types().get(type.referenceName());
