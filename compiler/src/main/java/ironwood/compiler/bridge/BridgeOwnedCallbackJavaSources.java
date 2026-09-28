@@ -149,7 +149,7 @@ public final class BridgeOwnedCallbackJavaSources {
                 if (batch != null) {
                     if (javaGuards.size() != 1) throw new IllegalArgumentException("batched callback requires one local owner guard");
                     nativeFormals.add("java.nio.LongBuffer batchBuffer"); descriptor.append("Ljava/nio/LongBuffer;");
-                    arguments.add(method.parameterNames().get(batch.countInput() - 1) + " >= 128 ? "
+                    arguments.add(method.parameterNames().get(batch.countInput() - 1) + " >= " + BridgeCallbackBatching.MINIMUM_COUNT + " ? "
                             + javaGuards.getFirst() + ".callbackBuffer() : null");
                 }
                 String nativeName = unique(occupied, "$ironwood$native"), result = constructor ? "long" : javaType(method.result(), surface);

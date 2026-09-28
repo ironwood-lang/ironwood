@@ -35,27 +35,24 @@ final class BridgeCallbackBatchSources {
     static String nativeCallbacks(BridgeCallbackBatching batching) {
         if (batching.entries().isEmpty()) return "";
         var text = new StringBuilder("""
+                #include <stddef.h>
                 struct iw_callback_batch_frame {
                     struct iw_callback_frame base;
                     jobject buffer;
                     jlong *data;
-                    int32_t remaining;
-                    int32_t used;
                 };
                 """);
+        text.append("_Static_assert(offsetof(struct iw_callback_batch_frame, data) == ")
+                .append(ironwood.compiler.ir.IrBridgeBatchAppendInstruction.DATA_OFFSET).append(", \"batch data ABI\");\n");
         for (var entry : ordered(batching)) {
             text.append("static jmethodID ").append(entry.methodField()).append(";\n")
-                    .append("void ").append(entry.callbackSymbol()).append("(int64_t invocation, int64_t handle");
-            for (int index = 0; index < entry.arity(); index++) text.append(", int64_t argument").append(index);
-            text.append(") {\n    struct iw_callback_batch_frame *frame = (struct iw_callback_batch_frame *)(uintptr_t)invocation;\n")
-                    .append("    int32_t offset = frame->used * ").append(entry.arity()).append(";\n");
-            for (int index = 0; index < entry.arity(); index++) text.append("    frame->data[offset + ").append(index).append("] = argument").append(index).append(";\n");
-            text.append("    frame->used++;\n    if (--frame->remaining == 0 || frame->used == ").append(BridgeCallbackBatching.CAPACITY).append(") {\n")
-                    .append("        JNIEnv *env = frame->base.env;\n")
-                    .append("        const jvalue arguments[] = {{.l = (jobject)(uintptr_t)handle}, {.l = frame->buffer}, {.i = frame->used}};\n")
-                    .append("        (*env)->CallStaticVoidMethodA(env, iw_callback_dispatch, ").append(entry.methodField()).append(", arguments);\n")
-                    .append("        if ((*env)->ExceptionCheck(env)) iw_callback_capture(&frame->base);\n")
-                    .append("        frame->used = 0;\n    }\n}\n");
+                    .append("void ").append(entry.callbackSymbol()).append("(int64_t invocation, int64_t handle, int64_t rows) {\n")
+                    .append("    struct iw_callback_batch_frame *frame = (struct iw_callback_batch_frame *)(uintptr_t)invocation;\n")
+                    .append("    JNIEnv *env = frame->base.env;\n")
+                    .append("    const jvalue arguments[] = {{.l = (jobject)(uintptr_t)handle}, {.l = frame->buffer}, {.i = (jint)rows}};\n")
+                    .append("    (*env)->CallStaticVoidMethodA(env, iw_callback_dispatch, ").append(entry.methodField()).append(", arguments);\n")
+                    .append("    if ((*env)->ExceptionCheck(env)) iw_callback_capture(&frame->base);\n")
+                    .append("}\n");
         }
         return text.toString();
     }
@@ -80,7 +77,7 @@ final class BridgeCallbackBatchSources {
         return "extern int32_t " + entry.entrySymbol() + "(" + String.join(", ", nativeFormals) + ");\n"
                 + "static int32_t " + name + "(" + String.join(", ", formals) + ", jobject buffer, jlong *data) {\n"
                 + "    struct iw_callback_frame *context = (struct iw_callback_frame *)(uintptr_t)a" + contextIndex + ";\n"
-                + "    struct iw_callback_batch_frame batch = {*context, buffer, data, a" + entry.countInput() + ", 0};\n"
+                + "    struct iw_callback_batch_frame batch = {*context, buffer, data};\n"
                 + "    int32_t status = " + entry.entrySymbol() + "(" + String.join(", ", arguments) + ");\n"
                 + "    *context = batch.base;\n    return status;\n}\n";
     }

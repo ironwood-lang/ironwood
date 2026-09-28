@@ -52,7 +52,8 @@ public final class BridgeRootStateSources {
             int elements = batching.entries().values().stream().mapToInt(BridgeCallbackBatching.Entry::arity).max().orElseThrow()
                     * BridgeCallbackBatching.CAPACITY;
             state = state.replace("    private RootCache cache;", BATCH_BUFFERS.replace("@BYTES@", Integer.toString(elements * Long.BYTES))
-                    + "    private RootCache cache;");
+                    + "    private RootCache cache;")
+                    .replace("        return true;", "        callbackBuffers = null;\n        return true;");
         }
         return sources(generation, cache, 0, state);
     }

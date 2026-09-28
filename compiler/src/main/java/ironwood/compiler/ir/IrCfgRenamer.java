@@ -27,6 +27,9 @@ public final class IrCfgRenamer {
 
     public IrInstruction instruction(IrInstruction instruction) {
         return switch (instruction) {
+            case IrBridgeBatchAppendInstruction i -> new IrBridgeBatchAppendInstruction(
+                    values.apply(i.result()), operand(i.context()), operand(i.index()), operand(i.count()),
+                    i.arguments().stream().map(this::operand).toList(), i.sourceSpan());
             case IrForeignCallInstruction i -> new IrForeignCallInstruction(
                     i.result().map(values), i.targetLinkageName(), i.returnType(),
                     i.arguments().stream().map(this::operand).toList(), i.invocationContext().map(this::operand), i.sourceSpan());

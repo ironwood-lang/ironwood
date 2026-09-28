@@ -14,6 +14,7 @@ import java.util.zip.ZipFile;
 final class BridgeCallbackBatchingTests {
     static final String PROOF = "Java Bridge batches only effect-free counted callback loops";
     static final String NATIVE = "Java Bridge automatic batches preserve order reentry failure and artifact parity";
+    static final String ALLOCATION = "Java Bridge automatic batches allocate no native objects on warmed calls";
     private BridgeCallbackBatchingTests() {}
 
     private static final String LISTENER = """
@@ -59,6 +60,21 @@ final class BridgeCallbackBatchingTests {
         check(entry.countInput() == 1 && entry.arity() == 2, "incorrect counted callback binding");
         check(batch.program().functions().containsAll(accepted.program().functions()), "ordinary native functions changed");
         check(batch.equals(BridgeCallbackBatching.prove(accepted)), "batch proof is not deterministic");
+        var appends = batch.program().functions().stream().flatMap(function -> function.blocks().stream())
+                .flatMap(block -> block.instructions().stream())
+                .filter(ironwood.compiler.ir.IrBridgeBatchAppendInstruction.class::isInstance)
+                .map(ironwood.compiler.ir.IrBridgeBatchAppendInstruction.class::cast).toList();
+        check(appends.size() == 1, "batch append must remain explicit in typed IR");
+        var append = appends.getFirst();
+        var renamer = new ironwood.compiler.ir.IrCfgRenamer(value -> new ironwood.compiler.ir.IrValueReference(
+                value.id() + 1000, value.type(), value.sourceSpan()), java.util.function.UnaryOperator.identity());
+        var renamed = (ironwood.compiler.ir.IrBridgeBatchAppendInstruction) renamer.instruction(append);
+        check(renamed.result().id() == append.result().id() + 1000 && !renamed.context().equals(append.context())
+                && !renamed.index().equals(append.index()) && !renamed.count().equals(append.count())
+                && !renamed.arguments().equals(append.arguments()), "batch SSA renaming lost operands");
+        check(ironwood.compiler.semantic.BridgeCallbackReachability.analyze(batch.program()).functions().values().stream()
+                .flatMap(effect -> effect.unknown().stream()).anyMatch(reason -> reason.endsWith(":IrBridgeBatchAppendInstruction")),
+                "post-admission scratch acquired source effect permission");
         var unsupported = List.of(
                 BODY.replace(STEP, STEP + " observed = value;"),
                 BODY.replace("current.event", "this.listener.event"),
@@ -89,6 +105,39 @@ final class BridgeCallbackBatchingTests {
         var artifact = pipeline.analyzeForBridge(sources, proxies);
         var result = BridgeOwnedCallbackAdmission.prove(artifact, proxies, carrier, List.of("batches"));
         return result.contract().orElseThrow(() -> new AssertionError(result.reason()));
+    }
+
+    static void nativeAllocations() throws Exception {
+        var admitted = admission(processor(BODY));
+        var inputs = BridgeProducerInputs.discover();
+        var generation = BridgeGeneration.createOwnedCallbacks("batch-allocation.jar", admitted,
+                inputs.compilerVersion(), inputs.compilerIdentity(), inputs.runtimeIdentity());
+        var projected = BridgeOwnedCallbackJavaSources.generate(admitted, generation);
+        var adapters = BridgeOwnedCallbackNativeSources.generate(admitted, generation, projected);
+        var discovery = ironwood.compiler.backend.LlvmToolchain.discover(null);
+        check(discovery.successful(), discovery.error());
+        Path base = Path.of("workspace/java-bridge/evidence/p5/batch-allocation").toAbsolutePath(); Files.createDirectories(base);
+        Path directory = Files.createTempDirectory(base, "run-"), llvm = directory.resolve("batch.ll");
+        Files.writeString(llvm, new ironwood.compiler.backend.LlvmEmitter().emit(projected.batching().program()));
+        Path jdk = Path.of(System.getProperty("java.home"));
+        for (var level : List.of(ironwood.compiler.backend.OptimizationLevel.O0, ironwood.compiler.backend.OptimizationLevel.O3)) {
+            Path folder = directory.resolve(level.name()); Files.createDirectories(folder);
+            var build = generation.nativeBuild(BridgeGeneratedJarTests.target(), java.util.Map.of("fixture", "batch-allocation", "optimization", level.name()));
+            // Same generated entry/transport, with a test-only native counter.
+            // Do not expand the admitted public Ironwood API for instrumentation.
+            String nativeSource = adapters.source() + BridgeBootstrapSources.generate(generation, build, projected.declarations(), adapters) + """
+                    JNIEXPORT jlong JNICALL Java_AllocationConsumer_allocations(JNIEnv *env, jclass type) {
+                        (void)env; (void)type; return ironwood_allocation_count();
+                    }
+                    """;
+            Path jar = BridgeGeneratedJarTests.build(folder, llvm, discovery.toolchain().orElseThrow(), level,
+                    generation, build, projected.declarations(), nativeSource, java.util.Map.of());
+            Path consumer = folder.resolve("AllocationConsumer.java"); Files.writeString(consumer, ALLOCATION_CONSUMER);
+            BridgeEntryTests.run(folder, List.of(jdk.resolve("bin/javac").toString(), "--release", "21", "-Xlint:all", "-Werror", "-cp", jar.toString(), consumer.toString()), "javac");
+            check(BridgeEntryTests.run(folder, List.of(jdk.resolve("bin/java").toString(), "-Xcheck:jni", "-cp",
+                    jar + java.io.File.pathSeparator + folder, "AllocationConsumer"), "consumer").equals("batch-native-allocation-ok\n"), "native batch allocation");
+        }
+        System.out.println("native batch allocation evidence: " + directory);
     }
 
     static void nativeBatches() throws Exception {
@@ -144,6 +193,42 @@ final class BridgeCallbackBatchingTests {
     }
 
     private static void check(boolean condition, String message) { if (!condition) throw new AssertionError(message); }
+
+    private static final String ALLOCATION_CONSUMER = """
+            import batches.Listener;
+            import batches.Processor;
+            public final class AllocationConsumer implements Listener {
+                private long delivered;
+                private long expected;
+                private static native long allocations();
+                public long query(long value) { return value; }
+                public void one(long value) { event(delivered, value); }
+                public void three(long sequence, long value, long mixed) { event(sequence, value); }
+                public void four(long sequence, long value, long mixed, long shifted) { event(sequence, value); }
+                public void event(long sequence, long value) {
+                    expected = (expected ^ (expected >>> 13)) * 2862933555777941757L + 3037000493L;
+                    if (sequence != delivered++ || value != expected) throw new AssertionError("event");
+                }
+                private void run(Processor owner, int count) {
+                    delivered = 0; expected = 17L;
+                    long value = owner.run(count, expected);
+                    if (value != expected || delivered != count) throw new AssertionError("result");
+                }
+                public static void main(String[] args) {
+                    Processor owner = new Processor(); AllocationConsumer listener = new AllocationConsumer();
+                    owner.setListener(listener);
+                    try {
+                        for (int count : new int[]{1, 2, 1024, 1025, 2053}) {
+                            for (int i = 0; i < 100; i++) listener.run(owner, count);
+                            long before = allocations();
+                            for (int i = 0; i < 1000; i++) listener.run(owner, count);
+                            if (allocations() != before) throw new AssertionError("native allocation");
+                        }
+                    } finally { owner.free(); }
+                    System.out.println("batch-native-allocation-ok");
+                }
+            }
+            """;
 
     private static final String CONSUMER = """
             import batches.Listener;
@@ -222,9 +307,16 @@ final class BridgeCallbackBatchingTests {
                     }
                     for (int mode = 0; mode < 4; mode++) {
                         listener.mode = mode;
-                        for (int count : new int[]{0, 1, 127, 128, 1023, 1024, 1025, 2048, 4099}) listener.run(count, -734L);
+                        for (int count : new int[]{0, 1, 2, 3, 4, 127, 128, 1023, 1024, 1025, 2048, 4099}) listener.run(count, -734L);
                     }
                     listener.mode = 0;
+                    var allocationBean = (com.sun.management.ThreadMXBean) java.lang.management.ManagementFactory.getThreadMXBean();
+                    if (!allocationBean.isThreadAllocatedMemoryEnabled()) allocationBean.setThreadAllocatedMemoryEnabled(true);
+                    for (int i = 0; i < 100; i++) listener.run(2053, 37L);
+                    long thread = Thread.currentThread().threadId();
+                    long javaBefore = allocationBean.getThreadAllocatedBytes(thread);
+                    for (int i = 0; i < 100; i++) listener.run(2053, 37L);
+                    check(allocationBean.getThreadAllocatedBytes(thread) == javaBefore);
                     for (int point : new int[]{0, 16, 127, 1023, 1024, 2048, 4999}) {
                         listener.failAt = point; listener.failing(5000, 17L);
                         listener.failAt = -1; listener.run(1031, 13L);
