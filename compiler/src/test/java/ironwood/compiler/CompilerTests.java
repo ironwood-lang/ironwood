@@ -153,6 +153,8 @@ public final class CompilerTests {
         test(ironwood.compiler.semantic.BridgeCallbackContextTests.NAME,
                 ironwood.compiler.semantic.BridgeCallbackContextTests::proofs);
         test(BridgeCallbackTransportTests.NAME, BridgeCallbackTransportTests::nativeTransport);
+        test(ironwood.compiler.bridge.BridgeCallbackActiveUseTests.NAME,
+                ironwood.compiler.bridge.BridgeCallbackActiveUseTests::guards);
         test("Java Bridge non-reclamation follows export and cleanup closure", BridgeNonReclamationTests::closure);
         test(BridgeGeneratedReclamationTests.NAME, BridgeGeneratedReclamationTests::proofs);
         test(BridgeGeneratedConstructionTests.NAME, BridgeGeneratedConstructionTests::proofs);
