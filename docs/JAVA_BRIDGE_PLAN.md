@@ -811,7 +811,7 @@ listeners need explicit global-reference ownership and cleanup. `JNIEnv*`
 belongs to its thread and must not be cached as a transferable global. See the
 [JNI design specification](https://docs.oracle.com/en/java/javase/25/docs/specs/jni/design.html).
 
-The private P5 transport binds proxy creation/cleanup to final P0/P3 proofs and
+The P5 transport binds proxy creation/cleanup to final P0/P3 proofs and
 owns a global reference until all registered slots and suspended invocation uses
 end. Preparing registration performs identity conversion, including listeners
 held only by suspended calls; invoking a registered listener performs no identity
@@ -820,10 +820,11 @@ mutators reuse P0 attribution and protected final snapshots on success/failure.
 Removed slot tokens remain owned until all active invocations of their holder
 end, including tokens installed during Java reentry. Retirement links are prepared
 with the slots before mutation; no allocation or Java call occurs during commit.
-These components are not public admission: complete holder lifetime, owner guards
-and reconciliation remain required before accepting retained listener signatures.
+Public retained-listener admission requires complete holder lifetime, owner guards
+and reconciliation. Registration keeps separate nominal proxies when one Java
+object implements multiple listener interfaces.
 
-The private owner invocation proof now binds constructor-only final P0 storage
+The owner invocation proof binds constructor-only final P0 storage
 proofs to exact final classes with primitive/listener fields and empty initial
 listener slots. Complete callback closures may read listeners and read/write
 primitive fields; listener mutation, independent-root graphs, publication,
@@ -833,8 +834,15 @@ guards cover each proved owner using stable evaluated root-state locals.
 Callback-free methods combine complete slot attribution, owner/proxy
 non-reclamation and the same bounded state checks. A bound native composition
 covers constructors, scalar/slot methods, callbacks and exception helpers with
-disjoint support symbols. Public holder facades and JNI reconciliation remain
-unfinished, so the producer still rejects these signatures.
+disjoint support symbols. The producer composes these proofs into paired Java
+holder facades and JNI adapters. Same-class owner inputs use generated Java
+guards; different-class inputs use cached private field metadata and balanced
+JNI-side guards. Fixed slot preparation covers candidates from every write to
+the same field because holder arguments can alias. Scalar getters have no slot
+payload or callback guard. This bounded route admits primitive constructor
+inputs and primitive/owner/listener method inputs with primitive/void results.
+Copied String owner inputs and reference callback values remain rejected pending
+their transport integration. This checkpoint does not complete P5 qualification.
 
 Primitive callback bodies normalize boolean and integral arguments/results to
 I64 in typed IR, preserving signed byte/short/int and unsigned char semantics.
@@ -2108,7 +2116,7 @@ would be unsafe. This is an explicit later capability, not a hidden P3 promise.
 | --- | --- |
 | Transport and producer command | Generated C JNI adapters, `javac --release 21`, single-jar default, exact-package `--export` with exclusive ownership, and the command in section 5. Signature closure cannot silently add facade packages. |
 | API surface | Constructors, static/instance methods, primitives, copied strings with proved cleanup, concrete non-subclassable facades, enums/static nested types, owned roots, borrowed views and compiler-proved non-reclaimable results. Inherited concrete-facade Object methods are Java-only and survive free (D198); supported source overrides retain native preconditions. P2 built-in exception/trace mappings and P3 copyable custom exception snapshots/getters are mandatory before release. |
-| Deferred surface | Stateful/retained callbacks and reference callback values (remaining P5 work), arrays, general `CharSequence`/`Object` arguments (except inherited identity equality), source overrides of `equals(Object)`, exported reference generics, general native inheritance, Java subclassing, mutable public fields, mixed fresh/borrowed reclaimable results, and arbitrary object-graph conversion. Reject unsupported public signatures at producer build. Internal uses remain allowed when their boundary proofs hold. |
+| Deferred surface | Callback shapes outside the bounded synchronous/retained-owner proofs, including reference callback values and copied String owner inputs (remaining P5 work), arrays, general `CharSequence`/`Object` arguments (except inherited identity equality), source overrides of `equals(Object)`, exported reference generics, general native inheritance, Java subclassing, mutable public fields, mixed fresh/borrowed reclaimable results, and arbitrary object-graph conversion. Reject unsupported public signatures at producer build. Internal uses remain allowed when their boundary proofs hold. |
 | Retention | Fixed fields on reclaimable roots with persistent host records only; the authoritative native root index has reserved capacity and JNI global references to Java root state before execution. The adapter commits registration/count/slot updates before Java resumes; only weak facade caching follows in Java. P3 proves every write and rejects slot-value transfers or hidden publication. Borrowed-child retention slots and permanent holders of reclaimable targets are deferred. |
 | OrderBook | Preserve the actual project's process-lifetime graph using P3's non-reclaimable classification. Demonstrate complete `free()`, retention and cross-owner argument behavior using a separate reclaimable owner/child fixture. Reclaimable production OrderBook is a separate producer change; it is not claimed by this release. |
 | Platforms | macOS ARM64, Linux ARM64 and Linux x86-64. Reuse official IDK native baselines, including Linux glibc 2.17; record the macOS deployment target and required CPU features in the artifact. Effective support also requires a supported Java 21-23 JVM on that host. Do not advertise an older OS merely because the native payload can load there. |

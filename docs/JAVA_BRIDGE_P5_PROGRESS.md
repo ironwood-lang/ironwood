@@ -594,17 +594,17 @@ with the native test after adding this audited classification.
 
 ## Next step
 
-Complete stateful invocation admission using these components. The public
-producer now accepts the proved synchronous primitive/borrowed-listener subset.
-Prove the complete exposed native closure, dependent-owner guard placement and
-listener-field lifecycle before enabling retained/stateful signatures; preserve the initial rejection of callbacks combined with
+Complete copied String owner-call inputs and reference callback transport. The
+public producer accepts the proved synchronous primitive/borrowed-listener subset
+and bounded final primitive/listener holders, with exact owner guards and fixed
+listener-slot reconciliation. Preserve the rejection of callbacks combined with
 independent-root retention mutations. Never reinterpret foreign effects as pure
 or non-retaining to make ordinary root analysis pass.
 
 Carrier-primary native cause/secondary enrichment is implemented under D228,
 with original Java identity preserved for unchanged carriers and wrappers for
 native additions. The bounded synchronous primitive invocation proof is available;
-broader holder/owner admission and reference callback transport remain pending.
+broader holder layouts and reference callback transport remain pending.
 The generated callback ABI accepts primitive arguments and primitive/void results
 after typed normalization; reference callbacks still need separate value/ownership
 proofs. Callback-bearing implicit initialization/cleanup
@@ -612,8 +612,9 @@ also remains rejected. Keep D227 retained carrier ownership unchanged.
 
 Then finish the dedicated listener example, equivalent Linux native/native,
 Java/Java and native/Java measurements, nested-stack qualification and P5's
-Java 21-23 platform matrix. Current cross-platform evidence is the private Java 21
-component fixture. It does not complete P5 or its performance qualification.
+Java 21-23 platform matrix. The stateless platform and stack evidence is recorded
+below; the new retained-owner adapters currently have local Java 21 evidence only.
+These checkpoints do not complete P5 or its performance qualification.
 
 Primitive callback ABI pre-change review: normalize boolean and small integral
 values to I64 in typed IR; preserve float/double as F32/F64. JNI uses exact method
@@ -1071,3 +1072,19 @@ for the scalar getter and 242.774 ns for an invocation containing two callbacks
 (`O3/owner-performance.log` in that paired run). This is an internal Mac diagnostic,
 not Linux qualification or the required application performance comparison.
 License and diff checks pass. Public producer packaging/parity is the next gate.
+
+Public retained-owner gate: `BridgeProducerCommand` now selects the bounded owner
+proof after reconstructing the exact listener proxies; `BridgeProducer` consumes
+its finished program and paired Java/JNI/bootstrap projection. It does not route
+owner signatures through stateless or ordinary object admission. Source, class
+directory and archive builds have identical generation/program/API identities and
+working class-path/module-path consumers. Every packaged entry and native payload
+hash is checked. Callback-time slot writes, static publication, independent native
+graphs, listener results and not-yet-supported String owner inputs reject in all
+unfreed modes without changing an existing artifact. The previous stateless
+producer parity/failure controls also pass (`p5-owner-producer-controls.log`, two
+tests; owner `run-2714571486597031126`, stateless `run-4012133903459466344`).
+License and diff checks pass. Public supported behavior is updated in the plan
+and compiler documentation. Next: copied String owner inputs, reference callback
+transport, dedicated example/measurements and final retained-owner platform/stack
+qualification. P5 remains in progress.

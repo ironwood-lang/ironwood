@@ -26,7 +26,7 @@ final class BridgeProducer {
     static void build(CompilationArtifact artifact, BridgeExportSurface surface, Path output,
             LlvmToolchain toolchain, OptimizationLevel optimization, BridgeDistributionInputs.Options packaging,
             PrintStream diagnostics) throws IOException {
-        build(artifact, surface, null, null, output, toolchain, optimization, packaging, diagnostics);
+        build(artifact, surface, null, null, null, output, toolchain, optimization, packaging, diagnostics);
     }
 
     static void build(CompilationArtifact artifact, BridgeObjectAdmission objects, Path output,
@@ -35,16 +35,21 @@ final class BridgeProducer {
         if (!objects.matches(artifact, objects.surface())) {
             throw new IOException("Java Bridge object preview requires exact final object admission");
         }
-        build(artifact, objects.surface(), objects, null, output, toolchain, optimization, packaging, diagnostics);
+        build(artifact, objects.surface(), objects, null, null, output, toolchain, optimization, packaging, diagnostics);
     }
 
     static void build(BridgeCallbackAdmission callbacks, Path output, LlvmToolchain toolchain,
             OptimizationLevel optimization, BridgeDistributionInputs.Options packaging, PrintStream diagnostics) throws IOException {
-        build(callbacks.artifact(), callbacks.surface(), null, callbacks, output, toolchain, optimization, packaging, diagnostics);
+        build(callbacks.artifact(), callbacks.surface(), null, callbacks, null, output, toolchain, optimization, packaging, diagnostics);
+    }
+
+    static void build(BridgeOwnedCallbackAdmission callbacks, Path output, LlvmToolchain toolchain,
+            OptimizationLevel optimization, BridgeDistributionInputs.Options packaging, PrintStream diagnostics) throws IOException {
+        build(callbacks.artifact(), callbacks.surface(), null, null, callbacks, output, toolchain, optimization, packaging, diagnostics);
     }
 
     private static void build(CompilationArtifact artifact, BridgeExportSurface surface, BridgeObjectAdmission objects,
-            BridgeCallbackAdmission callbacks, Path output,
+            BridgeCallbackAdmission callbacks, BridgeOwnedCallbackAdmission owners, Path output,
             LlvmToolchain toolchain, OptimizationLevel optimization, BridgeDistributionInputs.Options packaging,
             PrintStream diagnostics) throws IOException {
         String host = hostTarget(); boolean macos = host.equals("macos-arm64");
@@ -58,7 +63,7 @@ final class BridgeProducer {
         var producer = BridgeProducerInputs.discover();
         var support = macos ? null : BridgeNativeSupport.discover(toolchain);
         var distribution = BridgeDistributionInputs.discover(artifact, packaging);
-        var projection = projection(artifact, surface, objects, callbacks, destination.getFileName().toString(), producer);
+        var projection = projection(artifact, surface, objects, callbacks, owners, destination.getFileName().toString(), producer);
         var generation = projection.generation(); var java = projection.java();
         if (NativeLinkRequirements.from(projection.program()).tls()) throw new IOException("Java Bridge preview does not yet package optional TLS dependencies");
         String llvm = new LlvmEmitter().emit(projection.program());
@@ -155,7 +160,16 @@ final class BridgeProducer {
                               String adapters, java.util.function.Function<BridgeGeneration.NativeBuild, String> bootstrap) {}
 
     private static Projection projection(CompilationArtifact artifact, BridgeExportSurface surface, BridgeObjectAdmission objects,
-            BridgeCallbackAdmission callbacks, String artifactName, BridgeProducerInputs producer) throws IOException {
+            BridgeCallbackAdmission callbacks, BridgeOwnedCallbackAdmission owners, String artifactName, BridgeProducerInputs producer) throws IOException {
+        if (owners != null) {
+            if (!owners.matches(artifact, surface)) throw new IOException("owner callback projection identity mismatch");
+            var generation = BridgeGeneration.createOwnedCallbacks(artifactName, owners,
+                    producer.compilerVersion(), producer.compilerIdentity(), producer.runtimeIdentity());
+            var java = BridgeOwnedCallbackJavaSources.generate(owners, generation);
+            var adapters = BridgeOwnedCallbackNativeSources.generate(owners, generation, java);
+            return new Projection(owners.program(), generation, java.declarations(), adapters.source(),
+                    build -> BridgeBootstrapSources.generate(generation, build, java.declarations(), adapters));
+        }
         if (callbacks != null) {
             if (!callbacks.matches(artifact, surface)) throw new IOException("callback projection identity mismatch");
             var generation = BridgeGeneration.createCallbacks(artifactName, callbacks,

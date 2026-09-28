@@ -568,13 +568,18 @@ the producer does not infer application licensing or copy its implementation.
 required `-o <artifact.jar>`, `.iron` inputs, source/class search paths, LLVM home,
 optimization, `--license` files and missing-free diagnostic options. It discovers the complete
 selected packages and retains the scalar primitive/String route where applicable.
-Other surfaces require complete `BridgeObjectAdmission`; object, enum and custom
+Object surfaces require complete `BridgeObjectAdmission`; object, enum and custom
 snapshot routes use its exact final program without another transformation after
 proof. Unknown effects and unsafe frees remain errors in every mode. Roots and
 borrowed views use the proved lifetime adapters, including bounded independent-root
-retention slots with complete final contracts. General
-inheritance, arrays, callbacks, optional TLS dependencies and Linux output also
-remain rejected at their pending implementation boundaries.
+retention slots with complete final contracts. Callback surfaces separately require
+`BridgeCallbackAdmission` or `BridgeOwnedCallbackAdmission`, binding the complete
+native closure, listener proxy lifetime, carrier cleanup and owner guard/slot
+protocol to paired Java/JNI generation. The retained-owner subset has exact final
+primitive/listener layouts, primitive constructors and primitive/void methods;
+reference callback values and copied String owner inputs still reject. General
+inheritance, arrays and optional TLS dependencies remain rejected at their pending
+implementation boundaries. Linux payloads use the pinned native support closure.
 
 `BridgeProducer` requires a Java 21 JDK with compiler/Javadoc tools and JNI headers,
 the pinned LLVM toolchain and the macOS SDK. It uses the existing optimizer and
