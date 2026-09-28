@@ -892,3 +892,15 @@ identities, followed by a real Java application integration when selected.
 P5/P7 and Java24+ support remain deferred. No merge, push, full release suite or
 publication is authorized by this acceptance. This documentation-only update
 needs focused consistency and diff checks, without rebuilding accepted payloads.
+
+### Maintainer clarification of follow-up scope
+
+Release preparation and publication are entirely the maintainer's work and
+are removed from the agent's proposed next steps. OrderBook already is a real
+Java application calling the generated native library inside the JVM; proposing
+another integration as a required next phase was incorrect. Another workload
+may be useful for future tuning but is optional. The immediate agreed follow-up
+is documentation of the accepted candidate, supported platforms and known
+limitations, with the remaining performance gap deferred. D225 and the current
+performance report now state this explicitly. Existing technical qualification
+requirements remain unchanged; no new P5/P7 implementation is selected.

@@ -6,8 +6,19 @@ D224 keeps the existing Java OrderBook API and improves physical Linux x86-64
 throughput. It adds private constant-enum entries and increases the permanent
 weak cache's initial bucket count. The engine algorithm and eight calls per cycle
 are unchanged. Linux ARM64 still trails Java. The maintainer accepts the measured
-implementation under D225 and defers further tuning. Release qualification and
-publication remain separate steps.
+implementation under D225 and defers further tuning.
+
+The accepted support baseline is Java 21-23 on macOS ARM64, Linux ARM64 and
+Linux x86-64, using the pinned Temurin builds in `JAVA_BRIDGE_PLAN.md`. Java24+
+is refused. Linux ARM64 measurements use local native ARM virtualization;
+Linux x86-64 measurements use physical Estonia hardware.
+
+OrderBook already demonstrates actual Java application integration: Java code
+calls the generated OrderBook API, whose native shared library runs inside the
+JVM process. The jar contains the Java facades and native payloads. It does not
+launch the standalone benchmark executable as a subprocess. Additional
+application integration is optional, not an unfinished requirement. The known
+performance gaps below remain accepted limitations and future optimization work.
 
 ## Final assembled jar, three scenarios
 
@@ -215,6 +226,6 @@ neither the production engine nor its final reported measurements were changed.
 On 2026-09-28 the maintainer accepted these measured limitations and deferred
 further optimization under D225. The Linux ARM64 speed target remains unmet,
 and neither Linux target matches standalone native performance. The numerical
-review is recorded; P6b still requires final qualification closeout before any
-release-readiness claim. No release is authorized. P5/P7 and Java24+ support
-remain deferred.
+review is recorded; P6b's technical qualification requirements remain unchanged.
+Release preparation and publication are the maintainer's responsibility, outside
+this agent task. P5/P7 and Java24+ support remain deferred.

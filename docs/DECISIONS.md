@@ -8759,11 +8759,14 @@ occurrence order. If no
   `b2f4a19d10a49290133259de2faef67cd699c52b96c2930e98f31dec7205f17e`,
   produced from implementation commit `694ada30`; later local commits record
   verification and rejected experiments without changing production code.
-- **Next gate:** Close out P6b against its existing qualification checklist and
-  exact candidate evidence. This decision supplies the maintainer's numerical
-  review; it does not waive missing checks, claim release readiness, or authorize
-  merging, pushing or publishing. P5 callbacks, P7 extensions and Java24+ support
-  remain deferred. A real Java application workload should guide later tuning.
+- **Follow-up:** Consolidate documentation of the accepted candidate, supported
+  platforms and known limitations, preserving P6b's technical qualification
+  requirements and exact evidence. The OrderBook Java consumer already provides
+  real Java-to-Ironwood integration; another application is optional, not a
+  missing phase. Release preparation and publication belong to the maintainer
+  and are outside this agent task. P5 callbacks, P7 extensions and Java24+
+  support remain deferred. Later tuning may use OrderBook or another selected
+  application workload.
 - **Scope:** Supersedes this run's requirement to continue optimizing until the
   bridge beats Java on every Linux target or approaches standalone performance.
   Those objectives become deferred performance work. No API, reclamation,
