@@ -56,3 +56,6 @@ batches of one million events for each scenario and supported JVM. Latency is
 elapsed batch time divided by event count, not individual-event tail latency.
 Native/Java includes a native-to-Java callback for every event; batching the outer
 invocation does not remove those callbacks. Numerical acceptance remains review.
+
+The [P5 evidence report](../../../docs/JAVA_BRIDGE_P5_EVIDENCE.md) contains the
+measured Linux tables, three-target qualification and matching payload identities.

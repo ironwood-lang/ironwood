@@ -11,7 +11,7 @@ Canonical checkout and both origin URLs were verified; the initial tree was
 clean. Do not merge, push, publish, create worktrees, or change `main`.
 Continue P0a/P0b/P0c -> P1 -> P2 -> P3a/P3b/P3c/P3d -> P4 -> P6a -> ARM64 P6b.
 That original authorization deferred P5/P7. D226 subsequently authorized P5;
-continue it using the [P5 progress log](JAVA_BRIDGE_P5_PROGRESS.md). P7 remains
+its completion is recorded in the [P5 progress log](JAVA_BRIDGE_P5_PROGRESS.md). P7 remains
 deferred. A checkpoint is not a phase exit.
 
 The maintainer selected Java 21-23 with the existing Java 24+ refusal for this
@@ -24,14 +24,15 @@ Estonia after the maintainer separately authorized SSH access.
 
 ## Current checkpoint
 
-The OrderBook performance recommendation was accepted under D225. P5 is now the
-active work; see its [dedicated progress log](JAVA_BRIDGE_P5_PROGRESS.md) for
-implementation, qualification and measurement evidence. The entries below preserve
+The OrderBook performance recommendation was accepted under D225. Bounded P5
+implementation and focused qualification are complete at `e0643c05`; see its
+[evidence report](JAVA_BRIDGE_P5_EVIDENCE.md) and [progress log](JAVA_BRIDGE_P5_PROGRESS.md).
+New listener numerical acceptance remains review. The entries below preserve
 the earlier P0-P4/P6 and OrderBook checkpoint history.
 
-The maintainer has reopened implementation for a deep performance optimization
+The maintainer previously reopened implementation for a deep performance optimization
 pass after reviewing the three-scenario OrderBook results. See
-[JAVA_BRIDGE_OPTIMIZATION.md](JAVA_BRIDGE_OPTIMIZATION.md) for current work,
+[JAVA_BRIDGE_OPTIMIZATION.md](JAVA_BRIDGE_OPTIMIZATION.md) for that work,
 contracts and verification. Prior qualification below describes the immutable
 original candidate and does not qualify changed production artifacts.
 

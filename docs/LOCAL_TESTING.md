@@ -805,12 +805,12 @@ remain shared, so platform runs are sequential.
 No Git checkout or worktree is created. Run one orchestrator at a time and avoid
 editing source during validation.
 
-### Planned Java Bridge validation hosts
+### Java Bridge validation hosts
 
 The [Java Bridge P0 prerequisites](JAVA_BRIDGE_PLAN.md#p0-host-and-jdk-prerequisites-d205)
-schedule separate pinned Temurin preparation for these Linux images and macOS;
-the current conda OpenJDK selection does not satisfy that matrix. No bridge
-preparation or hardware runner is implemented by this documentation change.
+specify separate pinned Temurin preparation for these Linux images and macOS;
+an arbitrary system JDK does not satisfy that matrix. Use the implemented
+[preparation and qualification runners](../scripts/java-bridge/README.md).
 Under D205/D208, Rosetta may supply P0-1 through P0-8 functional evidence when
 labeled translated; P0-8 also includes compiler-only proofs. P0-9 inspects actual
 target binaries and needs no hardware execution.
@@ -826,6 +826,19 @@ bundle for the final hardware handoff. All x86-64 hardware cases must pass befor
 P6b or release is complete; a known failure is not excused by this deferral.
 These are bridge-specific evidence rules, separate from the networking smoke
 policy above. No paid hardware, hosted development jobs or full suites are added.
+
+P5 callback changes use the focused producer and native transport checks below.
+The [P5 log](JAVA_BRIDGE_P5_PROGRESS.md) records additional proof controls,
+failure injection, pinned-JDK replay and stack/performance evidence. Select only
+the checks affected by a change; this is not permission for an unfiltered suite.
+
+```sh
+./scripts/test.sh \
+  --test 'Java Bridge native carriers preserve catch replacement retained identity and allocation containment' \
+  --test 'Java Bridge paired owner callbacks preserve slots aliases foreign guards and exception identity' \
+  --test 'Java Bridge producer packages retained owner listeners with source class archive parity' \
+  --test 'Java Bridge producer packages proved synchronous listeners with artifact parity'
+```
 
 ## Test platforms and retry failures
 

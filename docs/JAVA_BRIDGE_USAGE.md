@@ -26,7 +26,7 @@ One host build contains one target; combine matched host jars using the assembly
 step below. The [distribution candidate and three-target evidence](JAVA_BRIDGE_P6_EVIDENCE.md)
 are recorded, including physical Linux x86-64 execution under D213. Final
 OrderBook numerical acceptance is recorded in D225. New P5 callback measurements
-have their own review and qualification record in the [P5 log](JAVA_BRIDGE_P5_PROGRESS.md).
+have their own [three-target qualification and measurement report](JAVA_BRIDGE_P5_EVIDENCE.md).
 Rosetta observations remain separate functional/static evidence.
 
 Linux producers first prepare the [pinned native support SDK](JAVA_BRIDGE_NATIVE_SUPPORT.md)
