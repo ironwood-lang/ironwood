@@ -811,6 +811,14 @@ listeners need explicit global-reference ownership and cleanup. `JNIEnv*`
 belongs to its thread and must not be cached as a transferable global. See the
 [JNI design specification](https://docs.oracle.com/en/java/javase/25/docs/specs/jni/design.html).
 
+The private P5 transport binds proxy creation/cleanup to final P0/P3 proofs and
+owns a global reference until all registered slots and suspended invocation uses
+end. Preparing registration performs identity conversion, including listeners
+held only by suspended calls; invoking a registered listener performs no identity
+lookup. Preparation failure preserves the old slot. This component is not public
+admission: native field attribution, owner guards and complete reconciliation are
+still required before a producer can accept retained listener signatures.
+
 P5 string-bearing callback tests must retain the outer argument through a Java
 callback that allocates, reenters with another string and either returns or
 throws. Verify unchanged UTF-16 contents, independent nested buffers and complete

@@ -50,9 +50,11 @@ final class BridgeCallbackCarrierNativeTests {
         var exceptions = BridgeExceptionEntries.attach(artifact, scalar, projection);
         var original = artifact.program().orElseThrow();
         var proxy = proxies.proxies().getFirst();
-        var constructor = original.functions().stream().filter(function -> function.ownerClass().equals(proxy.binaryName())
-                && function.constructor()).findFirst().orElseThrow();
-        var proxyEntries = BridgeEntryModule.rootObjects(artifact, BridgeRootSet.resolve(original, List.of(BridgeCallableId.of(constructor))));
+        var proxyEntries = BridgeListenerProxyEntries.create(artifact, proxies);
+        try {
+            BridgeListenerNativeSources.generate(initial, proxyEntries, proxy.listener().binaryName());
+            throw new AssertionError("stale listener operations accepted");
+        } catch (IllegalArgumentException expected) { check(expected.getMessage().contains("matching"), expected.toString()); }
         var callback = original.functions().stream().filter(function -> function.ownerClass().equals(proxy.binaryName())
                 && function.sourceName().equals("onResult")).findFirst().orElseThrow();
         var foreign = (IrForeignCallInstruction) callback.blocks().getFirst().instructions().get(1);
@@ -60,6 +62,8 @@ final class BridgeCallbackCarrierNativeTests {
                 && List.of("run", "temporary").contains(function.sourceName())).map(BridgeCallableId::of).toList());
         var temporaryRoots = BridgeRootSet.resolve(original, roots.roots().stream().filter(root -> root.callable().name().equals("temporary"))
                 .map(BridgeRootSet.Root::callable).toList());
+        for (var root : roots.roots()) check(artifact.bridgeConstructionFacts().orElseThrow().borrowsInput(root.callable(), 0),
+                "private transport fixture must not publish its listener");
         var cleanup = BridgeCallbackCarrierCleanup.prove(artifact, carrier, temporaryRoots);
         var context = BridgeCallbackContextLowering.lower(original, roots, BridgeCallbackReachability.analyze(original));
         var contextualRoots = BridgeRootSet.resolve(context.program(), context.entries().values().stream().map(BridgeCallableId::of).toList());
@@ -67,14 +71,14 @@ final class BridgeCallbackCarrierNativeTests {
                 root.callable().name().equals("temporary") ? "carrier_temporary" : "carrier_run", true)).toList();
         var functions = new ArrayList<>(context.program().functions());
         functions.addAll(entries);
-        functions.addAll(proxyEntries.entries().stream().map(BridgeEntryModule.Entry::function).toList());
+        functions.addAll(proxyEntries.functions());
         functions.add(cleanup.destruction());
         functions.addAll(operations.functions());
         functions.addAll(exceptions.accessors().values());
         functions.add(exceptions.trace());
         var exports = new LinkedHashSet<String>();
         entries.forEach(entry -> exports.add(entry.linkageName()));
-        exports.add(proxyEntries.entries().getFirst().function().linkageName());
+        proxyEntries.functions().forEach(function -> exports.add(function.linkageName()));
         exports.add(cleanup.destruction().linkageName());
         operations.functions().forEach(function -> exports.add(function.linkageName()));
         exceptions.accessors().values().forEach(function -> exports.add(function.linkageName()));
@@ -101,9 +105,15 @@ final class BridgeCallbackCarrierNativeTests {
                 .replace("(*env)->DeleteGlobalRef(env, global)", "test_delete_global(env, global)")
                 .replace("(*frame->env)->DeleteGlobalRef(frame->env, (jobject)(uintptr_t)reference.value.wide)",
                         "test_delete_global(frame->env, (jobject)(uintptr_t)reference.value.wide)");
+        String listeners = BridgeListenerNativeSources.generate(artifact, proxyEntries, proxy.listener().binaryName())
+                .replace("(*env)->NewGlobalRef(env, value)", "test_listener_global(env, value)")
+                .replace("(*env)->DeleteGlobalRef(env, reference)", "test_listener_delete(env, reference)")
+                .replace("(*env)->DeleteGlobalRef(env, listener->reference)", "test_listener_delete(env, listener->reference)")
+                .replace("malloc(sizeof(*listener))", "test_listener_allocate(sizeof(*listener))")
+                .replace("free(listener)", "test_listener_free(listener)");
         Files.writeString(adapter, ADAPTER.replace("@EXCEPTIONS@", BridgeExceptionNativeSources.generate(artifact, projection, exceptions, operations))
-                .replace("@CARRIERS@", transport).replace("@CALLBACK@", foreign.targetLinkageName())
-                .replace("@PROXY_CREATE@", proxyEntries.entries().getFirst().function().linkageName())
+                .replace("@CARRIERS@", transport).replace("@LISTENERS@", listeners).replace("@CALLBACK@", foreign.targetLinkageName())
+                .replace("@PROXY_CREATE@", proxyEntries.operations().getFirst().create().linkageName())
                 .replace("@FACTORY@", generation.supportPackage().replace('.', '/') + "/ExceptionFactory"));
         Path jdk = Path.of(System.getProperty("java.home"));
         var compile = new ArrayList<>(List.of(jdk.resolve("bin/javac").toString(), "--release", "21", "-Xlint:all", "-Werror",
@@ -129,9 +139,10 @@ final class BridgeCallbackCarrierNativeTests {
             var linked = new NativeBackend().linkShared(toolchain, llvm, image, level, List.of(object));
             Files.writeString(directory.resolve("link-" + level + ".log"), linked.output());
             check(linked.success(), linked.output());
-            for (String mode : List.of("normal", "native-oom", "jni-oom")) {
+            for (String mode : List.of("normal", "native-oom", "jni-oom", "listener-native-oom")) {
                 var command = new ArrayList<String>();
                 if (mode.equals("native-oom")) command.addAll(List.of("env", "IRONWOOD_ALLOCATION_LIMIT=1"));
+                if (mode.equals("listener-native-oom")) command.addAll(List.of("env", "IRONWOOD_ALLOCATION_LIMIT=2"));
                 command.addAll(List.of(jdk.resolve("bin/java").toString(), "-Xcheck:jni", "-cp", directory.toString(),
                         "CallbackCarrierConsumer", image.toString(), mode));
                 String output = BridgeEntryTests.run(directory, command, "consumer-" + level + "-" + mode);
@@ -209,16 +220,40 @@ final class BridgeCallbackCarrierNativeTests {
             }
             static void test_delete_global(JNIEnv *env, jobject global) { globals--; (*env)->DeleteGlobalRef(env, global); }
             @CARRIERS@
+            #include <stdlib.h>
+            static int64_t listener_globals, listener_records;
+            static int fail_listener;
+            static jobject test_listener_global(JNIEnv *env, jobject local) {
+                if (fail_listener == 3) return NULL;
+                if (fail_listener == 1) {
+                    (*env)->ThrowNew(env, metadata.classes[IW_EX_OOM], "injected listener reference failure");
+                    return NULL;
+                }
+                jobject reference = (*env)->NewGlobalRef(env, local);
+                if (reference != NULL) listener_globals++;
+                return reference;
+            }
+            static void test_listener_delete(JNIEnv *env, jobject reference) {
+                listener_globals--; (*env)->DeleteGlobalRef(env, reference);
+            }
+            static void *test_listener_allocate(size_t size) {
+                void *value = fail_listener == 2 ? NULL : malloc(size);
+                if (value != NULL) listener_records++;
+                return value;
+            }
+            static void test_listener_free(void *value) { listener_records--; free(value); }
+            @LISTENERS@
+            static struct iw_listener *listeners[2];
             struct frame { struct iw_callback_frame carrier; jobject listener; };
             extern int32_t carrier_run(void *, int64_t, int64_t, struct ironwood_bridge_result *);
             extern int32_t carrier_temporary(void *, int64_t, int64_t, struct ironwood_bridge_result *);
             extern int32_t @PROXY_CREATE@(int64_t, struct ironwood_bridge_result *);
             extern void ironwood_bridge_bootstrap(void);
             int64_t @CALLBACK@(int64_t address, int64_t handle, int64_t value) {
-                (void)handle;
                 struct frame *frame = (struct frame *)(uintptr_t)address;
                 JNIEnv *env = frame->carrier.env;
-                jlong result = (*env)->CallLongMethod(env, frame->listener, callback, (jlong)value);
+                jobject listener = handle == 0 ? frame->listener : (jobject)(uintptr_t)handle;
+                jlong result = (*env)->CallLongMethod(env, listener, callback, (jlong)value);
                 if ((*env)->ExceptionCheck(env)) iw_callback_capture(&frame->carrier);
                 return result;
             }
@@ -245,6 +280,46 @@ final class BridgeCallbackCarrierNativeTests {
             static jlong allocated(JNIEnv *env, jclass type) { (void)env; (void)type; return ironwood_allocation_count(); }
             static jlong references(JNIEnv *env, jclass type) { (void)env; (void)type; return globals; }
             static void inject(JNIEnv *env, jclass type, jboolean fail) { (void)env; (void)type; fail_global = fail; }
+            static void listener_inject(JNIEnv *env, jclass type, jint fail) { (void)env; (void)type; fail_listener = fail; }
+            static jlong listener_references(JNIEnv *env, jclass type) { (void)env; (void)type; return listener_globals; }
+            static jlong listener_storage(JNIEnv *env, jclass type) { (void)env; (void)type; return listener_records; }
+            static void set_listener(JNIEnv *env, jclass type, jint index, jobject value) {
+                (void)type;
+                struct iw_listener *current = listeners[index];
+                if ((*env)->IsSameObject(env, current == NULL ? NULL : current->reference, value)) return;
+                struct iw_listener *prepared = NULL;
+                struct ironwood_bridge_result result = {0};
+                int32_t status = iw_listener_prepare(env, value, metadata.classes[IW_EX_OOM], &prepared, &result);
+                if (status != 0) {
+                    if (status > 0) iw_exception_translate(env, &metadata, result.exception);
+                    return;
+                }
+                // These private test slots live in this adapter only. There is
+                // no unproved native field publication or public facade export.
+                iw_listener_commit(env, &listeners[index], prepared);
+            }
+            static jlong retained(JNIEnv *env, jclass type, jint index, jlong mode) {
+                (void)type;
+                struct iw_listener *listener = listeners[index];
+                if (listener == NULL) return -1;
+                if (!iw_listener_acquire(listener)) {
+                    (*env)->ThrowNew(env, metadata.classes[IW_EX_OOM], "test listener count exhausted"); return 0;
+                }
+                struct frame frame = {{env, NULL}, NULL};
+                struct ironwood_bridge_result result = {0};
+                int64_t sum = 0;
+                for (int i = 0; i < 2; i++) {
+                    int32_t status = carrier_temporary(listener->proxy, mode, (int64_t)(uintptr_t)&frame, &result);
+                    if (status != 0) {
+                        if (!iw_callback_restore(env, &result)) iw_exception_translate(env, &metadata, result.exception);
+                        break;
+                    }
+                    sum += result.value.wide;
+                }
+                iw_callback_release(&frame.carrier);
+                iw_listener_release(env, listener);
+                return sum;
+            }
             JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *vm, void *reserved) {
                 (void)reserved;
                 JNIEnv *env = NULL;
@@ -254,9 +329,12 @@ final class BridgeCallbackCarrierNativeTests {
                 JNINativeMethod methods[] = {
                     {"invoke", "(LCallbackCarrierConsumer$Listener;J)J", (void *)invoke},
                     {"temporary", "(LCallbackCarrierConsumer$Listener;J)J", (void *)temporary}, {"live", "()J", (void *)live},
-                    {"allocated", "()J", (void *)allocated}, {"references", "()J", (void *)references}, {"inject", "(Z)V", (void *)inject}
+                    {"allocated", "()J", (void *)allocated}, {"references", "()J", (void *)references}, {"inject", "(Z)V", (void *)inject},
+                    {"setListener", "(ILCallbackCarrierConsumer$Listener;)V", (void *)set_listener},
+                    {"retained", "(IJ)J", (void *)retained}, {"listenerReferences", "()J", (void *)listener_references},
+                    {"listenerStorage", "()J", (void *)listener_storage}, {"listenerInject", "(I)V", (void *)listener_inject}
                 };
-                if ((*env)->RegisterNatives(env, type, methods, 6) != 0) return JNI_ERR;
+                if ((*env)->RegisterNatives(env, type, methods, 11) != 0) return JNI_ERR;
                 jclass listener = (*env)->FindClass(env, "CallbackCarrierConsumer$Listener");
                 if (listener == NULL) return JNI_ERR;
                 callback = (*env)->GetMethodID(env, listener, "onResult", "(J)J");
@@ -287,6 +365,11 @@ final class BridgeCallbackCarrierNativeTests {
                 private static native long allocated();
                 private static native long references();
                 private static native void inject(boolean fail);
+                private static native void setListener(int slot, Listener listener);
+                private static native long retained(int slot, long mode);
+                private static native long listenerReferences();
+                private static native long listenerStorage();
+                private static native void listenerInject(int fail);
                 public static void main(String[] args) {
                     System.load(args[0]);
                     RuntimeException first = new RuntimeException("first"), second = new RuntimeException("second");
@@ -294,7 +377,18 @@ final class BridgeCallbackCarrierNativeTests {
                     long before = allocated();
                     for (int i = 0; i < 10000; i++) check(invoke(value -> value + 42L, 0L) == 42L);
                     check(allocated() == before && references() == 0);
-                    if (!args[1].equals("normal")) {
+                    if (args[1].equals("listener-native-oom")) {
+                        setListener(0, value -> 21L);
+                        try { setListener(0, throwing); throw new AssertionError("missing replacement allocation failure"); }
+                        catch (OutOfMemoryError expected) { check(listenerReferences() == 1 && listenerStorage() == 1); }
+                        check(retained(0, 0L) == 42L);
+                        setListener(0, null);
+                        check(listenerReferences() == 0 && listenerStorage() == 0 && live() == 1);
+                    } else if (!args[1].equals("normal")) {
+                        if (args[1].equals("native-oom")) {
+                            try { setListener(0, throwing); throw new AssertionError("missing proxy allocation failure"); }
+                            catch (OutOfMemoryError expected) { check(listenerReferences() == 0 && listenerStorage() == 0); }
+                        }
                         inject(args[1].equals("jni-oom"));
                         for (int i = 0; i < 3; i++) {
                             try { invoke(throwing, 0L); throw new AssertionError("missing OOM"); }
@@ -304,6 +398,7 @@ final class BridgeCallbackCarrierNativeTests {
                         inject(false);
                         check(invoke(value -> 42L, 0L) == 42L);
                     } else {
+                        listenerLifecycle(first);
                         long initialLive = live();
                         for (int i = 0; i < 100; i++) {
                             expect(first, () -> temporary(throwing, 0L));
@@ -355,6 +450,55 @@ final class BridgeCallbackCarrierNativeTests {
                                 && java.util.Arrays.equals(first.getStackTrace(), trace));
                     }
                     System.out.println("callback-carriers-ok:" + args[1]);
+                }
+                private static void listenerLifecycle(RuntimeException failure) {
+                    long baseline = live();
+                    Listener stable = value -> 21L;
+                    setListener(0, stable);
+                    setListener(1, stable);
+                    check(listenerReferences() == 1 && listenerStorage() == 1);
+                    long allocations = allocated();
+                    for (int i = 0; i < 10000; i++) check(retained(0, 0L) == 42L);
+                    setListener(0, stable);
+                    check(allocated() == allocations);
+                    setListener(0, null);
+                    System.gc();
+                    check(retained(1, 0L) == 42L && listenerReferences() == 1);
+                    for (int fail = 1; fail <= 3; fail++) {
+                        listenerInject(fail);
+                        try { setListener(1, value -> 99L); throw new AssertionError("missing preparation failure"); }
+                        catch (OutOfMemoryError expected) { check(listenerReferences() == 1 && listenerStorage() == 1); }
+                        check(retained(1, 0L) == 42L);
+                    }
+                    listenerInject(0);
+                    setListener(1, null);
+                    Listener[] self = new Listener[1];
+                    self[0] = value -> {
+                        setListener(0, null);
+                        long before = allocated();
+                        setListener(1, self[0]);
+                        check(listenerReferences() == 1 && listenerStorage() == 1 && allocated() == before);
+                        setListener(1, null);
+                        return 9L;
+                    };
+                    setListener(0, self[0]);
+                    check(retained(0, 0L) == 18L && listenerReferences() == 0 && live() == baseline);
+                    for (int i = 0; i < 100; i++) {
+                        int[] calls = {0};
+                        setListener(0, value -> {
+                            calls[0]++;
+                            setListener(0, stable);
+                            check(retained(0, 0L) == 42L);
+                            check(listenerReferences() == 2);
+                            return 7L;
+                        });
+                        check(retained(0, 0L) == 14L && calls[0] == 2 && listenerReferences() == 1);
+                        setListener(0, value -> { setListener(0, null); return 8L; });
+                        check(retained(0, 0L) == 16L && listenerReferences() == 0);
+                        setListener(0, value -> { setListener(0, null); throw failure; });
+                        expect(failure, () -> retained(0, 0L));
+                        check(listenerReferences() == 0 && listenerStorage() == 0 && references() == 0 && live() == baseline);
+                    }
                 }
                 private static void expect(Throwable expected, Runnable action) {
                     try { action.run(); throw new AssertionError("missing callback failure"); }

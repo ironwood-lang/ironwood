@@ -34,6 +34,30 @@ public final class BridgeListenerProxies {
     public List<Proxy> proxies() { return proxies; }
     public List<SourceFile> sources() { return proxies.stream().map(Proxy::source).toList(); }
 
+    /** Rebind generated ownership operations only to the complete original input inventory. */
+    public void validateArtifact(CompilationArtifact artifact) {
+        if (!artifact.valid() || artifact.bridgeApiFacts().isEmpty()
+                || !artifact.bridgeApiFacts().orElseThrow().matches(artifact.program().orElseThrow())) {
+            throw new IllegalArgumentException("listener ownership requires matching semantic API facts");
+        }
+        var facts = artifact.bridgeApiFacts().orElseThrow();
+        Map<java.nio.file.Path, String> actual = new LinkedHashMap<>();
+        facts.types().values().forEach(type -> actual.put(type.source().path(), type.source().content()));
+        Map<java.nio.file.Path, String> expected = new LinkedHashMap<>(sourceInputs);
+        proxies.forEach(proxy -> expected.put(proxy.source().path(), proxy.source().content()));
+        if (!actual.equals(expected)) throw new IllegalArgumentException("listener ownership source inventory changed");
+        var program = artifact.program().orElseThrow();
+        for (var proxy : proxies) {
+            var owner = program.classes().stream().filter(type -> type.name().equals(proxy.binaryName())).findFirst().orElseThrow();
+            for (var function : program.functions()) {
+                if (function.ownerClass().equals(proxy.binaryName()) && function.kind() == IrCallableKind.METHOD
+                        && !function.equals(lower(function, owner, proxy.source()))) {
+                    throw new IllegalArgumentException("listener ownership requires exact typed proxy bodies");
+                }
+            }
+        }
+    }
+
     /** Analysis only. Interface discovery never grants JNI or lifetime admission. */
     public static BridgeListenerProxies discover(CompilationArtifact artifact, List<String> exports) {
         if (!artifact.valid() || artifact.bridgeApiFacts().isEmpty()
