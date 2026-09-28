@@ -8657,3 +8657,30 @@ occurrence order. If no
   descriptors and transport selections remain generation-bound.
 - **Scope:** Refines D190/D191 enum transport without superseding safety,
   ownership, thread confinement or Java-version contracts.
+
+## D222 - Inline medium loops through small native-library callers
+
+- **Status:** Maintainer-directed performance improvement, with focused checks
+  passed; refreshed production qualification remains required.
+- **Decision:** Raise D175's structural loop-body selection bound from 256 to
+  512 typed operations for native libraries with explicit export roots. Preserve
+  the executable bound and every other direct-call, caller, recursion, lifecycle,
+  entry, reachability and compilation-work bound. LLVM's ordinary O3 threshold
+  remains 1000. This changes optimization selection, not supported APIs.
+- **Reason:** A native library cannot see the enclosing Java application loop.
+  OrderBook's 362-operation matching method sat behind its small creation
+  methods, blocking inlining and simplification of their known state. Inlining
+  removes this call without changing the engine or Java workload.
+- **Evidence:** Three interleaved warmed forks on physical Estonia improve the
+  Java21 bridge cycle from 192.22 to 178.84 ns; pure Ironwood is 124.47 ns and
+  Java21 is 240.28 ns in the latter comparison. Linux ARM64 also improves, from
+  82.58 to 78.16 ns, but still trails Java's 65.24 ns. These are development
+  observations, not final numerical acceptance. Exact inputs and all observations
+  are retained in `JAVA_BRIDGE_OPTIMIZATION.md`'s referenced evidence.
+- **Invariants:** Typed proof input is unchanged. Preserve evaluation, exceptions,
+  cleanup, source traces and all memory-safety enforcement. Focused tests cover
+  library selection and recursive fallback, unchanged executable selection,
+  exact native traces/cleanup, cold enums, mandatory final lifetime/root rejection
+  and actual OrderBook zero-allocation/weak-recreation behavior.
+- **Scope:** Supersedes only D175's 256-operation limit for explicit native
+  libraries. It does not supersede D132/D133, reclamation proofs or JNI contracts.

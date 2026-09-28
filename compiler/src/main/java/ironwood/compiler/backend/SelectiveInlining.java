@@ -43,11 +43,14 @@ final class SelectiveInlining {
         }
         Set<String> result = new LinkedHashSet<>();
         int remaining = 4096;
+        // Library callers cannot benefit from whole executable-loop inlining.
+        // Admit larger leaf loops so their small callers expose constant state.
+        int maximumBody = program.exportRoots().isEmpty() ? 256 : 512;
         for (IrFunction function : functions.values()) {
             String name = function.linkageName();
             int cost = cost(function);
             List<IrFunction> sites = callers.getOrDefault(name, List.of());
-            if (function.kind() != IrCallableKind.METHOD || excluded.contains(name) || cost < 64 || cost > 256
+            if (function.kind() != IrCallableKind.METHOD || excluded.contains(name) || cost < 64 || cost > maximumBody
                     || sites.isEmpty() || sites.size() > 4 || sites.stream().anyMatch(f -> cost(f) > 48)
                     || !hasLoop(function)) continue;
             Set<String> reached = reachable(name, edges);

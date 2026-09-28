@@ -119,3 +119,103 @@ Before adoption compare identical workload, inspect optimized calls, and verify
 producer determinism, scalar containment, object/enum/root exceptional exits,
 exact traces and packaging on each supported target. Ordinary executables and
 existing fixture object linking must retain their current path.
+
+Joint bitcode experiment did not improve the Mac workload: 96.13 ns/cycle;
+forcing entry inlining measured 101.31. Rejected both production changes. Exact
+patch retained at `experiments/optimization/joint-bitcode-experiment.patch`;
+artifacts and comparisons retained under `optimization/joint-bitcode` and
+`optimization/joint-inline`. No LLVM toolchain/dependency change adopted.
+
+Next pre-change review: the existing InitializedTypeSpecializer selects looping
+methods, overlooking non-looping exported entry methods. Experiment with adding
+native export roots to its selection, reusing the existing immutable publication
+proof, state-2 guard, original cold/failure fallback and clone fact propagation.
+Consumers include bridge final reclamation/retention checks and normal executable
+initialization. Verify cold success, failed and recursive initialization, enum
+identity, exact exception traces, safe roots and unsafe hidden reclamation,
+source/class/archive reconstruction. Existing loop selection for executables is
+unchanged. Use focused initialized-type audit and bridge enum/final-proof tests.
+
+Adding non-looping export roots to initialized-type selection measured 95.30
+ns/cycle, with no meaningful improvement over primitive enum transport. Retained
+experiment patch and artifact; reverted the production policy change.
+
+Next cache experiment: avoid queue polling on live hits, and drain on misses
+before any insertion. Keep weak referents, exact address identity, null/cleared
+handling, delayed-queue removal by Entry identity, allocation/growth exception
+atomicity and bounded records. No insertion can grow without a drain, and no
+hit adds a record. Root caches retain the existing lookup policy. Verify the
+existing cache adversarial, delayed-queue, allocation and actual pool GC tests.
+
+Moving cache queue draining to misses measured 97.57 ns/cycle, also no reliable
+improvement. Rejected and preserved the experiment patch/artifact. Production
+remains the two measured transport improvements at `2be10c1c`. Further work now
+separates native engine, JNI transitions and identity costs, and checks physical
+x86 performance before final qualification. None of the three rejected
+experiments is included in production.
+
+Longer unchanged-workload comparison (10 million warmup, 50 million measured,
+three interleaved forks): Mac native 45.62, Java21 61.49, bridge21 82.34 ns/cycle;
+Estonia native 125.32, Java21 239.72, bridge21 192.22. Java22/23 and 64-operation
+latency reports are preserved in each `enum-tokens/long-comparison` directory.
+These development results establish a physical x86 gain but a remaining Mac gap.
+
+IR and disassembly identify another specific optimization opportunity:
+OrderBook.match has 362 typed operations, called by two small methods (16 and 6
+operations). SelectiveInlining's 256-operation bound excludes it. Experiment
+with a 512-operation library bound, preserving the executable policy, recursive
+exclusion, direct-call restrictions and all checks/trace metadata. Consumers are
+native shared images; proof IR is unchanged. Verify normal/exceptional native
+behavior, cleanup and exact traces, existing large/recursive rejection policy
+for executables, plus object/enum/root production tests before adopting a gain.
+
+Maintainer direction: Linux is the numerical performance judge; beating Java on
+macOS is optional. Preserve macOS correctness and report its numbers, but focus
+optimization acceptance on Linux x86-64 and Linux ARM64.
+
+The larger selective library-loop bound measured 77.79 ns/cycle on Mac (versus
+82.34 for the two fixes). Raising the shared LLVM inline threshold to 10000 in
+addition measured 78.88, with no added gain; reverted that threshold experiment.
+Compare the selective-loop change against the committed baseline on Linux before
+adoption. Native and Java project algorithms remain unchanged.
+
+### Third checkpoint: medium library-loop inlining
+
+Physical Estonia Java21: native 124.47, Java 240.28, bridge 178.84 ns/cycle.
+Linux ARM64 matched comparison: native 45.60, Java 65.24, committed two-fix bridge
+82.58, larger-loop bridge 78.16. All three JDKs and per-64-operation latency
+reports are retained at `optimization/estonia-inline/comparison` and
+`optimization/linux-arm64-inline/comparison`. Mac O3 disassembly confirms no
+out-of-line OrderBook.match body/call remains. Normal JNI adapters still preserve
+protected status handling. No engine source or benchmark workload changes.
+
+Seven focused tests pass in `experiments/optimization/inline-focused-tests.log`:
+legacy and new library selection, native checks/cleanup/exact traces, final
+non-reclamation and root proof negatives, cold enums, actual OrderBook allocation
+and weak recreation at O0/O3. Test/build strict compilation and license audit pass.
+
+Longer Linux ARM64 controls do not rehabilitate the earlier cache/LLVM experiments:
+inline plus cold-cache draining 79.98 ns, inline plus joint LLVM/forced entry
+inlining 78.87 ns, versus approximately 78.16 for library-loop inlining alone.
+Keep these changes out of production. One last isolated compiler copy tests
+prioritizing export roots in initialized-type specialization; production source
+is unchanged by that experiment. Its source/jar/artifact live under
+`experiments/optimization/export-priority` and `optimization/linux-arm64-export-priority`.
+
+### Matching JNI boundary controls
+
+The maintainer asks to establish crossing costs directly. Independent handwritten
+JNI controls use the same eight primitive call shapes as the OrderBook cycle,
+with almost empty native bodies and unchanged argument counts. They also measure
+one scalar crossing and a native-to-Java object callback separately. All controls
+pass checked-JNI functional runs before unchecked timing; consumed checksums and
+allocation observations accompany three fresh forks and seven trials per JDK.
+
+Estonia Java21: scalar 7.248 ns, eight-call cycle 60.101 ns, callback 105.295 ns.
+Linux ARM64 Java21: scalar 2.710 ns, eight-call cycle 22.260 ns, callback 54.517 ns.
+Evidence: `optimization/estonia-boundary` and `optimization/boundary-linux-arm64`;
+exact independent sources/runner are in `experiments/optimization/boundary`.
+Callbacks are much more expensive than direct JNI transitions. The controls
+include loop and argument work and are not an exact additive subtraction model.
+All earlier artifacts/evidence remain preserved; no production instrumentation
+or installation was needed.

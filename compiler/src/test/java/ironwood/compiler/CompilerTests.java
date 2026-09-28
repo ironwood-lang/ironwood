@@ -807,6 +807,8 @@ public final class CompilerTests {
                 EnumArgumentTests::nativeArtifacts);
         test("selective inlining bounds loop candidates and preserves fallbacks",
                 ironwood.compiler.backend.SelectiveInliningTests::structure);
+        test("selective library inlining exposes medium loops and preserves recursive fallbacks",
+                ironwood.compiler.backend.SelectiveInliningTests::libraryStructure);
         test("selective inlining preserves native checks cleanup and traces",
                 ironwood.compiler.backend.SelectiveInliningTests::nativeBehavior);
         test("inlining link controls validate budgets and preserve enum specialization",

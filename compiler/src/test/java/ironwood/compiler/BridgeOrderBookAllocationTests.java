@@ -45,6 +45,8 @@ final class BridgeOrderBookAllocationTests {
         Path base = Path.of("workspace/java-bridge/evidence/p4/allocations").toAbsolutePath(); Files.createDirectories(base);
         Path directory = Files.createTempDirectory(base, "run-");
         String llvmText = new LlvmEmitter().emit(admission.program()); Path llvm = directory.resolve("program.ll"); Files.writeString(llvm, llvmText);
+        check(llvmText.lines().anyMatch(line -> line.startsWith("define ") && line.contains("OrderBook.match\"")
+                && line.contains(" alwaysinline")), "actual matching loop lost library inlining");
         Files.writeString(directory.resolve("scope.txt"), "Actual unchanged engine. Test-only counters on facade construction and cache-entry construction.\n"
                 + "Native allocation accessor does not instrument scalar calls. One facade plus one weak Entry per miss; bucket growth is warmed separately.\n"
                 + "generation=" + generation.identity() + "\nllvm=" + digest(llvmText) + "\nadapters=" + digest(adapters.source())
