@@ -576,8 +576,9 @@ retention slots with complete final contracts. Callback surfaces separately requ
 `BridgeCallbackAdmission` or `BridgeOwnedCallbackAdmission`, binding the complete
 native closure, listener proxy lifetime, carrier cleanup and owner guard/slot
 protocol to paired Java/JNI generation. The retained-owner subset has exact final
-primitive/listener layouts, primitive constructors and primitive/void methods;
-reference callback values and copied String owner inputs still reject. General
+primitive/listener layouts, primitive constructors and primitive/void methods.
+Borrowed String inputs reuse P0 protected copy cleanup and noncritical JNI
+buffers; reference callback values still reject. General
 inheritance, arrays and optional TLS dependencies remain rejected at their pending
 implementation boundaries. Linux payloads use the pinned native support closure.
 

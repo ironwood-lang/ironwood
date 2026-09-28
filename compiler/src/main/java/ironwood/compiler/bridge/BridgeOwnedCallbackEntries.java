@@ -68,16 +68,18 @@ public final class BridgeOwnedCallbackEntries {
         }
         var entries = new ArrayList<Entry>();
         for (var root : roots.roots()) {
-            if (root.callable().parameters().contains(IrType.reference("ironwood.lang.String"))) {
-                throw new IllegalArgumentException("owned callback entries require separate copied String cleanup integration");
-            }
             var target = BridgeRootSet.resolve(context.program(), List.of(BridgeCallableId.of(context.entries().get(root.callable()))))
                     .roots().getFirst();
             String symbol = "ironwood_bridge_owned_callback_" + entries.size();
             if (context.program().functions().stream().anyMatch(function -> function.linkageName().equals(symbol))) {
                 throw new IllegalArgumentException("owned callback entry symbol collision");
             }
-            entries.add(new Entry(root.callable(), BridgeProtectedEntryLowering.lower(target, symbol, true),
+            // The owner invocation proof requires every String input to remain
+            // borrowed. P0 lowering owns its copy and cleans it on every exit.
+            var function = root.callable().parameters().contains(IrType.reference("ironwood.lang.String"))
+                    ? BridgeRootEntryLowering.lower(target, symbol, new BridgeRetentionContract(List.of()), true)
+                    : BridgeProtectedEntryLowering.lower(target, symbol, true);
+            entries.add(new Entry(root.callable(), function,
                     proof.guardedInputs().get(root.callable())));
         }
         return new BridgeOwnedCallbackEntries(roots, storage, lifetime, proof, context, entries);

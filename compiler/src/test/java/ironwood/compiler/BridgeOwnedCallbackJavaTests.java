@@ -35,6 +35,19 @@ final class BridgeOwnedCallbackJavaTests {
                         first.listener = a; second.listener = b;
                     }
                     public long value() { return value; }
+                    public long textValue(String input) { return hash(input); }
+                    public long text(String first, String second, long mode) {
+                        long before = hash(first) + hash(second);
+                        listener.call(mode);
+                        if (before != hash(first) + hash(second)) throw new IllegalStateException("changed copied input");
+                        return before;
+                    }
+                    private static long hash(String input) {
+                        if (input == null) return -1L;
+                        long result = 1L;
+                        for (int i = 0; i < input.length(); i++) result = result * 31L + (long)input.charAt(i);
+                        return result;
+                    }
                     public long twice(long n) { Listener saved = listener; return saved.call(n) + saved.call(n + 1L); }
                     public long fire(Holder other, OtherOwner foreign, long n) {
                         long result = listener.call(n);

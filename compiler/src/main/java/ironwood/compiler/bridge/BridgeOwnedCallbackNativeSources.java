@@ -108,11 +108,17 @@ public final class BridgeOwnedCallbackNativeSources {
         var slots = slotEntry.map(entry -> entry.retention().slots()).orElse(List.of());
         var nativeFormals = new ArrayList<String>(); var formals = new ArrayList<String>(); var arguments = new ArrayList<String>();
         var declarations = new StringBuilder(); var prepare = new StringBuilder(); var enter = new StringBuilder(); var leave = new StringBuilder();
-        var cleanup = new StringBuilder();
+        var cleanup = new StringBuilder(); var strings = new ArrayList<Integer>();
         if (call.constructor()) formals.add("jobject reserved");
         for (var input : call.inputs()) {
             int n = input.index(); var type = input.type();
-            if (type.equals(IrType.reference("ironwood.lang.String"))) throw new IllegalArgumentException("owner JNI String copy adapter is not complete");
+            if (type.equals(IrType.reference("ironwood.lang.String"))) {
+                if (input.transport() != BridgeOwnedCallbackJavaSources.Transport.VALUE) throw new IllegalArgumentException("String input lacks value transport");
+                strings.add(n); formals.add("jstring arg" + n);
+                nativeFormals.add("int64_t"); nativeFormals.add("int32_t");
+                arguments.add("(int64_t)(uintptr_t)chars" + n); arguments.add("length" + n);
+                continue;
+            }
             nativeFormals.add(type.isReference() ? "void *" : BridgeValueNativeSources.cType(type));
             switch (input.transport()) {
                 case VALUE -> { formals.add(BridgeValueNativeSources.jniType(type) + " arg" + n); arguments.add("arg" + n); }
@@ -164,6 +170,11 @@ public final class BridgeOwnedCallbackNativeSources {
         }
         var commit = new StringBuilder();
         prepareSlots(admission, listeners, slots, declarations, prepare, commit, cleanup);
+        declarations.append(BridgeStringInputSources.declarations(strings));
+        // All input resources precede native execution and guard entry. A failed
+        // acquisition joins the same reverse cleanup with its JNI error pending.
+        prepare.append(BridgeStringInputSources.acquire(strings).replace("goto preparation_failed;", "{ status = -1; goto cleanup; }"));
+        cleanup.insert(0, BridgeStringInputSources.release(strings));
         if (call.callback()) { nativeFormals.add("int64_t"); arguments.add("(int64_t)(uintptr_t)&context"); }
         nativeFormals.add("struct ironwood_bridge_result *"); arguments.add("&frame.result");
         String resultType = call.constructor() ? "jlong" : BridgeValueNativeSources.jniType(id.result());

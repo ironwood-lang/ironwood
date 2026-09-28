@@ -27,6 +27,7 @@ final class BridgeNonReclamationTests {
                 static void reclaim() { Item temporary = new Item(); free temporary; }
                 static void arrayReclaim() { int[] temporary = new int[1]; free temporary; }
                 static int scalar() { return 42; }
+                static char text(String value) { return value.charAt(0); }
             }
             """;
 
@@ -42,6 +43,10 @@ final class BridgeNonReclamationTests {
         check(contract.checkedClosure().stream().noneMatch(call -> call.name().equals("reclaim")), "unreachable method entered closure");
         check(analyze(program, List.of("identity", "reclaim"), IrType.reference("permanentfixture.Item"))
                 .status() == BridgeProof.Status.REJECTED, "reachable deallocation accepted");
+        var text = analyze(program, List.of("text"), IrType.reference("permanentfixture.Item"));
+        check(text.status() == BridgeProof.Status.PROVED, "character read rejected: " + text.reason());
+        check(analyze(program, List.of("text", "reclaim"), IrType.reference("permanentfixture.Item"))
+                .status() == BridgeProof.Status.REJECTED, "character read concealed reachable deallocation");
         check(analyze(program, List.of("scalar"), IrType.array(IrType.I32)).status() == BridgeProof.Status.PROVED,
                 "registered array descriptor must resolve despite private negative type id");
         check(analyze(program, List.of("arrayReclaim"), IrType.array(IrType.I32)).status() == BridgeProof.Status.REJECTED,

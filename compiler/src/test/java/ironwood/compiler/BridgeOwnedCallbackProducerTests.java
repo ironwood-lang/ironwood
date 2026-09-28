@@ -55,7 +55,8 @@ final class BridgeOwnedCallbackProducerTests {
                 original.replace("private long value;", "private long value; private Holder retained;")
                         .replace("long result = listener.call(n);", "retained = other; long result = listener.call(n);"),
                 original.replace("public long value()", "public Listener unsupported() { return listener; } public long value()"),
-                original.replace("public long value()", "public long copied(String text) { return listener.call(text.length()); } public long value()"));
+                original.replace("private long value;", "private long value; private static String published;")
+                        .replace("long before = hash(first) + hash(second);", "published = first; long before = hash(first) + hash(second);"));
         for (int n = 0; n < rejected.size(); n++) {
             Files.writeString(paths.get(holder), rejected.get(n));
             for (var mode : UnfreedMode.values()) {
@@ -121,6 +122,7 @@ final class BridgeOwnedCallbackProducerTests {
                         Listener a = n -> n + 1L, b = n -> n * 2L;
                         left.store(a); foreign.store(b);
                         check(left.fire(right, foreign, 3L) == 17L);
+                        check(left.textValue(null) == -1L && left.text("a", "b", 0L) == 257L);
                         left.store(n -> { refuse(left::free); refuse(right::free); refuse(foreign::free); left.store(b); return n; });
                         check(left.fire(right, foreign, 3L) == 16L && left.twice(1L) == 6L);
                         Holder.put(left, left, a, b); check(left.twice(1L) == 6L);

@@ -840,9 +840,10 @@ guards; different-class inputs use cached private field metadata and balanced
 JNI-side guards. Fixed slot preparation covers candidates from every write to
 the same field because holder arguments can alias. Scalar getters have no slot
 payload or callback guard. This bounded route admits primitive constructor
-inputs and primitive/owner/listener method inputs with primitive/void results.
-Copied String owner inputs and reference callback values remain rejected pending
-their transport integration. This checkpoint does not complete P5 qualification.
+inputs and primitive/owner/listener/copied String method inputs with primitive/void
+results. Copied Strings require complete borrowing proofs and use P0 protected
+copy cleanup with noncritical JNI acquisition. Reference callback values remain
+rejected pending their transport integration. This checkpoint does not complete P5 qualification.
 
 Primitive callback bodies normalize boolean and integral arguments/results to
 I64 in typed IR, preserving signed byte/short/int and unsigned char semantics.
@@ -873,11 +874,11 @@ never during callback dispatch. Cross-interface or erased listener identity test
 and dynamic listener interface queries remain rejected until their representation
 is proved; a single nominal proxy cannot model Java multi-interface membership.
 The generated interfaces participate in class-loader validation and generation/API
-identity. The current public subset requires top-level nongeneric interfaces with
-abstract primitive methods, and static callback-bearing primitive/void exports.
-It rejects interface fields/inheritance/default/static methods, stateful holders,
-retained listeners, native-object parameters and reference callback values until
-their separate admission paths are integrated. Copied String inputs reuse D206's
+identity. The stateless route requires top-level nongeneric interfaces with
+abstract primitive methods and static callback-bearing primitive/void exports.
+Interface fields/inheritance/default/static methods and reference callback values
+remain rejected. Stateful holders, retained listeners and owner parameters use
+the separate bounded owner admission described above. Copied String inputs reuse D206's
 noncritical JNI buffers and P0/P3 typed copy/cleanup lowering. The bounded proof
 admits immutable String length/character reads, with complete helper dispatch and
 borrowed-input facts; it does not authorize publishing or freeing those copies.
@@ -2116,7 +2117,7 @@ would be unsafe. This is an explicit later capability, not a hidden P3 promise.
 | --- | --- |
 | Transport and producer command | Generated C JNI adapters, `javac --release 21`, single-jar default, exact-package `--export` with exclusive ownership, and the command in section 5. Signature closure cannot silently add facade packages. |
 | API surface | Constructors, static/instance methods, primitives, copied strings with proved cleanup, concrete non-subclassable facades, enums/static nested types, owned roots, borrowed views and compiler-proved non-reclaimable results. Inherited concrete-facade Object methods are Java-only and survive free (D198); supported source overrides retain native preconditions. P2 built-in exception/trace mappings and P3 copyable custom exception snapshots/getters are mandatory before release. |
-| Deferred surface | Callback shapes outside the bounded synchronous/retained-owner proofs, including reference callback values and copied String owner inputs (remaining P5 work), arrays, general `CharSequence`/`Object` arguments (except inherited identity equality), source overrides of `equals(Object)`, exported reference generics, general native inheritance, Java subclassing, mutable public fields, mixed fresh/borrowed reclaimable results, and arbitrary object-graph conversion. Reject unsupported public signatures at producer build. Internal uses remain allowed when their boundary proofs hold. |
+| Deferred surface | Callback shapes outside the bounded synchronous/retained-owner proofs, including reference callback values (remaining P5 work), arrays, general `CharSequence`/`Object` arguments (except inherited identity equality), source overrides of `equals(Object)`, exported reference generics, general native inheritance, Java subclassing, mutable public fields, mixed fresh/borrowed reclaimable results, and arbitrary object-graph conversion. Reject unsupported public signatures at producer build. Internal uses remain allowed when their boundary proofs hold. |
 | Retention | Fixed fields on reclaimable roots with persistent host records only; the authoritative native root index has reserved capacity and JNI global references to Java root state before execution. The adapter commits registration/count/slot updates before Java resumes; only weak facade caching follows in Java. P3 proves every write and rejects slot-value transfers or hidden publication. Borrowed-child retention slots and permanent holders of reclaimable targets are deferred. |
 | OrderBook | Preserve the actual project's process-lifetime graph using P3's non-reclaimable classification. Demonstrate complete `free()`, retention and cross-owner argument behavior using a separate reclaimable owner/child fixture. Reclaimable production OrderBook is a separate producer change; it is not claimed by this release. |
 | Platforms | macOS ARM64, Linux ARM64 and Linux x86-64. Reuse official IDK native baselines, including Linux glibc 2.17; record the macOS deployment target and required CPU features in the artifact. Effective support also requires a supported Java 21-23 JVM on that host. Do not advertise an older OS merely because the native payload can load there. |
