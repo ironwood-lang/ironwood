@@ -208,6 +208,30 @@ complete safety and transport path is implemented and tested.
   `workspace/java-bridge/p5-active-use-test.log` and `p5-active-use-final.log`.
   This is Java component evidence, not an admitted native-facade callback test.
 
+- `9321d5a6`: committed active-use components and focused allocation/refusal checks.
+- D227 carrier-lifetime analysis now binds to the exact program and root set.
+  It traverses complete call/dispatch/initializer/cleanup closures, tracks landed
+  exception aliases through casts and phi nodes, and accepts only known
+  nonpublishing observations and outward rethrows. Stores, ordinary returns,
+  helper/foreign uses and unknown effects retain the carrier. Failed initializer
+  caches and callback-capable cleanup/rollback never acquire temporary ownership.
+  This analysis grants no source `free`, export, or standalone destruction right.
+- Compiler-owned native carrier declaration added, with immutable opaque Java
+  reference and invocation-chain fields, a native factory and reference readers.
+  Binding requires matching semantic API facts and exact generated source;
+  collisions and altered factories are rejected. The representation is an
+  internal unchecked native exception; outward identity uses its Java reference.
+  Runtime allocation/global-reference/cleanup integration is still pending.
+- Exact new test passes in all unfreed modes: `Java Bridge carrier cleanup
+  requires complete nonescaping handler and initialization proofs`. Positive
+  controls: direct propagation, discard, rethrow and replacement. Negative
+  controls: static retention, returned carriers, helper publication, phi aliases,
+  unknown helpers, initialization failure caches, stale facts and source free of
+  caught objects. The generated declaration compiles under ordinary mandatory
+  safety and rejects changed source. Log: `workspace/java-bridge/p5-carrier-lifetime-test.log`.
+  Fixed a test assertion to match the existing `cannot prove free` diagnostic;
+  the compiler already rejected the source. License audit and diff checks pass.
+
 ## Next step
 
 Implement native foreign-failure carriers under D227 and retained listener
