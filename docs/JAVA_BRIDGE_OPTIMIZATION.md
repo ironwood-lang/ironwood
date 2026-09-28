@@ -259,3 +259,14 @@ The repaired focused assembly test passes, including host reproducibility, neste
 permanent identity, checked-JNI execution, unchanged native payload bytes and all
 malformed-input rejections. Evidence: `experiments/optimization/assembly-repair.log`
 and `p6a/assembly/run-7189411520427621978`. Strict build and license audit pass.
+
+### Final measurement preparation
+
+Assembly repair committed as `42dd0d12`. Synchronize the earlier loop-only
+optimizer descriptions with D223. The performance runner now defaults to 10M
+warmup and 50M measured OrderBook operations in all three scenarios (and the
+separately labelled batch control), instead of 1M/2M. Record these counts and the
+eight-operation cycle explicitly; expose positive integer options for reproducing
+older settings. Benchmark algorithms and microbenchmark methods are unchanged.
+Parser/help, licensing and diff checks pass; final matched runs will exercise
+the longer settings. Preserve every earlier short-run result.
