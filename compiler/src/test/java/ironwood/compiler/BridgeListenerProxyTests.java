@@ -7,6 +7,7 @@ import ironwood.compiler.bridge.BridgeExportSurface;
 import ironwood.compiler.bridge.BridgeListenerProxies;
 import ironwood.compiler.bridge.BridgeListenerProxyEntries;
 import ironwood.compiler.bridge.BridgeListenerSlotEntries;
+import ironwood.compiler.bridge.BridgeCallbackNativeSources;
 import ironwood.compiler.bridge.BridgeRootSet;
 import ironwood.compiler.ir.*;
 import ironwood.compiler.semantic.BridgeCallbackReachability;
@@ -60,6 +61,10 @@ final class BridgeListenerProxyTests {
             check(artifact.valid(), artifact.diagnostics().toString());
             slotEntries(artifact, proxies);
             var ownership = BridgeListenerProxyEntries.create(artifact, proxies);
+            var callbacks = BridgeCallbackNativeSources.generate(artifact, proxies);
+            check(callbacks.methods().size() == 1 && callbacks.methods().getFirst().descriptor().equals("(JJ)V")
+                    && callbacks.source().contains("CallVoidMethod") && callbacks.source().contains("ExceptionCheck"),
+                    "generated void callback lost JNI descriptor or exception containment");
             check(ownership.operations().size() == 1 && ownership.matches(artifact) && !ownership.matches(original),
                     "proxy ownership operations are not tied to their final artifact");
             var changed = new java.util.ArrayList<>(sources);
@@ -107,6 +112,15 @@ final class BridgeListenerProxyTests {
                 check(expected.getMessage().contains("collision"), expected.toString());
             }
             sourceSafety(mode);
+            var narrow = List.of(SourceFile.of("Narrow.iron", "package narrow; public interface Narrow { int call(int value); }"));
+            var input = pipeline.analyzeForBridge(narrow);
+            var narrowProxies = BridgeListenerProxies.discover(input, List.of("narrow"));
+            var narrowed = pipeline.analyzeForBridge(narrow, narrowProxies);
+            check(narrowed.valid(), narrowed.diagnostics().toString());
+            try {
+                BridgeCallbackNativeSources.generate(narrowed, narrowProxies);
+                throw new AssertionError("callback admitted without ABI normalization");
+            } catch (IllegalArgumentException expected) { check(expected.getMessage().contains("long"), expected.toString()); }
         }
         artifacts();
     }

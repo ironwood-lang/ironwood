@@ -512,3 +512,30 @@ reentry, listener example and performance/platform qualification remain pending.
   `workspace/java-bridge/evidence/p5/active-use/run-976924001697301359/`;
   log `p5-listener-native-guards.log`. This is component composition, not public
   producer admission or a claim that all dependent-owner placements are proved.
+
+- `08281b06`: committed native guard/destruction-counter evidence. Full private
+  carrier/listener/field/retirement/guard fixture passes O0/O3 on Linux ARM64 and
+  Estonia x86-64, four child modes, pinned Java 21 and LLVM 23, `-Xcheck:jni`.
+  Payload SHA-256 `088d7ff80697a54961c0149f1032067deffbae7e96898b0767a2baf85b29890c`.
+  Evidence: `workspace/java-bridge/p5-linux-08281b06/{arm64,x86_64}/` and
+  `~/temp/java-bridge/p5-08281b06/`; every collected file verifies against its
+  manifest. ARM64 O0 `7e06cee5c3989286c30cc2be041e5c94914c52956945e3e4b043a1ac6614f683`,
+  O3 `77e95dc60f501acdf06ad6be91147c01e6a80a8506b6ddac16e3c5974399e65a`.
+  x86-64 O0 `3525dcee60ec5fd6b29820d329fd5c209b8c0f6d55353a5f31746e93a15d39f8`,
+  O3 `1c3b69f5c000a446a31265ce84daf8027cd60a933dd3c3c50a922c92d9e8b369`.
+- Added generated JNI callback bodies bound to exact typed proxies, with cached
+  method IDs, exact descriptors, explicit invocation JNIEnv and mandatory pending
+  exception capture. The native fixture now runs these generated bodies instead
+  of handwritten JNI dispatch. Long/void currently matches the admitted private
+  foreign ABI; narrower primitives and references still reject this component.
+  Typed foreign effects and public producer rejection remain unchanged.
+- Mac O0/O3 carrier/lifecycle/guard tests pass with generated bodies; proxy
+  source/class/archive controls and unsupported-ABI rejection pass in every
+  unfreed mode. Log `p5-generated-callbacks.log`; evidence
+  `workspace/java-bridge/evidence/p5/carriers/run-14830068004286853686/`.
+
+Next independent validation: D206 outer copied Strings must survive allocating,
+reentrant and throwing callbacks, with separately owned nested buffers and exact
+partial-failure cleanup. Production admission still requires complete invocation
+and owner proofs, carrier-primary native enrichment, additional callback value
+ABIs, the example, benchmarks and the full P5 qualification matrix.
