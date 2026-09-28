@@ -422,3 +422,121 @@ compiler copy lives in `experiments/optimization/enum-tail`; production source
 and the frozen producer are unchanged. Before adoption require paired CFG,
 mutable-field, initialization, safety-negative, reconstruction and checked
 native regressions plus an unchanged-API physical Linux comparison.
+
+
+The continuation prototype produces through the unchanged final lifetime gates,
+passes checked JNI and the original zero-warm-allocation consumer, and emits
+231 duplicated blocks across eight protected entries. Existing constant-argument
+specialization now sees BUY/SELL in the createLimit/createMarket callees. Linux
+ARM64 still shows no gain: native 44.67, Java 63.78, reference bridge 79.18,
+prototype 80.02 ns/cycle in the three-fork comparison. A ten-fork physical x86
+comparison is running before disposition. This remains scratch-only.
+
+A separate isolated generated-Java experiment changes only the permanent cache's
+initial bucket count from 16 to 256, retaining the exact frozen native payload,
+weak references, queue drainage and all root caches. Its pre-change plan is
+`experiments/optimization/cache-capacity-plan.md`. Ten shuffled Estonia forks
+invoke the same benchmark wrapper and inspect bucket chains only after timing.
+Current median is 177.17 ns/cycle; larger cache is 175.33. Three current runs have
+one collision, while all larger-cache runs have none, but the ranges overlap
+and collision-free runs still vary. Only six of ten paired runs improve. Do not
+infer that collisions explain the remaining gap or adopt the larger cold array
+on this evidence. Checked JNI and zero warm allocation pass. Exact sources,
+class/native hashes, all fork values and post-timing chain counts are preserved
+under `experiments/optimization/cache-capacity`; no production cache change.
+
+
+The ten-fork continuation comparison finishes: physical x86 current 180.99,
+prototype 177.80 ns/cycle (nine of ten paired runs lower). Repeating on Linux
+ARM64 resolves the earlier uncertainty: current 76.86, prototype 78.59 ns/cycle,
+with eight of ten pairs worse. Do not enable this across all targets.
+
+Pre-change scope refinement: the Java Bridge currently supports host-native
+builds only, classifies the host as Linux amd64/x86_64 or either ARM64 target,
+and audits final ELF machine identity against that host selection. Select the
+continuation optimization only for Linux x86-64 during the actual typed native
+transformation, before final lifetime proofs. Keep direct pass tests explicit
+and leave ARM64 and ordinary executable IR unchanged. Existing host-neutral Java
+API/generation identity remains based on original source/API/compiler identity;
+target/build identity already includes the emitted LLVM and target. Do not infer
+target selection from native object contents or bypass its audit.
+
+Add a separate 2,048-operation total duplication budget and 256-operation
+per-continuation cap; old initialized-group budgets remain intact. Preserve
+original cold blocks, all export roots and callable provenance. Cover policy
+selection, exact enum/null paths, nonconstant joins, outside entries, loop
+backedges, SSA renaming, source/exception metadata, and budget refusals. Re-run
+focused native initialization/artifact/trace/safety and bridge proof tests, then
+refresh production artifacts as space permits. Preserve the old compiler/build
+in `optimization/frozen-producer-e3150db6` before rebuilding. The remote loader
+and additional retained artifacts remain subject to the unresolved disk-space
+blocker; no remote evidence removal is authorized yet.
+
+Production implementation review found a bounded-growth corner case: a recursive
+export's fast body can be emitted in both the guarded root and its guardless
+clone. Restrict this new duplication to guarded nonrecursive export roots,
+excluding any function already selected for a callee clone. This keeps the
+separate growth accounting exact and leaves the eight measured OrderBook entries
+eligible. The new structural regression covers recursive export fallback as well
+as enum/null SSA, external operands, invokes/landing pads, mutable and unknown
+inputs, outside entries, loop backedges, source metadata and budget refusals.
+The first structural pair and five focused Mac native/artifact/safety tests pass.
+Rosetta x86 bridge proof/consumer tests are running against a fixed pre-review
+build; retain that distinction and re-run affected checks after the final build.
+
+
+### Continuation experiment disposition: not retained
+
+The reviewed implementation passes both structural selections, all seven focused
+Rosetta x86 checks, and the additional actual OrderBook class/archive O0/O3
+producer comparison against paired Java, including pool recovery and checked
+JNI. Physical Estonia checks also pass on Java21-23 with zero warm Java
+allocation. Passing safety checks does not establish a performance improvement.
+
+The repeat physical comparison does not reproduce the initial ten-fork gain:
+
+| JDK | Forks | Current bridge ns/cycle | Continuation experiment ns/cycle |
+| --- | ---: | ---: | ---: |
+| 21 | 10 | 176.96 | 179.32 |
+| 22 | 3 | 186.56 | 181.47 |
+| 23 | 3 | 186.04 | 181.24 |
+
+Java21 improves in only three of ten pairs, reversing the earlier nine-of-ten
+result. The paired native median is 124.06 ns/cycle and Java21 is 248.23, with
+material Java fork variation retained in the raw evidence. Extra Java22/23
+observations favor the experiment but do not resolve its inconsistent Java21
+result. Do not select only the favorable run or claim a universal regression.
+
+The reviewed and initial prototype `.text` sections are byte-for-byte identical:
+39,960 bytes, SHA-256
+`bd61f4383ab5cee8c00070196ee1267cb06cb5d358bda92bfa23a64801940b07`.
+Thus a changed machine-code body does not explain the reversed small result.
+Three clock-included latency forks per supported JDK are also preserved, but
+that supplement lacks an interleaved current-bridge latency arm and cannot by
+itself establish this optimization's gain. No performance acceptance is inferred.
+
+Preserve the complete reviewed source, regressions, proposed decision text,
+compiler, jars, LLVM, disassembly, command lines and raw results under
+`evidence/optimization/enum-continuation-production`. Despite its historical
+folder name, this is now an **unadopted experiment**, not a replacement candidate.
+Its jar SHA-256 is
+`61bdf2bd2a7bc7bee4a6f4964ded35a3295499fbb7a528c8179acda166aa9d49`;
+native payload SHA-256 is
+`30236f3b3ba48608de33ce3f7b2c393af9a940578bd6856fbf6151215c6afdc4`.
+The physical evidence archive SHA-256 is
+`28f76d8715388bbfe0992510c5797b236c163364a148258727be90a133662817`.
+All remote originals remain. Only the runner's newly generated temporary
+extraction files were inventoried, hashed and cleaned after assertions passed.
+
+Reversed only this experiment's uncommitted source/documentation hunks and
+preserved its two newly created source files in the evidence directory. No D224
+is adopted. The rebuilt compiler's 799 jar entries match the frozen e3150db6
+producer byte-for-byte; final baseline checks are recorded beside that identity
+comparison. D220-D223 and the fixed candidate remain the retained implementation.
+The rejected joint-bitcode and larger-cache experiments likewise remain scratch.
+
+The remaining physical loader qualification is still blocked by available disk
+space. Existing non-temporary files, transferred artifacts and containers were
+not deleted. Verified backups are available, but permission to remove duplicate
+remote evidence is still pending. ARM64 performance remains behind Java; the
+user's close-to-standalone target and final numerical acceptance remain open.

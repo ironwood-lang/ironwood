@@ -9,6 +9,13 @@ trails Java on the tested Linux ARM64 workload and remains slower than standalon
 native on both Linux targets. Numerical acceptance and release readiness remain
 open; the refreshed x86 loader matrix is still blocked by disk space.
 
+Further joint-bitcode, cache-capacity and enum-continuation experiments did not
+establish a repeatable improvement sufficient for adoption. The final
+continuation repeat used identical machine code to its earlier promising
+prototype but reversed its small Java21 gain. These experiments are retained
+separately in [the optimization log](JAVA_BRIDGE_OPTIMIZATION.md#continuation-experiment-disposition-not-retained);
+the measurements below still describe the unchanged frozen e3150db6 candidate.
+
 ## Same OrderBook workload, three execution scenarios
 
 These measurements use the unchanged project `Bench` algorithm and verified
