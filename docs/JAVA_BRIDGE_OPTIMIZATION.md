@@ -754,3 +754,59 @@ frozen compiler. The only runner adjustment inventories and cleans new child
 extraction files after all original assertions and payload comparisons. Built
 fixtures remain in RAM until archived and verified on Mac. No installs, remote
 source edits, pre-existing-file deletion, image/container deletion or publishing.
+
+
+The first RAM attempt fails its first child before bridge code: Docker's default
+`--mount type=tmpfs` is noexec, so HotSpot cannot map `inspector.so`. Exit 1,
+not OOM; the failure and patched-runner identity remain on host/Mac. That
+container exited and its new temporary RAM files were released. A second named
+container explicitly permits execution only on its new scratch tmpfs. Its
+controller also stays alive after test failure until the generated evidence is
+archived and verified, preventing loss of future failed-run scratch evidence.
+No production change or assertion relaxation is involved. Session 78270 runs
+that attempt; a separate bounded-output SSH session waits for readiness and
+streams its archive to Mac. Existing remote files and containers are preserved.
+
+
+The second controller mistakenly reused the first controller's output directory
+and exited before any tests; it did not overwrite that directory. Corrected the
+scratch runner to use a new `loader-ram-control-exec2` directory and a third
+named container. Its mount inventory and a separate `ctypes.CDLL` child confirm
+that `inspector.so` maps successfully before the full cases run. These are
+harness/environment retries, not production changes or passing qualification.
+
+### Refreshed physical loader matrix and final experiment
+
+The executable RAM retry passes all 114 original loader cases, O0/O3 times
+Java21-23 times 19 scenarios, using the final frozen D224 producer. The original
+assertions remain unchanged. An exact-segment archive deduplicates repeated raw
+ZIP members without rewriting file contents. Local reconstruction verifies every
+one of 2,321 files, 5,945,569,181 bytes and 857 independent identity entries;
+all 114 result records have exit zero. Archive SHA-256 is
+`24653ac21b3cf088ebd02a84d8cb4e7e4edc693c4cbf8fd344ecd72c30ab569b`.
+The archive, independent inventory and verification record are retained under
+`private-enum-final/x86`; the decoder is `private-enum-final/verify-packed-loaders.py`.
+The obsolete slower stream was stopped and its
+partial archive preserved. Only after verification was the controller permitted
+to release its newly generated RAM scratch. Existing remote files, archives,
+images and containers remain. The earlier disk-cleanup request is no longer
+needed to finish this matrix.
+
+An isolated joint adapter/typed-entry optimization was reconsidered after D224.
+Its full source/native/Java exception traces match the baseline; private enum
+structure/native O0/O3 regressions and checked OrderBook zero-allocation checks
+pass. Native assembly removes the separate entry calls. Nevertheless, ten paired
+ARM forks give current/prototype medians 74.6648/74.3933 ns/cycle, a paired median
+change of -0.0946 ns and paired mean change of +0.7622 ns. Seven of ten improve,
+but two prototype forks exceed 80 ns versus about 75 ns for the baseline.
+Reject this inconsistent result; production remains commit `694ada30`. Archive
+work was explicitly paused throughout timing. Keep all source, payloads,
+commands and observations in `experiments/optimization/joint-after-fixed`.
+
+The final report remains `JAVA_BRIDGE_D224_PERFORMANCE.md`. The three-scenario
+physical Java21 throughput is 64.51M native, 32.34M Java and 46.37M bridge
+operations/s. Linux ARM64 is 174.14M, 123.12M and 104.76M respectively. Numerical
+review is pending; all-Linux superiority, native parity and release readiness
+are not achieved. Further implementation needs a demonstrable gain under the
+existing safety/API contracts; do not adopt rejected experiments or relabel
+their measurements as production evidence.
