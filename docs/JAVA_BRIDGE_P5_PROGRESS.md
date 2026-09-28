@@ -877,3 +877,40 @@ primitive operations, null tests and native exception handlers remain unchanged.
   `c0fd881fe85aa2934305cbe695e9d91d0b3a329a922509ca620a6ddadcc3bbda`.
   Source/runtime/producer identities, commands, settings and disassembly are
   retained. License/diff checks pass. Linux qualification of this revision is next.
+
+Owner invocation pre-change review: reuse the synchronous closure walker with a
+separate, bound owner proof. Eligible roots must already have final P0 construction,
+rollback and destruction proofs; their exact final classes contain only primitive
+and listener fields. Constructors start listener fields empty. Invocation inputs
+remain borrowed, results primitive/void, and all owner inputs become explicit
+guard obligations. Permit primitive field mutation and listener reads, but reject
+listener writes, independent-root graphs, static state, ordinary allocations/free
+and unknown dispatch in callback-bearing calls. Slot mutation remains the separate
+callback-free attribution protocol. No public admission follows from this component.
+Pair instance/static/helper acceptance with retained-input, hidden-state,
+listener-mutation, nonempty-construction and stale-proof refusals in all unfreed
+modes and reconstructed source/class/archive inputs. Run existing synchronous,
+listener-slot and foreign-effect controls. No shared source reclamation rule or
+foreign borrowing exemption changes.
+
+Linux synchronous checkpoint at `35ab7f41`: packaged source/class/archive,
+copied Strings and listener aliases pass on both architectures. All six bounded
+stack cells also pass on each. Limit diagnostics exposed validation scratch
+exhaustion late in JDK23 O3: repeated child payload extraction filled the 1GiB
+container tmpfs, producing `LinkageError: No space left on device`, not a stack
+limit. Preserve those logs, scope each child to its own disposable scratch
+directory, then rerun the matrix against the same archived compiler. The earlier
+missing-JAR archive error was corrected using a separately hashed compiler
+supplement; no production compiler fix was needed for either harness issue.
+
+Owner proof checkpoint: `BridgeOwnedCallbackProof` binds exact final P0 storage
+to the complete invocation closure and immutable receiver/argument guard indices.
+Safe instance/static/helper forms pass in every unfreed mode and source, loose
+class and archive reconstruction. Listener mutation, native owner graphs, static
+state, owner publication, ordinary allocation/free, nonempty listener construction
+and reference constructor inputs reject. Stale artifact/module/root bindings also
+reject. Existing synchronous, listener-proxy/slot and foreign-effect controls pass
+(`p5-owner-proof-controls.log`, four tests). The first new test run caught a missing
+`@Override` in a negative fixture; fixed the fixture before testing its proof.
+License and diff checks pass. Protected owner entries and host guard integration
+are next; public stateful producer signatures remain rejected.

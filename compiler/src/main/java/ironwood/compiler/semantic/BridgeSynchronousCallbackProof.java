@@ -36,6 +36,13 @@ public final class BridgeSynchronousCallbackProof {
 
     public static BridgeSynchronousCallbackProof prove(CompilationArtifact artifact,
             BridgeListenerProxies proxies, BridgeRootSet requested) {
+        return proveOwned(artifact, proxies, requested, Set.of());
+    }
+
+    // Only BridgeOwnedCallbackProof supplies owner types, after final storage
+    // admission. This overload is not a signature-based producer permission.
+    static BridgeSynchronousCallbackProof proveOwned(CompilationArtifact artifact,
+            BridgeListenerProxies proxies, BridgeRootSet requested, Set<IrType> owners) {
         proxies.validateArtifact(artifact);
         var program = artifact.program().orElseThrow();
         var roots = requested.revalidate(program);
@@ -57,7 +64,7 @@ public final class BridgeSynchronousCallbackProof {
         var pending = new ArrayList<IrFunction>();
         for (var root : roots.roots()) {
             var id = root.callable();
-            if (!facts.isStatic(id) || id.kind() != IrCallableKind.METHOD
+            if ((!facts.isStatic(id) && !owners.contains(IrType.reference(id.owner()))) || id.kind() != IrCallableKind.METHOD
                     || !(id.result().isPrimitive() || id.result().equals(IrType.VOID))) {
                 throw new IllegalArgumentException("synchronous callback requires static primitive/void result roots");
             }
@@ -65,10 +72,11 @@ public final class BridgeSynchronousCallbackProof {
             for (int index = 0; index < id.parameters().size(); index++) {
                 var type = id.parameters().get(index);
                 if (type.isPrimitive()) continue;
-                if ((!listeners.contains(type) && !type.equals(IrType.reference("ironwood.lang.String"))) || !facts.borrowsInput(id, index)) {
+                if ((!listeners.contains(type) && !owners.contains(type)
+                        && !type.equals(IrType.reference("ironwood.lang.String"))) || !facts.borrowsInput(id, index)) {
                     throw new IllegalArgumentException("synchronous callback requires borrowed listener inputs: " + id.linkage());
                 }
-                listener |= listeners.contains(type);
+                listener |= listeners.contains(type) || owners.contains(type);
             }
             if (!listener || !entries.get(id).foreign() || !entries.get(id).complete()) {
                 throw new IllegalArgumentException("synchronous callback requires a complete callback-bearing closure");
@@ -117,11 +125,24 @@ public final class BridgeSynchronousCallbackProof {
                             && store.receiver().equals(function.parameters().getFirst().value())) {
                         // Only the proved constructor initializes its own fresh
                         // exception. This cannot mutate a caught callback carrier.
-                    } else if (!localValueOperation(operation)) throw rejected(function, operation);
+                    } else if (!ownerValueOperation(operation, owners, Set.copyOf(listeners))
+                            && !localValueOperation(operation)) throw rejected(function, operation);
                 }
             }
         }
         return new BridgeSynchronousCallbackProof(program, roots, visited);
+    }
+
+    private static boolean ownerValueOperation(IrInstruction operation, Set<IrType> owners, Set<IrType> listeners) {
+        return switch (operation) {
+            case IrFieldLoadInstruction load -> owners.contains(load.receiver().type())
+                    && load.receiver().type().equals(IrType.reference(load.field().ownerClass()))
+                    && (load.field().type().isPrimitive() || listeners.contains(load.field().type()));
+            case IrFieldStoreInstruction store -> owners.contains(store.receiver().type())
+                    && store.receiver().type().equals(IrType.reference(store.field().ownerClass()))
+                    && store.field().type().isPrimitive();
+            default -> false;
+        };
     }
 
     private static IllegalArgumentException rejected(IrFunction function, IrInstruction operation) {

@@ -156,6 +156,7 @@ public final class CompilerTests {
         test(BridgeCallbackCarrierNativeTests.NAME, BridgeCallbackCarrierNativeTests::carriers);
         test(BridgePrimitiveCallbackNativeTests.NAME, BridgePrimitiveCallbackNativeTests::primitives);
         test(BridgeSynchronousCallbackTests.NAME, BridgeSynchronousCallbackTests::proofs);
+        test(BridgeOwnedCallbackTests.NAME, BridgeOwnedCallbackTests::proofs);
         test(BridgeCallbackProducerTests.NAME, BridgeCallbackProducerTests::producer);
         test(ironwood.compiler.bridge.BridgeCallbackActiveUseTests.NAME,
                 ironwood.compiler.bridge.BridgeCallbackActiveUseTests::guards);
