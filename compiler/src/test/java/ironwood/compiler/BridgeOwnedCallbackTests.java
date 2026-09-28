@@ -4,6 +4,7 @@ package ironwood.compiler;
 
 import ironwood.compiler.bridge.*;
 import ironwood.compiler.semantic.BridgeOwnedCallbackProof;
+import ironwood.compiler.semantic.BridgeOwnedListenerSlots;
 import ironwood.compiler.source.SourceFile;
 
 import java.io.ByteArrayOutputStream;
@@ -20,11 +21,13 @@ final class BridgeOwnedCallbackTests {
     private static final String SOURCE = """
             package ownercallbacks;
             public interface Listener { long call(long value); }
-            final class Holder {
+            public final class Holder {
                 private Listener listener;
                 private long value;
                 public Holder(long seed) { value = seed; }
                 public void store(Listener input) { listener = input; }
+                public void clear() { listener = null; }
+                public long value() { return value; }
                 public long fire(Holder other, long n) { return helper(this, other, n); }
                 private static long helper(Holder self, Holder other, long n) {
                     long before = self.value + other.value;
@@ -41,7 +44,7 @@ final class BridgeOwnedCallbackTests {
 
     static void proofs() throws Exception {
         for (var mode : UnfreedMode.values()) {
-            accepted(List.of(SourceFile.of("Listener.iron", SOURCE)), mode);
+            accepted(sources(SOURCE), mode);
             for (var rejected : Map.of(
                     "listener write", SOURCE.replace("self.value = before + result;", "self.listener = null;"),
                     "root retention", SOURCE.replace("private Listener listener;", "private Listener listener; private Holder saved;")
@@ -55,10 +58,15 @@ final class BridgeOwnedCallbackTests {
                             "public Holder(long seed) { value = seed; listener = new Local(); }")
                             + "final class Local implements Listener { @Override public long call(long n) { return n; } }",
                     "reference constructor", SOURCE.replace("public Holder(long seed) { value = seed; }",
-                            "public Holder(Listener input) { listener = input; }")
+                            "public Holder(Listener input) { listener = input; }"),
+                    "callback during slot write", SOURCE.replace("listener = input;", "listener = input; input.call(1L);"),
+                    "hidden listener publication", SOURCE.replace("private Listener listener;", "private Listener listener; private static Listener saved;")
+                            .replace("listener = input;", "listener = input; saved = input;"),
+                    "dynamic listener query", SOURCE.replace("listener = input;", "listener = input; if (input instanceof Other) value = 1L;")
+                            + "interface Other { long accept(long n); }"
             ).entrySet()) {
                 try {
-                    proof(List.of(SourceFile.of("Listener.iron", rejected.getValue())), mode, false);
+                    proof(sources(rejected.getValue()), mode, false);
                     throw new AssertionError("owner callback admitted " + rejected.getKey() + " in " + mode);
                 } catch (IllegalArgumentException expected) {
                     check(!expected.getMessage().isBlank(), expected.toString());
@@ -67,16 +75,20 @@ final class BridgeOwnedCallbackTests {
         }
         Path directory = Files.createTempDirectory("bridge owner callback proof ");
         try {
-            Path source = directory.resolve("Listener.iron"); Files.writeString(source, SOURCE);
+            Path source = directory.resolve("Listener.iron"), holder = directory.resolve("Holder.iron");
+            var sources = sources(SOURCE);
+            Files.writeString(source, sources.get(0).content()); Files.writeString(holder, sources.get(1).content());
             Path classes = directory.resolve("classes"), archive = directory.resolve("owners.ironjar");
             var bytes = new ByteArrayOutputStream();
             var output = new PrintStream(bytes, true, StandardCharsets.UTF_8);
-            check(Main.run(new String[]{source.toString(), "-d", classes.toString()}, output, output) == 0, bytes.toString(StandardCharsets.UTF_8));
+            check(Main.run(new String[]{source.toString(), holder.toString(), "-d", classes.toString()}, output, output) == 0,
+                    bytes.toString(StandardCharsets.UTF_8));
             check(IronJarMain.run(new String[]{"--create", "--file", archive.toString(), classes.toString()}, output, output) == 0,
                     bytes.toString(StandardCharsets.UTF_8));
-            Files.delete(source);
-            for (var container : List.of(classes, classes.resolve("ownercallbacks/Listener.ironclass"), archive)) {
-                var loaded = new SourceSetLoader(List.of(directory.resolve("missing")), List.of(container)).loadBridge(List.of(), List.of("ownercallbacks"));
+            Files.delete(source); Files.delete(holder);
+            for (var containers : List.of(List.of(classes), List.of(classes.resolve("ownercallbacks/Listener.ironclass"),
+                    classes.resolve("ownercallbacks/Holder.ironclass")), List.of(archive))) {
+                var loaded = new SourceSetLoader(List.of(directory.resolve("missing")), containers).loadBridge(List.of(), List.of("ownercallbacks"));
                 check(loaded.diagnostics().isEmpty(), loaded.diagnostics().toString());
                 for (var mode : UnfreedMode.values()) accepted(loaded.sources(), mode);
             }
@@ -85,6 +97,12 @@ final class BridgeOwnedCallbackTests {
                 for (var path : paths.sorted(Comparator.reverseOrder()).toList()) Files.delete(path);
             }
         }
+    }
+
+    private static List<SourceFile> sources(String source) {
+        int start = source.indexOf("public final class Holder");
+        return List.of(SourceFile.of("Listener.iron", source.substring(0, start)),
+                SourceFile.of("Holder.iron", "package ownercallbacks;\n" + source.substring(start)));
     }
 
     private static void accepted(List<SourceFile> sources, UnfreedMode mode) {
@@ -100,22 +118,43 @@ final class BridgeOwnedCallbackTests {
         var pipeline = new CompilerPipeline(mode);
         var original = pipeline.analyzeForBridge(sources);
         check(original.valid(), original.diagnostics().toString());
-        var proxies = BridgeListenerProxies.discover(original, List.of("ownercallbacks"));
-        var artifact = pipeline.analyzeForBridge(sources, proxies);
+        var carrier = BridgeCallbackCarrierSources.discover(original);
+        var combined = new java.util.ArrayList<>(sources); combined.add(carrier.source());
+        var proxies = BridgeListenerProxies.discover(pipeline.analyzeForBridge(combined), List.of("ownercallbacks"));
+        var artifact = pipeline.analyzeForBridge(combined, proxies);
         check(artifact.valid(), artifact.diagnostics().toString());
         var program = artifact.program().orElseThrow();
         var constructors = BridgeRootSet.resolve(program, program.functions().stream()
                 .filter(function -> function.ownerClass().equals("ownercallbacks.Holder") && function.constructor())
                 .map(BridgeCallableId::of).toList());
-        var storage = BridgeEntryModule.rootObjects(artifact, constructors);
+        var storage = BridgeEntryModule.callbackOwnerStorage(artifact, constructors);
+        var proxyEntries = BridgeListenerProxyEntries.create(artifact, proxies);
+        check(storage.entrySymbols().stream().noneMatch(symbol -> proxyEntries.functions().stream()
+                .anyMatch(function -> function.linkageName().equals(symbol))), "owner and proxy storage symbols collide");
         var finalStorage = BridgeFinalRootRetention.prove(artifact, storage);
         if (finalStorage.status() != BridgeProof.Status.PROVED) throw new IllegalArgumentException(finalStorage.reason());
         var lifetime = finalStorage.contract().orElseThrow();
+        var slotRoots = BridgeRootSet.resolve(program, program.functions().stream().filter(function ->
+                function.ownerClass().equals("ownercallbacks.Holder") && List.of("store", "clear", "value").contains(function.sourceName()))
+                .map(BridgeCallableId::of).toList());
+        var slots = BridgeOwnedListenerSlots.prove(artifact, proxies, slotRoots, storage, lifetime);
+        check(slots.matches(artifact, slotRoots, storage, lifetime) && !slots.matches(original, slotRoots, storage, lifetime),
+                "owner slot proof lost storage binding");
+        check(slots.entries().entries().stream().filter(entry -> entry.callable().name().equals("value"))
+                .allMatch(entry -> entry.retention().slots().isEmpty()), "scalar getter acquired slot reconciliation");
         var roots = BridgeRootSet.resolve(program, program.functions().stream().filter(function ->
                 function.ownerClass().equals("ownercallbacks.Holder") && List.of("fire", "direct").contains(function.sourceName()))
                 .map(BridgeCallableId::of).toList());
         var proof = BridgeOwnedCallbackProof.prove(artifact, proxies, roots, storage, lifetime);
         if (controls) {
+            var composition = BridgeOwnedCallbackAdmission.prove(artifact, proxies, carrier, List.of("ownercallbacks"));
+            check(composition.status() == BridgeProof.Status.PROVED, composition.reason());
+            var admitted = composition.contract().orElseThrow();
+            check(admitted.matches(artifact, admitted.surface()) && !admitted.matches(original, admitted.surface()),
+                    "native owner composition lost exact artifact identity");
+            check(admitted.entries().entries().size() == admitted.surface().roots().roots().size(), "partial composed surface");
+            check(new ironwood.compiler.backend.LlvmEmitter().emit(admitted.program()).contains("ironwood_bridge_owned_callback_"),
+                    "composed owner program cannot emit its protected callbacks");
             var entries = BridgeOwnedCallbackEntries.create(artifact, proxies, roots, storage, lifetime);
             check(entries.matches(artifact, roots) && !entries.matches(original, roots), "owner entries lost final binding");
             for (var entry : entries.entries()) {
@@ -141,7 +180,7 @@ final class BridgeOwnedCallbackTests {
             check(proof.matches(artifact, roots, storage, lifetime), "own proof mismatch");
             check(!proof.matches(original, roots, storage, lifetime), "unbound artifact accepted");
             check(!proof.matches(artifact, constructors, storage, lifetime), "changed invocation accepted");
-            var otherStorage = BridgeEntryModule.rootObjects(artifact, constructors);
+            var otherStorage = BridgeEntryModule.callbackOwnerStorage(artifact, constructors);
             check(!proof.matches(artifact, roots, otherStorage, lifetime), "different storage proof accepted");
             try {
                 BridgeOwnedCallbackProof.prove(artifact, proxies, roots, otherStorage, lifetime);

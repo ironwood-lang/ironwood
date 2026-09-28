@@ -945,3 +945,40 @@ owner source/class/archive test and allocation-free Java guard controls pass too
 `workspace/java-bridge/evidence/p5/active-use/run-8642052811359335787/`.
 Public holder composition, copied owner-call inputs and reference callback values
 remain unfinished. The existing private fixture is not a packaged holder API.
+
+Holder composition review: callback-free scalar and listener-slot methods also
+need the exact owner-storage proof. Pair P0's complete slot attribution with the
+bounded native-state closure and non-reclamation of both owners and generated
+proxies. Permit only exact owner fields, primitive results and primitive/owner/
+listener inputs; reject hidden publication, implicit callbacks, native listener
+construction and arbitrary heap operations. Reuse the closure walker without
+changing unknown foreign effects. Constructor, callback and slot helper symbols
+must remain disjoint in the combined module. Verify these component bindings and
+safe/unsafe slot methods before connecting any public producer signature.
+
+Native holder composition checkpoint: `BridgeOwnedListenerSlots` now binds
+callback-free scalar/slot methods to exact final root storage, complete P0 write
+attribution and owner/proxy non-reclamation. Hidden listener publication, callback
+execution during a setter and dynamic interface queries reject. Scalar getters
+have no slot payload. Owner storage helpers use a separate symbol namespace.
+`BridgeOwnedCallbackAdmission` composes the selected constructor, slot and callback
+roots with carrier cleanup and bounded exception projection, then emits a finished
+native program. This is internal admission only; no public producer route is enabled.
+
+The first integration run exposed a missing bounded-proof case for failed native
+exception construction. A trace-only shortcut was insufficient because Throwable
+owns message storage. The corrected case requires P0's exact unpublished unwind
+match plus its complete nonthrowing, allocation-free rollback proof, including
+owned-message cleanup. It grants no ordinary or caught-exception reclamation.
+Public fixture files and loose-class inputs were also corrected to include both
+separate public declarations. Preserved failure logs and the IR inspection in
+`workspace/java-bridge/owner-debug/`.
+
+Final focused controls pass (`p5-owner-composition-final.log`, three tests): full
+native carrier/holder modes at O0/O3, prior synchronous acceptance/refusal, and
+owner/native composition with source/class/archive parity in all unfreed modes.
+The existing final-root/slot/getter/cleanup control also passed in
+`p5-owner-composition-controls.log`; only the two failing tests and affected
+synchronous proof were rerun after fixes. Carrier evidence:
+`workspace/java-bridge/evidence/p5/carriers/run-11871365283071531441/`.
+License and diff checks pass. Paired Java facade/native holder adapters are next.

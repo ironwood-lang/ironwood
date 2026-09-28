@@ -139,6 +139,60 @@ public final class BridgeEntryModule {
         return new BridgeEntryModule(module, support, artifact.program().orElseThrow());
     }
 
+    /** Composition requires independent final storage, callback and callback-free slot proofs. */
+    public static BridgeEntryModule ownedCallbacks(CompilationArtifact artifact, BridgeRootSet requested,
+            BridgeEntryModule storage, ironwood.compiler.BridgeFinalRootRetention lifetime,
+            BridgeOwnedCallbackEntries callbacks, Optional<ironwood.compiler.semantic.BridgeOwnedListenerSlots> slots,
+            BridgeListenerProxyEntries proxies, BridgeCallbackCarrierEntries carriers, BridgeCallbackCarrierCleanup cleanup) {
+        var original = artifact.program().orElseThrow();
+        var callbackRoots = BridgeRootSet.resolve(original, callbacks.entries().stream()
+                .map(BridgeOwnedCallbackEntries.Entry::callable).toList());
+        if (!storage.matchesOriginal(artifact) || !lifetime.matches(storage, lifetime.program())
+                || !callbacks.matches(artifact, callbackRoots, storage, lifetime) || !proxies.matches(artifact)
+                || !carriers.matches(artifact) || !cleanup.matches(artifact, callbackRoots)) {
+            throw new IllegalArgumentException("owner callback module requires matching complete component proofs");
+        }
+        var lowered = new java.util.LinkedHashMap<BridgeCallableId, IrFunction>();
+        storage.entries().forEach(entry -> lowered.put(entry.root().callable(), entry.function()));
+        callbacks.entries().forEach(entry -> {
+            if (lowered.putIfAbsent(entry.callable(), entry.function()) != null) {
+                throw new IllegalArgumentException("owner callback root has multiple lowering routes");
+            }
+        });
+        if (slots.isPresent()) {
+            var slotProof = slots.orElseThrow();
+            var slotRoots = BridgeRootSet.resolve(original, slotProof.entries().entries().stream()
+                    .map(BridgeListenerSlotEntries.Entry::callable).toList());
+            if (!slotProof.matches(artifact, slotRoots, storage, lifetime)) {
+                throw new IllegalArgumentException("owner callback module requires matching slot ownership");
+            }
+            slotProof.entries().entries().forEach(entry -> {
+                if (lowered.putIfAbsent(entry.callable(), entry.function()) != null) {
+                    throw new IllegalArgumentException("owner slot root has multiple lowering routes");
+                }
+            });
+        }
+        var roots = requested.revalidate(original);
+        if (!roots.resolved() || !lowered.keySet().equals(roots.roots().stream().map(BridgeRootSet.Root::callable).collect(Collectors.toSet()))) {
+            throw new IllegalArgumentException("owner callback module must cover exactly the requested roots");
+        }
+        var base = callbacks.context().program();
+        var additions = new ArrayList<>(proxies.functions());
+        additions.addAll(carriers.functions());
+        additions.add(cleanup.destruction());
+        storage.destructions().forEach(entry -> additions.add(entry.function()));
+        var functions = new ArrayList<>(base.functions());
+        functions.addAll(lowered.values()); functions.addAll(additions);
+        if (functions.stream().map(IrFunction::linkageName).distinct().count() != functions.size()) {
+            throw new IllegalArgumentException("owner callback module symbol collision");
+        }
+        var entries = roots.roots().stream().map(root -> new Entry(root, lowered.get(root.callable()))).toList();
+        var module = new BridgeEntryModule(new IrProgram(base.moduleName(), base.classes(), base.staticFields(),
+                base.typeInitializations(), base.arrayTypes(), base.stringConstants(), base.dispatchSlots(), functions,
+                Optional.empty(), base.allocationFailure()), entries, Optional.empty(), storage.destructions());
+        return new BridgeEntryModule(module, additions.stream().map(IrFunction::linkageName).collect(Collectors.toSet()), original);
+    }
+
     private BridgeEntryModule(BridgeEntryModule module, Set<String> support, IrProgram original) {
         callbackOriginal = Optional.of(original);
         entries = module.entries;
@@ -238,6 +292,15 @@ public final class BridgeEntryModule {
         return rootObjects(artifact, requested, Optional.empty(), Optional.empty());
     }
 
+    /** The ordinary P0 storage proof, with disjoint support symbols for callback composition. */
+    public static BridgeEntryModule callbackOwnerStorage(CompilationArtifact artifact, BridgeRootSet requested) {
+        var roots = requested.revalidate(artifact.program().orElseThrow());
+        if (!roots.resolved() || roots.roots().stream().anyMatch(root -> root.callable().kind() != IrCallableKind.CONSTRUCTOR)) {
+            throw new IllegalArgumentException("callback owner storage requires constructor-only roots");
+        }
+        return rootObjects(artifact, roots, Optional.empty(), Optional.empty(), true);
+    }
+
     public static BridgeEntryModule rootObjects(CompilationArtifact artifact, BridgeRootSet requested, BridgeEnumConversions conversions) {
         return rootObjects(artifact, requested, Optional.of(conversions), Optional.empty());
     }
@@ -248,6 +311,11 @@ public final class BridgeEntryModule {
 
     private static BridgeEntryModule rootObjects(CompilationArtifact artifact, BridgeRootSet requested,
             Optional<BridgeEnumConversions> conversions, Optional<BridgePermanentValues> permanent) {
+        return rootObjects(artifact, requested, conversions, permanent, false);
+    }
+
+    private static BridgeEntryModule rootObjects(CompilationArtifact artifact, BridgeRootSet requested,
+            Optional<BridgeEnumConversions> conversions, Optional<BridgePermanentValues> permanent, boolean callbackStorage) {
         var admitted = permanent.map(value -> BridgeRootRetentionAnalyzer.analyze(artifact, requested, value))
                 .orElseGet(() -> conversions.map(mapping -> BridgeRootRetentionAnalyzer.analyze(artifact, requested, mapping))
                 .orElseGet(() -> BridgeRootRetentionAnalyzer.analyze(artifact, requested)));
@@ -271,7 +339,7 @@ public final class BridgeEntryModule {
                         IrType.reference(root.callable().owner()), Optional.of(root.callable()));
                 if (rollback.status() != BridgeProof.Status.PROVED) throw new IllegalArgumentException(rollback.reason());
             }
-            String symbol = "ironwood_bridge_entry_" + entries.size();
+            String symbol = (callbackStorage ? "ironwood_bridge_owner_entry_" : "ironwood_bridge_entry_") + entries.size();
             var initialization = new BridgeCallTargets(original).initializers(root.callable().owner());
             if (!initialization.complete()) throw new IllegalArgumentException("incomplete root entry initialization");
             var enumParameters = conversions.map(mapping -> mapping.parameters().get(root.callable())).orElse(List.of());
@@ -289,7 +357,8 @@ public final class BridgeEntryModule {
             var source = contract.roots().roots().stream().filter(root -> root.callable().owner().equals(type.referenceName()))
                     .findFirst().orElseThrow();
             var receiver = new IrValueReference(0, type, source.span());
-            var function = new IrFunction(type.referenceName(), "<bridge-destroy>", "ironwood_bridge_destroy_" + destructions.size(),
+            var function = new IrFunction(type.referenceName(), "<bridge-destroy>",
+                    (callbackStorage ? "ironwood_bridge_owner_destroy_" : "ironwood_bridge_destroy_") + destructions.size(),
                     IrType.VOID, List.of(new IrParameter("this", receiver, source.span())), List.of(new IrBasicBlock("entry",
                     List.of(new IrFreeInstruction(receiver, source.span())), new IrReturnTerminator(Optional.empty(), source.span()), source.span())),
                     source.span(), source.sourceFile(), IrCallableKind.METHOD);

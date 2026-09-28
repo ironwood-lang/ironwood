@@ -43,6 +43,10 @@ public final class BridgeOwnedCallbackEntries {
     public boolean matches(CompilationArtifact artifact, BridgeRootSet requested) {
         return proof.matches(artifact, requested, storage, lifetime);
     }
+    public boolean matches(CompilationArtifact artifact, BridgeRootSet requested,
+            BridgeEntryModule requestedStorage, BridgeFinalRootRetention requestedLifetime) {
+        return proof.matches(artifact, requested, requestedStorage, requestedLifetime);
+    }
 
     public static BridgeOwnedCallbackEntries create(CompilationArtifact artifact, BridgeListenerProxies listeners,
             BridgeRootSet requested, BridgeEntryModule storage, BridgeFinalRootRetention lifetime) {

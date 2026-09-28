@@ -41,6 +41,22 @@ public final class BridgeOwnedCallbackProof {
 
     public static BridgeOwnedCallbackProof prove(CompilationArtifact artifact, BridgeListenerProxies proxies,
             BridgeRootSet roots, BridgeEntryModule storage, BridgeFinalRootRetention lifetime) {
+        var owners = validateStorage(artifact, proxies, storage, lifetime);
+        var invocation = BridgeSynchronousCallbackProof.proveOwned(artifact, proxies, roots, owners);
+        var guarded = new LinkedHashMap<BridgeCallableId, List<Integer>>();
+        for (var root : roots.revalidate(artifact.program().orElseThrow()).roots()) {
+            var indices = new ArrayList<Integer>();
+            for (int index = 0; index < root.callable().parameters().size(); index++) {
+                if (owners.contains(root.callable().parameters().get(index))) indices.add(index);
+            }
+            if (indices.isEmpty()) throw new IllegalArgumentException("owned callback requires a guarded owner input");
+            guarded.put(root.callable(), List.copyOf(indices));
+        }
+        return new BridgeOwnedCallbackProof(storage, lifetime, invocation, guarded);
+    }
+
+    static Set<IrType> validateStorage(CompilationArtifact artifact, BridgeListenerProxies proxies,
+            BridgeEntryModule storage, BridgeFinalRootRetention lifetime) {
         proxies.validateArtifact(artifact);
         if (!storage.matchesOriginal(artifact) || !lifetime.matches(storage, lifetime.program())) {
             throw new IllegalArgumentException("owned callbacks require matching final storage proofs");
@@ -66,17 +82,7 @@ public final class BridgeOwnedCallbackProof {
             }
         }
         proveEmptyListeners(program, storage, listeners);
-        var invocation = BridgeSynchronousCallbackProof.proveOwned(artifact, proxies, roots, owners);
-        var guarded = new LinkedHashMap<BridgeCallableId, List<Integer>>();
-        for (var root : roots.revalidate(program).roots()) {
-            var indices = new ArrayList<Integer>();
-            for (int index = 0; index < root.callable().parameters().size(); index++) {
-                if (owners.contains(root.callable().parameters().get(index))) indices.add(index);
-            }
-            if (indices.isEmpty()) throw new IllegalArgumentException("owned callback requires a guarded owner input");
-            guarded.put(root.callable(), List.copyOf(indices));
-        }
-        return new BridgeOwnedCallbackProof(storage, lifetime, invocation, guarded);
+        return owners;
     }
 
     private static void proveEmptyListeners(IrProgram program, BridgeEntryModule storage, Set<IrType> listeners) {

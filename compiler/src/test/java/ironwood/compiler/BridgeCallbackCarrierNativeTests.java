@@ -53,14 +53,17 @@ final class BridgeCallbackCarrierNativeTests {
         var proxyEntries = BridgeListenerProxyEntries.create(artifact, proxies);
         var holderConstructor = original.functions().stream().filter(function -> function.ownerClass().equals("carrierfixture.Holder")
                 && function.constructor()).findFirst().orElseThrow();
-        var holderOwnership = BridgeEntryModule.rootObjects(artifact, BridgeRootSet.resolve(original,
+        var holderOwnership = BridgeEntryModule.callbackOwnerStorage(artifact, BridgeRootSet.resolve(original,
                 List.of(BridgeCallableId.of(holderConstructor))));
         var holderCreate = rename(holderOwnership.entries().getFirst().function(), "listener_holder_create");
         var holderDestroy = rename(holderOwnership.destructions().getFirst().function(), "listener_holder_destroy");
         var slotRoots = BridgeRootSet.resolve(original, original.functions().stream()
                 .filter(function -> function.ownerClass().equals("carrierfixture.Holder") && function.sourceName().equals("store"))
                 .map(BridgeCallableId::of).toList());
-        var slotEntries = BridgeListenerSlotEntries.create(artifact, proxies, slotRoots);
+        var finalHolder = BridgeFinalRootRetention.prove(artifact, holderOwnership);
+        check(finalHolder.status() == BridgeProof.Status.PROVED, finalHolder.reason());
+        var slotEntries = ironwood.compiler.semantic.BridgeOwnedListenerSlots.prove(artifact, proxies, slotRoots,
+                holderOwnership, finalHolder.contract().orElseThrow()).entries();
         try {
             BridgeListenerNativeSources.generate(initial, proxyEntries, proxy.listener().binaryName());
             throw new AssertionError("stale listener operations accepted");
@@ -80,8 +83,6 @@ final class BridgeCallbackCarrierNativeTests {
         var context = BridgeCallbackContextLowering.lower(original, roots, BridgeCallbackReachability.analyze(original));
         var ownerRoots = BridgeRootSet.resolve(original, roots.roots().stream()
                 .filter(root -> root.callable().owner().equals("carrierfixture.Holder")).map(BridgeRootSet.Root::callable).toList());
-        var finalHolder = BridgeFinalRootRetention.prove(artifact, holderOwnership);
-        check(finalHolder.status() == BridgeProof.Status.PROVED, finalHolder.reason());
         var ownerEntries = BridgeOwnedCallbackEntries.create(artifact, proxies, ownerRoots, holderOwnership,
                 finalHolder.contract().orElseThrow(), roots, context);
         var stringEntries = BridgeCallbackStringEntries.create(artifact, proxies, roots, context);
