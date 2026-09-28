@@ -170,7 +170,8 @@ public final class BridgeOwnedCallbackJavaSources {
         sources.putAll(exceptions.sources()); types.addAll(exceptions.types());
         var state = BridgeRootStateSources.generateOwnedCallbacks(admission, generation);
         sources.putAll(state.sources()); types.addAll(state.types());
-        return new Sources(new BridgeJavaSources(sources, bindings, new ArrayList<>(types), ensure, List.of(), destructions), facades, calls);
+        var declarations = new BridgeJavaSources(sources, bindings, new ArrayList<>(types), ensure, List.of(), destructions);
+        return new Sources(BridgeCallbackDispatchSources.add(declarations, admission.listeners(), generation, surface), facades, calls);
     }
 
     private static String unique(Set<String> occupied, String name) { return BridgePermanentJavaSources.unique(occupied, name); }

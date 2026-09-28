@@ -8851,3 +8851,24 @@ occurrence order. If no
 - **Boundary:** Primitive/void callback results remain required. Other reference
   arguments, arbitrary escaping graphs and asynchronous callbacks remain rejected.
   Primitive-only callbacks gain no identity conversion or lookup on dispatch.
+
+## D230 - Dispatch JNI callbacks through artifact-private Java relays
+
+- **Status:** Measured implementation optimization within the accepted P5 contract.
+- **Decision:** Generate static Java relays in the artifact-private support
+  package. Each relay invokes the original listener method with its exact typed
+  arguments and result. JNI uses cached static method IDs and a cached class
+  reference, validated and released with the existing binding metadata.
+- **Contract:** No event batching, callback deferral, extra hot-path allocation,
+  exception wrapping or foreign-effect exemption. Typed native context and proxy
+  lowering stay unchanged. Every callback still checks pending JNI exceptions,
+  preserving native carrier transport and unchanged Java throwable identity.
+  Generated relay source and class declarations participate in paired artifact
+  inventory and loading. Ordinary native-only code is unchanged.
+- **Evidence:** Estonia Java 21 measures 103.021 ns/event for the original
+  interface JNI path and 98.833 ns/event for the relay candidate. Java 22 improves
+  from 107.616 to 100.895; Java 23 is nearly unchanged at 108.923 versus 108.407.
+  This is a modest improvement and does not meet the maintainer's request for
+  callback throughput close to pure Java/native. See
+  [the investigation](JAVA_BRIDGE_CALLBACK_OPTIMIZATION.md). Numerical acceptance
+  is not implied by functional qualification.

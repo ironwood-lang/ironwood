@@ -38,7 +38,7 @@ public final class BridgeSynchronousCallbackNativeSources {
             throw new IllegalArgumentException("callback adapters require exact proved Java declarations");
         }
         var artifact = admission.artifact();
-        var callbacks = BridgeCallbackNativeSources.generate(artifact, admission.listeners());
+        var callbacks = BridgeCallbackNativeSources.generate(artifact, admission.listeners(), generation);
         var exceptions = admission.exceptions();
         var text = new StringBuilder(BridgeExceptionNativeSources.generate(artifact, exceptions.projection(),
                 exceptions.entries(), admission.carriers()))
@@ -53,15 +53,20 @@ public final class BridgeSynchronousCallbackNativeSources {
                     .append("extern void ").append(owner.destroy().linkageName()).append("(void *);\n");
         }
         text.append("static int iw_callback_metadata_init(JNIEnv *env, jclass *classes) {\n");
+        int dispatch = java.generatedTypes().indexOf(BridgeCallbackDispatchSources.binaryName(generation));
+        if (dispatch < 0) throw new IllegalArgumentException("callback dispatch is absent from preflight inventory");
+        text.append("    iw_callback_dispatch = (*env)->NewGlobalRef(env, classes[").append(dispatch).append("]);\n")
+                .append("    if (iw_callback_dispatch == NULL) return 0;\n");
         for (var method : callbacks.methods()) {
             int index = java.generatedTypes().indexOf(method.listener());
             if (index < 0) throw new IllegalArgumentException("listener is absent from the preflight class inventory");
-            text.append("    ").append(method.methodField()).append(" = (*env)->GetMethodID(env, classes[").append(index)
+            text.append("    ").append(method.methodField()).append(" = (*env)->GetStaticMethodID(env, classes[").append(index)
                     .append("], ").append(BridgeBootstrapSources.cString(method.name())).append(", ")
                     .append(BridgeBootstrapSources.cString(method.descriptor())).append(");\n")
                     .append("    if (").append(method.methodField()).append(" == NULL) return 0;\n");
         }
-        text.append("    return 1;\n}\nstatic void iw_callback_metadata_dispose(JNIEnv *env) { (void)env; }\n")
+        text.append("    return 1;\n}\nstatic void iw_callback_metadata_dispose(JNIEnv *env) {\n")
+                .append("    if (iw_callback_dispatch != NULL) (*env)->DeleteGlobalRef(env, iw_callback_dispatch);\n    iw_callback_dispatch = NULL;\n}\n")
                 .append("__attribute__((noinline)) static void iw_callback_failure(JNIEnv *env, int32_t status, struct ironwood_bridge_result *result) {\n")
                 .append("    if (status == 1) {\n        if (!iw_callback_restore(env, result)) iw_exception_translate(env, &iw_exceptions, result->exception);\n    }\n")
                 .append("    else iw_exception_error(env, &iw_exceptions, status == 2, \"Ironwood protected callback entry failed\");\n}\n");

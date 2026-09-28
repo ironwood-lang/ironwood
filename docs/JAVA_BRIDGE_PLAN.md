@@ -863,8 +863,12 @@ Primitive callback bodies normalize boolean and integral arguments/results to
 I64 in typed IR, preserving signed byte/short/int and unsigned char semantics.
 Float and double use F32/F64 carriers. Boolean normalization uses ordinary typed
 control flow, which LLVM can eliminate. Generated JNI bodies use exact primitive
-method descriptors and typed `jvalue` arrays with `Call<Type>MethodA`, checking
-pending exceptions before further ordinary JNI work. Proved owner arguments use
+method descriptors and typed `jvalue` arrays. Public artifacts use
+`CallStatic<Type>MethodA` to invoke artifact-private Java relays, allowing the JVM
+to optimize ordinary listener dispatch. The relay class and method IDs are
+cached during validated binding; checks for pending exceptions remain before
+further ordinary JNI work. D230 records this measured transport optimization.
+Proved owner arguments use
 nominal pointer carriers and exact generated facade descriptors; other reference
 values remain rejected.
 Canonical typed body matching preserves hidden receiver confinement without

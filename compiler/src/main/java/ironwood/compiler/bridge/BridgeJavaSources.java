@@ -97,7 +97,9 @@ public record BridgeJavaSources(Map<String, String> sources, List<Binding> bindi
     public static BridgeJavaSources generateCallbacks(BridgeCallbackAdmission admission, BridgeGeneration generation) {
         if (!generation.matchesCallbacks(admission)) throw new IllegalArgumentException("callback Java identity mismatch");
         var declarations = declarations(admission.artifact(), admission.surface(), generation, admission.entries());
-        return exceptions(admission.artifact(), generation, admission.exceptions().projection(), admission.carriers(), declarations);
+        return BridgeCallbackDispatchSources.add(
+                exceptions(admission.artifact(), generation, admission.exceptions().projection(), admission.carriers(), declarations),
+                admission.listeners(), generation, admission.surface());
     }
 
     private static BridgeJavaSources exceptions(CompilationArtifact artifact, BridgeGeneration generation,
