@@ -344,3 +344,46 @@ Earlier incomplete compression streams are retained separately. Verification mus
 stream every archive member against the inventory before any authorized duplicate
 removal. The requested permission is still pending; no non-temporary remote
 evidence has been removed. Temporary-cleanup inventories contain no crash reports.
+
+
+### Remaining-gap experiments and disk-bounded qualification
+
+Keep the frozen producer and candidate unchanged. The existing enum pass only
+specializes constant SSA inputs, while bridge enum conversion joins produce a
+dynamic argument. An isolated engine copy adds four BUY/SELL forwarding methods;
+an experimental facade override routes the existing methods through them. The
+project benchmark remains unchanged. This deliberately expanded scratch surface
+is a mechanism probe, not a production API or qualified package. Its plan, exact
+sources, commands, output and hashes are under `experiments/optimization/enum-case-probe`.
+Checked JNI and the asserting allocation/identity consumer pass with zero warm
+Java allocation. Three Linux ARM64 forks give native 46.67, Java 65.92, current
+bridge 78.08 and experimental bridge 76.48 ns/cycle. This small improvement does
+not close the gap; do not adopt an API expansion or claim performance acceptance.
+Any production version would need typed compiler specialization without changing
+the public surface, plus null, cold/failed/recursive initialization, mutable enum
+fields, containment, safety-proof and source/class/archive regressions.
+
+A second isolated compiler copy revisits joint adapter/entry optimization because
+D223 changed the entry bodies after the previous rejected experiment. It applies
+the archived patch to three current source copies and updates a copy of the frozen
+compiler jar, leaving production source/build untouched. The existing pre-change
+containment, trace, proof, determinism and packaging requirements still apply.
+Its artifacts and comparison are under `experiments/optimization/joint-current`.
+
+The Estonia backup now independently verifies all 13,508 files and 38,316,334,620
+bytes. Archive SHA-256 is
+`918fb88e0f0bff1b3b5ceedbbb1de542e703ef8093ca07e53bf1d1b8a87d9845`;
+manifest SHA-256 is
+`126afe5d06d0c6623fd1cd438afda40c8b19509f05ad3ae83ff6ed0559cd07d6`.
+Remote originals remain pending the cleanup permission. The completed minimal
+JVM checks' new extraction cache was inventoried and removed under the prior
+explicit temporary-file authorization, reclaiming 747,873,552 bytes.
+
+A scratch performance controller preserves every production runner assertion,
+workload, fork and pairing check, adds a fresh scoped JVM temporary directory,
+and inventories/removes that directory only after the preceding command's checks
+return. This bounds disk growth without removing existing evidence. Preparation
+passes; physical x86-64 measurements are running without competing task builds,
+tests or bulk transfers. The original runner hash, controller hash, exact patch,
+actual commands and per-cache hashes are recorded with the evidence. The loader
+stage's larger retained artifact requirement remains blocked, not bypassed.
