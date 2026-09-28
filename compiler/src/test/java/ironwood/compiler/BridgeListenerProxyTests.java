@@ -8,6 +8,8 @@ import ironwood.compiler.bridge.BridgeListenerProxies;
 import ironwood.compiler.bridge.BridgeListenerProxyEntries;
 import ironwood.compiler.bridge.BridgeListenerSlotEntries;
 import ironwood.compiler.bridge.BridgeCallbackNativeSources;
+import ironwood.compiler.bridge.BridgeCallbackStringEntries;
+import ironwood.compiler.semantic.BridgeCallbackContextLowering;
 import ironwood.compiler.bridge.BridgeRootSet;
 import ironwood.compiler.ir.*;
 import ironwood.compiler.semantic.BridgeCallbackReachability;
@@ -32,6 +34,7 @@ final class BridgeListenerProxyTests {
                 private Object object;
                 private Processor child;
                 private static Listener saved;
+                private static String savedText;
                 public Processor() {}
                 public void process(Listener listener, long sequence, long value) { listener.onResult(sequence, value); }
                 public void register(Listener value) { assign(value); }
@@ -44,6 +47,12 @@ final class BridgeListenerProxyTests {
                 public void erased(Object value) { object = value; }
                 public void child(Listener value) { child.listener = value; }
                 public void callbackStore(Listener value) { value.onResult(1L, 2L); listener = value; }
+                public static long text(Listener listener, String value) {
+                    listener.onResult(1L, 2L); return value == null ? 0L : (long)value.length();
+                }
+                public static long textLeak(Listener listener, String value) {
+                    savedText = value; listener.onResult(1L, 2L); return 1L;
+                }
             }
             """;
 
@@ -60,6 +69,7 @@ final class BridgeListenerProxyTests {
             var artifact = pipeline.analyzeForBridge(sources, proxies);
             check(artifact.valid(), artifact.diagnostics().toString());
             slotEntries(artifact, proxies);
+            stringEntries(artifact, proxies);
             var ownership = BridgeListenerProxyEntries.create(artifact, proxies);
             var callbacks = BridgeCallbackNativeSources.generate(artifact, proxies);
             check(callbacks.methods().size() == 1 && callbacks.methods().getFirst().descriptor().equals("(JJ)V")
@@ -147,6 +157,32 @@ final class BridgeListenerProxyTests {
         }
     }
 
+    private static List<IrFunction> stringEntries(CompilationArtifact artifact, BridgeListenerProxies proxies) {
+        var program = artifact.program().orElseThrow();
+        List<IrFunction> result = List.of();
+        for (String name : List.of("text", "textLeak")) {
+            var roots = BridgeRootSet.resolve(program, program.functions().stream()
+                    .filter(function -> function.ownerClass().equals("listenerfixture.Processor") && function.sourceName().equals(name))
+                    .map(BridgeCallableId::of).toList());
+            var context = BridgeCallbackContextLowering.lower(program, roots, BridgeCallbackReachability.analyze(program));
+            if (name.equals("textLeak")) {
+                try {
+                    BridgeCallbackStringEntries.create(artifact, proxies, roots, context);
+                    throw new AssertionError("published String input acquired callback cleanup");
+                } catch (IllegalArgumentException expected) { check(expected.getMessage().contains("cleanup"), expected.toString()); }
+            } else {
+                result = BridgeCallbackStringEntries.create(artifact, proxies, roots, context);
+                check(result.size() == 1, "missing callback String entry");
+                try {
+                    BridgeCallbackStringEntries.create(artifact, proxies, roots,
+                            new BridgeCallbackContextLowering.Result(context.program(), java.util.Map.of(), context.specializations()));
+                    throw new AssertionError("mismatched String callback context accepted");
+                } catch (IllegalArgumentException expected) { check(expected.getMessage().contains("context"), expected.toString()); }
+            }
+        }
+        return result;
+    }
+
     private static List<IrFunction> slotEntries(CompilationArtifact artifact, BridgeListenerProxies proxies) {
         var program = artifact.program().orElseThrow();
         var roots = BridgeRootSet.resolve(program, program.functions().stream()
@@ -223,6 +259,7 @@ final class BridgeListenerProxyTests {
                 proxies.proxies().stream().anyMatch(proxy -> proxy.binaryName().equals(function.ownerClass()))).toList());
         functions.addAll(BridgeListenerProxyEntries.create(artifact, proxies).functions());
         functions.addAll(slotEntries(artifact, proxies));
+        functions.addAll(stringEntries(artifact, proxies));
         return List.copyOf(functions);
     }
 

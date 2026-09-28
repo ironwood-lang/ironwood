@@ -79,17 +79,10 @@ public record BridgeValueNativeSources(String source, List<Adapter> adapters) {
                 .append("static ").append(jniType(id.result())).append(' ').append(function).append("(JNIEnv *env, jclass type");
         for (int i = 0; i < id.parameters().size(); i++) text.append(", ").append(jniType(id.parameters().get(i))).append(" arg").append(i);
         text.append(") {\n    (void)type;\n");
-        for (int i : strings) text.append("    const jchar *chars").append(i).append(" = NULL; jsize length").append(i).append(" = -1;\n");
-        for (int i : strings) {
-            text.append("    if (arg").append(i).append(" != NULL) {\n")
-                    .append("        length").append(i).append(" = (*env)->GetStringLength(env, arg").append(i).append(");\n")
-                    .append("        if ((*env)->ExceptionCheck(env)) goto preparation_failed;\n")
-                    .append("        chars").append(i).append(" = (*env)->GetStringChars(env, arg").append(i).append(", NULL);\n")
-                    .append("        if (chars").append(i).append(" == NULL) goto preparation_failed;\n    }\n");
-        }
+        text.append(BridgeStringInputSources.declarations(strings)).append(BridgeStringInputSources.acquire(strings));
         text.append("    struct ironwood_bridge_result result;\n    int32_t status = ").append(entry.function().linkageName())
                 .append('(').append(String.join(", ", arguments)).append(");\n");
-        release(text, strings);
+        text.append(BridgeStringInputSources.release(strings));
         text.append("    if (status != 0) { iw_value_failure(env, status, result.exception); ").append(exit).append(" }\n");
         if (id.result().equals(STRING)) {
             text.append("    const struct ironwood_string *value = result.value.reference;\n")
@@ -102,18 +95,10 @@ public record BridgeValueNativeSources(String source, List<Adapter> adapters) {
         else text.append("    return result.value.").append(field(id.result())).append(";\n");
         if (!strings.isEmpty()) {
             text.append("preparation_failed:\n");
-            release(text, strings);
+            text.append(BridgeStringInputSources.release(strings));
             text.append("    ").append(exit).append('\n');
         }
         text.append("}\n");
-    }
-
-    private static void release(StringBuilder text, List<Integer> strings) {
-        for (int index = strings.size() - 1; index >= 0; index--) {
-            int i = strings.get(index);
-            text.append("    if (chars").append(i).append(" != NULL) (*env)->ReleaseStringChars(env, arg")
-                    .append(i).append(", chars").append(i).append(");\n");
-        }
     }
 
     static String jniType(IrType type) {

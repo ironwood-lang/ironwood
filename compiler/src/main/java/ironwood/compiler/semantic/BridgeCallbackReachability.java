@@ -157,6 +157,9 @@ public final class BridgeCallbackReachability {
             case IrMathUnaryInstruction ignored -> true;
             case IrMathBinaryInstruction ignored -> true;
             case IrCharacterInstruction ignored -> true;
+            // LLVM reads one UTF-16 code unit directly. Bounds/null behavior
+            // belongs to the surrounding typed operations; no user dispatch.
+            case IrStringCharAtInstruction ignored -> true;
             case IrFloatingBitsInstruction ignored -> true;
             case IrExceptionLandingPadInstruction ignored -> true;
             case IrExceptionCaughtInstruction ignored -> true;

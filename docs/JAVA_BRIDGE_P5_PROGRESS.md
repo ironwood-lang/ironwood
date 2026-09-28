@@ -539,3 +539,40 @@ reentrant and throwing callbacks, with separately owned nested buffers and exact
 partial-failure cleanup. Production admission still requires complete invocation
 and owner proofs, carrier-primary native enrichment, additional callback value
 ABIs, the example, benchmarks and the full P5 qualification matrix.
+
+D206 pre-change review: reuse protected root-entry String-copy lowering only after
+matching original input-borrow proofs and exact callback-context transformation.
+Limit references to copied Strings and nonpublishing listener inputs, with a
+static primitive/void result entry. This does not admit a public callback surface.
+Extract the existing value adapter's noncritical JNI acquisition/release snippets
+without changing its output, then reuse them in the native callback fixture.
+Pair outer/nested UTF-16 content preservation with allocation, callback throw,
+second-buffer preparation failure and native second-copy allocation failure.
+Verify no native execution after JNI preparation failure and zero residual JNI
+buffers/native copies on all exits; preserve existing scalar String controls.
+
+The first D206 run correctly stopped on an unclassified String.charAt intrinsic.
+Audited its LLVM lowering: direct UTF-16 pointer/load, no user dispatch. Classify
+only callback reachability for that exact operation; do not change retention,
+allocation, exception or reclamation facts. Rerun callback reachability controls
+with the native test after adding this audited classification.
+
+- `fa6aa73f`: committed generated long/void JNI callback bodies.
+- Added proof-bound copied String entry composition with exact context
+  transformation validation. Copied inputs must be neither retained nor
+  invalidated; escaped Strings and mismatched contexts reject in all unfreed
+  modes and after source/class/archive reconstruction. Uses existing protected
+  root-entry copy and acquisition-prefix cleanup, with no new borrowing exemption.
+- Extracted the existing scalar value adapter's D206 noncritical JNI snippets
+  without changing emitted code. Native callback tests reuse them for two outer
+  and two nested String inputs while Java allocates and reenters. UTF-16 hashes
+  remain unchanged for null/empty, NUL and unpaired surrogate cases. Callback
+  throws, first/second JNI acquisition failures and native second-copy OOM all
+  restore buffer/native-copy counts; JNI preparation failure skips native entry.
+- Mac O0/O3 carrier/lifecycle/String tests pass in five child modes under
+  `-Xcheck:jni`. Existing callback reachability, repeated native String OOM,
+  generated value adapters, copied String proof/artifact parity and value-surface
+  controls pass. Logs: `p5-callback-strings-retry.log`,
+  `p5-callback-string-proofs.log`, `p5-string-adapter-control.log`.
+  Evidence: `workspace/java-bridge/evidence/p5/carriers/run-13151588596172180576/`.
+  License and diff checks pass. No public callback admission has been enabled.
