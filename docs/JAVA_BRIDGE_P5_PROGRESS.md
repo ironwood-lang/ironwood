@@ -481,3 +481,21 @@ ended, with mutation-time prepared retirement storage and no per-callback work.
 Test native old/new listener aliases spanning multiple replacements and removals.
 Public admission, carrier-primary enrichment, complete owner guards, string
 reentry, listener example and performance/platform qualification remain pending.
+
+- `c4081758`: committed native listener-field write/snapshot proof and paired tests.
+- Implemented per-holder deferred slot cleanup. Each prepared slot already owns
+  its retirement link. Replacements during an active invocation retire the old
+  slot without allocation or Java calls; the last invocation exit releases the
+  retired chain. This covers listeners installed after the outer call started,
+  without adding per-callback reference counting or lookup. Preparation failure
+  preserves the current field and token. Counter headroom checks refuse overflow
+  before changing state.
+- Native Holder.fire now keeps one listener alias, calls Java to replace it,
+  loads the replacement, calls Java to clear it, then calls both old aliases.
+  The O0/O3 test passes under `-Xcheck:jni`, including repeated cleanup, nested
+  holder invocations, exceptional exits, all four preparation failure points,
+  unchanged counts after failure and complete native/JNI/host-slot reclamation.
+  Evidence: `workspace/java-bridge/evidence/p5/carriers/run-12762165049828606186/`;
+  logs `p5-listener-retirement.log`, `p5-listener-retirement-controls.log`.
+  This remains a private invocation/field protocol test. Whole public API
+  closure admission and generated facade guard placement are still pending.
