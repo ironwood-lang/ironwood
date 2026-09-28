@@ -437,3 +437,47 @@ facade guard placement remain separate required proofs.
   reconstruction and existing nonthrowing destruction controls pass. Optimized
   callback inspection shows JNI dispatch/pending check with outlined carrier
   work, no ownership counters or registry lookup. License/diff checks pass.
+
+Native listener slot pre-change review: reuse P0 retention attribution and protected
+final-slot snapshots for callback-free registration/removal methods. Limit this
+component to exact known holder fields and null/known listener input origins;
+reject transfers of loaded listeners, static/array publication, unknown calls,
+other reference stores and callback-bearing mutation. Keep holder ownership,
+active invocation protection and admission separate. Test success/throw-after-
+store slot snapshots in native execution, helper-equivalent attribution and nearby
+unsafe shapes. No shared effect analysis exemptions are needed for these entries.
+
+- `f014e2d6`: retained ownership transport passes O0/O3 on local Linux ARM64 and
+  physical Estonia x86-64, Java 21/LLVM 23, all four isolated child modes under
+  `-Xcheck:jni`. Payload SHA-256
+  `817bbddb4598ae072440dab56ebe4fd78e35ad4bfd2b655b56c77fd5c01d2733`.
+  Evidence and per-file verified manifests:
+  `workspace/java-bridge/p5-linux-f014e2d6/{arm64,x86_64}/`; remote evidence
+  `~/temp/java-bridge/p5-f014e2d6/`. Same pinned images as `fb9405a2` above.
+  ARM64 O0 `ee0472c7c026c95731c75ab297e7b34c336bea98030d7d022e2e66f4e15fb7ff`,
+  O3 `2c8569360512eed033552001b9c98841b09915eece689066c31afcac43525320`.
+  x86-64 O0 `45b9473be1e680429b839c89f662ed0bdf24ae5d684bc83159434a31150e57d8`,
+  O3 `a7ddaf90a58c55daa78f240fa4e43df34b145c05d2be20ccdf3c5f0ad2da414e`.
+  Estonia has about 200 MB free, so validation uses existing images and tmpfs;
+  transferred payloads/evidence and containers are preserved. No installations.
+- Added listener-field write entries using P0 retention attribution and existing
+  protected final-slot lowering. Exact final holders and known listener inputs or
+  null are accepted; callback mutation, hidden/static/array publication, erased
+  field stores, child holders and loaded-slot transfers remain rejected. This
+  proves writes/snapshots, not whole-surface holder lifetime or free permission.
+- Source/class/archive parity and all-unfreed-mode paired tests pass. Native
+  O0/O3 tests confirm final snapshots after store-then-throw, no-op store and clear;
+  the retained native field still invokes the Java listener and both holder and
+  proxy storage are released after clear. Initial compile rejected use of a
+  package-private analysis helper; corrected the consumer to use existing exact
+  final-class API facts instead of changing shared analysis access or proofs.
+  Logs: `p5-listener-slots-retry.log`, `p5-listener-native-slots.log`.
+  Evidence: `workspace/java-bridge/evidence/p5/carriers/run-11150105876358111081/`.
+
+Next lifecycle requirement: an active holder may read a newly installed listener
+after Java reentry. Protecting only the entry's original listener is insufficient.
+Defer all removed slot tokens until every suspended invocation of that holder has
+ended, with mutation-time prepared retirement storage and no per-callback work.
+Test native old/new listener aliases spanning multiple replacements and removals.
+Public admission, carrier-primary enrichment, complete owner guards, string
+reentry, listener example and performance/platform qualification remain pending.

@@ -815,9 +815,10 @@ The private P5 transport binds proxy creation/cleanup to final P0/P3 proofs and
 owns a global reference until all registered slots and suspended invocation uses
 end. Preparing registration performs identity conversion, including listeners
 held only by suspended calls; invoking a registered listener performs no identity
-lookup. Preparation failure preserves the old slot. This component is not public
-admission: native field attribution, owner guards and complete reconciliation are
-still required before a producer can accept retained listener signatures.
+lookup. Preparation failure preserves the old slot. Callback-free listener-field
+mutators reuse P0 attribution and protected final snapshots on success/failure.
+These components are not public admission: complete holder lifetime, owner guards
+and reconciliation remain required before accepting retained listener signatures.
 
 P5 string-bearing callback tests must retain the outer argument through a Java
 callback that allocates, reenters with another string and either returns or
