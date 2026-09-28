@@ -352,6 +352,46 @@ controls; no carrier cleanup permission follows from this translation.
   separate transport/admission decision before public producer enablement; the
   graph test currently covers original Java throwables nested in native snapshots.
 
+Proxy receiver pre-change review: source summaries currently publish every
+foreign-body receiver. Prove only the exact typed proxy shape: load a primitive
+handle from the receiver, call Java with that handle and the explicit parameters,
+then return its primitive/void result. No native receiver reference crosses that
+call. Keep reference-parameter retention, allocation, throwing, reentry and
+reclamation effects unknown. Any additional operation, receiver argument,
+reference result, control flow or unmatched body must retain the conservative
+summary. Pair exact-body acceptance with each of those negatives and existing
+source/class/archive proxy, foreign effect and pool helper safety controls.
+
+- `fb9405a2`: committed callback identity within native cause/secondary snapshots.
+  Its native carrier suite passes O0/O3 on local Linux ARM64 virtualization and
+  physical Estonia x86-64, pinned Java 21 / LLVM 23, including `-Xcheck:jni` and
+  both allocation-failure children. Payload SHA-256
+  `12e1290d5ff16457107d657ee15f71414df1d2f1b1ca56cf01e8d83a9100cbad`.
+  Evidence: `workspace/java-bridge/p5-linux-fb9405a2/{arm64,x86_64}/`;
+  remote copy `~/temp/java-bridge/p5-fb9405a2/`.
+  ARM64 image `sha256:a03b0d3a764744079949a3adf5ecf6fe7ce82382ee35ca95360a38d453af8767`;
+  native O0 `11a73ec8cef9714f802e00c13ba43ffde94fdf666f9826a49e11df28973f08e3`,
+  O3 `691dc02b2e880b43af7603044d657208d5903ef927111a7cedbc7636153e8df8`.
+  x86-64 uses the earlier pinned image; native O0
+  `09360708ba684b10cd84434a87f43d63e96fba3fb42a9a24808a0aebbb9a4567`,
+  O3 `70142d0b2bc8db130a8974742a6c6f48bff7688a4fb28736c46ce09a8108b4a2`.
+  Every collected evidence file was checked against its remote/container manifest.
+  These are focused runtime checks, not the full P5 platform/JDK matrix.
+- Added exact typed-body receiver confinement. Source escape and symbolic-return
+  summaries share that proof, rather than trusting a signature or source stub.
+  The hidden receiver never crosses the Java call in the accepted shape; explicit
+  reference arguments remain retaining and all foreign allocation, throwing,
+  reentry and reclamation effects remain unknown. Extra stores/calls/control
+  flow, a passed receiver, different handle receiver or reference return refuse
+  confinement. No runtime code or callback-free path was changed.
+- Pinned Java 21 tests pass: typed foreign effects (with paired confinement
+  negatives), generated listener source/class/archive safety (all unfreed modes),
+  all three pool helper controls and the native carrier O0/O3 suite. Logs:
+  `workspace/java-bridge/p5-proxy-confinement.log` and
+  `workspace/java-bridge/p5-proxy-confinement-final.log`. This corrects private
+  receiver publication facts; it does not grant arbitrary callback borrowing or
+  admit public callbacks. License audit and diff checks pass.
+
 ## Next step
 
 Implement retained listener lifecycle and complete carrier enrichment handling

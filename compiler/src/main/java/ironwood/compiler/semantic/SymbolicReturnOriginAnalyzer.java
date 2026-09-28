@@ -173,7 +173,7 @@ final class SymbolicReturnOriginAnalyzer {
                 .getOrDefault(candidate.linkageName(), Set.of());
         if (escapeSummaries != null && escapeSummaries.hasForeignBody(candidate)) {
             Set<ReturnOrigin> inputs = new LinkedHashSet<>();
-            if (!candidate.isStatic()) inputs.add(ReturnOrigin.thisOrigin());
+            if (!candidate.isStatic() && !escapeSummaries.foreignReceiverConfined(candidate)) inputs.add(ReturnOrigin.thisOrigin());
             for (int index = 0; index < candidate.parameterTypes().size(); index++) {
                 if (candidate.parameterTypes().get(index).isReference()) inputs.add(ReturnOrigin.parameter(index));
             }

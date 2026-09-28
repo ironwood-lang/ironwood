@@ -298,6 +298,11 @@ final class EscapeSummaryAnalyzer {
         return borrowDispatch != null && borrowDispatch.hasForeignBody(callable.linkageName());
     }
 
+    boolean foreignReceiverConfined(CallableSymbol callable) {
+        return !callable.isStatic() && borrowDispatch != null
+                && borrowDispatch.foreignReceiverConfined(callable.linkageName());
+    }
+
     boolean isDetachedFreshArrayElement(String function, SourceSpan span) {
         if (borrowDispatch == null) { return false; }
         if (freshArrayElements == null) {
@@ -509,7 +514,9 @@ final class EscapeSummaryAnalyzer {
     private void analyze(CallableSymbol callable) {
         if (hasForeignBody(callable)) {
             // A source stub cannot supply effects for a generated foreign body.
-            summaries.put(callable.linkageName(), EscapeSummary.unknown(callable));
+            var unknown = EscapeSummary.unknown(callable);
+            summaries.put(callable.linkageName(), foreignReceiverConfined(callable)
+                    ? new EscapeSummary(false, unknown.escapingParameters(), Set.of()) : unknown);
             return;
         }
         SymbolicReturnOriginAnalyzer.ReturnSummary poolContract = PoolSemantics.symbolic(callable);

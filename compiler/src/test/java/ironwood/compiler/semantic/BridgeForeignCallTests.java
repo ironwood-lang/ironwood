@@ -30,6 +30,7 @@ public final class BridgeForeignCallTests {
     private BridgeForeignCallTests() {}
 
     public static void proofs() {
+        receiverConfinement();
         var foreign = new IrForeignCallInstruction(Optional.of(OUTPUT), "ironwood_bridge_callback_result",
                 ITEM, List.of(INPUT), SPAN);
         var direct = function("direct", List.of(new IrBasicBlock("entry", List.of(foreign),
@@ -148,6 +149,43 @@ public final class BridgeForeignCallTests {
             check(ironwood.compiler.bridge.BridgeExportSurface.objectValues(artifact, List.of("listeners"))
                     .surface().isEmpty(), "incomplete callback export admitted in " + mode);
         }
+    }
+
+    private static void receiverConfinement() {
+        var argument = new IrValueReference(1, ITEM, SPAN);
+        var handle = new IrValueReference(2, IrType.I64, SPAN);
+        var answer = new IrValueReference(3, IrType.I64, SPAN);
+        var field = new IrField("ForeignEffects", "handle", IrType.I64, 0, true, SPAN);
+        var load = new IrFieldLoadInstruction(handle, INPUT, field, SPAN);
+        var foreign = new IrForeignCallInstruction(Optional.of(answer), "ironwood_bridge_callback_confined", IrType.I64,
+                List.of(handle, argument), SPAN);
+        var returned = new IrReturnTerminator(Optional.of(answer), SPAN);
+        var function = new IrFunction("ForeignEffects", "observe", "foreign_observe", IrType.I64,
+                List.of(PARAMETERS.getFirst(), new IrParameter("argument", argument, SPAN)),
+                List.of(new IrBasicBlock("entry", List.of(load, foreign), returned, SPAN)), SPAN);
+        check(BridgeForeignReceiverConfinement.proved(function), "typed primitive handle lost receiver confinement");
+        var exposed = new IrForeignCallInstruction(Optional.of(answer), foreign.targetLinkageName(), IrType.I64,
+                List.of(INPUT, argument), SPAN);
+        for (var instructions : List.<List<IrInstruction>>of(List.of(load, exposed),
+                List.of(new IrFieldLoadInstruction(handle, argument, field, SPAN), foreign),
+                List.of(load, new IrStaticFieldStoreInstruction(new IrStaticField("ForeignEffects", "published", ITEM,
+                        false, false, false, new IrNull(ITEM, SPAN), SPAN), INPUT, SPAN), foreign),
+                List.of(load, new IrCallInstruction(Optional.empty(), "unknown", IrType.VOID, List.of(INPUT), SPAN), foreign))) {
+            var bad = new IrFunction(function.ownerClass(), function.sourceName(), function.linkageName(), function.returnType(),
+                    function.parameters(), List.of(new IrBasicBlock("entry", instructions, returned, SPAN)), SPAN);
+            check(!BridgeForeignReceiverConfinement.proved(bad), "receiver exposure acquired confinement");
+        }
+        var reference = new IrValueReference(3, ITEM, SPAN);
+        var returning = new IrFunction(function.ownerClass(), function.sourceName(), function.linkageName(), ITEM,
+                function.parameters(), List.of(new IrBasicBlock("entry", List.of(load,
+                new IrForeignCallInstruction(Optional.of(reference), foreign.targetLinkageName(), ITEM, List.of(handle, argument), SPAN)),
+                new IrReturnTerminator(Optional.of(reference), SPAN), SPAN)), SPAN);
+        check(!BridgeForeignReceiverConfinement.proved(returning), "reference result granted receiver confinement");
+        var guarded = new IrFunction(function.ownerClass(), function.sourceName(), function.linkageName(), function.returnType(),
+                function.parameters(), List.of(new IrBasicBlock("entry", List.of(load),
+                new IrInvokeTerminator(foreign, "returned", "handler", SPAN), SPAN),
+                new IrBasicBlock("returned", List.of(), returned, SPAN), new IrBasicBlock("handler", List.of(), returned, SPAN)), SPAN);
+        check(!BridgeForeignReceiverConfinement.proved(guarded), "additional control flow granted receiver confinement");
     }
 
     private static IrFunction function(String name, List<IrBasicBlock> blocks, IrType result) {

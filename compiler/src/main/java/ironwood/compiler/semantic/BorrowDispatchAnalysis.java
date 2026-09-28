@@ -281,6 +281,11 @@ final class BorrowDispatchAnalysis {
 
     boolean hasForeignBody(String linkage) { return foreignBodies.contains(linkage); }
 
+    boolean foreignReceiverConfined(String linkage) {
+        var function = functions.get(linkage);
+        return function != null && BridgeForeignReceiverConfinement.proved(function);
+    }
+
     private void propagate(IrFunction function, IrInstruction instruction) {
         switch (instruction) {
             case ironwood.compiler.ir.IrForeignCallInstruction call ->
