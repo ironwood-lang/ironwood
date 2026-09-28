@@ -834,7 +834,7 @@ Canonical typed body matching preserves hidden receiver confinement without
 weakening the unknown effects of explicit foreign arguments.
 
 The first synchronous invocation proof accepts static primitive-result entries
-with borrowed listener inputs and a complete native closure. It rejects ordinary
+with borrowed listener and copied String inputs and a complete native closure. It rejects ordinary
 heap/static access, non-exception allocation, reclamation, exception-graph edits
 and unknown operations. Cold native fault construction must retain matching P0
 constructor-confinement facts. All dispatch alternatives and initialization edges
@@ -850,8 +850,11 @@ The generated interfaces participate in class-loader validation and generation/A
 identity. The current public subset requires top-level nongeneric interfaces with
 abstract primitive methods, and static callback-bearing primitive/void exports.
 It rejects interface fields/inheritance/default/static methods, stateful holders,
-retained listeners, native-object parameters, reference callback values and copied
-Strings until their separate admission paths are integrated.
+retained listeners, native-object parameters and reference callback values until
+their separate admission paths are integrated. Copied String inputs reuse D206's
+noncritical JNI buffers and P0/P3 typed copy/cleanup lowering. The bounded proof
+admits immutable String length/character reads, with complete helper dispatch and
+borrowed-input facts; it does not authorize publishing or freeing those copies.
 
 P5 string-bearing callback tests must retain the outer argument through a Java
 callback that allocates, reenters with another string and either returns or
@@ -2087,7 +2090,7 @@ would be unsafe. This is an explicit later capability, not a hidden P3 promise.
 | --- | --- |
 | Transport and producer command | Generated C JNI adapters, `javac --release 21`, single-jar default, exact-package `--export` with exclusive ownership, and the command in section 5. Signature closure cannot silently add facade packages. |
 | API surface | Constructors, static/instance methods, primitives, copied strings with proved cleanup, concrete non-subclassable facades, enums/static nested types, owned roots, borrowed views and compiler-proved non-reclaimable results. Inherited concrete-facade Object methods are Java-only and survive free (D198); supported source overrides retain native preconditions. P2 built-in exception/trace mappings and P3 copyable custom exception snapshots/getters are mandatory before release. |
-| Deferred surface | Java callbacks/listeners (P5), arrays, general `CharSequence`/`Object` arguments (except inherited identity equality), source overrides of `equals(Object)`, exported reference generics, general native inheritance, Java subclassing, mutable public fields, mixed fresh/borrowed reclaimable results, and arbitrary object-graph conversion. Reject unsupported public signatures at producer build. Internal uses remain allowed when their boundary proofs hold. |
+| Deferred surface | Stateful/retained callbacks and reference callback values (remaining P5 work), arrays, general `CharSequence`/`Object` arguments (except inherited identity equality), source overrides of `equals(Object)`, exported reference generics, general native inheritance, Java subclassing, mutable public fields, mixed fresh/borrowed reclaimable results, and arbitrary object-graph conversion. Reject unsupported public signatures at producer build. Internal uses remain allowed when their boundary proofs hold. |
 | Retention | Fixed fields on reclaimable roots with persistent host records only; the authoritative native root index has reserved capacity and JNI global references to Java root state before execution. The adapter commits registration/count/slot updates before Java resumes; only weak facade caching follows in Java. P3 proves every write and rejects slot-value transfers or hidden publication. Borrowed-child retention slots and permanent holders of reclaimable targets are deferred. |
 | OrderBook | Preserve the actual project's process-lifetime graph using P3's non-reclaimable classification. Demonstrate complete `free()`, retention and cross-owner argument behavior using a separate reclaimable owner/child fixture. Reclaimable production OrderBook is a separate producer change; it is not claimed by this release. |
 | Platforms | macOS ARM64, Linux ARM64 and Linux x86-64. Reuse official IDK native baselines, including Linux glibc 2.17; record the macOS deployment target and required CPU features in the artifact. Effective support also requires a supported Java 21-23 JVM on that host. Do not advertise an older OS merely because the native payload can load there. |

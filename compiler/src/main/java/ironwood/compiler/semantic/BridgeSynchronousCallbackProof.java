@@ -65,10 +65,10 @@ public final class BridgeSynchronousCallbackProof {
             for (int index = 0; index < id.parameters().size(); index++) {
                 var type = id.parameters().get(index);
                 if (type.isPrimitive()) continue;
-                if (!listeners.contains(type) || !facts.borrowsInput(id, index)) {
+                if ((!listeners.contains(type) && !type.equals(IrType.reference("ironwood.lang.String"))) || !facts.borrowsInput(id, index)) {
                     throw new IllegalArgumentException("synchronous callback requires borrowed listener inputs: " + id.linkage());
                 }
-                listener = true;
+                listener |= listeners.contains(type);
             }
             if (!listener || !entries.get(id).foreign() || !entries.get(id).complete()) {
                 throw new IllegalArgumentException("synchronous callback requires a complete callback-bearing closure");
@@ -133,6 +133,11 @@ public final class BridgeSynchronousCallbackProof {
         // No general heap/static access, allocations, cleanup, native-object arguments,
         // or exception graph edits can hide behind this primitive invocation.
         return switch (operation) {
+            case IrFieldLoadInstruction load -> load.field().ownerClass().equals("ironwood.lang.String")
+                    && load.receiver().type().equals(IrType.reference("ironwood.lang.String"))
+                    && load.field().type().equals(IrType.I32)
+                    && Set.of("utf16Length", "utf8Length").contains(load.field().name());
+            case IrStringCharAtInstruction ignored -> true;
             case IrBinaryInstruction ignored -> true;
             case IrUnaryInstruction ignored -> true;
             case IrNumericConversionInstruction ignored -> true;

@@ -56,7 +56,8 @@ final class BridgeCallbackProducerTests {
         Files.writeString(alternate, "package listening; public interface Alternate { boolean accept(long value); }");
         for (String mutation : List.of("static Listener retained; public static long bad(Listener l) { retained = l; return l.call(1L); }",
                 "static long state; public static long bad(Listener l) { return state + l.call(1L); }",
-                "public static Listener bad(Listener l) { l.call(1L); return l; }")) {
+                "public static Listener bad(Listener l) { l.call(1L); return l; }",
+                "static String retained; public static long bad(Listener l, String s) { retained = s; return l.call(s.length()); }")) {
             Files.writeString(source, SOURCE.replace("private Processor() {}", "private Processor() {} " + mutation));
             for (var mode : UnfreedMode.values()) {
                 BridgeProducerTests.command(directory, "reject-" + Math.abs(mutation.hashCode()) + "-" + mode, 1,
@@ -85,6 +86,15 @@ final class BridgeCallbackProducerTests {
         var properties = new Properties();
         try (var zip = new ZipFile(jar.toFile())) {
             try (var input = zip.getInputStream(zip.getEntry(BridgePackageManifest.PATH))) { properties.load(input); }
+            try (var input = zip.getInputStream(zip.getEntry(BridgePackageManifest.PATH))) {
+                Files.write(jar.resolveSibling("paired.properties"), input.readAllBytes());
+            }
+            String resource = properties.getProperty("native.resource");
+            try (var input = zip.getInputStream(zip.getEntry(resource))) {
+                byte[] payload = input.readAllBytes();
+                check(BridgeGeneration.bytesDigest(payload).equals(properties.getProperty("native.sha256")), "native image identity mismatch");
+                Files.write(jar.resolveSibling(resource.endsWith(".dylib") ? "paired.dylib" : "paired.so"), payload);
+            }
             check(properties.getProperty("projection").equals("callbacks-v1"), "missing callback projection identity");
             var map = new java.util.TreeMap<String, String>();
             properties.stringPropertyNames().forEach(key -> map.put(key, properties.getProperty(key)));
@@ -109,14 +119,14 @@ final class BridgeCallbackProducerTests {
         Files.writeString(source, CONSUMER);
         BridgeEntryTests.run(folder, List.of(jdk.resolve("bin/javac").toString(), "--release", "21", "-Xlint:all", "-Werror",
                 "-cp", jar.toString(), "-d", classes.toString(), source.toString()), "javac");
-        for (String mode : List.of("class", "module", "allocation-0", "allocation-1")) {
+        for (String mode : List.of("class", "module", "allocation-0", "allocation-1", "strings-0", "strings-1", "strings-2")) {
             var args = new ArrayList<String>();
-            if (mode.startsWith("allocation-")) args.addAll(List.of("/usr/bin/env", "IRONWOOD_ALLOCATION_LIMIT=" + mode.substring(11)));
+            if (mode.contains("-")) args.addAll(List.of("/usr/bin/env", "IRONWOOD_ALLOCATION_LIMIT=" + mode.substring(mode.indexOf('-') + 1)));
             args.addAll(List.of(jdk.resolve("bin/java").toString(), "-Xcheck:jni"));
             if (mode.equals("module")) args.addAll(List.of("--module-path", jar.toString(), "--add-modules", manifest.getProperty("java.module"),
                     "-cp", classes.toString(), "Consumer"));
             else args.addAll(List.of("-cp", jar + java.io.File.pathSeparator + classes, "Consumer"));
-            if (mode.startsWith("allocation-")) args.add("allocation");
+            if (mode.contains("-")) args.add(mode.substring(0, mode.indexOf('-')));
             check(BridgeEntryTests.run(folder, args, "consumer-" + mode).equals("callback-producer-ok\n"), "callback consumer failed: " + mode);
         }
     }
@@ -137,6 +147,17 @@ final class BridgeCallbackProducerTests {
                 public static long pair(Listener listener, Alternate alternate, long value) {
                     return alternate.accept(value) ? listener.call(value) : 0L;
                 }
+                public static long text(Listener listener, String first, String second) {
+                    long before = hash(first) + hash(second);
+                    listener.call(before);
+                    return hash(first) + hash(second);
+                }
+                private static long hash(String value) {
+                    if (value == null) return -1L;
+                    long result = 1L;
+                    for (int index = 0; index < value.length(); index++) result = result * 31L + (long)value.charAt(index);
+                    return result;
+                }
                 public static void consume(Listener listener) { listener.call(1L); }
                 public static double real(Listener listener, double value) { listener.call(1L); return value; }
                 public static long fault(Listener listener, long value) {
@@ -150,7 +171,11 @@ final class BridgeCallbackProducerTests {
                 public static void main(String[] args) {
                     Listener identity = value -> value;
                     if (args.length != 0) {
-                        try { Processor.pair(identity, value -> true, 4L); throw new AssertionError("allocation succeeded"); }
+                        try {
+                            if (args[0].equals("strings")) Processor.text(value -> { throw new AssertionError("failed copy executed callback"); }, "a", "b");
+                            else Processor.pair(identity, value -> true, 4L);
+                            throw new AssertionError("allocation succeeded");
+                        }
                         catch (OutOfMemoryError expected) { }
                     } else {
                         if (Processor.run(identity, 10L) != 45L || Processor.pair(identity, value -> value == 9L, 9L) != 9L)
@@ -159,6 +184,16 @@ final class BridgeCallbackProducerTests {
                         Processor.consume(identity);
                         if (1.0 / Processor.real(identity, -0.0) != Double.NEGATIVE_INFINITY) throw new AssertionError("real result");
                         RuntimeException original = new RuntimeException("original");
+                        for (String value : new String[]{null, "", new String(new char[]{'a', 0, (char)0xd800, (char)0xdc00, (char)0xdc00})}) {
+                            long expected = hash(value) + hash("nested");
+                            if (Processor.text(n -> {
+                                String allocated = new String(new char[1024]);
+                                if (Processor.text(identity, allocated, value) != hash(allocated) + hash(value)) throw new AssertionError("nested string");
+                                return n;
+                            }, value, "nested") != expected) throw new AssertionError("outer string changed");
+                            try { Processor.text(n -> { throw original; }, value, "nested"); throw new AssertionError("string callback failure"); }
+                            catch (RuntimeException caught) { if (caught != original) throw new AssertionError("string identity"); }
+                        }
                         try { Processor.consume(value -> { throw original; }); throw new AssertionError("void failure"); }
                         catch (RuntimeException caught) { if (caught != original) throw new AssertionError("void identity"); }
                         for (int i = 0; i < 30; i++) {
@@ -172,6 +207,12 @@ final class BridgeCallbackProducerTests {
                         catch (ArithmeticException expected) { }
                     }
                     System.out.println("callback-producer-ok");
+                }
+                private static long hash(String value) {
+                    if (value == null) return -1L;
+                    long result = 1L;
+                    for (int index = 0; index < value.length(); index++) result = result * 31L + value.charAt(index);
+                    return result;
                 }
             }
             """;
