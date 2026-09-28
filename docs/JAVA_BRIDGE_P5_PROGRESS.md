@@ -165,11 +165,38 @@ complete safety and transport path is implemented and tested.
   Fixed initial C/LLVM symbol spelling mismatch by using an ordinary generated
   wrapper, avoiding platform-specific assembler aliases. License/diff checks pass.
 
+- `160287a0`: committed private callback transport and shared protected entries.
+  Estonia physical Linux x86-64 passed proxy source/class/archive safety, context
+  specialization, and private callback transport at O0/O3. Java 21.0.12.1+1,
+  LLVM 23.1.0, existing Docker image
+  `sha256:dd4c1e82b2f999db86e75538f7d32adcaa364452f99a8f615eca693707c382a7`,
+  isolated CPUs 1-4/9-12, network disabled. No tools were installed.
+  Source/class payload `f26f1060ddd9d36d7e74ad0b422cf9f7b71b9aa3619ae57e730bb0a8cd875a31`.
+  O0 library `043439601e6718d77d2bbe61045fa515385b7424b5b25155d58909ea4099e976`;
+  O3 `0f8971a736047c6c758f833e125ba52372b998d1a3247a8c4a7fb4eba15c4040`.
+  O3 disassembly confirms a register-passed context and one adapter call per
+  iteration, with no TLS or registry work in the native loop. This is transport
+  correctness/code-generation evidence, not full P5 qualification or performance.
+- Estonia evidence and exact runner are preserved under
+  `~/temp/java-bridge/p5-160287a0/`, copied locally to
+  `workspace/java-bridge/p5-estonia-160287a02a53/`. Payload manifests, revision,
+  commands, child logs, versions, emitted IR and disassembly are included.
+  First container extraction failed because its new tmpfs was not writable by
+  UID 1001. Retried after setting permissions on only the new scratch mounts,
+  then dropped to UID/GID 1001. Both containers and all pre-existing files remain.
+  The evidence archive includes the pinned support sources and occupies 202 MB;
+  host free space is now about 235 MB. For future runs, stream evidence to this
+  Mac or omit duplicated support source archives while retaining their hashes.
+- D227 records the maintainer's explicit decision to preserve native exception
+  lifetimes: retained/unknown carriers remain process-live; only proved
+  nonescaping compiler-owned carriers can be cleaned after all native uses end.
+  This resolves the ownership choice without weakening source `free` rules.
+
 ## Next step
 
-Run the private transport checkpoint on Estonia using existing tools and fresh
-RAM-backed container scratch. Then implement native foreign-failure carriers,
-retained listener lifecycle and active-use guards before producer admission.
+Complete the active-use guard component and its focused Java allocation/refusal
+checks. Then implement native foreign-failure carriers under D227 and retained
+listener lifecycle before producer admission.
 Source/class/archive
 callback parity, native runtime containment, listener lifetime and performance
 qualification remain pending.
