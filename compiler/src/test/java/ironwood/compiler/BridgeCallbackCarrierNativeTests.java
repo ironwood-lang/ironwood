@@ -133,8 +133,16 @@ final class BridgeCallbackCarrierNativeTests {
         listeners += BridgeListenerNativeSources.owners(artifact, slotEntries)
                 .replace("malloc(sizeof(*prepared))", "test_slot_allocate(sizeof(*prepared))")
                 .replace("free(slot)", "test_slot_free(slot)").replace("free(prepared)", "test_slot_free(prepared)");
+        var callbacks = BridgeCallbackNativeSources.generate(artifact, proxies);
+        // The old carrier controls use a process-live zero-handle proxy with a
+        // call-scoped test listener. All JNI calls now use the generated body;
+        // retained listeners pass their actual owned global handle unchanged.
+        String directSymbol = foreign.targetLinkageName() + "_direct";
+        String nativeCallbacks = callbacks.source().replace(foreign.targetLinkageName() + "(", directSymbol + "(");
         Files.writeString(adapter, ADAPTER.replace("@EXCEPTIONS@", BridgeExceptionNativeSources.generate(artifact, projection, exceptions, operations))
                 .replace("@CARRIERS@", transport).replace("@LISTENERS@", listeners).replace("@CALLBACK@", foreign.targetLinkageName())
+                .replace("@CALLBACK_BODIES@", nativeCallbacks).replace("@DIRECT_CALLBACK@", directSymbol)
+                .replace("@METHOD@", callbacks.methods().getFirst().methodField())
                 .replace("@PROXY_CREATE@", proxyEntries.operations().getFirst().create().linkageName())
                 .replace("@GUARD_PACKAGE@", guards.supportPackage().replace('.', '/'))
                 .replace("@FACTORY@", generation.supportPackage().replace('.', '/') + "/ExceptionFactory"));
@@ -248,7 +256,6 @@ final class BridgeCallbackCarrierNativeTests {
     private static final String ADAPTER = """
             @EXCEPTIONS@
             static struct iw_exception_metadata metadata;
-            static jmethodID callback;
             static void *proxy;
             static int fail_global;
             static int64_t globals;
@@ -293,6 +300,7 @@ final class BridgeCallbackCarrierNativeTests {
             }
             static void test_slot_free(void *value) { slot_records--; free(value); }
             @LISTENERS@
+            @CALLBACK_BODIES@
             static struct iw_listener *listeners[2];
             struct frame { struct iw_callback_frame carrier; jobject listener; };
             extern int32_t carrier_run(void *, int64_t, int64_t, struct ironwood_bridge_result *);
@@ -301,11 +309,8 @@ final class BridgeCallbackCarrierNativeTests {
             extern void ironwood_bridge_bootstrap(void);
             int64_t @CALLBACK@(int64_t address, int64_t handle, int64_t value) {
                 struct frame *frame = (struct frame *)(uintptr_t)address;
-                JNIEnv *env = frame->carrier.env;
                 jobject listener = handle == 0 ? frame->listener : (jobject)(uintptr_t)handle;
-                jlong result = (*env)->CallLongMethod(env, listener, callback, (jlong)value);
-                if ((*env)->ExceptionCheck(env)) iw_callback_capture(&frame->carrier);
-                return result;
+                return @DIRECT_CALLBACK@(address, (int64_t)(uintptr_t)listener, value);
             }
             static jlong invoke(JNIEnv *env, jclass type, jobject listener, jlong mode) {
                 (void)type;
@@ -499,8 +504,8 @@ final class BridgeCallbackCarrierNativeTests {
                 if ((*env)->RegisterNatives(env, type, methods, 18) != 0) return JNI_ERR;
                 jclass listener = (*env)->FindClass(env, "CallbackCarrierConsumer$Listener");
                 if (listener == NULL) return JNI_ERR;
-                callback = (*env)->GetMethodID(env, listener, "onResult", "(J)J");
-                if (callback == NULL) return JNI_ERR;
+                @METHOD@ = (*env)->GetMethodID(env, listener, "onResult", "(J)J");
+                if (@METHOD@ == NULL) return JNI_ERR;
                 jclass factory = (*env)->FindClass(env, "@FACTORY@");
                 if (factory == NULL || !iw_exception_metadata_init(env, factory, &metadata)) return JNI_ERR;
                 ironwood_bridge_bootstrap();
