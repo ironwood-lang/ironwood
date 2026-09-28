@@ -1,0 +1,27 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+package ownedcallbackstackprobe;
+
+// Combines retained registration, owner-facade arguments and live String copies
+// during nested callbacks. Bounded test depths are not a general stack guarantee.
+public final class QualificationOwnedCallbackStack {
+
+    private OwnedStackListener listener;
+
+    public QualificationOwnedCallbackStack() {
+
+    }
+
+    public void setListener(OwnedStackListener listener) {
+
+        this.listener = listener;
+    }
+
+    public long recurse(QualificationOwnedCallbackStack peer, int depth, long seed, boolean fail, String text) {
+
+        int before = text.length();
+        long value = this.listener.step(this, peer, depth, seed, fail);
+        if (before != text.length()) throw new IllegalStateException("changed suspended String");
+        if (depth == 0) return value;
+        return (value * value + depth) ^ seed;
+    }
+}
