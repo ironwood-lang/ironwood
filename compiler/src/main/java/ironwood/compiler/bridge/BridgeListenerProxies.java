@@ -13,7 +13,6 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 
 /** Compiler-owned proxy declarations, rebound before mandatory source safety analysis. */
@@ -148,19 +147,10 @@ public final class BridgeListenerProxies {
         var field = owner.fields().stream().filter(candidate -> candidate.ownerClass().equals(owner.name())
                 && candidate.name().equals("javaHandle") && candidate.type().equals(IrType.I64)).findFirst().orElseThrow();
         var span = function.sourceSpan();
-        var handle = new IrValueReference(function.parameters().size(), IrType.I64, span);
-        var result = method.result().equals(IrType.VOID) ? Optional.<IrValueReference>empty()
-                : Optional.of(new IrValueReference(function.parameters().size() + 1, method.result(), span));
-        List<IrOperand> foreignArguments = new ArrayList<>();
-        foreignArguments.add(handle);
-        function.parameters().stream().skip(1).map(IrParameter::value).forEach(foreignArguments::add);
         String symbol = "ironwood_bridge_callback_" + BridgeGeneration.bytesDigest((proxy.listener().binaryName()
                 + ":" + method.name() + ":" + arguments + ":" + method.result()).getBytes(StandardCharsets.UTF_8));
-        var body = List.<IrInstruction>of(new IrFieldLoadInstruction(handle, function.parameters().getFirst().value(), field, span),
-                new IrForeignCallInstruction(result, symbol, method.result(), foreignArguments, span));
         return new IrFunction(function.ownerClass(), function.sourceName(), function.linkageName(), function.returnType(),
-                function.parameters(), List.of(new IrBasicBlock("entry", body,
-                new IrReturnTerminator(result.map(value -> (IrOperand) value), span), span)), span,
+                function.parameters(), BridgeCallbackAbi.body(function, field, symbol), span,
                 function.sourceFileName(), function.kind());
     }
 

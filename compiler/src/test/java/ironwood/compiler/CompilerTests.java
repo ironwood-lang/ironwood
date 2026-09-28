@@ -154,6 +154,7 @@ public final class CompilerTests {
                 ironwood.compiler.semantic.BridgeCallbackContextTests::proofs);
         test(BridgeCallbackTransportTests.NAME, BridgeCallbackTransportTests::nativeTransport);
         test(BridgeCallbackCarrierNativeTests.NAME, BridgeCallbackCarrierNativeTests::carriers);
+        test(BridgePrimitiveCallbackNativeTests.NAME, BridgePrimitiveCallbackNativeTests::primitives);
         test(ironwood.compiler.bridge.BridgeCallbackActiveUseTests.NAME,
                 ironwood.compiler.bridge.BridgeCallbackActiveUseTests::guards);
         test(ironwood.compiler.semantic.BridgeCallbackCarrierLifetimeTests.NAME,

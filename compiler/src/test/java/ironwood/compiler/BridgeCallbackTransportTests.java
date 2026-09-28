@@ -139,7 +139,7 @@ final class BridgeCallbackTransportTests {
                 new LlvmEmitter().emit(program);
                 throw new AssertionError("unsupported or inconsistent foreign ABI emitted");
             } catch (IllegalArgumentException expected) {
-                check(expected.getMessage().contains("long arguments") || expected.getMessage().contains("inconsistent callback ABI"),
+                check(expected.getMessage().contains("normalized primitive") || expected.getMessage().contains("inconsistent callback ABI"),
                         expected.toString());
             }
         }
