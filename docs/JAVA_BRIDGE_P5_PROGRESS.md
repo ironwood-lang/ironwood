@@ -232,13 +232,48 @@ complete safety and transport path is implemented and tested.
   Fixed a test assertion to match the existing `cannot prove free` diagnostic;
   the compiler already rejected the source. License audit and diff checks pass.
 
+Runtime checkpoint pre-change review: add protected carrier construction/reference entries
+and generated JNI exception capture. Exercise native discard, replacement,
+retention and later rethrow, nested frames and native/JNI allocation failures in
+child JVMs at O0/O3. The existing native exception translator handles replacement
+and allocation failures. Successful callbacks must remain allocation-free.
+This checkpoint deliberately grants no cleanup permission: until destruction is
+proved, its private harness uses D227's conservative process-live lifetime.
+Public callback admission stays rejected. Shared source reclamation and foreign
+effects are unchanged; rerun their focused controls with the new carrier tests.
+
+- Protected carrier creation/reference entries and generated cold JNI capture
+  now preserve throwable identity on the native object. Capture clears pending
+  JNI state before ordinary JNI work, releases the temporary local reference,
+  and transfers the global reference only after protected factory success.
+  Factory failure deletes the global reference and raises the actual native
+  failure inside the enclosing protected invocation. JNI global-reference
+  exhaustion raises native OOM; original identity is not promised when retaining
+  that identity itself runs out of resources. Native handlers can catch that OOM.
+- Exact test `Java Bridge native carriers preserve catch replacement retained
+  identity and allocation containment` passes on macOS ARM64, Java 21 / LLVM 23,
+  O0/O3. Child JVMs use `-Xcheck:jni`; test native discard, actual replacement
+  translated through existing generated exception support, retained rethrow in
+  a later invocation, two failures in one frame, nested frames, global-reference
+  accounting, native allocation limit zero and injected JNI global-ref failure.
+  Ten thousand successful calls allocate zero native objects. Retained and
+  discarded carriers in this private harness deliberately stay process-live;
+  this is not evidence of temporary cleanup or public callback admission.
+- Evidence: `workspace/java-bridge/evidence/p5/carriers/run-4578553936106605441/`.
+  O0 image SHA-256 `8d99b3e3152448f50f2d4baac019e06682db7fea5a4d38efbc5272fc9412dfab`;
+  O3 `8589cd12e116bada35ffdd555c5b3b5830060da9f7d0eaad49505a6ac503b898`.
+  O3 adapter contains the Java call and mandatory pending-exception check on
+  success; carrier work is in the outlined failure path, without TLS or registry
+  access. Commands, generated IR/C/Java, hashes and disassembly accompany images.
+  Logs: `p5-native-carriers.log`, `p5-carrier-controls.log` in
+  `workspace/java-bridge/`. Carrier lifetime and conservative foreign effect
+  controls pass. License audit and diff checks pass.
+
 ## Next step
 
-Implement native foreign-failure carriers under D227 and retained listener
-lifecycle before producer admission. Reuse protected factory/destruction entries
-for carrier allocation failure and cleanup; never let a JNI pending exception
-coexist with ordinary JNI work. Carrier identity must be attached to the native
-object, not just a frame flag, so catch/replace and later retained rethrow work.
+Implement proved temporary carrier destruction and retained listener lifecycle
+before producer admission. Reuse protected cleanup entries; never let a JNI
+pending exception coexist with ordinary JNI work.
 Prove absence of native retention before invocation-end cleanup; unknown carrier
 retention remains process-live under D227. Guard components still need actual
 receiver/dependent-owner placement and native refusal tests in that admission.
