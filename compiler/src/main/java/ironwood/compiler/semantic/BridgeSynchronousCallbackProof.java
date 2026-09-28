@@ -151,7 +151,8 @@ public final class BridgeSynchronousCallbackProof {
                             && provedFaultRollback(artifact, rollback, function, block, failed, approvedRollback)) {
                         // Match P0's unpublished constructor unwind and prove its
                         // complete owned-message/trace cleanup. No caught-object free.
-                    } else if (!ownerValueOperation(operation, owners, listeners, listenerWrites)
+                    } else if (!exceptionValueOperation(operation)
+                            && !ownerValueOperation(operation, owners, listeners, listenerWrites)
                             && !localValueOperation(operation)) throw rejected(function, operation);
                 }
             }
@@ -190,9 +191,29 @@ public final class BridgeSynchronousCallbackProof {
                 + operation.getClass().getSimpleName() + " in " + function.linkageName());
     }
 
+    private static boolean exceptionValueOperation(IrInstruction operation) {
+        // Built-in Throwable storage cannot contain guarded final owner roots
+        // or listener proxies. Carrier lifetime is proved separately per entry;
+        // graph publication keeps the carrier live under D227.
+        return switch (operation) {
+            case IrStaticFieldLoadInstruction load -> throwable(load.field().type());
+            case IrStaticFieldStoreInstruction store -> throwable(store.field().type());
+            case IrFieldLoadInstruction load -> load.field().ownerClass().equals("ironwood.lang.Throwable")
+                    && Set.of("cause", "causeInitialized", "message").contains(load.field().name());
+            case IrFieldStoreInstruction store -> store.field().ownerClass().equals("ironwood.lang.Throwable")
+                    && Set.of("cause", "causeInitialized").contains(store.field().name());
+            case IrAddSecondaryExceptionInstruction ignored -> true;
+            default -> false;
+        };
+    }
+
+    private static boolean throwable(IrType type) {
+        return type.isReference() && BridgeExportSurface.builtinThrowableNames().contains(type.referenceName());
+    }
+
     private static boolean localValueOperation(IrInstruction operation) {
-        // No general heap/static access, allocations, cleanup, native-object arguments,
-        // or exception graph edits can hide behind this primitive invocation.
+        // General heap/static access, allocations and cleanup require separate
+        // admission. This list contains only local value operations.
         return switch (operation) {
             case IrFieldLoadInstruction load -> load.field().ownerClass().equals("ironwood.lang.String")
                     && load.receiver().type().equals(IrType.reference("ironwood.lang.String"))

@@ -5,9 +5,11 @@
 The experimental producer builds host-target Java dependencies for macOS ARM64,
 Linux ARM64 and Linux x86-64, exposing primitive
 and copied-String APIs, proved roots and borrowed views with bounded retention,
-permanent concrete objects, enums and custom exception snapshots. Consumers call
+permanent concrete objects, enums, custom exception snapshots and bounded
+synchronous Java listeners. Consumers call
 generated Java classes and catch mapped Java exceptions using ordinary dependency
-loading. General object inheritance, arrays, callbacks and optional TLS dependencies
+loading. General object inheritance, arrays, callback shapes outside the proved
+subsets and optional TLS dependencies
 remain rejected at their pending implementation boundaries.
 This preview is not a release qualification.
 
@@ -23,7 +25,8 @@ their pinned compiler runtimes. Windows, musl and 32-bit hosts are unsupported.
 One host build contains one target; combine matched host jars using the assembly
 step below. The [distribution candidate and three-target evidence](JAVA_BRIDGE_P6_EVIDENCE.md)
 are recorded, including physical Linux x86-64 execution under D213. Final
-qualification still requires the maintainer's numerical performance acceptance.
+OrderBook numerical acceptance is recorded in D225. New P5 callback measurements
+have their own review and qualification record in the [P5 log](JAVA_BRIDGE_P5_PROGRESS.md).
 Rosetta observations remain separate functional/static evidence.
 
 Linux producers first prepare the [pinned native support SDK](JAVA_BRIDGE_NATIVE_SUPPORT.md)
@@ -160,6 +163,31 @@ not release a dependency. The producer rejects slot transfers, child-held slots,
 cycles, unknown effects and unbounded retention; missing-free options cannot
 bypass these proofs. Scalar calls with no slot mutation do no retention bookkeeping.
 
+Synchronous listeners use generated top-level nongeneric Java interfaces. Methods
+accept primitives or proved final-owner facades and return primitives/void.
+Native roots with primitive/listener fields can retain registrations in proved
+fixed slots. Replacement and clearing preserve the suspended invocation's listener
+until it finishes; global references are released when their last registered or
+active use ends. Reentrant calls are supported on the same thread. Active owners
+refuse `free()`, including through callback argument aliases. Java may retain a
+stable owner facade after callback return; native access fails after explicit free.
+Copied String inputs remain live across allocating, nested or throwing callbacks
+and are cleaned on every exit. See the [runnable listener example](../examples/java-bridge/listeners/README.md).
+
+Unchanged Java callback exceptions preserve their original identity. Native
+additions use the wrapper contract in D228; retained carriers follow the existing
+native exception lifetime in D227. Built-in Throwable static slots can retain
+failures; native cause and secondary-failure additions use bounded snapshot
+translation. Each entry reclaims its newly created carriers only when the complete
+closure proves they cannot escape. Retaining or unknown uses keep their carriers
+and Java references for the process lifetime, even after a slot is overwritten.
+Public callback admission remains bounded by its complete native-state proof.
+It rejects arbitrary owner graphs/publication,
+callbacks combined with independent-root retention mutation, reference callback
+results, other reference callback arguments, asynchronous/native-created-thread
+callbacks, interface inheritance/default/static methods and subclass proxies.
+Missing-free options never bypass mandatory rejection.
+
 Custom exception snapshots preserve their checked/unchecked catch hierarchy and
 supported primitive/String getters. Their non-public constructors consume copied
 data, and their getters require no native call or explicit cleanup. Such copied
@@ -216,8 +244,8 @@ invoke the producer and install only into local repositories. Producers still
 need matching host toolchains; consumers need supported Java and the dependency.
 Keep producing basenames stable under D215 even though repository filenames
 include the version. Changing a POM version does not change native generation,
-expand platform support, or qualify the artifact. Final numerical acceptance
-remains open in P6b.
+expand platform support, or qualify the artifact. The recorded D225 acceptance
+applies to the measured OrderBook candidate, not unmeasured extensions.
 
 The [implementation plan](JAVA_BRIDGE_PLAN.md) is authoritative;
 the [progress log](JAVA_BRIDGE_PROGRESS.md) distinguishes completed checkpoints

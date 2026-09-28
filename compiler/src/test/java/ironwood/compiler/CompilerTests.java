@@ -138,6 +138,8 @@ public final class CompilerTests {
         test("Java Bridge retention follows destructor and rollback effects", BridgeRetentionTests::cleanupEffects);
         test("Java Bridge cleanup retention preserves actual initialization edges",
                 ironwood.compiler.semantic.BridgeCleanupInitializationTests::proofs);
+        test(ironwood.compiler.semantic.BridgeRollbackAttributionTests.NAME,
+                ironwood.compiler.semantic.BridgeRollbackAttributionTests::proofs);
         test("Java Bridge retention proofs survive artifact reconstruction", BridgeRetentionTests::artifacts);
         test("Java Bridge text retention distinguishes copied storage from publication", BridgeTextRetentionTests::effects);
         test("Java Bridge fresh graphs preserve independent input retention proofs", BridgeFreshGraphTests::proofs);

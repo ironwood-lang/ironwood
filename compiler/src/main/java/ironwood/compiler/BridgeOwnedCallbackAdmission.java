@@ -22,7 +22,7 @@ public final class BridgeOwnedCallbackAdmission {
     private final Optional<BridgeOwnedListenerSlots> slots;
     private final BridgeListenerProxyEntries proxies;
     private final BridgeCallbackCarrierEntries carriers;
-    private final BridgeCallbackCarrierCleanup cleanup;
+    private final BridgeCallbackCarrierPolicy cleanup;
     private final BridgeEntryModule entries;
     private final BridgeExceptionClosure.Snapshot exceptions;
     private final IrProgram program;
@@ -30,7 +30,7 @@ public final class BridgeOwnedCallbackAdmission {
     private BridgeOwnedCallbackAdmission(CompilationArtifact artifact, BridgeExportSurface surface,
             BridgeListenerProxies listeners, BridgeEntryModule storage, BridgeFinalRootRetention lifetime,
             BridgeOwnedCallbackEntries callbacks, Optional<BridgeOwnedListenerSlots> slots,
-            BridgeListenerProxyEntries proxies, BridgeCallbackCarrierEntries carriers, BridgeCallbackCarrierCleanup cleanup,
+            BridgeListenerProxyEntries proxies, BridgeCallbackCarrierEntries carriers, BridgeCallbackCarrierPolicy cleanup,
             BridgeEntryModule entries, BridgeExceptionClosure.Snapshot exceptions, IrProgram program) {
         this.artifact = artifact; this.surface = surface; this.listeners = listeners;
         this.storage = storage; this.lifetime = lifetime; this.callbacks = callbacks; this.slots = slots;
@@ -47,7 +47,7 @@ public final class BridgeOwnedCallbackAdmission {
     public Optional<BridgeOwnedListenerSlots> slots() { return slots; }
     public BridgeListenerProxyEntries proxies() { return proxies; }
     public BridgeCallbackCarrierEntries carriers() { return carriers; }
-    public BridgeCallbackCarrierCleanup cleanup() { return cleanup; }
+    public BridgeCallbackCarrierPolicy cleanup() { return cleanup; }
     public BridgeEntryModule entries() { return entries; }
     public BridgeExceptionClosure.Snapshot exceptions() { return exceptions; }
     public IrProgram program() { return program; }
@@ -98,7 +98,7 @@ public final class BridgeOwnedCallbackAdmission {
                     : Optional.of(BridgeOwnedListenerSlots.prove(artifact, listeners, nativeRoots, storage, lifetime));
             var proxies = BridgeListenerProxyEntries.create(artifact, listeners);
             var carriers = BridgeCallbackCarrierEntries.create(artifact, carrier);
-            var cleanup = BridgeCallbackCarrierCleanup.prove(artifact, carrier, callbackRoots);
+            var cleanup = BridgeCallbackCarrierPolicy.prove(artifact, carrier, callbackRoots);
             var entries = BridgeEntryModule.ownedCallbacks(artifact, surface.roots(), storage, lifetime,
                     callbacks, slots, proxies, carriers, cleanup);
             var closure = BridgeExceptionClosure.callbacks(artifact, entries, carriers);

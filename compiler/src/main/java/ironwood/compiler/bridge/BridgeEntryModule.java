@@ -111,7 +111,7 @@ public final class BridgeEntryModule {
     /** Complete primitive callback composition; additional exports are proof-owned support operations. */
     public static BridgeEntryModule synchronousCallbacks(CompilationArtifact artifact, BridgeRootSet roots,
             BridgeSynchronousCallbackEntries callbacks, BridgeCallbackCarrierEntries carriers,
-            BridgeCallbackCarrierCleanup cleanup) {
+            BridgeCallbackCarrierPolicy cleanup) {
         if (!callbacks.matches(artifact, roots) || !carriers.matches(artifact) || !cleanup.matches(artifact, roots)) {
             throw new IllegalArgumentException("callback module requires matching invocation and ownership proofs");
         }
@@ -119,7 +119,7 @@ public final class BridgeEntryModule {
         var functions = new ArrayList<>(base.functions());
         var additions = new ArrayList<>(callbacks.proxies().functions());
         additions.addAll(carriers.functions());
-        additions.add(cleanup.destruction());
+        cleanup.cleanup().ifPresent(proof -> additions.add(proof.destruction()));
         functions.addAll(additions);
         functions.addAll(callbacks.functions());
         if (functions.stream().map(IrFunction::linkageName).distinct().count() != functions.size()) {
@@ -143,7 +143,7 @@ public final class BridgeEntryModule {
     public static BridgeEntryModule ownedCallbacks(CompilationArtifact artifact, BridgeRootSet requested,
             BridgeEntryModule storage, ironwood.compiler.BridgeFinalRootRetention lifetime,
             BridgeOwnedCallbackEntries callbacks, Optional<ironwood.compiler.semantic.BridgeOwnedListenerSlots> slots,
-            BridgeListenerProxyEntries proxies, BridgeCallbackCarrierEntries carriers, BridgeCallbackCarrierCleanup cleanup) {
+            BridgeListenerProxyEntries proxies, BridgeCallbackCarrierEntries carriers, BridgeCallbackCarrierPolicy cleanup) {
         var original = artifact.program().orElseThrow();
         var callbackRoots = BridgeRootSet.resolve(original, callbacks.entries().stream()
                 .map(BridgeOwnedCallbackEntries.Entry::callable).toList());
@@ -179,7 +179,7 @@ public final class BridgeEntryModule {
         var base = callbacks.context().program();
         var additions = new ArrayList<>(proxies.functions());
         additions.addAll(carriers.functions());
-        additions.add(cleanup.destruction());
+        cleanup.cleanup().ifPresent(proof -> additions.add(proof.destruction()));
         storage.destructions().forEach(entry -> additions.add(entry.function()));
         var functions = new ArrayList<>(base.functions());
         functions.addAll(lowered.values()); functions.addAll(additions);

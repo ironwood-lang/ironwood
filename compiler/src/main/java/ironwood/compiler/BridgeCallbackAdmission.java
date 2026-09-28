@@ -7,21 +7,21 @@ import ironwood.compiler.ir.IrProgram;
 
 import java.util.List;
 
-/** Bound composition for synchronous primitive listeners; no retained or native-object permission. */
+/** Bound composition for synchronous primitive listeners; listener inputs remain borrowed. */
 public final class BridgeCallbackAdmission {
     private final CompilationArtifact artifact;
     private final BridgeExportSurface surface;
     private final BridgeListenerProxies listeners;
     private final BridgeSynchronousCallbackEntries invocations;
     private final BridgeCallbackCarrierEntries carriers;
-    private final BridgeCallbackCarrierCleanup cleanup;
+    private final BridgeCallbackCarrierPolicy cleanup;
     private final BridgeEntryModule entries;
     private final BridgeExceptionClosure.Snapshot exceptions;
     private final IrProgram program;
 
     private BridgeCallbackAdmission(CompilationArtifact artifact, BridgeExportSurface surface,
             BridgeListenerProxies listeners, BridgeSynchronousCallbackEntries invocations,
-            BridgeCallbackCarrierEntries carriers, BridgeCallbackCarrierCleanup cleanup,
+            BridgeCallbackCarrierEntries carriers, BridgeCallbackCarrierPolicy cleanup,
             BridgeEntryModule entries, BridgeExceptionClosure.Snapshot exceptions, IrProgram program) {
         this.artifact = artifact;
         this.surface = surface;
@@ -39,7 +39,7 @@ public final class BridgeCallbackAdmission {
     public BridgeListenerProxies listeners() { return listeners; }
     public BridgeSynchronousCallbackEntries invocations() { return invocations; }
     public BridgeCallbackCarrierEntries carriers() { return carriers; }
-    public BridgeCallbackCarrierCleanup cleanup() { return cleanup; }
+    public BridgeCallbackCarrierPolicy cleanup() { return cleanup; }
     public BridgeEntryModule entries() { return entries; }
     public BridgeExceptionClosure.Snapshot exceptions() { return exceptions; }
     public IrProgram program() { return program; }
@@ -56,7 +56,7 @@ public final class BridgeCallbackAdmission {
         try {
             var invocations = BridgeSynchronousCallbackEntries.create(artifact, listeners, surface.roots());
             var carriers = BridgeCallbackCarrierEntries.create(artifact, carrier);
-            var cleanup = BridgeCallbackCarrierCleanup.prove(artifact, carrier, surface.roots());
+            var cleanup = BridgeCallbackCarrierPolicy.prove(artifact, carrier, surface.roots());
             var entries = BridgeEntryModule.synchronousCallbacks(artifact, surface.roots(), invocations, carriers, cleanup);
             var closure = BridgeExceptionClosure.callbacks(artifact, entries, carriers);
             if (closure.status() != BridgeProof.Status.PROVED) return BridgeProof.rejected(closure.reason());

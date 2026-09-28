@@ -8807,6 +8807,12 @@ occurrence order. If no
   ownership or permitting source `free` of caught/thrown objects. Reclaimable
   retained exceptions require a separate ownership change and are outside P5.
   No mandatory proof, exception identity or boundary containment rule is relaxed.
+- **Implementation:** Public producer composition selects carrier cleanup per
+  entry at compile time. Only the invocation-owned subset receives the existing
+  strict destruction proof. Built-in Throwable static slots and bounded native
+  cause/secondary graphs may retain carriers; unknown lifetime remains retained.
+  No runtime policy flag, owner publication permission or source free exemption
+  is introduced.
 
 ## D228 - Wrap Java callback failures enriched by native code
 
@@ -8824,7 +8830,8 @@ occurrence order. If no
   without modifying or accumulating additions on the original Java object.
 - **Scope:** Refines P5's previously unspecified modified-carrier translation.
   Existing bounded graph copying and D227 ownership still apply. This adds no
-  source reclamation permission and does not enable public callback exports.
+  source reclamation permission; public callback exports still require their
+  independent complete admission proofs.
 
 
 ## D229 - Preserve stable owner facades in synchronous callbacks

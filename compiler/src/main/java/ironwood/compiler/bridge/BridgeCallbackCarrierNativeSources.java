@@ -16,6 +16,14 @@ public final class BridgeCallbackCarrierNativeSources {
                 .replace("@EXHAUSTED@", entries.exhausted().linkageName());
     }
 
+    public static String cleanup(CompilationArtifact artifact, BridgeCallbackCarrierEntries entries,
+            BridgeRootSet roots, BridgeCallbackCarrierPolicy policy) {
+        if (!entries.matches(artifact) || !policy.matches(artifact, roots)) {
+            throw new IllegalArgumentException("carrier cleanup requires matching per-entry policy and entries");
+        }
+        return policy.cleanup().map(proof -> cleanup(artifact, entries, policy.reclaimableRoots(), proof)).orElse("");
+    }
+
     /** Invoke only after translation consumes the outer failure, including snapshot getters. */
     public static String cleanup(CompilationArtifact artifact, BridgeCallbackCarrierEntries entries,
             BridgeRootSet roots, BridgeCallbackCarrierCleanup proof) {

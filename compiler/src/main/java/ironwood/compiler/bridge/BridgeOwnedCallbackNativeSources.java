@@ -205,7 +205,7 @@ public final class BridgeOwnedCallbackNativeSources {
         text.append(cleanup);
         if (!leave.isEmpty()) text.append("    if (pending != NULL) { (*env)->Throw(env, pending); (*env)->DeleteLocalRef(env, pending); }\n");
         text.append("    if (status > 0) iw_owned_failure(env, status, &frame.result);\n");
-        if (call.callback()) text.append("    iw_callback_release(&context);\n");
+        if (call.callback() && admission.cleanup().reclaims(id)) text.append("    iw_callback_release(&context);\n");
         text.append(id.result().equals(IrType.VOID) && !call.constructor() ? "    return;\n" : "    return status == 0 ? "
                 + (call.constructor() ? "(jlong)(uintptr_t)frame.result.value.reference" : "frame.result.value." + BridgeValueNativeSources.field(id.result())) + " : 0;\n");
         text.append("}\n");

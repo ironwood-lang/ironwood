@@ -6,6 +6,7 @@ import ironwood.compiler.CompilerPipeline;
 import ironwood.compiler.UnfreedMode;
 import ironwood.compiler.bridge.BridgeCallableId;
 import ironwood.compiler.bridge.BridgeCallbackCarrierCleanup;
+import ironwood.compiler.bridge.BridgeCallbackCarrierPolicy;
 import ironwood.compiler.bridge.BridgeCallbackCarrierSources;
 import ironwood.compiler.bridge.BridgeListenerProxies;
 import ironwood.compiler.bridge.BridgeRootSet;
@@ -68,6 +69,16 @@ public final class BridgeCallbackCarrierLifetimeTests {
             var artifact = pipeline.analyzeForBridge(sources, proxies);
             check(artifact.valid(), artifact.diagnostics().toString());
             var program = artifact.program().orElseThrow();
+            var mixedRoots = BridgeRootSet.resolve(program, List.of(BridgeCallableId.of(function(program, "direct")),
+                    BridgeCallableId.of(function(program, "retain"))));
+            var policy = BridgeCallbackCarrierPolicy.prove(artifact, carrier, mixedRoots);
+            check(policy.matches(artifact, mixedRoots) && !policy.matches(initial, mixedRoots), "policy lost artifact binding");
+            check(!policy.matches(artifact, roots(program, "direct")), "policy admitted different roots");
+            check(policy.reclaims(BridgeCallableId.of(function(program, "direct")))
+                    && !policy.reclaims(BridgeCallableId.of(function(program, "retain"))), "mixed policy lost per-entry lifetime");
+            check(policy.cleanup().orElseThrow().matches(artifact, roots(program, "direct")), "cleanup includes retained roots");
+            check(BridgeCallbackCarrierPolicy.prove(artifact, carrier, roots(program, "retain")).cleanup().isEmpty(),
+                    "retaining-only policy emitted destruction");
             for (String name : List.of("direct", "discard", "rethrow", "replace")) {
                 var roots = roots(program, name);
                 var lifetime = BridgeCallbackCarrierLifetime.analyze(program, roots);

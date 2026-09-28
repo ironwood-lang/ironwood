@@ -93,17 +93,43 @@ final class BridgeRollbackAnalysis {
         if (!(predecessor.terminator() instanceof IrInvokeTerminator invoke)
                 || !invoke.unwindTarget().equals(rollbackBlock.label())
                 || invoke.normalTarget().equals(rollbackBlock.label())
-                || !(invoke.call() instanceof IrCallInstruction call) || call.arguments().isEmpty()
-                || predecessor.instructions().isEmpty()
-                || !(predecessor.instructions().getLast() instanceof IrAllocateInstruction allocation)
-                || !call.arguments().getFirst().equals(allocation.result())
+                || !(invoke.call() instanceof IrCallInstruction call) || call.arguments().isEmpty()) return Optional.empty();
+        var allocation = freshAllocation(caller, predecessor);
+        if (allocation == null || !call.arguments().getFirst().equals(allocation.result())
                 || !rollback.allocation().equals(allocation.result())) return Optional.empty();
-        // The immediately preceding allocation cannot have been published before
-        // the constructor; all further non-publication comes from semantic facts.
+        // Only non-publishing conversions may separate allocation and constructor;
+        // all further non-publication comes from semantic constructor facts.
         IrFunction constructor = targets.function(call.targetLinkageName());
         if (constructor == null || !constructor.constructor()
                 || !constructor.ownerClass().equals(allocation.className())) return Optional.empty();
         return entry(constructor);
+    }
+
+    private IrAllocateInstruction freshAllocation(IrFunction caller, IrBasicBlock constructorBlock) {
+        var instructions = constructorBlock.instructions();
+        int index = instructions.size() - 1;
+        while (index >= 0 && argumentConversion(instructions.get(index))) index--;
+        IrAllocateInstruction allocation;
+        if (index >= 0 && instructions.get(index) instanceof IrAllocateInstruction allocated) {
+            allocation = allocated;
+        } else if (index < 0) {
+            var incoming = predecessors(caller, constructorBlock);
+            if (incoming.size() != 1 || !(incoming.getFirst().terminator() instanceof IrInvokeTerminator invoke)
+                    || !invoke.normalTarget().equals(constructorBlock.label())
+                    || invoke.unwindTarget().equals(constructorBlock.label())
+                    || !(invoke.call() instanceof IrAllocateInstruction allocated)) return null;
+            allocation = allocated;
+        } else return null;
+        for (int next = index + 1; next < instructions.size(); next++) {
+            if (instructions.get(next) instanceof IrReferenceConversionInstruction conversion
+                    && conversion.value().equals(allocation.result())) return null;
+        }
+        return allocation;
+    }
+
+    private static boolean argumentConversion(IrInstruction instruction) {
+        return instruction instanceof IrReferenceConversionInstruction
+                || instruction instanceof IrNumericConversionInstruction;
     }
 
     private Optional<Cleanup> generatedUnwind(IrFunction caller, IrBasicBlock rollbackBlock, IrRollbackInstruction rollback) {

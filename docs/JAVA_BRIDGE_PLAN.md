@@ -986,6 +986,12 @@ catch or replacement alone is not sufficient proof. Ordinary source `free` of
 caught/thrown objects remains rejected; reclaimable retained exceptions are a
 separate ownership extension outside P5.
 
+Public callback admission applies this policy per exported entry. Reuse the
+strict carrier destruction proof for only the invocation-owned subset, without
+adding runtime policy checks. Built-in Throwable static slots and bounded native
+cause/secondary graphs can retain carriers. This does not admit owner publication,
+arbitrary reference fields or a borrowing exemption for foreign effects.
+
 Callback carriers inside a translated native wrapper's cause or secondary-failure
 graph preserve the original Java throwable as an existing graph node. Do not
 reconstruct its Java class or overwrite its existing Java cause, suppression or
