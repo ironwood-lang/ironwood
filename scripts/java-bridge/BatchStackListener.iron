@@ -1,0 +1,8 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+package batchstackprobe;
+
+// Primitive event payloads keep nested batch scheduling eligible for its proof.
+public interface BatchStackListener {
+
+    void event(long sequence, long value);
+}
