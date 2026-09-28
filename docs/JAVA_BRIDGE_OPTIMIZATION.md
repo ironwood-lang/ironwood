@@ -387,3 +387,38 @@ passes; physical x86-64 measurements are running without competing task builds,
 tests or bulk transfers. The original runner hash, controller hash, exact patch,
 actual commands and per-cache hashes are recorded with the evidence. The loader
 stage's larger retained artifact requirement remains blocked, not bypassed.
+
+
+### Refreshed physical x86 collection and finite-enum follow-up
+
+The bounded runners complete 132 performance observations and their summary,
+30 latency reports, 63 retention observations, 90 fixed-candidate launches, and
+six bounded stack cells plus adaptive child-failure diagnostics. Final e315
+Java21 medians: native 123.99, Java 207.94, bridge 177.05 ns/eight-operation cycle;
+64.52, 38.47 and 45.18 million operations/s. The bridge beats Java on all supported
+JDKs, but the standalone gap remains. Updated tables and limits are in the
+optimized performance report. All final remote evidence is copied and verified:
+2,462 files, 1,533,814,764 bytes, archive SHA-256
+`0f0547d4e6ee59b320be490ca6c63e941a47d64de89380ff6f7161c93ffed657`.
+Remote originals remain unchanged. The 114-case loader matrix still requires
+more retained-artifact disk space than is available; cleanup permission remains
+pending. No safety/assertion failure is being bypassed.
+
+Ten seeded, shuffled physical Estonia Java21 forks compare the unchanged project
+workload through current and experimental bridges. Median cycle times: native
+124.04, Java 248.24, current 180.19, joint adapter/entry 187.59, constant-enum
+scratch entries 171.98 ns. All raw fork values are retained; JVM runs show material
+variation. Both experimental builds pass checked JNI and the original asserting
+identity/allocation consumer with zero warm Java bytes. Reject joint bitcode
+again. The enum result warrants a compiler-only prototype, not a new public API.
+
+Pre-change review is in `experiments/optimization/enum-tail-plan.md`: within
+already-proved state-2 export contexts, duplicate only a closed, single-entry
+continuation of a phi joining two exact enum constants, optionally null. Reuse
+existing predecessor branches; add no runtime tests or bookkeeping. Preserve
+signatures, export roots, source/exception metadata, cold/recursive/failed paths
+and all final lifetime proofs. Unsupported CFGs remain unchanged. The isolated
+compiler copy lives in `experiments/optimization/enum-tail`; production source
+and the frozen producer are unchanged. Before adoption require paired CFG,
+mutable-field, initialization, safety-negative, reconstruction and checked
+native regressions plus an unchanged-API physical Linux comparison.

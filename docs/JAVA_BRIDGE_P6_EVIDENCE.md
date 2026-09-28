@@ -4,7 +4,7 @@
 
 This page preserves the original `2559e145` candidate evidence. See the
 [optimized candidate report](JAVA_BRIDGE_OPTIMIZED_PERFORMANCE.md) for the current
-implementation, measured ARM64 results and pending x86-64 refresh.
+implementation, measured ARM64/x86-64 results and remaining qualification.
 
 ## P6a candidate
 
