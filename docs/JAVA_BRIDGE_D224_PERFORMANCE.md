@@ -202,6 +202,15 @@ median paired improvement, with two substantially slower prototype forks and a
 `workspace/java-bridge/experiments/optimization/joint-after-fixed`. No production
 code or artifact was changed by this experiment.
 
+A private matching-helper refactoring was also rejected after ten bridge pairs
+on each Linux target, with both old/new native-only and Java-only baselines.
+Passing incoming side, price and market status directly removes native loads
+and branches, but the paired median gain is only 0.33 ns/cycle on ARM and
+0.02 ns/cycle on x86, with mixed pairs and substantial outliers. Exact behavior
+and zero-allocation checks pass. All 64 throughput observations and source
+copies remain in `workspace/java-bridge/experiments/optimization/match-context`;
+neither the production engine nor its final reported measurements were changed.
+
 Final numerical review is pending. The Linux ARM64 performance goal remains
 unmet, and neither Linux target matches standalone native performance. P6b and
 release readiness are not complete. P5/P7 and Java24+ support remain deferred.
