@@ -19,6 +19,29 @@ public final class BridgeCallbackActiveUseTests {
 
     private BridgeCallbackActiveUseTests() {}
 
+    public record NativeFixture(String supportPackage, java.util.Map<String, String> sources, String invocation) {}
+
+    /** Reuse real generated state/refusal classes in private native transport tests. */
+    public static NativeFixture nativeFixture() {
+        var artifact = new CompilerPipeline(UnfreedMode.ERROR).analyzeForBridge(List.of(SourceFile.of("Guard.iron", """
+                package nativeguard;
+                public final class Guard { public Guard() {} }
+                """)));
+        var admission = BridgeObjectAdmission.prove(artifact, List.of("nativeguard")).contract().orElseThrow();
+        var generation = BridgeGeneration.createObjects("native-guard.jar", artifact, admission, "test", "1".repeat(64), "2".repeat(64));
+        var ordinary = BridgeRootStateSources.generate(artifact, admission, generation);
+        var sources = new TreeMap<>(ordinary.sources());
+        String prefix = generation.supportPackage().replace('.', '/') + "/";
+        sources.put(prefix + "RootState.java", BridgeRootStateSources.state(ordinary.slotCapacity(), true)
+                .replace("@PACKAGE@", generation.supportPackage()).replace("@GENERATION@", generation.identity()));
+        sources.put(prefix + "Identity.java", "package " + generation.supportPackage() + "; @interface Identity { String value(); }");
+        sources.put(prefix + "GuardCheck.java", "package " + generation.supportPackage() + ";\n"
+                + "public final class GuardCheck { private GuardCheck() {} public static boolean refusal(Throwable value) {"
+                + " return value.getClass() == BridgeLifetimeException.class; } }\n");
+        return new NativeFixture(generation.supportPackage(), java.util.Map.copyOf(sources),
+                BridgeCallbackGuardSources.wrap("return holderRunNative();", List.of("state")));
+    }
+
     public static void guards() throws Exception {
         var artifact = new CompilerPipeline(UnfreedMode.ERROR).analyzeForBridge(List.of(SourceFile.of("Cell.iron", """
                 package guardfixture;
