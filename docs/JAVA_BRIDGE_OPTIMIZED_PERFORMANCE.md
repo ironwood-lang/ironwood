@@ -2,6 +2,10 @@
 
 # Optimized Java Bridge measurements
 
+This report preserves the e3150db6 measurements. The subsequent D224 private
+entries, larger permanent cache and final assembled-jar results are in
+[the current performance report](JAVA_BRIDGE_D224_PERFORMANCE.md).
+
 The optimized bridge beats Java-only throughput on physical Linux x86-64 with
 all three supported JDKs. On Java 21 it delivers 45.18 million operations/s,
 versus Java's 38.47 million and standalone Ironwood's 64.52 million. It still
@@ -9,7 +13,7 @@ trails Java on the tested Linux ARM64 workload and remains slower than standalon
 native on both Linux targets. Numerical acceptance and release readiness remain
 open; the refreshed x86 loader matrix is still blocked by disk space.
 
-Further joint-bitcode, cache-capacity and enum-continuation experiments did not
+At this checkpoint, joint-bitcode, cache-capacity and enum-continuation experiments did not
 establish a repeatable improvement sufficient for adoption. The final
 continuation repeat used identical machine code to its earlier promising
 prototype but reversed its small Java21 gain. These experiments are retained
@@ -31,6 +35,14 @@ Throughput is eight billion divided by that cycle time. Latency: three forks,
 Columns show the median of the three batch means and of the three p99 values,
 not a merged percentile or individual-operation latency. Clock overhead remains
 included. The latency harness is separate from the throughput harness.
+
+Later diagnostic runs found a first-loop-exit JIT recompilation after the single
+warmup invocation. The original observations below remain intact, but should
+not be interpreted as entirely compilation-free steady state. A separate
+ten-invocation warmup control, with the same total operations, eliminates this
+benchmark recompilation in the inspected forks. Its measurements and cache
+collision profiles are recorded in the optimization log; they are not silently
+substituted into this report.
 
 ### Physical Linux x86-64, Java 21
 

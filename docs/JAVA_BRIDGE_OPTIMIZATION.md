@@ -726,3 +726,31 @@ permanent facade, and exercise both variants plus null after assembly. Preserve
 all failed combined jars and logs. Rebuild host artifacts with the corrected
 producer, then reassemble and qualify the new identities; earlier timings remain
 attached to their original per-host artifacts.
+
+
+### D224 implementation checkpoint: 694ada30
+
+Committed private fixed enum entries, the 256-bucket permanent cache, exact
+shared conversion manifest inventory and focused regressions locally on
+`java-bridge`. No push. The corrected frozen producer in `private-enum-final`
+produces all three target jars and one assembled jar. Mac, Linux ARM64 and
+physical x86 each pass all 18 Java21-23 class/module/executable checked/unflagged
+consumer cases. Both Mac Java24 refusal launches stop before extraction. The
+latest private-ABI/cold-null/failure fixture also passes Linux ARM64, including
+boolean carriers and a source helper-name collision. Source hashes still match
+that frozen compiler; licensing and diff checks pass.
+
+Three-fork final assembled-jar measurements finish on all three targets. Physical
+Java21 native/Java/bridge medians are 124.00/247.39/172.53 ns/cycle; Linux ARM64
+45.94/64.98/76.37; Mac 45.65/67.20/72.24. All raw forks remain, including slower
+bridge observations. The bridge is faster than Java on physical x86 across
+21-23, still slower on ARM64, and still behind standalone native everywhere.
+Full numbers, identities and limitations are in `JAVA_BRIDGE_D224_PERFORMANCE.md`.
+Do not claim the all-Linux performance goal or numerical acceptance complete.
+
+Estonia now has only about 659 MiB disk free but 15 GiB available RAM. A new
+8 GiB tmpfs container is running the exact 114 loader cases with the corrected
+frozen compiler. The only runner adjustment inventories and cleans new child
+extraction files after all original assertions and payload comparisons. Built
+fixtures remain in RAM until archived and verified on Mac. No installs, remote
+source edits, pre-existing-file deletion, image/container deletion or publishing.

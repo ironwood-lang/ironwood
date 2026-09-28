@@ -3,7 +3,7 @@
 # Java Bridge ARM64 performance observations
 
 This page preserves the original `2559e145` candidate evidence. See the
-[optimized candidate report](JAVA_BRIDGE_OPTIMIZED_PERFORMANCE.md) for the current
+[D224 performance report](JAVA_BRIDGE_D224_PERFORMANCE.md) for the current
 implementation, measured ARM64/x86-64 results and remaining qualification.
 
 These measurements complete the authorized ARM64 collection. The separate
