@@ -731,3 +731,37 @@ carrier lifetime controls as well as the native fixture.
   also pass. Log `p5-enriched-controls.log`; license/diff checks pass. Rebuilt the
   pinned compiler JAR in `p5-enriched-build.log`. Cross-platform verification of
   this combined revision and the handwritten JNI timing comparison are next.
+
+- `50e8ec9d`: all three focused tests pass on Linux ARM64 and Estonia x86-64:
+  six carrier child modes and primitive/proof entries at O0/O3, plus all-mode
+  source/class/archive synchronous admission controls. Payload SHA-256
+  `2dcad6a89a03b6b8e3fdd06ce091c52251d76c2e822d0f59caf3a6d011d868f2`.
+  Evidence and checked manifests: `workspace/java-bridge/p5-linux-50e8ec9d/`;
+  remote originals: `~/temp/java-bridge/p5-50e8ec9d/`. Every archived file verified.
+  ARM64 carrier O3 `f6069c1fe5d6fdf036b6a8faedd92b2c5b488a5e92c8929d78d326321d201ac1`;
+  x86 carrier O3 `77d93f0433dc8d380fc70a0717132ecbb739b8ccef5c8c2d614f9b711c2adc29`.
+  ARM64 primitive O3 `1c4ed6fec304a60f3b420b952fa961594f19a24e5540437b6949cb871c22f369`;
+  x86 primitive O3 `8ea6f6d8ec968a2b957cbc3177e636f3ba60d1a268187d548be463af742d7353`.
+- Seven interleaved one-million-call samples after five warmups, same checksum:
+  generated/handwritten JNI medians 92.105/91.672 ns per callback on Estonia CPU1,
+  45.601/51.478 ns on Linux ARM64. This measures native-to-Java long callbacks,
+  not Java-to-native crossings or application acceptance. O3 disassembly shows
+  cached method dispatch plus mandatory exception check, no per-callback method
+  lookup, allocation or TLS. Proxy allocation is once per outer invocation.
+- Maintainer explicitly authorized proceeding through all remaining P5 checkpoints
+  without routine confirmation. No current blocker. Retained/stateful admission,
+  full producer integration, dedicated example and final platform/stack matrix
+  remain incomplete.
+
+Producer integration pre-change review: compose the existing synchronous native
+state proof, exact proxy ownership, explicit invocation context and carrier
+lifetime proof into a bound admission. Generate ordinary Java listener interfaces
+from selected API facts, include them in generation identity and bootstrap class
+validation, and cache method IDs only after validated loader binding. Preserve
+callback-free producer behavior and reject stateful/retained/reference transport
+until separately proved. Reuse protected entries and bounded exception snapshots;
+all adapter exits must destroy temporary proxies and release proved carriers only
+after outward translation. Pair complete static primitive/listener source and
+artifact builds with unsafe state/retention, interface/default/generic/reference
+signatures, metadata mismatch, nested/throwing/null callbacks and allocation failure.
+Run focused producer, identity/packaging, JNI and negative admission checks.
