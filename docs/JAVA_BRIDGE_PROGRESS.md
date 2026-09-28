@@ -22,6 +22,12 @@ Estonia after the maintainer separately authorized SSH access.
 
 ## Current checkpoint
 
+The maintainer has reopened implementation for a deep performance optimization
+pass after reviewing the three-scenario OrderBook results. See
+[JAVA_BRIDGE_OPTIMIZATION.md](JAVA_BRIDGE_OPTIMIZATION.md) for current work,
+contracts and verification. Prior qualification below describes the immutable
+original candidate and does not qualify changed production artifacts.
+
 The selected physical x86-64 checks and measurements now pass on `estonia`,
 confined to `/home/soliveira/temp/java-bridge`, using isolated CPUs `1-4,9-12`.
 The original qualification revision is `6f608190`; continuation uses test-only

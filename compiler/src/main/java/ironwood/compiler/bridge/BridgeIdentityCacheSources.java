@@ -44,6 +44,10 @@ public final class BridgeIdentityCacheSources {
                 .replace("@CONSTRUCTOR@", root ? "" : "private ")
                 .replace("@ENTRY_PARAMETER@", root ? ", ReferenceQueue<Object> collected" : "")
                 .replace("@ENTRY_ARGUMENT@", root ? ", collected" : "");
+        // Public support lookup lets generated facades avoid native-to-Java reentry.
+        // Cache insertion and all raw-address native declarations remain private.
+        if (!root) source = source.replace("final class PermanentCache", "public final class PermanentCache")
+                .replace("static Object lookup(long address)", "public static Object lookup(long address)");
         return new Sources(Map.of(name.replace('.', '/') + ".java", source), List.of(name, name + "$Entry"));
     }
 

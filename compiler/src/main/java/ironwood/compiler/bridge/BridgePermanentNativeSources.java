@@ -99,6 +99,15 @@ public final class BridgePermanentNativeSources {
             adapters.add(new Adapter(new BridgeJavaSources.NativeDeclaration(binding.binaryName(), binding.nativeName(), binding.descriptor()), function));
             emit(text, entry, binding, module, types, enums, java, function, admission, roots, rootTypes);
         }
+        for (var binding : java.declarations().bindings()) {
+            if (!binding.returnsPermanentAddress()) continue;
+            Integer index = types.get(binding.method().result());
+            if (index == null) throw new IllegalArgumentException("address result lacks exact permanent facade proof");
+            String function = "iw_permanent_convert_" + adapters.size();
+            adapters.add(new Adapter(binding.conversionDeclaration(), function));
+            text.append("static jobject ").append(function).append("(JNIEnv *env, jclass type, jlong address) {\n")
+                    .append("    (void)type; return iw_permanent_wrap(env, ").append(index).append(", (void *)(uintptr_t)address);\n}\n");
+        }
         for (var binding : java.declarations().facadeRegistrations()) {
             String function = "iw_permanent_register_" + adapters.size();
             adapters.add(new Adapter(new BridgeJavaSources.NativeDeclaration(binding.binaryName(), binding.nativeName(), binding.descriptor()), function));
@@ -229,7 +238,7 @@ public final class BridgePermanentNativeSources {
             } else { nativeTypes.add(BridgeValueNativeSources.cType(type)); arguments.add("arg" + index); }
         }
         nativeTypes.add("int64_t"); arguments.add("(int64_t)(uintptr_t)&" + result);
-        String returned = constructor ? "jlong" : jniType(id.result());
+        String returned = constructor || binding.returnsPermanentAddress() ? "jlong" : jniType(id.result());
         String exit = returned.equals("void") ? "return;" : "return 0;";
         text.append("extern int32_t ").append(entry.function().linkageName()).append('(').append(String.join(", ", nativeTypes)).append(");\n")
                 .append("static ").append(returned).append(' ').append(function).append("(JNIEnv *env, jclass type");
@@ -287,7 +296,7 @@ public final class BridgePermanentNativeSources {
         BridgeRootRetentionSources.commit(text, admission, id, instance);
         release(text, strings);
         text.append("    if (status != 0) { iw_permanent_failure(env, status, ").append(result).append(".exception); ").append(exit).append(" }\n");
-        if (constructor) text.append("    return (jlong)(uintptr_t)").append(result).append(".value.reference;\n");
+        if (constructor || binding.returnsPermanentAddress()) text.append("    return (jlong)(uintptr_t)").append(result).append(".value.reference;\n");
         else if (enumResult.isPresent()) {
             text.append("    return iw_enum_output_").append(enums.get(enumResult.orElseThrow().declaredType()))
                     .append("(env, ").append(result).append(".value.integer);\n");
