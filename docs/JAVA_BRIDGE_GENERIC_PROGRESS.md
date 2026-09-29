@@ -2,9 +2,10 @@
 
 # Java Bridge reference generics progress and evidence
 
-P7d0 and P7d1 are implemented. P7d1 qualification is recorded below. P7d2 and
-later phases remain pending and were not started. The chronological P7d0 notes
-retain their original checkpoint boundary.
+P7d0-P7d2 are implemented and qualified on all three targets. The
+[final P7d2 candidate](#final-p7d2-candidate) records current evidence and
+measurements. P7e/P7f remain pending and were not started. Chronological notes
+retain each earlier checkpoint's original boundary.
 
 ## P7d0 checkpoint
 
@@ -444,3 +445,130 @@ as `Pair<?, ?>`, preserving the same erased descriptor. The permanent two-bound
 case is added to the main producer regression. This finding requires a new
 compiler snapshot and complete focused target qualification before completion;
 the earlier `bc4cf5a3` measurements are superseded, not final-candidate evidence.
+
+### Final P7d2 candidate
+
+Commit `175d1524` fixes permanent generic registration and the runner portability
+issue. The two-bound permanent class now passes strict generated compilation,
+checked-JNI construction, mutation, null/identity checks and absence of `free()`.
+A separate pure-permanent projection also passes on Mac under
+`workspace/java-bridge/p7d2/permanent-pair/`; the main matrix covers the same
+case alongside reclaimable roots. No runtime or safety proof changed.
+
+The final input snapshot is `workspace/java-bridge/p7d2/input-175d1524.tar.gz`,
+SHA-256 `66f26718e84479bd82a3d1f85e916375204e2050143d634e6fa9e0025f8b026e`.
+Its compiler jar SHA-256 is
+`14c59cd2f7cda9b71dde336ffe7ba7164db755b25ba1cb1bf53463ff2bd9f836`.
+Mac evidence is in `workspace/java-bridge/p7d2/mac-175d1524`; Linux ARM64 uses
+`workspace/java-bridge/p7d2/linux-arm64-175d1524/work`; Estonia uses
+`~/temp/java-bridge/p7d2-175d1524/work`. Each Linux runner verifies every input
+hash before testing. Earlier directories remain intact as superseded evidence.
+
+Thirteen distinct focused Mac checks passed during implementation. Exact names
+are retained in `workspace/java-bridge/p7d2/mac-focused-checks.txt`, with copied
+logs and hashes in `check-logs/`. They cover construction isolation/reconstruction,
+ABI identity, non-reclamation under unknown/deallocation effects, root result
+origins, retention acyclicity, borrowed owner alternatives, exceptional slot
+commits, P7d1 production and object bootstrap/world collisions, plus the new
+bounded proof and producer tests. The final three-target selection reruns the
+bounded proof/producer and P7d1 input-refusal checks on the final compiler.
+No unfiltered compiler suite was run.
+
+Final qualification passed on macOS ARM64, local Linux ARM64 virtualization and
+physical Linux x86-64 Estonia. Each target passed three focused compiler checks,
+four producer variants (source O0; directory, individual class and archive O3),
+eight Java 21 checked-JNI consumer/ENOMEM children and 16 exact-output Java 22/23
+replays. Supported JDKs remain pinned Temurin 21.0.12.1+1, 22.0.2+9 and 23.0.2+7;
+LLVM remains 23.1.0. Each target's `evidence/exit.txt` is zero (Mac uses its
+evidence directory directly). The final producer fixture directories are:
+
+| Target | Fixture run under `workspace/java-bridge/bounded-generics/producer/` |
+| --- | --- |
+| macOS ARM64 | `run-17043453242190954587` |
+| Linux ARM64 | `run-5000521200357972924` |
+| Linux x86-64 | `run-2706455830595780863` |
+
+All four variants on each target preserve API/program/generation identities.
+Across targets the complete fixture shares generation
+`d7517094b162c9a885b6f3fca53055bb57d1b34547656247a580ca08d7b07de6`,
+API `7785f732f31b595b261ca3c92a0009d80dc2cde03eeb1b0cceeffeacaa5c635e`
+and program `612523bfcd858857d7144fa13c87e2f761de2c3effa1fb4ed8a2ee2410cb458e`.
+Negative unrestricted APIs refuse production from source/directory/archive and
+preserve an existing output sentinel. Safe final-bounded construction, one/two
+type variables, permanent publication, raw/wildcard mutation, nulls, identity,
+bad Java casts, retained/borrowed owners, failed construction, mutation before
+and after exceptions, serialized thread transfer and allocation-limit rollback
+have executable coverage. Nonfinal/partial bounds, generic methods/arrays,
+unknown effects, cycles and unsafe frees remain rejected.
+
+### Final matched setter measurements
+
+These are generic versus nongeneric **bridge** setters, including existing root
+input conversion and retention commits. They are not pure Java/native workload
+comparisons. Each alternates two existing input roots for two million calls per
+batch. Three independent JVMs per path alternate order, with five warmup and
+seven measured batches each. Every target has 42 measured samples, correct final
+values and zero measured Java bytes/native allocations. Reported latency is the
+median batch-average cost, not an individual-call percentile.
+
+| Target | Generic ns/call | Nongeneric ns/call | Generic M calls/s | Nongeneric M calls/s |
+| --- | ---: | ---: | ---: | ---: |
+| Linux x86-64 Estonia, isolated CPU 1 | 130.68 | 129.71 | 7.653 | 7.709 |
+| Linux ARM64, local VM | 64.48 | 64.27 | 15.509 | 15.559 |
+| macOS ARM64 | 354.16 | 335.28 | 2.824 | 2.983 |
+
+Linux is the requested judge. Estonia ranges were 129.53-142.41 ns generic and
+129.43-139.78 ns control; ARM64 ranges were 64.22-65.19 and 64.01-64.73 ns.
+The existing powersave governor/turbo policy was unchanged; this is not a
+fixed-frequency or statistical-significance claim. Mac ranges were 305.15-359.82
+and 306.92-361.87 ns, with local VM functional work overlapping that optional
+measurement. Numerical acceptance remains maintainer review.
+
+The protected generic setter `ironwood_bridge_entry_4` and control
+`ironwood_bridge_entry_7` have identical five-instruction bodies on both ARM64
+and x86-64: store the field, report the existing retention slot and return
+success. Java setter wrappers have the same operations and erased Value input
+descriptor. JNI adapters `iw_permanent_4`/`iw_permanent_7` have matching instruction
+counts and helper calls (including cold failure paths): 316/316 on Linux ARM64,
+315/315 on x86-64 and 324/324 on Mac. No generic type dispatch, allocation or
+additional bookkeeping appears in these paths. `setter-code-review.json`, full
+disassembly and bytecode accompany each measurement.
+
+Final measured payload SHA-256 identities:
+
+| Target | Paired benchmark jar | Native image |
+| --- | --- | --- |
+| macOS ARM64 | `548940be3b12d5c155c1387cd167a166896e83617ffcbe36913804078f83523d` | `a6fb1b5df7ee70e1a270fa01fc7b0dd0501375194181b37477a8324037675d5b` |
+| Linux ARM64 | `330c7e7e5f71648e141441b0b5561be8d2ab40b68f4fc38851ef2708cf13f135` | `e0f9998dcbc378bc6c11b3d0f0aa0fd5938af7646f71d057e26546b949e28508` |
+| Linux x86-64 | `dadede2e235c25dfd18ec014a30d39c56217faa3c8b0e406ff2e5ed977e81821` | `bf3df59042ff21da304b14443a35fd6f001809c9c8908bbf283eb21581dea945` |
+
+The final Estonia archive was copied to
+`workspace/java-bridge/p7d2/estonia-final-175d1524.tar.gz`, SHA-256
+`8976f8dd3083effe6ed7d54b8aa716afab88c287be3009d6ecc1ee2b22025221`,
+verified before extraction into `estonia-175d1524/`. It includes logs, fixtures,
+commands, versions, host/image identity, native image, disassembly and payload
+inventory. Large paired jars/ironjars remain in the remote task directory with
+streamed hashes and manifests in `validation/payload-inventory.json`. Ownership
+of this task's generated workspace was restored to the SSH user. No existing
+host files, images or containers were deleted; no tools were installed.
+
+To reproduce, extract the final snapshot into a new workspace, use the existing
+target image and prepared read-only SDK/JDK mounts described above, then run:
+
+```sh
+sha256sum -c validation/contents.sha256
+./scripts/java-bridge/qualify-bounded-generics.sh linux-x86_64 /jdks /work/evidence-new
+```
+
+Use `linux-arm64` for the local VM. The runner expects a new evidence directory,
+selects CPU 1 only for Estonia timing children, performs no installation, and
+records commands, paired identities and all measurements. Expected results are
+three passing checks, 16 exact replays, 42 allocation-free measured samples and
+`exit.txt` containing zero. Mac uses the pinned local JDK paths and the
+`macos-arm64` target. License audit, shell syntax checks, authored punctuation
+checks and `git diff --check` passed.
+
+**Stop point:** P7d2 implementation and focused qualification are complete.
+No P7d2 implementation or x86 hardware check remains pending. Numerical review
+belongs to the maintainer. P7e and P7f remain pending and were not started.
+All changes are committed locally on `java-bridge`; no push or publication.

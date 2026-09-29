@@ -73,8 +73,8 @@ P5, P7b and P7c implementation and qualification are complete. The
 [array evidence](JAVA_BRIDGE_ARRAY_EVIDENCE.md) and
 [byte-view evidence](JAVA_BRIDGE_BUFFER_EVIDENCE.md) record supported boundaries
 and measurements. P7d0 foundations and P7d1 read-only generic facade admission
-are implemented; P7d2 bounded construction/mutation is implemented with
-qualification tracked in the generic log. P7e-P7f remain pending.
+are implemented; P7d2 bounded construction/mutation is implemented and qualified
+on all three targets, with evidence in the generic log. P7e-P7f remain pending.
 [The implementation plan](JAVA_BRIDGE_PLAN.md) defines the
 phase gates, and [the progress log](JAVA_BRIDGE_PROGRESS.md) records evidence.
 

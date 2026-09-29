@@ -26,8 +26,8 @@ implemented and qualified on all three targets; see the
 acceptance remains maintainer review. P7d0 foundations and P7d1 read-only generic
 facades are implemented and qualified on all three targets under D235/D236; see the
 [generic progress/evidence log](JAVA_BRIDGE_GENERIC_PROGRESS.md).
-P7d2 final-bounded construction/mutation is implemented under D237, with target
-qualification recorded in that log. P7e-P7f remain pending. Release work belongs to the maintainer,
+P7d2 final-bounded construction/mutation is implemented and qualified on all three
+targets under D237, with evidence in that log. P7e-P7f remain pending. Release work belongs to the maintainer,
 outside this implementation task.
 The release gates below still apply. The maintainer selected **Java 21-23** as the initial consumer
 support range, deferring Java 24+ and its native-access authorization work.

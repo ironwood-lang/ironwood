@@ -8989,7 +8989,8 @@ occurrence order. If no
 
 - **Status:** P7d0 implemented under the maintainer's 2026-09-29 authorization
   for this checkpoint only. This supersedes D232's planning-only status solely
-  for generic signature foundations. P7d1/P7d2 and P7e-P7f remain pending.
+  for generic signature foundations. D236/D237 separately admit P7d1/P7d2;
+  P7e-P7f remain pending.
 - **Metadata:** Preserve scoped class/method variables, ordered full bounds,
   declaration erasure separately from substituted bounds, implicit-bound
   primitive eligibility, exact applied receiver/declaring-owner views and member
