@@ -121,11 +121,39 @@ No unfiltered compiler suites, installations, pushes or publication.
   `~/temp/java-bridge/p7b-values-20260928` on Estonia. Final JDK replays and
   measurement runs are still in progress; no final qualification claimed yet.
 
-## Pending evidence
+## Final checkpoint
 
-Read-only performance/machine-code evidence and P7b2 remain pending. Final
-qualification must use the final implementation bytes. Passing read-only
-transport checks does not complete P7b.
+P7b1 and P7b2 implementation and qualification are complete. Mutable/result
+transport was committed as `e7a2a47d`, following `389ee8c9` and `be738c65`.
+The [final evidence report](JAVA_BRIDGE_ARRAY_EVIDENCE.md) records measurements,
+commands, payload hashes and the exact supported boundary.
+
+- Final six array fixtures passed on Mac, local Linux ARM64 virtualization and
+  physical Linux x86-64 Estonia. Each target passed 148 additional Java 22/23
+  checked-JNI child replays. Mac passed the adjacent regressions noted above,
+  the final negative reconstruction assertion and Java 24 pre-extraction refusal.
+- Full deterministic native/Java/bridge benchmarks passed on all three targets:
+  27 groups each, matching checksums and native live-count baselines. Input calls
+  allocated zero Java bytes; fresh results allocated expected Java arrays.
+  Optimized ARM64 and physical x86-64 payload disassembly confirms vector kernels
+  and no array machinery on scalar-only success paths. Numerical acceptance
+  remains maintainer review; copied-array calls do not claim a universal speedup.
+- Linux's inspection runner initially selected a support library. The actual
+  bridge image was re-extracted from each unchanged timed jar and disassembled;
+  original inspection output and correction records are preserved. The runner
+  now selects only the bridge basename and uses null for unavailable native
+  Java-allocation measurements. These fixes changed no measured code or samples.
+- All 735 production compiler/runtime/stdlib source files in the final Linux
+  snapshot match this checkout. Three-target jar assembly passed with identical
+  native bytes; three checked-JNI Mac smoke consumers passed on the combined jar.
+- Estonia read-only and final archives were streamed to the Mac, fully read and
+  SHA-256 verified. Final archive hash:
+  `c2d62af34a95390987480de6617203a8840a8d7a6dd6f889ebe5f75b76073901`.
+  Only our two generated `p7b-*-20260928/work` directories were removed afterward,
+  reclaiming about 4.0 GiB. Transferred input archives, top-level logs, existing
+  JDK/SDK files and Docker images were preserved. No installation was needed.
+- No implementation remains within P7b's accepted boundary. P7c-P7f remain
+  pending; P7c0 requires the planned public API/lifetime review before coding.
 
 ## P7b2 failure ordering
 

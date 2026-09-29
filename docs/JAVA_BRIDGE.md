@@ -7,8 +7,10 @@
 > synchronous callbacks, including retained listeners, are implemented and
 > qualified on all three targets. Callback numerical acceptance remains
 > maintainer review; see the [measurements and evidence](JAVA_BRIDGE_P5_EVIDENCE.md).
-> Compiler-proved automatic callback batching is implemented under D231; other
-> P7 extensions remain deferred. Java 24+ remains refused. This is a producer
+> Compiler-proved automatic callback batching is implemented under D231.
+> P7b copied primitive arrays are implemented and qualified on all three targets;
+> see the [array evidence and measurements](JAVA_BRIDGE_ARRAY_EVIDENCE.md). P7c-P7f remain
+> pending. Java 24+ remains refused. This is a producer
 > preview, not an announcement of a published release. The
 > [producer guide](JAVA_BRIDGE_USAGE.md) specifies the supported API and platform
 > boundaries; the [implementation plan](JAVA_BRIDGE_PLAN.md) is authoritative

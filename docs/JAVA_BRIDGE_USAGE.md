@@ -3,12 +3,12 @@
 # Java Bridge producer preview
 
 The experimental producer builds host-target Java dependencies for macOS ARM64,
-Linux ARM64 and Linux x86-64, exposing primitive
-and copied-String APIs, proved roots and borrowed views with bounded retention,
+Linux ARM64 and Linux x86-64, exposing primitive,
+copied-String and proved copied primitive-array APIs, roots and borrowed views with bounded retention,
 permanent concrete objects, enums, custom exception snapshots and bounded
 synchronous Java listeners. Consumers call
 generated Java classes and catch mapped Java exceptions using ordinary dependency
-loading. General object inheritance, arrays, callback shapes outside the proved
+loading. General object inheritance, object/multidimensional arrays, callback shapes outside the proved
 subsets and optional TLS dependencies
 remain rejected at their pending implementation boundaries.
 This preview is not a release qualification.
@@ -137,6 +137,39 @@ checks. Java inputs become temporary native String copies; proved result storage
 is copied back and reclaimed by generated entries. A Java String is not a native
 object facade. Native exception snapshots are bounded as specified in D214;
 they preserve supported messages, fields, relationships and source frames.
+
+Copied primitive arrays support all eight primitive kinds, one dimension, on
+otherwise admitted static and instance methods. Source/class/archive inputs use
+the same final borrowing, retention, result-origin and non-reclamation proofs.
+The complete closure must exclude callbacks, reentry, array retention/publication
+and input reclamation. Unknown effects reject the export. The current effect
+boundary also rejects `System.arraycopy`: its native failure path is not yet a
+proved contained bridge operation. Constructors with array parameters, object/multidimensional
+arrays, varargs, listener array signatures, retained/shared array results and
+arrays borrowed from native fields remain unsupported.
+
+Java owns the input arrays. Null, length, element bits and same-invocation alias
+identity are preserved. Repeated Java arguments share one native conversion;
+equal-but-distinct arrays stay distinct. Read-only closures perform no copy-back.
+Mutable inputs are copied back once per identity in first-parameter order, before
+returning or throwing. All later copies are attempted after a copy failure.
+The native failure stays primary, or the first copy-back failure if native code
+succeeded. Indexed suppressed diagnostics describe failed copies. If diagnostics
+cannot be attached, stderr explicitly reports their unavailability while the
+original failure stays primary. A copy-back failure may leave partial writes;
+it never becomes a successful return. Acquisition failure before execution
+leaves inputs unchanged. Callers must prevent concurrent mutation for the entire
+call; the bridge does not add thread-confinement checks.
+
+An input-alias result returns the original Java array. A proved fresh result
+becomes a new Java array; its native storage is reclaimed after copying, including
+Java allocation/copy failure or abandonment after failed input copy-back. The
+temporary input storage is also reclaimed on every exit. Array handling adds no
+per-call state to scalar-only methods. JNI uses noncritical regions; copying
+allocates temporary native storage and fresh results allocate Java arrays. See
+the [array example and measurement runner](../examples/java-bridge/arrays/README.md),
+[qualification and measurements](JAVA_BRIDGE_ARRAY_EVIDENCE.md) and
+[implementation checkpoints](JAVA_BRIDGE_ARRAY_PROGRESS.md).
 
 Permanent-object admission proves that exposed native storage cannot be reclaimed
 within the complete linked world. These facades have no generated `free()` or
