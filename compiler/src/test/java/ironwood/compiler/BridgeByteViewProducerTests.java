@@ -117,6 +117,9 @@ final class BridgeByteViewProducerTests {
                         ByteView view = ByteView.allocate(1);
                         fails(OutOfMemoryError.class, () -> Values.fail(view));
                         check(view.get(0) == 42 && Values.sum(view) == 42);
+                        byte[] array = {(byte)6, (byte)2};
+                        fails(OutOfMemoryError.class, () -> Values.mixed(view, array, "a"));
+                        check(view.get(0) == 42 && array[0] == 6 && array[1] == 2);
                         System.out.println("views-ok:native-oom"); return;
                     }
                     if (args[0].equals("oom")) {
@@ -150,6 +153,10 @@ final class BridgeByteViewProducerTests {
                     check(Values.loop(ByteView.allocate(0).asReadOnly()) == 0);
                     fails(UnsupportedOperationException.class, () -> Values.loop(readOnly));
                     check(Values.overlap(view, slice) == 8 && readOnly.get(0) == 7 && readOnly.get(1) == 8);
+                    ByteView backwards = ByteView.allocate(4);
+                    backwards.put(0, (byte)10); backwards.put(3, (byte)20);
+                    check(Values.overlap(backwards.slice(1, 3), backwards.slice(0, 3)) == 20
+                            && backwards.get(1) == 11 && backwards.get(2) == 7);
                     Values.write(view, 0, (byte)-128, true);
                     check(Values.sum(view) == -113);
                     view.put(1, (byte)2);

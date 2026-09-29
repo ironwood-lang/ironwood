@@ -8957,7 +8957,9 @@ occurrence order. If no
 - **Status:** P7c0 accepted, P7c1 authorized on 2026-09-28. The maintainer approved
   JVM-managed storage, then requested P7c1 after the remaining shared-dependency
   gate was reported. That instruction accepts the documented public type and
-  dependency and supersedes the earlier stop before P7c1 only.
+  dependency and supersedes the earlier stop before P7c1 only. P7c1 is now
+  implemented and qualified on all three targets; numerical acceptance remains
+  maintainer review.
 - **Ownership:** Java allocates and owns reusable backing storage; each view
   keeps its owner reachable. Native code borrows only for a synchronous call.
   Expose no address, backing buffer, externally closable storage or close/free
@@ -8975,6 +8977,9 @@ occurrence order. If no
   Implementation authorization does not admit unfinished capabilities or weaken
   proofs. P7d-P7f remain pending; Java 21-23 and Java 24+ refusal remain unchanged.
 - **Verification:** P7c0 was documentation/source/specification review only.
-  The [implementation log](JAVA_BRIDGE_BUFFER_PROGRESS.md) records P7c1's focused
-  checks, actual evidence and outstanding work. No performance result is implied
-  by accepting the design.
+  The [P7c1 evidence](JAVA_BRIDGE_BUFFER_EVIDENCE.md) records focused positive
+  and negative checks, Java 21-23 consumers, exact artifact/dependency identities,
+  allocation and optimized machine-code evidence, and Linux measurements. The
+  zero-copy path has useful read/update gains over copied arrays; overlapping
+  writes retain a measured gap. The [log](JAVA_BRIDGE_BUFFER_PROGRESS.md) records
+  checkpoints. No later P7 submilestone is authorized by this completion.

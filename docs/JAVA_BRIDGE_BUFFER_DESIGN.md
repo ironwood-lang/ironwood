@@ -7,8 +7,10 @@ maintainer explicitly approved JVM-managed storage, then requested proceeding
 to P7c1 after the remaining shared-type/dependency gate was reported. That
 instruction accepts the documented shared `ByteView` dependency. The previous
 stop before implementation is superseded for P7c1 only. P7d-P7f remain pending.
-See the [implementation log](JAVA_BRIDGE_BUFFER_PROGRESS.md) for actual progress;
-this design does not by itself claim an implemented or qualified API.
+P7c1 is now implemented and qualified on all three targets; see the
+[evidence and measurements](JAVA_BRIDGE_BUFFER_EVIDENCE.md) and
+[implementation log](JAVA_BRIDGE_BUFFER_PROGRESS.md). This document remains the
+accepted contract; numerical performance acceptance remains maintainer review.
 
 The accepted design is a small `ironwood.bridge.ByteView` type: allocate reusable
 storage in Java, pass it directly to proved native methods, and expose only
@@ -23,8 +25,8 @@ Java. It is final, with no public constructor, subclassing, public fields or
 native address. It is a dedicated bridge value, not a subtype or replacement
 of either `ironwood.nio.ByteBuffer` or `java.nio.ByteBuffer`.
 
-The following table is the entire accepted declared surface. These are design
-signatures, not runnable examples or a claim of current compiler support.
+The following table is the entire accepted and implemented declared surface.
+These are API signatures, not complete runnable examples.
 
 | Signature | Java application | Ironwood source | Meaning |
 | --- | --- | --- | --- |
@@ -243,8 +245,9 @@ zero-copy advantage blocks P7c completion rather than being labeled success.
 
 ## Checkpoint and next action
 
-P7c0 is accepted. Implement and qualify P7c1 within this boundary, recording
-proofs and measurements in the [implementation log](JAVA_BRIDGE_BUFFER_PROGRESS.md).
+P7c0 is accepted and P7c1 is implemented and qualified within this boundary.
+Proofs and measurements are recorded in the [evidence](JAVA_BRIDGE_BUFFER_EVIDENCE.md)
+and [implementation log](JAVA_BRIDGE_BUFFER_PROGRESS.md).
 Do not advance to P7d or change an accepted contract without authorization.
 
 Design baseline: clean canonical checkout at `a5ab027d`, local `java-bridge`,
@@ -252,5 +255,6 @@ required origin fetch/push URLs verified. Reviewed the existing native
 `ByteBuffer`, D123 ownership, D188/D189 confinement/reclamation, P7b proofs,
 Java signature/export generation, and private callback direct-buffer scratch.
 Checked the Java 21 public JNI/NIO specifications, without importing JDK source.
-This checkpoint requires documentation/link/whitespace consistency checks only;
-there are no new runnable snippets, native experiments or performance claims.
+The original P7c0 checkpoint required documentation/link/whitespace consistency
+checks only. Subsequent P7c1 implementation and experiments are recorded in the
+[evidence report](JAVA_BRIDGE_BUFFER_EVIDENCE.md).
