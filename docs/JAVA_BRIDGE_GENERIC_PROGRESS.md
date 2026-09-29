@@ -4,8 +4,9 @@
 
 P7d0-P7d2 are implemented and qualified on all three targets. The
 [final P7d2 candidate](#final-p7d2-candidate) records current evidence and
-measurements. P7e/P7f remain pending and were not started. Chronological notes
-retain each earlier checkpoint's original boundary.
+measurements. D238 subsequently retained JNI after P7e0 and authorized
+[P7f combined qualification](JAVA_BRIDGE_P7_QUALIFICATION.md). Chronological
+notes retain each earlier checkpoint's original boundary.
 
 ## P7d0 checkpoint
 

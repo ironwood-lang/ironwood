@@ -9,7 +9,8 @@ returned, reclaimed, placed in fields/containers or used through Object/type
 operations in native code. Unknown effects remain rejected. Java owns allocation,
 slicing and read-only views; there is no close/free/address/backing-buffer API.
 The [usage guide](JAVA_BRIDGE_USAGE.md) and [accepted design](JAVA_BRIDGE_BUFFER_DESIGN.md)
-specify the supported surface. P7d-P7f are not started by this work. Numerical
+specify the supported surface. This report records P7c1; later extensions are
+tracked in the [P7 qualification record](JAVA_BRIDGE_P7_QUALIFICATION.md). Numerical
 performance acceptance remains maintainer review.
 
 ## Qualification

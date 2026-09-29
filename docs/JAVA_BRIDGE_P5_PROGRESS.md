@@ -7,8 +7,8 @@ Starting revision `792def85`; original qualified production revision `e0643c05`.
 Work stays on local `java-bridge`, without pushes or changes to the official
 OrderBook project. The maintainer accepted the previous measured implementation
 under D225 and separately authorized P5. D231 later authorized automatic callback
-batching; other P7 extensions remain deferred. Release work
-belongs to the maintainer.
+batching. Subsequent P7 extensions are tracked in the
+[combined qualification record](JAVA_BRIDGE_P7_QUALIFICATION.md).
 
 All six checkpoints below are complete within the authoritative bounded callback
 contract. The [P5 evidence report](JAVA_BRIDGE_P5_EVIDENCE.md) records the final

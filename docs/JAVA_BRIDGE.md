@@ -20,7 +20,8 @@
 > [JNI/FFM experiment](JAVA_BRIDGE_FFM_EXPERIMENT.md) is complete on all three
 > targets. D238 accepts JNI only and closes P7e through its keep-JNI outcome;
 > P7e1/P7e2 remain deliberately unimplemented. [P7f qualification](JAVA_BRIDGE_P7_QUALIFICATION.md)
-> is in progress.
+> is complete on all three targets. New extension numerical acceptance remains
+> maintainer review.
 > Java 24+ remains refused. This is a producer
 > preview, not an announcement of a published release. The
 > [producer guide](JAVA_BRIDGE_USAGE.md) specifies the supported API and platform

@@ -6,7 +6,8 @@ Status: P7c0 accepted; P7c1 implementation authorized on 2026-09-28. The
 maintainer explicitly approved JVM-managed storage, then requested proceeding
 to P7c1 after the remaining shared-type/dependency gate was reported. That
 instruction accepts the documented shared `ByteView` dependency. The previous
-stop before implementation is superseded for P7c1 only. P7d-P7f remain pending.
+stop before implementation was superseded for P7c1 only. Later authorizations
+and extensions are tracked in the [P7 qualification record](JAVA_BRIDGE_P7_QUALIFICATION.md).
 P7c1 is now implemented and qualified on all three targets; see the
 [evidence and measurements](JAVA_BRIDGE_BUFFER_EVIDENCE.md) and
 [implementation log](JAVA_BRIDGE_BUFFER_PROGRESS.md). This document remains the
