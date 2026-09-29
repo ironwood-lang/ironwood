@@ -16,7 +16,9 @@
 > on all three targets, using the P7d0 foundations; see the
 > [generic evidence](JAVA_BRIDGE_GENERIC_PROGRESS.md).
 > P7d2 final-bounded construction/mutation is implemented and qualified on all
-> three targets under D237; evidence is in the generic log. P7e-P7f remain pending.
+> three targets under D237; evidence is in the generic log. P7e0's isolated
+> [JNI/FFM experiment](JAVA_BRIDGE_FFM_EXPERIMENT.md) is complete on all three
+> targets. JNI remains the default; P7e1/P7e2 are unimplemented and P7f is pending.
 > Java 24+ remains refused. This is a producer
 > preview, not an announcement of a published release. The
 > [producer guide](JAVA_BRIDGE_USAGE.md) specifies the supported API and platform
