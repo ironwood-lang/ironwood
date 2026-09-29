@@ -171,10 +171,10 @@ the [array example and measurement runner](../examples/java-bridge/arrays/README
 [qualification and measurements](JAVA_BRIDGE_ARRAY_EVIDENCE.md) and
 [implementation checkpoints](JAVA_BRIDGE_ARRAY_PROGRESS.md).
 
-Bounded zero-copy byte views are still unsupported. Their
-[P7c0 API/lifetime design](JAVA_BRIDGE_BUFFER_DESIGN.md) is under review;
-P7c1 implementation has not begun. The proposal does not change today's input
-types or dependency requirements.
+Bounded zero-copy byte views are still unsupported. The
+[P7c0 API/lifetime design](JAVA_BRIDGE_BUFFER_DESIGN.md) is accepted and
+[P7c1 implementation](JAVA_BRIDGE_BUFFER_PROGRESS.md) is in progress. Producer
+admission remains disabled until transport and qualification are complete.
 
 Permanent-object admission proves that exposed native storage cannot be reclaimed
 within the complete linked world. These facades have no generated `free()` or

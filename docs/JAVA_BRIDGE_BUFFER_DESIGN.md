@@ -2,19 +2,19 @@
 
 # P7c0 bounded byte-view design
 
-Status: ownership approved; public-type/packaging review pending, 2026-09-28. This is the
-[P7c0 API/lifetime gate](JAVA_BRIDGE_PLAN.md#p7c-bounded-buffers-with-an-apilifetime-gate),
-not an implemented API. The maintainer authorized design work and explicitly
-required stopping before P7c1. No compiler, runtime or library behavior changes
-in this checkpoint; buffer signatures remain rejected.
+Status: P7c0 accepted; P7c1 implementation authorized on 2026-09-28. The
+maintainer explicitly approved JVM-managed storage, then requested proceeding
+to P7c1 after the remaining shared-type/dependency gate was reported. That
+instruction accepts the documented shared `ByteView` dependency. The previous
+stop before implementation is superseded for P7c1 only. P7d-P7f remain pending.
+See the [implementation log](JAVA_BRIDGE_BUFFER_PROGRESS.md) for actual progress;
+this design does not by itself claim an implemented or qualified API.
 
-The recommendation is a small `ironwood.bridge.ByteView` type: allocate reusable
+The accepted design is a small `ironwood.bridge.ByteView` type: allocate reusable
 storage in Java, pass it directly to proved native methods, and expose only
 bounded byte operations. Java controls the backing memory's lifetime. There is
 no public `close()` or `free()`. A small shared Java dependency gives independent
-bridge artifacts the same public type. Those ownership and packaging choices
-need approval before P7c0 can be recorded as accepted. The maintainer has approved
-JVM-managed storage without close/free; the shared dependency choice is pending.
+bridge artifacts the same public type.
 
 ## Public API
 
@@ -23,8 +23,8 @@ Java. It is final, with no public constructor, subclassing, public fields or
 native address. It is a dedicated bridge value, not a subtype or replacement
 of either `ironwood.nio.ByteBuffer` or `java.nio.ByteBuffer`.
 
-The following table is the entire proposed declared surface. These are proposed
-signatures, not runnable examples or declarations available in today's compiler.
+The following table is the entire accepted declared surface. These are design
+signatures, not runnable examples or a claim of current compiler support.
 
 | Signature | Java application | Ironwood source | Meaning |
 | --- | --- | --- | --- |
@@ -172,7 +172,7 @@ remain producer errors, never inferred permissions.
 
 ## Packaging choice
 
-Recommend a Java-only **`ironwood-bridge-values.jar`**, automatic module
+Use a Java-only **`ironwood-bridge-values.jar`**, automatic module
 **`ironwood.bridge.values`**, package **`ironwood.bridge`**, carrying the one
 public type above and private support. Compile for Java 21, keep Java 21-23 and
 the existing Java 24+ artifact refusal. Pin its version, ABI and content digest
@@ -187,7 +187,7 @@ artifact-private generated subpackages remain separate. Record this exception
 to exact user-export closure in paired metadata rather than silently extending
 the selected user packages.
 
-The proposed coordinates are `org.ironwood:ironwood-bridge-values:<IDK version>`;
+The selected coordinates are `org.ironwood:ironwood-bridge-values:<IDK version>`;
 this reserves a local distribution convention, not an existing published artifact.
 The IDK would include this jar and its source/licenses. Existing distribution
 commands would copy it alongside buffer-using artifacts and declare this ordinary
@@ -202,8 +202,8 @@ test both classpath and module-path composition and preserve existing loader rul
 Do not embed competing copies of `ironwood.bridge.ByteView` into every artifact:
 that creates duplicate-class or split-package ambiguity. The current producer's
 exact export ownership and generation checks cannot silently make that safe.
-This recommendation is a narrowly scoped change to the single-jar distribution
-contract and must be approved explicitly.
+The maintainer accepted this narrowly scoped change to the single-jar
+distribution contract when authorizing P7c1 after its review gate.
 
 | Alternative | Why not recommended for this first boundary |
 | --- | --- |
@@ -243,11 +243,9 @@ zero-copy advantage blocks P7c completion rather than being labeled success.
 
 ## Checkpoint and next action
 
-P7c0's design document and review are the only authorized work in this task.
-The maintainer approved JVM-owned, non-closeable storage. The remaining review is
-the shared Java dependency/public type. On acceptance, record the convention in the
-plan and decisions. Even acceptance does not authorize P7c1 here: the explicit
-stop remains in force until a separate implementation request.
+P7c0 is accepted. Implement and qualify P7c1 within this boundary, recording
+proofs and measurements in the [implementation log](JAVA_BRIDGE_BUFFER_PROGRESS.md).
+Do not advance to P7d or change an accepted contract without authorization.
 
 Design baseline: clean canonical checkout at `a5ab027d`, local `java-bridge`,
 required origin fetch/push URLs verified. Reviewed the existing native

@@ -145,6 +145,8 @@ public final class IrCfgRenamer {
                     values.apply(i.result()), i.operation(), i.arguments().stream().map(this::operand).toList(), i.sourceSpan());
             case IrStringCaseInstruction i -> new IrStringCaseInstruction(
                     values.apply(i.result()), operand(i.source()), operand(i.upper()), i.sourceSpan());
+            case IrByteViewInstruction i -> new IrByteViewInstruction(i.result().map(values), i.operation(),
+                    operand(i.view()), i.arguments().stream().map(this::operand).toList(), i.sourceSpan());
             case IrStringCharAtInstruction i -> new IrStringCharAtInstruction(
                     values.apply(i.result()), operand(i.string()), operand(i.index()), i.sourceSpan());
             case IrStringConcatInstruction i -> new IrStringConcatInstruction(

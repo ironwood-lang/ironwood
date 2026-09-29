@@ -595,6 +595,11 @@ final class PrimitiveGenericSpecializer {
             return new IrStaticFieldStoreInstruction(field,
                     operand(value.value(), substitutions, function), value.sourceSpan());
         }
+        if (instruction instanceof ironwood.compiler.ir.IrByteViewInstruction view) {
+            return new ironwood.compiler.ir.IrByteViewInstruction(view.result().map(result -> value(result, substitutions)),
+                    view.operation(), operand(view.view(), substitutions, function),
+                    view.arguments().stream().map(argument -> operand(argument, substitutions, function)).toList(), view.sourceSpan());
+        }
         if (instruction instanceof IrStringCharAtInstruction value) {
             return new IrStringCharAtInstruction(value(value.result(), substitutions),
                     operand(value.string(), substitutions, function),

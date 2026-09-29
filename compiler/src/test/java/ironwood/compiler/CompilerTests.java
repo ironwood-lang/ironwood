@@ -192,6 +192,7 @@ public final class CompilerTests {
         test("Java Bridge bounded native stack envelope and isolated limits", BridgeStackTests::envelope);
         test("Java Bridge copied String proofs preserve cleanup and artifact parity", BridgeStringTests::proofs);
         test(BridgeArrayInputTests.NAME, BridgeArrayInputTests::proofs);
+        test(BridgeByteViewTests.NAME, BridgeByteViewTests::proofs);
         test(BridgeArrayProducerTests.NAME, BridgeArrayProducerTests::producer);
         test(BridgeArrayFaultTests.NAME, BridgeArrayFaultTests::failures);
         test(BridgeArrayValueTests.NAME, BridgeArrayValueTests::proofs);

@@ -377,6 +377,7 @@ final class BorrowDispatchAnalysis {
             case IrEnsureTypeInitializedInstruction ignored -> { }
             case ironwood.compiler.ir.IrTypeInitializedInstruction ignored -> { }
             case IrObjectHashCodeInstruction ignored -> { }
+            case ironwood.compiler.ir.IrByteViewInstruction ignored -> { }
             case IrStringCharAtInstruction ignored -> { }
             case IrStringEqualsInstruction ignored -> { }
             case IrStringHashCodeInstruction ignored -> { }

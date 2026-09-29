@@ -1,0 +1,49 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+package ironwood.bridge;
+
+/** A bounded byte range borrowed synchronously from the Java host. */
+public final class ByteView {
+
+    private ByteView() {
+
+    }
+
+    /** Returns the fixed number of accessible bytes. */
+    public int length() {
+
+        // The compiler reads the bounded descriptor, not an object header.
+        return 0;
+    }
+
+    /** Reports this view's immutable write permission. */
+    public boolean isReadOnly() {
+
+        return false;
+    }
+
+    /** Reads one signed byte at an absolute index. */
+    public byte get(int index) {
+
+        if (index < 0 || index >= length()) throw new IndexOutOfBoundsException();
+        return readByte(index);
+    }
+
+    /** Writes one byte; read-only permission is checked before the index. */
+    public void put(int index, byte value) {
+
+        if (isReadOnly()) throw new UnsupportedOperationException("read-only byte view");
+        if (index < 0 || index >= length()) throw new IndexOutOfBoundsException();
+        writeByte(index, value);
+    }
+
+    private byte readByte(int index) {
+
+        // Intrinsic access is reachable only after get() proves the range.
+        return 0;
+    }
+
+    private void writeByte(int index, byte value) {
+
+        // Intrinsic access is reachable only after put() proves permission/range.
+    }
+}

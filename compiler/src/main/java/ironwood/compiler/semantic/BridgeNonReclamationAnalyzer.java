@@ -202,6 +202,8 @@ public final class BridgeNonReclamationAnalyzer {
             case IrAllocateInstruction ignored -> true;
             case IrArrayAllocateInstruction ignored -> true;
             case IrStringCopyInstruction ignored -> true;
+            // Bounded byte access neither retains nor reclaims its borrowed storage.
+            case ironwood.compiler.ir.IrByteViewInstruction ignored -> true;
             // Typed UTF-16 address calculation and scalar load; no runtime call.
             case IrStringCharAtInstruction ignored -> true;
             // Fixed bridge operations allocate/copy or write adapter-local data.
