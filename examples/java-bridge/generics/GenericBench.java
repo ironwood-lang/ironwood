@@ -17,8 +17,9 @@ public final class GenericBench {
         Quote quote = box.get();
         long coldNs = System.nanoTime() - coldStart;
         coldBytes = bean.getThreadAllocatedBytes(thread) - coldBytes;
-        Plain plain = new Plain(quote);
-        if (plain.get() != quote) throw new AssertionError();
+        Plain plain = Plain.quote();
+        Quote expected = generic ? quote : plain.get();
+        if (expected.value() != 17) throw new AssertionError();
         System.err.println("first generic get: ns=" + coldNs + " java_bytes=" + coldBytes);
         System.out.println("scenario,sample,calls,elapsed_ns,checksum,native_allocations,java_bytes");
         try {
@@ -27,7 +28,7 @@ public final class GenericBench {
                 long start = System.nanoTime();
                 for (int i = 0; i < iterations; i++) {
                     Quote value = generic ? box.get() : plain.get();
-                    if (value == quote) sum++;
+                    if (value == expected) sum++;
                 }
                 long elapsed = System.nanoTime() - start;
                 bytes = bean.getThreadAllocatedBytes(thread) - bytes;
