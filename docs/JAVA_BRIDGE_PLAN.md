@@ -19,7 +19,9 @@ for its narrow proof boundary, measured results and remaining numerical gap.
 P7b-P7f have a [concrete planning breakdown](#p7-submilestones-and-api-boundaries-d232).
 P7b implementation and three-target qualification are complete; numerical acceptance
 remains maintainer review. See the [array evidence](JAVA_BRIDGE_ARRAY_EVIDENCE.md)
-and [progress log](JAVA_BRIDGE_ARRAY_PROGRESS.md). P7c-P7f remain pending. Release work
+and [progress log](JAVA_BRIDGE_ARRAY_PROGRESS.md). P7c0's
+[API/lifetime design](JAVA_BRIDGE_BUFFER_DESIGN.md) is under review; P7c1-P7f
+implementation remains pending. Release work
 belongs to the maintainer, outside this implementation task.
 The release gates below still apply. The maintainer selected **Java 21-23** as the initial consumer
 support range, deferring Java 24+ and its native-access authorization work.
@@ -1487,7 +1489,7 @@ part of using the API.
 | --- | --- | --- | --- |
 | P7a: automatic callback batching | D231's proved pure counted loops, preserving every Java listener call and ordinary-JNI fallback. | Implemented and qualified at `bd0711b4` with stack runner `e5c0df7a`. Further numerical tuning deferred by the maintainer. | Existing proof, allocation, reentry, failure and platform evidence in the [optimization report](JAVA_BRIDGE_CALLBACK_OPTIMIZATION.md); no claim of matching pure Java. |
 | P7b: primitive array values | Ordinary one-dimensional primitive array parameters and bounded result cases, with explicit alias, mutation and cleanup proofs. | Implemented and qualified on all three targets; [evidence and measurements](JAVA_BRIDGE_ARRAY_EVIDENCE.md). Numerical acceptance remains review. | P7b1 and P7b2 below pass source/class/archive parity, positive/negative proof cases and generated Java consumers. No unsupported array shape is admitted. |
-| P7c: bounded zero-copy buffers | A distinct call-scoped byte-view contract and reusable storage, without public native addresses or unbounded views. | P7c0 API/lifetime review before P7c1 implementation; reuse P7b's descriptor/conversion foundations. | Storage cannot disappear during access, no view escapes, bounds and overlapping ranges are correct, exceptional cleanup passes, and the zero-copy path demonstrably copies no payload. |
+| P7c: bounded zero-copy buffers | A distinct call-scoped byte-view contract and reusable storage, without public native addresses or unbounded views. | P7c0 [concrete API/lifetime design](JAVA_BRIDGE_BUFFER_DESIGN.md) under review; JVM-managed ownership approved, shared public type/dependency pending. Explicit stop before P7c1. | Storage cannot disappear during access, no view escapes, bounds and overlapping ranges are correct, exceptional cleanup passes, and the zero-copy path demonstrably copies no payload. |
 | P7d: bounded reference generics | Java-shaped generic facades for a finite, enforceable native type domain. | Independent of P7c transport; extend exact signature metadata before facade generation. | Every Java-valid use of the emitted declaration is supported within its bounds, with preserved identity/ownership and no erased-signature loophole. |
 | P7e: optional FFM transport | Evaluate ordinary downcalls first, then separately proved critical leaves, using the existing protected ABI. | Independent of P7c/P7d API expansion; JNI remains the default and fallback. | A qualified, measured improvement with unchanged semantics and explicit deployment policy, or an evidence-backed decision to retain JNI. Research alone does not count as an implemented FFM backend. |
 | P7f: combined qualification and documentation | Integrate the enabled subsets, package matching artifacts and update user-facing support boundaries. | Follows the implemented P7b-P7e subsets and their explicit gate outcomes. | Applicable pinned JVM/target cells, packaging, regression, allocation and benchmark checks pass for the final bytes; remaining exclusions and numerical review are recorded. |
@@ -1554,6 +1556,12 @@ only with a nested-invocation proof. No new allocation, lookup or bookkeeping is
 permitted on unrelated scalar calls.
 
 #### P7c: bounded buffers, with an API/lifetime gate
+
+The maintainer authorized P7c0 only, explicitly stopping before P7c1. The
+[concrete design](JAVA_BRIDGE_BUFFER_DESIGN.md) proposes `ironwood.bridge.ByteView`,
+an exact API, ownership table, exception rules and verification plan. JVM-managed
+storage without close/free is approved; the shared public type/dependency choice
+remains under review. No buffer API is implemented or admitted by this checkpoint.
 
 **P7c0 deliverable:** a small reviewed public API and ownership table before
 adding code. Recommended first boundary: a dedicated bridge byte-buffer/view
