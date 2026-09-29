@@ -83,6 +83,29 @@ final class BridgeArrayValueTests {
                 var restored = new CompilerPipeline(UnfreedMode.OFF).analyzeForBridge(loaded.sources());
                 check(ids.stream().map(id -> BridgeArrayInputs.values(restored, id)).toList().equals(expected), "mutable array artifact proof changed");
             }
+            Files.writeString(source, """
+                    package arrayvalues;
+                    public final class Values {
+                        private Values() {}
+                        private static int[] saved;
+                        public static int[] value(int[] input) { saved = input; return input; }
+                    }
+                    """);
+            var unsafe = new CompilerPipeline(UnfreedMode.OFF).analyzeForBridge(List.of(SourceFile.read(source)));
+            check(unsafe.valid(), unsafe.diagnostics().toString());
+            var rejected = BridgeArrayInputs.values(unsafe, target(unsafe));
+            check(rejected.status() == BridgeProof.Status.REJECTED && rejected.reason().contains("escape"), "retaining result was admitted");
+            Path negativeClasses = directory.resolve("negative-classes"), negativeArchive = directory.resolve("negative.ironjar");
+            BridgeProducerTests.command(directory, "compile-negative", 0, new String[]{"--unfreed=off", "-d", negativeClasses.toString(), source.toString()});
+            IronJar.create(negativeArchive, List.of(negativeClasses), List.of());
+            Files.delete(source);
+            for (Path container : List.of(negativeClasses, negativeClasses.resolve("arrayvalues/Values.ironclass"), negativeArchive)) {
+                var loaded = new SourceSetLoader(List.of(directory.resolve("absent")), List.of(container)).load(List.of(), List.of("arrayvalues.Values"));
+                check(loaded.diagnostics().isEmpty(), loaded.diagnostics().toString());
+                var restored = new CompilerPipeline(UnfreedMode.OFF).analyzeForBridge(loaded.sources());
+                check(rejected.equals(BridgeArrayInputs.values(restored, target(restored))), "retaining result changed after reconstruction");
+                check(BridgeExportSurface.valuePreview(restored, List.of("arrayvalues")).surface().isEmpty(), "archive bypassed array confinement");
+            }
         } finally {
             try (var paths = Files.walk(directory)) {
                 for (Path path : paths.sorted(java.util.Comparator.reverseOrder()).toList()) Files.delete(path);

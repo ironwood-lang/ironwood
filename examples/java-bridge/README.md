@@ -53,3 +53,7 @@ The [retained listener example](listeners/README.md) exercises synchronous Java
 callbacks from native Ironwood, reentrant listener replacement, exception identity
 and explicit cleanup. Its separate benchmark compares native/native, Java/Java
 and native/Java execution with identical event counts and checked results.
+
+The [primitive array example](arrays/README.md) covers copied inputs, mutation and
+fresh results. Its runner compares native Ironwood, Java and the generated bridge
+with matching checksums, allocation checks and preserved disassembly.

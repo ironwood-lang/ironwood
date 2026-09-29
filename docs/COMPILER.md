@@ -63,13 +63,25 @@ failure rather than adopting Java's earlier allocation attempt.
 
 ## Java Bridge producer and analysis foundations
 
-P0 through P4 are complete for continued implementation under D213. The experimental
-`ironwoodc --java-bridge` producer composes scalar/String, permanent-object,
-root/view and bounded-retention protocols on macOS ARM64 and both Linux targets. The
+The experimental `ironwoodc --java-bridge` producer composes scalar/String,
+proved copied primitive arrays, permanent-object, root/view, bounded-retention
+and bounded callback protocols on macOS ARM64 and both Linux targets. The
 [P3 audit](JAVA_BRIDGE_P3CD_EVIDENCE.md) and [P4 OrderBook audit](JAVA_BRIDGE_P4_EVIDENCE.md)
-record their implementation gates. P6 distribution and final qualification remain pending.
+record their implementation gates. P6 implementation was accepted under D225;
+P5 and P7b implementation and qualification are complete. The
+[array evidence](JAVA_BRIDGE_ARRAY_EVIDENCE.md) records the latest supported
+boundary and measurements; P7c-P7f remain pending.
 [The implementation plan](JAVA_BRIDGE_PLAN.md) defines the
 phase gates, and [the progress log](JAVA_BRIDGE_PROGRESS.md) records evidence.
+
+`BridgeArrayInputs` combines final P0 borrowing, retention, result-origin and
+non-reclamation facts with complete typed effect closure. A descriptor alone
+cannot admit an array export. Protected `IrBridgeArrayCopyInstruction` lowering
+constructs valid native arrays; generated adapters coalesce Java input identities
+and reclaim conversion storage. `BridgeArrayValueSources` emits ordered mutable
+copy-back and fresh/alias-result delivery, preserving the primary failure even
+when diagnostic aggregation fails. These protocols add no array state to
+unrelated scalar entries.
 
 `BridgeAssembler` combines independently produced host jars only when complete
 generation, Java declarations and common source/license/content inventories match.

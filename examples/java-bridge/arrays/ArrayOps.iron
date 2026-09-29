@@ -1,0 +1,46 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+package arraybench;
+
+// Copied arrays are call-scoped values. No input is retained or freed here.
+// fresh() transfers its new result to the caller; the bridge copies and reclaims
+// that native result before delivering the Java array.
+public final class ArrayOps {
+
+    private ArrayOps() {
+
+    }
+
+    public static long read(int[] values) {
+
+        long sum = 0;
+        for (int i = 0; i < values.length; i++) sum += values[i];
+        return sum;
+    }
+
+    public static long update(int[] values) {
+
+        long sum = 0;
+        for (int i = 0; i < values.length; i++) {
+            values[i] ^= 0x13579;
+            sum += values[i];
+        }
+        return sum;
+    }
+
+    public static int[] fresh(int size, int seed) {
+
+        int[] values = new int[size];
+        for (int i = 0; i < size; i++) values[i] = seed ^ i;
+        return values;
+    }
+
+    public static long allocations() {
+
+        return System.allocationCount();
+    }
+
+    public static long live() {
+
+        return System.liveAllocationCount();
+    }
+}

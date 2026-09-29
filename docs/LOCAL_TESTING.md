@@ -840,6 +840,12 @@ the checks affected by a change; this is not permission for an unfiltered suite.
   --test 'Java Bridge producer packages proved synchronous listeners with artifact parity'
 ```
 
+P7b array changes use the six exact proof/producer/fault tests listed in the
+[array evidence report](JAVA_BRIDGE_ARRAY_EVIDENCE.md#reproduction-and-evidence).
+That report also records the pinned-JDK replays, matching payload identities,
+allocation checks and standalone conversion benchmark. Fault-injected images
+must remain separate from production performance payloads.
+
 ## Test platforms and retry failures
 
 ```sh
