@@ -65,3 +65,7 @@ Its generated artifacts use the shared `ironwood-bridge-values.jar` dependency.
 The [read-only generic facade example](generics/README.md) preserves `Box<T>`
 with distinct native factories and ordinary Java wildcard reads. Its runner
 compares warmed generic and nongeneric reference getters and checks allocations.
+
+The [bounded generic example](bounded-generics/README.md) constructs and mutates
+`Holder<T extends Value>` through ordinary Java calls. Its matched setter runner
+checks retention costs against a nongeneric facade, including allocation counts.
