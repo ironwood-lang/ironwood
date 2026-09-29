@@ -57,3 +57,7 @@ Focused verification selection:
   deltas. The runner now asserts the observed policy outcomes explicitly.
 - Pending: matched Linux runs, optimized-code review, final evidence and
   deployment recommendation. The flag-free JNI artifact remains the default.
+- Assembly review found that Clang inlined the experiment's small failure
+  helper, unlike production `BridgeValueNativeSources`' explicitly outlined
+  helper. Match production's `noinline` declaration before final measurements;
+  preliminary timings are superseded. This changes only experimental C.
