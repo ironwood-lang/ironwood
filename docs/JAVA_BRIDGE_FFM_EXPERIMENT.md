@@ -2,6 +2,11 @@
 
 # P7e0 ordinary FFM experiment
 
+Subsequent decision: **D238 accepts JNI only**, closing P7e through its permitted
+keep-JNI outcome. P7e1/P7e2 remain deliberately unimplemented. The maintainer
+authorized [P7f combined qualification](JAVA_BRIDGE_P7_QUALIFICATION.md) in this
+same task. The experiment and original recommendation below remain evidence.
+
 ## Scope and pre-change review
 
 The maintainer authorized only P7e0, starting from `0823e89d` on local

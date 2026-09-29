@@ -9093,3 +9093,22 @@ occurrence order. If no
   retained and borrowed lifetimes, normal/exceptional mutation, allocation
   failure, negative APIs, unsafe frees and matched setter code/measurements.
   Numerical performance acceptance remains maintainer review.
+
+## D238 - Retain JNI after the P7e experiment and qualify the combined bridge
+
+- **Status:** The maintainer accepted the keep-JNI recommendation, explicitly
+  selected JNI only, and authorized P7f in the existing task on 2026-09-29.
+- **Decision:** Close D232's P7e evaluation through its permitted keep-JNI
+  outcome. [P7e0 measurements](JAVA_BRIDGE_FFM_EXPERIMENT.md) show only about
+  0.23-0.39 ns/call improvement on physical Linux x86-64 for ordinary FFM,
+  alongside additional native-access launch requirements. P7e1/P7e2 remain
+  deliberately unimplemented; no optional FFM artifact or policy is selected.
+- **Supersession:** Replace P7e's pending deployment-selection status with this
+  accepted outcome. Preserve default JNI, Java 21-23 and the Java 24+ refusal.
+  This does not weaken any proof or label an unimplemented FFM backend complete.
+- **Next authorized work:** P7f combined qualification and documentation for the
+  implemented callbacks/batching, arrays, byte views and bounded generics.
+  Preserve the official OrderBook sources. Record matching artifacts, focused
+  positive/negative tests, three-target/JVM evidence and numerical measurements
+  in the [P7f log](JAVA_BRIDGE_P7_QUALIFICATION.md). Numerical acceptance remains
+  the maintainer's review; publishing remains outside this task.

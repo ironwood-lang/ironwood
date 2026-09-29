@@ -28,16 +28,16 @@ Estonia after the maintainer separately authorized SSH access.
 
 P7a batching, P7b copied primitive arrays, P7c bounded byte views and P7d0-P7d2
 bounded generics are implemented and qualified under their separately recorded
-authorizations. The maintainer authorized only P7e0 for this checkpoint. Its
+authorizations. The completed P7e0 checkpoint's
 [isolated JNI/FFM experiment](JAVA_BRIDGE_FFM_EXPERIMENT.md) is complete on
 macOS ARM64, local Linux ARM64 virtualization and physical Estonia x86-64.
 The production compiler and default JNI artifact are unchanged. The experiment
 recommends retaining JNI given the small scalar gain and additional deployment
-policy. That recommendation does not authorize skipping or implementing later
-work: P7e1/P7e2 remain unimplemented, deployment selection precedes P7e1, and
-P7f combined qualification remains pending. Stop here until the maintainer
-selects the next checkpoint. The report provides commits, exact commands,
-payload identities, raw evidence and a handoff for a fresh task if desired.
+policy. The maintainer accepted JNI only under D238, closing P7e through that
+allowed outcome and leaving P7e1/P7e2 deliberately unimplemented. The maintainer
+authorized P7f in this same task. Its [durable qualification log](JAVA_BRIDGE_P7_QUALIFICATION.md)
+records current work, contracts, exact selection, evidence and remaining checks.
+P7f is in progress; it is not complete merely because the earlier phases passed.
 
 The OrderBook performance recommendation was accepted under D225. Bounded P5
 implementation and focused qualification are complete at `e0643c05`; see its
