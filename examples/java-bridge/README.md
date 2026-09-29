@@ -1,6 +1,6 @@
 <!-- SPDX-License-Identifier: MIT OR Apache-2.0 -->
 
-# Java Bridge value preview
+# Java Bridge examples
 
 The `value` example builds an ordinary Java dependency containing a paired
 host-target native image. A Java consumer calls primitive/String methods, catches
@@ -69,3 +69,7 @@ compares warmed generic and nongeneric reference getters and checks allocations.
 The [bounded generic example](bounded-generics/README.md) constructs and mutates
 `Holder<T extends Value>` through ordinary Java calls. Its matched setter runner
 checks retention costs against a nongeneric facade, including allocation counts.
+
+For a larger application, [OrderBook through the Java Bridge](../../projects/OrderBook/java-bridge/README.md)
+has compile/link/run scripts and the existing throughput and batch-latency drivers
+calling the generated native API.

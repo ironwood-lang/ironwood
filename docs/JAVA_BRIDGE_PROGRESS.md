@@ -43,6 +43,14 @@ Java 24 refusals. Local commits `38fda699` and `3f2e3652` record the JNI decisio
 and qualification tools. Production code remains unchanged; new numerical
 acceptance and further tuning remain separate from qualification completion.
 
+The subsequent usability check added `projects/OrderBook/java-bridge` with
+compile/link/run/throughput/latency scripts and a focused smoke test. They reuse
+the unchanged Java drivers against the generated native engine. Mac ARM64 and
+physical Estonia x86-64 pass the smoke checks on Java 21/22/23; the simple
+`examples/java-bridge/value` compile/link/run workflow also passes on this Mac.
+Evidence and the Linux input catalog are in
+`workspace/java-bridge/orderbook-workflow`; no compiler or engine behavior changed.
+
 The OrderBook performance recommendation was accepted under D225. Bounded P5
 implementation and focused qualification are complete at `e0643c05`; see its
 [evidence report](JAVA_BRIDGE_P5_EVIDENCE.md) and [progress log](JAVA_BRIDGE_P5_PROGRESS.md).

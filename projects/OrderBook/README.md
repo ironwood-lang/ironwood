@@ -50,6 +50,20 @@ $ ./run.sh
 
 `java/compile.sh` builds both Java performance benchmarks as well.
 
+Build the native Ironwood engine as a Java dependency and call it from the
+existing Java drivers, starting from this OrderBook directory:
+
+```console
+$ java-bridge/compile.sh
+$ java-bridge/link.sh
+$ java-bridge/run.sh
+```
+
+The [Java Bridge guide](java-bridge/README.md) covers Java 21 build prerequisites,
+supported Java 21-23 consumers and the generated host-target JAR. Its benchmark
+drivers are compiled directly from the existing Java source files against the
+generated native API. The engine and official workload sources are unchanged.
+
 Build and run the Java sources with GraalVM Native Image:
 
 ```console
@@ -183,7 +197,7 @@ Keep the machine otherwise idle during the experiment.
 successful profiling, permission failures, unsupported events, and explicit
 timing-only runs using fixture tools.
 
-All four versions print the same primitive snapshots:
+All five execution variants print the same primitive snapshots:
 
 ```text
 initial
@@ -230,7 +244,7 @@ matching work observable to both optimizing compilers.
 ## Throughput
 
 The two arguments are warmup and measured operation counts in millions. All
-four scripts default to 10 million warmup operations and 100 million measured
+five scripts default to 10 million warmup operations and 100 million measured
 operations:
 
 ```console
@@ -238,6 +252,7 @@ $ ./throughput.sh 10 100
 $ java/throughput.sh 10 100
 $ java/throughput-native-image.sh 10 100
 $ cpp/throughput.sh 10 100
+$ java-bridge/throughput.sh 10 100
 ```
 
 Each command prints one integer: the elapsed nanoseconds for the measured
@@ -252,18 +267,19 @@ $ ./latency.sh 10000 50000 1000
 $ java/latency.sh 10000 50000 1000
 $ java/latency-native-image.sh 10000 50000 1000
 $ cpp/latency.sh 10000 50000 1000
+$ java-bridge/latency.sh 10000 50000 1000
 ```
 
 The arguments, also the defaults, are **warmup batches, measured batches, and
 cycles per batch**. One sample times 1,000 complete cycles, or 8,000 operations,
 between two `System.nanoTime()` calls. This gives 80 million warmup operations
-and 400 million measured operations. These defaults target a run below ten
-seconds; elapsed time depends on the machine. A quick smoke run is
+and 400 million measured operations. Elapsed time depends on the implementation
+and machine. A quick smoke run is
 `./latency.sh 10 100 1000`.
 
-Ironwood and Native Image have no JIT, but all three versions retain the same
-80-million-operation warmup. A Java 25 diagnostic run compiled the shared
-workload before warmup ended, with no further application compilation events
+All variants retain the same 80-million-operation warmup, including those
+without a JIT. A Java 25 diagnostic run of the Java-only version compiled the
+shared workload before warmup ended, with no further application compilation events
 during measurement. Recheck warmup on the target JDK when collecting official
 results.
 
@@ -288,17 +304,24 @@ recorded output. After compiling and linking, run `./test.sh` for four native
 `ironwood.testing` tests, six Java tests, command-line checks, and report
 equivalence. `java/test.sh` runs the Java checks independently after
 `java/compile.sh`; its allocation test uses the JDK's thread-allocation counter.
+After the bridge compile/link steps, `java-bridge/test.sh` independently checks
+the JVM-to-native demonstration, benchmark commands and argument refusals.
 
 ## Allocation and ownership
 
-The steady-state throughput workload and latency sample collection allocate
-nothing. The native latency driver checks the allocation counter around the
-complete collection loop, outside individual timed batches. Java tests verify
+The original Ironwood and Java steady-state throughput workloads and latency
+sample collection allocate nothing. The native latency driver checks the
+allocation counter around the complete collection loop, outside individual
+timed batches. Java tests verify
 allocation-free collection after class initialization and warmup. Both implementations
 preallocate eight orders and four price levels, remove each acquired object
 from its pool slot, reset it after use, and return it to that slot. Ironwood's
 pool graph intentionally has process lifetime because the benchmark executable
 owns it until exit.
+
+The Java Bridge uses that same process-lifetime native pool graph. Java facade
+cache misses or recreation can allocate independently of native pool reuse;
+see its [ownership and benchmark notes](java-bridge/README.md).
 
 Both C++ benchmark drivers heap-allocate the book before warmup, at the same
 point as Ironwood and Java. Successful books and their pool graphs remain alive
