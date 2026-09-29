@@ -10,7 +10,8 @@ original JNI path but does not meet the requested pure-Java performance.
 See the [x86 table](#current-linux-x86-64-production-measurements),
 [ARM64 table](#linux-arm64-follow-up-measurements) and
 [artifact identities](#reproduction-and-artifact-identity). Numerical acceptance
-remains maintainer review; other P7 extensions remain deferred.
+remains maintainer review. Subsequent extensions and matching combined artifacts
+are tracked in the [P7 qualification record](JAVA_BRIDGE_P7_QUALIFICATION.md).
 
 Starting revision: `a37804e1`, local `java-bridge`, 2026-09-28. The maintainer
 rejects the approximately 105 ns/event Linux x86-64 callback result and requests

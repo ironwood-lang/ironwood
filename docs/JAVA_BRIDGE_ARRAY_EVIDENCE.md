@@ -6,8 +6,9 @@ P7b1 and P7b2 are implemented and qualified under D233. This adds proved
 one-dimensional primitive array inputs, mutation, input-alias results and fresh
 invocation-owned results. The [producer guide](JAVA_BRIDGE_USAGE.md) specifies
 the enforced boundary and failure ordering. P7c was subsequently implemented and
-qualified in the [byte-view evidence](JAVA_BRIDGE_BUFFER_EVIDENCE.md); P7d-P7f
-remain pending. Numerical performance acceptance remains maintainer review.
+qualified in the [byte-view evidence](JAVA_BRIDGE_BUFFER_EVIDENCE.md). Later
+extensions are tracked in the [P7 qualification record](JAVA_BRIDGE_P7_QUALIFICATION.md).
+Numerical performance acceptance remains maintainer review.
 
 ## Functional qualification
 

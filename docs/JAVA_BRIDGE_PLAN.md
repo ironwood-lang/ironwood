@@ -31,7 +31,8 @@ targets under D237, with evidence in that log. P7e0's isolated
 [transport experiment](JAVA_BRIDGE_FFM_EXPERIMENT.md) is complete on all three
 targets. D238 accepts JNI only, closing P7e through its permitted keep-JNI
 outcome. P7e1/P7e2 remain deliberately unimplemented.
-[P7f combined qualification](JAVA_BRIDGE_P7_QUALIFICATION.md) is authorized and in progress.
+[P7f combined qualification](JAVA_BRIDGE_P7_QUALIFICATION.md) is complete on all
+three targets; numerical acceptance of the extension measurements remains review.
 Release work belongs to the maintainer,
 outside this implementation task.
 The release gates below still apply. The maintainer selected **Java 21-23** as the initial consumer
@@ -1471,7 +1472,7 @@ or weakening a phase's exit criteria. A submilestone is not a separate release.
 | P4: current OrderBook | Apply P3's non-reclamation proof to the dedicated engine closure; generate its actual API including nested enums and pooled orders; run the paired workload and section 11's P4 allocation acceptance cases. | `createLimit`, `cancel` and `reduceTo` export successfully under the proved permanent-storage contract; consumer imports actual classes without glue; correctness matches; D207 capacity-exhaustion controls remain producer exceptions, not bridge refusals; warmed scalar/cache-hit loops have zero native and Java allocations with strongly held facades, and weak-cache recreation meets the separate miss/collection criteria. No liveness bookkeeping is added to permanent scalar calls. Retention/cross-owner argument tests use the separate reclaimable fixture. Timing acceptance is deferred to P6. |
 | P6: distribution and final release readiness | Multi-target assembly, final classloader/module qualification, producer Maven/Gradle conventions, sources/Javadoc, license/source payloads, deployment diagnostics, final performance measurements. | Before starting, D209's product decision and any revised guard/tests/matrix are recorded. Clean consumer machines need only supported Java and dependency; all nine pinned Temurin/target cells below pass their focused checks on matching hardware under D205, including diagnostic and flag-free launches; the separate Java 24 refusal test passes; package content reproducible and reviewed; D210 macOS signature/load checks pass on final payloads; final numerical performance acceptance recorded. |
 | P5: bounded callbacks and Java exception propagation, implemented and qualified | Typed foreign calls/proxies, conservative effects, retained listener lifecycle, nested invocation contexts and callback-originated Java throwable propagation. Reuse P2/P3 native-to-Java translation. | Listener works as a Java interface; reentrancy, retained arguments and callback-triggered free tested; unchanged callback throwables preserve Java identity through nested calls, with carrier cleanup on catch/replace/retain paths; neither runtime unwinds across the boundary. D206 string-bearing callbacks allocate, reenter and throw without critical-region violations or leaked outer/nested buffers. |
-| P7: measured optimization and API expansion | D231 compiler-proved automatic callback batching, D233 copied primitive arrays and D234 bounded byte views are implemented and qualified; numerical acceptance remains review. P7d0-P7d2 bounded reference generics and P7e0's isolated transport experiment are complete; P7e1/P7e2 are unimplemented and P7f is pending. | Each extension has a compatibility/proof contract, focused tests, allocation evidence, and machine-code/benchmark justification. |
+| P7: measured optimization and API expansion | D231 compiler-proved automatic callback batching, D233 copied primitive arrays and D234 bounded byte views are implemented and qualified. P7d0-P7d2 bounded reference generics and P7e0's isolated transport experiment are complete; D238 retains JNI, P7e1/P7e2 remain unimplemented, and P7f combined qualification is complete; new numerical acceptance remains review. | Each extension has a compatibility/proof contract, focused tests, allocation evidence, and machine-code/benchmark justification. |
 
 P2 is a usable scalar preview, not completion of the requested object feature.
 The initial object implementation followed P0 -> P1 -> P2 -> P3 -> P4 -> P6.
@@ -1699,7 +1700,8 @@ generation, JVM class loading in native code or JCF emulation is introduced.
 **Accepted gate outcome, D238:** the maintainer selected JNI only after P7e0.
 P7e is complete as an evaluation; P7e1/P7e2 are deliberately unimplemented,
 not claimed implemented or qualified. Their candidate contracts below are
-retained for any separately authorized future reconsideration. P7f is next.
+retained for any separately authorized future reconsideration.
+[P7f combined qualification](JAVA_BRIDGE_P7_QUALIFICATION.md) is complete.
 
 **P7e0 experiment, completed:** the [experiment report](JAVA_BRIDGE_FFM_EXPERIMENT.md)
 records the matched JNI/FFM results, native-access matrix, failure/lifetime checks,

@@ -1027,7 +1027,8 @@ String-array entry shape and the native `int` status extension.
   copied primitive arrays, P7c Java-owned ByteView storage, and P7d bounded
   reference generics are implemented. D238 closes P7e with JNI retained after
   its transport experiment; optional FFM remains unimplemented. Combined
-  [P7f qualification](JAVA_BRIDGE_P7_QUALIFICATION.md) is in progress.
+  [P7f qualification](JAVA_BRIDGE_P7_QUALIFICATION.md) is complete on all three
+  targets; new numerical acceptance remains review.
 
 Cross-cutting work includes Linux x86-64 and macOS development, reproducible
 toolchain diagnostics, native debug information, benchmarks kept separate from

@@ -36,8 +36,12 @@ recommends retaining JNI given the small scalar gain and additional deployment
 policy. The maintainer accepted JNI only under D238, closing P7e through that
 allowed outcome and leaving P7e1/P7e2 deliberately unimplemented. The maintainer
 authorized P7f in this same task. Its [durable qualification log](JAVA_BRIDGE_P7_QUALIFICATION.md)
-records current work, contracts, exact selection, evidence and remaining checks.
-P7f is in progress; it is not complete merely because the earlier phases passed.
+records the completed combined qualification, exact selection, matching artifacts
+and measurements. P7f passes on all three targets: 54 focused checks, 654 Java
+22/23 child replays, 54 final launch forms, four minimal-JVM launches and ten
+Java 24 refusals. Local commits `38fda699` and `3f2e3652` record the JNI decision
+and qualification tools. Production code remains unchanged; new numerical
+acceptance and further tuning remain separate from qualification completion.
 
 The OrderBook performance recommendation was accepted under D225. Bounded P5
 implementation and focused qualification are complete at `e0643c05`; see its
