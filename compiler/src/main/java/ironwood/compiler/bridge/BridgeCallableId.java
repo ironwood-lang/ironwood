@@ -27,4 +27,29 @@ public record BridgeCallableId(String owner, String name, String linkage,
                 function.linkageName(), function.kind(), function.parameters().stream()
                 .map(parameter -> parameter.value().type()).toList(), function.returnType());
     }
+
+    /**
+     * Source identity is separate from the typed native target. Equal erasures or
+     * linkage names cannot establish equal generic declarations or owner views.
+     */
+    public record SourceSignature(IrType receiver, IrType declaringOwner,
+                                  List<BridgeTypeParameter> receiverParameters,
+                                  List<BridgeTypeParameter> ownerParameters,
+                                  String name, IrCallableKind kind, boolean isStatic,
+                                  List<BridgeTypeParameter> typeParameters,
+                                  List<IrType> parameters, IrType result, List<IrType> thrownTypes) {
+        public SourceSignature {
+            if (!receiver.isNominalReference() || !declaringOwner.isNominalReference()
+                    || name == null || name.isBlank()) {
+                throw new IllegalArgumentException("bridge source signature requires exact nominal owners and name");
+            }
+            Objects.requireNonNull(kind);
+            Objects.requireNonNull(result);
+            receiverParameters = List.copyOf(receiverParameters);
+            ownerParameters = List.copyOf(ownerParameters);
+            typeParameters = List.copyOf(typeParameters);
+            parameters = List.copyOf(parameters);
+            thrownTypes = List.copyOf(thrownTypes);
+        }
+    }
 }

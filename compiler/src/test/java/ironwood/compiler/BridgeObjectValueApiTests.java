@@ -114,9 +114,20 @@ final class BridgeObjectValueApiTests {
             parity(input, javaSelection);
         }
 
+        // P7b admits proved primitive-array results, including source overloads
+        // of enum helpers. Object arrays remain outside that boundary.
+        var primitiveArraySource = SourceFile.of("Cell.iron", SOURCE.replace(
+                "public static int values(int value) { return value; }", "public static int[] values(int value) { return null; }"));
+        var primitiveArraySelection = select(analyze(List.of(primitiveArraySource)));
+        check(primitiveArraySelection.surface().isPresent(), primitiveArraySelection.diagnostics().toString());
+        check(primitiveArraySelection.surface().orElseThrow().roots().roots().stream()
+                .anyMatch(root -> root.callable().name().equals("values") && root.callable().result().isArray()
+                        && root.callable().result().elementType().equals(IrType.I32)), "primitive array overload lost its native root");
+        parity(primitiveArraySource, primitiveArraySelection);
+
         for (String unsupported : List.of(
                 SOURCE.replace("public String text() { return \"empty\"; }", "public Object text() { return null; }"),
-                SOURCE.replace("public static int values(int value) { return value; }", "public static int[] values(int value) { return null; }"),
+                SOURCE.replace("public static int values(int value) { return value; }", "public static Cell[] values(int value) { return null; }"),
                 SOURCE.replace("public Cell cell(Cell value) { return value; }", "public <T> T cell(T value) { return value; }"),
                 SOURCE.replace("public Cell cell(Cell value) { return value; }", "public Hidden cell() { return null; }") + "class Hidden {}",
                 SOURCE.replace("public enum Side {", "public enum Side implements Contract {") + "interface Contract {}",
@@ -125,7 +136,7 @@ final class BridgeObjectValueApiTests {
                 SOURCE.replace("public enum Empty { ;", "public enum Empty { ; public static final Side PUBLIC = Side.SELL;"))) {
             var input = SourceFile.of("Cell.iron", unsupported);
             var rejected = select(analyze(List.of(input)));
-            check(rejected.surface().isEmpty() && !rejected.diagnostics().isEmpty(), "unsupported public member silently disappeared");
+            check(rejected.surface().isEmpty() && !rejected.diagnostics().isEmpty(), "unsupported public member silently disappeared: " + unsupported);
             parity(input, rejected);
         }
         var foreign = SourceFile.of("Foreign.iron", "package elsewhere; public enum Foreign { ITEM; }");
