@@ -51,6 +51,19 @@ physical Estonia x86-64 pass the smoke checks on Java 21/22/23; the simple
 Evidence and the Linux input catalog are in
 `workspace/java-bridge/orderbook-workflow`; no compiler or engine behavior changed.
 
+The next usability checkpoint adds `examples/java-bridge/basics`, leaving `value`
+unchanged. Ironwood `Counter` and `CounterListener` show two synchronous callbacks
+to an explicit Java interface implementation, with native cleanup in `finally`.
+Compile/link/run/test scripts and integration instructions accompany the three
+source files. The main guide and example index now point beginners to it.
+Java 21 compilation and native linking pass on macOS ARM64 with LLVM 23;
+ordinary and checked-JNI output checks pass on pinned Java 21/22/23. An initial
+22/23 replay command incorrectly indexed a shell array and selected the host's
+Java 8; explicit JDK selection corrected that invocation and both replays pass.
+Shell syntax, documentation links, license audit and `git diff --check` pass.
+This example adds no compiler/runtime behavior or performance claim; no broad
+suite or new Linux qualification is needed for this focused demonstration.
+
 The OrderBook performance recommendation was accepted under D225. Bounded P5
 implementation and focused qualification are complete at `e0643c05`; see its
 [evidence report](JAVA_BRIDGE_P5_EVIDENCE.md) and [progress log](JAVA_BRIDGE_P5_PROGRESS.md).

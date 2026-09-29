@@ -1,0 +1,32 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+package org.ironwood.javabridge.basics;
+
+// Runs natively. Each add notifies the Java listener before returning to Java.
+public final class Counter {
+
+    private int value;
+
+    private CounterListener listener;
+
+    public Counter() {
+
+    }
+
+    // The bridge keeps the listener alive until replacement, clearing or free().
+    public void setListener(CounterListener listener) {
+
+        this.listener = listener;
+    }
+
+    public void add(int amount) {
+
+        this.value += amount;
+        CounterListener current = this.listener;
+        if (current != null) current.onChanged(this.value);
+    }
+
+    public int getValue() {
+
+        return this.value;
+    }
+}
