@@ -9059,3 +9059,36 @@ occurrence order. If no
   checked JNI, Java 21-23 consumers and matched getter allocation/code evidence.
   Numerical measurements are evidence for maintainer review, not a new release
   or a claim that P7d2 is implemented.
+
+## D237 - Final-bounded generic construction and inputs
+
+- **Status:** Accepted by the maintainer's separate P7d2 implementation request
+  on 2026-09-29. P7e and P7f remain outside this checkpoint.
+- **Supersedes:** D236's generic constructor and input refusal only for classes
+  whose every variable has one exported final nongeneric facade class bound.
+  D235 exact source identities, D192 non-reclamation, P0 ownership proofs and
+  D132/D133 performance constraints remain mandatory.
+- **Surface:** Final top-level reference-generic classes may expose public
+  constructors, type-dependent inputs and applied facade inputs under these
+  final bounds. Every Java-valid type argument is represented, including raw,
+  wildcard and client-cast uses. Unrestricted or partially bounded mutable
+  classes remain rejected; unsupported public members are never hidden.
+  Generic methods, listeners, arrays, inheritance and primitive projections
+  remain outside the accepted bridge surface.
+- **Proof and conversion:** A final bound proves the sole native argument
+  independently of observed allocations. Source signatures remain exact;
+  generated private static JNI inputs use the bound's erased facade type.
+  Existing shared native storage and root/permanent conversion apply. No type
+  tags, runtime specialization, extra registry, allocation or generic-specific
+  check is added. Ordinary Ironwood type and reclamation analysis is unchanged.
+- **Ownership:** Inputs reuse existing exact owner, alias, retention-slot and
+  repeated-call acyclicity proofs. Borrowed inputs retain their actual owner.
+  Actual mutations are committed before exception translation; failed
+  unpublished construction uses existing rollback. Unknown getter origins
+  still require permanent-value proof. Loaded-slot transfers and unknown
+  effects remain conservative rather than acquiring generic exemptions.
+- **Verification:** The [generic log](JAVA_BRIDGE_GENERIC_PROGRESS.md) records
+  source/class/archive parity, raw/wildcard clients, identity/null behavior,
+  retained and borrowed lifetimes, normal/exceptional mutation, allocation
+  failure, negative APIs, unsafe frees and matched setter code/measurements.
+  Numerical performance acceptance remains maintainer review.

@@ -308,7 +308,7 @@ public final class BridgePermanentJavaSources {
         return BridgeJavaTypes.sourceName(type);
     }
 
-    private static String javaErasedType(IrType type, BridgeExportSurface surface) {
+    static String javaErasedType(IrType type, BridgeExportSurface surface) {
         var erased = type.erasure();
         var declaration = surface.types().stream().filter(candidate -> candidate.binaryName().equals(erased.referenceName())).findFirst();
         return javaType(erased, surface) + declaration.filter(BridgeApiFacts.Type::generic)

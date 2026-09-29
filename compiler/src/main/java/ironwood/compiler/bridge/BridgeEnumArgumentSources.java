@@ -31,7 +31,9 @@ final class BridgeEnumArgumentSources {
             boolean enumeration = type.isNominalReference() && admission.surface().types().stream()
                     .anyMatch(candidate -> candidate.binaryName().equals(type.referenceName()) && candidate.kind() == BridgeApiFacts.Kind.ENUM);
             if (!enumeration) {
-                formals.add(sourceType + " " + name); arguments.add(name); descriptor.append(BridgeJavaTypes.descriptor(type)); continue;
+                formals.add((BridgeGenericDomain.dependent(type) ? BridgePermanentJavaSources.javaErasedType(type, admission.surface())
+                        : sourceType) + " " + name);
+                arguments.add(name); descriptor.append(BridgeJavaTypes.descriptor(type)); continue;
             }
             var constants = BridgeEnumConstants.discover(artifact, Set.of(type)).constants().get(type);
             String conversion = BridgePermanentJavaSources.unique(occupied, "$ironwood$tokenArgument");

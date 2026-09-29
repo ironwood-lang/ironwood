@@ -242,10 +242,11 @@ public record BridgeExportSurface(List<BridgeApiFacts.Type> types, BridgeRootSet
                 boolean callableShape = method.kind() == IrCallableKind.METHOD
                         && (method.isStatic() || objects(shape))
                         || objects(shape) && !enumType && method.kind() == IrCallableKind.CONSTRUCTOR;
+                var genericInputs = generics.inputs();
                 if (!callableShape || method.generic()
                         || !(supported(method.result(), shape, false, facts) || generics.contains(method.result())
                             || type.generic() && method.result().equals(type.exactType())) || method.parameters().stream()
-                        .anyMatch(parameter -> !supported(parameter, shape, true, facts))) {
+                        .anyMatch(parameter -> !supported(parameter, shape, true, facts) && !genericInputs.contains(parameter))) {
                     error(diagnostics, method.source(), method.span(), "public member '" + member
                             + (objects(shape) ? "' is outside the concrete-object Java Bridge signature surface"
                             : "' is outside the static " + (shape == Shape.VALUE ? "primitive/String-value"

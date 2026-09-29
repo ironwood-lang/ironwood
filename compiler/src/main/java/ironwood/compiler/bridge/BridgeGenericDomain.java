@@ -15,10 +15,15 @@ import java.util.Set;
 
 /** Finite native production domain, never inferred from an unchecked Java client view. */
 public record BridgeGenericDomain(Map<String, List<IrType>> applications,
-                                  Map<String, List<IrType>> variables) {
+                                  Map<String, List<IrType>> variables, Set<IrType> inputs) {
     public BridgeGenericDomain {
         applications = immutable(applications);
         variables = immutable(variables);
+        inputs = Set.copyOf(inputs);
+    }
+
+    public BridgeGenericDomain(Map<String, List<IrType>> applications, Map<String, List<IrType>> variables) {
+        this(applications, variables, Set.of());
     }
 
     private static Map<String, List<IrType>> immutable(Map<String, List<IrType>> source) {
@@ -33,12 +38,13 @@ public record BridgeGenericDomain(Map<String, List<IrType>> applications,
         var declarations = new LinkedHashMap<String, BridgeApiFacts.Type>();
         selected.stream().filter(BridgeApiFacts.Type::generic).forEach(type -> declarations.put(type.binaryName(), type));
         var applications = new LinkedHashMap<String, Set<IrType>>();
+        var inputs = new LinkedHashSet<IrType>();
         declarations.keySet().forEach(name -> applications.put(name, new LinkedHashSet<>()));
         for (var type : declarations.values()) {
             if (!type.finalType() || type.kind() != BridgeApiFacts.Kind.CLASS || type.throwable()
                     || type.enclosingType().isPresent()
                     || !type.supertypes().equals(List.of(IrType.reference("ironwood.lang.Object")))) {
-                throw new IllegalArgumentException("P7d1 requires a top-level final generic class without generic inheritance: " + type.sourceName());
+                throw new IllegalArgumentException("Java Bridge requires a top-level final generic class without generic inheritance: " + type.sourceName());
             }
             for (var variable : type.typeParameters()) {
                 for (var bound : variable.upperBounds()) {
@@ -49,13 +55,24 @@ public record BridgeGenericDomain(Map<String, List<IrType>> applications,
                     }
                 }
             }
+            boolean bounded = bounded(type, selected);
             for (var method : type.callables()) {
-                if (method.kind() == IrCallableKind.CONSTRUCTOR || method.generic()) {
-                    throw new IllegalArgumentException("P7d1 generic facades require inaccessible constructors and no public generic methods: " + type.sourceName());
+                if (method.generic()) {
+                    throw new IllegalArgumentException("public generic Java Bridge methods remain unsupported: " + type.sourceName() + "." + method.name());
                 }
-                if (method.parameters().stream().anyMatch(BridgeGenericDomain::dependent)) {
-                    throw new IllegalArgumentException("P7d1 does not admit type-dependent inputs: " + type.sourceName() + "." + method.name());
+                if (!bounded && (method.kind() == IrCallableKind.CONSTRUCTOR
+                        || method.parameters().stream().anyMatch(BridgeGenericDomain::dependent))) {
+                    throw new IllegalArgumentException("generic constructors and dependent inputs require one final facade bound per variable: "
+                            + type.sourceName() + "." + method.name());
                 }
+            }
+            if (bounded) {
+                // A final bound admits exactly one native argument, independently
+                // of observed allocations, including construction from Java.
+                applications.get(type.binaryName()).add(IrType.reference(type.binaryName(), type.typeParameters().stream()
+                        .map(variable -> variable.upperBounds().getFirst()).toList()));
+                type.typeParameters().forEach(variable -> inputs.add(IrType.typeParameter(variable.id(), variable.upperBounds().getFirst())));
+                inputs.add(type.exactType());
             }
         }
         // All native allocations are considered, including private production.
@@ -73,8 +90,14 @@ public record BridgeGenericDomain(Map<String, List<IrType>> applications,
         }
         for (var type : selected) {
             for (var method : type.callables()) {
-                if (method.parameters().stream().anyMatch(parameter -> containsApplication(parameter, declarations.keySet()))) {
-                    throw new IllegalArgumentException("P7d1 generic facade inputs require a later input contract: " + type.sourceName() + "." + method.name());
+                for (var parameter : method.parameters()) {
+                    if (!containsApplication(parameter, declarations.keySet())) continue;
+                    var declaration = parameter.isNominalReference() ? declarations.get(parameter.referenceName()) : null;
+                    if (declaration == null || !bounded(declaration, selected)) {
+                        throw new IllegalArgumentException("generic facade inputs require final facade bounds: " + type.sourceName() + "." + method.name());
+                    }
+                    add(parameter, declarations, selected, applications);
+                    inputs.add(parameter);
                 }
                 if (method.result().isNominalReference() && declarations.containsKey(method.result().referenceName())) {
                     if (!dependent(method.result())) add(method.result(), declarations, selected, applications);
@@ -97,7 +120,7 @@ public record BridgeGenericDomain(Map<String, List<IrType>> applications,
                         .map(type -> type.typeArguments().get(index)).distinct().toList());
             }
         }
-        return new BridgeGenericDomain(complete, variables);
+        return new BridgeGenericDomain(complete, variables, inputs);
     }
 
     private static void add(IrType application, Map<String, BridgeApiFacts.Type> declarations,
@@ -106,12 +129,23 @@ public record BridgeGenericDomain(Map<String, List<IrType>> applications,
         if (!application.isNominalReference() || application.typeArguments().size() != declaration.typeParameters().size()) {
             throw new IllegalArgumentException("generic application has no complete native arguments: " + application.displayName());
         }
-        for (var argument : application.typeArguments()) {
+        var arguments = application.typeArguments().stream().map(argument ->
+                bounded(declaration, selected) && argument.isTypeParameter() ? argument.erasure() : argument).toList();
+        for (var argument : arguments) {
             if (!finalFacade(argument, selected)) {
                 throw new IllegalArgumentException("generic application requires an exported final reference facade: " + application.displayName());
             }
         }
-        applications.get(application.referenceName()).add(application);
+        if (bounded(declaration, selected) && !arguments.equals(declaration.typeParameters().stream()
+                .map(variable -> variable.upperBounds().getFirst()).toList())) {
+            throw new IllegalArgumentException("generic application differs from its final bounds: " + application.displayName());
+        }
+        applications.get(application.referenceName()).add(IrType.reference(application.referenceName(), arguments));
+    }
+
+    private static boolean bounded(BridgeApiFacts.Type type, List<BridgeApiFacts.Type> selected) {
+        return !type.typeParameters().isEmpty() && type.typeParameters().stream().allMatch(variable ->
+                variable.upperBounds().size() == 1 && finalFacade(variable.upperBounds().getFirst(), selected));
     }
 
     private static boolean finalFacade(IrType argument, List<BridgeApiFacts.Type> selected) {
@@ -127,9 +161,9 @@ public record BridgeGenericDomain(Map<String, List<IrType>> applications,
         return applications.getOrDefault(type.referenceName(), List.of()).contains(type);
     }
 
-    /** Native reference applications share one allocation and destruction identity. */
+    /** Native storage identity only; surface admission must prove final variable bounds before inputs are allowed. */
     public static IrType storage(IrType type) {
-        return type.isNominalReference() ? type.erasure() : type;
+        return type.isNominalReference() || type.isTypeParameter() ? type.erasure() : type;
     }
 
     public static BridgeGenericDomain forRoots(CompilationArtifact artifact, BridgeRootSet roots) {
@@ -144,6 +178,7 @@ public record BridgeGenericDomain(Map<String, List<IrType>> applications,
     }
 
     private static void names(IrType type, Set<String> names) {
+        if (type.isTypeParameter()) names(type.erasure(), names);
         if (type.isNominalReference()) names.add(type.referenceName());
         type.typeArguments().forEach(argument -> names(argument, names));
     }

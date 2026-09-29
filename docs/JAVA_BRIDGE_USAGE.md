@@ -12,8 +12,9 @@ loading. General object inheritance, object/multidimensional arrays, callback sh
 subsets and optional TLS dependencies
 remain rejected at their pending implementation boundaries.
 P7d1 admits read-only, factory-produced final reference-generic facades under
-D236. Public generic construction/mutation, generic facade inputs and generic
-methods remain rejected. See [read-only generics](#read-only-generic-facades) and
+D236. P7d2 adds construction/mutation and inputs when every variable has one
+exported final facade bound under D237. Generic methods remain rejected.
+See [read-only generics](#read-only-generic-facades), [bounded inputs](#bounded-generic-inputs) and
 the [generic progress/evidence log](JAVA_BRIDGE_GENERIC_PROGRESS.md).
 This preview is not a release qualification.
 
@@ -170,6 +171,35 @@ possible concrete values. They do not acquire automatic reclamation or weaker
 alias rules. Nulls, native failures and allocation failures use existing
 contained conversion and rollback protocols. Source, individual-class,
 class-directory and archive production preserve the same API and proof facts.
+
+## Bounded generic inputs
+
+A final top-level `Holder<T extends Value>` may expose public constructors and
+type-dependent inputs when Value is an exported final nongeneric native facade.
+Every class variable must have exactly one such class bound. Object, nonfinal,
+variable-dependent or additional intersection bounds cannot admit mutable APIs.
+Unrestricted mutable `Holder<T>` is rejected by the producer, including its
+otherwise Java-valid constructors and setters; no member is silently hidden.
+
+Java constructs `new Holder<Value>(value)` and calls `set(value)` normally.
+Raw and wildcard views obey ordinary Java bounds and casts. The generated
+public declaration preserves T; private static JNI parameters erase to Value.
+Inputs such as `Holder<T>` or `Holder<Value>` are also admitted for these
+final-bounded families. Every legal argument uses shared native reference
+storage, with no runtime specialization, generic tag or extra per-call check.
+The [runnable example](../examples/java-bridge/bounded-generics/README.md)
+demonstrates construction, replacement, input identity and explicit cleanup.
+
+Existing ownership proofs still decide admission. A retaining setter keeps an
+independent input root, or the exact owner of a borrowed input, alive until
+replacement or holder destruction. The generated adapter commits actual slot
+changes before reporting a native exception. Failed construction rolls back
+unpublished storage. Getters with unknown result ownership still require the
+complete permanent-value proof; a generic getter cannot manufacture a borrowed
+result or make arbitrary retained storage reclaimable. Unsupported transfers
+between loaded retaining slots, cyclic retention and unknown effects remain
+rejected. Generic methods, arrays, inheritance, listeners and primitive generic
+projections remain outside this boundary. Java 21-23 remains the support baseline.
 
 ## Runtime and distribution contracts
 

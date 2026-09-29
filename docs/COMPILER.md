@@ -73,7 +73,8 @@ P5, P7b and P7c implementation and qualification are complete. The
 [array evidence](JAVA_BRIDGE_ARRAY_EVIDENCE.md) and
 [byte-view evidence](JAVA_BRIDGE_BUFFER_EVIDENCE.md) record supported boundaries
 and measurements. P7d0 foundations and P7d1 read-only generic facade admission
-are implemented; P7d2 construction/mutation and P7e-P7f remain pending.
+are implemented; P7d2 bounded construction/mutation is implemented with
+qualification tracked in the generic log. P7e-P7f remain pending.
 [The implementation plan](JAVA_BRIDGE_PLAN.md) defines the
 phase gates, and [the progress log](JAVA_BRIDGE_PROGRESS.md) records evidence.
 
@@ -94,9 +95,16 @@ remain conservative. Reference applications share native storage identity for
 root ownership and destruction; source signatures stay exact. Unknown result
 origins and publication require family-wide D192 non-reclamation proofs.
 Cold result conversion uses the actual native type ID, with no generic-specific
-work on the warmed getter path. Generic inputs and methods remain refused.
+work on the warmed getter path. P7d2 admits inputs and constructors only when
+every class variable has one exported final facade bound. These declarations
+prove a singleton domain even without native factory allocations. The surface
+admits exact variable/application inputs, Java static native formals use their
+erasures, and existing root conversion/retention uses the proved storage type.
+No general semantic ownership analysis or runtime protocol is weakened.
+Unrestricted generic inputs and generic methods remain refused.
 See [D235](DECISIONS.md#d235---preserve-exact-generic-source-identities-before-bridge-admission),
-[D236](DECISIONS.md#d236---read-only-factory-produced-generic-java-facades)
+[D236](DECISIONS.md#d236---read-only-factory-produced-generic-java-facades),
+[D237](DECISIONS.md#d237---final-bounded-generic-construction-and-inputs)
 and the [generic verification log](JAVA_BRIDGE_GENERIC_PROGRESS.md).
 
 `BridgeArrayInputs` combines final P0 borrowing, retention, result-origin and
