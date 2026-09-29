@@ -378,3 +378,39 @@ complete. No unresolved safety/test blocker or remaining P7d1 implementation is
 known. Numerical performance acceptance remains maintainer review. P7d2 and
 P7e-P7f remain pending. All commits are local on `java-bridge`; no push or
 publication was performed.
+
+## P7d2 pre-change review
+
+The maintainer authorized only bounded construction/mutation. Work remains on
+local `java-bridge`; P7e is outside this task. The checkout and both origin URLs
+were verified, with a clean starting tree at `ced5a3e5`.
+
+Every mutable class variable must have one exported final nongeneric native
+facade bound. This declaration proof, rather than observed factory allocations,
+must cover every legal Java input. Exact source identities and erased JNI
+descriptors remain distinct. Shared reference storage, mandatory reclamation,
+conservative unknown effects, exception containment and D132/D133 remain intact.
+
+Affected consumers are generic domain discovery, surface admission, constructor
+entry generation, Java native parameter erasure, JNI facade selection, root
+result/retention attribution and source/class/archive reconstruction. Existing
+read-only finite domains must retain their input refusal. No ordinary language
+ownership exemption or new runtime generic bookkeeping is planned.
+
+Focused coverage will pair final-bounded construction/setters with unrestricted
+and nonfinal-bound rejection; null/raw/wildcard/identity with invalid casts;
+retained and borrowed values with premature frees, wrong owners and cycles;
+normal replacement with throwing replacement and failed construction. Test
+source and reconstructed artifacts at O0/O3, checked-JNI child processes and
+allocation failure. Reuse adjacent root-retention, construction, non-reclamation,
+generic metadata and P7d1 tests. Inspect optimized code and compare matched
+generic/nongeneric calls, with Linux measurements and Java 21-23 replay. Record
+payload identities, license audit and diff checks before the final local commit.
+
+Initial Mac tests pass source/directory/individual-class/archive production,
+checked JNI and allocation-limit children. A newly added test incorrectly
+expected a serialized thread transfer to be refused. The established contract
+explicitly allows externally synchronized transfer and adds no thread checks.
+The test now verifies successful transfer and retention instead. Production
+behavior was not changed. Wrong-world rejection remains covered by the existing
+object bootstrap/collision checks; borrowed-owner identity has direct new cases.
