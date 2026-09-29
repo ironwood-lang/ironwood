@@ -95,7 +95,15 @@ public final class BridgeRootRetentionAnalyzer {
                 if (proof.status() != BridgeProof.Status.PROVED) return failed(proof.status(), proof.reason());
                 var result = proof.contract().orElseThrow();
                 if (result.kind() == BridgeResultOriginContract.Kind.DEPENDENT_VIEW) {
-                    borrowedTypes.add(callable.result());
+                    borrowedTypes.add(BridgeGenericDomain.storage(callable.result()));
+                }
+                if (result.kind() == BridgeResultOriginContract.Kind.FRESH_ROOT && !callable.result().typeArguments().isEmpty()) {
+                    var constructors = facts.constructors().entrySet().stream()
+                            .filter(entry -> entry.getKey().owner().equals(callable.result().referenceName())).toList();
+                    if (constructors.isEmpty() || constructors.stream().anyMatch(entry -> entry.getValue().status() != BridgeProof.Status.PROVED)) {
+                        return BridgeProof.unknown("generic factory construction is not uniformly confined: " + callable.linkage());
+                    }
+                    rootTypes.add(BridgeGenericDomain.storage(callable.result()));
                 }
                 results.put(callable, result);
             }
@@ -107,23 +115,23 @@ public final class BridgeRootRetentionAnalyzer {
         rootTypes.forEach(type -> owners.put(type, new LinkedHashSet<>(Set.of(type))));
         for (var result : results.values()) {
             if (result.kind() == BridgeResultOriginContract.Kind.DEPENDENT_VIEW) {
-                var owner = result.callable().parameters().get(result.inputs().iterator().next());
+                var owner = BridgeGenericDomain.storage(result.callable().parameters().get(result.inputs().iterator().next()));
                 if (!rootTypes.contains(owner) || borrowedTypes.contains(owner)) {
                     return BridgeProof.rejected("dependent view requires one exact independent root input: " + result.callable().linkage());
                 }
-                owners.computeIfAbsent(result.callable().result(), ignored -> new LinkedHashSet<>()).add(owner);
+                owners.computeIfAbsent(BridgeGenericDomain.storage(result.callable().result()), ignored -> new LinkedHashSet<>()).add(owner);
                 continue;
             }
-            if (!referenceTypes.contains(result.callable().result())) {
+            if (!referenceTypes.contains(BridgeGenericDomain.storage(result.callable().result()))) {
                 return BridgeProof.rejected("reference result has no exact constructed root type: " + result.callable().linkage());
             }
             for (int input : result.inputs()) {
-                if (!result.callable().parameters().get(input).equals(result.callable().result())) {
+                if (!BridgeGenericDomain.storage(result.callable().parameters().get(input)).equals(BridgeGenericDomain.storage(result.callable().result()))) {
                     return BridgeProof.rejected("result alias requires the same exact input root type: " + result.callable().linkage());
                 }
             }
             if (result.kind() == BridgeResultOriginContract.Kind.FRESH_ROOT) {
-                if (!rootTypes.contains(result.callable().result())) {
+                if (!rootTypes.contains(BridgeGenericDomain.storage(result.callable().result()))) {
                     return BridgeProof.rejected("fresh result requires a proved root construction capability: " + result.callable().linkage());
                 }
                 for (var entry : facts.constructors().entrySet()) {
@@ -152,7 +160,7 @@ public final class BridgeRootRetentionAnalyzer {
                             + callable.linkage() + " parameter " + index);
                     continue;
                 }
-                if (input.isReference() && !referenceTypes.contains(input) && !permanentTypes.contains(input)) {
+                if (input.isReference() && !referenceTypes.contains(BridgeGenericDomain.storage(input)) && !permanentTypes.contains(input)) {
                     return BridgeProof.rejected("reference input has no constructor-origin root proof: "
                             + input.displayName() + " at " + root.callable().linkage());
                 }
@@ -192,13 +200,13 @@ public final class BridgeRootRetentionAnalyzer {
             var contract = proof.contract().orElseThrow();
             entries.put(callable, contract);
             for (var slot : contract.slots()) {
-                var holder = callable.parameters().get(slot.holderInput());
+                var holder = BridgeGenericDomain.storage(callable.parameters().get(slot.holderInput()));
                 if (!rootTypes.contains(holder) || borrowedTypes.contains(holder) || !holder.referenceName().equals(slot.field().ownerClass())) {
                     return BridgeProof.rejected("retaining field is not on an exact constructed root: " + slot);
                 }
                 fields.get(holder).add(slot.field());
                 for (int value : slot.valueInputs()) {
-                    var retained = callable.parameters().get(value);
+                    var retained = BridgeGenericDomain.storage(callable.parameters().get(value));
                     var rootOwners = owners.get(retained);
                     if (rootOwners == null || rootOwners.isEmpty()) {
                         return BridgeProof.rejected("retained value has no proved independent root owner: " + slot);
@@ -212,7 +220,7 @@ public final class BridgeRootRetentionAnalyzer {
         fields.forEach((type, values) -> slots.put(type, values.stream()
                 .sorted(Comparator.comparing(IrField::name)).toList()));
         for (var result : results.values()) {
-            if (result.kind() == BridgeResultOriginContract.Kind.FRESH_ROOT && !slots.get(result.callable().result()).isEmpty()) {
+            if (result.kind() == BridgeResultOriginContract.Kind.FRESH_ROOT && !slots.get(BridgeGenericDomain.storage(result.callable().result())).isEmpty()) {
                 return BridgeProof.rejected("fresh method results require bounded initial slot reporting: " + result.callable().linkage());
             }
         }

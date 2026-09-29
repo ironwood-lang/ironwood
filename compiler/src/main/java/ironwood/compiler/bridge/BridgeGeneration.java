@@ -223,6 +223,7 @@ public final class BridgeGeneration {
             values.put(prefix + ".static", Boolean.toString(type.staticMember()));
             values.put(prefix + ".final", Boolean.toString(type.finalType()));
             values.put(prefix + ".abstract", Boolean.toString(type.abstractType()));
+            if (type.generic()) values.put(prefix + ".typeParameters", type.typeParameters().toString());
             indexed(values, prefix + ".parents", enumType ? List.of("Ljava/lang/Enum;")
                     : type.supertypes().stream().map(BridgeJavaTypes::descriptor).toList());
             if (objects) indexed(values, prefix + ".enumConstants", type.enumConstants().stream()
@@ -250,6 +251,7 @@ public final class BridgeGeneration {
                 String descriptor = "(" + method.parameters().stream().map(BridgeJavaTypes::descriptor)
                         .collect(java.util.stream.Collectors.joining()) + ")" + BridgeJavaTypes.descriptor(method.result());
                 String key = prefix + ".method." + method.name() + descriptor;
+                if (type.generic() || !method.result().typeArguments().isEmpty()) values.put(key + ".source", method.signature().toString());
                 values.put(key + ".kind", method.kind().name());
                 values.put(key + ".static", Boolean.toString(method.isStatic()));
                 indexed(values, key + ".parameters", method.parameterNames());

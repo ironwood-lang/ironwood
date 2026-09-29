@@ -45,6 +45,13 @@ final class BridgeProducerCommand {
                 if (proof.contract().isEmpty()) { err.println("error: Java Bridge object admission failed: " + proof.reason()); return 1; }
                 objects = proof.contract().orElseThrow();
             } else {
+                // Generic facades currently have only the P7d1 object contract.
+                // Callback fallback cannot admit them and would obscure the
+                // precise generic boundary diagnostic with a scalar-shape error.
+                if (artifact.bridgeApiFacts().orElseThrow().types().values().stream().anyMatch(type ->
+                        type.accessible() && type.generic() && options.exports().contains(type.packageName()))) {
+                    diagnostics(selection.diagnostics(), err); return 1;
+                }
                 // Reconstruct compiler-owned proxies before every mandatory source
                 // proof; an interface inventory alone never admits foreign effects.
                 try {

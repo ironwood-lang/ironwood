@@ -144,7 +144,11 @@ public final class BridgePermanentJavaSources {
         String receiver = unique(occupied, "$ironwood$receiver"), registration = unique(occupied, "$ironwood$remember");
         String state = roots == null ? "" : unique(occupied, "$ironwood$state");
         text.append(indent).append(annotation).append(indent).append("public ")
-                .append(type.enclosingType().isPresent() ? "static " : "").append("final class ").append(simple).append(" {\n")
+                .append(type.enclosingType().isPresent() ? "static " : "").append("final class ").append(simple)
+                .append(type.generic() ? "<" + type.typeParameters().stream().map(variable -> variable.name()
+                        + (variable.upperBounds().equals(List.of(IrType.reference("ironwood.lang.Object"))) ? "" : " extends "
+                        + variable.upperBounds().stream().map(bound -> javaType(bound, admission.surface())).collect(Collectors.joining(" & "))))
+                        .collect(Collectors.joining(", ")) + ">" : "").append(" {\n")
                 .append(indent).append("    static { ").append(ensure).append("(); }\n");
         if (facade) {
             facades.add(rooted ? new Facade(type.binaryName(), address, typeName, state, roots.stateType()) : new Facade(type.binaryName(), address, typeName));
@@ -206,16 +210,22 @@ public final class BridgePermanentJavaSources {
                     .map(thrown -> javaType(thrown, admission.surface())).collect(Collectors.joining(", "));
             String result = constructor ? "long" : javaType(method.result(), admission.surface());
             boolean addressResult = !constructor && admission.lifetime().references().containsKey(method.result())
-                    && admission.surface().types().stream().anyMatch(candidate -> candidate.binaryName().equals(method.result().referenceName())
-                        && candidate.kind() == BridgeApiFacts.Kind.CLASS && !candidate.throwable());
+                    && (method.result().isTypeParameter() || admission.surface().types().stream()
+                        .anyMatch(candidate -> candidate.binaryName().equals(method.result().referenceName())
+                        && candidate.kind() == BridgeApiFacts.Kind.CLASS && !candidate.throwable()));
             String conversion = addressResult ? unique(occupied, "$ironwood$convert$" + next) : "";
-            String nativeResult = addressResult ? "long" : result;
+            boolean dependent = BridgeGenericDomain.dependent(method.result());
+            String erased = dependent ? javaErasedType(method.result(), admission.surface()) : result;
+            String nativeResult = addressResult ? "long" : erased;
             var alternatives = BridgeFixedEnumSources.generate(text, admission, method, type.binaryName(), address, receiver,
                     nativeResult, conversion, throwsClause, occupied, bindings, indent);
             String invocation = nativeName + "(" + String.join(", ", arguments) + ")";
             if (!method.result().equals(IrType.VOID)) invocation = BridgeFixedEnumSources.select(alternatives, invocation);
             String ownership = BridgeRootCalls.documentation(admission, callable);
             if (!ownership.isEmpty()) text.append(indent).append("    /** ").append(ownership).append(" */\n");
+            if (dependent || addressResult && !method.result().typeArguments().isEmpty()) {
+                text.append(indent).append("    @java.lang.SuppressWarnings(\"unchecked\")\n");
+            }
             text.append(indent).append("    public ");
             if (constructor) text.append(simple);
             else text.append(method.isStatic() ? "static " : "").append(result).append(' ').append(method.name());
@@ -231,14 +241,15 @@ public final class BridgePermanentJavaSources {
                         .append(permanentCache).append(".lookup(")
                         .append(returned).append(");\n")
                         .append(indent).append("        return ").append(cached).append(" != null ? (").append(result).append(") ")
-                        .append(cached).append(" : ").append(conversion).append('(').append(returned).append(");\n");
+                        .append(cached).append(" : ").append(dependent ? "(" + result + ") " : "")
+                        .append(conversion).append('(').append(returned).append(");\n");
             } else text.append(indent).append("        ").append(constructor ? "this." + address + " = " : method.result().equals(IrType.VOID) ? "" : "return ")
-                    .append(invocation).append(";\n");
+                    .append(dependent ? "(" + result + ") " : "").append(invocation).append(";\n");
             if (constructor) text.append(indent).append("        ").append(rooted ? "this." + state + ".remember" : registration)
                     .append("(this.").append(address).append(", this);\n");
             text.append(indent).append("    }\n").append(indent).append("    private static native ").append(nativeResult).append(' ').append(nativeName)
                     .append('(').append(String.join(", ", nativeFormals)).append(')').append(throwsClause).append(";\n");
-            if (addressResult) text.append(indent).append("    private static native ").append(result).append(' ').append(conversion).append("(long address);\n");
+            if (addressResult) text.append(indent).append("    private static native ").append(erased).append(' ').append(conversion).append("(long address);\n");
             bindings.add(new BridgeJavaSources.Binding(type.binaryName(), nativeName, "(" + parameterDescriptors + ")"
                     + (constructor || addressResult ? "J" : BridgeJavaTypes.descriptor(method.result())), method, entries.get(method.target().orElseThrow()), conversion, parameters.tokens()));
         }
@@ -287,10 +298,21 @@ public final class BridgePermanentJavaSources {
     }
 
     static String javaType(IrType type, BridgeExportSurface surface) {
+        if (type.isTypeParameter()) return surface.types().stream().flatMap(declaration -> declaration.typeParameters().stream())
+                .filter(variable -> variable.id().equals(type.referenceName())).findFirst().orElseThrow().name();
         if (type.isNominalReference()) {
             var declared = surface.types().stream().filter(candidate -> candidate.binaryName().equals(type.referenceName())).findFirst();
-            if (declared.isPresent()) return declared.orElseThrow().sourceName();
+            if (declared.isPresent()) return declared.orElseThrow().sourceName() + (type.typeArguments().isEmpty() ? "" : "<"
+                    + type.typeArguments().stream().map(argument -> javaType(argument, surface)).collect(Collectors.joining(", ")) + ">");
         }
         return BridgeJavaTypes.sourceName(type);
+    }
+
+    private static String javaErasedType(IrType type, BridgeExportSurface surface) {
+        var erased = type.erasure();
+        var declaration = surface.types().stream().filter(candidate -> candidate.binaryName().equals(erased.referenceName())).findFirst();
+        return javaType(erased, surface) + declaration.filter(BridgeApiFacts.Type::generic)
+                .map(value -> "<" + value.typeParameters().stream().map(ignored -> "?").collect(Collectors.joining(", ")) + ">")
+                .orElse("");
     }
 }

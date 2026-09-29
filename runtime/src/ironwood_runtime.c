@@ -64,6 +64,10 @@ struct ironwood_type_info {
     _Bool localized_message_returns_owned_fresh;
 };
 
+int32_t ironwood_bridge_type_id(const void *object) {
+    return object == NULL ? -1 : (int32_t) (*(const struct ironwood_type_info *const *) object)->type_id;
+}
+
 /* Compiler validation enforces this base-first Throwable layout.
  * The reserved integer slot owns native metadata; it is never a public handle. */
 struct ironwood_throwable {

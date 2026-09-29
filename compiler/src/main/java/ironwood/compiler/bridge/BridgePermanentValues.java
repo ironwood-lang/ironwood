@@ -57,17 +57,27 @@ public final class BridgePermanentValues {
         var roots = enums.map(value -> value.contract().roots()).orElse(entries);
         var references = new LinkedHashMap<IrType, BridgeNonReclamationContract>();
         enums.ifPresent(value -> references.putAll(value.contract().references()));
+        var domain = BridgeGenericDomain.forRoots(artifact, entries);
         for (var type : candidates.stream().sorted(java.util.Comparator.comparing(IrType::displayName)).toList()) {
             var declaration = type.isNominalReference() ? api.types().get(type.referenceName()) : null;
-            if (declaration == null || declaration.kind() != BridgeApiFacts.Kind.CLASS || !declaration.finalType()
-                    || declaration.abstractType() || declaration.throwable() || declaration.generic() || !type.typeArguments().isEmpty()
+            boolean variable = type.isTypeParameter() && domain.contains(type);
+            boolean alternative = domain.variables().values().stream().anyMatch(types -> types.contains(type));
+            if (!variable && (declaration == null || declaration.kind() != BridgeApiFacts.Kind.CLASS || !declaration.finalType()
+                    || declaration.abstractType() || declaration.throwable() || declaration.generic()
+                        && !(domain.contains(type) || type.equals(declaration.exactType()) && domain.applications().containsKey(declaration.binaryName()))
                     || type.equals(IrType.reference("ironwood.lang.String")) || entries.roots().stream().noneMatch(root ->
-                    root.callable().parameters().contains(type) || root.callable().result().equals(type))) {
+                    root.callable().parameters().contains(type) || root.callable().result().equals(type)) && !alternative)) {
                 throw new IllegalArgumentException("permanent value candidate requires an exposed exact concrete object type: " + type.displayName());
             }
             var proof = BridgeNonReclamationAnalyzer.analyze(program, roots, type, facts);
             if (proof.status() != BridgeProof.Status.PROVED) throw new IllegalArgumentException(proof.reason());
             references.put(type, proof.contract().orElseThrow());
+            if (!type.typeArguments().isEmpty()) {
+                var storage = BridgeGenericDomain.storage(type);
+                var family = BridgeNonReclamationAnalyzer.analyze(program, roots, storage, facts);
+                if (family.status() != BridgeProof.Status.PROVED) throw new IllegalArgumentException(family.reason());
+                references.put(storage, family.contract().orElseThrow());
+            }
         }
         return new BridgePermanentValues(entries, enums, new BridgePermanentContract(program, roots, references, java.util.Map.of()));
     }

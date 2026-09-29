@@ -9,7 +9,7 @@ public final class BridgeJavaTypes {
     private BridgeJavaTypes() {}
 
     public static String binaryName(IrType type) {
-        if (!type.isNominalReference() || !type.typeArguments().isEmpty()) {
+        if (!type.isNominalReference()) {
             throw new IllegalArgumentException("not a nominal Java Bridge type: " + type.displayName());
         }
         if (type.referenceName().equals("ironwood.lang.String") || type.referenceName().equals("ironwood.lang.Object")
@@ -55,6 +55,7 @@ public final class BridgeJavaTypes {
             case F64 -> "D";
             case ARRAY -> "[" + descriptor(type.elementType());
             case REFERENCE -> "L" + binaryName(type).replace('.', '/') + ";";
+            case TYPE_PARAMETER -> descriptor(type.erasure());
             default -> throw new IllegalArgumentException("unsupported Java Bridge descriptor: " + type.displayName());
         };
     }

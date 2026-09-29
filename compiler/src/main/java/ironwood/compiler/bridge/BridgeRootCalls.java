@@ -13,8 +13,8 @@ final class BridgeRootCalls {
     private BridgeRootCalls() {}
 
     static boolean rooted(BridgeObjectAdmission admission, IrType type) {
-        return admission.roots().map(proof -> proof.protocol().constructedRootTypes().contains(type)
-                || proof.protocol().borrowedResultTypes().contains(type)).orElse(false);
+        return admission.roots().map(proof -> proof.protocol().constructedRootTypes().contains(BridgeGenericDomain.storage(type))
+                || proof.protocol().borrowedResultTypes().contains(BridgeGenericDomain.storage(type))).orElse(false);
     }
 
     static Optional<IrType> reservation(BridgeObjectAdmission admission, BridgeCallableId callable) {
@@ -25,7 +25,7 @@ final class BridgeRootCalls {
             return protocol.constructedRootTypes().contains(type) ? Optional.of(type) : Optional.empty();
         }
         var origin = protocol.resultOrigins().get(callable);
-        return origin != null && origin.kind() == BridgeResultOriginContract.Kind.FRESH_ROOT ? Optional.of(callable.result()) : Optional.empty();
+        return origin != null && origin.kind() == BridgeResultOriginContract.Kind.FRESH_ROOT ? Optional.of(BridgeGenericDomain.storage(callable.result())) : Optional.empty();
     }
 
     static boolean receiverState(BridgeObjectAdmission admission, BridgeCallableId callable, boolean instance) {

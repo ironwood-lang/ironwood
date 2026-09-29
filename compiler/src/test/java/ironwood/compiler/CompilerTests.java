@@ -232,6 +232,8 @@ public final class CompilerTests {
         test(BridgeApiTests.NAME, BridgeApiTests::projection);
         test(BridgeGenericFactsTests.NAME, BridgeGenericFactsTests::signatures);
         test(BridgeGenericFactsTests.PARITY, BridgeGenericFactsTests::parity);
+        test(BridgeGenericProducerTests.NAME, BridgeGenericProducerTests::proofs);
+        test(BridgeGenericProducerTests.PRODUCER, BridgeGenericProducerTests::producer);
         test(BridgeEnumApiTests.NAME, BridgeEnumApiTests::inventory);
         test(BridgeEnumInvocationTests.NAME, BridgeEnumInvocationTests::proofs);
         test(BridgeObjectValueApiTests.NAME, BridgeObjectValueApiTests::signatures);

@@ -33,10 +33,12 @@ public final class BridgeNonReclamationAnalyzer {
     private final Set<String> checkedCleanups = new LinkedHashSet<>();
     private final List<BridgeUnpublishedCleanup> exclusions = new ArrayList<>();
 
-    private BridgeNonReclamationAnalyzer(IrProgram program, IrType exposed, BridgeConstructionFacts construction) {
+    private BridgeNonReclamationAnalyzer(IrProgram program, IrType exposed, BridgeConstructionFacts construction, BridgeRootSet roots) {
         this.program = program;
         this.targets = new BridgeCallTargets(program);
-        this.exposedDynamicTypes = dynamicTypes(exposed);
+        var alternatives = construction != null && construction.matches(program)
+                ? construction.genericAlternatives(exposed, roots) : Set.<IrType>of();
+        this.exposedDynamicTypes = alternatives.isEmpty() ? dynamicTypes(exposed) : alternatives;
         this.rollbackAnalysis = new BridgeRollbackAnalysis(program, construction);
     }
 
@@ -49,7 +51,7 @@ public final class BridgeNonReclamationAnalyzer {
             IrProgram program, BridgeRootSet roots, IrType exposed, BridgeConstructionFacts construction) {
         BridgeRootSet checked = roots.revalidate(program);
         if (!checked.resolved()) throw new IllegalArgumentException("non-reclamation requires resolved bridge roots");
-        var analyzer = new BridgeNonReclamationAnalyzer(program, exposed, construction);
+        var analyzer = new BridgeNonReclamationAnalyzer(program, exposed, construction, checked);
         if (analyzer.exposedDynamicTypes.isEmpty()) {
             return BridgeProof.unknown("no complete resolved dynamic-type set for " + exposed.displayName());
         }
@@ -162,7 +164,10 @@ public final class BridgeNonReclamationAnalyzer {
     }
 
     private Set<IrType> dynamicTypes(IrType type) {
-        if (!type.typeArguments().isEmpty()) return Set.of();
+        // Reference applications share storage. Erasure deliberately overapproximates
+        // possible reclamation; it never grants a generic conversion or ownership.
+        if (type.typeArguments().stream().anyMatch(IrType::isPrimitive)) return Set.of();
+        if (type.isTypeParameter()) return dynamicTypes(type.erasure());
         Set<IrType> result = new LinkedHashSet<>();
         if (type.isNominalReference()) {
             targets.dynamicTypes(type).forEach(candidate -> result.add(IrType.reference(candidate.name())));
