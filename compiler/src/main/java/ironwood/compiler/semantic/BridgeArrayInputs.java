@@ -123,7 +123,7 @@ public final class BridgeArrayInputs {
                 "P0 borrowing, retention, result origins and non-reclamation plus closed array effects");
     }
 
-    private static boolean localEffect(IrInstruction instruction) {
+    static boolean localEffect(IrInstruction instruction) {
         return switch (instruction) {
             // P0 already excludes reclamation of every copied input/result type.
             // These fixed releases have no remaining array-write/callback effect.

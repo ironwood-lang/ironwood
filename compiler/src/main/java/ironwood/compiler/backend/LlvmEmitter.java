@@ -168,6 +168,7 @@ public final class LlvmEmitter {
         output.append("source_filename = \"").append(escapeString(program.moduleName())).append("\"\n\n");
         output.append("%\"ironwood.typeinfo\" = type { i32, ptr, ptr, ptr, i32, ptr, ptr, i1, i1 }\n");
         output.append("%\"ironwood.array\" = type { ptr, i64, i64, i32, i32, [0 x i8] }\n");
+        output.append("%\"ironwood.byteview\" = type { ptr, i32, i8 }\n");
         output.append("%\"ironwood.string\" = type { ptr, i32, i32, [0 x i16] }\n");
         output.append("%\"ironwood.string.concat.part\" = type { i32, i32, i64 }\n");
         for (IrClass irClass : program.classes()) {
@@ -1157,6 +1158,10 @@ public final class LlvmEmitter {
                     .append(operand(toString.object())).append(", ptr ")
                     .append(typeInfoName("ironwood.lang.String")).append(", ptr ")
                     .append(allocationFailureName()).append(')');
+            return;
+        }
+        if (instruction instanceof ironwood.compiler.ir.IrByteViewInstruction view) {
+            LlvmByteViewEmitter.emit(output, view, this::operand, scratchNames::next);
             return;
         }
         if (instruction instanceof IrStringCharAtInstruction charAt) {

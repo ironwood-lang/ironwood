@@ -639,6 +639,7 @@ public final class BridgeRetentionAnalyzer {
             case IrInstanceOfInstruction ignored -> true;
             case IrTypeInitializedInstruction ignored -> true;
             case IrIdentityHashCodeInstruction ignored -> true;
+            case ironwood.compiler.ir.IrByteViewInstruction ignored -> true;
             case IrStringCharAtInstruction ignored -> true;
             // Fixed helpers only release proved fresh String storage, without
             // calling a producer destructor. Reclamation is checked separately.

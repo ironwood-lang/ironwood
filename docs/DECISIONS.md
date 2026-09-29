@@ -8952,29 +8952,29 @@ occurrence order. If no
   P7c-P7f are not authorized by this decision. Java 21-23 and Java 24+ refusal remain.
 
 
-## D234 - Review bounded byte-view ownership before P7c implementation
+## D234 - Bounded byte views use JVM-owned storage and shared Java support
 
-- **Status:** P7c0 design authorized on 2026-09-28, with an explicit stop before
-  P7c1. The maintainer approved JVM-managed storage without close/free. The
-  proposed shared public type and Java dependency remain under review.
-- **Selected ownership:** Java allocates and owns reusable backing storage;
-  every view keeps its owner reachable. Native code borrows only for the
-  synchronous call. Expose no address, backing buffer, externally closable
-  storage or explicit close/free operation. Memory release is JVM-managed and
-  has no deterministic deadline. Do not add lifetime counters, locks or scans.
-  This governs host storage only; D188 confinement and D189 explicit reclamation
-  of native Ironwood objects remain unchanged.
-- **Proposal:** The [P7c0 design](JAVA_BRIDGE_BUFFER_DESIGN.md) fixes a candidate
-  `ironwood.bridge.ByteView` surface, ownership table, bounds/permission and
-  exceptional-write semantics, typed proof/alias requirements and focused
-  verification selection. A shared Java-only `ironwood-bridge-values.jar`
-  would let independent artifacts reuse one public view type. Its change to
-  single-jar delivery and exact signature-dependency handling requires approval.
-- **Boundary:** D232's planning-only status is superseded only for the approved
-  P7c0 ownership choice. No buffer API is implemented or admitted. D191's current
-  distribution contract is unchanged until the packaging choice is accepted;
-  every existing producer proof and Java-version limit remains in force.
-- **Verification:** Documentation, source/specification review and focused
-  consistency checks only. No P7c1 code, experiment or performance evidence is
-  claimed. A future implementation request is required even after full design
-  acceptance.
+- **Status:** P7c0 accepted, P7c1 authorized on 2026-09-28. The maintainer approved
+  JVM-managed storage, then requested P7c1 after the remaining shared-dependency
+  gate was reported. That instruction accepts the documented public type and
+  dependency and supersedes the earlier stop before P7c1 only.
+- **Ownership:** Java allocates and owns reusable backing storage; each view
+  keeps its owner reachable. Native code borrows only for a synchronous call.
+  Expose no address, backing buffer, externally closable storage or close/free
+  operation. Release is JVM-managed with no deterministic deadline. No lifetime
+  counters, locks or scans. D188 confinement and D189 reclamation of native
+  Ironwood objects remain unchanged.
+- **API and packaging:** The [accepted design](JAVA_BRIDGE_BUFFER_DESIGN.md)
+  specifies `ironwood.bridge.ByteView`, exact source/Java methods, bounds and
+  permission semantics, immediate writes and typed alias/lifetime proofs.
+  A shared Java-only `ironwood-bridge-values.jar` permits reuse across independent
+  artifacts. This supersedes D191's single-jar delivery and exact signature
+  closure only for this explicit builtin dependency in buffer-using artifacts.
+  Other artifacts keep their existing delivery and export rules.
+- **Boundary:** D232's planning-only P7c status is superseded for P7c0/P7c1 only.
+  Implementation authorization does not admit unfinished capabilities or weaken
+  proofs. P7d-P7f remain pending; Java 21-23 and Java 24+ refusal remain unchanged.
+- **Verification:** P7c0 was documentation/source/specification review only.
+  The [implementation log](JAVA_BRIDGE_BUFFER_PROGRESS.md) records P7c1's focused
+  checks, actual evidence and outstanding work. No performance result is implied
+  by accepting the design.
