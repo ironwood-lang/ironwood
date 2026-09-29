@@ -25,6 +25,7 @@ def main():
     parser.add_argument('--java21-prefix', type=Path)
     parser.add_argument('--jdk-root', type=Path, default=ROOT / 'workspace/java-bridge/jdks')
     parser.add_argument('--llvm-home', type=Path, required=True)
+    parser.add_argument('--bridge-jar', type=Path, help='Reuse a qualified single-target host JAR')
     parser.add_argument('--compiler', type=Path, default=ROOT / 'compiler/build/ironwoodc.jar')
     parser.add_argument('--revision-file', type=Path)
     parser.add_argument('--host-notes', required=True)
@@ -84,8 +85,12 @@ def main():
     common = ['--llvm-home', args.llvm_home, '--unfreed=error', '-O3']
     jar = evidence / 'listeners.jar'
     native = evidence / 'listener-native'
-    run('produce', [*compiler, '--java-bridge', '--export', 'org.ironwood.javabridge.listeners', *common,
-        '--license', ROOT / 'LICENSE-MIT', '--license', ROOT / 'LICENSE-APACHE', '-o', jar, *api])
+    if args.bridge_jar:
+        jar.write_bytes(args.bridge_jar.read_bytes())
+        inputs[str(args.bridge_jar.resolve())] = candidate.digest(args.bridge_jar)
+    else:
+        run('produce', [*compiler, '--java-bridge', '--export', 'org.ironwood.javabridge.listeners', *common,
+            '--license', ROOT / 'LICENSE-MIT', '--license', ROOT / 'LICENSE-APACHE', '-o', jar, *api])
     native_classes = evidence / 'native-classes'
     run('native-compile', [*compiler, '--unfreed=error', '-d', native_classes, *api, *native_sources])
     run('native-build', [*compiler, '--link', '--main-class', 'org.ironwood.javabridge.listenernative.Benchmark',

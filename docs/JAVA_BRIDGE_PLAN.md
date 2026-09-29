@@ -1765,9 +1765,9 @@ tail latency, and record the copied byte count and allocation policy.
 Finish with matching source/compiler/payload identities, refreshed package
 assembly, sources/Javadoc/notices and relevant loading smoke checks, the license
 audit and `git diff --check`. Record each submilestone's implementation and
-qualification separately from numerical acceptance. This planning task requires
-only documentation consistency/link checks; it does not run compiler suites,
-install tools, start remote experiments or publish anything.
+qualification separately from numerical acceptance. D232's original planning
+checkpoint required only documentation checks. D238 now authorizes execution of
+this focused P7f selection, with JNI retained and no FFM implementation.
 
 ### Execution checkpoints and handoffs (D212)
 

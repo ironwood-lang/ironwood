@@ -15,7 +15,7 @@ python3 scripts/java-bridge/p7/qualify.py produce \
 python3 scripts/java-bridge/p7/qualify.py tests \
   --target linux-x86_64 --jdks /jdks --output evidence/tests
 python3 scripts/java-bridge/p7/qualify.py measure \
-  --target linux-x86_64 --cpu 1 --output evidence/measurements
+  --target linux-x86_64 --host evidence/host --cpu 1 --output evidence/measurements
 ```
 
 `tests.json` is the explicit 18-test selection. The tests cover proofs,
@@ -32,7 +32,10 @@ Java dependency. The ordinary Java consumer uses them together, including
 callback reentry and failure cleanup. No example implementation is changed.
 `measure` reuses the four existing array/view/generic benchmark runners; record
 listener three-scenario measurements with `scripts/java-bridge/measure-listeners.py`
-separately using the same pinned compiler and sources. This stage does not
+separately using the same pinned compiler and sources, with
+`--bridge-jar evidence/host/listeners.jar`. Both paths reuse the qualified host
+JARs; assembly verifies their native images are unchanged in the combined JARs.
+This stage does not
 measure tail latency or modify official OrderBook benchmarks.
 
 After all three `produce` stages, copy their outputs without changing their
@@ -61,6 +64,18 @@ module path and executable JAR, each with and without `-Xcheck:jni`. No
 native-access flags are used. Verify Java 24 refusal separately on the Mac;
 keep support at 21-23. Minimal-JVM container smoke launches and signature/native
 dependency inspections supplement this prepared-toolchain matrix.
+
+On the Mac, audit every combined native image and test the pinned Java 24 guard:
+
+```sh
+PYTHONDONTWRITEBYTECODE=1 python3 scripts/java-bridge/p7/audit.py \
+  --candidate evidence/combined --java24 /path/to/temurin-24/Contents/Home \
+  --output evidence/payload-audit
+```
+
+The audit records signatures, ELF dependencies/baselines, optimized disassembly,
+Java 21 class-file versions and ten isolated Java 24 refusal launches. Refused
+launches must leave the temporary extraction directory empty.
 
 Each stage records commands, output, exits, compiler/runner/consumer identities
 and an output hash catalog. Exit 0 with `exit.txt` containing 0 means that stage

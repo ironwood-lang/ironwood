@@ -224,7 +224,8 @@ final class BridgeGenericProducerTests {
             else args.addAll(List.of("--source-path", rejected.resolve("absent").toString(), "-cp",
                     (variant.equals("archive") ? badArchive : badClasses).toString()));
             String diagnostics = BridgeProducerTests.command(rejected, "refused-" + variant, 1, args.toArray(String[]::new));
-            check(diagnostics.contains("inaccessible constructors") && Files.readString(preserved).equals("existing output"),
+            check(diagnostics.contains("generic constructors and dependent inputs require one final facade bound per variable: genericvalues.Box.Box")
+                            && Files.readString(preserved).equals("existing output"),
                     "unsupported generic construction changed output or lost its diagnostic: " + diagnostics);
         }
         System.out.println("generic producer evidence: " + directory);
