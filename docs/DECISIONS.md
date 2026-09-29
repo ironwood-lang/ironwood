@@ -8950,3 +8950,31 @@ occurrence order. If no
   closures until its runtime failures have a proved protected boundary. Other
   result types still require their existing separate transport/lifetime proof.
   P7c-P7f are not authorized by this decision. Java 21-23 and Java 24+ refusal remain.
+
+
+## D234 - Review bounded byte-view ownership before P7c implementation
+
+- **Status:** P7c0 design authorized on 2026-09-28, with an explicit stop before
+  P7c1. The maintainer approved JVM-managed storage without close/free. The
+  proposed shared public type and Java dependency remain under review.
+- **Selected ownership:** Java allocates and owns reusable backing storage;
+  every view keeps its owner reachable. Native code borrows only for the
+  synchronous call. Expose no address, backing buffer, externally closable
+  storage or explicit close/free operation. Memory release is JVM-managed and
+  has no deterministic deadline. Do not add lifetime counters, locks or scans.
+  This governs host storage only; D188 confinement and D189 explicit reclamation
+  of native Ironwood objects remain unchanged.
+- **Proposal:** The [P7c0 design](JAVA_BRIDGE_BUFFER_DESIGN.md) fixes a candidate
+  `ironwood.bridge.ByteView` surface, ownership table, bounds/permission and
+  exceptional-write semantics, typed proof/alias requirements and focused
+  verification selection. A shared Java-only `ironwood-bridge-values.jar`
+  would let independent artifacts reuse one public view type. Its change to
+  single-jar delivery and exact signature-dependency handling requires approval.
+- **Boundary:** D232's planning-only status is superseded only for the approved
+  P7c0 ownership choice. No buffer API is implemented or admitted. D191's current
+  distribution contract is unchanged until the packaging choice is accepted;
+  every existing producer proof and Java-version limit remains in force.
+- **Verification:** Documentation, source/specification review and focused
+  consistency checks only. No P7c1 code, experiment or performance evidence is
+  claimed. A future implementation request is required even after full design
+  acceptance.
