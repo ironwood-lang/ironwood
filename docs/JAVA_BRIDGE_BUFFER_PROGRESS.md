@@ -72,3 +72,27 @@ Next: preserve descriptor immutability in lowering, without any payload noalias
 claim; inspect optimized loops and repeat relevant qualification on final bytes.
 Finish matched Linux measurements, IDK packaging smoke, assembly, documentation
 and evidence before claiming P7c1 complete.
+
+## Optimized descriptor checkpoint
+
+Transport/shared dependency/example checkpoint committed as `27d03709`.
+Both initial Linux qualifications passed three focused tests, 22 Java 22/23
+replays and every benchmark checksum/allocation assertion. Original data remains
+in `byteviews/linux-arm64-1/work/evidence` and `byteviews/estonia-1/evidence`.
+The first immutable-load experiment lost metadata during LLVM argument promotion.
+Typed view accessors now expand before that pass; descriptor loads are invariant
+for their invocation lifetime. Payload loads/stores remain ordinary aliasing
+memory operations, with no disjointness claim. The O0/O3 producer test and two
+focused inlining/trace tests passed (`byteview-inline.log`), including read-only
+empty loops and completed writes before read-only/native-allocation failures.
+The final optimized payloads still require Linux timing and final qualification.
+
+The optimized Mac benchmark smoke (`byteviews/mac-smoke-3`) has matching checksums
+and vectorized write loops with permission/length outside the loop. Additional
+admission checks reject view fields even on entries without a view parameter.
+Descriptor offsets are compile-time C assertions. Wide signatures reserve JNI
+local capacity only above seven view inputs; a 32-view child passed checked JNI
+in all producer input forms (`byteview-wide.log`). The final three-test Mac
+qualification passed (`byteview-final-mac.log`), followed by the wide-signature
+addition's focused producer rerun. Compiler sources are now ready for final Linux
+and installed-IDK packaging validation; no final performance claim yet.

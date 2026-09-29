@@ -61,6 +61,16 @@ final class SelectiveInlining {
             result.add(name);
             remaining -= growth;
         }
+        // Expand the trusted bounded-view accessors before LLVM argument promotion:
+        // promotion would synthesize caller loads without the descriptor's invariant
+        // metadata. This preserves permission/range proofs and does not assert that
+        // two payloads are disjoint. Counterfeit same-name classes have no typed ops.
+        boolean typedViews = functions.values().stream().flatMap(SelectiveInlining::operations)
+                .anyMatch(IrByteViewInstruction.class::isInstance);
+        if (typedViews) functions.values().stream()
+                .filter(function -> function.ownerClass().equals(IrByteViewInstruction.TYPE.referenceName())
+                        && function.kind() == IrCallableKind.METHOD && !program.exportRoots().contains(function.linkageName()))
+                .map(IrFunction::linkageName).forEach(result::add);
         return Set.copyOf(result);
     }
 

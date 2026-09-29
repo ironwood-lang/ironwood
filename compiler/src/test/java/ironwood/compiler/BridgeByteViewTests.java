@@ -111,7 +111,8 @@ final class BridgeByteViewTests {
         try {
             for (String body : List.of("public static ByteView bad(ByteView v) { return v; }",
                     "public Values(ByteView v) {}", "public static int bad(ByteView v) { return v.hashCode(); }",
-                    "private static ByteView saved; public static int bad(ByteView v) { saved = v; return 0; }")) {
+                    "private static ByteView saved; public static int bad(ByteView v) { saved = v; return 0; }",
+                    "private static ByteView saved; public static boolean bad() { return saved == null; }")) {
                 Path folder = Files.createTempDirectory(directory, "case-");
                 Path source = folder.resolve("Values.iron"), classes = folder.resolve("classes"), archive = folder.resolve("values.ironjar");
                 Files.writeString(source, "package viewfixture; import ironwood.bridge.ByteView; public final class Values { " + body + " }");

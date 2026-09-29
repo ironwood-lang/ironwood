@@ -5,7 +5,9 @@ import ironwood.compiler.source.SourceSpan;
 import java.util.List;
 import java.util.Optional;
 
-/** Descriptor access; source get/put bodies establish null, bounds and permissions. */
+/** Access to a lifetime-immutable descriptor and potentially overlapping mutable payload.
+ * Source get/put bodies establish null, bounds and permissions before byte access.
+ */
 public record IrByteViewInstruction(Optional<IrValueReference> result, Operation operation,
                                     IrOperand view, List<IrOperand> arguments,
                                     SourceSpan sourceSpan) implements IrInstruction {

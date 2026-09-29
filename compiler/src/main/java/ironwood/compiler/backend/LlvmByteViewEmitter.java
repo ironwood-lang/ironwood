@@ -9,6 +9,10 @@ import java.util.function.Function;
 final class LlvmByteViewEmitter {
     private LlvmByteViewEmitter() {}
 
+    // The adapter initializes these fields once for the descriptor's lifetime.
+    // Payload ranges may overlap; only descriptor fields are invariant.
+    private static final String IMMUTABLE = ", !invariant.load !{}";
+
     static void emit(StringBuilder text, IrByteViewInstruction instruction,
                      Function<IrOperand, String> operand, Function<String, String> scratch) {
         String field = scratch.apply("view.field");
@@ -19,16 +23,16 @@ final class LlvmByteViewEmitter {
                 .append(operand.apply(instruction.view())).append(", i32 0, i32 ").append(index).append("\n  ");
         switch (instruction.operation()) {
             case LENGTH -> text.append(operand.apply(instruction.result().orElseThrow()))
-                    .append(" = load i32, ptr ").append(field);
+                    .append(" = load i32, ptr ").append(field).append(IMMUTABLE);
             case READ_ONLY -> {
                 String permission = scratch.apply("view.permission");
-                text.append(permission).append(" = load i8, ptr ").append(field).append("\n  ")
+                text.append(permission).append(" = load i8, ptr ").append(field).append(IMMUTABLE).append("\n  ")
                         .append(operand.apply(instruction.result().orElseThrow()))
                         .append(" = icmp ne i8 ").append(permission).append(", 0");
             }
             case READ, WRITE -> {
                 String data = scratch.apply("view.data"), element = scratch.apply("view.element");
-                text.append(data).append(" = load ptr, ptr ").append(field).append("\n  ")
+                text.append(data).append(" = load ptr, ptr ").append(field).append(IMMUTABLE).append("\n  ")
                         .append(element).append(" = getelementptr inbounds i8, ptr ").append(data)
                         .append(", i32 ").append(operand.apply(instruction.arguments().getFirst())).append("\n  ");
                 if (instruction.operation() == IrByteViewInstruction.Operation.READ) {

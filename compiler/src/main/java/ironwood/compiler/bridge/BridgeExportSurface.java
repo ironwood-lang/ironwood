@@ -116,6 +116,9 @@ public record BridgeExportSurface(List<BridgeApiFacts.Type> types, BridgeRootSet
             } else packages.add(name);
         }
         var facts = artifact.bridgeApiFacts().orElseThrow();
+        if (!ironwood.compiler.semantic.BridgeByteViews.confinedStorage(artifact.program().orElseThrow())) {
+            diagnostics.add(Diagnostic.global("byte views cannot appear in fields, statics or containers"));
+        }
         for (var declaration : facts.types().values()) {
             if (declaration.packageName().equals("ironwood.bridge")
                     && !(declaration.binaryName().equals("ironwood.bridge.ByteView")

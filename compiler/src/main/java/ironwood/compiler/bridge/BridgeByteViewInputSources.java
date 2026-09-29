@@ -26,6 +26,11 @@ public final class BridgeByteViewInputSources {
         if (proof.status() != BridgeProof.Status.PROVED) throw new IllegalArgumentException(proof.reason());
         boolean identity = proof.contract().orElseThrow().observesIdentity();
         var text = new StringBuilder();
+        // Other object adapters leave eight local slots available. Wide signatures
+        // reserve their backing roots before acquisition, so exhaustion is a Java
+        // exception before entry, never JNI local-frame overflow.
+        if (indices.size() > 7) text.append("    if ((*env)->EnsureLocalCapacity(env, ")
+                .append(indices.size() + 8).append(") != JNI_OK) goto preparation_failed;\n");
         for (int i : indices) {
             text.append("    if (arg").append(i).append(" != NULL) {\n");
             if (identity) for (int prior : indices) {
@@ -42,7 +47,10 @@ public final class BridgeByteViewInputSources {
         return text.toString();
     }
     public static final String HELPERS = """
+            #include <stddef.h>
             struct iw_byteview { void *data; int32_t length; uint8_t read_only; };
+            _Static_assert(sizeof(struct iw_byteview) == 16 && offsetof(struct iw_byteview, length) == 8
+                    && offsetof(struct iw_byteview, read_only) == 12, "byte-view descriptor ABI mismatch");
             static jfieldID iw_view_storage, iw_view_offset, iw_view_length, iw_view_readonly;
             static int iw_byteviews_init(JNIEnv *env, jclass support) {
                 jfieldID field = (*env)->GetStaticFieldID(env, support, "byteViewClass", "Ljava/lang/Class;");
