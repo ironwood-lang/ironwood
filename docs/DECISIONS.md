@@ -9019,3 +9019,43 @@ occurrence order. If no
   signature/proof parity, same-IR changed-bound rejection, producer refusals and
   adjacent bridge/ownership regressions. No new native performance or expanded
   platform claim follows from this compiler-only foundation.
+
+## D236 - Read-only factory-produced generic Java facades
+
+- **Status:** Accepted by the maintainer's separate P7d1 implementation request
+  on 2026-09-29. P7d2 and later phases are not authorized by this checkpoint.
+- **Supersedes:** D235's blanket generic-class export refusal only for this
+  proved P7d1 boundary. D235's exact source identities/revalidation, P0 lifetime
+  proofs, D192 non-reclamation and D132/D133 performance constraints remain.
+- **Surface:** Final top-level generic classes with inaccessible constructors,
+  no public generic methods and no type-dependent inputs can expose ordinary
+  `Box<T>` declarations and native factories returning concrete applications.
+  Arguments are exported final nongeneric native facade classes. Complete
+  source allocations and exported results define the finite domain; unresolved
+  or primitive production is rejected. Bounds may name Object, an admitted
+  final facade or another class variable. Generic facade parameters, even fixed
+  applications, remain rejected because client unchecked casts cannot prove
+  native input types. Generic inheritance, arrays and listeners stay outside
+  this boundary. Never hide an unsupported public member to accept a package.
+- **Conversion:** Reference applications retain their existing shared native
+  layout and code. Java raw/wildcard/unchecked views preserve the actual value
+  identity and ordinary JVM cast behavior. Erased client hints never select a
+  native layout. A cache miss dispatches on the actual result's native type ID
+  within the proved finite final-class set; warmed reads reuse the existing
+  address/identity-cache path. No generic tags, dynamic native specialization,
+  new registry or generic-specific per-call bookkeeping are introduced.
+- **Ownership:** Exact API identities remain separate from the shared storage
+  identity used by native ownership/destruction. Fresh factory products require
+  confined construction and the existing cleanup/retention proofs. Borrowed
+  products share the exact owner's validity. Published generic families and
+  unknown-origin variable results require complete non-reclamation proofs for
+  every concrete alternative; no exemption follows from a generic declaration.
+  Source allocation domains are bound to semantic facts and carried only through
+  recorded additive adapters/native passes. Unknown effects and deallocation
+  scans remain conservative. Missing-free mode cannot disable safety errors.
+- **Verification:** The [generic log](JAVA_BRIDGE_GENERIC_PROGRESS.md) records
+  signature and ownership parity, Java cast/identity behavior, permanent and
+  borrowed products, negative APIs/unsafe frees, child-process native OOM,
+  checked JNI, Java 21-23 consumers and matched getter allocation/code evidence.
+  Numerical measurements are evidence for maintainer review, not a new release
+  or a claim that P7d2 is implemented.

@@ -20,8 +20,8 @@ SDK when building on Linux, run from the repository root:
 
 Expected output: `generic values: 17 29`. Successful execution exits zero.
 Java 22 and 23 can consume the same artifact. Java 24+ remains refused.
-Public generic construction/mutation, generic facade parameters, generic
-methods, arrays and inheritance remain outside this P7d1 example and producer.
+Public generic construction/mutation, generic facade parameters, standalone
+generic methods, generic arrays and generic inheritance remain outside P7d1.
 See the [bridge usage guide](../../../docs/JAVA_BRIDGE_USAGE.md).
 
 For the performance regression control:

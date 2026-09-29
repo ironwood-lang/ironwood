@@ -1,6 +1,12 @@
 <!-- SPDX-License-Identifier: MIT OR Apache-2.0 -->
 
-# P7d0 generic signature foundation log
+# Java Bridge reference generics progress and evidence
+
+P7d0 and P7d1 are implemented. P7d1 qualification is recorded below. P7d2 and
+later phases remain pending and were not started. The chronological P7d0 notes
+retain their original checkpoint boundary.
+
+## P7d0 checkpoint
 
 The maintainer authorized only P7d0 on 2026-09-29. Canonical checkout and both
 required origin URLs verified; clean `java-bridge` baseline `5b635489`. Existing
@@ -203,7 +209,7 @@ Shared proof regressions passed in `p7d1/expanded.log` (nine checks); that run
 found an unchecked generated cache cast for permanent generic factories. The
 producer now marks only its necessary generated casts, and the corrected full
 producer test passes in `p7d1/producer-final.log`. Native OOM leaves existing
-facades live and unwritten output survives rejected public construction. A
+facades live and existing output survives rejected public construction. A
 final expanded run is pending for that last producer-negative addition.
 
 The new `examples/java-bridge/generics` compile/link/run passes with checked JNI;
@@ -222,3 +228,153 @@ second obsolete primitive-array negative in the mixed producer now uses a
 reference array. All three rerun checks passed. Source/class/archive public
 constructor refusals preserve the existing output file. License audit and diff
 checks passed. P7d1 qualification remains pending; no P7d2 work is authorized.
+
+## P7d1 qualification, 2026-09-29
+
+Implementation commit `3317b285`; example/runner snapshot `38fd8260`;
+matched benchmark correction `ddcb04bf`. Production compiler/runtime code is
+unchanged after `3317b285`. D236 and the usage guide specify the supported
+boundary. No P7d2 construction/mutation or later phase was implemented.
+
+| Platform | Focused qualification | Additional JVM replay children |
+| --- | --- | ---: |
+| macOS ARM64 | 20 distinct focused checks passed, including source/class/archive producer parity, shared proofs, ordinary generic safety and object generation identity | 20 passed on Java 22/23 |
+| Linux ARM64, local Colima | Four generic metadata/proof/producer checks passed | 20 passed on Java 22/23 |
+| Physical Linux x86-64, Estonia | Same four checks passed | 20 passed on Java 22/23 |
+
+All use Temurin 21.0.12.1+1 producers and LLVM 23.1.0; replay JVMs are
+22.0.2+9 and 23.0.2+7. Linux uses the existing pinned glibc 2.17 support SDK.
+No tools were installed. No translated x86 run is presented as hardware evidence.
+The Mac check of Java 24 refusal passed before native extraction; its temporary
+directory remained empty. Native failures/OOM execute in checked-JNI children.
+The producer itself compiles generated Java using `--release 21 -Xlint:all
+-Werror`, checks archives and retains source/license companions. License audits
+and diff checks passed. No unfiltered suite was run.
+
+The generic producer covers source O0, class-directory/individual-class/archive
+O3 with equal generation/API/program identities, two concrete applications,
+final bounds, overloads, nulls, inherited identity, raw/upper/lower/unbounded
+wildcards, failed unchecked client casts and continued calls. Owning boxes free
+exactly their root allocations; borrowed boxes invalidate with their owner and
+cannot free independently. Permanent families have no free method. OOM repeats
+failed creation without leaking native storage or invalidating existing values.
+Unsafe frees under all missing-free modes, public constructors, generic methods,
+unknown production/effects, generic inputs and primitive/array projections stay
+rejected. Source/class/archive constructor refusals preserve existing output.
+
+### Matched getter measurements
+
+Both bridge paths perform one native reference getter and a Java identity check.
+Both have static factory storage and the same class-initialization guard. Three
+independent JVMs per path alternate order; each has five warmup and seven
+measured batches of two million calls. Values below are median batch-average
+latency and corresponding throughput, not percentile latency or a confidence
+interval. Estonia uses isolated CPU 1, the existing powersave governor and turbo
+behavior. ARM64 is virtualized. Mac runs are functional smoke only.
+
+| Target | Generic `Box<Quote>.get()` | Nongeneric `Plain.get()` |
+| --- | ---: | ---: |
+| Linux x86-64 | 11.65 ns/call; 85.87 million calls/s | 11.26 ns/call; 88.82 million calls/s |
+| Linux ARM64 | 4.81 ns/call; 207.86 million calls/s | 4.74 ns/call; 210.99 million calls/s |
+
+All 42 measured batches per target allocate **zero Java bytes and zero native
+objects**. Native getter/JNI adapter instruction sequences match, apart from
+symbols and addresses. Both protected getters load the same field offset after
+the existing initialization guard. Java bytecode keeps the same root check and
+identity lookup; generic erasure places the ordinary Quote cast in the caller.
+The two-load native type-ID helper and finite switch execute only on a cache
+miss, outside warmed reads. First-call initialization/conversion cost is logged
+separately. No native layout tag or generic-specific per-call state was added.
+
+The small measured differences remain numerical evidence for maintainer review,
+not a demonstrated statistically significant regression or a zero-cost claim.
+Ranges are 10.63-20.95 versus 10.63-20.52 ns on Estonia, and 4.68-6.22 versus
+4.65-5.99 ns on ARM64. These compare generic/nongeneric bridge paths, not pure
+Ironwood versus Java application throughput. No official OrderBook code changed.
+
+An initial control lacked static factory storage and therefore lacked the native
+initialization guard. Its 11.05 versus 10.26 ns Estonia result is retained under
+`performance/` but superseded by `performance-matched/`. Inspection identified
+the mismatch; `ddcb04bf` corrected only the benchmark and its documentation.
+No production optimization or safety change was made to improve the numbers.
+
+### Reproduction and evidence identities
+
+Ignored local evidence root: `workspace/java-bridge/p7d1/`. Frozen input
+`input-38fd8260.tar.gz` has SHA-256
+`ed3aacd4714d892de89fbe2e3c0e6d0eb5f16d125372781a82b06168e9589622`.
+Its `validation/contents.sha256` verifies the full source tree, compiler/test
+classes and libraries. Compiler jar SHA-256 is
+`7b7b0e25b92c18fe49a77c48b17b8dade32f25c82af195f8242067792d0dc57b`.
+The separately verified benchmark supplement has SHA-256
+`f7df8400788b09231f699b0ec9e1d711e7af7c60740036b6d7886e7d56b61c77`;
+it carries its revision, patch and exact changed-file hashes.
+
+Linux ARM64 results are in `linux-arm64/work/{evidence,validation}`. Estonia
+work and payloads are retained under
+`~/temp/java-bridge/p7d1-38fd8260/work/`; copied evidence is identified below.
+Both use the existing bridge images, respectively
+`sha256:a03b0d3a764744079949a3adf5ecf6fe7ce82382ee35ca95360a38d453af8767`
+and `sha256:dd4c1e82b2f999db86e75538f7d32adcaa364452f99a8f615eca693707c382a7`.
+Mount the prepared target SDK read-only at `/support` and pinned JDK directories
+at `/jdks`, set `IRONWOOD_BRIDGE_SUPPORT_HOME=/support`, and run from `/work`:
+
+```sh
+sha256sum -c validation/contents.sha256
+./scripts/java-bridge/qualify-generics.sh linux-x86_64 /jdks /work/evidence
+```
+
+Use `linux-arm64` for the local ARM64 environment. The expected result is four
+passing checks, 20 exact-output replays and `evidence/exit.txt` containing zero.
+For the matched supplement, verify its `files.sha256`, then run:
+
+```sh
+python3 examples/java-bridge/generics/benchmark.py --cpu 1 --output /work/evidence/performance-matched
+```
+
+Omit `--cpu 1` on ARM64. The output directory must be new. Expected results are
+42 matching-checksum samples with zero measured Java/native allocations.
+`commands.json`, `payloads.json`, `bridge.properties`, disassembly, bytecode,
+raw samples and summaries preserve the exact measured payloads. The physical
+host CPU, kernel, boot command line, governor and image identity are in
+`validation/`. This is a focused runner with no downloads or hosted jobs.
+
+Final Estonia evidence archive `estonia-evidence-final-logs.tar.gz` has SHA-256
+`2cb51233c7d2484a8810105ce14d3be49392369285ef233785b3b928aa9803c4`,
+verified after copying to this Mac and extracted into `estonia-final/`. It
+contains logs, manifests, native images, disassembly, consumers and source
+fixtures. Large paired jars remain on Estonia, with exact hashes and manifests
+in `validation/payload-inventory.json`; the negative preserved-output sentinel
+is intentionally not a ZIP. Task-generated output ownership was restored to
+the SSH user so these artifacts remain directly inspectable.
+
+Matched benchmark jar/image SHA-256 identities:
+
+| Target | Paired jar | Native image |
+| --- | --- | --- |
+| Linux ARM64 | `d6ca8fca0a7528df27c9c6ce2f55a1e7ae90771c43d41599e9da6f78bdcdd360` | `7b32eb43fbfdf0c24ba30e17ef835b9235733910962392bf25da581276a0e02c` |
+| Linux x86-64 | `e0b2f789bc989c22668af1f4474c350a9cf69d01b0d686715b4d038a78f3f93e` | `5304830c77b9e8acc9aa5e3d58c9a2af2772b9da8b90d631807fc43e0f0d5ab1` |
+
+The complete generic producer's source artifacts share generation
+`a9d1d67faf6faad4c8e8523d1e622eb4e61c5c911c979d44cd2f49ba61dd1bc4`
+on all three targets. Assembly passed; `assembled/generics.jar` has SHA-256
+`f340771a22fa3d93a44ce025306cd57dacbdc5974be1297eb2fee9078e6788e8`.
+Checked-JNI consumers passed against that exact assembled jar on Mac, local
+Linux ARM64 and physical Estonia. An initial Estonia consumer ran before its
+large jar transfer finished and reported ClassNotFoundException. The complete
+jar's SHA-256 was then checked before rerunning successfully; the operational
+failure log is retained as `validation/incomplete-transfer-consumer.log`.
+
+A final test-only supplement explicitly casts to `Box<java.lang.String>`, whose
+argument is a Java-only type with no native specialization. The wildcard view
+still returns the native Quote; assignment to String raises ClassCastException.
+The updated consumer passed with the frozen assembled jar on all three targets,
+recorded under local `java-only-cast/` and the target validation folders. The
+test class and extracted Java consumer compile under Java 21. No compiler,
+runtime or measured payload changed for this additional coverage.
+
+**Stop point:** P7d1 implementation and locally available qualification are
+complete. No unresolved safety/test blocker or remaining P7d1 implementation is
+known. Numerical performance acceptance remains maintainer review. P7d2 and
+P7e-P7f remain pending. All commits are local on `java-bridge`; no push or
+publication was performed.

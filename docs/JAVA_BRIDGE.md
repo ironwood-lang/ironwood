@@ -12,8 +12,10 @@
 > see the [array evidence and measurements](JAVA_BRIDGE_ARRAY_EVIDENCE.md). P7c1 bounded
 > byte views are implemented and qualified on all three targets; see the
 > [buffer evidence and measurements](JAVA_BRIDGE_BUFFER_EVIDENCE.md).
-> P7d0 generic metadata foundations are implemented; generic facade admission
-> (P7d1/P7d2) and P7e-P7f remain pending. Java 24+ remains refused. This is a producer
+> P7d1 read-only, factory-produced generic facades are implemented and qualified
+> on all three targets, using the P7d0 foundations; see the
+> [generic evidence](JAVA_BRIDGE_GENERIC_PROGRESS.md).
+> P7d2 construction/mutation and P7e-P7f remain pending. Java 24+ remains refused. This is a producer
 > preview, not an announcement of a published release. The
 > [producer guide](JAVA_BRIDGE_USAGE.md) specifies the supported API and platform
 > boundaries; the [implementation plan](JAVA_BRIDGE_PLAN.md) is authoritative

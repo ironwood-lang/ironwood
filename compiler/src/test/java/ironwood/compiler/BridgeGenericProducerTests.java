@@ -264,6 +264,11 @@ final class BridgeGenericProducerTests {
                     check(((Box<?>) lied).get() == t);
                     try { Quote invalid = lied.get(); throw new AssertionError(invalid); }
                     catch (ClassCastException expected) { }
+                    // Java-only type arguments never request a native specialization.
+                    Box<String> javaOnly = (Box<String>) (Box<?>) quote;
+                    check(((Box<?>) javaOnly).get() == q);
+                    try { String invalid = javaOnly.get(); throw new AssertionError(invalid); }
+                    catch (ClassCastException expected) { }
                     check(trade.get() == t && quote.equals(quote) && !quote.equals(trade));
                     check(quote.hashCode() == quote.hashCode() && quote.toString().startsWith("genericvalues.Box@"));
                     try { quote.get(true); throw new AssertionError(); }
