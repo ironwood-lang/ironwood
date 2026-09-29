@@ -12,8 +12,9 @@ clean. Do not merge, push, publish, create worktrees, or change `main`.
 Continue P0a/P0b/P0c -> P1 -> P2 -> P3a/P3b/P3c/P3d -> P4 -> P6a -> ARM64 P6b.
 That original authorization deferred P5/P7. D226 subsequently authorized P5;
 its completion is recorded in the [P5 progress log](JAVA_BRIDGE_P5_PROGRESS.md).
-D231 subsequently authorized automatic callback batching; other P7 extensions
-remain deferred. A checkpoint is not a phase exit.
+D231 subsequently authorized automatic callback batching. Later P7
+authorizations and their bounded results are recorded at the current checkpoint
+below and in each phase's linked report. A checkpoint is not a phase exit.
 
 The maintainer selected Java 21-23 with the existing Java 24+ refusal for this
 implementation run. This records D209's pre-P6 product decision: keep the bounded
@@ -25,14 +26,18 @@ Estonia after the maintainer separately authorized SSH access.
 
 ## Current checkpoint
 
-The maintainer has deferred further callback performance optimization and
-requested planning for the remaining P7 work. D232 and the
-[P7 submilestones](JAVA_BRIDGE_PLAN.md#p7-submilestones-and-api-boundaries-d232)
-record the concrete boundaries and exits. P7a batching is delivered; P7b copied
-primitive arrays is the next implementation target when authorized, followed by
-bounded buffers, finite generics, optional FFM evaluation and combined
-qualification. This checkpoint changes documentation only and does not expand
-the producer's admitted API.
+P7a batching, P7b copied primitive arrays, P7c bounded byte views and P7d0-P7d2
+bounded generics are implemented and qualified under their separately recorded
+authorizations. The maintainer authorized only P7e0 for this checkpoint. Its
+[isolated JNI/FFM experiment](JAVA_BRIDGE_FFM_EXPERIMENT.md) is complete on
+macOS ARM64, local Linux ARM64 virtualization and physical Estonia x86-64.
+The production compiler and default JNI artifact are unchanged. The experiment
+recommends retaining JNI given the small scalar gain and additional deployment
+policy. That recommendation does not authorize skipping or implementing later
+work: P7e1/P7e2 remain unimplemented, deployment selection precedes P7e1, and
+P7f combined qualification remains pending. Stop here until the maintainer
+selects the next checkpoint. The report provides commits, exact commands,
+payload identities, raw evidence and a handoff for a fresh task if desired.
 
 The OrderBook performance recommendation was accepted under D225. Bounded P5
 implementation and focused qualification are complete at `e0643c05`; see its
