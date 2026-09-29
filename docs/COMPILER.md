@@ -72,8 +72,8 @@ record their implementation gates. P6 implementation was accepted under D225;
 P5, P7b and P7c implementation and qualification are complete. The
 [array evidence](JAVA_BRIDGE_ARRAY_EVIDENCE.md) and
 [byte-view evidence](JAVA_BRIDGE_BUFFER_EVIDENCE.md) record supported boundaries
-and measurements. P7d0 generic metadata foundations are implemented; generic
-facade admission (P7d1/P7d2) and P7e-P7f remain pending.
+and measurements. P7d0 foundations and P7d1 read-only generic facade admission
+are implemented; P7d2 construction/mutation and P7e-P7f remain pending.
 [The implementation plan](JAVA_BRIDGE_PLAN.md) defines the
 phase gates, and [the progress log](JAVA_BRIDGE_PROGRESS.md) records evidence.
 
@@ -86,10 +86,18 @@ permission. The inventory's native candidates remain available to specialized
 dispatch proofs; direct bindings additionally require the exact applied receiver.
 Facts match their producing program instance: source-only bound
 changes can leave lowered IR equal. Artifact reconstruction reprojects facts and
-revalidates signatures. Export selection uses those proofs but keeps generic
-facades and generic methods rejected until their later admission phases.
-See [D235](DECISIONS.md#d235---preserve-exact-generic-source-identities-before-bridge-admission)
-and the [P7d0 verification log](JAVA_BRIDGE_GENERIC_PROGRESS.md).
+revalidates signatures. P7d1 uses these proofs for final factory-produced generic
+facades. `BridgeGenericDomain` closes the exact allocation/signature domain;
+source construction facts independently project finite variable alternatives.
+Only matching facts narrow exposed variable types, while deallocation effects
+remain conservative. Reference applications share native storage identity for
+root ownership and destruction; source signatures stay exact. Unknown result
+origins and publication require family-wide D192 non-reclamation proofs.
+Cold result conversion uses the actual native type ID, with no generic-specific
+work on the warmed getter path. Generic inputs and methods remain refused.
+See [D235](DECISIONS.md#d235---preserve-exact-generic-source-identities-before-bridge-admission),
+[D236](DECISIONS.md#d236---read-only-factory-produced-generic-java-facades)
+and the [generic verification log](JAVA_BRIDGE_GENERIC_PROGRESS.md).
 
 `BridgeArrayInputs` combines final P0 borrowing, retention, result-origin and
 non-reclamation facts with complete typed effect closure. A descriptor alone

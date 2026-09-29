@@ -11,9 +11,10 @@ generated Java classes and catch mapped Java exceptions using ordinary dependenc
 loading. General object inheritance, object/multidimensional arrays, callback shapes outside the proved
 subsets and optional TLS dependencies
 remain rejected at their pending implementation boundaries.
-Generic class and method exports remain rejected. P7d0 adds compiler signature
-metadata and revalidation only; it does not yet enable generic Java facades.
-See the [generic foundation log](JAVA_BRIDGE_GENERIC_PROGRESS.md).
+P7d1 admits read-only, factory-produced final reference-generic facades under
+D236. Public generic construction/mutation, generic facade inputs and generic
+methods remain rejected. See [read-only generics](#read-only-generic-facades) and
+the [generic progress/evidence log](JAVA_BRIDGE_GENERIC_PROGRESS.md).
 This preview is not a release qualification.
 
 ## Build and run
@@ -131,6 +132,44 @@ may already be reset and returned to the pool. Strongly held wrappers may be use
 for identity comparisons across reuse, without treating a released order as an
 active business handle. The [P4 audit](JAVA_BRIDGE_P4_EVIDENCE.md) records paired
 behavior, capacity errors and separate hit/miss allocation results.
+
+## Read-only generic facades
+
+A final top-level native `Box<T>` can expose `T get()` and factories returning
+`Box<Quote>` and `Box<Trade>`, where Quote and Trade are exported final,
+nongeneric native facade classes. Its constructors must already be inaccessible
+to Java and no public method may accept a value containing its class variables.
+Public generic methods and constructors are not hidden to make production pass.
+The [complete example](../examples/java-bridge/generics/README.md) builds the jar
+and uses it from ordinary Java, without handwritten transport code.
+
+The producer discovers the complete set of native allocations and concrete
+factory signatures. Every argument must be an exported final nongeneric class;
+primitive, unresolved, wildcard and nested-generic applications are rejected.
+Class bounds can name Object, an admitted final facade or another variable of
+the same declaration; other bounds are refused. Generic inheritance, nested
+generic facade declarations, generic arrays and generic listeners remain
+unsupported. Even fixed `Box<Quote>` parameters are refused in P7d1: an unchecked
+Java cast cannot be trusted as evidence about a native input. P7d2 separately
+addresses bounded construction and inputs.
+
+Java keeps the ordinary `Box<T>` declaration, exact factory return signatures,
+reflection metadata and erased descriptors. Legal raw/wildcard reads preserve
+the actual returned facade. An unchecked cast from `Box<Trade>` to `Box<Quote>`
+does not reinterpret native storage: an Object/wildcard read still obtains a
+Trade, and assignment to Quote fails with Java's `ClassCastException`.
+Reference applications share their existing native layout and implementation.
+On an identity-cache miss, the actual value's native type ID selects only a
+proved final alternative. Warmed reads use the existing address/cache path.
+
+The usual ownership contracts still apply. A factory-created owning box can
+have `free()`; a borrowed box shares its exact root's validity and cannot free
+itself. A permanently published generic family has no `free()`. Type-variable
+results with unknown ownership require complete non-reclamation proofs for all
+possible concrete values. They do not acquire automatic reclamation or weaker
+alias rules. Nulls, native failures and allocation failures use existing
+contained conversion and rollback protocols. Source, individual-class,
+class-directory and archive production preserve the same API and proof facts.
 
 ## Runtime and distribution contracts
 

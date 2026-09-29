@@ -18,6 +18,13 @@ and capture, generic methods and constructors, invocation inference, diamond
 construction, overload resolution, reifiability, casts, nested generic types,
 and final-program native specialization.
 
+The Java Bridge has a separate, bounded Java-facing projection under
+[D236](DECISIONS.md#d236---read-only-factory-produced-generic-java-facades).
+P7d1 preserves factory-produced final reference-generic declarations and
+read-only results. Java consumer raw/wildcard/unchecked views do not relax
+Ironwood source rules or supply native layout evidence. See the
+[bridge boundary](JAVA_BRIDGE_USAGE.md#read-only-generic-facades).
+
 ## Design invariants
 
 The following rules govern the implemented model:
