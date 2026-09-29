@@ -11,6 +11,9 @@ generated Java classes and catch mapped Java exceptions using ordinary dependenc
 loading. General object inheritance, object/multidimensional arrays, callback shapes outside the proved
 subsets and optional TLS dependencies
 remain rejected at their pending implementation boundaries.
+Generic class and method exports remain rejected. P7d0 adds compiler signature
+metadata and revalidation only; it does not yet enable generic Java facades.
+See the [generic foundation log](JAVA_BRIDGE_GENERIC_PROGRESS.md).
 This preview is not a release qualification.
 
 ## Build and run
