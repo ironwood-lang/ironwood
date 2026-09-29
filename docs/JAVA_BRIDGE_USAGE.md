@@ -198,8 +198,10 @@ host-only companion independently; it refuses to overwrite different bytes.
 
 See the [accepted contract](JAVA_BRIDGE_BUFFER_DESIGN.md),
 [runnable example and comparison](../examples/java-bridge/byteviews/README.md)
-and [qualification progress](JAVA_BRIDGE_BUFFER_PROGRESS.md). P7c1's final
-platform/performance qualification remains in progress.
+and [three-target qualification and Linux measurements](JAVA_BRIDGE_BUFFER_EVIDENCE.md).
+Warmed views allocate no Java/native objects and copy no payload. The report
+records useful read/update improvements over copied arrays and the remaining
+overlapping-write gap; numerical acceptance remains maintainer review.
 
 Permanent-object admission proves that exposed native storage cannot be reclaimed
 within the complete linked world. These facades have no generated `free()` or

@@ -21,7 +21,9 @@ P7b implementation and three-target qualification are complete; numerical accept
 remains maintainer review. See the [array evidence](JAVA_BRIDGE_ARRAY_EVIDENCE.md)
 and [progress log](JAVA_BRIDGE_ARRAY_PROGRESS.md). P7c0's
 [API/lifetime design](JAVA_BRIDGE_BUFFER_DESIGN.md) is accepted; P7c1 is
-authorized and in progress. P7d-P7f implementation remains pending. Release work
+implemented and qualified on all three targets; see the
+[buffer evidence and measurements](JAVA_BRIDGE_BUFFER_EVIDENCE.md). Numerical
+acceptance remains maintainer review. P7d-P7f implementation remains pending. Release work
 belongs to the maintainer, outside this implementation task.
 The release gates below still apply. The maintainer selected **Java 21-23** as the initial consumer
 support range, deferring Java 24+ and its native-access authorization work.
@@ -1460,7 +1462,7 @@ or weakening a phase's exit criteria. A submilestone is not a separate release.
 | P4: current OrderBook | Apply P3's non-reclamation proof to the dedicated engine closure; generate its actual API including nested enums and pooled orders; run the paired workload and section 11's P4 allocation acceptance cases. | `createLimit`, `cancel` and `reduceTo` export successfully under the proved permanent-storage contract; consumer imports actual classes without glue; correctness matches; D207 capacity-exhaustion controls remain producer exceptions, not bridge refusals; warmed scalar/cache-hit loops have zero native and Java allocations with strongly held facades, and weak-cache recreation meets the separate miss/collection criteria. No liveness bookkeeping is added to permanent scalar calls. Retention/cross-owner argument tests use the separate reclaimable fixture. Timing acceptance is deferred to P6. |
 | P6: distribution and final release readiness | Multi-target assembly, final classloader/module qualification, producer Maven/Gradle conventions, sources/Javadoc, license/source payloads, deployment diagnostics, final performance measurements. | Before starting, D209's product decision and any revised guard/tests/matrix are recorded. Clean consumer machines need only supported Java and dependency; all nine pinned Temurin/target cells below pass their focused checks on matching hardware under D205, including diagnostic and flag-free launches; the separate Java 24 refusal test passes; package content reproducible and reviewed; D210 macOS signature/load checks pass on final payloads; final numerical performance acceptance recorded. |
 | P5: bounded callbacks and Java exception propagation, implemented and qualified | Typed foreign calls/proxies, conservative effects, retained listener lifecycle, nested invocation contexts and callback-originated Java throwable propagation. Reuse P2/P3 native-to-Java translation. | Listener works as a Java interface; reentrancy, retained arguments and callback-triggered free tested; unchanged callback throwables preserve Java identity through nested calls, with carrier cleanup on catch/replace/retain paths; neither runtime unwinds across the boundary. D206 string-bearing callbacks allocate, reenter and throw without critical-region violations or leaked outer/nested buffers. |
-| P7: measured optimization and API expansion | D231 compiler-proved automatic callback batching and D233 copied primitive arrays are implemented and qualified; numerical acceptance remains review. P7c-P7f below remain pending. | Each extension has a compatibility/proof contract, focused tests, allocation evidence, and machine-code/benchmark justification. |
+| P7: measured optimization and API expansion | D231 compiler-proved automatic callback batching, D233 copied primitive arrays and D234 bounded byte views are implemented and qualified; numerical acceptance remains review. P7d-P7f below remain pending. | Each extension has a compatibility/proof contract, focused tests, allocation evidence, and machine-code/benchmark justification. |
 
 P2 is a usable scalar preview, not completion of the requested object feature.
 The initial object implementation followed P0 -> P1 -> P2 -> P3 -> P4 -> P6.
@@ -1489,7 +1491,7 @@ part of using the API.
 | --- | --- | --- | --- |
 | P7a: automatic callback batching | D231's proved pure counted loops, preserving every Java listener call and ordinary-JNI fallback. | Implemented and qualified at `bd0711b4` with stack runner `e5c0df7a`. Further numerical tuning deferred by the maintainer. | Existing proof, allocation, reentry, failure and platform evidence in the [optimization report](JAVA_BRIDGE_CALLBACK_OPTIMIZATION.md); no claim of matching pure Java. |
 | P7b: primitive array values | Ordinary one-dimensional primitive array parameters and bounded result cases, with explicit alias, mutation and cleanup proofs. | Implemented and qualified on all three targets; [evidence and measurements](JAVA_BRIDGE_ARRAY_EVIDENCE.md). Numerical acceptance remains review. | P7b1 and P7b2 below pass source/class/archive parity, positive/negative proof cases and generated Java consumers. No unsupported array shape is admitted. |
-| P7c: bounded zero-copy buffers | A distinct call-scoped byte-view contract and reusable storage, without public native addresses or unbounded views. | P7c0 [API/lifetime design](JAVA_BRIDGE_BUFFER_DESIGN.md) accepted under D234; P7c1 authorized and in progress in the [buffer log](JAVA_BRIDGE_BUFFER_PROGRESS.md). | Storage cannot disappear during access, no view escapes, bounds and overlapping ranges are correct, exceptional cleanup passes, and the zero-copy path demonstrably copies no payload. |
+| P7c: bounded zero-copy buffers | A distinct call-scoped byte-view contract and reusable storage, without public native addresses or unbounded views. | P7c0 [API/lifetime design](JAVA_BRIDGE_BUFFER_DESIGN.md) accepted under D234; P7c1 implemented and qualified on all three targets in the [buffer evidence](JAVA_BRIDGE_BUFFER_EVIDENCE.md). Numerical acceptance remains review. | Storage cannot disappear during access, no view escapes, bounds and overlapping ranges are correct, exceptional cleanup passes, and the zero-copy path demonstrably copies no payload. |
 | P7d: bounded reference generics | Java-shaped generic facades for a finite, enforceable native type domain. | Independent of P7c transport; extend exact signature metadata before facade generation. | Every Java-valid use of the emitted declaration is supported within its bounds, with preserved identity/ownership and no erased-signature loophole. |
 | P7e: optional FFM transport | Evaluate ordinary downcalls first, then separately proved critical leaves, using the existing protected ABI. | Independent of P7c/P7d API expansion; JNI remains the default and fallback. | A qualified, measured improvement with unchanged semantics and explicit deployment policy, or an evidence-backed decision to retain JNI. Research alone does not count as an implemented FFM backend. |
 | P7f: combined qualification and documentation | Integrate the enabled subsets, package matching artifacts and update user-facing support boundaries. | Follows the implemented P7b-P7e subsets and their explicit gate outcomes. | Applicable pinned JVM/target cells, packaging, regression, allocation and benchmark checks pass for the final bytes; remaining exclusions and numerical review are recorded. |
@@ -1561,8 +1563,12 @@ The maintainer accepted the [concrete design](JAVA_BRIDGE_BUFFER_DESIGN.md) and
 subsequently authorized P7c1, superseding the earlier stop for that submilestone.
 D234 records JVM-managed, non-closeable storage and the shared
 `ironwood.bridge.ByteView` Java dependency. Proved input admission and protected
-transport are implemented; final qualification remains in progress in the
-[buffer log](JAVA_BRIDGE_BUFFER_PROGRESS.md).
+transport are implemented and qualified on all three targets. The
+[buffer evidence](JAVA_BRIDGE_BUFFER_EVIDENCE.md) records functional, allocation,
+machine-code and Linux timing results, including the remaining overlap gap.
+The useful zero-copy advantage gate is demonstrated; numerical acceptance
+remains maintainer review. The [buffer log](JAVA_BRIDGE_BUFFER_PROGRESS.md)
+records implementation checkpoints.
 
 **P7c0 deliverable:** a small reviewed public API and ownership table before
 adding code. Recommended first boundary: a dedicated bridge byte-buffer/view

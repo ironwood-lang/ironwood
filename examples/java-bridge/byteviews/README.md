@@ -44,4 +44,6 @@ counters measure Ironwood allocations; they exclude the staging `malloc`.
 Latency is the median batch-average nanoseconds per call, including the driver
 loop and input update, not a latency percentile. Throughput is the corresponding
 calls per second. Small calls still pay JNI metadata-acquisition costs; numerical
-performance acceptance belongs to the maintainer.
+performance acceptance belongs to the maintainer. See the
+[three-target qualification and Linux measurements](../../../docs/JAVA_BRIDGE_BUFFER_EVIDENCE.md)
+for the tested artifacts, useful zero-copy gains and remaining overlap gap.

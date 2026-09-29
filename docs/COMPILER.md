@@ -64,13 +64,15 @@ failure rather than adopting Java's earlier allocation attempt.
 ## Java Bridge producer and analysis foundations
 
 The experimental `ironwoodc --java-bridge` producer composes scalar/String,
-proved copied primitive arrays, permanent-object, root/view, bounded-retention
-and bounded callback protocols on macOS ARM64 and both Linux targets. The
+proved copied primitive arrays and borrowed byte views, permanent-object,
+root/view, bounded-retention and bounded callback protocols on macOS ARM64 and
+both Linux targets. The
 [P3 audit](JAVA_BRIDGE_P3CD_EVIDENCE.md) and [P4 OrderBook audit](JAVA_BRIDGE_P4_EVIDENCE.md)
 record their implementation gates. P6 implementation was accepted under D225;
-P5 and P7b implementation and qualification are complete. The
-[array evidence](JAVA_BRIDGE_ARRAY_EVIDENCE.md) records the latest supported
-boundary and measurements; P7c-P7f remain pending.
+P5, P7b and P7c implementation and qualification are complete. The
+[array evidence](JAVA_BRIDGE_ARRAY_EVIDENCE.md) and
+[byte-view evidence](JAVA_BRIDGE_BUFFER_EVIDENCE.md) record supported boundaries
+and measurements; P7d-P7f remain pending.
 [The implementation plan](JAVA_BRIDGE_PLAN.md) defines the
 phase gates, and [the progress log](JAVA_BRIDGE_PROGRESS.md) records evidence.
 
@@ -82,6 +84,15 @@ and reclaim conversion storage. `BridgeArrayValueSources` emits ordered mutable
 copy-back and fresh/alias-result delivery, preserving the primary failure even
 when diagnostic aggregation fails. These protocols add no array state to
 unrelated scalar entries.
+
+`BridgeByteViews` proves non-retention/non-reclamation and complete borrowed
+effect closure for the exact trusted ByteView declaration. Dedicated typed
+`IrByteViewInstruction` operations use stack descriptors rather than object or
+array headers. Descriptor loads are immutable during the call; payload memory
+retains ordinary aliasing. Typed accessors expand before LLVM argument promotion
+to preserve these facts. JNI roots the Java-owned backing storage without
+copying it. The exact shared values jar is verified before native initialization
+and travels through producer, assembler, Maven distribution and IDK packaging.
 
 `BridgeAssembler` combines independently produced host jars only when complete
 generation, Java declarations and common source/license/content inventories match.

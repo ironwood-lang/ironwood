@@ -96,3 +96,50 @@ in all producer input forms (`byteview-wide.log`). The final three-test Mac
 qualification passed (`byteview-final-mac.log`), followed by the wide-signature
 addition's focused producer rerun. Compiler sources are now ready for final Linux
 and installed-IDK packaging validation; no final performance claim yet.
+
+## Final artifact qualification
+
+Production/compiler implementation is frozen at `46e70578`. The final input
+archive `byteviews/input-final.tar.gz` has SHA-256
+`103981a8c1580383d6d8681f5f479d0548bc8cd4b9905a1c285409d74ddfad83`;
+it includes the installed-IDK smoke addition but predates only a supplementary
+mixed-argument allocation-failure assertion. All final Linux builds verify the
+per-file input manifest. Both Linux hosts passed five selected tests, 28 Java
+22/23 replays and every full benchmark checksum/allocation assertion. Mac final
+producer/packaging and 28 Java 22/23 replays passed; Java 24 remains refused.
+The supplementary mixed-failure check passed nine children on each target using
+the exact final source/class/archive producer jars. Its JSON records jar/source
+identities and commands separately from the frozen input archive.
+
+The final `0.5.5-beta` macOS ARM64 IDK passed its packaging smoke, including the
+installed shared jar and byte-identical regeneration by the relocated compiler.
+The IDK uses its existing bundled Zulu Java 21.0.10+7; producer/timing runs use
+Temurin Java 21.0.12.1+1. No toolchain was installed. Final raw Linux evidence is
+under `byteviews/linux-arm64-final/work/evidence` and is being collected from
+`~/temp/java-bridge/p7c1-20260928-final/work` on Estonia. Next: assembled-jar
+payload preservation/replays, distribution checks, final evidence/status docs,
+license/whitespace checks and local commit. Do not advance to P7d.
+
+## Completion checkpoint
+
+P7c1 implementation and qualification are complete within D234. The
+[evidence report](JAVA_BRIDGE_BUFFER_EVIDENCE.md) records the final five-scenario
+Linux tables, exact artifacts, raw locations, machine-code review, remaining
+overlap gap and reproduction commands. Numerical acceptance remains maintainer
+review; P7d-P7f are untouched.
+
+The assembled three-target jar preserves every native entry and shared support
+byte. It passed 18 checked-JNI consumers across Java 21-23 and classpath/module
+path. Distribution payloads, dependency POM, sources/licenses and every inventory
+hash passed verification. Nine additional Mac reverse-overlap children passed on
+the frozen O0/O3 producer jars, supplementing the forward-dependent Linux checks.
+These two supplemental test additions do not change production artifacts.
+Final license audit and `git diff --check` passed. Final qualification changes
+are committed separately from production as tests, IDK smoke and documentation.
+
+Estonia final evidence was copied back, archive inventories and payload hashes
+verified, and all workers stopped before cleaning only this task's two remote
+`work` trees and assembled copy (about 3.4 GiB). Inputs and an evidence-location
+note remain. Preexisting SDKs/JDKs/images and unrelated files were preserved.
+No further implementation is pending within P7c1. Next phase requires the
+maintainer's separate instruction; do not automatically start P7d.

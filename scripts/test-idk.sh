@@ -89,6 +89,31 @@ for IRONWOOD_EXECUTABLE in "${IRONWOOD_REQUIRED_EXECUTABLES[@]}"; do
         exit 1
     fi
 done
+# Validate the shared Java value dependency from its installed location, including
+# generation by the relocated compiler without an external JDK or downloads.
+cat > "$IRONWOOD_TEST_DIR/ByteViewSmoke.java" <<'JAVA'
+// SPDX-License-Identifier: MIT OR Apache-2.0
+import ironwood.bridge.ByteView;
+public final class ByteViewSmoke {
+    public static void main(String[] args) {
+        ByteView bytes = ByteView.allocate(4);
+        ByteView slice = bytes.slice(1, 2).asReadOnly();
+        bytes.put(1, (byte)-7);
+        if (slice.get(0) != -7 || slice.length() != 2) throw new AssertionError();
+        try { slice.put(-1, (byte)0); throw new AssertionError(); }
+        catch (UnsupportedOperationException expected) {}
+        System.out.println("packaged byte views passed");
+    }
+}
+JAVA
+"$IRONWOOD_IDK_ROOT/toolchain/lib/jvm/bin/javac" --release 21 -Xlint:all -Werror \
+    -cp "$IRONWOOD_IDK_ROOT/lib/ironwood-bridge-values.jar" \
+    -d "$IRONWOOD_TEST_DIR/byteview-classes" "$IRONWOOD_TEST_DIR/ByteViewSmoke.java"
+"$IRONWOOD_IDK_ROOT/toolchain/lib/jvm/bin/java" \
+    -cp "$IRONWOOD_IDK_ROOT/lib/ironwood-bridge-values.jar:$IRONWOOD_TEST_DIR/byteview-classes" ByteViewSmoke
+env -u JAVA_HOME -u IRONWOOD_LLVM_HOME PATH=/usr/bin:/bin \
+    "$IRONWOOD_IDK_ROOT/bin/ironwoodc" --java-bridge-values -o "$IRONWOOD_TEST_DIR/values.jar"
+cmp "$IRONWOOD_IDK_ROOT/lib/ironwood-bridge-values.jar" "$IRONWOOD_TEST_DIR/values.jar"
 if [[ $(uname -s) == Linux ]]; then
     case "$(uname -m)" in
         aarch64|arm64) IRONWOOD_SYSROOT_PACKAGE=sysroot_linux-aarch64 ;;

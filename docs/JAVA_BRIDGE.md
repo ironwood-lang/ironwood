@@ -10,7 +10,8 @@
 > Compiler-proved automatic callback batching is implemented under D231.
 > P7b copied primitive arrays are implemented and qualified on all three targets;
 > see the [array evidence and measurements](JAVA_BRIDGE_ARRAY_EVIDENCE.md). P7c1 bounded
-> byte views are being qualified; see the [buffer log](JAVA_BRIDGE_BUFFER_PROGRESS.md).
+> byte views are implemented and qualified on all three targets; see the
+> [buffer evidence and measurements](JAVA_BRIDGE_BUFFER_EVIDENCE.md).
 > P7d-P7f remain pending. Java 24+ remains refused. This is a producer
 > preview, not an announcement of a published release. The
 > [producer guide](JAVA_BRIDGE_USAGE.md) specifies the supported API and platform
