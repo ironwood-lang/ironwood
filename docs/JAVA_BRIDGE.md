@@ -15,8 +15,8 @@
 > P7d1 read-only, factory-produced generic facades are implemented and qualified
 > on all three targets, using the P7d0 foundations; see the
 > [generic evidence](JAVA_BRIDGE_GENERIC_PROGRESS.md).
-> P7d2 final-bounded construction/mutation is implemented under D237; its target
-> qualification is recorded in the generic log. P7e-P7f remain pending.
+> P7d2 final-bounded construction/mutation is implemented and qualified on all
+> three targets under D237; evidence is in the generic log. P7e-P7f remain pending.
 > Java 24+ remains refused. This is a producer
 > preview, not an announcement of a published release. The
 > [producer guide](JAVA_BRIDGE_USAGE.md) specifies the supported API and platform
