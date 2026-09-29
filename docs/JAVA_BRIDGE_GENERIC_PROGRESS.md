@@ -414,3 +414,33 @@ explicitly allows externally synchronized transfer and adds no thread checks.
 The test now verifies successful transfer and retention instead. Production
 behavior was not changed. Wrong-world rejection remains covered by the existing
 object bootstrap/collision checks; borrowed-owner identity has direct new cases.
+
+Implementation commit `c6811c0b` admits final-bounded constructors/inputs and
+reuses existing storage, lifetime and retention conversion. No semantic ownership
+analyzer, runtime ABI or runtime implementation changed. Commit `bc4cf5a3` adds
+the bounded example and focused setter qualification runner. Both are local.
+The example's compile/link/run path prints `bounded values: 17 29` under checked
+JNI. A Bash 3 nounset/empty-array issue in the new runner was corrected by keeping
+the required output arguments in its array; Mac resumed only the benchmark
+stage after all fixtures and 16 Java 22/23 replays passed. No payload changed.
+
+Cross-platform input snapshot `workspace/java-bridge/p7d2/input-bc4cf5a3.tar.gz`
+has SHA-256 `97c2d41100c6fe3d669a41d4cad04c745e5f65c8f83da488ed6f66fe21f88baf`.
+It includes tracked source, the precompiled Java 21 compiler/test classes,
+standard-library artifacts and a complete input hash manifest, preserving file
+timestamps. Compiler jar SHA-256:
+`0269e6eef50d56a84f7018e6d187b455562244e92106958e7770cbe3cb612a97`.
+Linux consumes these exact compiler bytes, without rebuilding or installing.
+Local ARM64 uses `workspace/java-bridge/p7d2/linux-arm64/work`; physical Estonia
+uses `~/temp/java-bridge/p7d2-bc4cf5a3/work`. Both use the previously prepared
+images and read-only support/JDK mounts documented above. Estonia began with
+108 GiB free; only this new task directory is used.
+
+The initial three-target matrix passed. A final additional check of a publicly
+constructed, permanently published class with two final bounds found that its
+private registration parameter used a raw class name. Strict generated-source
+compilation correctly refused it. The generator now spells that private carrier
+as `Pair<?, ?>`, preserving the same erased descriptor. The permanent two-bound
+case is added to the main producer regression. This finding requires a new
+compiler snapshot and complete focused target qualification before completion;
+the earlier `bc4cf5a3` measurements are superseded, not final-candidate evidence.

@@ -39,6 +39,20 @@ final class BridgeBoundedGenericTests {
     static List<SourceFile> sources(String box) {
         return List.of(SourceFile.of("Box.iron", box),
                 SourceFile.of("Quote.iron", "package bounded; public final class Quote { public int value() { return 17; } }"),
+                SourceFile.of("Other.iron", "package bounded; public final class Other {}"),
+                SourceFile.of("Pair.iron", """
+                        package bounded;
+                        public final class Pair<T extends Quote, U extends Other> {
+                            private T first;
+                            private U second;
+                            private static Object published;
+                            public Pair(T first, U second) { this.first = first; this.second = second; }
+                            public T first() { return first; }
+                            public U second() { return second; }
+                            public void set(T first, U second) { this.first = first; this.second = second; }
+                            public void publish() { published = this; }
+                        }
+                        """),
                 SourceFile.of("Value.iron", "package bounded; public final class Value { public int value() { return 29; } }"),
                 SourceFile.of("Sink.iron", """
                         package bounded;
@@ -204,6 +218,11 @@ final class BridgeBoundedGenericTests {
                 public static void main(String[] args) throws Exception {
                     if (args.length != 0) { oom(); return; }
                     Quote first = new Quote(), second = new Quote();
+                    Other value = new Other(); Pair<Quote, Other> pair = new Pair<>(first, value);
+                    pair.publish(); check(pair.first() == first && pair.second() == value);
+                    Pair<? super Quote, ? super Other> pairView = pair; pairView.set(null, null);
+                    check(pair.first() == null && pair.second() == null);
+                    for (var method : Pair.class.getMethods()) check(!method.getName().equals("free"));
                     Box<Quote> box = new Box<>(first), other = new Box<>(second);
                     check(box.get() == first && box.self() == box && box.equals(box) && !box.equals(other));
                     check(box.hashCode() == box.hashCode() && box.toString().startsWith("bounded.Box@"));

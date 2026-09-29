@@ -26,7 +26,8 @@ implemented and qualified on all three targets; see the
 acceptance remains maintainer review. P7d0 foundations and P7d1 read-only generic
 facades are implemented and qualified on all three targets under D235/D236; see the
 [generic progress/evidence log](JAVA_BRIDGE_GENERIC_PROGRESS.md).
-P7d2 and P7e-P7f remain pending. Release work belongs to the maintainer,
+P7d2 final-bounded construction/mutation is implemented under D237, with target
+qualification recorded in that log. P7e-P7f remain pending. Release work belongs to the maintainer,
 outside this implementation task.
 The release gates below still apply. The maintainer selected **Java 21-23** as the initial consumer
 support range, deferring Java 24+ and its native-access authorization work.
@@ -1465,7 +1466,7 @@ or weakening a phase's exit criteria. A submilestone is not a separate release.
 | P4: current OrderBook | Apply P3's non-reclamation proof to the dedicated engine closure; generate its actual API including nested enums and pooled orders; run the paired workload and section 11's P4 allocation acceptance cases. | `createLimit`, `cancel` and `reduceTo` export successfully under the proved permanent-storage contract; consumer imports actual classes without glue; correctness matches; D207 capacity-exhaustion controls remain producer exceptions, not bridge refusals; warmed scalar/cache-hit loops have zero native and Java allocations with strongly held facades, and weak-cache recreation meets the separate miss/collection criteria. No liveness bookkeeping is added to permanent scalar calls. Retention/cross-owner argument tests use the separate reclaimable fixture. Timing acceptance is deferred to P6. |
 | P6: distribution and final release readiness | Multi-target assembly, final classloader/module qualification, producer Maven/Gradle conventions, sources/Javadoc, license/source payloads, deployment diagnostics, final performance measurements. | Before starting, D209's product decision and any revised guard/tests/matrix are recorded. Clean consumer machines need only supported Java and dependency; all nine pinned Temurin/target cells below pass their focused checks on matching hardware under D205, including diagnostic and flag-free launches; the separate Java 24 refusal test passes; package content reproducible and reviewed; D210 macOS signature/load checks pass on final payloads; final numerical performance acceptance recorded. |
 | P5: bounded callbacks and Java exception propagation, implemented and qualified | Typed foreign calls/proxies, conservative effects, retained listener lifecycle, nested invocation contexts and callback-originated Java throwable propagation. Reuse P2/P3 native-to-Java translation. | Listener works as a Java interface; reentrancy, retained arguments and callback-triggered free tested; unchanged callback throwables preserve Java identity through nested calls, with carrier cleanup on catch/replace/retain paths; neither runtime unwinds across the boundary. D206 string-bearing callbacks allocate, reenter and throw without critical-region violations or leaked outer/nested buffers. |
-| P7: measured optimization and API expansion | D231 compiler-proved automatic callback batching, D233 copied primitive arrays and D234 bounded byte views are implemented and qualified; numerical acceptance remains review. P7d0/P7d1 read-only generic facades are implemented; P7d2 and P7e-P7f remain pending. | Each extension has a compatibility/proof contract, focused tests, allocation evidence, and machine-code/benchmark justification. |
+| P7: measured optimization and API expansion | D231 compiler-proved automatic callback batching, D233 copied primitive arrays and D234 bounded byte views are implemented and qualified; numerical acceptance remains review. P7d0-P7d2 bounded reference generics are implemented; P7e-P7f remain pending. | Each extension has a compatibility/proof contract, focused tests, allocation evidence, and machine-code/benchmark justification. |
 
 P2 is a usable scalar preview, not completion of the requested object feature.
 The initial object implementation followed P0 -> P1 -> P2 -> P3 -> P4 -> P6.
@@ -1495,7 +1496,7 @@ part of using the API.
 | P7a: automatic callback batching | D231's proved pure counted loops, preserving every Java listener call and ordinary-JNI fallback. | Implemented and qualified at `bd0711b4` with stack runner `e5c0df7a`. Further numerical tuning deferred by the maintainer. | Existing proof, allocation, reentry, failure and platform evidence in the [optimization report](JAVA_BRIDGE_CALLBACK_OPTIMIZATION.md); no claim of matching pure Java. |
 | P7b: primitive array values | Ordinary one-dimensional primitive array parameters and bounded result cases, with explicit alias, mutation and cleanup proofs. | Implemented and qualified on all three targets; [evidence and measurements](JAVA_BRIDGE_ARRAY_EVIDENCE.md). Numerical acceptance remains review. | P7b1 and P7b2 below pass source/class/archive parity, positive/negative proof cases and generated Java consumers. No unsupported array shape is admitted. |
 | P7c: bounded zero-copy buffers | A distinct call-scoped byte-view contract and reusable storage, without public native addresses or unbounded views. | P7c0 [API/lifetime design](JAVA_BRIDGE_BUFFER_DESIGN.md) accepted under D234; P7c1 implemented and qualified on all three targets in the [buffer evidence](JAVA_BRIDGE_BUFFER_EVIDENCE.md). Numerical acceptance remains review. | Storage cannot disappear during access, no view escapes, bounds and overlapping ranges are correct, exceptional cleanup passes, and the zero-copy path demonstrably copies no payload. |
-| P7d: bounded reference generics | Java-shaped generic facades for a finite, enforceable native type domain. | P7d0 exact metadata and P7d1 read-only factory products implemented under D235/D236; [verification log](JAVA_BRIDGE_GENERIC_PROGRESS.md). P7d2 construction/mutation remains pending. | Every Java-valid use of the emitted declaration is supported within its bounds, with preserved identity/ownership and no erased-signature loophole. |
+| P7d: bounded reference generics | Java-shaped generic facades for a finite, enforceable native type domain. | P7d0 exact metadata, P7d1 read-only factory products and P7d2 final-bounded construction/mutation implemented under D235-D237; [verification log](JAVA_BRIDGE_GENERIC_PROGRESS.md). | Every Java-valid use of the emitted declaration is supported within its bounds, with preserved identity/ownership and no erased-signature loophole. |
 | P7e: optional FFM transport | Evaluate ordinary downcalls first, then separately proved critical leaves, using the existing protected ABI. | Independent of P7c/P7d API expansion; JNI remains the default and fallback. | A qualified, measured improvement with unchanged semantics and explicit deployment policy, or an evidence-backed decision to retain JNI. Research alone does not count as an implemented FFM backend. |
 | P7f: combined qualification and documentation | Integrate the enabled subsets, package matching artifacts and update user-facing support boundaries. | Follows the implemented P7b-P7e subsets and their explicit gate outcomes. | Applicable pinned JVM/target cells, packaging, regression, allocation and benchmark checks pass for the final bytes; remaining exclusions and numerical review are recorded. |
 
@@ -1626,7 +1627,7 @@ to their producing analysis and reconstruction must derive fresh facts. See the
 A resolved signature is not an export or lifetime proof. The native ABI/root
 identity remains separate. P7d0 alone refused every generic class/method export,
 including declarations whose unused type variables leave a scalar native ABI.
-D236 supersedes that refusal only for the proved P7d1 class boundary below.
+D236/D237 supersede that refusal only for the proved class boundaries below.
 P7d1/P7d2 must check all Java-valid calls admitted by any emitted declaration,
 including raw, wildcard, unchecked-cast and overloaded client views. P7d0 neither
 emits generic Java facades nor relaxes Ironwood's rejection of raw source types.
@@ -1653,15 +1654,14 @@ generation is permitted.
 P7d1 uses shared reference-generic storage and a finite cold result converter,
 with no added generic bookkeeping on warmed getter paths. Concrete arguments
 are exported final nongeneric classes. Class bounds are Object, admitted final
-facades or same-declaration variables. All generic facade parameters, including
-fixed applications that Java clients could forge through unchecked casts, stay
-rejected until a separate input contract. Top-level final classes only; generic
+facades or same-declaration variables. Generic facade parameters remain rejected
+unless they satisfy the P7d2 final-bound input contract below. Top-level final classes only; generic
 methods, arrays, inheritance, listeners and primitive projections remain refused.
 See the [usage boundary](JAVA_BRIDGE_USAGE.md#read-only-generic-facades),
 [runnable example](../examples/java-bridge/generics/README.md) and
-[qualification log](JAVA_BRIDGE_GENERIC_PROGRESS.md). Stop before P7d2.
+[qualification log](JAVA_BRIDGE_GENERIC_PROGRESS.md).
 
-**P7d2 bounded construction/mutation, pending:** admit public constructors and
+**P7d2 bounded construction/mutation, implemented under D237:** admit public constructors and
 type-dependent inputs only where each class type parameter has a single
 already-admitted final native facade as its class bound. This makes every
 Java-valid type argument representable, including raw and wildcard client use.
@@ -1672,6 +1672,14 @@ at runtime. Standalone generic methods, generic listeners, generic inheritance,
 generic arrays and primitive generic projections stay outside both stages.
 Any later separately named specialization requires an explicit naming/API
 decision; existing nongeneric wrappers do not count as new generic support.
+
+The implementation reuses P0 construction, result-origin, retention and
+non-reclamation proofs. Exact generic facade inputs are admitted only for these
+final-bounded families; Java native parameters erase to the proved final facade.
+There is no new runtime generic bookkeeping. See the
+[bounded input contract](JAVA_BRIDGE_USAGE.md#bounded-generic-inputs),
+[example and matched setter runner](../examples/java-bridge/bounded-generics/README.md)
+and [qualification log](JAVA_BRIDGE_GENERIC_PROGRESS.md). Stop before P7e.
 
 Exit cases: two distinct factory-produced concrete applications, final-bounded
 construction/mutation, null and identity round trips, legal raw/wildcard consumers,
@@ -2427,7 +2435,7 @@ would be unsafe. This is an explicit later capability, not a hidden P3 promise.
 | --- | --- |
 | Transport and producer command | Generated C JNI adapters, `javac --release 21`, single-jar default, exact-package `--export` with exclusive ownership, and the command in section 5. Signature closure cannot silently add facade packages. |
 | API surface | Constructors, static/instance methods, primitives, copied strings with proved cleanup, D233 copied primitive arrays on proved methods, concrete non-subclassable facades, enums/static nested types, owned roots, borrowed views and compiler-proved non-reclaimable results. Inherited concrete-facade Object methods are Java-only and survive free (D198); supported source overrides retain native preconditions. P2 built-in exception/trace mappings and P3 copyable custom exception snapshots/getters are mandatory before release. |
-| Deferred surface | Callback shapes outside the bounded synchronous/retained-owner proofs, including reference callback results and arguments other than proved owner facades, array shapes outside D233, general `CharSequence`/`Object` arguments (except inherited identity equality), source overrides of `equals(Object)`, exported reference generics, general native inheritance, Java subclassing, mutable public fields, mixed fresh/borrowed reclaimable results, and arbitrary object-graph conversion. Reject unsupported public signatures at producer build. Internal uses remain allowed when their boundary proofs hold. |
+| Deferred surface | Callback shapes outside the bounded synchronous/retained-owner proofs, including reference callback results and arguments other than proved owner facades, array shapes outside D233, general `CharSequence`/`Object` arguments (except inherited identity equality), source overrides of `equals(Object)`, generic exports outside D236/D237, general native inheritance, Java subclassing, mutable public fields, mixed fresh/borrowed reclaimable results, and arbitrary object-graph conversion. Reject unsupported public signatures at producer build. Internal uses remain allowed when their boundary proofs hold. |
 | Retention | Fixed fields on reclaimable roots with persistent host records only; the authoritative native root index has reserved capacity and JNI global references to Java root state before execution. The adapter commits registration/count/slot updates before Java resumes; only weak facade caching follows in Java. P3 proves every write and rejects slot-value transfers or hidden publication. Borrowed-child retention slots and permanent holders of reclaimable targets are deferred. |
 | OrderBook | Preserve the actual project's process-lifetime graph using P3's non-reclaimable classification. Demonstrate complete `free()`, retention and cross-owner argument behavior using a separate reclaimable owner/child fixture. Reclaimable production OrderBook is a separate producer change; it is not claimed by this release. |
 | Platforms | macOS ARM64, Linux ARM64 and Linux x86-64. Reuse official IDK native baselines, including Linux glibc 2.17; record the macOS deployment target and required CPU features in the artifact. Effective support also requires a supported Java 21-23 JVM on that host. Do not advertise an older OS merely because the native payload can load there. |

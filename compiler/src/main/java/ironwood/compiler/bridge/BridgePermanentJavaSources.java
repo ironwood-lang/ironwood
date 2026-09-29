@@ -162,7 +162,7 @@ public final class BridgePermanentJavaSources {
             if (!rooted && type.callables().stream().anyMatch(method -> method.kind() == IrCallableKind.CONSTRUCTOR)) {
                 registrations.add(new BridgeJavaSources.FacadeRegistration(type.binaryName(), registration));
                 text.append(indent).append("    private static native void ").append(registration)
-                        .append("(long address, ").append(type.sourceName()).append(" facade);\n");
+                        .append("(long address, ").append(javaErasedType(type.exactType(), admission.surface())).append(" facade);\n");
             }
             if (rooted && admission.roots().orElseThrow().destruction().containsKey(reference)) {
                 String destroy = unique(occupied, "$ironwood$destroy");

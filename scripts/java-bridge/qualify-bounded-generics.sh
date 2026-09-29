@@ -40,8 +40,8 @@ for command_file in sorted(run.glob('*/consumer*.command.txt')):
   if result.returncode or result.stdout!=expected:raise RuntimeError(str(command_file)+' Java '+str(major))
 print('replays:',len(records))
 PY
-GENERIC_BENCH_ARGS=()
-if [[ "$GENERIC_TARGET" = linux-x86_64 ]]; then GENERIC_BENCH_ARGS=(--cpu 1); fi
+GENERIC_BENCH_ARGS=(--output "$GENERIC_EVIDENCE/performance")
+if [[ "$GENERIC_TARGET" = linux-x86_64 ]]; then GENERIC_BENCH_ARGS+=(--cpu 1); fi
 python3 examples/java-bridge/bounded-generics/benchmark.py "${GENERIC_BENCH_ARGS[@]}" \
- --output "$GENERIC_EVIDENCE/performance" > "$GENERIC_EVIDENCE/performance.log" 2>&1
+ > "$GENERIC_EVIDENCE/performance.log" 2>&1
 printf '0\n' > "$GENERIC_EVIDENCE/exit.txt"
