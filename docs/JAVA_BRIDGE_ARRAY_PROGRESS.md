@@ -79,12 +79,67 @@ No unfiltered compiler suites, installations, pushes or publication.
   Estonia `~/temp/java-bridge/p7b-readonly-20260928/work/evidence`.
   Linux input archive SHA-256:
   `4b08b97ec1675e0508f3cfaba5217f37528ad247bf300c62876f6e9b6ad29985`.
-- Next: collect conversion performance/machine-code evidence and complete P7b2
-  mutation/result proofs and failure ordering. No mutable or array-result API is
-  admitted yet. No remaining P7 milestone is implicitly authorized.
+- Read-only transport was committed as `be738c65`.
+- P7b2 in progress: matching P0 mutation/alias/fresh-result proofs and protected
+  transport are implemented. The first production test passed on Mac for
+  source/class/archive, O0/O3, all primitive kinds, instance methods, null/empty/
+  large results, alias identity, write-then-throw and native budgets 0/1/2.
+  A separate fault image passed 31 child JVM cases for partial/all copy-back
+  failures, continuation after a failed copy, primary exception preservation,
+  diagnostic allocation failure with stderr fallback, abandoned fresh-result
+  cleanup, and Java result allocation/copy failure. Compiler rollback cleanup
+  callees now enter the complete effect closure, with P0 reclamation unchanged.
+  A static preallocated exception fixture was rejected by existing retention
+  proofs; the fixture now measures ordinary thrown-exception process-lifetime
+  allocations against a matching scalar failure instead of weakening proofs.
+- Next: verify added String/array composition coverage, additional negative
+  proofs, final platform/JDK qualification and conversion performance/machine
+  code. No remaining P7 milestone is implicitly authorized.
+- All 12 focused Mac tests passed after copy-back integration, including the six
+  array fixtures and adjacent String/value proofs and generated JNI consumers.
+  Source/class/archive producer payloads, two fault images, alias String results
+  and static/instance String/array composition passed. Final added object-result
+  composition and fresh String failure cleanup are being verified separately.
+  Ordinary root-result delivery continues the established explicit-free/index
+  lifetime, including failed facade delivery; this is not array temporary storage.
+- The new array benchmark runner passed its functional smoke with identical
+  checksums for native Ironwood, Java and the generated bridge, plus native
+  allocation/live-storage checks. Full timings and Java 22/23 final replays remain.
+  It records batch-average call latency, not individual-call percentiles.
+  The previous Estonia read-only evidence archive has been streamed to
+  `workspace/java-bridge/arrays/estonia-readonly/evidence.tar.gz`.
+- Final additional Mac composition checks passed: array inputs with existing and
+  fresh root results, root-slot retention on success and store-then-throw, alias
+  and fresh String results, and cleanup when copy-back abandons those Strings.
+  The final fault image runs 45 checked-JNI child cases. Two adjacent native
+  regressions passed: primitive callback values/nesting/exception identity and
+  protected exception getter allocation/Java-delivery failures.
+- Final Linux source archive SHA-256:
+  `84726ea32349973244d5a1e9dc6568983720d2311e6fd6becf21385e1c232be5`.
+  It contains the current source and pinned Java 21 compiler/test classes, with
+  a per-file manifest. Runs are in `arrays/linux-arm64-values` locally and
+  `~/temp/java-bridge/p7b-values-20260928` on Estonia. Final JDK replays and
+  measurement runs are still in progress; no final qualification claimed yet.
 
 ## Pending evidence
 
 Read-only performance/machine-code evidence and P7b2 remain pending. Final
 qualification must use the final implementation bytes. Passing read-only
 transport checks does not complete P7b.
+
+## P7b2 failure ordering
+
+The maintainer chose the following exhaustion policy on 2026-09-28: keep the
+original failure primary, attaching copy-back failures when possible; if the JVM
+cannot aggregate the report, explicitly report unavailable copy-back diagnostics
+on stderr. Do not reserve Java diagnostic objects on successful calls.
+
+Copy back each distinct non-null input in first-parameter order, before result
+or exception delivery. Attempt later inputs even if an
+earlier copy fails; clear captured JNI exceptions before further JNI operations.
+On native failure, its translated throwable is primary. Otherwise the first
+copy-back failure is primary. Attach indexed copy-back diagnostics in parameter
+order. Aggregation failure never replaces that primary throwable. All conversion
+storage and any fresh result abandoned during Java delivery must be reclaimed.
+Acquisition failure before native execution leaves Java inputs unchanged. A
+failed copy-back is reported as a partial commit, never as a successful call.

@@ -143,6 +143,7 @@ public final class BridgeExceptionNativeSources {
             #include <stdlib.h>
             #include <string.h>
             #include <limits.h>
+            #include <stdio.h>
             #include "ironwood_bridge.h"
             @DECLARATIONS@
             typedef int32_t (*iw_exception_getter)(void *, int64_t);
@@ -162,7 +163,7 @@ public final class BridgeExceptionNativeSources {
                    IW_EX_OOM, IW_EX_LINKAGE, IW_EX_THROWABLE, @CUSTOM_CLASSES@IW_EX_CLASS_COUNT };
             struct iw_exception_metadata {
                 jclass classes[IW_EX_CLASS_COUNT];
-                jmethodID graph, frame;
+                jmethodID graph, frame, array_failure;
                 jfieldID message;
             };
             static void iw_exception_metadata_dispose(JNIEnv *env, struct iw_exception_metadata *metadata) {
@@ -186,6 +187,9 @@ public final class BridgeExceptionNativeSources {
                 metadata->graph = (*env)->GetStaticMethodID(env, factory, "graph",
                     "([I[Ljava/lang/String;[Ljava/lang/String;[Ljava/lang/String;[Ljava/lang/String;[I[I[[I[[Ljava/lang/StackTraceElement;@CUSTOM_DESCRIPTOR@@CALLBACK_DESCRIPTOR@)[Ljava/lang/Throwable;");
                 if (metadata->graph == NULL) goto failure;
+                metadata->array_failure = (*env)->GetStaticMethodID(env, factory, "arrayFailure",
+                    "(Ljava/lang/Throwable;Ljava/lang/Throwable;I)Z");
+                if (metadata->array_failure == NULL) goto failure;
                 metadata->frame = (*env)->GetMethodID(env, metadata->classes[IW_EX_FRAME], "<init>",
                     "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;I)V");
                 if (metadata->frame == NULL) goto failure;
@@ -198,6 +202,13 @@ public final class BridgeExceptionNativeSources {
             }
             static void iw_exception_error(JNIEnv *env, const struct iw_exception_metadata *metadata, int allocation, const char *message) {
                 if (!(*env)->ExceptionCheck(env)) (*env)->ThrowNew(env, metadata->classes[allocation ? IW_EX_OOM : IW_EX_LINKAGE], message);
+            }
+            __attribute__((unused, noinline)) static void iw_array_failure(JNIEnv *env,
+                    const struct iw_exception_metadata *metadata, jthrowable primary, jthrowable failure, jint input) {
+                jboolean reported = (*env)->CallStaticBooleanMethod(env, metadata->classes[IW_EX_FACTORY],
+                    metadata->array_failure, primary, failure, input);
+                if ((*env)->ExceptionCheck(env)) { (*env)->ExceptionClear(env); reported = JNI_FALSE; }
+                if (!reported) fprintf(stderr, "Ironwood array copy-back failed at native parameter %d; diagnostics unavailable; original failure preserved\\n", input);
             }
             static int iw_exception_status(JNIEnv *env, const struct iw_exception_metadata *metadata, int32_t status) {
                 if (status == 0) return 1;

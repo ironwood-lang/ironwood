@@ -202,7 +202,11 @@ final class BridgeRootEntryLowering {
 
     private void successCleanup(List<IrInstruction> success, Optional<IrValueReference> result) {
         for (int index = 0; index < copies.size(); index++) {
-            if (!(copies.get(index) instanceof IrBridgeStringCopyInstruction copy)) continue;
+            if (!(copies.get(index) instanceof IrBridgeStringCopyInstruction copy)) {
+                if (aliasResult()) blocks.add(new IrBasicBlock("cleanup." + index, List.of(),
+                        new IrJump(index + 1 == copies.size() ? "success" : "cleanup." + (index + 1), span), span));
+                continue;
+            }
             if (!aliasResult()) {
                 success.add(new IrRawDeallocateInstruction(copy.result(), span));
                 continue;

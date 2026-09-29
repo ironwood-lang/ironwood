@@ -16,8 +16,9 @@ Further callback performance optimization is deferred by the maintainer; the
 recorded numerical gap remains. D231's compiler-proved automatic
 callback batching is implemented and qualified; see the [optimization report](JAVA_BRIDGE_CALLBACK_OPTIMIZATION.md)
 for its narrow proof boundary, measured results and remaining numerical gap.
-P7b-P7f now have a [concrete planning breakdown](#p7-submilestones-and-api-boundaries-d232);
-their implementation remains pending. Release work
+P7b-P7f have a [concrete planning breakdown](#p7-submilestones-and-api-boundaries-d232).
+P7b implementation is authorized and its final qualification is in progress;
+see the [array progress log](JAVA_BRIDGE_ARRAY_PROGRESS.md). P7c-P7f remain pending. Release work
 belongs to the maintainer, outside this implementation task.
 The release gates below still apply. The maintainer selected **Java 21-23** as the initial consumer
 support range, deferring Java 24+ and its native-access authorization work.
@@ -1456,7 +1457,7 @@ or weakening a phase's exit criteria. A submilestone is not a separate release.
 | P4: current OrderBook | Apply P3's non-reclamation proof to the dedicated engine closure; generate its actual API including nested enums and pooled orders; run the paired workload and section 11's P4 allocation acceptance cases. | `createLimit`, `cancel` and `reduceTo` export successfully under the proved permanent-storage contract; consumer imports actual classes without glue; correctness matches; D207 capacity-exhaustion controls remain producer exceptions, not bridge refusals; warmed scalar/cache-hit loops have zero native and Java allocations with strongly held facades, and weak-cache recreation meets the separate miss/collection criteria. No liveness bookkeeping is added to permanent scalar calls. Retention/cross-owner argument tests use the separate reclaimable fixture. Timing acceptance is deferred to P6. |
 | P6: distribution and final release readiness | Multi-target assembly, final classloader/module qualification, producer Maven/Gradle conventions, sources/Javadoc, license/source payloads, deployment diagnostics, final performance measurements. | Before starting, D209's product decision and any revised guard/tests/matrix are recorded. Clean consumer machines need only supported Java and dependency; all nine pinned Temurin/target cells below pass their focused checks on matching hardware under D205, including diagnostic and flag-free launches; the separate Java 24 refusal test passes; package content reproducible and reviewed; D210 macOS signature/load checks pass on final payloads; final numerical performance acceptance recorded. |
 | P5: bounded callbacks and Java exception propagation, implemented and qualified | Typed foreign calls/proxies, conservative effects, retained listener lifecycle, nested invocation contexts and callback-originated Java throwable propagation. Reuse P2/P3 native-to-Java translation. | Listener works as a Java interface; reentrancy, retained arguments and callback-triggered free tested; unchanged callback throwables preserve Java identity through nested calls, with carrier cleanup on catch/replace/retain paths; neither runtime unwinds across the boundary. D206 string-bearing callbacks allocate, reenter and throw without critical-region violations or leaked outer/nested buffers. |
-| P7: measured optimization and API expansion | D231 compiler-proved automatic callback batching is implemented and qualified; numerical acceptance remains review. P7b-P7f below plan primitive arrays, bounded buffers, finite generics, optional FFM and combined qualification; implementation remains pending. | Each extension has a compatibility/proof contract, focused tests, allocation evidence, and machine-code/benchmark justification. |
+| P7: measured optimization and API expansion | D231 compiler-proved automatic callback batching is implemented and qualified; numerical acceptance remains review. P7b copied arrays are implemented with final qualification in progress. P7c-P7f below remain pending. | Each extension has a compatibility/proof contract, focused tests, allocation evidence, and machine-code/benchmark justification. |
 
 P2 is a usable scalar preview, not completion of the requested object feature.
 The initial object implementation followed P0 -> P1 -> P2 -> P3 -> P4 -> P6.
@@ -1475,8 +1476,8 @@ remains a separate task.
 Planning checkpoint, 2026-09-28. The maintainer requested this breakdown after
 closing P5 implementation and deferring further callback performance work.
 These are planned boundaries, not newly supported APIs or authorization to
-implement every extension. P7a is already delivered; begin future implementation
-with P7b. Keep Java 21-23, the Java 24+ refusal, the three current targets, exact
+implement every extension. P7a is already delivered; the maintainer subsequently
+authorized P7b. Keep Java 21-23, the Java 24+ refusal, the three current targets, exact
 exports and generated wiring. No handwritten JNI, native declarations or loader
 code is required from application developers. Explicit data ownership remains
 part of using the API.
@@ -1484,7 +1485,7 @@ part of using the API.
 | Submilestone | Deliverable | Status / dependency | Objective exit |
 | --- | --- | --- | --- |
 | P7a: automatic callback batching | D231's proved pure counted loops, preserving every Java listener call and ordinary-JNI fallback. | Implemented and qualified at `bd0711b4` with stack runner `e5c0df7a`. Further numerical tuning deferred by the maintainer. | Existing proof, allocation, reentry, failure and platform evidence in the [optimization report](JAVA_BRIDGE_CALLBACK_OPTIMIZATION.md); no claim of matching pure Java. |
-| P7b: primitive array values | Ordinary one-dimensional primitive array parameters and bounded result cases, with explicit alias, mutation and cleanup proofs. | Next implementation milestone; reuse existing admission and protected entries. | P7b1 and P7b2 below pass source/class/archive parity, positive/negative proof cases and generated Java consumers. No unsupported array shape is admitted. |
+| P7b: primitive array values | Ordinary one-dimensional primitive array parameters and bounded result cases, with explicit alias, mutation and cleanup proofs. | Implemented; final qualification in progress in the [array log](JAVA_BRIDGE_ARRAY_PROGRESS.md). | P7b1 and P7b2 below pass source/class/archive parity, positive/negative proof cases and generated Java consumers. No unsupported array shape is admitted. |
 | P7c: bounded zero-copy buffers | A distinct call-scoped byte-view contract and reusable storage, without public native addresses or unbounded views. | P7c0 API/lifetime review before P7c1 implementation; reuse P7b's descriptor/conversion foundations. | Storage cannot disappear during access, no view escapes, bounds and overlapping ranges are correct, exceptional cleanup passes, and the zero-copy path demonstrably copies no payload. |
 | P7d: bounded reference generics | Java-shaped generic facades for a finite, enforceable native type domain. | Independent of P7c transport; extend exact signature metadata before facade generation. | Every Java-valid use of the emitted declaration is supported within its bounds, with preserved identity/ownership and no erased-signature loophole. |
 | P7e: optional FFM transport | Evaluate ordinary downcalls first, then separately proved critical leaves, using the existing protected ABI. | Independent of P7c/P7d API expansion; JNI remains the default and fallback. | A qualified, measured improvement with unchanged semantics and explicit deployment policy, or an evidence-backed decision to retain JNI. Research alone does not count as an implemented FFM backend. |
@@ -1520,6 +1521,14 @@ lose writes or replace the original failure. Acquisition failure before native
 execution leaves all inputs unchanged. Fresh results need a nonescape/destruction
 proof for their native storage on Java allocation or copying failure as well as
 success. Retained, borrowed native-field and shared array results stay rejected.
+
+The maintainer accepted this failure-ordering detail on 2026-09-28: commit each
+distinct input in first-parameter order, attempting later copies after a failure.
+Keep the translated native failure primary, or the first copy-back failure when
+native execution succeeded. Attach indexed copy-back failures where possible.
+If the JVM cannot allocate the combined diagnostics, preserve the primary and
+explicitly report the unavailable copy-back diagnostics on stderr. Successful
+calls do not allocate reserved Java diagnostic objects.
 
 Copying cannot emulate Java reentry observing intermediate writes. Both stages
 therefore exclude callbacks, reentry, native retention and concurrent mutation

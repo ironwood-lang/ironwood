@@ -67,9 +67,18 @@ public final class BridgeStringResults {
             if (objects && !id.result().equals(IrType.reference("ironwood.lang.String"))) continue;
             if (!id.result().equals(IrType.reference("ironwood.lang.String"))
                     || id.kind() != IrCallableKind.METHOD || !objects && (!facts.isStatic(id)
-                    || id.parameters().stream().anyMatch(type -> type.isReference() && !type.equals(id.result())))) {
-                result.put(id, BridgeProof.rejected("copied String results require static scalar/String signatures"));
+                    || id.parameters().stream().anyMatch(type -> type.isReference() && !type.equals(id.result())
+                    && !ironwood.compiler.semantic.BridgeArrayInputs.primitiveArray(type)))) {
+                result.put(id, BridgeProof.rejected("copied String results require scalar or proved copied-value signatures"));
                 continue;
+            }
+            if (id.parameters().stream().anyMatch(IrType::isArray)) {
+                var arrays = ironwood.compiler.semantic.BridgeArrayInputs.values(artifact, id);
+                if (arrays.status() != BridgeProof.Status.PROVED) {
+                    result.put(id, arrays.status() == BridgeProof.Status.REJECTED
+                            ? BridgeProof.rejected(arrays.reason()) : BridgeProof.unknown(arrays.reason()));
+                    continue;
+                }
             }
             boolean borrowed = true;
             for (int input = 0; input < id.parameters().size(); input++) {

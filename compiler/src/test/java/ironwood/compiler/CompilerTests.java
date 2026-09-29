@@ -194,6 +194,9 @@ public final class CompilerTests {
         test(BridgeArrayInputTests.NAME, BridgeArrayInputTests::proofs);
         test(BridgeArrayProducerTests.NAME, BridgeArrayProducerTests::producer);
         test(BridgeArrayFaultTests.NAME, BridgeArrayFaultTests::failures);
+        test(BridgeArrayValueTests.NAME, BridgeArrayValueTests::proofs);
+        test(BridgeArrayValueProducerTests.NAME, BridgeArrayValueProducerTests::producer);
+        test(BridgeArrayValueFaultTests.NAME, BridgeArrayValueFaultTests::failures);
         test("Java Bridge String result proofs preserve ownership and artifact parity", BridgeStringResultTests::proofs);
         test(BridgeObjectStringTests.NAME, BridgeObjectStringTests::proofs);
         test(BridgePermanentStringTests.NAME, BridgePermanentStringTests::proofs);

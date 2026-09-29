@@ -50,6 +50,20 @@ final class BridgeExceptionSources {
                 .append("        if (value instanceof java.io.InterruptedIOException interrupted) interrupted.bytesTransferred = number;\n")
                 .append("        return value;\n    }\n");
         source.append(BridgeExceptionGraphSources.generate(projection, custom, carriers != null));
+        // Failure-only reporting must never replace the original failure, including
+        // when allocating a diagnostic or the suppressed-exception list fails.
+        source.append("""
+                    private static boolean arrayFailure(Throwable primary, Throwable failure, int input) {
+                        try {
+                            Throwable diagnostic = new IllegalStateException(
+                                    "Ironwood array copy-back failed at native parameter " + input,
+                                    primary == failure ? null : failure);
+                            primary.addSuppressed(diagnostic);
+                            for (Throwable item : primary.getSuppressed()) if (item == diagnostic) return true;
+                        } catch (Throwable unavailable) { }
+                        return false;
+                    }
+                """);
         if (custom != null) source.append(BridgeCustomSnapshotSources.factory(custom));
         if (parsed) {
             // A legal native CharSequence may render to null. Java's constructor

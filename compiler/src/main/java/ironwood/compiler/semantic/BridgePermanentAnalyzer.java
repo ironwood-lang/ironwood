@@ -60,8 +60,8 @@ public final class BridgePermanentAnalyzer {
             }
             types.addAll(id.parameters());
             types.add(id.result());
-            if (id.parameters().stream().anyMatch(IrType::isArray)) {
-                var arrays = BridgeArrayInputs.readOnly(artifact, id);
+            if (id.result().isArray() || id.parameters().stream().anyMatch(IrType::isArray)) {
+                var arrays = BridgeArrayInputs.values(artifact, id);
                 if (arrays.status() != BridgeProof.Status.PROVED) return failure(arrays.status(), arrays.reason());
             }
             for (int input = 0; input < id.parameters().size(); input++) {
