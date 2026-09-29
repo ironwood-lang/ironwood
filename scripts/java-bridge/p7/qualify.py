@@ -43,7 +43,7 @@ def main():
     parser.add_argument('--output', required=True, type=Path, help='New evidence directory')
     parser.add_argument('--target', choices=['macos-arm64', 'linux-arm64', 'linux-x86_64'])
     parser.add_argument('--jdks', type=Path, help='Parent of pinned temurin-22/23 target installations')
-    parser.add_argument('--host', action='append', type=Path, default=[], help='Three produce-stage directories, for assembly')
+    parser.add_argument('--host', action='append', type=Path, default=[], help='Three produce-stage directories for assembly; one for measurement')
     parser.add_argument('--candidate', type=Path, help='Assemble-stage directory, for launch')
     parser.add_argument('--test', action='append', help='Explicit subset when retrying failed checks')
     parser.add_argument('--cpu', type=int)
@@ -188,8 +188,13 @@ def main():
                     else: launch = ['-jar', executable]
                     run(str(major) + '-' + form + '-' + str(checked), [home / 'bin/java', *(['-Xcheck:jni'] if checked else []), *launch], 'p7-combined-ok\n')
     elif args.stage == 'measure':
+        if len(args.host) != 1: parser.error('measurement needs one qualified --host directory')
+        host = args.host[0].resolve()
+        inventory = json.loads((host / 'artifacts.json').read_text())
         for name in ('arrays', 'byteviews', 'generics', 'bounded-generics'):
-            run('measure-' + name, ['python3', EXAMPLES / name / 'benchmark.py', '--output', out / name,
+            jar = host / (name + '.jar')
+            if digest(jar) != inventory[name]['sha256']: raise RuntimeError('measurement candidate changed')
+            run('measure-' + name, ['python3', EXAMPLES / name / 'benchmark.py', '--output', out / name, '--bridge-jar', jar,
                 *(['--cpu', args.cpu] if args.cpu is not None else [])], timeout=1800)
     files = {str(p.relative_to(out)): digest(p) for p in out.rglob('*') if p.is_file()}
     (out / 'files.json').write_text(json.dumps(files, indent=2))

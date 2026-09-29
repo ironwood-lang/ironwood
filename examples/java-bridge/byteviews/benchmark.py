@@ -19,6 +19,7 @@ def main():
     parser.add_argument("--output", required=True, help="New evidence directory; existing directories are refused")
     parser.add_argument("--cpu", type=int, help="Linux CPU for functional and timing child processes")
     parser.add_argument("--quick", action="store_true", help="Short functional smoke, not performance evidence")
+    parser.add_argument("--bridge-jar", type=pathlib.Path, help="Reuse a qualified single-target host JAR without rebuilding it")
     args = parser.parse_args()
     source = pathlib.Path(__file__).resolve().parent
     root = source.parents[2]
@@ -44,9 +45,13 @@ def main():
     run("java-version", [jdk / "bin/java", "-version"])
     jar = output / "byteviews.jar"
     values = output / "ironwood-bridge-values.jar"
-    run("bridge-build", [compiler, "--java-bridge", "--export", "bytebench", "--unfreed=off", "-O3",
-                         "--license", root / "LICENSE-MIT", "--license", root / "LICENSE-APACHE",
-                         "-o", jar, source / "ByteOps.iron"])
+    if args.bridge_jar:
+        shutil.copyfile(args.bridge_jar, jar)
+        shutil.copyfile(args.bridge_jar.parent / "ironwood-bridge-values.jar", values)
+    else:
+        run("bridge-build", [compiler, "--java-bridge", "--export", "bytebench", "--unfreed=off", "-O3",
+                             "--license", root / "LICENSE-MIT", "--license", root / "LICENSE-APACHE",
+                             "-o", jar, source / "ByteOps.iron"])
     run("native-compile", [compiler, "--unfreed=off", "-d", output / "iron-classes",
                            source / "ByteOps.iron", source / "NativeBench.iron"])
     executable = output / "native-bench"
@@ -58,8 +63,11 @@ def main():
                              "-cp", values, source / "ByteOps.java"])
     with zipfile.ZipFile(str(jar)) as archive:
         (output / "bridge.properties").write_bytes(archive.read("META-INF/ironwood/bridge.properties"))
-        image = next(name for name in archive.namelist() if name.startswith("META-INF/ironwood/native/")
-                     and pathlib.Path(name).name in ("libbridge.so", "libbridge.dylib"))
+        images = [name for name in archive.namelist() if name.startswith("META-INF/ironwood/native/")
+                  and pathlib.Path(name).name in ("libbridge.so", "libbridge.dylib")]
+        if len(images) != 1:
+            raise ValueError("benchmark requires one host payload")
+        image = images[0]
         library = output / pathlib.Path(image).name
         library.write_bytes(archive.read(image))
     objdump = shutil.which("llvm-objdump")

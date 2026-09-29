@@ -1023,7 +1023,11 @@ String-array entry shape and the native `int` status extension.
   performance tuning. Final P6b qualification closeout remains before release.
   D226's bounded P5 callbacks are implemented and qualified on all three targets;
   see [listener evidence and measurements](JAVA_BRIDGE_P5_EVIDENCE.md). New listener
-  numerical acceptance remains review. P7 extensions remain deferred.
+  numerical acceptance remains review. P7a automatic callback batching, P7b
+  copied primitive arrays, P7c Java-owned ByteView storage, and P7d bounded
+  reference generics are implemented. D238 closes P7e with JNI retained after
+  its transport experiment; optional FFM remains unimplemented. Combined
+  [P7f qualification](JAVA_BRIDGE_P7_QUALIFICATION.md) is in progress.
 
 Cross-cutting work includes Linux x86-64 and macOS development, reproducible
 toolchain diagnostics, native debug information, benchmarks kept separate from

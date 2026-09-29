@@ -4,7 +4,8 @@
 
 The experimental producer builds host-target Java dependencies for macOS ARM64,
 Linux ARM64 and Linux x86-64, exposing primitive,
-copied-String and proved copied primitive-array APIs, roots and borrowed views with bounded retention,
+copied-String and proved copied primitive-array APIs, Java-owned bounded ByteView
+storage, roots and borrowed object views with bounded retention,
 permanent concrete objects, enums, custom exception snapshots and bounded
 synchronous Java listeners. Consumers call
 generated Java classes and catch mapped Java exceptions using ordinary dependency
@@ -33,6 +34,9 @@ are recorded, including physical Linux x86-64 execution under D213. Final
 OrderBook numerical acceptance is recorded in D225. New P5 callback measurements
 have their own [three-target qualification and measurement report](JAVA_BRIDGE_P5_EVIDENCE.md).
 Rosetta observations remain separate functional/static evidence.
+JNI remains the supported transport under D238; optional FFM is unimplemented.
+The [combined P7 qualification record](JAVA_BRIDGE_P7_QUALIFICATION.md) tracks
+the current array, ByteView, generic and listener artifacts together.
 
 Linux producers first prepare the [pinned native support SDK](JAVA_BRIDGE_NATIVE_SUPPORT.md)
 and set `IRONWOOD_BRIDGE_SUPPORT_HOME` to that target's prepared directory. Host

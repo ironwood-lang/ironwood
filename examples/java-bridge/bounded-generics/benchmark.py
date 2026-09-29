@@ -19,6 +19,7 @@ def main():
     parser.add_argument("--output", required=True, help="New evidence directory")
     parser.add_argument("--cpu", type=int, help="Linux CPU for timing children")
     parser.add_argument("--quick", action="store_true", help="Functional smoke only")
+    parser.add_argument("--bridge-jar", type=pathlib.Path, help="Reuse a qualified single-target host JAR without rebuilding it")
     args = parser.parse_args()
     source = pathlib.Path(__file__).resolve().parent
     root = source.parents[2]
@@ -42,16 +43,22 @@ def main():
 
     run("java-version", [jdk / "bin/java", "-version"])
     jar = output / "generics.jar"
-    run("bridge-build", [root / "bin/ironwoodc", "--java-bridge", "--export", "boundedbench", "--unfreed=off", "-O3",
-                         "--license", root / "LICENSE-MIT", "--license", root / "LICENSE-APACHE", "-o", jar]
-                        + sorted(source.glob("*.iron")))
+    if args.bridge_jar:
+        shutil.copyfile(args.bridge_jar, jar)
+    else:
+        run("bridge-build", [root / "bin/ironwoodc", "--java-bridge", "--export", "boundedbench", "--unfreed=off", "-O3",
+                             "--license", root / "LICENSE-MIT", "--license", root / "LICENSE-APACHE", "-o", jar]
+                            + sorted(source.glob("*.iron")))
     run("java-compile", [jdk / "bin/javac", "--release", "21", "-Xlint:all", "-Werror", "-d", output / "java",
                          "-cp", jar, source / "GenericBench.java", source / "Consumer.java"])
     run("consumer", [jdk / "bin/java", "-Xcheck:jni", "-cp", str(output / "java") + os.pathsep + str(jar), "Consumer"])
     with zipfile.ZipFile(str(jar)) as archive:
         (output / "bridge.properties").write_bytes(archive.read("META-INF/ironwood/bridge.properties"))
-        image = next(name for name in archive.namelist() if name.startswith("META-INF/ironwood/native/")
-                     and pathlib.Path(name).name in ("libbridge.so", "libbridge.dylib"))
+        images = [name for name in archive.namelist() if name.startswith("META-INF/ironwood/native/")
+                  and pathlib.Path(name).name in ("libbridge.so", "libbridge.dylib")]
+        if len(images) != 1:
+            raise ValueError("benchmark requires one host payload")
+        image = images[0]
         library = output / pathlib.Path(image).name
         library.write_bytes(archive.read(image))
     objdump = shutil.which("llvm-objdump")
