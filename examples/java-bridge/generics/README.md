@@ -33,7 +33,9 @@ python3 examples/java-bridge/generics/benchmark.py --output examples/java-bridge
 Use `--cpu 1` to pin Linux measurement children and `--quick` for functional
 smoke only. Each output directory must be new. The runner compares the cached
 `Box<Quote>.get()` with the equivalent nongeneric `Plain.get()`, including JNI,
-root checks, facade identity lookup and a Java identity check. It is a comparison
+root checks, facade identity lookup and a Java identity check. Both classes have
+static factory storage, so both native getters include the same initialization
+guard. It is a comparison
 of two bridge paths, not a native-only versus Java application benchmark.
 
 Three independent JVMs per path alternate execution order. Each runs five
