@@ -85,9 +85,13 @@ public final class BridgePermanentAnalyzer {
             }
         }
         Map<IrType, BridgeNonReclamationContract> references = new LinkedHashMap<>();
+        for (var type : Set.copyOf(types)) {
+            if (!type.typeArguments().isEmpty()) types.add(BridgeGenericDomain.storage(type));
+            types.addAll(facts.genericAlternatives(type, entries));
+        }
         for (var type : types) {
             if (!type.isReference() || type.equals(STRING) || BridgeArrayInputs.primitiveArray(type) || BridgeByteViews.view(type)) continue;
-            if (!type.isNominalReference() || !type.typeArguments().isEmpty()) {
+            if (!type.isNominalReference() && !type.isTypeParameter()) {
                 return BridgeProof.rejected("permanent entry does not admit array or generic conversion");
             }
             var proof = BridgeNonReclamationAnalyzer.analyze(program, roots, type, facts);

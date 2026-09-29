@@ -47,11 +47,12 @@ public record BridgeAbi(List<Value> parameters, Value result) {
             case I64 -> Optional.of(Carrier.SIGNED_I64);
             case F32 -> Optional.of(Carrier.IEEE_F32);
             case F64 -> Optional.of(Carrier.IEEE_F64);
-            case REFERENCE -> type.typeArguments().isEmpty()
+            case REFERENCE -> type.typeArguments().stream().noneMatch(IrType::isPrimitive)
                     ? Optional.of(Carrier.OPAQUE_REFERENCE) : Optional.empty();
+            case TYPE_PARAMETER -> Optional.of(Carrier.OPAQUE_REFERENCE);
             case ARRAY -> type.elementType().isPrimitive()
                     ? Optional.of(Carrier.OPAQUE_REFERENCE) : Optional.empty();
-            case TYPE_PARAMETER, WILDCARD, NULL, EXCEPTION -> Optional.empty();
+            case WILDCARD, NULL, EXCEPTION -> Optional.empty();
         };
     }
 

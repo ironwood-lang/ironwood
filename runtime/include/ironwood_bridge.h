@@ -60,6 +60,8 @@ _Static_assert(sizeof(struct ironwood_bridge_slot) == 16, "bridge slot record la
  * Copies only immutable image metadata pointers into invocation-local storage.
  * The owning image remains loaded while an adapter consumes the snapshot. */
 void ironwood_bridge_snapshot_failure(const void *object, struct ironwood_bridge_result *result);
+/* Used only for a proved finite generic result's facade cache miss. */
+int32_t ironwood_bridge_type_id(const void *object);
 
 /* Protected typed entry only. The adapter supplies valid UTF-16 storage through
  * the call; -1 denotes null. The copy owns its inline character storage. */

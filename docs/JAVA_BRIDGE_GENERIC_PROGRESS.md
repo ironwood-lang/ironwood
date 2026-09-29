@@ -131,3 +131,94 @@ change, additional platform qualification or new performance claim is made.
 No Estonia run, installation, push or publication was needed. Generic classes
 and methods remain rejected by the producer. P7d1/P7d2 admission, P7e and P7f
 remain pending; stop here as requested.
+
+## P7d1 pre-change review, 2026-09-29
+
+The maintainer now authorizes P7d1 only. Canonical checkout/remotes verified;
+clean `java-bridge` baseline `44ee1531`. Preserve D235 metadata, reference-generic
+shared native layouts, mandatory P0 lifetime/retention proofs, conservative
+unknown effects and D132/D133. P7d2 construction/mutation stays rejected.
+
+Trace exact concrete applications through semantic API facts, public roots,
+entry generation, Java generic declarations, JNI descriptors/conversion,
+identity caches, root ownership and artifact identities. Java unchecked casts
+must not select native layouts. Investigate finite producer-bound view dispatch
+while keeping generic method bodies/layouts shared. Reuse source analysis for
+any generated adapters; do not transplant lifetime summaries across changed IR.
+
+Required pairs: two factory-produced final reference applications versus unknown
+or primitive applications; private constructors/read-only type-dependent
+results versus public constructors/setters/generic methods; ordinary/raw/wildcard
+Java reads and failed unchecked casts; null, identity, inherited identity,
+borrowed ownership/retention and exceptional cleanup; unsafe frees and unknown
+effects still reject. Reconstruct source, individual classes and archives.
+Focused selection will include new generic producer/proof cases, existing P7d0
+tests, object result-origin/root-retention/permanent proofs and generic safe-free
+regressions. Inspect O3 code and allocation/timing evidence for the added native
+path. Run license and diff checks; no unfiltered suite.
+
+Initial implementation preserves one shared native class/body for reference
+applications. The actual result's native class selects its Java facade on a
+cache miss; warmed hits use the existing address/identity-cache path. No client
+type hint selects a native layout. Source-wide exact allocations establish
+finite variable domains only for final, read-only classes with inaccessible
+constructors; unresolved allocations disable that proof. Deallocation scans
+remain conservative. Final native-link checks carry these facts only through
+the existing fixed generated-entry and link transformations.
+
+Private generic factories require proved confined construction before their
+products can become owning roots. All reference applications share native
+storage identity, while exact source/API identity remains separate. Published
+families and their returned concrete values still require the full D192
+non-reclamation proof; no automatic reclamation is introduced. The change now
+touches construction-fact propagation, non-reclamation and root-retention
+consumers, so their paired safe/unsafe regressions are required as planned.
+
+Initial two-application producer test passed at O0/O3 across source, class
+directory, individual classes and archive inputs (`p7d1/initial-tests.log`,
+producer evidence `generics/producer/run-3027019797703943133`, both under ignored
+`workspace/java-bridge/`). This includes Java raw/wildcard/unchecked views,
+identity, null, native exceptions, owning-root free and zero warmed native
+allocations. Borrowed views, further fault/negative checks and qualification
+remain in progress. No completion or performance claim yet.
+
+P7d1 implementation checkpoint: source, class-directory, individual-class and
+archive producer consumers pass at O0/O3, including a final-bounded getter,
+borrowed generic boxes, raw/wildcard casts, overloads, identity and native OOM
+children. Published generic families pass in pure-permanent and mixed surfaces;
+a reachable owned-family destructor correctly prevents permanent admission.
+Cold conversion uses an existing native type ID, not a new layout tag. Warmed
+calls retain the existing address/identity-cache path.
+
+The borrowed fixture initially attempted to own a factory result that ordinary
+source ownership could not prove. It now constructs the package-private box
+directly, allowing the existing field-ownership proof. No ownership rule changed.
+An old permanent-proof fixture still expected primitive-array ABI refusal from
+before P7b. Its negative now uses a reference array; existing primitive-array
+coverage remains. Generic ABI descriptors can describe reference variables and
+applications, but are not producer conversion capabilities. The model test
+records that distinction and retains primitive projection/array negatives.
+
+Shared proof regressions passed in `p7d1/expanded.log` (nine checks); that run
+found an unchecked generated cache cast for permanent generic factories. The
+producer now marks only its necessary generated casts, and the corrected full
+producer test passes in `p7d1/producer-final.log`. Native OOM leaves existing
+facades live and unwritten output survives rejected public construction. A
+final expanded run is pending for that last producer-negative addition.
+
+The new `examples/java-bridge/generics` compile/link/run passes with checked JNI;
+its matched getter runner has passed Mac functional smoke and preserved payload
+hashes, bytecode and disassembly under `p7d1/mac-smoke`. Linux ARM64/x86-64
+qualification, full allocation/timing measurements and final documentation are
+pending. Estonia has existing suitable images/JDKs/SDKs; use only the authorized
+validation folder without installations. Stop after P7d1, before P7d2.
+
+Final Mac focused selection: the two new generic tests and both P7d0 tests,
+root results/retention, public API closure, ordinary generic safe-free/cast
+checks, and existing mixed-retention producer have passing evidence across
+`p7d1/final-focused.log` and `p7d1/producer-preservation.log`. The latter reruns
+only failures: CLI fallback now preserves the precise generic refusal, and a
+second obsolete primitive-array negative in the mixed producer now uses a
+reference array. All three rerun checks passed. Source/class/archive public
+constructor refusals preserve the existing output file. License audit and diff
+checks passed. P7d1 qualification remains pending; no P7d2 work is authorized.

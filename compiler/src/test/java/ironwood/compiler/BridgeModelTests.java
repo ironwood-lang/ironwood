@@ -57,7 +57,10 @@ final class BridgeModelTests {
                 "boolean must use normalized byte transport");
         check(BridgeAbi.carrierFor(IrType.array(IrType.I32)).orElseThrow() == BridgeAbi.Carrier.OPAQUE_REFERENCE,
                 "primitive array descriptor does not itself authorize conversion");
-        for (IrType unsupported : List.of(IrType.array(IrType.array(IrType.I32)), IrType.typeParameter("T"),
+        check(BridgeAbi.carrierFor(IrType.typeParameter("T")).orElseThrow() == BridgeAbi.Carrier.OPAQUE_REFERENCE
+                && BridgeAbi.carrierFor(IrType.reference("Box", List.of(IrType.reference("Item")))).orElseThrow()
+                    == BridgeAbi.Carrier.OPAQUE_REFERENCE, "reference generic descriptors are not export permission");
+        for (IrType unsupported : List.of(IrType.array(IrType.array(IrType.I32)),
                 IrType.reference("Box", List.of(IrType.I32)), IrType.EXCEPTION, IrType.NULL)) {
             check(BridgeAbi.carrierFor(unsupported).isEmpty(), "unsupported ABI silently erased: " + unsupported);
         }

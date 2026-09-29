@@ -81,6 +81,15 @@ public final class BridgePermanentNativeSources {
         for (int index = 0; index < permanent.facades().size(); index++) types.put(IrType.reference(permanent.facades().get(index).binaryName()), index);
         var rootTypes = new java.util.LinkedHashMap<IrType, Integer>();
         for (int index = 0; index < rootFacades.size(); index++) rootTypes.put(IrType.reference(rootFacades.get(index).binaryName()), index);
+        for (var root : admission.surface().roots().roots()) {
+            var references = new ArrayList<>(root.callable().parameters());
+            references.add(root.callable().result());
+            for (var reference : references) {
+                var storage = BridgeGenericDomain.storage(reference);
+                if (types.containsKey(storage)) types.put(reference, types.get(storage));
+                if (rootTypes.containsKey(storage)) rootTypes.put(reference, rootTypes.get(storage));
+            }
+        }
         var enums = new java.util.LinkedHashMap<IrType, Integer>();
         for (int index = 0; index < java.enums().size(); index++) enums.put(IrType.reference(java.enums().get(index).binaryName()), index);
         var adapters = new ArrayList<Adapter>();
@@ -101,14 +110,31 @@ public final class BridgePermanentNativeSources {
             emit(text, entry, binding, module, types, enums, java, function, admission, roots, rootTypes, artifact);
         }
         var conversions = new java.util.HashSet<BridgeJavaSources.NativeDeclaration>();
+        var generics = BridgeGenericDomain.discover(artifact, admission.surface().types());
         for (var binding : java.declarations().bindings()) {
             if (!binding.returnsPermanentAddress() || !conversions.add(binding.conversionDeclaration())) continue;
             Integer index = types.get(binding.method().result());
-            if (index == null) throw new IllegalArgumentException("address result lacks exact permanent facade proof");
             String function = "iw_permanent_convert_" + adapters.size();
             adapters.add(new Adapter(binding.conversionDeclaration(), function));
-            text.append("static jobject ").append(function).append("(JNIEnv *env, jclass type, jlong address) {\n")
-                    .append("    (void)type; return iw_permanent_wrap(env, ").append(index).append(", (void *)(uintptr_t)address);\n}\n");
+            text.append("static jobject ").append(function).append("(JNIEnv *env, jclass type, jlong address) {\n    (void)type;\n");
+            if (index != null) text.append("    return iw_permanent_wrap(env, ").append(index).append(", (void *)(uintptr_t)address);\n");
+            else {
+                var alternatives = generics.variables().get(binding.method().result().referenceName());
+                if (alternatives == null || alternatives.isEmpty()) throw new IllegalArgumentException("address result lacks exact permanent facade proof");
+                text.append("    if (address == 0) return NULL;\n    switch (ironwood_bridge_type_id((void *)(uintptr_t)address)) {\n");
+                for (var alternative : alternatives) {
+                    Integer facade = types.get(alternative);
+                    if (facade == null || !admission.lifetime().references().containsKey(alternative)) {
+                        throw new IllegalArgumentException("generic result alternative lacks final storage proof");
+                    }
+                    int typeId = admission.program().classes().stream().filter(type -> type.name().equals(alternative.referenceName()))
+                            .findFirst().orElseThrow().typeId();
+                    text.append("    case ").append(typeId).append(": return iw_permanent_wrap(env, ").append(facade)
+                            .append(", (void *)(uintptr_t)address);\n");
+                }
+                text.append("    default: iw_exception_error(env, &iw_exceptions, 0, \"Unknown finite generic result\"); return NULL;\n    }\n");
+            }
+            text.append("}\n");
         }
         for (var binding : java.declarations().facadeRegistrations()) {
             String function = "iw_permanent_register_" + adapters.size();

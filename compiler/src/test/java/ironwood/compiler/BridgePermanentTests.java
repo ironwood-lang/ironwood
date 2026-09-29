@@ -22,7 +22,7 @@ final class BridgePermanentTests {
                 static Item unknownOrigin() { return saved; }
                 static void reclaim() { Item temporary = new Item(); free temporary; }
                 static Item unknownEffect(Item value) { long ignored = System.nanoTime(); return value; }
-                static int[] array(int[] input) { return input; }
+                static Item[] array(Item[] input) { return input; }
             }
             """;
 

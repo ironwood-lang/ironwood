@@ -34,7 +34,7 @@ final class BridgeRootRetentionSources {
         }
         for (int index = 0; index < slots.size(); index++) {
             var slot = slots.get(index);
-            int field = admission.roots().orElseThrow().protocol().rootSlots().get(callable.parameters().get(slot.holderInput())).indexOf(slot.field());
+            int field = admission.roots().orElseThrow().protocol().rootSlots().get(BridgeGenericDomain.storage(callable.parameters().get(slot.holderInput()))).indexOf(slot.field());
             if (field < 0) throw new IllegalArgumentException("retention slot missing from final root layout");
             text.append("    retention_payload[").append(index).append("] = -1;\n")
                     .append("    if (retention_input").append(slot.holderInput()).append(" >= 0) {\n")

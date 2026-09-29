@@ -75,7 +75,7 @@ final class BridgeObjectProducerTests {
                     "-o", firstJar.toString(), rejected.toString()));
             check(output.contains("copying a loaded slot value into retaining storage is unsupported"), output);
             for (var bad : Map.of("snapshot", "package pending; public final class Rejected extends Exception { public Object getObject() { return null; } }",
-                    "array", "package pending; public final class Rejected { private Rejected() {} public static int[] get() { return null; } }").entrySet()) {
+                    "array", "package pending; public final class Rejected { private Rejected() {} public static Rejected[] get() { return null; } }").entrySet()) {
                 Files.writeString(rejected, bad.getValue());
                 command(directory, bad.getKey() + "-" + mode, 1, List.of("--java-bridge", "--export", "pending", "--unfreed=" + mode.name().toLowerCase(java.util.Locale.ROOT),
                         "-o", firstJar.toString(), rejected.toString()));

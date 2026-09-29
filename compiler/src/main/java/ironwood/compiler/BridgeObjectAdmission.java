@@ -106,6 +106,7 @@ public final class BridgeObjectAdmission {
     private static Map<IrType, List<String>> candidates(CompilationArtifact artifact, BridgeExportSurface surface, Set<IrType> objects) {
         var facts = artifact.bridgeConstructionFacts().orElseThrow();
         Map<IrType, Set<String>> reasons = new LinkedHashMap<>();
+        var generics = BridgeGenericDomain.discover(artifact, surface.types());
         var publications = BridgeRetentionAnalyzer.publishedReceivers(artifact.program().orElseThrow(), surface.roots(), facts);
         for (var root : surface.roots().roots()) {
             var id = root.callable();
@@ -131,6 +132,28 @@ public final class BridgeObjectAdmission {
                         && reasons.containsKey(id.parameters().get(result.inputs().iterator().next()))) {
                     reasons.put(id.result(), new LinkedHashSet<>(Set.of("dependent view of permanent candidate: " + id.linkage())));
                     changed = true;
+                }
+            }
+            // A variable result may expose any of its native production alternatives.
+            // Every alternative needs the same independent non-reclamation proof.
+            for (var entry : generics.variables().entrySet()) {
+                if (reasons.keySet().stream().anyMatch(type -> type.isTypeParameter() && type.referenceName().equals(entry.getKey()))) {
+                    for (var alternative : entry.getValue()) {
+                        if (!reasons.containsKey(alternative)) changed = true;
+                        reasons.computeIfAbsent(alternative, ignored -> new LinkedHashSet<>())
+                                .add("finite generic result alternative: " + entry.getKey());
+                    }
+                }
+            }
+            // Native reference applications share storage and one Java facade class.
+            // Publication through any application therefore requires the family-wide
+            // permanent proof, including its declaration receiver view.
+            for (var type : objects) {
+                if (!type.isNominalReference() || !generics.applications().containsKey(type.referenceName())) continue;
+                if (reasons.keySet().stream().anyMatch(other -> other.isNominalReference()
+                        && other.referenceName().equals(type.referenceName()))) {
+                    if (!reasons.containsKey(type)) changed = true;
+                    reasons.computeIfAbsent(type, ignored -> new LinkedHashSet<>()).add("shared reference-generic storage family: " + type.referenceName());
                 }
             }
         } while (changed);

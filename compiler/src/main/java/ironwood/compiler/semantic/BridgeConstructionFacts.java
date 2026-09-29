@@ -32,6 +32,7 @@ public final class BridgeConstructionFacts {
     private final Set<BridgeCallableId> constructibleConstructors;
     private final Map<BridgeCallableId, BridgeProof<BridgeResultOriginContract>> resultOrigins;
     private final Map<BridgeCallableId, BridgeCallableId> generatedConstructors;
+    private final Map<String, Set<ironwood.compiler.ir.IrType>> genericAllocations;
 
     private BridgeConstructionFacts(IrProgram program,
             Map<BridgeCallableId, BridgeProof<BridgeConstructionContract>> constructors,
@@ -39,7 +40,8 @@ public final class BridgeConstructionFacts {
             Map<BridgeCallableId, Set<Integer>> returnOnlyInputs, Set<BridgeCallableId> staticCallables,
             Set<BridgeCallableId> finalCallables, Set<BridgeCallableId> constructibleConstructors,
             Map<BridgeCallableId, BridgeProof<BridgeResultOriginContract>> resultOrigins,
-            Map<BridgeCallableId, BridgeCallableId> generatedConstructors) {
+            Map<BridgeCallableId, BridgeCallableId> generatedConstructors,
+            Map<String, Set<ironwood.compiler.ir.IrType>> genericAllocations) {
         this.program = program;
         this.constructors = Map.copyOf(constructors);
         this.borrowedInputs = Map.copyOf(borrowedInputs);
@@ -49,6 +51,7 @@ public final class BridgeConstructionFacts {
         this.constructibleConstructors = Set.copyOf(constructibleConstructors);
         this.resultOrigins = Map.copyOf(resultOrigins);
         this.generatedConstructors = Map.copyOf(generatedConstructors);
+        this.genericAllocations = Map.copyOf(genericAllocations);
     }
 
     static BridgeConstructionFacts project(IrProgram raw, IrProgram specialized,
@@ -110,7 +113,8 @@ public final class BridgeConstructionFacts {
                         "final escape, owned-field and closed-world construction validation passed"));
             }
         }
-        return new BridgeConstructionFacts(specialized, facts, borrowed, returnOnly, statics, finals, constructible, results, Map.of());
+        return new BridgeConstructionFacts(specialized, facts, borrowed, returnOnly, statics, finals, constructible, results, Map.of(),
+                unchanged ? BridgeGenericAllocations.project(raw, types) : Map.of());
     }
 
     /** Preserve only unchanged source facts across the fixed, privately built adapters. */
@@ -143,7 +147,7 @@ public final class BridgeConstructionFacts {
         // New functions receive no borrowing, ownership or result-origin facts.
         // Consumers must still inspect their actual operations and full closure.
         return new BridgeConstructionFacts(candidate, constructors, borrowedInputs, returnOnlyInputs,
-                staticCallables, finalCallables, constructibleConstructors, resultOrigins, generated);
+                staticCallables, finalCallables, constructibleConstructors, resultOrigins, generated, genericAllocations);
     }
 
     private void checkSynthesis(IrProgram candidate, List<IrFunction> additions) {
@@ -201,7 +205,22 @@ public final class BridgeConstructionFacts {
         // No effect query is skipped: consumers re-scan final calls, dispatch,
         // generated rollback and cleanup. Unknown source facts stay unknown.
         return new BridgeConstructionFacts(transformation.program(), construction, borrowed, returned,
-                statics, finals, constructible, results, generated);
+                statics, finals, constructible, results, generated, genericAllocations);
+    }
+
+    Set<ironwood.compiler.ir.IrType> genericAlternatives(ironwood.compiler.ir.IrType type,
+            ironwood.compiler.bridge.BridgeRootSet roots) {
+        if (!type.isTypeParameter()) return Set.of();
+        // A direct private construction root could manufacture applications not
+        // present in source allocations. Generated constructor entries inherit
+        // that same restriction; no export permission follows from this fact.
+        for (var root : roots.roots()) {
+            var id = generatedConstructors.getOrDefault(root.callable(), root.callable());
+            if (id.kind() == IrCallableKind.CONSTRUCTOR && !id.parameters().isEmpty()
+                    && id.parameters().getFirst().typeArguments().contains(type)) return Set.of();
+            if (id.parameters().contains(type)) return Set.of();
+        }
+        return genericAllocations.getOrDefault(type.referenceName(), Set.of());
     }
 
     public Map<BridgeCallableId, BridgeProof<BridgeConstructionContract>> constructors() {

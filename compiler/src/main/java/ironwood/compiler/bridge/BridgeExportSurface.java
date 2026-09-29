@@ -129,6 +129,13 @@ public record BridgeExportSurface(List<BridgeApiFacts.Type> types, BridgeRootSet
         }
         var selected = facts.types().values().stream()
                 .filter(type -> packages.contains(type.packageName()) && type.accessible()).toList();
+        BridgeGenericDomain generics = new BridgeGenericDomain(java.util.Map.of(), java.util.Map.of());
+        if (shape == Shape.OBJECT_VALUE) {
+            try { generics = BridgeGenericDomain.discover(artifact, selected); }
+            catch (IllegalArgumentException failure) {
+                return new Selection(Optional.empty(), List.of(Diagnostic.global(failure.getMessage())));
+            }
+        }
         for (String name : packages) {
             var marker = facts.types().get(name + "." + PACKAGE_MARKER);
             if (marker != null) error(diagnostics, marker.source(), marker.span(),
@@ -179,7 +186,8 @@ public record BridgeExportSurface(List<BridgeApiFacts.Type> types, BridgeRootSet
                     continue;
                 }
             }
-            if (!enumType && (type.kind() != BridgeApiFacts.Kind.CLASS || type.abstractType()) || type.generic() || type.throwable()
+            if (!enumType && (type.kind() != BridgeApiFacts.Kind.CLASS || type.abstractType())
+                    || type.generic() && !generics.applications().containsKey(type.binaryName()) || type.throwable()
                     || type.enclosingType().isPresent() && !type.staticMember()
                     || !enumType && objects(shape) && !type.finalType() && type.callables().stream()
                     .anyMatch(method -> !method.isStatic() && !method.owner().equals("ironwood.lang.Object"))) {
@@ -235,7 +243,8 @@ public record BridgeExportSurface(List<BridgeApiFacts.Type> types, BridgeRootSet
                         && (method.isStatic() || objects(shape))
                         || objects(shape) && !enumType && method.kind() == IrCallableKind.CONSTRUCTOR;
                 if (!callableShape || method.generic()
-                        || !supported(method.result(), shape, false, facts) || method.parameters().stream()
+                        || !(supported(method.result(), shape, false, facts) || generics.contains(method.result())
+                            || type.generic() && method.result().equals(type.exactType())) || method.parameters().stream()
                         .anyMatch(parameter -> !supported(parameter, shape, true, facts))) {
                     error(diagnostics, method.source(), method.span(), "public member '" + member
                             + (objects(shape) ? "' is outside the concrete-object Java Bridge signature surface"
@@ -321,7 +330,8 @@ public record BridgeExportSurface(List<BridgeApiFacts.Type> types, BridgeRootSet
             closure(type.elementType(), member, source, span, facts, packages, diagnostics);
         } else if (type.isNominalReference()) {
             type.typeArguments().forEach(argument -> closure(argument, member, source, span, facts, packages, diagnostics));
-            if (type.equals(STRING) || isBuiltinThrowable(type) || ironwood.compiler.semantic.BridgeByteViews.view(type)) return;
+            if (type.equals(STRING) || type.equals(IrType.reference("ironwood.lang.Object"))
+                    || isBuiltinThrowable(type) || ironwood.compiler.semantic.BridgeByteViews.view(type)) return;
             var required = facts.types().get(type.referenceName());
             if (required == null || !required.accessible()) {
                 error(diagnostics, source, span, "public member '" + member + "' requires inaccessible signature type '"
