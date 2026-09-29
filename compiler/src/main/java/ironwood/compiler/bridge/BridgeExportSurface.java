@@ -12,6 +12,7 @@ import ironwood.compiler.source.SourceSpan;
 
 import javax.lang.model.SourceVersion;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -139,6 +140,14 @@ public record BridgeExportSurface(List<BridgeApiFacts.Type> types, BridgeRootSet
         if (packages.isEmpty()) diagnostics.add(Diagnostic.global("Java Bridge requires an exact export package"));
         var requested = new ArrayList<BridgeCallableId>();
         for (var type : selected) {
+            var signatures = new LinkedHashMap<BridgeCallableId.SourceSignature, BridgeApiFacts.ResolvedSignature>();
+            for (var method : type.callables()) {
+                var proof = facts.resolve(artifact.program().orElseThrow(), method.signature());
+                if (proof.status() != BridgeProof.Status.PROVED) {
+                    error(diagnostics, method.source(), method.span(), proof.reason());
+                } else signatures.put(method.signature(), proof.contract().orElseThrow());
+            }
+            if (signatures.size() != type.callables().size()) continue;
             if (callbacks(shape) && type.kind() == BridgeApiFacts.Kind.INTERFACE) {
                 if (type.generic() || !type.fields().isEmpty() || !type.supertypes().isEmpty()
                         || type.enclosingType().isPresent()) {
@@ -221,6 +230,7 @@ public record BridgeExportSurface(List<BridgeApiFacts.Type> types, BridgeRootSet
                     if (shape != Shape.OBJECT_VALUE && !isBuiltinThrowable(thrown)) error(diagnostics, method.source(), method.span(),
                             "public member '" + member + "' declares a custom exception requiring the object snapshot phase");
                 }
+                var nativeTarget = signatures.get(method.signature()).target();
                 boolean callableShape = method.kind() == IrCallableKind.METHOD
                         && (method.isStatic() || objects(shape))
                         || objects(shape) && !enumType && method.kind() == IrCallableKind.CONSTRUCTOR;
@@ -234,14 +244,14 @@ public record BridgeExportSurface(List<BridgeApiFacts.Type> types, BridgeRootSet
                 } else if (dispatch != null) {
                     dispatch.targets().stream().filter(target -> !target.javaIdentity()).map(BridgeEnumDispatch.Target::callable)
                             .forEach(requested::add);
-                } else if (method.target().isEmpty()) {
+                } else if (nativeTarget.isEmpty()) {
                     error(diagnostics, method.source(), method.span(), "public member '" + member
                             + "' has no exact resolved native target");
                 } else if (method.result().isArray() || method.parameters().stream().anyMatch(IrType::isArray)) {
-                    var proof = ironwood.compiler.semantic.BridgeArrayInputs.values(artifact, method.target().orElseThrow());
+                    var proof = ironwood.compiler.semantic.BridgeArrayInputs.values(artifact, nativeTarget.orElseThrow());
                     if (proof.status() != BridgeProof.Status.PROVED) error(diagnostics, method.source(), method.span(), proof.reason());
-                    else requested.add(method.target().orElseThrow());
-                } else requested.add(method.target().orElseThrow());
+                    else requested.add(nativeTarget.orElseThrow());
+                } else requested.add(nativeTarget.orElseThrow());
             }
         }
         if (Diagnostic.hasErrors(diagnostics)) return new Selection(Optional.empty(), diagnostics);
