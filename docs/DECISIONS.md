@@ -8983,3 +8983,39 @@ occurrence order. If no
   zero-copy path has useful read/update gains over copied arrays; overlapping
   writes retain a measured gap. The [log](JAVA_BRIDGE_BUFFER_PROGRESS.md) records
   checkpoints. No later P7 submilestone is authorized by this completion.
+
+
+## D235 - Preserve exact generic source identities before bridge admission
+
+- **Status:** P7d0 implemented under the maintainer's 2026-09-29 authorization
+  for this checkpoint only. This supersedes D232's planning-only status solely
+  for generic signature foundations. P7d1/P7d2 and P7e-P7f remain pending.
+- **Metadata:** Preserve scoped class/method variables, ordered full bounds,
+  declaration erasure separately from substituted bounds, implicit-bound
+  primitive eligibility, exact applied receiver/declaring-owner views and member
+  parameters/results/throws. Public constructors, setters and unsupported
+  members remain in the inventory; do not omit them to make an API admissible.
+- **Identity and proof:** `BridgeCallableId.SourceSignature` is separate from the
+  native callable/ABI identity. Exact signature resolution returns metadata
+  evidence only. A generic source view does not acquire an exact native target
+  through equal erasure, linkage or explicit parameter types alone; compare its
+  receiver too. The inventory retains native candidates for separately proved
+  dispatch protocols, including inherited empty-enum Java identity methods;
+  these candidates are not exact direct-call bindings. Every lifetime, retention
+  and reclamation proof remains required.
+- **Revalidation:** Source-only secondary-bound changes can produce equal lowered
+  programs. API facts therefore match only the final program instance from their
+  semantic analysis. Source/class/archive reconstruction derives fresh facts;
+  stable complete source signatures and native targets are checked against them.
+  Existing artifact source reconstruction suffices; no format or runtime state is
+  added. Unknown, absent or stale facts cannot authorize an export.
+- **Boundary:** Generic class/method exports remain rejected, including unused
+  type variables whose ABI is otherwise scalar. P7d0 does not generate generic
+  Java declarations, enable raw Ironwood types, interpret Java unchecked casts
+  as native layout evidence, or implement generic lifetime conversion. Later
+  admission must support every Java-valid raw/wildcard/overloaded client use of
+  its emitted declaration. Native ABI, transport and hot lowering are unchanged.
+- **Verification:** The [P7d0 log](JAVA_BRIDGE_GENERIC_PROGRESS.md) records focused
+  signature/proof parity, same-IR changed-bound rejection, producer refusals and
+  adjacent bridge/ownership regressions. No new native performance or expanded
+  platform claim follows from this compiler-only foundation.

@@ -72,9 +72,24 @@ record their implementation gates. P6 implementation was accepted under D225;
 P5, P7b and P7c implementation and qualification are complete. The
 [array evidence](JAVA_BRIDGE_ARRAY_EVIDENCE.md) and
 [byte-view evidence](JAVA_BRIDGE_BUFFER_EVIDENCE.md) record supported boundaries
-and measurements; P7d-P7f remain pending.
+and measurements. P7d0 generic metadata foundations are implemented; generic
+facade admission (P7d1/P7d2) and P7e-P7f remain pending.
 [The implementation plan](JAVA_BRIDGE_PLAN.md) defines the
 phase gates, and [the progress log](JAVA_BRIDGE_PROGRESS.md) records evidence.
+
+`BridgeApiFacts` preserves complete ordered type-variable bounds, declaration
+erasure, implicit-bound primitive eligibility, applied owner views and generic
+member signatures. `BridgeCallableId.SourceSignature` identifies the source
+contract separately from its optional exact typed native target. Signature proofs
+bind the complete identity and final program, without granting export or lifetime
+permission. The inventory's native candidates remain available to specialized
+dispatch proofs; direct bindings additionally require the exact applied receiver.
+Facts match their producing program instance: source-only bound
+changes can leave lowered IR equal. Artifact reconstruction reprojects facts and
+revalidates signatures. Export selection uses those proofs but keeps generic
+facades and generic methods rejected until their later admission phases.
+See [D235](DECISIONS.md#d235---preserve-exact-generic-source-identities-before-bridge-admission)
+and the [P7d0 verification log](JAVA_BRIDGE_GENERIC_PROGRESS.md).
 
 `BridgeArrayInputs` combines final P0 borrowing, retention, result-origin and
 non-reclamation facts with complete typed effect closure. A descriptor alone
