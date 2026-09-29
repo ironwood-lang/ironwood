@@ -407,3 +407,22 @@ options as the stack runner. It reuses the exact generated artifacts, verifies
 all child results under Java 21/22/23 with checked JNI, preserves failure-injection
 settings and hashes the fixture inputs before/after replay. Child extraction
 scratch is temporary; all qualification evidence is retained.
+
+## P7d1 read-only generic facades
+
+After building the compiler and its test classes with the pinned Java 21 JDK,
+use an existing native toolchain/support SDK and pinned Java 22/23 directories:
+
+```sh
+./scripts/java-bridge/qualify-generics.sh linux-x86_64 /jdks /work/evidence
+```
+
+The target can also be `linux-arm64` or `macos-arm64`. The evidence directory
+must be new. This runs four focused generic checks, replays the resulting
+checked-JNI consumers (including allocation-failure children) on Java 22/23,
+and runs the matched generic/nongeneric getter benchmark. Linux x86-64 timing
+children use CPU 1; choose a machine where that CPU is available. Nothing is
+installed or downloaded. Replay and performance records retain payload hashes;
+freeze and hash input sources plus precompiled classes before transferring.
+See the [generic progress/evidence log](../../docs/JAVA_BRIDGE_GENERIC_PROGRESS.md)
+for the validated revision, platform details and exact snapshot identities.

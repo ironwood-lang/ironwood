@@ -1,0 +1,36 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+package genericbench;
+
+// The factories define the complete native domain. Java cannot construct Box<T>
+// or insert an arbitrary T. Shared values have process lifetime; boxes are roots.
+public final class Box<T> {
+
+    private final T value;
+    private static final Quote quoteValue = new Quote();
+    private static final Trade tradeValue = new Trade();
+
+    private Box(T value) {
+
+        this.value = value;
+    }
+
+    public static Box<Quote> quote() {
+
+        return new Box<Quote>(quoteValue);
+    }
+
+    public static Box<Trade> trade() {
+
+        return new Box<Trade>(tradeValue);
+    }
+
+    public T get() {
+
+        return this.value;
+    }
+
+    public static long allocations() {
+
+        return System.allocationCount();
+    }
+}

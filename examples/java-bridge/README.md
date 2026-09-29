@@ -61,3 +61,7 @@ with matching checksums, allocation checks and preserved disassembly.
 The [bounded byte-view example](byteviews/README.md) passes reusable Java-owned
 storage directly to native code and compares copied arrays with borrowed views.
 Its generated artifacts use the shared `ironwood-bridge-values.jar` dependency.
+
+The [read-only generic facade example](generics/README.md) preserves `Box<T>`
+with distinct native factories and ordinary Java wildcard reads. Its runner
+compares warmed generic and nongeneric reference getters and checks allocations.

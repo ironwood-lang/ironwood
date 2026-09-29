@@ -1,0 +1,11 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+package genericbench;
+
+// One of the two final native value types, observed as a Quote facade in Java.
+public final class Quote {
+
+    public int value() {
+
+        return 17;
+    }
+}

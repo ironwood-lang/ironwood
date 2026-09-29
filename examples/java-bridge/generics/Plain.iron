@@ -1,0 +1,19 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+package genericbench;
+
+// Nongeneric control for the identical reference getter and facade-cache path.
+// The supplied Quote is permanent; freeing Plain does not reclaim that Quote.
+public final class Plain {
+
+    private final Quote value;
+
+    public Plain(Quote value) {
+
+        this.value = value;
+    }
+
+    public Quote get() {
+
+        return this.value;
+    }
+}
