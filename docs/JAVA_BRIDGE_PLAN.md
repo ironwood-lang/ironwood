@@ -29,7 +29,9 @@ facades are implemented and qualified on all three targets under D235/D236; see 
 P7d2 final-bounded construction/mutation is implemented and qualified on all three
 targets under D237, with evidence in that log. P7e0's isolated
 [transport experiment](JAVA_BRIDGE_FFM_EXPERIMENT.md) is complete on all three
-targets; JNI remains the default. P7e1/P7e2 are unimplemented and P7f is pending.
+targets. D238 accepts JNI only, closing P7e through its permitted keep-JNI
+outcome. P7e1/P7e2 remain deliberately unimplemented.
+[P7f combined qualification](JAVA_BRIDGE_P7_QUALIFICATION.md) is authorized and in progress.
 Release work belongs to the maintainer,
 outside this implementation task.
 The release gates below still apply. The maintainer selected **Java 21-23** as the initial consumer
@@ -1500,7 +1502,7 @@ part of using the API.
 | P7b: primitive array values | Ordinary one-dimensional primitive array parameters and bounded result cases, with explicit alias, mutation and cleanup proofs. | Implemented and qualified on all three targets; [evidence and measurements](JAVA_BRIDGE_ARRAY_EVIDENCE.md). Numerical acceptance remains review. | P7b1 and P7b2 below pass source/class/archive parity, positive/negative proof cases and generated Java consumers. No unsupported array shape is admitted. |
 | P7c: bounded zero-copy buffers | A distinct call-scoped byte-view contract and reusable storage, without public native addresses or unbounded views. | P7c0 [API/lifetime design](JAVA_BRIDGE_BUFFER_DESIGN.md) accepted under D234; P7c1 implemented and qualified on all three targets in the [buffer evidence](JAVA_BRIDGE_BUFFER_EVIDENCE.md). Numerical acceptance remains review. | Storage cannot disappear during access, no view escapes, bounds and overlapping ranges are correct, exceptional cleanup passes, and the zero-copy path demonstrably copies no payload. |
 | P7d: bounded reference generics | Java-shaped generic facades for a finite, enforceable native type domain. | P7d0 exact metadata, P7d1 read-only factory products and P7d2 final-bounded construction/mutation implemented under D235-D237; [verification log](JAVA_BRIDGE_GENERIC_PROGRESS.md). | Every Java-valid use of the emitted declaration is supported within its bounds, with preserved identity/ownership and no erased-signature loophole. |
-| P7e: optional FFM transport | P7e0 ordinary-downcall experiment completed on all three targets; [findings and recommendation](JAVA_BRIDGE_FFM_EXPERIMENT.md). P7e1/P7e2 remain unimplemented. | Independent of P7c/P7d API expansion; JNI remains the default. Deployment selection is required before P7e1. | A qualified, measured improvement with unchanged semantics and explicit deployment policy, or an evidence-backed decision to retain JNI. Research alone does not count as an implemented FFM backend. |
+| P7e: optional FFM transport | Evaluation closed through D238's accepted keep-JNI outcome after the [three-target experiment](JAVA_BRIDGE_FFM_EXPERIMENT.md). P7e1/P7e2 remain deliberately unimplemented. | JNI only; no optional FFM artifact or deployment policy is selected. | A qualified, measured improvement with unchanged semantics and explicit deployment policy, or an evidence-backed decision to retain JNI. Research alone does not count as an implemented FFM backend. |
 | P7f: combined qualification and documentation | Integrate the enabled subsets, package matching artifacts and update user-facing support boundaries. | Follows the implemented P7b-P7e subsets and their explicit gate outcomes. | Applicable pinned JVM/target cells, packaging, regression, allocation and benchmark checks pass for the final bytes; remaining exclusions and numerical review are recorded. |
 
 Recommended order: **P7b -> P7c -> P7d -> P7e -> P7f**. An unresolved safety
@@ -1694,10 +1696,16 @@ generation, JVM class loading in native code or JCF emulation is introduced.
 
 #### P7e: measured FFM, preserving the default consumer contract
 
+**Accepted gate outcome, D238:** the maintainer selected JNI only after P7e0.
+P7e is complete as an evaluation; P7e1/P7e2 are deliberately unimplemented,
+not claimed implemented or qualified. Their candidate contracts below are
+retained for any separately authorized future reconsideration. P7f is next.
+
 **P7e0 experiment, completed:** the [experiment report](JAVA_BRIDGE_FFM_EXPERIMENT.md)
 records the matched JNI/FFM results, native-access matrix, failure/lifetime checks,
 code inspection and recommendation. This is not an implemented producer backend.
-Only P7e0 was authorized; stop before P7e1. Its comparison contract follows:
+The original P7e0 task stopped before P7e1; D238 now records the keep-JNI outcome.
+Its comparison contract follows:
 compare generated-equivalent JNI and ordinary FFM downcalls
 on the same protected primitive ABI using Java 22/23. Keep Java 21 source/linkage
 free of final-API FFM classes. Java 22's [FFM API](https://docs.oracle.com/en/java/javase/22/docs/api/java.base/java/lang/foreign/package-summary.html)
