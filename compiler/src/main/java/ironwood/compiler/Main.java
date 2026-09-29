@@ -48,6 +48,7 @@ public final class Main {
             return 0;
         }
 
+        if (java.util.Arrays.asList(args).contains("--java-bridge-values")) return BridgeValuesLibrary.run(args, out, err);
         if (java.util.Arrays.asList(args).contains("--java-bridge-assemble")) return BridgeAssembler.run(args, out, err);
         if (java.util.Arrays.asList(args).contains("--java-bridge-distribution")) return BridgeDistributionCommand.run(args, out, err);
         if (java.util.Arrays.asList(args).contains("--java-bridge")) return BridgeProducerCommand.run(args, out, err);

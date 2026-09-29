@@ -479,10 +479,16 @@ public final class BridgeEntryModule {
             var callable = root.callable();
             boolean hasStrings = callable.parameters().contains(IrType.reference("ironwood.lang.String"));
             boolean hasArrays = callable.parameters().stream().anyMatch(IrType::isArray);
+            boolean hasViews = callable.parameters().stream().anyMatch(ironwood.compiler.semantic.BridgeByteViews::view);
+            if (hasViews) {
+                var views = ironwood.compiler.semantic.BridgeByteViews.analyze(artifact, callable);
+                if (views.status() != BridgeProof.Status.PROVED) throw new IllegalArgumentException(views.reason());
+            }
             boolean arrayResult = strings && ironwood.compiler.semantic.BridgeArrayInputs.primitiveArray(callable.result());
             if (callable.kind() != IrCallableKind.METHOD || callable.parameters().stream().anyMatch(type -> type.isReference()
                     && !(strings && (type.equals(IrType.reference("ironwood.lang.String"))
-                    || ironwood.compiler.semantic.BridgeArrayInputs.primitiveArray(type))))
+                    || ironwood.compiler.semantic.BridgeArrayInputs.primitiveArray(type)
+                    || ironwood.compiler.semantic.BridgeByteViews.view(type))))
                     || callable.result().isReference() && !results.containsKey(callable) && !arrayResult) {
                 throw new IllegalArgumentException("scalar entry does not admit object, constructor or conversion capabilities");
             }
@@ -514,7 +520,7 @@ public final class BridgeEntryModule {
             }
             var initialization = new BridgeCallTargets(original).initializers(callable.owner());
             if (!initialization.complete()) throw new IllegalArgumentException("incomplete entry initialization");
-            entries.add(new Entry(root, hasStrings || hasArrays || arrayResult || results.containsKey(callable)
+            entries.add(new Entry(root, hasStrings || hasArrays || hasViews || arrayResult || results.containsKey(callable)
                     ? BridgeStringEntryLowering.lower(root, symbol, !initialization.targets().isEmpty(),
                             Optional.ofNullable(results.get(callable)))
                     : BridgeProtectedEntryLowering.lower(root, symbol, !initialization.targets().isEmpty())));

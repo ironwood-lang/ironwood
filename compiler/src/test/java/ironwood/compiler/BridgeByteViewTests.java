@@ -61,7 +61,8 @@ final class BridgeByteViewTests {
                     "return view instanceof ByteView ? 1 : 0;")) {
                 var bad = new CompilerPipeline(mode).analyzeForBridge(List.of(SourceFile.of("Values.iron",
                         "package viewfixture; import ironwood.bridge.ByteView; final class Values {"
-                                + "static ByteView saved; static void retain(ByteView v) { saved = v; }"
+                                + (body.contains("saved") || body.contains("retain")
+                                ? "static ByteView saved; static void retain(ByteView v) { saved = v; }" : "")
                                 + "static int bad(ByteView view) { " + body + " } }")));
                 if (bad.valid()) check(proof(bad, "bad").status() != BridgeProof.Status.PROVED, "unsafe view admitted: " + body);
             }
@@ -78,6 +79,7 @@ final class BridgeByteViewTests {
                 SourceFile.of("ByteView.iron", bundled.content().replace("return false;", "return true;"))));
         check(proof(forged, "sum").status() == BridgeProof.Status.REJECTED, "same-name counterfeit view admitted");
         artifacts();
+        negativeArtifacts();
     }
 
     private static void artifacts() throws Exception {
@@ -100,6 +102,34 @@ final class BridgeByteViewTests {
         } finally {
             try (var paths = Files.walk(directory)) {
                 for (Path path : paths.sorted(Comparator.reverseOrder()).toList()) Files.delete(path);
+            }
+        }
+    }
+
+    private static void negativeArtifacts() throws Exception {
+        Path directory = Files.createTempDirectory("bridge-byte-view-negative-");
+        try {
+            for (String body : List.of("public static ByteView bad(ByteView v) { return v; }",
+                    "public Values(ByteView v) {}", "public static int bad(ByteView v) { return v.hashCode(); }",
+                    "private static ByteView saved; public static int bad(ByteView v) { saved = v; return 0; }")) {
+                Path folder = Files.createTempDirectory(directory, "case-");
+                Path source = folder.resolve("Values.iron"), classes = folder.resolve("classes"), archive = folder.resolve("values.ironjar");
+                Files.writeString(source, "package viewfixture; import ironwood.bridge.ByteView; public final class Values { " + body + " }");
+                BridgeProducerTests.command(folder, "compile", 0, new String[]{"--unfreed=off", "-d", classes.toString(), source.toString()});
+                IronJar.create(archive, List.of(classes), List.of());
+                BridgeProducerTests.command(folder, "source-refused", 1, new String[]{"--java-bridge", "--export", "viewfixture",
+                        "--unfreed=off", "-o", folder.resolve("out.jar").toString(), source.toString()});
+                Files.delete(source);
+                for (Path input : List.of(classes, archive)) {
+                    BridgeProducerTests.command(folder, input.equals(classes) ? "classes-refused" : "archive-refused", 1,
+                            new String[]{"--java-bridge", "--export", "viewfixture", "--unfreed=off", "--source-path",
+                                    folder.resolve("absent").toString(), "-cp", input.toString(), "-o", folder.resolve("out.jar").toString()});
+                    check(!Files.exists(folder.resolve("out.jar")), "unsafe view published from artifact");
+                }
+            }
+        } finally {
+            try (var files = Files.walk(directory)) {
+                for (Path file : files.sorted(Comparator.reverseOrder()).toList()) Files.delete(file);
             }
         }
     }

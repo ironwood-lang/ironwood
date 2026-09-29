@@ -57,3 +57,7 @@ and native/Java execution with identical event counts and checked results.
 The [primitive array example](arrays/README.md) covers copied inputs, mutation and
 fresh results. Its runner compares native Ironwood, Java and the generated bridge
 with matching checksums, allocation checks and preserved disassembly.
+
+The [bounded byte-view example](byteviews/README.md) passes reusable Java-owned
+storage directly to native code and compares copied arrays with borrowed views.
+Its generated artifacts use the shared `ironwood-bridge-values.jar` dependency.

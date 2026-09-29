@@ -111,9 +111,18 @@ public record BridgeExportSurface(List<BridgeApiFacts.Type> types, BridgeRootSet
         for (String name : exports) {
             if (name == null || !SourceVersion.isName(name, SourceVersion.RELEASE_21)) {
                 diagnostics.add(Diagnostic.global("invalid Java Bridge export package: '" + name + "'"));
+            } else if (name.equals("ironwood.bridge")) {
+                diagnostics.add(Diagnostic.global("ironwood.bridge is reserved for the shared Java Bridge value API"));
             } else packages.add(name);
         }
         var facts = artifact.bridgeApiFacts().orElseThrow();
+        for (var declaration : facts.types().values()) {
+            if (declaration.packageName().equals("ironwood.bridge")
+                    && !(declaration.binaryName().equals("ironwood.bridge.ByteView")
+                    && ironwood.compiler.semantic.ByteViewIntrinsic.trusted(declaration.source()))) {
+                error(diagnostics, declaration.source(), declaration.span(), "application declaration collides with reserved ironwood.bridge package");
+            }
+        }
         var selected = facts.types().values().stream()
                 .filter(type -> packages.contains(type.packageName()) && type.accessible()).toList();
         for (String name : packages) {
@@ -265,6 +274,9 @@ public record BridgeExportSurface(List<BridgeApiFacts.Type> types, BridgeRootSet
 
     private static boolean supported(IrType type, Shape shape, boolean parameter, BridgeApiFacts facts) {
         if (scalar(type)) return true;
+        if (ironwood.compiler.semantic.BridgeByteViews.view(type)) {
+            return parameter && (shape == Shape.VALUE || shape == Shape.OBJECT_VALUE);
+        }
         if ((shape == Shape.VALUE || shape == Shape.OBJECT_VALUE)
                 && ironwood.compiler.semantic.BridgeArrayInputs.primitiveArray(type)) return true;
         if (callbacks(shape)) {
@@ -296,7 +308,7 @@ public record BridgeExportSurface(List<BridgeApiFacts.Type> types, BridgeRootSet
             closure(type.elementType(), member, source, span, facts, packages, diagnostics);
         } else if (type.isNominalReference()) {
             type.typeArguments().forEach(argument -> closure(argument, member, source, span, facts, packages, diagnostics));
-            if (type.equals(STRING) || isBuiltinThrowable(type)) return;
+            if (type.equals(STRING) || isBuiltinThrowable(type) || ironwood.compiler.semantic.BridgeByteViews.view(type)) return;
             var required = facts.types().get(type.referenceName());
             if (required == null || !required.accessible()) {
                 error(diagnostics, source, span, "public member '" + member + "' requires inaccessible signature type '"

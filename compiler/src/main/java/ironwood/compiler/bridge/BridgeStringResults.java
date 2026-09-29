@@ -68,9 +68,18 @@ public final class BridgeStringResults {
             if (!id.result().equals(IrType.reference("ironwood.lang.String"))
                     || id.kind() != IrCallableKind.METHOD || !objects && (!facts.isStatic(id)
                     || id.parameters().stream().anyMatch(type -> type.isReference() && !type.equals(id.result())
-                    && !ironwood.compiler.semantic.BridgeArrayInputs.primitiveArray(type)))) {
+                    && !ironwood.compiler.semantic.BridgeArrayInputs.primitiveArray(type)
+                    && !ironwood.compiler.semantic.BridgeByteViews.view(type)))) {
                 result.put(id, BridgeProof.rejected("copied String results require scalar or proved copied-value signatures"));
                 continue;
+            }
+            if (id.parameters().stream().anyMatch(ironwood.compiler.semantic.BridgeByteViews::view)) {
+                var views = ironwood.compiler.semantic.BridgeByteViews.analyze(artifact, id);
+                if (views.status() != BridgeProof.Status.PROVED) {
+                    result.put(id, views.status() == BridgeProof.Status.REJECTED
+                            ? BridgeProof.rejected(views.reason()) : BridgeProof.unknown(views.reason()));
+                    continue;
+                }
             }
             if (id.parameters().stream().anyMatch(IrType::isArray)) {
                 var arrays = ironwood.compiler.semantic.BridgeArrayInputs.values(artifact, id);

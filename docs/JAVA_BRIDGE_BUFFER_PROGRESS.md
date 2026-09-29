@@ -38,9 +38,37 @@ No unfiltered compiler suites. Use child processes for lifetime/failure risks.
 ## Current checkpoint
 
 Canonical root, exact origin URLs, `java-bridge` and clean baseline verified.
-Design/source review completed. Implementation has not yet enabled view exports.
+Design/source review completed. Foundation committed as `d32132db`.
 The typed descriptor/intrinsics and exact bundled-source identity are implemented.
 The focused byte-view proof test passed on macOS ARM64 with pinned Java 21 and
 LLVM 23, covering borrowing, unsafe-use rejection, stale/counterfeit facts and
 source/class/archive parity. Evidence: `workspace/java-bridge/byteview-proof.log`.
-Production transport, packaging and runtime/performance qualification remain.
+Protected transport and view admission now pass the focused producer test on
+macOS ARM64 at O0/O3 across source/class/archive inputs. Evidence:
+`workspace/java-bridge/byteview-producer.log`, retained artifacts under
+`workspace/java-bridge/byteviews/producer/run-9487848804573499463`. Positive and
+negative bounds/permissions, null/empty, identity, overlapping writes, immediate
+writes after exception, String/array/root-receiver composition, zero warmed
+Ironwood allocation, GC pressure and Java direct-memory OOM children passed.
+Shared dependency binding, exact-byte rejection before payload extraction,
+independent artifact classpath/module-path composition, CLI companion generation
+and Maven dependency/source/license packaging passed the focused packaging test
+(`byteview-packaging-retry.log`). The example compile/link/run and five-scenario
+benchmark smoke passed. The 11 selected Mac adjacent regressions passed
+(`byteview-regressions.log`), followed by unsafe source/class/archive admission
+and native OOM-after-write checks (`byteview-extra-failures.log`). License audit
+and whitespace checks passed.
+
+Linux qualification runs from input archive `byteviews/input-1.tar.gz`, SHA-256
+`21f2579ec672a589a55ea139283d7770b257c5c0dafeaf989101af79cca65571`, with
+per-file identities in `validation/contents.sha256`. Local ARM64's three new
+checks and 22 Java 22/23 replays passed. Estonia uses the existing image/SDK and
+`~/temp/java-bridge/p7c1-20260928-1`, with timing children on isolated CPU 1.
+Both timing runs are pending; the input predates only the additional negative
+artifact and native-OOM tests, which will receive follow-up platform validation.
+
+Assembly review found repeated immutable-descriptor reloads after byte writes.
+Next: preserve descriptor immutability in lowering, without any payload noalias
+claim; inspect optimized loops and repeat relevant qualification on final bytes.
+Finish matched Linux measurements, IDK packaging smoke, assembly, documentation
+and evidence before claiming P7c1 complete.

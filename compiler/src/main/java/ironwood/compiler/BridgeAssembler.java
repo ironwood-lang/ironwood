@@ -118,6 +118,13 @@ final class BridgeAssembler {
             entries.forEach((name, bytes) -> metadata.put("content.sha256." + name, BridgeGeneration.bytesDigest(bytes)));
             entries.put(BridgePackageManifest.PATH, BridgePackageManifest.serialize(metadata));
             if (!BridgeProducerInputs.discover().equals(producer)) throw new IOException("assembly compiler/runtime changed during the build");
+            byte[] values = entries.get(ironwood.compiler.bridge.BridgeByteViewSources.RESOURCE);
+            if (values != null) {
+                Path companion = destination.resolveSibling(ironwood.compiler.bridge.BridgeByteViewSources.JAR_NAME);
+                Path stagedValues = stage.resolve(ironwood.compiler.bridge.BridgeByteViewSources.JAR_NAME);
+                Files.write(stagedValues, values);
+                BridgeValuesLibrary.copy(stagedValues, companion, values);
+            }
             BridgeJarArchive.publish(destination, entries);
         } finally {
             try (var files = Files.walk(stage)) {

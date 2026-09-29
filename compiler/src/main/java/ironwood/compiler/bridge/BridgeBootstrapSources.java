@@ -100,6 +100,7 @@ public final class BridgeBootstrapSources {
                 .replace("@SYMBOL@", "Java_" + generation.supportPackage().replace('.', '_') + "_Support_bootstrap")
                 .replace("@GENERATION@", generation.identity()).replace("@SCHEMA@", BridgeGeneration.SCHEMA)
                 .replace("@API@", generation.apiIdentity()).replace("@BUILD@", build.identity())
+                .replace("@VIEW_INIT@", BridgeByteViewSources.required(java) ? "if (!iw_byteviews_init(env, support)) goto unbound_failure;" : "")
                 .replace("@OBJECT_INIT@", objectPrefix.isEmpty() ? "" : "if (!" + objectPrefix + "_metadata_init(env, validated)) goto unbound_failure;")
                 .replace("@OBJECT_DISPOSE@", objectPrefix.isEmpty() ? "" : objectPrefix + "_metadata_dispose(env);");
     }
@@ -207,6 +208,7 @@ public final class BridgeBootstrapSources {
                 }
                 if (iw_bound) goto done;
                 if (!iw_exception_metadata_init(env, validated[@FACTORY@], &iw_exceptions)) goto done;
+                @VIEW_INIT@
                 @OBJECT_INIT@
                 new_loader = (*env)->NewGlobalRef(env, loader);
                 if (new_loader == NULL) goto unbound_failure;

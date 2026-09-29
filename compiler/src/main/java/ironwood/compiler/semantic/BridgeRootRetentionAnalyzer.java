@@ -65,6 +65,10 @@ public final class BridgeRootRetentionAnalyzer {
         Map<BridgeCallableId, BridgeResultOriginContract> results = new LinkedHashMap<>();
         for (var root : roots.roots()) {
             var callable = root.callable();
+            if (callable.parameters().stream().anyMatch(BridgeByteViews::view)) {
+                var views = BridgeByteViews.analyze(artifact, callable);
+                if (views.status() != BridgeProof.Status.PROVED) return failed(views.status(), views.reason());
+            }
             if (callable.result().isArray() || callable.parameters().stream().anyMatch(IrType::isArray)) {
                 var arrays = BridgeArrayInputs.values(artifact, callable);
                 if (arrays.status() != BridgeProof.Status.PROVED) return failed(arrays.status(), arrays.reason());
@@ -140,7 +144,7 @@ public final class BridgeRootRetentionAnalyzer {
             var callable = root.callable();
             for (int index = 0; index < callable.parameters().size(); index++) {
                 var input = callable.parameters().get(index);
-                if (BridgeArrayInputs.primitiveArray(input)) continue; // Separately proved call-scoped copy above.
+                if (BridgeArrayInputs.primitiveArray(input) || BridgeByteViews.view(input)) continue; // Separately proved call-scoped copy above.
                 if (input.equals(STRING)) {
                     boolean confined = callable.result().equals(STRING)
                             ? facts.borrowsThroughResult(callable, index) : facts.borrowsInput(callable, index);

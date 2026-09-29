@@ -1560,8 +1560,9 @@ permitted on unrelated scalar calls.
 The maintainer accepted the [concrete design](JAVA_BRIDGE_BUFFER_DESIGN.md) and
 subsequently authorized P7c1, superseding the earlier stop for that submilestone.
 D234 records JVM-managed, non-closeable storage and the shared
-`ironwood.bridge.ByteView` Java dependency. Producer admission remains disabled
-until the complete proofs and transport are implemented and verified.
+`ironwood.bridge.ByteView` Java dependency. Proved input admission and protected
+transport are implemented; final qualification remains in progress in the
+[buffer log](JAVA_BRIDGE_BUFFER_PROGRESS.md).
 
 **P7c0 deliverable:** a small reviewed public API and ownership table before
 adding code. Recommended first boundary: a dedicated bridge byte-buffer/view

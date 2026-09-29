@@ -40,6 +40,7 @@ record BridgePairedArchive(BridgeGeneration generation, Map<String, String> meta
         if (metadata.keySet().stream().filter(key -> key.startsWith("content.sha256.")).count() != entries.size()) {
             throw new IOException("paired content inventory mismatch: " + path);
         }
+        BridgeValuesLibrary.validate(metadata, entries);
         return new BridgePairedArchive(BridgeGeneration.fromManifest(metadata), metadata, entries);
     }
 }
