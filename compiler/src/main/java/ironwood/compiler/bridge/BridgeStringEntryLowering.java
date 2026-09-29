@@ -69,7 +69,11 @@ final class BridgeStringEntryLowering {
         List<IrInstruction> success = new ArrayList<>();
         for (int index = 0; index < copies.size(); index++) {
             // Array state belongs to the adapter through result/failure delivery.
-            if (!(copies.get(index) instanceof IrBridgeStringCopyInstruction copy)) continue;
+            if (!(copies.get(index) instanceof IrBridgeStringCopyInstruction copy)) {
+                if (alias) blocks.add(new IrBasicBlock("cleanup." + index, List.of(),
+                        new IrJump(index + 1 == copies.size() ? "success" : "cleanup." + (index + 1), span), span));
+                continue;
+            }
             if (!alias) {
                 success.add(new IrRawDeallocateInstruction(copy.result(), span));
                 continue;

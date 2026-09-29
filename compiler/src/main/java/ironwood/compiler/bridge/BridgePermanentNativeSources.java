@@ -97,7 +97,7 @@ public final class BridgePermanentNativeSources {
             }
             String function = "iw_permanent_" + adapters.size();
             adapters.add(new Adapter(new BridgeJavaSources.NativeDeclaration(binding.binaryName(), binding.nativeName(), binding.descriptor()), function));
-            emit(text, entry, binding, module, types, enums, java, function, admission, roots, rootTypes);
+            emit(text, entry, binding, module, types, enums, java, function, admission, roots, rootTypes, artifact);
         }
         var conversions = new java.util.HashSet<BridgeJavaSources.NativeDeclaration>();
         for (var binding : java.declarations().bindings()) {
@@ -194,8 +194,9 @@ public final class BridgePermanentNativeSources {
     private static void emit(StringBuilder text, BridgeEntryModule.Entry entry, BridgeJavaSources.Binding binding,
             BridgeEntryModule module, Map<IrType, Integer> types, Map<IrType, Integer> enums,
             BridgePermanentJavaSources.Sources java, String function, BridgeObjectAdmission admission,
-            BridgeRootIndexSources.Sources roots, Map<IrType, Integer> rootTypes) {
+            BridgeRootIndexSources.Sources roots, Map<IrType, Integer> rootTypes, CompilationArtifact artifact) {
         var id = entry.root().callable();
+        var arrays = BridgeArrayValueSources.contract(artifact, id);
         var enumParameters = module.enumConversions().map(conversions -> conversions.parameters().getOrDefault(id, List.of()))
                 .orElse(List.of()).stream().collect(Collectors.toMap(BridgeEnumConversions.Parameter::input, parameter -> parameter));
         for (var parameter : enumParameters.values()) {
@@ -312,9 +313,11 @@ public final class BridgePermanentNativeSources {
                 .append("    else iw_root_discard(env, reserved);\n");
         BridgeRootRetentionSources.commit(text, admission, id, instance);
         release(text, strings);
-        text.append(BridgeArrayInputSources.release(id.parameters()));
-        text.append("    if (status != 0) { iw_permanent_failure(env, status, ").append(result).append(".exception); ").append(exit).append(" }\n");
-        if (constructor || binding.returnsPermanentAddress()) text.append("    return (jlong)(uintptr_t)").append(result).append(".value.reference;\n");
+        BridgeArrayValueSources.finish(text, arrays, result, "iw_permanent_failure", exit, slotCount != 0,
+                module.stringResults().containsKey(id) && module.stringResults().get(id).releaseAfterCopy());
+        if (!id.result().isArray()) text.append(BridgeArrayInputSources.release(id.parameters()));
+        if (id.result().isArray()) BridgeArrayValueSources.result(text, arrays, result);
+        else if (constructor || binding.returnsPermanentAddress()) text.append("    return (jlong)(uintptr_t)").append(result).append(".value.reference;\n");
         else if (enumResult.isPresent()) {
             text.append("    return iw_enum_output_").append(enums.get(enumResult.orElseThrow().declaredType()))
                     .append("(env, ").append(result).append(".value.integer);\n");

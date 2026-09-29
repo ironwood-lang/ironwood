@@ -479,14 +479,15 @@ public final class BridgeEntryModule {
             var callable = root.callable();
             boolean hasStrings = callable.parameters().contains(IrType.reference("ironwood.lang.String"));
             boolean hasArrays = callable.parameters().stream().anyMatch(IrType::isArray);
+            boolean arrayResult = strings && ironwood.compiler.semantic.BridgeArrayInputs.primitiveArray(callable.result());
             if (callable.kind() != IrCallableKind.METHOD || callable.parameters().stream().anyMatch(type -> type.isReference()
                     && !(strings && (type.equals(IrType.reference("ironwood.lang.String"))
                     || ironwood.compiler.semantic.BridgeArrayInputs.primitiveArray(type))))
-                    || callable.result().isReference() && !results.containsKey(callable)) {
+                    || callable.result().isReference() && !results.containsKey(callable) && !arrayResult) {
                 throw new IllegalArgumentException("scalar entry does not admit object, constructor or conversion capabilities");
             }
-            if (hasArrays) {
-                var arrays = ironwood.compiler.semantic.BridgeArrayInputs.readOnly(artifact, callable);
+            if (hasArrays || arrayResult) {
+                var arrays = ironwood.compiler.semantic.BridgeArrayInputs.values(artifact, callable);
                 if (arrays.status() != BridgeProof.Status.PROVED) throw new IllegalArgumentException(arrays.reason());
             }
             if (strings && (hasStrings || hasArrays)) {
@@ -496,7 +497,7 @@ public final class BridgeEntryModule {
                 if (original.allocationFailure().isEmpty()) throw new IllegalArgumentException("copy requires allocation failure context");
                 for (int index = 0; index < callable.parameters().size(); index++) {
                     if (callable.parameters().get(index).isReference()
-                            && !(results.containsKey(callable)
+                            && !(results.containsKey(callable) || arrayResult
                             ? artifact.bridgeConstructionFacts().orElseThrow().borrowsThroughResult(callable, index)
                             : artifact.bridgeConstructionFacts().orElseThrow().borrowsInput(callable, index))) {
                         throw new IllegalArgumentException("copied input cleanup is not proved for parameter " + index);
@@ -513,7 +514,7 @@ public final class BridgeEntryModule {
             }
             var initialization = new BridgeCallTargets(original).initializers(callable.owner());
             if (!initialization.complete()) throw new IllegalArgumentException("incomplete entry initialization");
-            entries.add(new Entry(root, hasStrings || hasArrays || results.containsKey(callable)
+            entries.add(new Entry(root, hasStrings || hasArrays || arrayResult || results.containsKey(callable)
                     ? BridgeStringEntryLowering.lower(root, symbol, !initialization.targets().isEmpty(),
                             Optional.ofNullable(results.get(callable)))
                     : BridgeProtectedEntryLowering.lower(root, symbol, !initialization.targets().isEmpty())));

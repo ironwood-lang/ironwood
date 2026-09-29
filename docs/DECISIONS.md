@@ -8919,3 +8919,34 @@ occurrence order. If no
   OrderBook sources. Deferring callback tuning does not claim its numerical
   target was met. Any material API or lifetime change is resolved at its stated
   gate before dependent implementation.
+
+
+## D233 - Admit proved copied primitive array values
+
+- **Status:** P7b implementation authorized by the maintainer on 2026-09-28;
+  qualification checkpoints are recorded in the [array log](JAVA_BRIDGE_ARRAY_PROGRESS.md).
+- **Decision:** Supersede D191/D231's public-array exclusion and D232's planning-only
+  status for P7b only. Admit one-dimensional primitive arrays on proved methods,
+  including mutable inputs, input-alias results and fresh invocation-owned results.
+  Preserve all existing P0 borrowing, retention, origin and reclamation requirements.
+  Source, class and archive reconstruction must confer identical authority.
+- **Transport:** Use noncritical JNI regions and valid native arrays allocated
+  inside protected typed entries. Coalesce repeated Java identities per call.
+  Copy back only for closures that can write, once per identity in parameter order.
+  Return the original Java object for an input alias. Copy fresh array results to
+  Java and destroy their native storage on success and every delivery failure.
+  Reclaim all conversion temporaries. Unrelated scalar calls acquire no array state.
+- **Failures:** The maintainer chose original-failure precedence. Attempt later
+  copy-backs after an earlier failure, preserving the native failure as primary or
+  the first copy-back failure after native success. Attach indexed diagnostics;
+  if aggregation cannot allocate or suppression is unavailable, explicitly report
+  unavailable diagnostics on stderr without replacing the primary. Do not allocate
+  reserved Java diagnostic objects on successful calls. Thrown native exceptions
+  keep their previously accepted process lifetime.
+- **Boundary:** Reject native retention, free of inputs, callbacks/reentry,
+  unproved effects, retained/shared/native-field array results, constructors with array parameters,
+  object/multidimensional arrays, varargs and listener array signatures. The caller
+  excludes concurrent mutation. `System.arraycopy` remains rejected in these
+  closures until its runtime failures have a proved protected boundary. Other
+  result types still require their existing separate transport/lifetime proof.
+  P7c-P7f are not authorized by this decision. Java 21-23 and Java 24+ refusal remain.

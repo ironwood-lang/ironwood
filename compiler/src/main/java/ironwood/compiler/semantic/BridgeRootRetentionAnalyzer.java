@@ -65,8 +65,8 @@ public final class BridgeRootRetentionAnalyzer {
         Map<BridgeCallableId, BridgeResultOriginContract> results = new LinkedHashMap<>();
         for (var root : roots.roots()) {
             var callable = root.callable();
-            if (callable.parameters().stream().anyMatch(IrType::isArray)) {
-                var arrays = BridgeArrayInputs.readOnly(artifact, callable);
+            if (callable.result().isArray() || callable.parameters().stream().anyMatch(IrType::isArray)) {
+                var arrays = BridgeArrayInputs.values(artifact, callable);
                 if (arrays.status() != BridgeProof.Status.PROVED) return failed(arrays.status(), arrays.reason());
             }
             if (callable.kind() == IrCallableKind.CONSTRUCTOR) {
@@ -84,7 +84,8 @@ public final class BridgeRootRetentionAnalyzer {
             } else if (callable.kind() != IrCallableKind.METHOD) {
                 return BridgeProof.rejected("constructor-origin surface does not admit non-method entries: "
                         + callable.linkage());
-            } else if (callable.result().isReference() && !callable.result().equals(STRING) && !permanentTypes.contains(callable.result())) {
+            } else if (callable.result().isReference() && !callable.result().equals(STRING)
+                    && !BridgeArrayInputs.primitiveArray(callable.result()) && !permanentTypes.contains(callable.result())) {
                 var proof = facts.resultOrigins().get(callable);
                 if (proof == null) return BridgeProof.unknown("missing final result-origin facts: " + callable.linkage());
                 if (proof.status() != BridgeProof.Status.PROVED) return failed(proof.status(), proof.reason());

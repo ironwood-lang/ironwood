@@ -52,7 +52,7 @@ public record BridgeValueNativeSources(String source, List<Adapter> adapters) {
             String descriptor = "(" + id.parameters().stream().map(BridgeJavaTypes::descriptor).collect(Collectors.joining())
                     + ")" + BridgeJavaTypes.descriptor(id.result());
             adapters.add(new Adapter(id, entry.function().linkageName(), function, descriptor));
-            emit(text, entry, module, function);
+            emit(text, entry, module, function, artifact);
         }
         return new BridgeValueNativeSources(text.toString(), adapters);
     }
@@ -62,8 +62,10 @@ public record BridgeValueNativeSources(String source, List<Adapter> adapters) {
                 || BridgeAbi.carrierFor(type).filter(carrier -> carrier != BridgeAbi.Carrier.OPAQUE_REFERENCE).isPresent();
     }
 
-    private static void emit(StringBuilder text, BridgeEntryModule.Entry entry, BridgeEntryModule module, String function) {
+    private static void emit(StringBuilder text, BridgeEntryModule.Entry entry, BridgeEntryModule module, String function,
+                             CompilationArtifact artifact) {
         var id = entry.root().callable();
+        var arrays = BridgeArrayValueSources.contract(artifact, id);
         var nativeTypes = new ArrayList<String>();
         var arguments = new ArrayList<String>();
         var strings = new ArrayList<Integer>();
@@ -86,9 +88,12 @@ public record BridgeValueNativeSources(String source, List<Adapter> adapters) {
                 .append(BridgeStringInputSources.acquire(strings)).append(BridgeArrayInputSources.acquire(id.parameters()));
         text.append("    struct ironwood_bridge_result result;\n    int32_t status = ").append(entry.function().linkageName())
                 .append('(').append(String.join(", ", arguments)).append(");\n");
-        text.append(BridgeStringInputSources.release(strings)).append(BridgeArrayInputSources.release(id.parameters()));
-        text.append("    if (status != 0) { iw_value_failure(env, status, result.exception); ").append(exit).append(" }\n");
-        if (id.result().equals(STRING)) {
+        text.append(BridgeStringInputSources.release(strings));
+        BridgeArrayValueSources.finish(text, arrays, "result", "iw_value_failure", exit, false,
+                module.stringResults().containsKey(id) && module.stringResults().get(id).releaseAfterCopy());
+        if (!id.result().isArray()) text.append(BridgeArrayInputSources.release(id.parameters()));
+        if (id.result().isArray()) BridgeArrayValueSources.result(text, arrays, "result");
+        else if (id.result().equals(STRING)) {
             text.append("    const struct ironwood_string *value = result.value.reference;\n")
                     .append("    jstring copied = value == NULL ? NULL : (*env)->NewString(env, value->units, value->utf16_length);\n");
             if (module.stringResults().get(id).releaseAfterCopy()) {
