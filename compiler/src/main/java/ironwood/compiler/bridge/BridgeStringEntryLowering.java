@@ -21,9 +21,9 @@ final class BridgeStringEntryLowering {
         for (var type : callable.parameters()) {
             starts.add(parameters.size());
             int id = parameters.size();
-            var carrier = type.isReference() ? IrType.I64 : type.equals(IrType.I1) ? IrType.I8 : type;
+            var carrier = type.isReference() && !ironwood.compiler.semantic.BridgeByteViews.view(type) ? IrType.I64 : type.equals(IrType.I1) ? IrType.I8 : type;
             parameters.add(new IrParameter("argument" + id, new IrValueReference(id, carrier, span), span));
-            if (type.isReference() && !type.isArray()) parameters.add(new IrParameter("length" + id,
+            if (type.equals(IrType.reference("ironwood.lang.String"))) parameters.add(new IrParameter("length" + id,
                     new IrValueReference(id + 1, IrType.I32, span), span));
         }
         var frame = new IrValueReference(parameters.size(), IrType.I64, span);
@@ -39,7 +39,7 @@ final class BridgeStringEntryLowering {
                 var copy = new IrValueReference(next++, type, span);
                 copies.add(new IrBridgeArrayCopyInstruction(copy, input, span));
                 arguments.add(copy);
-            } else if (type.isReference()) {
+            } else if (type.equals(IrType.reference("ironwood.lang.String"))) {
                 var copy = new IrValueReference(next++, type, span);
                 copies.add(new IrBridgeStringCopyInstruction(copy, input,
                         parameters.get(starts.get(index) + 1).value(), span));

@@ -116,6 +116,8 @@ cp "$IRONWOOD_PROJECT_ROOT/bin/ironjar" "$IRONWOOD_STAGE_DIR/bin/ironjar"
 cp "$IRONWOOD_PROJECT_ROOT/bin/irondoc" "$IRONWOOD_STAGE_DIR/bin/irondoc"
 cp "$IRONWOOD_PROJECT_ROOT/conf/jvm.options" "$IRONWOOD_STAGE_DIR/conf/jvm.options"
 cp "$IRONWOOD_PROJECT_ROOT/compiler/build/ironwoodc.jar" "$IRONWOOD_STAGE_DIR/lib/ironwoodc.jar"
+"$IRONWOOD_IDK_TOOLCHAIN_HOME/lib/jvm/bin/java" -jar "$IRONWOOD_PROJECT_ROOT/compiler/build/ironwoodc.jar" \
+    --java-bridge-values -o "$IRONWOOD_STAGE_DIR/lib/ironwood-bridge-values.jar"
 cp "$IRONWOOD_PROJECT_ROOT/compiler/build/ironwood-stdlib.ironjar" \
     "$IRONWOOD_STAGE_DIR/lib/ironwood-stdlib.ironjar"
 cp "$IRONWOOD_PROJECT_ROOT/compiler/build/ironwood-testing.ironjar" \

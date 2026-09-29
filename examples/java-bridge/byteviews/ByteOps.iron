@@ -1,0 +1,73 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+package bytebench;
+
+import ironwood.bridge.ByteView;
+
+// Compare synchronous borrowed views with copied arrays using the same kernels.
+// Java owns each view's storage. No native allocation, retention or free occurs.
+public final class ByteOps {
+
+    private ByteOps() {
+
+    }
+
+    public static long allocations() {
+
+        return System.allocationCount();
+    }
+
+    public static long read(byte[] bytes) {
+
+        long sum = 0;
+        for (int i = 0; i < bytes.length; i++) sum += bytes[i];
+        return sum;
+    }
+
+    public static long read(ByteView bytes) {
+
+        long sum = 0;
+        for (int i = 0; i < bytes.length(); i++) sum += bytes.get(i);
+        return sum;
+    }
+
+    public static long update(byte[] bytes) {
+
+        long sum = 0;
+        for (int i = 0; i < bytes.length; i++) {
+            bytes[i] = (byte)(bytes[i] + 1);
+            sum += bytes[i];
+        }
+        return sum;
+    }
+
+    public static long update(ByteView bytes) {
+
+        long sum = 0;
+        for (int i = 0; i < bytes.length(); i++) {
+            bytes.put(i, (byte)(bytes.get(i) + 1));
+            sum += bytes.get(i);
+        }
+        return sum;
+    }
+
+    // Successive writes must be visible through the overlapping next read.
+    public static long overlap(byte[] bytes) {
+
+        long sum = 0;
+        for (int i = 0; i < bytes.length - 1; i++) {
+            bytes[i + 1] = (byte)(bytes[i] + 1);
+            sum += bytes[i + 1];
+        }
+        return sum;
+    }
+
+    public static long overlap(ByteView first, ByteView second) {
+
+        long sum = 0;
+        for (int i = 0; i < first.length(); i++) {
+            second.put(i, (byte)(first.get(i) + 1));
+            sum += second.get(i);
+        }
+        return sum;
+    }
+}

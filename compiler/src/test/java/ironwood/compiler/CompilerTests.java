@@ -193,6 +193,8 @@ public final class CompilerTests {
         test("Java Bridge copied String proofs preserve cleanup and artifact parity", BridgeStringTests::proofs);
         test(BridgeArrayInputTests.NAME, BridgeArrayInputTests::proofs);
         test(BridgeByteViewTests.NAME, BridgeByteViewTests::proofs);
+        test(BridgeByteViewProducerTests.NAME, BridgeByteViewProducerTests::producer);
+        test(BridgeByteViewPackagingTests.NAME, BridgeByteViewPackagingTests::packaging);
         test(BridgeArrayProducerTests.NAME, BridgeArrayProducerTests::producer);
         test(BridgeArrayFaultTests.NAME, BridgeArrayFaultTests::failures);
         test(BridgeArrayValueTests.NAME, BridgeArrayValueTests::proofs);

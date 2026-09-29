@@ -110,6 +110,9 @@ public final class BridgeArrayInputs {
                         if (!mutableValues) return BridgeProof.rejected("read-only array closure contains a write: " + function.linkageName());
                         if (!primitiveArray(store.array().type())) return BridgeProof.unknown("nonprimitive array write in copied-value closure");
                         mutable = true;
+                    } else if (instruction instanceof IrByteViewInstruction) {
+                        var views = BridgeByteViews.analyze(artifact, callable);
+                        if (views.status() != BridgeProof.Status.PROVED) return failed(views.status(), views.reason());
                     } else if (instruction instanceof IrSystemArrayCopyInstruction) {
                         return BridgeProof.unknown("arraycopy requires a separately proved checked runtime boundary");
                     } else if (!localEffect(instruction)) {

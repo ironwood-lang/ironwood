@@ -33,7 +33,7 @@ public final class BridgeJavaTypes {
             case ARRAY -> sourceName(type.elementType()) + "[]";
             case REFERENCE -> {
                 String mapped = binaryName(type);
-                if (mapped.equals(type.referenceName())) {
+                if (mapped.equals(type.referenceName()) && !ironwood.compiler.semantic.BridgeByteViews.view(type)) {
                     throw new IllegalArgumentException("source spelling requires resolved nominal metadata: " + mapped);
                 }
                 yield mapped;

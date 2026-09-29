@@ -56,6 +56,7 @@ final class BridgeDistributionCommand {
             }
             Path sourceJar = stage.resolve(basename + "-sources.jar"), docJar = stage.resolve(basename + "-javadoc.jar");
             BridgeJarArchive.publish(sourceJar, sources); BridgeJarArchive.publish(docJar, docs);
+            String dependencies = BridgeValuesLibrary.distribute(paired, stage);
             Path pom = stage.resolve(basename + ".pom");
             Files.writeString(pom, """
                     <?xml version="1.0" encoding="UTF-8"?>
@@ -69,13 +70,18 @@ final class BridgeDistributionCommand {
                         <maven.compiler.release>21</maven.compiler.release>
                         <ironwood.bridge.generation>@GENERATION@</ironwood.bridge.generation>
                       </properties>
+                      @DEPENDENCIES@
                     </project>
                     """.replace("@GROUP@", group).replace("@ARTIFACT@", artifact).replace("@VERSION@", version)
-                    .replace("@GENERATION@", paired.generation().identity()));
+                    .replace("@GENERATION@", paired.generation().identity()).replace("@DEPENDENCIES@", dependencies));
             var inventory = new TreeMap<String, String>();
             inventory.put("generation", paired.generation().identity()); inventory.put("api", paired.generation().apiIdentity());
             inventory.put("maven.coordinates", group + ":" + artifact + ":" + version);
-            for (Path file : List.of(main, sourceJar, docJar, pom)) inventory.put("sha256." + file.getFileName(), BridgeGeneration.bytesDigest(Files.readAllBytes(file)));
+            try (var files = Files.list(stage)) {
+                for (Path file : files.filter(Files::isRegularFile).toList()) {
+                    inventory.put("sha256." + file.getFileName(), BridgeGeneration.bytesDigest(Files.readAllBytes(file)));
+                }
+            }
             Files.write(stage.resolve("bridge-distribution.properties"), BridgePackageManifest.serialize(inventory));
             // A new destination is required; do not replace a previous distribution.
             Files.move(stage, destination);

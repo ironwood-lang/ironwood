@@ -75,13 +75,39 @@ public final class BridgeLoaderSources {
             payload.dependencies().forEach((path, sha) -> files.add(row(payload.build().target(), path, sha)));
             files.add(row(payload.build().target(), payload.filename(), payload.imageSha256()));
         }
+        boolean views = nativeDeclarations.stream().anyMatch(binding -> binding.descriptor().contains("Lironwood/bridge/ByteView;"));
         String inventory = targets.values().stream().map(payload -> row(payload.build().target(), payload.build().identity(),
                 payload.minimumOs(), payload.filename())).collect(java.util.stream.Collectors.joining(",\n            "));
         return TEMPLATE.replace("@PACKAGE@", generation.supportPackage())
                 .replace("@GENERATION@", generation.identity()).replace("@API@", generation.apiIdentity())
                 .replace("@SCHEMA@", BridgeGeneration.SCHEMA).replace("@PAYLOADS@", inventory).replace("@FILES@", String.join(",\n            ", files))
+                .replace("@VIEW_HELPERS@", views ? VIEW_HELPERS : "").replace("@VIEW_VERIFY@", views ? "verifyByteView(loader);" : "")
                 .replace("@TYPES@", classes).replace("@BINDINGS@", bindings).replace("@ENSURE@", ensureMethod);
     }
+
+    private static final String VIEW_HELPERS = """
+            private static Class<?> byteViewClass;
+            private static void verifyByteView(ClassLoader loader) throws IOException {
+                Class<?> type;
+                try { type = Class.forName("ironwood.bridge.ByteView", false, loader); }
+                catch (ClassNotFoundException missing) {
+                    throw new IOException("add the paired ironwood-bridge-values.jar to the classpath or module path", missing);
+                }
+                byte[] expected;
+                try (InputStream resource = Support.class.getResourceAsStream("/META-INF/ironwood/java-dependencies/ironwood-bridge-values.jar")) {
+                    if (resource == null) throw new IOException("missing paired byte-view dependency");
+                    expected = resource.readAllBytes();
+                }
+                var origin = type.getProtectionDomain().getCodeSource();
+                if (origin == null) throw new IOException("byte-view dependency has no verifiable jar origin");
+                try (InputStream actual = origin.getLocation().openStream()) {
+                    if (!Arrays.equals(expected, actual.readAllBytes())) {
+                        throw new IOException("incompatible ironwood-bridge-values.jar; use the paired dependency");
+                    }
+                }
+                byteViewClass = type;
+            }
+            """;
 
     private static final String TEMPLATE = """
             // SPDX-License-Identifier: MIT OR Apache-2.0
@@ -101,6 +127,7 @@ public final class BridgeLoaderSources {
 
             @Identity("@GENERATION@")
             public final class Support {
+                @VIEW_HELPERS@
                 private static final String GENERATION = "@GENERATION@";
                 private static final String API = "@API@";
                 private static final String SCHEMA = "@SCHEMA@";
@@ -129,6 +156,7 @@ public final class BridgeLoaderSources {
                         }
                         ClassLoader loader = Support.class.getClassLoader();
                         if (loader == null) throw new LinkageError("Ironwood artifact requires a defining application loader: " + GENERATION);
+                        @VIEW_VERIFY@
                         Class<?>[] types = preflight(loader);
                         String[] payload = requireHost();
                         Path image = extract(payload);

@@ -106,7 +106,9 @@ final class BridgeProducer {
                 platform.putAll(target.metadata()); minimum = platform.get("native.linux.glibc.minimum");
                 supportEntries = target.supportEntries(); extracted = target.extractedDependencies();
             }
+            boolean views = BridgeByteViewSources.required(java);
             var sources = new TreeMap<>(java.sources());
+            if (views) sources.put(BridgeByteViewSources.SOURCE_PATH, BridgeByteViewSources.SOURCE);
             sources.put(generation.supportPackage().replace('.', '/') + "/Support.java", BridgeLoaderSources.generate(generation, java,
                     new BridgeLoaderSources.Payload(build, minimum, BridgeGeneration.bytesDigest(payload), extracted)));
             Path sourceRoot = stage.resolve("sources"), classes = stage.resolve("classes"), docs = stage.resolve("javadoc");
@@ -122,7 +124,19 @@ final class BridgeProducer {
             BridgeBuildTools.javadoc(apiSources, classes, docs, diagnostics);
             var entries = new TreeMap<>(distribution.entries());
             add(entries, "META-INF/MANIFEST.MF", BridgePackageManifest.javaManifest(generation));
-            var classEntries = directory(classes);
+            var classEntries = new TreeMap<>(directory(classes));
+            byte[] valuesJar = null;
+            if (views) {
+                byte[] bytecode = classEntries.remove(BridgeByteViewSources.CLASS_PATH);
+                if (bytecode == null) throw new IOException("missing shared byte-view class");
+                valuesJar = BridgeValuesLibrary.packageClass(stage, bytecode, distribution.entries());
+                add(entries, BridgeByteViewSources.RESOURCE, valuesJar);
+                platform.put("java.values.abi", BridgeByteViewSources.ABI);
+                platform.put("java.values.version", producer.compilerVersion());
+                platform.put("java.values.sha256", BridgeGeneration.bytesDigest(valuesJar));
+                BridgeValuesLibrary.checkDestination(destination.resolveSibling(BridgeByteViewSources.JAR_NAME), valuesJar);
+                sources.remove(BridgeByteViewSources.SOURCE_PATH);
+            }
             var expectedClasses = java.generatedTypes().stream().map(name -> name.replace('.', '/') + ".class").collect(Collectors.toSet());
             if (!classEntries.keySet().equals(expectedClasses)) throw new IOException("generated Java Bridge class inventory differs from preflight manifest");
             for (var entry : classEntries.entrySet()) {
@@ -146,6 +160,8 @@ final class BridgeProducer {
             if (!BridgeProducerInputs.discover().equals(producer) || !BridgeDistributionInputs.discover(artifact, packaging).identity().equals(distribution.identity())) {
                 throw new IOException("Java Bridge producer/runtime/distribution inputs changed during the build; previous output preserved");
             }
+            if (views) BridgeValuesLibrary.copy(stage.resolve(BridgeByteViewSources.JAR_NAME),
+                    destination.resolveSibling(BridgeByteViewSources.JAR_NAME), valuesJar);
             BridgeJarArchive.publish(destination, entries);
         } finally {
             try (var paths = Files.walk(stage)) {

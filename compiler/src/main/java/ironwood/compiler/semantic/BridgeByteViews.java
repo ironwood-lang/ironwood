@@ -34,6 +34,10 @@ public final class BridgeByteViews {
             return BridgeProof.rejected("byte views are call-scoped method inputs only");
         }
         var program = artifact.program().orElseThrow();
+        if (program.staticFields().stream().anyMatch(field -> containsView(field.type()))
+                || program.classes().stream().flatMap(type -> type.fields().stream()).anyMatch(field -> containsView(field.type()))) {
+            return BridgeProof.rejected("byte views cannot appear in fields, statics or containers");
+        }
         var facts = artifact.bridgeConstructionFacts().orElseThrow();
         var roots = BridgeRootSet.resolve(program, List.of(callable));
         if (!roots.resolved()) return BridgeProof.unknown("byte view requires exact resolved entry");
@@ -97,6 +101,11 @@ public final class BridgeByteViews {
         }
         return BridgeProof.proved(new Contract(callable, inputs, closure, identity),
                 "P0 borrowing/retention/non-reclamation, exact library identity and complete bounded-view effects");
+    }
+
+    private static boolean containsView(IrType type) {
+        return view(type) || type.isArray() && containsView(type.elementType())
+                || type.typeArguments().stream().anyMatch(BridgeByteViews::containsView);
     }
 
     private static <T> BridgeProof<T> failed(BridgeProof.Status status, String reason) {

@@ -40,6 +40,9 @@ public record BridgeValueNativeSources(String source, List<Adapter> adapters) {
                 .append("__attribute__((noinline)) static void iw_value_failure(JNIEnv *env, int32_t status, void *exception) {\n")
                 .append("    if (status == 1) iw_exception_translate(env, &iw_exceptions, exception);\n")
                 .append("    else iw_exception_error(env, &iw_exceptions, status == 2, \"Ironwood protected entry failed\");\n}\n");
+        if (module.entries().stream().anyMatch(entry -> !BridgeByteViewInputSources.indices(entry.root().callable().parameters()).isEmpty())) {
+            text.append(BridgeByteViewInputSources.HELPERS);
+        }
         var adapters = new ArrayList<Adapter>();
         for (var entry : module.entries()) {
             var id = entry.root().callable();
@@ -58,7 +61,8 @@ public record BridgeValueNativeSources(String source, List<Adapter> adapters) {
     }
 
     private static boolean valueType(IrType type) {
-        return type.equals(STRING) || ironwood.compiler.semantic.BridgeArrayInputs.primitiveArray(type)
+        return type.equals(STRING) || ironwood.compiler.semantic.BridgeByteViews.view(type)
+                || ironwood.compiler.semantic.BridgeArrayInputs.primitiveArray(type)
                 || BridgeAbi.carrierFor(type).filter(carrier -> carrier != BridgeAbi.Carrier.OPAQUE_REFERENCE).isPresent();
     }
 
@@ -74,6 +78,8 @@ public record BridgeValueNativeSources(String source, List<Adapter> adapters) {
             if (type.equals(STRING)) {
                 nativeTypes.add("int64_t"); nativeTypes.add("int32_t"); strings.add(i);
                 arguments.add("(int64_t)(uintptr_t)chars" + i); arguments.add("length" + i);
+            } else if (ironwood.compiler.semantic.BridgeByteViews.view(type)) {
+                nativeTypes.add("struct iw_byteview *"); arguments.add("view" + i);
             } else if (type.isArray()) {
                 nativeTypes.add("int64_t"); arguments.add("(int64_t)(uintptr_t)array" + i);
             } else { nativeTypes.add(cType(type)); arguments.add("arg" + i); }
@@ -85,6 +91,8 @@ public record BridgeValueNativeSources(String source, List<Adapter> adapters) {
         for (int i = 0; i < id.parameters().size(); i++) text.append(", ").append(jniType(id.parameters().get(i))).append(" arg").append(i);
         text.append(") {\n    (void)type;\n");
         text.append(BridgeStringInputSources.declarations(strings)).append(BridgeArrayInputSources.declarations(id.parameters()))
+                .append(BridgeByteViewInputSources.declarations(id.parameters()))
+                .append(BridgeByteViewInputSources.acquire(artifact, id))
                 .append(BridgeStringInputSources.acquire(strings)).append(BridgeArrayInputSources.acquire(id.parameters()));
         text.append("    struct ironwood_bridge_result result;\n    int32_t status = ").append(entry.function().linkageName())
                 .append('(').append(String.join(", ", arguments)).append(");\n");
@@ -102,7 +110,8 @@ public record BridgeValueNativeSources(String source, List<Adapter> adapters) {
             text.append("    return copied;\n");
         } else if (id.result().equals(IrType.VOID)) text.append("    return;\n");
         else text.append("    return result.value.").append(field(id.result())).append(";\n");
-        if (!strings.isEmpty() || !BridgeArrayInputSources.indices(id.parameters()).isEmpty()) {
+        if (!strings.isEmpty() || !BridgeArrayInputSources.indices(id.parameters()).isEmpty()
+                || !BridgeByteViewInputSources.indices(id.parameters()).isEmpty()) {
             text.append("preparation_failed:\n");
             text.append(BridgeStringInputSources.release(strings)).append(BridgeArrayInputSources.release(id.parameters()));
             text.append("    ").append(exit).append('\n');
@@ -112,6 +121,7 @@ public record BridgeValueNativeSources(String source, List<Adapter> adapters) {
 
     static String jniType(IrType type) {
         if (type.equals(STRING)) return "jstring";
+        if (ironwood.compiler.semantic.BridgeByteViews.view(type)) return "jobject";
         if (type.isArray()) return "j" + BridgeJavaTypes.sourceName(type.elementType()) + "Array";
         return type.equals(IrType.VOID) ? "void" : "j" + BridgeJavaTypes.sourceName(type);
     }

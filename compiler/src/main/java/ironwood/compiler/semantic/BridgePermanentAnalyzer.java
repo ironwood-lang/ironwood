@@ -60,6 +60,10 @@ public final class BridgePermanentAnalyzer {
             }
             types.addAll(id.parameters());
             types.add(id.result());
+            if (id.parameters().stream().anyMatch(BridgeByteViews::view)) {
+                var views = BridgeByteViews.analyze(artifact, id);
+                if (views.status() != BridgeProof.Status.PROVED) return failure(views.status(), views.reason());
+            }
             if (id.result().isArray() || id.parameters().stream().anyMatch(IrType::isArray)) {
                 var arrays = BridgeArrayInputs.values(artifact, id);
                 if (arrays.status() != BridgeProof.Status.PROVED) return failure(arrays.status(), arrays.reason());
@@ -82,7 +86,7 @@ public final class BridgePermanentAnalyzer {
         }
         Map<IrType, BridgeNonReclamationContract> references = new LinkedHashMap<>();
         for (var type : types) {
-            if (!type.isReference() || type.equals(STRING) || BridgeArrayInputs.primitiveArray(type)) continue;
+            if (!type.isReference() || type.equals(STRING) || BridgeArrayInputs.primitiveArray(type) || BridgeByteViews.view(type)) continue;
             if (!type.isNominalReference() || !type.typeArguments().isEmpty()) {
                 return BridgeProof.rejected("permanent entry does not admit array or generic conversion");
             }

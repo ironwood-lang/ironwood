@@ -63,6 +63,7 @@ public final class BridgePermanentNativeSources {
                 .append("__attribute__((noinline)) static void iw_permanent_failure(JNIEnv *env, int32_t status, void *exception) {\n")
                 .append("    if (status == 1) iw_exception_translate(env, &iw_exceptions, exception);\n")
                 .append("    else iw_exception_error(env, &iw_exceptions, status == 2, \"Ironwood protected entry failed\");\n}\n");
+        if (BridgeByteViewSources.required(java.declarations())) text.append(BridgeByteViewInputSources.HELPERS);
         var permanent = new BridgePermanentJavaSources.Sources(java.declarations(), java.facades().stream().filter(value -> !value.rooted()).toList(), java.enums());
         var rootFacades = java.facades().stream().filter(BridgePermanentJavaSources.Facade::rooted).toList();
         if (roots != null) {
@@ -233,6 +234,8 @@ public final class BridgePermanentNativeSources {
             } else if (type.equals(STRING)) {
                 nativeTypes.add("int64_t"); nativeTypes.add("int32_t"); strings.add(index);
                 arguments.add("(int64_t)(uintptr_t)chars" + index); arguments.add("length" + index);
+            } else if (ironwood.compiler.semantic.BridgeByteViews.view(type)) {
+                nativeTypes.add("void *"); arguments.add("view" + index);
             } else if (type.isArray()) {
                 nativeTypes.add("int64_t"); arguments.add("(int64_t)(uintptr_t)array" + index);
             } else if (type.isReference()) {
@@ -262,7 +265,8 @@ public final class BridgePermanentNativeSources {
                     : token ? "jint" : jniType(id.parameters().get(index))).append(" arg").append(index);
         }
         text.append(") {\n    (void)type;\n");
-        text.append(BridgeArrayInputSources.declarations(id.parameters()));
+        text.append(BridgeArrayInputSources.declarations(id.parameters()))
+                .append(BridgeByteViewInputSources.declarations(id.parameters()));
         for (int index : strings) text.append("    const jchar *chars").append(index).append(" = NULL; jsize length").append(index).append(" = -1;\n");
         for (int index : references) text.append("    void *reference").append(index).append(" = NULL;\n");
         var rootInputs = references.stream().filter(index -> rootTypes.containsKey(id.parameters().get(index))).toList();
@@ -296,7 +300,8 @@ public final class BridgePermanentNativeSources {
                     .append("(env, arg").append(index).append(", &enum").append(index).append(")) goto preparation_failed;\n");
         }
         BridgeRootRetentionSources.prepare(text, admission, id, instance);
-        text.append(BridgeArrayInputSources.acquire(id.parameters()));
+        text.append(BridgeByteViewInputSources.acquire(artifact, id))
+                .append(BridgeArrayInputSources.acquire(id.parameters()));
         if (reservation.isPresent()) {
             int kind = roots.kinds().indexOf(reservation.orElseThrow());
             if (kind < 0) throw new IllegalArgumentException("fresh root lacks exact final destruction kind");
@@ -340,7 +345,8 @@ public final class BridgePermanentNativeSources {
         else text.append("    return ").append(result).append(".value.").append(BridgeValueNativeSources.field(id.result())).append(";\n");
         boolean fallibleEnumInput = enumArguments.stream().anyMatch(index -> !binding.enumTokenParameters().contains(index - (instance || constructor ? 1 : 0)));
         if (!strings.isEmpty() || !references.isEmpty() || fallibleEnumInput || reservation.isPresent() || slotCount != 0
-                || !BridgeArrayInputSources.indices(id.parameters()).isEmpty()) {
+                || !BridgeArrayInputSources.indices(id.parameters()).isEmpty()
+                || !BridgeByteViewInputSources.indices(id.parameters()).isEmpty()) {
             text.append("preparation_failed:\n"); release(text, strings);
             text.append(BridgeArrayInputSources.release(id.parameters())).append("    ").append(exit).append('\n');
         }

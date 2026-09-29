@@ -171,10 +171,35 @@ the [array example and measurement runner](../examples/java-bridge/arrays/README
 [qualification and measurements](JAVA_BRIDGE_ARRAY_EVIDENCE.md) and
 [implementation checkpoints](JAVA_BRIDGE_ARRAY_PROGRESS.md).
 
-Bounded zero-copy byte views are still unsupported. The
-[P7c0 API/lifetime design](JAVA_BRIDGE_BUFFER_DESIGN.md) is accepted and
-[P7c1 implementation](JAVA_BRIDGE_BUFFER_PROGRESS.md) is in progress. Producer
-admission remains disabled until transport and qualification are complete.
+Bounded `ironwood.bridge.ByteView` inputs use JVM-owned reusable storage without
+payload copying. Java creates views with `allocate(int)`, `slice(int, int)` and
+`asReadOnly()`; both Java and native source expose `length()`, `isReadOnly()`,
+`get(int)` and `put(int, byte)`. Null is admitted, but operations on null throw.
+Writes are immediate, including writes preceding an exception. Overlapping
+slices share their bytes while retaining distinct view identities. Read-only
+writes throw `UnsupportedOperationException` before checking the index.
+
+Views are synchronous borrowed method inputs. Native source cannot construct,
+retain, return, store, free, upcast or perform runtime type operations on them;
+constructor parameters, callbacks and unknown effects are rejected. Java has no
+close/free or raw-buffer/address accessor. Keep storage confined during calls.
+The JVM reclaims backing storage only after its views and active JNI references
+cease to retain it. Reuse views rather than allocating per call.
+
+The producer emits the companion `ironwood-bridge-values.jar`. Supply it beside
+the paired artifact on the Java classpath or module path; it defines automatic
+module `ironwood.bridge.values`. Its exact ABI, version and bytes are checked
+before native initialization. Independent artifacts share this class, without
+embedding competing public classes. Distribution emits the companion and its
+source/licenses plus the ordinary dependency
+`org.ironwood:ironwood-bridge-values:<IDK version>`. Non-view artifacts keep their
+existing single-jar delivery. `ironwoodc --java-bridge-values -o <path>` builds the
+host-only companion independently; it refuses to overwrite different bytes.
+
+See the [accepted contract](JAVA_BRIDGE_BUFFER_DESIGN.md),
+[runnable example and comparison](../examples/java-bridge/byteviews/README.md)
+and [qualification progress](JAVA_BRIDGE_BUFFER_PROGRESS.md). P7c1's final
+platform/performance qualification remains in progress.
 
 Permanent-object admission proves that exposed native storage cannot be reclaimed
 within the complete linked world. These facades have no generated `free()` or
