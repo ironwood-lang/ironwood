@@ -34,6 +34,33 @@ call it from a regular Java application as if it were an ordinary Java
 dependency. No handwritten bridge code, native declarations, or manual library
 loading are required for supported APIs.
 
+## Try the included programs
+
+Select Java 21 for building, put the checkout's `bin` on `PATH`, and prepare
+the [native prerequisites](JAVA_BRIDGE_USAGE.md#build-and-run). From the
+repository root, the simplest [example](../examples/java-bridge/README.md) is:
+
+```sh
+export PATH="$PWD/bin:$PATH"
+./examples/java-bridge/value/compile.sh
+./examples/java-bridge/value/link.sh
+./examples/java-bridge/value/run.sh
+```
+
+It calls native primitive/String methods, catches an exception and continues.
+For the real OrderBook API and its existing Java benchmark drivers:
+
+```sh
+./projects/OrderBook/java-bridge/compile.sh
+./projects/OrderBook/java-bridge/link.sh
+./projects/OrderBook/java-bridge/run.sh
+./projects/OrderBook/java-bridge/throughput.sh 10 100
+./projects/OrderBook/java-bridge/latency.sh 10000 50000 1000
+```
+
+See the [OrderBook bridge guide](../projects/OrderBook/java-bridge/README.md)
+for prerequisites, arguments, output, smoke tests and comparison boundaries.
+
 ## Quick start
 
 ### 1. Set up the project

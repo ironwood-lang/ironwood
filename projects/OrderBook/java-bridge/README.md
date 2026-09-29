@@ -1,0 +1,77 @@
+<!-- SPDX-License-Identifier: MIT OR Apache-2.0 -->
+
+# OrderBook through the Java Bridge
+
+The ordinary Java demonstration and benchmark drivers call the native Ironwood
+OrderBook through its generated Java API. No handwritten JNI or loader is used.
+The engine sources and official benchmark definitions are unchanged.
+
+## Build and run
+
+From the repository root, select a **Java 21 JDK** on `PATH` and in `JAVA_HOME`,
+with `ironwoodc` on `PATH` and the pinned LLVM 23 toolchain available. On Linux,
+set `IRONWOOD_BRIDGE_SUPPORT_HOME` to the prepared target SDK. See the
+[producer prerequisites](../../../docs/JAVA_BRIDGE_USAGE.md#build-and-run).
+
+```sh
+export PATH="$PWD/bin:$PATH"
+./projects/OrderBook/java-bridge/compile.sh
+./projects/OrderBook/java-bridge/link.sh
+./projects/OrderBook/java-bridge/run.sh
+./projects/OrderBook/java-bridge/throughput.sh 10 100
+./projects/OrderBook/java-bridge/latency.sh 10000 50000 1000
+```
+
+The scripts locate their own directory, so they also work from elsewhere.
+Build stages print their commands. `run.sh` prints the same demonstration
+snapshots as the other versions, ending with `true`, `true`, `4`, `170`, `2`.
+A built consumer needs only Java 21, 22 or 23 on the matching target. Java 24+
+is refused. No native-access flags or manual library loading are needed.
+
+- `compile.sh` compiles only the existing Ironwood engine closure into
+  `target/iron-classes`.
+- `link.sh` builds `target/orderbook.jar` with `-O3`, then compiles the existing
+  Java `Main`, `Bench`, `LatencyBench` and `LatencyReport` into
+  `target/consumer-classes`. An empty Java source path prevents implicit
+  compilation of the Java engine. `OrderBook`, `Order` and their enums come
+  exclusively from the generated JAR.
+- `run.sh`, `throughput.sh` and `latency.sh` start those JVM drivers with that
+  JAR. All generated build files stay under this folder's ignored `target/`
+  directory; program results go to standard output.
+
+The bridge producer uses its supported target CPU baseline; it does not accept
+`-march=native`. Other OrderBook native scripts currently use host CPU tuning.
+Record this difference when comparing measurements. Build the bridge on each
+target being tested; this workflow produces one host-target JAR.
+
+## Throughput and latency
+
+Throughput arguments are **warmup operations and measured operations in millions**,
+with defaults `10 100`. Output is one integer, the measured elapsed nanoseconds,
+matching the other versions. Million operations/second is
+`measuredMillions * 1e9 / elapsedNanoseconds`.
+
+Latency arguments are **warmup batches, measured batches, cycles per batch**,
+with defaults `10000 50000 1000`. Each cycle has eight order operations. The
+report includes the clock check, measured counts and batch-latency distribution.
+A batch percentile is not a per-operation percentile. These Java loops call the
+native engine through its ordinary API for each operation; they do not substitute
+the separate coarse native-batch experiment from the qualification tools.
+
+For a quick functional check after building:
+
+```sh
+./projects/OrderBook/java-bridge/test.sh
+```
+
+This checks the exact demonstration, checked JNI, positive throughput/latency
+runs, invalid counts/overflow, extra arguments, and absence of Java engine
+classes in the consumer output. Small smoke counts are not performance evidence.
+For comparisons, use the same counts and JDK, run one process at a time, repeat
+and alternate implementations. See the [shared workload](../README.md#shared-workload)
+and [historical bridge measurements](../../../docs/JAVA_BRIDGE_X86_EVIDENCE.md).
+
+The native book and pooled orders have process lifetime, as in the existing
+Ironwood benchmark. They expose no generated `free()`; each script starts a
+fresh JVM. Native pool reuse does not imply every Java facade lookup allocates
+nothing: facade cache misses/recreation have their own allocation behavior.
