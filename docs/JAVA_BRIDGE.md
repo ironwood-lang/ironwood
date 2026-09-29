@@ -38,16 +38,19 @@ loading are required for supported APIs.
 
 Select Java 21 for building, put the checkout's `bin` on `PATH`, and prepare
 the [native prerequisites](JAVA_BRIDGE_USAGE.md#build-and-run). From the
-repository root, the simplest [example](../examples/java-bridge/README.md) is:
+repository root, start with the [basics example](../examples/java-bridge/basics/README.md):
 
 ```sh
 export PATH="$PWD/bin:$PATH"
-./examples/java-bridge/value/compile.sh
-./examples/java-bridge/value/link.sh
-./examples/java-bridge/value/run.sh
+./examples/java-bridge/basics/compile.sh
+./examples/java-bridge/basics/link.sh
+./examples/java-bridge/basics/run.sh
+./examples/java-bridge/basics/test.sh
 ```
 
-It calls native primitive/String methods, catches an exception and continues.
+Java implements an Ironwood listener interface, calls a native counter twice,
+and receives two callbacks. The separate [value example](../examples/java-bridge/README.md#values-and-exceptions)
+calls native primitive/String methods, catches an exception and continues.
 For the real OrderBook API and its existing Java benchmark drivers:
 
 ```sh

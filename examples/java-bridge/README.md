@@ -2,6 +2,22 @@
 
 # Java Bridge examples
 
+Start with [basics](basics/README.md): a small native Ironwood `Counter` and
+`CounterListener` interface, implemented by a Java application. Two Java calls
+into the counter produce two callbacks into Java. It includes compile, link,
+run and test scripts, plus explicit native cleanup.
+
+With the prerequisites below on `PATH`, run from this directory:
+
+```sh
+./basics/compile.sh
+./basics/link.sh
+./basics/run.sh
+./basics/test.sh
+```
+
+## Values and exceptions
+
 The `value` example builds an ordinary Java dependency containing a paired
 host-target native image. A Java consumer calls primitive/String methods, catches
 a declared IOException, and continues calling the same artifact. Generated
