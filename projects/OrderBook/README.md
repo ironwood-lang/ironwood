@@ -260,6 +260,24 @@ operations. Run the commands as separate processes, alternate their order over
 multiple trials, and compare medians. Avoid running them concurrently because
 they would compete for the same processor resources.
 
+Each variant also has an official-throughput wrapper. Its arguments are run
+count, warmup millions and measured millions, defaulting to `31 8 80`:
+
+```console
+$ ./official-throughput.sh 31 8 80
+$ java/official-throughput.sh 31 8 80
+$ java/official-throughput-native-image.sh 31 8 80
+$ cpp/official-throughput.sh 31 8 80
+$ java-bridge/official-throughput.sh 31 8 80
+```
+
+Build each variant first using the commands above. The run count must be a
+positive odd number. Each wrapper starts a fresh process for every sample,
+prints individual elapsed times to stderr, and prints only the median elapsed
+nanoseconds to stdout. All five wrappers locate their own directory. Use the
+same arguments and run variants sequentially; these wrappers do not alternate
+implementations automatically.
+
 ## Latency
 
 ```console
