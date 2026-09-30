@@ -2,6 +2,12 @@
 
 # Java Bridge private-entry performance
 
+**2026-09-29 environment clarification:** The Linux x86-64 speedup below applies
+to the recorded validation container. A [host investigation](JAVA_BRIDGE_HOST_PERFORMANCE.md)
+reproduces slower-than-Java behavior outside it, with both the historical and
+current bridge. Docker's forced store-bypass mitigation and CPU affinity change
+the relative result. These figures do not establish a general Linux advantage.
+
 D224 keeps the existing Java OrderBook API and improves physical Linux x86-64
 throughput. It adds private constant-enum entries and increases the permanent
 weak cache's initial bucket count. The engine algorithm and eight calls per cycle

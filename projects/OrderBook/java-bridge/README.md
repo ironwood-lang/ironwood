@@ -58,6 +58,12 @@ stdout. The run count must be a positive odd number. After building, use
 `./projects/OrderBook/java-bridge/official-throughput.sh 31 8 80` from the
 repository root.
 
+For comparisons, record the JVM, CPU affinity and process security state as well
+as compiler flags. The [Estonia host investigation](../../../docs/JAVA_BRIDGE_HOST_PERFORMANCE.md)
+shows that Docker's speculative-store-bypass mitigation changes the relative
+OrderBook performance. Its earlier container speedup does not hold on the
+ordinary host; compare all three variants in the same deployment environment.
+
 Latency arguments are **warmup batches, measured batches, cycles per batch**,
 with defaults `10000 50000 1000`. Each cycle has eight order operations. The
 report includes the clock check, measured counts and batch-latency distribution.

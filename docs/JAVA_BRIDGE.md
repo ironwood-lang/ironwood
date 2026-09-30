@@ -215,7 +215,10 @@ Automatic batching reduces the measured Linux x86-64 bridge time from about
 The compiler batches only loops with proved equivalent behavior, preserving every
 Java listener call. Other admitted loops keep ordinary JNI dispatch. These are
 amortized event times, not callback arrival percentiles, and are separate from the
-[OrderBook measurements](JAVA_BRIDGE_X86_EVIDENCE.md).
+[OrderBook measurements](JAVA_BRIDGE_X86_EVIDENCE.md). The subsequent
+[host investigation](JAVA_BRIDGE_HOST_PERFORMANCE.md) finds the bridge slower
+than Java in the maintainer's ordinary Linux environment. The earlier OrderBook
+advantage depends on the validation container's security and CPU configuration.
 
 Use the [producer guide](JAVA_BRIDGE_USAGE.md) for current contracts and the
 [implementation plan](JAVA_BRIDGE_PLAN.md) for phase status. The

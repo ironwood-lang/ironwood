@@ -26,6 +26,15 @@ Estonia after the maintainer separately authorized SSH access.
 
 ## Current checkpoint
 
+The 2026-09-29 [OrderBook host investigation](JAVA_BRIDGE_HOST_PERFORMANCE.md)
+reproduces the maintainer's slower-than-Java result on Estonia. The preserved
+D224 bridge and current bridge have matching hot instructions and nearly equal
+host timings. A controlled child-process mitigation experiment identifies the
+container's speculative-store-bypass protection as the main reason the earlier
+relative performance conclusion reverses; CPU affinity also materially affects
+Java. The compiler and official benchmark remain unchanged. Future performance
+acceptance must include the ordinary host deployment, not only container results.
+
 P7a batching, P7b copied primitive arrays, P7c bounded byte views and P7d0-P7d2
 bounded generics are implemented and qualified under their separately recorded
 authorizations. The completed P7e0 checkpoint's
