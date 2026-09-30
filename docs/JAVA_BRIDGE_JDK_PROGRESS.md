@@ -199,3 +199,16 @@ Full Linux IDK archives were not repackaged in this task; native bridge producti
 assembly, distribution and consumers passed on both Linux targets. Unfiltered
 compiler suites, hosted builds, release/publishing and performance benchmarks were
 not run. Safety/IR/runtime lowering and JNI valid-path code remain unchanged.
+
+## SDK 27 end-user follow-up, 2026-09-30
+
+A direct bridge-producer check confirms the distribution limitation. The isolated
+relocated IDK, with JAVA_HOME unset (bundled JDK) and Xcode's SDK 27.0 explicitly
+selected, fails to build the value example at native linking. The linker rejects
+`arm64e.x1` in libSystem/libc++ text stubs; exit status is 1 and no artifact is
+published. Command, environment and output are preserved in
+`workspace/java-bridge/jdk-matrix/idk-sdk27-bridge-e69s9nma`.
+This confirms a macOS IDK usability gap for end-users selecting SDK 27. The
+previous SDK 26.5 bridge matrix remains valid, but selecting an older installed
+SDK is a workaround rather than SDK 27 qualification. No compiler/toolchain
+implementation changes were made in this follow-up.
