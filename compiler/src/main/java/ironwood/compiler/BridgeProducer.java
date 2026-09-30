@@ -60,6 +60,7 @@ final class BridgeProducer {
         }
         var producer = BridgeProducerInputs.discover();
         var support = macos ? null : BridgeNativeSupport.discover(toolchain);
+        var macTools = macos ? MacNativeTools.discover() : null;
         var distribution = BridgeDistributionInputs.discover(artifact, packaging);
         var projection = projection(artifact, surface, objects, callbacks, owners, destination.getFileName().toString(), producer);
         var generation = projection.generation(); var java = projection.java();
@@ -69,7 +70,7 @@ final class BridgeProducer {
         Path stage = Files.createTempDirectory(destination.getParent(), ".ironwood-bridge-build-");
         try {
             Path runtime = RuntimeLibrary.discover().source().orElseThrow().getParent().getParent();
-            var inputs = nativeInputs(stage, toolchain, optimization, javaHome, producer, distribution, llvm, projection, host, support);
+            var inputs = nativeInputs(stage, toolchain, optimization, javaHome, producer, distribution, llvm, projection, host, support, macTools);
             var build = generation.nativeBuild(host, inputs);
             String filename = macos ? "libbridge.dylib" : "libbridge.so";
             Path llvmFile = stage.resolve("program.ll"), adapter = stage.resolve("adapter.c"), object = stage.resolve("adapter.o"), image = stage.resolve(filename);
@@ -80,8 +81,9 @@ final class BridgeProducer {
                     "-I" + javaHome.resolve("include"), "-I" + javaHome.resolve(macos ? "include/darwin" : "include/linux"), "-I" + runtime.resolve("include"),
                     "-c", adapter.toString(), "-o", object.toString()));
             if (support != null) adapterCommand.addAll(support.compileFlags());
+            if (macTools != null) adapterCommand.addAll(macTools.compileFlags());
             BridgeBuildTools.run(stage, "JNI adapter compilation", adapterCommand);
-            var linked = new NativeBackend().linkShared(toolchain, llvmFile, image, optimization, List.of(object));
+            var linked = new NativeBackend().linkShared(toolchain, llvmFile, image, optimization, List.of(object), macTools);
             if (!linked.success()) throw new IOException("Java Bridge native link failed: " + linked.output());
             if (!linked.output().isBlank()) diagnostics.println(linked.output());
             byte[] payload = Files.readAllBytes(image);
@@ -217,12 +219,13 @@ final class BridgeProducer {
 
     private static Map<String, String> nativeInputs(Path stage, LlvmToolchain toolchain, OptimizationLevel optimization,
             Path javaHome, BridgeProducerInputs producer, BridgeDistributionInputs distribution, String llvm,
-            Projection projection, String host, BridgeNativeSupport support) throws IOException {
+            Projection projection, String host, BridgeNativeSupport support, MacNativeTools macTools) throws IOException {
         var generation = projection.generation(); var java = projection.java();
         Path probe = stage.resolve("target.c"), targetLlvm = stage.resolve("target.ll"); Files.writeString(probe, "");
         var probeCommand = new ArrayList<>(List.of(toolchain.clang().toString(), "-std=c11", "-S", "-emit-llvm", "-x", "c",
                 "-fvisibility=hidden", probe.toString(), "-o", targetLlvm.toString()));
         if (support != null) probeCommand.addAll(support.compileFlags());
+        if (macTools != null) probeCommand.addAll(macTools.compileFlags());
         BridgeBuildTools.run(stage, "native target discovery", probeCommand);
         var target = NativeTarget.fromLlvm(Files.readString(targetLlvm));
         boolean macos = host.equals("macos-arm64");
@@ -235,7 +238,7 @@ final class BridgeProducer {
         inputs.put("optimization", optimization.toString()); inputs.put("cpu", "default-baseline");
         inputs.put("adapter.flags", "-std=c11 -Wall -Wextra -Werror -fPIC -fvisibility=hidden " + optimization.clangArgument());
         if (macos) {
-            inputs.put("sdk.version", BridgeBuildTools.run(stage, "macOS SDK discovery", List.of("/usr/bin/xcrun", "--show-sdk-version")).trim());
+            inputs.putAll(macTools.identity());
             inputs.put("deployment.environment", System.getenv().getOrDefault("MACOSX_DEPLOYMENT_TARGET", "default"));
         } else {
             inputs.put("libc", "glibc-2.17"); inputs.put("link.binding", "now");

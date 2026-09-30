@@ -54,14 +54,19 @@ public final class NativeBackend {
                            TargetMachine targetMachine, Integer inlineThreshold, Boolean partialInlining,
                            Path optimizationReport) {
         return linkImage(toolchain, llvmIr, output, optimizationLevel, requirements, targetMachine,
-                inlineThreshold, partialInlining, optimizationReport, NativeOutputKind.EXECUTABLE, List.of());
+                inlineThreshold, partialInlining, optimizationReport, NativeOutputKind.EXECUTABLE, List.of(), null);
     }
 
     /** Internal shared-image path; native adapters are compiled separately with Clang. */
     public LinkResult linkShared(LlvmToolchain toolchain, Path llvmIr, Path output,
                                  OptimizationLevel optimizationLevel, List<Path> adapterObjects) {
+        return linkShared(toolchain, llvmIr, output, optimizationLevel, adapterObjects, null);
+    }
+
+    public LinkResult linkShared(LlvmToolchain toolchain, Path llvmIr, Path output,
+                                 OptimizationLevel optimizationLevel, List<Path> adapterObjects, MacNativeTools macTools) {
         return linkImage(toolchain, llvmIr, output, optimizationLevel, NativeLinkRequirements.NONE,
-                TargetMachine.DEFAULT, null, null, null, NativeOutputKind.SHARED_LIBRARY, List.copyOf(adapterObjects));
+                TargetMachine.DEFAULT, null, null, null, NativeOutputKind.SHARED_LIBRARY, List.copyOf(adapterObjects), macTools);
     }
 
     public LinkResult link(LlvmToolchain toolchain, Path llvmIr, Path output,
@@ -71,13 +76,13 @@ public final class NativeBackend {
             return new LinkResult(false, "native adapter objects require shared-library output");
         }
         return linkImage(toolchain, llvmIr, output, optimizationLevel, requirements, targetMachine,
-                null, null, null, kind, List.copyOf(adapterObjects));
+                null, null, null, kind, List.copyOf(adapterObjects), null);
     }
 
     private LinkResult linkImage(LlvmToolchain toolchain, Path llvmIr, Path output,
                                  OptimizationLevel optimizationLevel, NativeLinkRequirements requirements,
                                  TargetMachine targetMachine, Integer inlineThreshold, Boolean partialInlining,
-                                 Path optimizationReport, NativeOutputKind kind, List<Path> adapterObjects) {
+                                 Path optimizationReport, NativeOutputKind kind, List<Path> adapterObjects, MacNativeTools selectedMacTools) {
         boolean shared = kind == NativeOutputKind.SHARED_LIBRARY;
         Path temporaryDirectory = null;
         try {
@@ -107,8 +112,11 @@ public final class NativeBackend {
                     runtime.source().orElseThrow().getParent().getParent().getParent(), toolchain) : null;
             BridgeNativeSupport bridgeSupport = shared && System.getProperty("os.name").startsWith("Linux")
                     ? BridgeNativeSupport.discover(toolchain) : null;
+            MacNativeTools macTools = System.getProperty("os.name").startsWith("Mac")
+                    ? selectedMacTools == null ? MacNativeTools.discover() : selectedMacTools : null;
             List<String> targetFlags = new java.util.ArrayList<>(targetMachine.clangArguments());
             if (shared) targetFlags.add("-fvisibility=hidden");
+            if (macTools != null) targetFlags.addAll(macTools.compileFlags());
             if (bridgeSupport != null) targetFlags.addAll(bridgeSupport.compileFlags());
             if (tls != null) targetFlags.addAll(tls.compileFlags());
 
@@ -203,6 +211,7 @@ public final class NativeBackend {
                     toolchain.clang().toString(), "--driver-mode=g++", "--target=" + target.triple(),
                     objectFile.toString(), runtimeObjectFile.toString(), caseObjectFile.toString(),
                     tcpObjectFile.toString(), hostObjectFile.toString()));
+            if (macTools != null) linkCommand.addAll(macTools.linkFlags());
             if (shared) linkCommand.add(System.getProperty("os.name").startsWith("Mac") ? "-dynamiclib" : "-shared");
             if (shared && System.getProperty("os.name").startsWith("Mac")) {
                 // The linker otherwise embeds the temporary producer path in LC_ID_DYLIB.

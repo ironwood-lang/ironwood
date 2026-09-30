@@ -1051,6 +1051,8 @@ public final class CompilerTests {
         test("bootstrap runtime boundary is discovered", this::bootstrapRuntimeIsDiscovered);
         test("runtime allocation and deallocation ABI works", this::runtimeAllocationAndDeallocationWorks);
         test("LLVM 23 toolchain is discovered", this::llvmToolchainIsDiscovered);
+        test(ironwood.compiler.backend.MacNativeToolsTests.NAME,
+                ironwood.compiler.backend.MacNativeToolsTests::selection);
         test("invalid LLVM home is diagnosed", this::invalidLlvmHomeIsDiagnosed);
         test("wrong LLVM major is diagnosed", this::wrongLlvmMajorIsDiagnosed);
         test("invalid optimization level is diagnosed", this::invalidOptimizationLevelIsDiagnosed);

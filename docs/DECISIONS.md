@@ -9141,3 +9141,26 @@ occurrence order. If no
   artifact pairing. D203/D238's Java 24+ refusal, native-access behavior, memory
   safety, ownership, exception transport and D132/D133 remain unchanged. No
   warmed-call code changes or new runtime checks are introduced.
+
+## D240 - Include native bridge dependencies in IDKs and use Apple's selected linker
+
+- **Status:** Authorized by the maintainer's out-of-box macOS/Linux repair request
+  on 2026-09-30. Verification is recorded in the
+  [JDK progress log](JAVA_BRIDGE_JDK_PROGRESS.md).
+- **Decision:** macOS native builds select the SDK and Apple linker through the
+  installed Command Line Tools/Xcode developer environment. Pass their paths
+  explicitly to the pinned LLVM 23 Clang driver for ordinary executables and
+  shared bridge images. LLVM retains compilation and optimization under D012;
+  Apple's development tools remain the macOS build prerequisite under D014.
+  Honor SDKROOT/DEVELOPER_DIR and reject invalid explicit selections. Native
+  bridge identity includes actual SDK settings/stub hashes and linker version/hash.
+- **Packaging:** Linux IDKs include the complete pinned bridge support SDK,
+  source, recipes, license texts and manifests at the installed discovery path.
+  Verify its closure before and after staging; do not substitute system runtimes
+  or weaken checksum checks. Source/host packages include preparation pins/recipe.
+- **Supersession and scope:** Replace the SDK 26.5 workaround in IDK instructions
+  and the requirement for Linux IDK end-users to prepare support separately.
+  Extend D239's Java 21/22/23 workflow. Preserve Java 21 APIs/classes, Java 24+
+  refusal, JNI transport, artifact pairing, memory-safety proofs, exception and
+  native-access behavior, D132/D133 and existing runtime performance constraints.
+  No compiler IR, runtime lowering or steady-state JNI code changes are made.

@@ -662,6 +662,11 @@ timestamps and container paths. Native build inputs are separately hashed before
 embedding their identity, avoiding a self-referential final image digest. The
 producer supplies actual target, SDK, toolchain, JNI-header and generated-input
 identities and rechecks compiler/runtime/distribution inputs before publication.
+On macOS, `MacNativeTools` selects the SDK and Apple linker from the developer
+environment once per bridge build. Adapter/runtime compilation and final linking
+share that selection; native identity includes SDK settings/stub hashes and the
+linker version/hash. LLVM 23 still performs compilation and optimization. Explicit
+SDK failures do not fall back to another installed version.
 These identities do not independently qualify a payload or complete P2.
 
 The internal object identity route requires the exact `BridgeObjectAdmission`
@@ -825,6 +830,9 @@ Linux shared links validate the prepared `BridgeNativeSupport` SDK, preserve
 the glibc 2.17 sysroot explicitly, and deliver private shared dependencies plus
 their source/notices under a relative loader path. A missing or changed SDK
 fails before linking, and existing delivered files are verified before reuse.
+Linux IDK packaging includes and verifies this complete support SDK, preserving
+its source/notices and manifests. Ordinary installed discovery requires no
+producer-side support override.
 See [native support](JAVA_BRIDGE_NATIVE_SUPPORT.md) for provenance and the
 minimal-JVM experiment. P1 dependency closure and macOS signing/extraction
 qualification are recorded separately in the progress log.
