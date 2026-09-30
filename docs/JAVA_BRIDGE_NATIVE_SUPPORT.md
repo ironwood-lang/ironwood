@@ -41,7 +41,13 @@ intact in every delivered bridge artifact. This is not a source-offer placeholde
 ## Preparation and linking
 
 Preparation uses Python 3.14's standard Zstandard support. Only explicit setup
-downloads; checks and compiler linking are offline and fail closed:
+downloads; checks and compiler linking are offline and fail closed. If the host
+Python is older, use the IDK's `toolchain/bin/python` executable. Preparation
+prints flushed progress messages to stderr for connections, cached downloads,
+extraction, source copying and checksum verification. Downloads report received
+MiB, average speed and elapsed time about every two seconds as data arrives,
+with total size and percentage when the server supplies a usable Content-Length.
+The connection/read timeout is 120 seconds, not a total download deadline:
 
 ```sh
 python3 -B scripts/prepare-java-bridge-support.py --setup --target linux-arm64 \
