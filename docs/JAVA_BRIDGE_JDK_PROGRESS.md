@@ -192,7 +192,8 @@ command with its native target and recorded mounted homes. Host source snapshots
 preserve original input/runner hashes; runner refinements bound test heap, stream
 logs and clean only per-launch temporary extraction files.
 
-Validation limits: generic IDK relocation smoke stopped at the existing macOS 27
+Historical validation limits from the first qualification (superseded by the
+out-of-box repair below): generic IDK relocation smoke stopped at the macOS 27
 SDK/linker mismatch in the unchanged streaming example. Focused bridge/native AOT
 checks passed with the installed 26.5 SDK; no toolchain was installed or replaced.
 Full Linux IDK archives were not repackaged in this task; native bridge production,
@@ -211,7 +212,8 @@ published. Command, environment and output are preserved in
 This confirms a macOS IDK usability gap for end-users selecting SDK 27. The
 previous SDK 26.5 bridge matrix remains valid, but selecting an older installed
 SDK is a workaround rather than SDK 27 qualification. No compiler/toolchain
-implementation changes were made in this follow-up.
+implementation changes had been made at that diagnostic checkpoint. The repair
+below replaces the workaround with supported native-tool selection and packaging.
 
 ## Out-of-box IDK repair plan, 2026-09-30
 
@@ -268,3 +270,108 @@ implementation changes were made in this follow-up.
 - Pending: final portable archive inventories, refreshed Mac artifacts,
   three-target assembly/replay, host package smoke, durable artifact catalog,
   final diff checks and focused local commits.
+
+### Matched archive checkpoint
+
+- Three fresh IDKs have identical compiler content inventory
+  `0857893f34baf96ad018e669ed48cfe13f373dda6613d21e9ac321c50e79a8bd`
+  and runtime inventory
+  `9327fdc20bbdf5bf310a77a071a68ee2d536a644c1987ec3fb692641693036e0`.
+  All 27 fresh host producer/consumer cells pass, with all eight families per
+  producer. Source snapshot SHA-256:
+  `c19e6cd81f062d56aab908833638894815ab9a33f2e338bd80d8e32e8705f084`.
+- Archive inventories pass: complete Linux support sources/notices/pins,
+  matching compiler entries, all Java class files at version 65, and no
+  AppleDouble/xattr entries. Added the six previously omitted Maven/Gradle
+  project files to both archive writers and smoke requirements. Exact copy
+  checks pass for host and all IDK archives; eighteen offline build-tool
+  producer/consumer cells pass against the repaired Mac IDK with SDK 27.
+- Mac host archive smoke passes native and pre-TLS stages. Xcode's older Python
+  SSL peer reported NO_SHARED_CIPHER; focused continuation using the existing
+  pinned bundled Python passes TLS/wget/static closure/pruning. This is a test
+  peer dependency, not an Ironwood/JNI native failure. No tool was installed.
+- Strict assembly also caught unmatched provenance text between early Linux
+  and fresh Mac snapshots. Fresh Linux artifacts were regenerated from the
+  same snapshot. Checks were retained unchanged; successful JDK 21 assemblies
+  preserve native bytes, reverse-order jar hashes and distribution main bytes.
+  Their three-JVM Mac/ARM replay passes; other assemblies/replays are underway.
+- Local implementation commits: `fe4dff83` (Apple tool selection), `941dbca8`
+  (Linux support/portable IDK workflows), `c840bf76` (shipped build-tool files).
+  Remaining: finish combined replay/catalog, final diff/license checks and
+  commit the verification record. All original and failed-attempt evidence is
+  retained in `workspace/java-bridge/idk-repair` and the task's Estonia directory.
+
+### Completed repair qualification
+
+The SDK 27 and Linux IDK gaps above are closed. The
+[IDK identity catalog](JAVA_BRIDGE_IDK_IDENTITIES.json) records exact JDK pins,
+three archive hashes, compiler/runtime fingerprints, 72 host artifacts, 24
+three-target artifacts, companions and both complete compatibility matrices.
+
+| Producer JDK | Java 21 | Java 22 | Java 23 |
+| --- | --- | --- | --- |
+| 21.0.12.1+1-LTS | PASS | PASS | PASS |
+| 22.0.2+9 | PASS | PASS | PASS |
+| 23.0.2+7 | PASS | PASS | PASS |
+
+Every cell passes on Mac ARM64 with the default SDK 27.0, local Linux ARM64 and
+physical Linux x86-64, for host jars and assembled jars. Eight families cover
+primitives/Strings, native owners/reclamation, callbacks/listeners, arrays,
+ByteViews, both generic subsets, exception transport and OrderBook. Consumers
+compile at release 21 and run with ordinary and checked JNI; combined replay
+also checks module-path and executable-jar loading. All 324 combined command
+records pass. All 27 transferred combined jars retain their exact hashes.
+
+All 24 assemblies preserve native resource bytes, reverse-order output hashes
+and distribution main bytes. All generated/compiler class files checked are
+version 65. SDK 26.5 and CLT SDK 27.0 explicit checks pass, including actual SDK
+input/image identity equality. Missing/empty SDK selections preserve existing
+artifacts; missing SDK/linker components and support corruption/missing components
+reject. Java 24.0.2+12 producer/values/assembly and consumer refusal is retained.
+Six exact compiler regressions, ten support negatives, eighteen offline
+Maven/Gradle consumer cells, archive inventories, diff checks and license audits
+pass. Compiler builds use the installed 21, 22 and 23 toolchains; JDK 22's final
+source build is recorded as `compiler-jdk22-build.log`.
+
+IDK native matrices use LLVM 23.1.0 and installed discovery without LLVM/support
+overrides or developer/SDK overrides. Bundled-default checks additionally pass
+with Azul 21.0.10+7-LTS on Mac and OpenJDK 21.0.10-internal on both Linux targets.
+Mac uses Xcode's Apple linker `ld-27037.1`; exact linker and SDK settings/stub
+hashes are in every Mac native identity. Both Linux IDK generic relocation smokes
+pass. Mac IDK and host smokes pass their pre-TLS stages and focused corrected TLS
+continuations with the bundled Python. Passing stages were not rerun unfiltered;
+the original TLS fixture failures and all harness/identity rejection attempts
+remain in the evidence. The source/host archive also contains the six exact
+build-tool files. Candidate archives were refreshed only for these example
+files after native qualification; compiler/runtime bytes remain unchanged.
+
+Reproduction uses existing JDKs and an extracted IDK; no setup downloads occur:
+
+```sh
+python3 -B scripts/java-bridge/qualify-idk.py --idk "$IDK" \
+  --jdk "21=$JDK21" --jdk "22=$JDK22" --jdk "23=$JDK23" \
+  --output workspace/java-bridge/fresh-idk-run
+```
+
+Exact producer/consumer argv, selected environment, logs, exits and hashes are
+preserved under `workspace/java-bridge/idk-repair/{mac-final-matrix,arm-final-collected,x86-final-collected}`.
+Assembly commands are in `assembled-matched`; its runner checks reversed inputs,
+all native bytes and all distribution main hashes. `combined-mac`, `combined-arm`
+and `combined-x86` retain merged replay evidence and their original per-producer
+records. Build-tool commands are in `build-tool-idk`. Archive/packaging commands
+and inventory scripts remain beside their logs. Estonia work remains exclusively
+under `~/temp/java-bridge/idk-repair-20260930`; original host evidence is preserved.
+
+Scope limits remain the three documented native targets, glibc 2.17 or newer,
+and Java 21/22/23. Mac native production still requires installed Apple development
+tools, without an SDK downgrade. Unfiltered suites, hosted runs, publishing,
+pushes and new performance measurements were not run. No IR, ownership/runtime
+or steady-state JNI lowering changed, and nothing was installed.
+
+The final Linux archive refresh runs on Linux's case-sensitive filesystem.
+Its full streaming comparison checks every original entry's filename, type,
+link destination, mode and file SHA-256. Only the intended example README changes;
+six build files and their four directories are added. Complete support manifests
+verify again. An earlier Mac-based evidence refresh merged case-sensitive Linux
+headers; those rejected candidates remain separate and are excluded from the
+final catalog. Original native-qualified archives/artifacts were unaffected.
