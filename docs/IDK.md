@@ -8,7 +8,7 @@ You do not need to install Java or LLVM and you do not need to build Ironwood
 from source.
 
 The experimental [Java Bridge producer](JAVA_BRIDGE_USAGE.md) additionally
-requires a complete Java 21 JDK with compiler/Javadoc tools and JNI headers and
+supports a complete JDK 21, 22 or 23 with compiler/Javadoc tools and JNI headers and
 produces macOS ARM64, Linux ARM64 and Linux x86-64 jars with the corresponding
 pinned native toolchain/support SDK. Generated consumers need supported Java and
 the paired jar. Byte-view APIs also require the shared
@@ -16,6 +16,12 @@ the paired jar. Byte-view APIs also require the shared
 licenses inside the jar. The producer emits a matching companion automatically;
 no native tools are required by Java consumers. See the producer guide for exact
 support boundaries and the current byte-view qualification status.
+
+Set `JAVA_HOME` to a complete external JDK 21, 22 or 23 to override the bundled
+Java for bridge production. Leave it unset to use the bundled JDK. The native
+toolchain remains bundled. Generated classes target Java 21 on every producer;
+Java 24+ remains outside the bridge range. Do not combine independently rebuilt
+ByteView companion jars: retain the exact companion paired with the artifact.
 
 ## Compile your first program
 

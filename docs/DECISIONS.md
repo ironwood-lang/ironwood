@@ -9112,3 +9112,32 @@ occurrence order. If no
   positive/negative tests, three-target/JVM evidence and numerical measurements
   in the [P7f log](JAVA_BRIDGE_P7_QUALIFICATION.md). Numerical acceptance remains
   the maintainer's review; publishing remains outside this task.
+
+
+## D239 - Support JDK 21, 22 and 23 throughout the JNI bridge workflow
+
+- **Status:** Authorized by the maintainer's JDK compatibility implementation
+  request on 2026-09-29. Verification is recorded in the
+  [JDK progress log](JAVA_BRIDGE_JDK_PROGRESS.md).
+- **Decision:** The compiler build/run, bridge source/class/archive producer,
+  standalone ByteView companion producer, assembly, distribution packaging and
+  ordinary Java consumer workflow support JDK 21, 22 and 23. Compile Java at
+  `--release 21`; preserve Ironwood's language level and the Java 21 public API
+  and class-file baseline. JNI remains the only supported transport.
+- **Selection:** JAVA_HOME explicitly selects Java and its build tools. Otherwise
+  use the IDK bundle or resolve the PATH runtime's home. Java compiler/Javadoc
+  APIs and JNI headers come from the running producer JDK. Missing components
+  fail clearly, without substituting another JDK. Maven/Gradle producer examples
+  use their running JVM's home. IDK native tooling stays bundled on Java override.
+- **Identity:** Preserve exact compiler/runtime generation, common assembly
+  bytes, native JDK version/vendor/header hashes, content inventories and failed
+  publication preservation. Use a matching compiler build and matching producer
+  JDKs for host assembly. Different JDK compiler/Javadoc outputs are not treated
+  as interchangeable. Assembly may run on any supported JDK but still checks
+  its exact compiler/runtime against its inputs. Reproducibility remains an
+  identical-input contract.
+- **Scope:** Supersedes the Java-21-only producer/build-tool restriction in the
+  implementation and usage instructions. Extends D215/D218 without weakening
+  artifact pairing. D203/D238's Java 24+ refusal, native-access behavior, memory
+  safety, ownership, exception transport and D132/D133 remain unchanged. No
+  warmed-call code changes or new runtime checks are introduced.

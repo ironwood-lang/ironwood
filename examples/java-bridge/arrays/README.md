@@ -8,7 +8,7 @@ aliases share one native copy. Fresh results become ordinary Java arrays and
 their temporary native storage is reclaimed. No callback or concurrent mutation
 may observe a copied input during the call.
 
-With the pinned Java 21 JDK in `JAVA_HOME`, LLVM 23 on `PATH`, and the Linux native
+With a supported JDK 21, 22 or 23 in `JAVA_HOME`, LLVM 23 on `PATH`, and the Linux native
 support SDK configured as in the [producer guide](../../../docs/JAVA_BRIDGE_USAGE.md):
 
 ```sh

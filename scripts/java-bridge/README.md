@@ -135,6 +135,33 @@ python3 -B scripts/test-prepare-java-bridge.py
 python3 -B scripts/test-prepare-java-bridge-support.py
 ```
 
+## JDK producer and consumer qualification
+
+JDK 21, 22 and 23 can build and run the compiler and produce JNI artifacts.
+Generated Java APIs and classes retain the Java 21 baseline. Existing phase
+reports retain their historical toolchain pins. For the current complete
+producer/consumer matrix, use prepared target JDKs and LLVM 23, without installs:
+
+```sh
+python3 scripts/java-bridge/qualify-jdks.py --target macos-arm64 \
+  --jdk 21=/absolute/temurin21/Contents/Home \
+  --jdk 22=/absolute/temurin22/Contents/Home \
+  --jdk 23=/absolute/temurin23/Contents/Home \
+  --output workspace/java-bridge/jdk-matrix/new-run
+```
+
+The runner builds the compiler with each selected JDK, runs four exact focused
+regressions (three active on Linux; the source-parity fixture is Mac-only),
+produces source/class/archive examples and OrderBook, packages each
+artifact, and compiles/launches consumers on all three JDKs. It checks Java 21
+class-file versions, exact ByteView companion bytes, plain/checked JNI and module
+loading. A new output directory is mandatory; `--producer 22` limits a retry to
+that producer. Run on each native target with its prepared support SDK. Commands,
+selected environment, outputs, exits and identities are recorded. Assembly,
+Java 24 refusal, missing-component negatives and host/IDK/Maven/Gradle smoke
+checks supplement this stage, as recorded in the
+[JDK progress log](../../docs/JAVA_BRIDGE_JDK_PROGRESS.md).
+
 ## Java version policy experiment
 
 P2's D203 refusal smoke test and D209 product experiment use two additional

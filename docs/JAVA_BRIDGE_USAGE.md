@@ -21,7 +21,7 @@ This preview is not a release qualification.
 
 ## Build and run
 
-The producer requires the Java 21 JDK compiler/Javadoc tools and JNI headers,
+The producer supports JDK 21, 22 and 23, with compiler/Javadoc tools and JNI headers,
 LLVM 23 and the matching macOS SDK or pinned Linux glibc 2.17 sysroot/private
 runtime SDK. Build the checkout compiler using the repository's normal
 instructions, with that JDK selected. A generated consumer requires only Java
@@ -37,6 +37,48 @@ Rosetta observations remain separate functional/static evidence.
 JNI remains the supported transport under D238; optional FFM is unimplemented.
 The [combined P7 qualification record](JAVA_BRIDGE_P7_QUALIFICATION.md) tracks
 the current array, ByteView, generic and listener artifacts together.
+
+Select the JDK with `JAVA_HOME=/absolute/jdk/home`. Build scripts and launchers
+use that JDK's Java, javac and jar, even if PATH names another JDK. Without
+JAVA_HOME, an IDK uses its bundled JDK; a source/host installation resolves Java
+from PATH and uses that runtime's home. Invalid explicit selections fail without
+fallback. IDK launchers retain their bundled native toolchain when Java is
+overridden. Direct `java -jar ironwoodc.jar` uses the explicitly invoked runtime's
+compiler/Javadoc modules and JNI headers, independently of PATH or JAVA_HOME.
+Missing components have build diagnostics. Maven and Gradle producer examples
+pass their running JVM's `java.home` into the producer as JAVA_HOME.
+
+All compiler/facade/consumer builds retain `--release 21`; this does not add
+Java 22/23 source syntax or APIs to Ironwood. A host artifact produced with any
+supported JDK runs on each supported JVM for that native target. Javadoc output,
+compiler classes and JNI header bytes can differ between JDK versions. Native
+build identity records the selected JDK version/vendor and exact header hashes.
+Assembly still requires identical compiler/runtime generations and common
+classes, sources, Javadoc, licenses and shared ByteView dependency bytes. Use one
+identified compiler build and matching producer JDKs across the target hosts;
+changing the assembly JDK alone does not relax those checks. Reproducibility is
+checked for identical inputs/toolchains, not asserted across different JDKs.
+See the [JDK compatibility verification record](JAVA_BRIDGE_JDK_PROGRESS.md).
+
+For example, select JDK 23 to build and produce the callback example, then run
+its Java 21-compatible consumer on all three JVMs. Set JDK21/JDK22/JDK23 to the
+installed JDK home directories, and select the prepared LLVM/support SDK first:
+
+```sh
+export JAVA_HOME="$JDK23"
+export PATH="$PWD/bin:$JAVA_HOME/bin:$PATH"
+./scripts/build.sh
+./examples/java-bridge/basics/compile.sh
+./examples/java-bridge/basics/link.sh
+for jdk in "$JDK21" "$JDK22" "$JDK23"; do
+  "$jdk/bin/java" -Xcheck:jni \
+    -cp examples/java-bridge/basics/target/ironwood-basics.jar:examples/java-bridge/basics/target/consumer-classes \
+    org.ironwood.javabridge.basicsconsumer.Main
+done
+```
+
+Each JVM prints `Java listener: 2`, `Java listener: 5`, `Counter total: 5` and
+exits zero. Linux production additionally needs IRONWOOD_BRIDGE_SUPPORT_HOME.
 
 Linux producers first prepare the [pinned native support SDK](JAVA_BRIDGE_NATIVE_SUPPORT.md)
 and set `IRONWOOD_BRIDGE_SUPPORT_HOME` to that target's prepared directory. Host
@@ -86,9 +128,9 @@ native worlds, unloading and hot reload are outside the supported boundary.
 
 Build every host jar from the same compiler/runtime, complete source or compiled
 input closure, producer basename, exports and distribution inputs. Use the pinned
-native toolchain and Java 21 producer on each matching build host. Copy the
+native toolchain and the same producer JDK version/vendor on each matching build host. Copy the
 completed jars back without modifying their contents. Assembly needs the matching
-Ironwood compiler/runtime distribution and Java 21 JDK, but no native compilation:
+Ironwood compiler/runtime distribution and a JDK 21, 22 or 23, but no native compilation:
 
 ```sh
 ironwoodc --java-bridge-assemble -o dist/engine.jar \

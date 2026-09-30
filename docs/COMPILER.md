@@ -638,8 +638,8 @@ closure proof. Java retention does not grant source borrowing or safe-free facts
 Other reference callback values still reject. General inheritance, arrays and optional TLS dependencies remain rejected at their pending
 implementation boundaries. Linux payloads use the pinned native support closure.
 
-`BridgeProducer` requires a Java 21 JDK with compiler/Javadoc tools and JNI headers,
-the pinned LLVM toolchain and the macOS SDK. It uses the existing optimizer and
+`BridgeProducer` supports JDK 21, 22 and 23 with compiler/Javadoc tools and JNI headers,
+the pinned LLVM toolchain and the matching macOS SDK or Linux support SDK. It uses the existing optimizer and
 shared linker, verifies the signed final image and derives its deployment floor
 from that image. It stages Java 21 classes, generated Java source/Javadoc (including
 the JDK tool's generated legal files), exact library/runtime source and notices,
