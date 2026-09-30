@@ -52,8 +52,9 @@ def main():
     run("revision", ["git", "rev-parse", "HEAD"])
     run("working-diff", ["git", "diff", "--binary"])
     settings = run("jdk", [java_home / "bin/java", "-XshowSettings:properties", "-version"])
-    if "java.runtime.version = 21.0.12.1+1" not in settings or "java.vendor = Eclipse Adoptium" not in settings:
-        raise ValueError("select the pinned Temurin 21 producer JDK")
+    pins = ('21.0.12.1+1', '22.0.2+9', '23.0.2+7')
+    if not any('java.runtime.version = ' + pin in settings for pin in pins) or "java.vendor = Eclipse Adoptium" not in settings:
+        raise ValueError("select a pinned Temurin 21, 22 or 23 producer JDK")
     run("maven-version", [args.maven.resolve(), "--version"])
     run("gradle-version", [args.gradle.resolve(), "--version"])
     maven_repository = directory / "maven-repository"; gradle_repository = directory / "gradle-repository"
