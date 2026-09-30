@@ -8,8 +8,13 @@ dependency in a fresh JVM. No Ironwood-specific build-tool plugin is required.
 Use the producer's JDK 21, 22 or 23, LLVM 23 and host SDK prerequisites, with `ironwoodc`
 on PATH. `IRONWOODC` can select an absolute executable path. The consumer needs
 only its build tool, a supported Java JDK and the dependency repository.
+IDK distributions include these build files and their native prerequisites:
+Linux bridge support is bundled, while macOS selects the installed Apple SDK
+and linker. Source/host installations must select LLVM and prepare Linux support
+as described in [producer usage](../../../docs/JAVA_BRIDGE_USAGE.md).
 
-Run from the checkout root, selecting a supported producer JDK as `JAVA_HOME`:
+Run from the checkout or extracted IDK root, selecting a supported producer JDK
+as `JAVA_HOME`:
 
 ```sh
 export PATH="$JAVA_HOME/bin:$PWD/bin:$PATH"

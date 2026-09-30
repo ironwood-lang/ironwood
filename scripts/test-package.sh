@@ -87,6 +87,12 @@ IRONWOOD_REQUIRED_FILES=(
     scripts/jdk.sh
     scripts/prepare-java-bridge-support.py
     packaging/java-bridge-support.properties
+    examples/java-bridge/build-tools/maven-producer/pom.xml
+    examples/java-bridge/build-tools/maven-consumer/pom.xml
+    examples/java-bridge/build-tools/gradle-producer/build.gradle
+    examples/java-bridge/build-tools/gradle-producer/settings.gradle
+    examples/java-bridge/build-tools/gradle-consumer/build.gradle
+    examples/java-bridge/build-tools/gradle-consumer/settings.gradle
     lib/ironwoodc.jar
     lib/ironwood-stdlib.ironjar
     lib/ironwood-testing.ironjar

@@ -165,6 +165,14 @@ if [[ "$IRONWOOD_BRIDGE_OUTPUT" != $'Java listener: 2\nJava listener: 5\nCounter
     exit 1
 fi
 echo "packaged Java Bridge callbacks passed without external build tools or support overrides"
+for IRONWOOD_BRIDGE_BUILD_FILE in maven-producer/pom.xml maven-consumer/pom.xml \
+        gradle-producer/build.gradle gradle-producer/settings.gradle \
+        gradle-consumer/build.gradle gradle-consumer/settings.gradle; do
+    if [[ ! -r "$IRONWOOD_IDK_ROOT/examples/java-bridge/build-tools/$IRONWOOD_BRIDGE_BUILD_FILE" ]]; then
+        echo "error: packaged Java Bridge example is missing $IRONWOOD_BRIDGE_BUILD_FILE" >&2
+        exit 1
+    fi
+done
 if [[ ! -f "$IRONWOOD_IDK_ROOT/lib/ironwoodc.jar" ]]; then
     echo "error: packaged IDK is missing lib/ironwoodc.jar" >&2
     exit 1
