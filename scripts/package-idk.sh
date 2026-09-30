@@ -209,7 +209,8 @@ while IFS= read -r IRONWOOD_EXAMPLE_FILE; do
     mkdir -p "$IRONWOOD_STAGE_DIR/examples/$(dirname -- "$IRONWOOD_EXAMPLE_RELATIVE")"
     cp "$IRONWOOD_EXAMPLE_FILE" "$IRONWOOD_STAGE_DIR/examples/$IRONWOOD_EXAMPLE_RELATIVE"
 done < <(find "$IRONWOOD_PROJECT_ROOT/examples" -type f \
-    \( -name '*.iron' -o -name '*.java' -o -name '*.sh' -o -name '*.py' -o -name 'README.md' \) -print)
+    \( -name '*.iron' -o -name '*.java' -o -name '*.sh' -o -name '*.py' \
+        -o -name 'pom.xml' -o -name '*.gradle' -o -name 'README.md' \) -print)
 while IFS= read -r IRONWOOD_PROJECT_FILE; do
     IRONWOOD_PROJECT_RELATIVE=${IRONWOOD_PROJECT_FILE#"$IRONWOOD_PROJECT_ROOT/projects/"}
     mkdir -p "$IRONWOOD_STAGE_DIR/projects/$(dirname -- "$IRONWOOD_PROJECT_RELATIVE")"
