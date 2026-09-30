@@ -3,6 +3,9 @@
 
 set -euo pipefail
 
+PROJECT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+cd "$PROJECT_DIR"
+
 RUNS=${1:-31}
 WARMUP=${2:-8}
 MEASURED=${3:-80}

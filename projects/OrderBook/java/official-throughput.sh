@@ -6,6 +6,7 @@ set -euo pipefail
 PROJECT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 cd "$PROJECT_DIR"
 
+# Report median elapsed nanoseconds from independent process runs.
 RUNS=${1:-31}
 WARMUP=${2:-8}
 MEASURED=${3:-80}
@@ -17,7 +18,7 @@ fi
 
 TIMES=()
 for ((RUN = 1; RUN <= RUNS; RUN++)); do
-    TIME=$(./throughput-native-image.sh "$WARMUP" "$MEASURED")
+    TIME=$(./throughput.sh "$WARMUP" "$MEASURED")
     [[ "$TIME" =~ ^[1-9][0-9]*$ ]] || exit 1
     TIMES+=("$TIME")
     printf 'run %d/%d: %s ns\n' "$RUN" "$RUNS" "$TIME" >&2
@@ -25,4 +26,3 @@ done
 
 MEDIAN_LINE=$((RUNS / 2 + 1))
 printf '%s\n' "${TIMES[@]}" | sort -n | sed -n "${MEDIAN_LINE}p"
-

@@ -51,6 +51,13 @@ with defaults `10 100`. Output is one integer, the measured elapsed nanoseconds,
 matching the other versions. Million operations/second is
 `measuredMillions * 1e9 / elapsedNanoseconds`.
 
+`official-throughput.sh [runs] [warmup-millions] [measured-millions]` defaults
+to `31 8 80`, matching the other variants. It launches a fresh JVM for each
+sample, prints per-run times to stderr and the median elapsed nanoseconds to
+stdout. The run count must be a positive odd number. After building, use
+`./projects/OrderBook/java-bridge/official-throughput.sh 31 8 80` from the
+repository root.
+
 Latency arguments are **warmup batches, measured batches, cycles per batch**,
 with defaults `10000 50000 1000`. Each cycle has eight order operations. The
 report includes the clock check, measured counts and batch-latency distribution.
