@@ -289,6 +289,7 @@ public final class CompilerTests {
         test("Java Bridge shared traces preserve records under deterministic root ordering", ironwood.compiler.backend.SharedTraceOrderTests::ordering);
         test(BridgeCompanionTests.NAME, BridgeCompanionTests::distribution);
         test(BridgeProducerTests.NAME, BridgeProducerTests::producer);
+        test(BridgeBuildToolsTests.NAME, BridgeBuildToolsTests::tools);
         test(BridgeObjectProducerTests.NAME, BridgeObjectProducerTests::producer);
         test("Java Bridge root producer preserves packaged input parity and consumer lifetime", BridgeObjectProducerTests::roots);
         test("Java Bridge retaining producer preserves mixed lifetime parity and complete slot commits", BridgeObjectProducerTests::retention);

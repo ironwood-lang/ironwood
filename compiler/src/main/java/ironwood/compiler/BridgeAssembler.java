@@ -47,9 +47,7 @@ final class BridgeAssembler {
 
     static void assemble(Path output, List<Path> inputs, PrintStream diagnostics) throws IOException {
         if (inputs.isEmpty()) throw new IOException("assembly requires host artifacts");
-        if (Runtime.version().feature() != 21 || javax.tools.ToolProvider.getSystemJavaCompiler() == null) {
-            throw new IOException("Java Bridge assembly requires a Java 21 JDK");
-        }
+        BridgeBuildTools.requireJdk("assembly");
         var hosts = new TreeMap<String, Host>();
         for (Path input : inputs) {
             Host host = read(input);
