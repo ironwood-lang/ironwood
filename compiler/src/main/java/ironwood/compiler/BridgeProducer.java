@@ -53,9 +53,7 @@ final class BridgeProducer {
             LlvmToolchain toolchain, OptimizationLevel optimization, BridgeDistributionInputs.Options packaging,
             PrintStream diagnostics) throws IOException {
         String host = hostTarget(); boolean macos = host.equals("macos-arm64");
-        if (Runtime.version().feature() != 21 || javax.tools.ToolProvider.getSystemJavaCompiler() == null) {
-            throw new IOException("Java Bridge producer requires a Java 21 JDK; detected " + Runtime.version());
-        }
+        Path javaHome = BridgeBuildTools.requireJniHeaders(macos);
         Path destination = output.toAbsolutePath().normalize();
         if (Files.exists(destination, LinkOption.NOFOLLOW_LINKS) && !Files.isRegularFile(destination, LinkOption.NOFOLLOW_LINKS)) {
             throw new IOException("Java Bridge output is not a regular file: " + destination);
@@ -70,7 +68,6 @@ final class BridgeProducer {
         Files.createDirectories(destination.getParent());
         Path stage = Files.createTempDirectory(destination.getParent(), ".ironwood-bridge-build-");
         try {
-            Path javaHome = Path.of(System.getProperty("java.home"));
             Path runtime = RuntimeLibrary.discover().source().orElseThrow().getParent().getParent();
             var inputs = nativeInputs(stage, toolchain, optimization, javaHome, producer, distribution, llvm, projection, host, support);
             var build = generation.nativeBuild(host, inputs);
