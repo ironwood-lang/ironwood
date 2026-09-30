@@ -1,6 +1,6 @@
 {
   "license": "SPDX-License-Identifier: MIT OR Apache-2.0",
-  "scope": "JDK 21-23 JNI producer/consumer qualification, all 27 host cells passed",
+  "scope": "JDK 21-23 JNI producer/consumer qualification: all 27 host cells and all 27 three-target assembly cells passed",
   "jdk_pins": {
     "21": "Eclipse Temurin HotSpot 21.0.12.1+1-LTS",
     "22": "Eclipse Temurin HotSpot 22.0.2+9",
@@ -1231,6 +1231,766 @@
       "native.input.jdk.vendor": "Eclipse Adoptium",
       "native.input.jdk.jni.sha256": "99e64ebbe749e6df284f852f11b3c73f6ea97baf15120428f40f887fe0616e61",
       "native.input.jdk.jni_md.sha256": "88cb5c33e306900dd35a78d5a439087123b8e91b0986bb5acb42cc9bd2fcc42e"
+    }
+  ],
+  "results": {
+    "host": {
+      "macos-arm64": {
+        "21": {
+          "21": "pass",
+          "22": "pass",
+          "23": "pass"
+        },
+        "22": {
+          "21": "pass",
+          "22": "pass",
+          "23": "pass"
+        },
+        "23": {
+          "21": "pass",
+          "22": "pass",
+          "23": "pass"
+        }
+      },
+      "linux-arm64": {
+        "21": {
+          "21": "pass",
+          "22": "pass",
+          "23": "pass"
+        },
+        "22": {
+          "21": "pass",
+          "22": "pass",
+          "23": "pass"
+        },
+        "23": {
+          "21": "pass",
+          "22": "pass",
+          "23": "pass"
+        }
+      },
+      "linux-x86_64": {
+        "21": {
+          "21": "pass",
+          "22": "pass",
+          "23": "pass"
+        },
+        "22": {
+          "21": "pass",
+          "22": "pass",
+          "23": "pass"
+        },
+        "23": {
+          "21": "pass",
+          "22": "pass",
+          "23": "pass"
+        }
+      }
+    },
+    "assembled": {
+      "macos-arm64": {
+        "21": {
+          "21": "pass",
+          "22": "pass",
+          "23": "pass"
+        },
+        "22": {
+          "21": "pass",
+          "22": "pass",
+          "23": "pass"
+        },
+        "23": {
+          "21": "pass",
+          "22": "pass",
+          "23": "pass"
+        }
+      },
+      "linux-arm64": {
+        "21": {
+          "21": "pass",
+          "22": "pass",
+          "23": "pass"
+        },
+        "22": {
+          "21": "pass",
+          "22": "pass",
+          "23": "pass"
+        },
+        "23": {
+          "21": "pass",
+          "22": "pass",
+          "23": "pass"
+        }
+      },
+      "linux-x86_64": {
+        "21": {
+          "21": "pass",
+          "22": "pass",
+          "23": "pass"
+        },
+        "22": {
+          "21": "pass",
+          "22": "pass",
+          "23": "pass"
+        },
+        "23": {
+          "21": "pass",
+          "22": "pass",
+          "23": "pass"
+        }
+      }
+    }
+  },
+  "evidence_root": "workspace/java-bridge/jdk-matrix",
+  "host_inputs": {
+    "macos-arm64": {
+      "target": "macos-arm64",
+      "runner.sha256": "89833a761538adceeba2abeb1638519c25f19ebbf6e4bc197401e8a997ef01f4",
+      "homes": {
+        "21": "/Users/developer/workspace-mba-m2/Ironwood/workspace/java-bridge/jdks/temurin-21-macos-arm64/jdk-21.0.12.1+1/Contents/Home",
+        "22": "/Users/developer/workspace-mba-m2/Ironwood/workspace/java-bridge/jdks/temurin-22-macos-arm64/jdk-22.0.2+9/Contents/Home",
+        "23": "/Users/developer/workspace-mba-m2/Ironwood/workspace/java-bridge/jdks/temurin-23-macos-arm64/jdk-23.0.2+7/Contents/Home"
+      }
+    },
+    "linux-arm64": {
+      "target": "linux-arm64",
+      "runner.sha256": "ce71d9b000104019af88d572e94bb69cb6439241a913f1f4643ae077c639806f",
+      "homes": {
+        "21": "/opt/ironwood-bridge-jdk/jdk-21.0.12.1+1",
+        "22": "/jdks/temurin-22-linux-arm64/jdk-22.0.2+9",
+        "23": "/jdks/temurin-23-linux-arm64/jdk-23.0.2+7"
+      }
+    },
+    "linux-x86_64": {
+      "target": "linux-x86_64",
+      "runner.sha256": "89833a761538adceeba2abeb1638519c25f19ebbf6e4bc197401e8a997ef01f4",
+      "homes": {
+        "21": "/opt/ironwood-bridge-jdk/jdk-21.0.12.1+1",
+        "22": "/jdks/temurin-22-linux-x86_64/jdk-22.0.2+9",
+        "23": "/jdks/temurin-23-linux-x86_64/jdk-23.0.2+7"
+      }
+    }
+  },
+  "assembled_artifacts": [
+    {
+      "producer": 21,
+      "artifact": "arrays",
+      "jar.sha256": "c9c5699e3a7b703eee53bc8743fd2b0d34e2ae0520f2a8390821234719b86084",
+      "generation": "a9545b8c9c28247af5143bd531345560405cd6c46a9a2368a01175e30f826ecf",
+      "api": "8123c66e3d0b4507acdc59b1488d89bcbd992015c49b0eb240af9532a6dfcc6b",
+      "program": "4f75b3401c1e83441e0391ba360bb88773fb61ead1ca45233856bbcbdaee58b8",
+      "compiler.sha256": "01f3873435c6a66946466360d6356de456d7cc79fbed006628ec66f02a9f73a0",
+      "runtime.sha256": "9327fdc20bbdf5bf310a77a071a68ee2d536a644c1987ec3fb692641693036e0",
+      "classfile.major": 65,
+      "native_targets": {
+        "macos-arm64": {
+          "build": "cf8902b9e84055d6cf7da510d595464750e7d45263ec3717c642fb5ac8b9986a",
+          "sha256": "dd68cfcdf2e09c2e4137a18334039079e14cc49feb93772fb02f17359dbc2edd"
+        },
+        "linux-arm64": {
+          "build": "35a3f3cdf7638662c32656c35f76b46404823f745c982e4106f979cf31ff67a5",
+          "sha256": "d1a569fc5b81b798dcc95dc7fdc0d566a7a680be4665a876f4416d6a5f3050a0"
+        },
+        "linux-x86_64": {
+          "build": "5bdd79dd0d8b23bcdc913b45d1903c586a81a606b3098247b76cea547b9365ba",
+          "sha256": "91cd6862fa8878e03870b59a940186c6325c9da67b59b26140b9b4c598fab597"
+        }
+      }
+    },
+    {
+      "producer": 21,
+      "artifact": "byteviews",
+      "jar.sha256": "dc669a6ece35cd665b02659e189358779228cf5fe58bbc51a00f5c7fd0be9e35",
+      "generation": "67ec2e96ad5f8f34be8815addb9137a4067183eda5a16138311e077f0f368cdf",
+      "api": "b0d554a21ed1f74b1b247a78ee46ba5856be2a4e5e4492789891c430f185349f",
+      "program": "2a2f6898f2853dc989d9869d3214b7e7d5c976a37a54d3038e1b60e96a0e3b94",
+      "compiler.sha256": "01f3873435c6a66946466360d6356de456d7cc79fbed006628ec66f02a9f73a0",
+      "runtime.sha256": "9327fdc20bbdf5bf310a77a071a68ee2d536a644c1987ec3fb692641693036e0",
+      "classfile.major": 65,
+      "native_targets": {
+        "macos-arm64": {
+          "build": "3df74cdd942e3727bbf96e4f12706955c3a25495196bb2f70565864cd189d893",
+          "sha256": "6ba5b0bdbf0bdcd639deb3a79cd1ae5510b0ace4e72e5924b70f6ccacca9a6d3"
+        },
+        "linux-arm64": {
+          "build": "78fe4bba009849f85fa2dc110811b22755a4e5125ec4328edec4ab92385113f8",
+          "sha256": "994fd56a0a5170c3f7768979c70f12b87c4523855e172e810ea4d123f1943bfa"
+        },
+        "linux-x86_64": {
+          "build": "7a507dce5cf3244280964a2334415393d06204234ad9a3a1c540e5f2b96467ed",
+          "sha256": "ffb4e9a1373f723465664f6cbe9cfcaf8c27ddb743db019bf75d1d0817e70274"
+        }
+      }
+    },
+    {
+      "producer": 21,
+      "artifact": "generics",
+      "jar.sha256": "824f022ae90fd116d5955f31b206969b530b93a253d325690a3330cb86c1243f",
+      "generation": "64a113333478f743f60cae4bf5f85eca06df127d165fff0c9b79296bdb6f845f",
+      "api": "c26657fce3e3786de7b7aa3273a5173ce68167d03950404d9ca39bb0e71ecb3f",
+      "program": "2e30481583a6994551d26d8782b84ae55e5d9d586c2c95fe11d63de89da8b135",
+      "compiler.sha256": "01f3873435c6a66946466360d6356de456d7cc79fbed006628ec66f02a9f73a0",
+      "runtime.sha256": "9327fdc20bbdf5bf310a77a071a68ee2d536a644c1987ec3fb692641693036e0",
+      "classfile.major": 65,
+      "native_targets": {
+        "macos-arm64": {
+          "build": "0ee806d1b9c8667dbf00a3d8f06325eef81855680bccfa1c99cce945d0faa2ac",
+          "sha256": "92a084c518203d6fb76e0dde7c3679c12e1aa8b471eef6000a3c13acfbefc649"
+        },
+        "linux-arm64": {
+          "build": "44b678a30b1b31c2eac6c56c73560248200498c64ff747ee84fea83cfa0be568",
+          "sha256": "4f2e39f7ba4b0258b14de2fbb38f97ed7ea8a17af63e17e535dce3e7eee11b55"
+        },
+        "linux-x86_64": {
+          "build": "4e6a46443754d6557a68933d690a5cea08369c9206c65c1a3aecd45efd62ea72",
+          "sha256": "20177fe838ebe13407f304d840dd27859ecebbaaf464ac15c6f7909b5bf6d313"
+        }
+      }
+    },
+    {
+      "producer": 21,
+      "artifact": "bounded-generics",
+      "jar.sha256": "a0854a6b3b77c3c0f0a564e0e391d2866d99254c6a1e3339f6494cfcab6f54ac",
+      "generation": "0d2b29b12d97b9f18f54630688864b6192e5f7137e3a1b9449507c2b5ce299ef",
+      "api": "b4bb953fa7b571979e454d25ac2c986de1e9a4ddd81917838207654f41503377",
+      "program": "56ca7620c9c651682618cb2af06a588699d0421e3064913859f00da14f4477c5",
+      "compiler.sha256": "01f3873435c6a66946466360d6356de456d7cc79fbed006628ec66f02a9f73a0",
+      "runtime.sha256": "9327fdc20bbdf5bf310a77a071a68ee2d536a644c1987ec3fb692641693036e0",
+      "classfile.major": 65,
+      "native_targets": {
+        "macos-arm64": {
+          "build": "78495c27b48639901461b1f39da0fa2d4a014351e173b69e059d3c291f05a628",
+          "sha256": "24bb05d29ccbd9098db6468ab97ff9b0ae2327addafa6934eb3d82891c12d751"
+        },
+        "linux-arm64": {
+          "build": "cdc88604b12988959b336315852a653c4b49fbc6f1fc58befb953075cd755b11",
+          "sha256": "b6640e10efe10a5234cac19b598c29b29905752eae2be21bef89bb3d3085e89f"
+        },
+        "linux-x86_64": {
+          "build": "c2e0cc422c983d9d298a1ddc8db2ecbeb0ecb7cfb1e50bd4a1933d018b967792",
+          "sha256": "01896f55ceb6b5d7dfb915f82b561a12876633310b1f68e276000b718e529e26"
+        }
+      }
+    },
+    {
+      "producer": 21,
+      "artifact": "listeners",
+      "jar.sha256": "24ae6cb45c3268c824174498412351437ef11d8815d174495a0d9264a9115e8c",
+      "generation": "4bede6dafe428c19794551c8f543008816806a78d23757675999c20deb535227",
+      "api": "f1af7d82e68b1b14321dacd18bc63bea8752f593b4c8641ce8436db6ace5dbeb",
+      "program": "77d9afe55ebf01481c3c8474d82fba520bec9cd01bd6d267556361bb5bd09c4c",
+      "compiler.sha256": "01f3873435c6a66946466360d6356de456d7cc79fbed006628ec66f02a9f73a0",
+      "runtime.sha256": "9327fdc20bbdf5bf310a77a071a68ee2d536a644c1987ec3fb692641693036e0",
+      "classfile.major": 65,
+      "native_targets": {
+        "macos-arm64": {
+          "build": "1e55f79741a2c1171ace003c25c9113c0fbd6cb3faad54f2576af04d3cfb63ae",
+          "sha256": "b49b898c6f6181436ef358b0f2ec892a82d074f699d04a1d0a31ab8571ae7988"
+        },
+        "linux-arm64": {
+          "build": "6125c3a614c4fca2fc6feb0ebdd235147e0bf6e61b15e6310d434ab07ebd88d3",
+          "sha256": "a65c9fae83405052819c0f10b6911297e203f2645e0527369cc10cec82926c4a"
+        },
+        "linux-x86_64": {
+          "build": "a02660869f97e6747b09685a06531c1a92c769e282d9b6fd9e3b8a1781eeb8b8",
+          "sha256": "558b721f1ff8b4a4429baecbb780aa440f7a39efac74261e18eedc5731d064bc"
+        }
+      }
+    },
+    {
+      "producer": 21,
+      "artifact": "basics",
+      "jar.sha256": "8320791fbbc3f055efc5edeeb77fd51b73decd2c9cec6f2c5d3a8b34fb6b899d",
+      "generation": "651303813246869779654632f0bd553561c61494f90423fb8ba091eb43c643d3",
+      "api": "beee0993929a80ce27e0ed5edca5d131cbc3553d4079eda85361cdebab46a6cf",
+      "program": "2b40821286aeb142fbf2f274356de72f2e84dfb2328d2cc25a429422856366e8",
+      "compiler.sha256": "01f3873435c6a66946466360d6356de456d7cc79fbed006628ec66f02a9f73a0",
+      "runtime.sha256": "9327fdc20bbdf5bf310a77a071a68ee2d536a644c1987ec3fb692641693036e0",
+      "classfile.major": 65,
+      "native_targets": {
+        "macos-arm64": {
+          "build": "3011000726842d79e82fc723c8eecbd94dc6b3b3bef47330c8b0fee6e6941b41",
+          "sha256": "9f41b7fb259f0558ce484be139258db7796f2fafabc89189a65bc0c543ee5fa5"
+        },
+        "linux-arm64": {
+          "build": "f2c33f7de84ef15bb3068355ce8ec874052f6ab1bb1dde07dd36a267751e2246",
+          "sha256": "48ec71aa15366a88402a574fb1a786b895fa6ddbb78726d6dabfcb0ea2b2686d"
+        },
+        "linux-x86_64": {
+          "build": "43121bceaa6d8f0821c436974a3e6002b411391a8970aee13b625db9625cb3dd",
+          "sha256": "7e42f7d12e91e0cc25495583cdf55e4ef5f714f9fcd6c6532433b76361c88634"
+        }
+      }
+    },
+    {
+      "producer": 21,
+      "artifact": "values",
+      "jar.sha256": "09f9e9ade5f30d3862dce4d7cbebf3165fd8a16e8e6e3383d406e1e0f20eb7c3",
+      "generation": "803983fc74c8ee77933bfabec7f40d6d2bb587d01f68714946eb3295957f677b",
+      "api": "be535f35fb6b7c085cdd98f361fdf2291ca20265cee3d7a86eda02b988725910",
+      "program": "deacc2c4f0c7f7274d69d0e889f13367c62649993253ca450b79c2d2a27bb1a5",
+      "compiler.sha256": "01f3873435c6a66946466360d6356de456d7cc79fbed006628ec66f02a9f73a0",
+      "runtime.sha256": "9327fdc20bbdf5bf310a77a071a68ee2d536a644c1987ec3fb692641693036e0",
+      "classfile.major": 65,
+      "native_targets": {
+        "macos-arm64": {
+          "build": "65578491c43d033c721b54929991c7c1971eca464c187340ca359def78e4f51d",
+          "sha256": "5a44419b7fdecfd48642a6fb5cbd4f785a723c872993af40a0e673fc17635d95"
+        },
+        "linux-arm64": {
+          "build": "d96187a5d055fe66ecc71fc2ac83abff1b74b5b90bd86db1f3305177d5e351d5",
+          "sha256": "2373378f9d31270754dac1e469e5c15e928aa98ecbb29ce477255cfe727b6adc"
+        },
+        "linux-x86_64": {
+          "build": "aa1b6cfcf2f64b5244d4c98c10bb6b3391b284650ff202642fe1a14652b9dc50",
+          "sha256": "b793200ab98e3dfb53998ee6cd3f26ce79a473753d467f3ed8467eb58a21feff"
+        }
+      }
+    },
+    {
+      "producer": 21,
+      "artifact": "orderbook",
+      "jar.sha256": "37af2cb7e4415c42ecc743aa9ad1fe7aff46ef7e8195a8220bf9cda0d7a7070d",
+      "generation": "d0cea90fd6720ad5a6292df185d06ed8c9e05d8320011f827a5f4e03e2237fda",
+      "api": "be5e1299cec1adddcf4fc97fb95129fae948575fbb2dd77af1da5ebd28419d17",
+      "program": "963781064500232c256ac932a58de1e4ac9fa836c7374d656aea5408d1ac942a",
+      "compiler.sha256": "01f3873435c6a66946466360d6356de456d7cc79fbed006628ec66f02a9f73a0",
+      "runtime.sha256": "9327fdc20bbdf5bf310a77a071a68ee2d536a644c1987ec3fb692641693036e0",
+      "classfile.major": 65,
+      "native_targets": {
+        "macos-arm64": {
+          "build": "45000d586029ed08bd9b2e488b80474f603ab417be60bac5ad055c3ce128ebfd",
+          "sha256": "d222070a6883e85ec9a3cc2c525ed95bb3a326c532745b81f07913fb568a61e0"
+        },
+        "linux-arm64": {
+          "build": "25fbde071afa82a1df368e4dd711792ca54205c077aeeefd4aaa7251c28b66b4",
+          "sha256": "15e7c1bed1b2a92d67b7f16d48263c2e32b0c1cc60e447c43c8ffd173fe3c427"
+        },
+        "linux-x86_64": {
+          "build": "d8f2c16131378e19e214cb0240ecaa0b6624bba8e51e78972482ef0a343bfe77",
+          "sha256": "25f1dfafdc87a3b05fb6611000ecb21f8a48e768811db0aaa35892c1d6259b58"
+        }
+      }
+    },
+    {
+      "producer": 22,
+      "artifact": "arrays",
+      "jar.sha256": "7af9c5c7e2723bf17aa3825c45c65e0ce973ee7eaf9daed0cfdae0bf0a847aee",
+      "generation": "8fb7d8f2ca94e5cee3b03f76d873c319a0ec6f6bf37018b8d84343fa881e900f",
+      "api": "8123c66e3d0b4507acdc59b1488d89bcbd992015c49b0eb240af9532a6dfcc6b",
+      "program": "4f75b3401c1e83441e0391ba360bb88773fb61ead1ca45233856bbcbdaee58b8",
+      "compiler.sha256": "b0f45ce264b0f7c54fff5b95c06752f16f84aad3d186ae90df2fe40041357c06",
+      "runtime.sha256": "9327fdc20bbdf5bf310a77a071a68ee2d536a644c1987ec3fb692641693036e0",
+      "classfile.major": 65,
+      "native_targets": {
+        "macos-arm64": {
+          "build": "ea7360b55ed7e021179be7193f1a19c4c6599697eb18c2c438d45edf6cf89de5",
+          "sha256": "a1344bc53d2118622f18a8ce6f5be75290785c133547efbd94e29de788af6d8a"
+        },
+        "linux-arm64": {
+          "build": "b724f4e9d2b423ba962fcbdb65faf3df3aa78fade93c2f3cfb96925126b544f5",
+          "sha256": "34f188115692ec42534dc208e3849849568923eadde056bfb57f841b667257d6"
+        },
+        "linux-x86_64": {
+          "build": "0a25c35c8624250f92543dbca5953f513936ee6dffc5a2313d589a21587bcfcf",
+          "sha256": "884d9f9033a942cf13daa9e1e46a34221cce9784622dbf10484fb4f63f1cb16e"
+        }
+      }
+    },
+    {
+      "producer": 22,
+      "artifact": "byteviews",
+      "jar.sha256": "bc7992080f7a565961adca4c33aca19cd8bd1f8ba1855effee0b961d41884659",
+      "generation": "79c852e873d133a9ec7eafc6cc874747a4049cc1e4e5deb7c734436b4b4db204",
+      "api": "b0d554a21ed1f74b1b247a78ee46ba5856be2a4e5e4492789891c430f185349f",
+      "program": "2a2f6898f2853dc989d9869d3214b7e7d5c976a37a54d3038e1b60e96a0e3b94",
+      "compiler.sha256": "b0f45ce264b0f7c54fff5b95c06752f16f84aad3d186ae90df2fe40041357c06",
+      "runtime.sha256": "9327fdc20bbdf5bf310a77a071a68ee2d536a644c1987ec3fb692641693036e0",
+      "classfile.major": 65,
+      "native_targets": {
+        "macos-arm64": {
+          "build": "7c092a0853a018a4845fec3824c4f721546ea73884eaa9780b3fe873d7ece7a4",
+          "sha256": "e9ee96eb1666036025b8eeb9fd3ea66ed2603d6021394b2e6d100b6fdf5c207d"
+        },
+        "linux-arm64": {
+          "build": "16ad85da7c3670d6c78ddf4e981f9b214dc9170673caabec606f896756fbea5a",
+          "sha256": "8b2b37f466765991614b6ee823d546d3ffe0c7f09d216c12bbe2d7dbd6105fbe"
+        },
+        "linux-x86_64": {
+          "build": "2acd48d966d5af2b4aa137410f3572cad0eb63e9084b8552e3114d6f05ad7b2b",
+          "sha256": "0658052b62ac7b125e170547ff4c195dd8ea062dcc0746bc5e47f22b513a6497"
+        }
+      }
+    },
+    {
+      "producer": 22,
+      "artifact": "generics",
+      "jar.sha256": "158b4301b8f2625dc78b1b29a8128f79a9481ec523a124567ced8f599bae5ad5",
+      "generation": "4b0aa9978f40cd894dd89689ab5fb3c442b667d68f3f139e394f4fcd49c43850",
+      "api": "c26657fce3e3786de7b7aa3273a5173ce68167d03950404d9ca39bb0e71ecb3f",
+      "program": "2e30481583a6994551d26d8782b84ae55e5d9d586c2c95fe11d63de89da8b135",
+      "compiler.sha256": "b0f45ce264b0f7c54fff5b95c06752f16f84aad3d186ae90df2fe40041357c06",
+      "runtime.sha256": "9327fdc20bbdf5bf310a77a071a68ee2d536a644c1987ec3fb692641693036e0",
+      "classfile.major": 65,
+      "native_targets": {
+        "macos-arm64": {
+          "build": "feb007a6cd3e05800dfe93c8583dee5528008b9c08ee0e02fb76502652019a55",
+          "sha256": "0d8592d13a1b27ab61dbc566c4d57722fe917e4bb64951c0da0db3bc797339ba"
+        },
+        "linux-arm64": {
+          "build": "e4805b3b5a0d9312ab8b3ad1446f01265a122275078196339b5cfd6b849319c1",
+          "sha256": "9a5cf9de64e3aeca1f1fa3c7bc49925850d95b082b5cf053e1f20085ce7c247a"
+        },
+        "linux-x86_64": {
+          "build": "1d7975a5552e86ff7f211560bb4a7e17aad6870b7ad3fc8ea547c790e9c02dfc",
+          "sha256": "92dd0de85fcb5fe338b390dd237efbf7dced9df2b459c6c8bc439ecf6b8bd746"
+        }
+      }
+    },
+    {
+      "producer": 22,
+      "artifact": "bounded-generics",
+      "jar.sha256": "8223f038ce2ec60ebee16bea18c98af3d546fecdf30457b502a90f7568094564",
+      "generation": "05aac6a33c47085ec2101511d6dec83ef2e4d2ba5d88a694b4fb8d5a3b240ed7",
+      "api": "b4bb953fa7b571979e454d25ac2c986de1e9a4ddd81917838207654f41503377",
+      "program": "56ca7620c9c651682618cb2af06a588699d0421e3064913859f00da14f4477c5",
+      "compiler.sha256": "b0f45ce264b0f7c54fff5b95c06752f16f84aad3d186ae90df2fe40041357c06",
+      "runtime.sha256": "9327fdc20bbdf5bf310a77a071a68ee2d536a644c1987ec3fb692641693036e0",
+      "classfile.major": 65,
+      "native_targets": {
+        "macos-arm64": {
+          "build": "7721d9faaba56aa1c4ea6e1cec1e6cbf3c583aa00b438075b2725d0d50de299b",
+          "sha256": "7e54f564d2f476a3c167af97176277ce7a5df98e88c3c8a6733e6d0911d824d4"
+        },
+        "linux-arm64": {
+          "build": "fd144c8ee075206a31af04b33b3e502b153e9cb81877a0658174903f581dc083",
+          "sha256": "2c9e897dc840095311b54a60e595224c0d9465f36e9043b9f4d6091b98f65f7f"
+        },
+        "linux-x86_64": {
+          "build": "4092900b22513fcc3bd4131806b99b7ffc2ff0356d30553c8fdcac38a3b15816",
+          "sha256": "92700054b38dd21eddcadbdd98dc0fac86fa6f707e43167336b98a461b4bdd82"
+        }
+      }
+    },
+    {
+      "producer": 22,
+      "artifact": "listeners",
+      "jar.sha256": "51168c11df112a0e8efad0e544c38078c0c450e8fb4b79c10eb485bbb4494252",
+      "generation": "cfda36af8853b7a3b1dd199453d55efd99457008a149d2da723f8aae10da7bae",
+      "api": "f1af7d82e68b1b14321dacd18bc63bea8752f593b4c8641ce8436db6ace5dbeb",
+      "program": "77d9afe55ebf01481c3c8474d82fba520bec9cd01bd6d267556361bb5bd09c4c",
+      "compiler.sha256": "b0f45ce264b0f7c54fff5b95c06752f16f84aad3d186ae90df2fe40041357c06",
+      "runtime.sha256": "9327fdc20bbdf5bf310a77a071a68ee2d536a644c1987ec3fb692641693036e0",
+      "classfile.major": 65,
+      "native_targets": {
+        "macos-arm64": {
+          "build": "3b09357f2ec0ce882989eea0f74d8a3571fb83f2bd4e0963801f0f17886129e6",
+          "sha256": "df5f124456d29c9eb0772bb23a32ef846178649259a08b60213e9992fd69132b"
+        },
+        "linux-arm64": {
+          "build": "5a728d9cd6e6c2132528b95485aa67e80ecb6c1cabb7227d85d52878a2863e71",
+          "sha256": "ffbdb651b0032d0aff04fa924bb7062192c9c8d4b1322548a51181e89f060233"
+        },
+        "linux-x86_64": {
+          "build": "2d8c51af6616d447f3d2f9da884fc49a79adb62acdd8eba6281ddd6d4d035b37",
+          "sha256": "004ddffd7a3b8daedc98b4e23f389c3fc76e3662c4cea43d4ad20e2895374340"
+        }
+      }
+    },
+    {
+      "producer": 22,
+      "artifact": "basics",
+      "jar.sha256": "fba9eed86b7a0856b6fdfbcea1f732ad4a9d6bf411eefb86894bd23127118006",
+      "generation": "e351ea31379d9576e3604a3d32b5a89f088711434143481087153b2fe7f57f57",
+      "api": "beee0993929a80ce27e0ed5edca5d131cbc3553d4079eda85361cdebab46a6cf",
+      "program": "2b40821286aeb142fbf2f274356de72f2e84dfb2328d2cc25a429422856366e8",
+      "compiler.sha256": "b0f45ce264b0f7c54fff5b95c06752f16f84aad3d186ae90df2fe40041357c06",
+      "runtime.sha256": "9327fdc20bbdf5bf310a77a071a68ee2d536a644c1987ec3fb692641693036e0",
+      "classfile.major": 65,
+      "native_targets": {
+        "macos-arm64": {
+          "build": "95e8b18e41aeced13cfae6e33ef84a3b6c30a326ea17ed37831d895ac225ec2d",
+          "sha256": "c182efe5c07824ffd4d4817c5fb184b8ff107696931a16d60753ce96b2aff11a"
+        },
+        "linux-arm64": {
+          "build": "c751e4a3d4518c7e6590412900891307c409e3ff4470b02691d7ca93b5c7e412",
+          "sha256": "01650e020fb186bf1eb11b8040a864c20123368a07339e41bcb52a8bf9b012e5"
+        },
+        "linux-x86_64": {
+          "build": "5f8a0dd76ee0c0334e32d75c1716bbc097230091a936833fecfa6488e1470c34",
+          "sha256": "78efb380d21a45509f034e078d6e0273d86f197e385ae62e2a14085996e44352"
+        }
+      }
+    },
+    {
+      "producer": 22,
+      "artifact": "values",
+      "jar.sha256": "379ca4b489fa5d7695d246f2c5d7eae649dd3682b8b785410cd29096fc0e89de",
+      "generation": "9e35df1ca79e56fcad4b7ec5fa94a80bcdd390ea4ffa11e6b089b9b63c479a5b",
+      "api": "be535f35fb6b7c085cdd98f361fdf2291ca20265cee3d7a86eda02b988725910",
+      "program": "deacc2c4f0c7f7274d69d0e889f13367c62649993253ca450b79c2d2a27bb1a5",
+      "compiler.sha256": "b0f45ce264b0f7c54fff5b95c06752f16f84aad3d186ae90df2fe40041357c06",
+      "runtime.sha256": "9327fdc20bbdf5bf310a77a071a68ee2d536a644c1987ec3fb692641693036e0",
+      "classfile.major": 65,
+      "native_targets": {
+        "macos-arm64": {
+          "build": "fbf3ba28bcc06ed18c198a5768a3adedcda5ae3ba3f4c0dc49388a1a60dd2f17",
+          "sha256": "20198395b83891a20fa634a00e9537924d7e28cbb5993277883b18d9ff16ce15"
+        },
+        "linux-arm64": {
+          "build": "a24d85c3c80c4f0da52c637a486c27e8fcf2e9053b4b2b1535ec7a054dff3ec4",
+          "sha256": "bbbab904053206be71beb6b352c5eb73f1fce01b9f6ba2950fb1e51563e4d2f3"
+        },
+        "linux-x86_64": {
+          "build": "62834fd34fa2c915c223ab3af6781941466974fbe3c50b872542547d12ce22cc",
+          "sha256": "09662a03d2655c7e2ac0016e7e5cef37998a59211b396696cfdd3ad71e0c62da"
+        }
+      }
+    },
+    {
+      "producer": 22,
+      "artifact": "orderbook",
+      "jar.sha256": "6e7f6194d1d1fcc1561f241a7a705e52d37ae011cc7f34f104a71e804deea435",
+      "generation": "ac1e6167569bd8b923957d81ad497bc1f3586023f1eabe2d4245c7ecfd7954b7",
+      "api": "be5e1299cec1adddcf4fc97fb95129fae948575fbb2dd77af1da5ebd28419d17",
+      "program": "963781064500232c256ac932a58de1e4ac9fa836c7374d656aea5408d1ac942a",
+      "compiler.sha256": "b0f45ce264b0f7c54fff5b95c06752f16f84aad3d186ae90df2fe40041357c06",
+      "runtime.sha256": "9327fdc20bbdf5bf310a77a071a68ee2d536a644c1987ec3fb692641693036e0",
+      "classfile.major": 65,
+      "native_targets": {
+        "macos-arm64": {
+          "build": "9c0d9eca016f1158c34cc25f3b8d819013dd2358b22df314d032fcf251b0fb79",
+          "sha256": "4217ae4ce41fc45d2c8d917a9e86883dc62615fb5219cf1888f9294e8fceb4b2"
+        },
+        "linux-arm64": {
+          "build": "3e88f24a774a59c72760cd06cf83b9d7bb1cd3d479b0b8367f6c5fb5f71348a4",
+          "sha256": "0480117c7de802678f5421cd295bbf4eab2d6413feb53f307276a34f7c12d38d"
+        },
+        "linux-x86_64": {
+          "build": "3f83c8c9b027186717695f975be2d063a3efbbaa1098515328e7e3220973cc2a",
+          "sha256": "dd4ee9e863ef0da1ee691f125d30c8dceb3f39c637c42cf28cd6be89fdb7e234"
+        }
+      }
+    },
+    {
+      "producer": 23,
+      "artifact": "arrays",
+      "jar.sha256": "794e930205657e0ac03de2f86a0de271a23e210e918ebc125fbc5a292619bd4e",
+      "generation": "80e6c83c01243552243be9ff2750eb036869f042a818e03547efb8187085f928",
+      "api": "8123c66e3d0b4507acdc59b1488d89bcbd992015c49b0eb240af9532a6dfcc6b",
+      "program": "4f75b3401c1e83441e0391ba360bb88773fb61ead1ca45233856bbcbdaee58b8",
+      "compiler.sha256": "c58407826e4ffbb745f924b4d19938b0b555b15e5ab1076132b1a8bfbe6d2cf1",
+      "runtime.sha256": "9327fdc20bbdf5bf310a77a071a68ee2d536a644c1987ec3fb692641693036e0",
+      "classfile.major": 65,
+      "native_targets": {
+        "macos-arm64": {
+          "build": "66a85b4e1275cd3d8ab357596439896e133966b3b92750848549c9514ab7194c",
+          "sha256": "76aa7c377378f754870a44375ab3d9ae92945314202f6154a2d362f7a505d6e4"
+        },
+        "linux-arm64": {
+          "build": "b6b53e5a7688db392e8a099f7d9e865fc48e260c0abc4996ac06c14f32c71a03",
+          "sha256": "80744e73b61156e8728ff305b28180664ab156d4f46ef28e774565c6a006da9e"
+        },
+        "linux-x86_64": {
+          "build": "1309686bbd6dbd07a6bf0f7f22697801db6d8ec19cf13056b7f1c694060f021f",
+          "sha256": "eea49b815659ee8ac8dbc6057dd8efa175b953761cfebb46caface0529d94799"
+        }
+      }
+    },
+    {
+      "producer": 23,
+      "artifact": "byteviews",
+      "jar.sha256": "acf3841c02687919a023f21daaee4b09905ae26474ca9ae767b9d5e12b92f856",
+      "generation": "c40a83f2bc980f600782a555ff1bb36f8cff30a258eb75705cc75cb13d5a775a",
+      "api": "b0d554a21ed1f74b1b247a78ee46ba5856be2a4e5e4492789891c430f185349f",
+      "program": "2a2f6898f2853dc989d9869d3214b7e7d5c976a37a54d3038e1b60e96a0e3b94",
+      "compiler.sha256": "c58407826e4ffbb745f924b4d19938b0b555b15e5ab1076132b1a8bfbe6d2cf1",
+      "runtime.sha256": "9327fdc20bbdf5bf310a77a071a68ee2d536a644c1987ec3fb692641693036e0",
+      "classfile.major": 65,
+      "native_targets": {
+        "macos-arm64": {
+          "build": "c06e2e2e7d49001ee45640bfcf7b72ae9f8a26c2446eb3ea2abb62b54dd4b318",
+          "sha256": "205e767017ed1f4653ad35d04553a76ec1707ac116690ddafeeb0bc254d7818c"
+        },
+        "linux-arm64": {
+          "build": "275604d132235726e62aad7ed3f217c6919f9115adc1f10fb6649d09bcb58f47",
+          "sha256": "10dad93f0fb4712904ed67ca5ae3757855ec3ee7ca3338c2a9aec6492eb2f39a"
+        },
+        "linux-x86_64": {
+          "build": "6fe9053f0f980b40220ec08d0082a7f4985e45d97696eb9ba1c188c2af6a8709",
+          "sha256": "16d95bfe47778cdcec292dad1f3f11307ee38fb2ab62e08f9f14028bfd23324f"
+        }
+      }
+    },
+    {
+      "producer": 23,
+      "artifact": "generics",
+      "jar.sha256": "74a17a35e1a75e7a7ec79271bdc893340102870d8d93150a1cb442a7a39d6dc5",
+      "generation": "56c4265d487b66385316e0a3882244e9cf99c29cf8f4d6baca623842e88b47b1",
+      "api": "c26657fce3e3786de7b7aa3273a5173ce68167d03950404d9ca39bb0e71ecb3f",
+      "program": "2e30481583a6994551d26d8782b84ae55e5d9d586c2c95fe11d63de89da8b135",
+      "compiler.sha256": "c58407826e4ffbb745f924b4d19938b0b555b15e5ab1076132b1a8bfbe6d2cf1",
+      "runtime.sha256": "9327fdc20bbdf5bf310a77a071a68ee2d536a644c1987ec3fb692641693036e0",
+      "classfile.major": 65,
+      "native_targets": {
+        "macos-arm64": {
+          "build": "1cf1ceac3563c02a9bdd312640e5d3ee1e35094a5157f67747683c2ab8f56385",
+          "sha256": "d7599ffedce3465746c7816e9ccf6df6692cc570cfad55370d22456b75dd84f2"
+        },
+        "linux-arm64": {
+          "build": "29ec82dee443baf126d92956ac1b5f4e01ec775e9c433552d2a553ccfd3f9e09",
+          "sha256": "92e6630f0db0be382203e4b65ea95a3d81a11b53f7b8529a7c2c7feee5598173"
+        },
+        "linux-x86_64": {
+          "build": "9bdd060d81c1fe08be15a176ce279784df668d418d03d57c63d102ac7c3d0324",
+          "sha256": "f982bf6eb55e04cac158e0ddb70e4e81e22d69095a1fbd4a077f40a4ef99c9c6"
+        }
+      }
+    },
+    {
+      "producer": 23,
+      "artifact": "bounded-generics",
+      "jar.sha256": "f2a59ef02a7ead8da5bdff9bfc363dee225d996ad9152a92a14ae47f43e1d9d8",
+      "generation": "eb032e01c2cce7da2775ba436a2a7bc34ba238a48151cd90550dda63c25a886e",
+      "api": "b4bb953fa7b571979e454d25ac2c986de1e9a4ddd81917838207654f41503377",
+      "program": "56ca7620c9c651682618cb2af06a588699d0421e3064913859f00da14f4477c5",
+      "compiler.sha256": "c58407826e4ffbb745f924b4d19938b0b555b15e5ab1076132b1a8bfbe6d2cf1",
+      "runtime.sha256": "9327fdc20bbdf5bf310a77a071a68ee2d536a644c1987ec3fb692641693036e0",
+      "classfile.major": 65,
+      "native_targets": {
+        "macos-arm64": {
+          "build": "f1bb21833fce70df1e9b1838dd99be3f99fae59b7e1acd813cc93f2813a8229b",
+          "sha256": "3ea4e04b37a35344adad9eb7571e9a7dc069a972cac0bc4e49a98eff0797ae72"
+        },
+        "linux-arm64": {
+          "build": "a6b8035596e36e1bfc3307a6ea02c234fa58e74ff98da49316e63356b1a09aec",
+          "sha256": "c70981ba7eb7bd3ea9c292483156f6931b6ed233fc41026b6b319d78aa837487"
+        },
+        "linux-x86_64": {
+          "build": "8eb65faa57cd676c1959036d3ac1ca32b2a72eafc2481624a3606066fc669d18",
+          "sha256": "e8ca9c816a1705cb0250a61db9eef9e94afae08ec5bf4b9f15b140956258b3b2"
+        }
+      }
+    },
+    {
+      "producer": 23,
+      "artifact": "listeners",
+      "jar.sha256": "ef2105f223517aacead13d6ba4c59d8272ac61d4fc384e45c269ab7809e8af73",
+      "generation": "026f6e74c8a7a05be6d4d0a69ca3b2c52b4f8ed3f257e1c9f6feffd20fb50875",
+      "api": "f1af7d82e68b1b14321dacd18bc63bea8752f593b4c8641ce8436db6ace5dbeb",
+      "program": "77d9afe55ebf01481c3c8474d82fba520bec9cd01bd6d267556361bb5bd09c4c",
+      "compiler.sha256": "c58407826e4ffbb745f924b4d19938b0b555b15e5ab1076132b1a8bfbe6d2cf1",
+      "runtime.sha256": "9327fdc20bbdf5bf310a77a071a68ee2d536a644c1987ec3fb692641693036e0",
+      "classfile.major": 65,
+      "native_targets": {
+        "macos-arm64": {
+          "build": "db05cc77c8a574a025f55265f0e250be575338a5e69ef2bca4cdfd67c3b4e52f",
+          "sha256": "89c03c168eac9e7e382d189bb7d15fcc538ea1c615eed5ef9d92f8f9f32400ca"
+        },
+        "linux-arm64": {
+          "build": "0f72e498fbec13636d2fa159ad52df70a65368221da5d37efba606cadc118dfc",
+          "sha256": "6a94b0ae30ed0f1f0cc703fe797f7829809d91b45add5cfd0204ee36f7954ead"
+        },
+        "linux-x86_64": {
+          "build": "62c2440f480b12efd3c808e7a35102d30aa427c6129673304ef3a04889dbacb7",
+          "sha256": "2aa058c3ab0729db7dd857cd77898d96862a535707d1614bed269466b55e5bfa"
+        }
+      }
+    },
+    {
+      "producer": 23,
+      "artifact": "basics",
+      "jar.sha256": "0e8df0cdb45b0ab745a3441b70eba036b952ce3268d695b183c81c079e186b3d",
+      "generation": "dd9c2046a815dc28bef1b3b3f0018fe9c683fc0e4fce919c8ebc5101c70472b6",
+      "api": "beee0993929a80ce27e0ed5edca5d131cbc3553d4079eda85361cdebab46a6cf",
+      "program": "2b40821286aeb142fbf2f274356de72f2e84dfb2328d2cc25a429422856366e8",
+      "compiler.sha256": "c58407826e4ffbb745f924b4d19938b0b555b15e5ab1076132b1a8bfbe6d2cf1",
+      "runtime.sha256": "9327fdc20bbdf5bf310a77a071a68ee2d536a644c1987ec3fb692641693036e0",
+      "classfile.major": 65,
+      "native_targets": {
+        "macos-arm64": {
+          "build": "17be1925974020369bb149a32cb4f7d866f262fb7bd821bbcc3b154674bd9a56",
+          "sha256": "df7dff0d44da0ef116d54d23ef0ef2b107fa38cc25a43df2ff1800ad04703b1b"
+        },
+        "linux-arm64": {
+          "build": "ba39ad487328ada33f2de58eb93970c9b8c3bb7810dab66ce702d35ad467b857",
+          "sha256": "b198e8d08a87584646e214e4ba259c5584956bb56ddebeea03b8ad9e751f9f17"
+        },
+        "linux-x86_64": {
+          "build": "b7b95457cc5fc3fac352ba8e3dc16bf16173d7acad0b74123dff48312dcd3d8c",
+          "sha256": "46c1448c9aede8387d3165a031305f6e77448c0d0b61936f1d9c656d0b6d155f"
+        }
+      }
+    },
+    {
+      "producer": 23,
+      "artifact": "values",
+      "jar.sha256": "034f704479c6c9914cd88878221231f6301d50a97813c96b405c1b5a83dda388",
+      "generation": "c0d9f276243139db5579a556220d89c3634aa429561691dd367de4033ae0cbd4",
+      "api": "be535f35fb6b7c085cdd98f361fdf2291ca20265cee3d7a86eda02b988725910",
+      "program": "deacc2c4f0c7f7274d69d0e889f13367c62649993253ca450b79c2d2a27bb1a5",
+      "compiler.sha256": "c58407826e4ffbb745f924b4d19938b0b555b15e5ab1076132b1a8bfbe6d2cf1",
+      "runtime.sha256": "9327fdc20bbdf5bf310a77a071a68ee2d536a644c1987ec3fb692641693036e0",
+      "classfile.major": 65,
+      "native_targets": {
+        "macos-arm64": {
+          "build": "293920c3cf08e5fc6748459f7f911c203f8ffc2594ff14b82546dd7dafb70198",
+          "sha256": "4042566334bfad768f189f235da73c22467d0d4c21a4828aa5328385c46c880e"
+        },
+        "linux-arm64": {
+          "build": "c1c188f0815360610a04b41e7534eb6d05ec4cb79743092cb820775456d4a746",
+          "sha256": "a55b4013e9ee8df9a6c94b73cc1082500d9b19e7138c95dc0bc499420e1d0aac"
+        },
+        "linux-x86_64": {
+          "build": "1d1d47562055c6892380ec557cbdc8d748afa553ae12b27bbf2cb9c4673a05be",
+          "sha256": "b597c931d43efa3c1ebcf2a83c4591778eff2b409aac715ebb5d91e7f28fd670"
+        }
+      }
+    },
+    {
+      "producer": 23,
+      "artifact": "orderbook",
+      "jar.sha256": "2a18306916743b8d2984659a231386e1ed6e72f02aa1fba10d3fa7453895b91a",
+      "generation": "10dbe2ee9be07e6b1233e70443a76ef64a4db4bd6389bdac0a0aa92b5eb99c39",
+      "api": "be5e1299cec1adddcf4fc97fb95129fae948575fbb2dd77af1da5ebd28419d17",
+      "program": "963781064500232c256ac932a58de1e4ac9fa836c7374d656aea5408d1ac942a",
+      "compiler.sha256": "c58407826e4ffbb745f924b4d19938b0b555b15e5ab1076132b1a8bfbe6d2cf1",
+      "runtime.sha256": "9327fdc20bbdf5bf310a77a071a68ee2d536a644c1987ec3fb692641693036e0",
+      "classfile.major": 65,
+      "native_targets": {
+        "macos-arm64": {
+          "build": "c568a0b527b38a3d0d12e52b79fd22e94c01fc8af749c1dec2226e1706e1bc74",
+          "sha256": "323d4d4de3d3120c5e0ae66308cd826d5b3de644cc01d1eda32d4737d1615d51"
+        },
+        "linux-arm64": {
+          "build": "c2b032c246575847b0a5332bc82c10441d664d98c1e24671a5ad4b311e1b5448",
+          "sha256": "349dc4176e929041d006146f7124dfbc4591f959529583f837b94086030030be"
+        },
+        "linux-x86_64": {
+          "build": "e4c35d77ab8e0a98c23db5c5187ebaa2daa05ff58f621d94af6194c2745a0328",
+          "sha256": "a897830a140de1e84a55ab43398eafbaa9701e1b42d344dd72c989a169f7704c"
+        }
+      }
+    }
+  ],
+  "companions": [
+    {
+      "producer": 21,
+      "artifact": "ironwood-bridge-values.jar",
+      "sha256": "2e1a99e54b68698e79c8136ba91cebef2d27a9edc10adbfe0e0e0d0ee79d29bc",
+      "classfile.major": 65
+    },
+    {
+      "producer": 22,
+      "artifact": "ironwood-bridge-values.jar",
+      "sha256": "2e1a99e54b68698e79c8136ba91cebef2d27a9edc10adbfe0e0e0d0ee79d29bc",
+      "classfile.major": 65
+    },
+    {
+      "producer": 23,
+      "artifact": "ironwood-bridge-values.jar",
+      "sha256": "2e1a99e54b68698e79c8136ba91cebef2d27a9edc10adbfe0e0e0d0ee79d29bc",
+      "classfile.major": 65
     }
   ]
 }

@@ -5,19 +5,19 @@
 These examples build the existing value example through the public producer,
 package standard Maven coordinates and IDE companions, then consume the ordinary
 dependency in a fresh JVM. No Ironwood-specific build-tool plugin is required.
-Use the producer's Java 21, LLVM 23 and host SDK prerequisites, with `ironwoodc`
+Use the producer's JDK 21, 22 or 23, LLVM 23 and host SDK prerequisites, with `ironwoodc`
 on PATH. `IRONWOODC` can select an absolute executable path. The consumer needs
 only its build tool, a supported Java JDK and the dependency repository.
 
-Run from the checkout root, selecting the pinned Java 21 JDK as `JAVA_HOME`:
+Run from the checkout root, selecting a supported producer JDK as `JAVA_HOME`:
 
 ```sh
 export PATH="$JAVA_HOME/bin:$PWD/bin:$PATH"
 mvn -f examples/java-bridge/build-tools/maven-producer/pom.xml clean install
 mvn -f examples/java-bridge/build-tools/maven-consumer/pom.xml clean compile exec:exec
 
-gradle -p examples/java-bridge/build-tools/gradle-producer clean publishToMavenLocal
-gradle -p examples/java-bridge/build-tools/gradle-consumer clean run
+gradle --no-daemon -p examples/java-bridge/build-tools/gradle-producer clean publishToMavenLocal
+gradle --no-daemon -p examples/java-bridge/build-tools/gradle-consumer clean run
 ```
 
 Use `-Dmaven.repo.local=/absolute/local-repository` on both producer and consumer

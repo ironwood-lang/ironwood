@@ -8,7 +8,7 @@ The engine sources and official benchmark definitions are unchanged.
 
 ## Build and run
 
-From the repository root, select a **Java 21 JDK** on `PATH` and in `JAVA_HOME`,
+From the repository root, select a **JDK 21, 22 or 23** on `PATH` and in `JAVA_HOME`,
 with `ironwoodc` on `PATH` and the pinned LLVM 23 toolchain available. On Linux,
 set `IRONWOOD_BRIDGE_SUPPORT_HOME` to the prepared target SDK. See the
 [producer prerequisites](../../../docs/JAVA_BRIDGE_USAGE.md#build-and-run).

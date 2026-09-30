@@ -9,7 +9,7 @@ the producer generates the loading and JNI code. Shared Quote/Trade values have
 proved process lifetime. Each factory-created box is an owning root, explicitly
 freed by the consumer. Reading through a wildcard preserves the actual value.
 
-With the pinned Java 21 JDK and LLVM 23 on PATH, and the prepared Linux support
+With a supported JDK 21, 22 or 23 selected in `JAVA_HOME` and LLVM 23 on PATH, and the prepared Linux support
 SDK when building on Linux, run from the repository root:
 
 ```sh

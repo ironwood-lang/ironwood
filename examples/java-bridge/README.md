@@ -24,9 +24,9 @@ a declared IOException, and continues calling the same artifact. Generated
 transport handles proved temporary String reclamation. The consumer runs on one
 thread, as required by the bridge's confinement contract.
 
-Use a Java 21 JDK, LLVM 23 and the macOS SDK or the prepared Linux bridge support
+Use a JDK 21, 22 or 23, LLVM 23 and the macOS SDK or the prepared Linux bridge support
 SDK described in the producer guide. Put `ironwoodc`,
-`javac` and `java` on PATH, selecting the same Java 21 JDK for both build steps.
+`javac` and `java` on PATH, or set `JAVA_HOME` to select the same JDK for both build steps.
 Run from this directory:
 
 ```sh

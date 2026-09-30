@@ -19,7 +19,7 @@ and release its listener registration. The Java listener itself is JVM-managed.
 
 ## Build, run and test
 
-Use a Java 21 JDK, the pinned LLVM 23 and the
+Use a JDK 21, 22 or 23, the pinned LLVM 23 and the
 [native platform prerequisites](../../../docs/JAVA_BRIDGE_USAGE.md#build-and-run).
 Put the checkout's `bin` directory and the JDK's `bin` directory on `PATH` so
 `ironwoodc`, `javac` and `java` are available. Linux also needs the prepared bridge

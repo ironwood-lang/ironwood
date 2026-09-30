@@ -35,6 +35,11 @@ outcome. P7e1/P7e2 remain deliberately unimplemented.
 three targets; numerical acceptance of the extension measurements remains review.
 Release work belongs to the maintainer,
 outside this implementation task.
+JDK 21, 22 and 23 are supported producer and consumer environments under D239.
+Compiler and generated Java classes/APIs retain the Java 21 baseline. Exact
+pairing/assembly checks remain mandatory; see the
+[JDK workflow verification record](JAVA_BRIDGE_JDK_PROGRESS.md).
+
 The release gates below still apply. The maintainer selected **Java 21-23** as the initial consumer
 support range, deferring Java 24+ and its native-access authorization work.
 This replaces the initial Java 21+ target. The maintainer selected explicit
@@ -2090,7 +2095,10 @@ see the [Temurin support table](https://adoptium.net/support/).
 | Linux ARM64 (`aarch64_linux`, glibc) | Required | Required | Required |
 | Linux x86-64 (`x64_linux`, glibc) | Required | Required | Required |
 
-Compile Java facades with the pinned Temurin 21 JDK and `javac --release 21`.
+Under D239, qualify each of the three pinned JDKs as a producer against all
+three consumer JVMs on each native target. Compile Java facades with the selected
+producer JDK and `javac --release 21`. Keep the same identified compiler build
+and matching producer JDK version/vendor across hosts for multi-target assembly.
 Record each downloaded JDK's URL, SHA-256 and full `java -version` output,
 alongside the exact OS/glibc, CPU, compiler and payload versions. A patch upgrade
 requires an explicit matrix update and rerunning its affected cells; do not

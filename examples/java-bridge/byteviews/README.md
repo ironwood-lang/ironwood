@@ -9,7 +9,7 @@ immediate writes; the JVM owns their backing memory. Reuse storage across calls.
 There is no close/free operation and no exposed address. Native source cannot
 retain, return, construct or free a view, or invoke callbacks while borrowing it.
 
-With pinned Java 21 in `JAVA_HOME`, LLVM 23 on `PATH`, and the Linux support SDK
+With a supported JDK 21, 22 or 23 in `JAVA_HOME`, LLVM 23 on `PATH`, and the Linux support SDK
 configured as in the [producer guide](../../../docs/JAVA_BRIDGE_USAGE.md):
 
 ```sh

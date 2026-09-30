@@ -8,7 +8,7 @@ native representation. Java calls use the source API without handwritten JNI
 or loading code. A holder retains its input root until replacement or `free()`;
 destroy holders before their retained values. `echo` preserves input identity.
 
-With the pinned Java 21 JDK and LLVM 23 on PATH, and the prepared support SDK
+With a supported JDK 21, 22 or 23 selected in `JAVA_HOME` and LLVM 23 on PATH, and the prepared support SDK
 on Linux, run from the repository root:
 
 ```sh
