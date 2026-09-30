@@ -86,6 +86,10 @@ jobs:
           export PATH="$JAVA_HOME/bin:$CONDA_PREFIX/bin:$PATH"
           export IRONWOOD_IDK_TOOLCHAIN_HOME="$CONDA_PREFIX"
           python scripts/prepare-tls.py --llvm-home "$CONDA_PREFIX" --prefix "$CONDA_PREFIX/ironwood-tls"
+          if [[ "${{ matrix.platform }}" == linux-* ]]; then
+            python -B scripts/prepare-java-bridge-support.py --setup \
+              --target "${{ matrix.platform }}" --prefix "$CONDA_PREFIX/ironwood-bridge-support"
+          fi
           ./scripts/package-idk.sh "$IDK_VERSION"
           ./scripts/test-idk.sh "dist/ironwood-idk-$IDK_VERSION-${{ matrix.platform }}.tar.gz"
       - name: Upload IDK to draft release

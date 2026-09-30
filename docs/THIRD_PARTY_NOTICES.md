@@ -111,7 +111,9 @@ recipes/patches and source notices. Preserve that directory when distributing
 the shared image. The included zlib 1.3.1 build-source archive retains its
 upstream zlib license; it does not add a bridge runtime library.
 
-Source/tool-only distributions carry the pins and recipe and require explicit
-SDK preparation. macOS and ordinary executable links do not select this bridge
+Linux IDKs include the complete prepared SDK and its source/notices at
+`toolchain/ironwood-bridge-support`, with verified manifests. Source/tool-only
+distributions carry the pins and recipe and require explicit SDK preparation.
+macOS and ordinary executable links do not select this bridge
 support bundle. See `docs/JAVA_BRIDGE_NATIVE_SUPPORT.md` for provenance and the
 minimal-JVM dependency audit; final Java Bridge release qualification is pending.

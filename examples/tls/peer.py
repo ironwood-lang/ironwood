@@ -10,9 +10,12 @@ import threading
 ROOT = Path(__file__).resolve().parent
 CERTS = ROOT / "target/certificates"
 CERTS.mkdir(parents=True, exist_ok=True)
+# Certificate generation uses a local configuration even with a relocated OpenSSL.
+(CERTS / "openssl.cnf").write_text("[req]\ndistinguished_name=dn\n[dn]\n")
 
 def openssl(*args):
     environment = {key: value for key, value in os.environ.items() if key not in ("OPENSSL_CONF", "OPENSSL_MODULES")}
+    environment["OPENSSL_CONF"] = str(CERTS / "openssl.cnf")
     result = subprocess.run(["openssl", *map(str, args)], capture_output=True, text=True, timeout=20, env=environment)
     if result.returncode: raise RuntimeError(result.stderr)
 

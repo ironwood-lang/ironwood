@@ -80,9 +80,11 @@ cp "$IRONWOOD_PROJECT_ROOT/docs/NETWORKING_M5_VERIFICATION.md" "$IRONWOOD_STAGE_
 cp "$IRONWOOD_PROJECT_ROOT/docs/NETWORKING_M6_VERIFICATION.md" "$IRONWOOD_STAGE_DIR/docs/NETWORKING_M6_VERIFICATION.md"
 mkdir -p "$IRONWOOD_STAGE_DIR/packaging"
 cp "$IRONWOOD_PROJECT_ROOT/packaging/tls-dependencies.properties" "$IRONWOOD_STAGE_DIR/packaging/"
+cp "$IRONWOOD_PROJECT_ROOT/packaging/java-bridge-support.properties" "$IRONWOOD_STAGE_DIR/packaging/"
 cp "$IRONWOOD_PROJECT_ROOT/packaging/idk-environment.yml" "$IRONWOOD_STAGE_DIR/packaging/"
 mkdir -p "$IRONWOOD_STAGE_DIR/scripts"
 cp "$IRONWOOD_PROJECT_ROOT/scripts/prepare-tls.py" "$IRONWOOD_STAGE_DIR/scripts/prepare-tls.py"
+cp "$IRONWOOD_PROJECT_ROOT/scripts/prepare-java-bridge-support.py" "$IRONWOOD_STAGE_DIR/scripts/prepare-java-bridge-support.py"
 cp "$IRONWOOD_PROJECT_ROOT/scripts/test-networking-m6.py" "$IRONWOOD_STAGE_DIR/scripts/test-networking-m6.py"
 mkdir -p "$IRONWOOD_STAGE_DIR/integration-tests/native"
 cp "$IRONWOOD_PROJECT_ROOT/integration-tests/native/tls_interpose.c" "$IRONWOOD_STAGE_DIR/integration-tests/native/tls_interpose.c"
@@ -111,5 +113,5 @@ cp "$IRONWOOD_PROJECT_ROOT/stdlib/README.md" "$IRONWOOD_STAGE_DIR/stdlib/README.
 cp -R "$IRONWOOD_PROJECT_ROOT/compiler/build/stdlib" "$IRONWOOD_STAGE_DIR/lib/stdlib"
 
 mkdir -p "$IRONWOOD_DIST_DIR"
-tar -C "$IRONWOOD_DIST_DIR" -czf "$IRONWOOD_DIST_DIR/$IRONWOOD_PACKAGE_NAME.tar.gz" "$IRONWOOD_PACKAGE_NAME"
+COPYFILE_DISABLE=1 tar --no-xattrs -C "$IRONWOOD_DIST_DIR" -czf "$IRONWOOD_DIST_DIR/$IRONWOOD_PACKAGE_NAME.tar.gz" "$IRONWOOD_PACKAGE_NAME"
 echo "packaged $IRONWOOD_DIST_DIR/$IRONWOOD_PACKAGE_NAME.tar.gz"

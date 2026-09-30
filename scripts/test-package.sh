@@ -85,6 +85,8 @@ IRONWOOD_REQUIRED_FILES=(
     conf/jvm.options
     scripts/jvm-options.sh
     scripts/jdk.sh
+    scripts/prepare-java-bridge-support.py
+    packaging/java-bridge-support.properties
     lib/ironwoodc.jar
     lib/ironwood-stdlib.ironjar
     lib/ironwood-testing.ironjar

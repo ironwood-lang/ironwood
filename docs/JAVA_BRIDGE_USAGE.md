@@ -48,6 +48,15 @@ compiler/Javadoc modules and JNI headers, independently of PATH or JAVA_HOME.
 Missing components have build diagnostics. Maven and Gradle producer examples
 pass their running JVM's `java.home` into the producer as JAVA_HOME.
 
+An IDK includes LLVM and, on Linux, the complete pinned bridge support SDK.
+Unpack it and use its launchers without native-tool environment overrides.
+On macOS, install Apple's Command Line Tools or Xcode; the compiler selects the
+SDK and Apple linker through `xcrun` and passes their paths explicitly to LLVM's
+Clang driver. SDK 26.5 and 27.0 are qualified. `DEVELOPER_DIR` and `SDKROOT` may
+explicitly select installed Apple tools; invalid selections fail without fallback.
+Native artifact identity includes the actual SDK stub/settings hashes and linker
+version/hash. Java consumers do not need these build tools.
+
 All compiler/facade/consumer builds retain `--release 21`; this does not add
 Java 22/23 source syntax or APIs to Ironwood. A host artifact produced with any
 supported JDK runs on each supported JVM for that native target. Javadoc output,
@@ -62,12 +71,11 @@ See the [JDK compatibility verification record](JAVA_BRIDGE_JDK_PROGRESS.md).
 
 For example, select JDK 23 to build and produce the callback example, then run
 its Java 21-compatible consumer on all three JVMs. Set JDK21/JDK22/JDK23 to the
-installed JDK home directories, and select the prepared LLVM/support SDK first:
+installed JDK home directories. From an extracted IDK, run:
 
 ```sh
 export JAVA_HOME="$JDK23"
 export PATH="$PWD/bin:$JAVA_HOME/bin:$PATH"
-./scripts/build.sh
 ./examples/java-bridge/basics/compile.sh
 ./examples/java-bridge/basics/link.sh
 for jdk in "$JDK21" "$JDK22" "$JDK23"; do
@@ -78,10 +86,13 @@ done
 ```
 
 Each JVM prints `Java listener: 2`, `Java listener: 5`, `Counter total: 5` and
-exits zero. Linux production additionally needs IRONWOOD_BRIDGE_SUPPORT_HOME.
+exits zero. For a source checkout, first run `JAVA_HOME="$JDK23" ./scripts/build.sh`
+with LLVM 23 selected and the native support described below prepared on Linux.
 
-Linux producers first prepare the [pinned native support SDK](JAVA_BRIDGE_NATIVE_SUPPORT.md)
-and set `IRONWOOD_BRIDGE_SUPPORT_HOME` to that target's prepared directory. Host
+Linux source/host producers first prepare the [pinned native support SDK](JAVA_BRIDGE_NATIVE_SUPPORT.md)
+and set `IRONWOOD_BRIDGE_SUPPORT_HOME` to that target's prepared directory.
+Linux IDKs already include and verify this SDK at
+`toolchain/ironwood-bridge-support`; no setup or override is needed. Host
 packaging audits final ELF architecture, eager binding, relative dependency paths
 and required glibc symbol versions. The jar carries complete support source,
 recipes and licenses. Loading extracts and checks only the two required private

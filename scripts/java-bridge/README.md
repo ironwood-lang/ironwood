@@ -453,3 +453,27 @@ installed or downloaded. Replay and performance records retain payload hashes;
 freeze and hash input sources plus precompiled classes before transferring.
 See the [generic progress/evidence log](../../docs/JAVA_BRIDGE_GENERIC_PROGRESS.md)
 for the validated revision, platform details and exact snapshot identities.
+
+## Installed IDK JDK compatibility
+
+`qualify-idk.py` exercises an extracted IDK using only its launchers on PATH.
+It clears native/Java tool overrides, checks the bundled default, then produces
+eight representative bridge families with each pinned JDK and compiles/runs
+their Java consumers with all three JDKs. It checks Java 21 class files, paired
+ByteView artifacts, source/class/archive inputs, distribution main bytes,
+callbacks, reclamation, arrays, byte views, generics, exceptions and OrderBook.
+Linux support is discovered inside the IDK; macOS uses the default Apple SDK/linker.
+
+```sh
+python3 -B scripts/java-bridge/qualify-idk.py --idk /path/to/extracted/idk \
+  --jdk "21=$JDK21" --jdk "22=$JDK22" --jdk "23=$JDK23" \
+  --output workspace/java-bridge/new-idk-check
+```
+
+Use a new output directory. `--producer 23` limits a focused retry to one
+producer while retaining all consumers. `--resume` reuses successful matching
+commands/environments and preserves earlier failed logs; use it only with the
+same IDK, JDKs and source inputs. Evidence retains exact commands, selected
+environment, outputs, exits, artifact hashes and native manifests. No tools are
+installed or downloaded. The [progress log](../../docs/JAVA_BRIDGE_JDK_PROGRESS.md)
+records archive identities and three-platform qualification.
