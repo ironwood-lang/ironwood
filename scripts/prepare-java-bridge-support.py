@@ -9,13 +9,27 @@ import io
 import json
 from pathlib import Path
 import shutil
+import sys
 import tarfile
 import tempfile
+import time
 import urllib.request
 import zipfile
 
 ROOT = Path(__file__).resolve().parent.parent
 PINS = ROOT / "packaging/java-bridge-support.properties"
+
+
+def progress(message):
+    print(f"bridge support: {message}", file=sys.stderr, flush=True)
+
+
+def download_progress(name, received, total, elapsed):
+    size = f"{received / (1024 * 1024):.1f} MiB"
+    if total:
+        size += f" / {total / (1024 * 1024):.1f} MiB ({100 * received / total:.0f}%)"
+    speed = received / (1024 * 1024) / elapsed if elapsed > 0 else 0
+    progress(f"{name}: {size}, {speed:.1f} MiB/s, {elapsed:.0f}s elapsed")
 
 
 def digest(path):
@@ -31,22 +45,41 @@ def download(cache, url, expected):
     cache.mkdir(parents=True, exist_ok=True)
     destination = cache / url.rsplit("/", 1)[1]
     if not destination.exists():
+        progress(f"downloading {url} (connection/read timeout: 120s)")
         with tempfile.NamedTemporaryFile(dir=cache, delete=False) as stream:
             pending = Path(stream.name)
         try:
             with urllib.request.urlopen(url, timeout=120) as source, pending.open("wb") as output:
-                shutil.copyfileobj(source, output)
+                length = source.headers.get("Content-Length", "")
+                total = int(length) if length.isdecimal() and int(length) > 0 else None
+                started = last_report = time.monotonic()
+                received = 0
+                download_progress(destination.name, received, total, 0)
+                # Do not wait for a full chunk before reporting a slow transfer.
+                while chunk := source.read1(1024 * 1024):
+                    output.write(chunk)
+                    received += len(chunk)
+                    now = time.monotonic()
+                    if now - last_report >= 2:
+                        download_progress(destination.name, received, total, now - started)
+                        last_report = now
+                download_progress(destination.name, received, total, time.monotonic() - started)
+            progress(f"verifying download SHA-256: {destination.name}")
             if digest(pending) != expected:
                 raise ValueError(f"download SHA-256 mismatch: {url}")
             pending.replace(destination)
         finally:
             pending.unlink(missing_ok=True)
+    else:
+        progress(f"using cached download: {destination}")
+    progress(f"verifying cached SHA-256: {destination.name}")
     if digest(destination) != expected:
         raise ValueError(f"cached SHA-256 mismatch: {destination}")
     return destination
 
 
 def check(prefix, target, pins):
+    progress(f"checking SDK manifest and file checksums: {prefix} ({target})")
     manifest = properties(prefix / "build.properties")
     if (properties(prefix / "dependencies.properties") != pins or manifest.get("format") != "1"
             or manifest.get("platform") != target or manifest.get("pins.sha256") != digest(PINS)):
@@ -62,6 +95,7 @@ def check(prefix, target, pins):
             relative = Path(key[7:])
             if relative.is_absolute() or ".." in relative.parts:
                 raise ValueError("invalid manifest path")
+            progress(f"checking SHA-256: {relative}")
             if digest(prefix / relative) != value:
                 raise ValueError(f"bridge support checksum mismatch: {relative}")
     for name, filename in [("libgcc", "libgcc_s.so.1"), ("libstdcxx", "libstdc++.so.6")]:
@@ -77,6 +111,7 @@ def check(prefix, target, pins):
 def setup(prefix, target, cache, pins):
     if prefix.exists():
         raise ValueError(f"refusing to overwrite support SDK: {prefix}")
+    progress(f"preparing {target} SDK at {prefix}; download cache: {cache}")
     prefix.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(dir=prefix.parent, prefix=".bridge-support-") as temporary:
         staged = Path(temporary) / "sdk"
@@ -86,6 +121,7 @@ def setup(prefix, target, cache, pins):
         for name, filename in [("libgcc", "libgcc_s.so.1"), ("libstdcxx", "libstdc++.so.6")]:
             key = f"{target}.{name}."
             archive = download(cache, pins[key + "url"], pins[key + "sha256"])
+            progress(f"extracting runtime and build recipes: {archive.name}")
             with zipfile.ZipFile(archive) as package:
                 for category in ("pkg-", "info-"):
                     members = [entry for entry in package.namelist() if entry.startswith(category) and entry.endswith(".tar.zst")]
@@ -113,7 +149,9 @@ def setup(prefix, target, cache, pins):
         (staged / "lib/libgcc_s.so").symlink_to("libgcc_s.so.1")
         for name in ("gcc", "zlib"):
             archive = download(cache, pins[name + ".source.url"], pins[name + ".source.sha256"])
+            progress(f"copying corresponding source: {archive.name}")
             shutil.copyfile(archive, staged / "sources" / archive.name)
+        progress("extracting upstream license texts from GCC source")
         licenses = {"gcc-16.2.0/COPYING3": "GPL-3.0.txt", "gcc-16.2.0/COPYING.RUNTIME": "GCC-exception-3.1.txt"}
         with tarfile.open(staged / "sources/gcc-16.2.0.tar.gz", "r|gz") as source:
             for member in source:
@@ -123,11 +161,13 @@ def setup(prefix, target, cache, pins):
                         break
         if licenses:
             raise ValueError("upstream license texts missing")
+        progress("hashing SDK files and writing manifest")
         manifest = {"format": "1", "platform": target, "pins.sha256": digest(PINS)}
         manifest.update({"sha256." + str(path.relative_to(staged)): digest(path)
                          for path in sorted(staged.rglob("*")) if path.is_file()})
         (staged / "build.properties").write_text("".join(f"{key}={value}\n" for key, value in sorted(manifest.items())))
         check(staged, target, pins)
+        progress(f"publishing verified SDK: {prefix}")
         staged.rename(prefix)
 
 
