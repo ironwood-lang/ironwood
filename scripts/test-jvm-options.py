@@ -36,13 +36,20 @@ class JvmOptionsTests(unittest.TestCase):
         for tool in TOOLS:
             shutil.copy2(ROOT / "bin" / tool, self.root / "bin" / tool)
         shutil.copy2(ROOT / "scripts/jvm-options.sh", self.root / "scripts/jvm-options.sh")
+        shutil.copy2(ROOT / "scripts/jdk.sh", self.root / "scripts/jdk.sh")
         (self.root / "lib/ironwoodc.jar").touch()
         self.options = self.root / "conf/jvm.options"
-        self.system_bin = self.scratch / "system-bin"
-        self.system_bin.mkdir()
+        self.system_bin = self.scratch / "system-jdk/bin"
+        self.system_bin.mkdir(parents=True)
         self.java = self.system_bin / "java"
         self.java.write_text(
-            f"#!{sys.executable}\nimport json, os, sys\n"
+            f"#!{sys.executable}\nimport json, os, sys\nfrom pathlib import Path\n"
+            "if sys.argv[1:] == ['-XshowSettings:properties', '-version']:\n"
+            "    print('    java.home = ' + str(Path(sys.argv[0]).parent.parent))\n"
+            "    print('    java.specification.version = 23')\n"
+            "    sys.exit(0)\n"
+            "if os.environ.get('IRONWOOD_TEST_JAVA_RECORD'):\n"
+            "    Path(os.environ['IRONWOOD_TEST_JAVA_RECORD']).write_text(sys.argv[0])\n"
             "print(json.dumps(sys.argv[1:]))\n"
             "sys.exit(int(os.environ.get('IRONWOOD_TEST_JAVA_EXIT', '0')))\n",
             encoding="utf-8",
@@ -50,7 +57,7 @@ class JvmOptionsTests(unittest.TestCase):
         self.java.chmod(0o755)
         self.bundled_java = self.root / "toolchain/lib/jvm/bin/java"
         self.env = {key: value for key, value in os.environ.items()
-                    if key not in ("JAVA_TOOL_OPTIONS", "JDK_JAVA_OPTIONS", "_JAVA_OPTIONS")}
+                    if key not in ("JAVA_HOME", "JAVA_TOOL_OPTIONS", "JDK_JAVA_OPTIONS", "_JAVA_OPTIONS")}
         self.env["PATH"] = str(self.system_bin) + os.pathsep + self.env.get("PATH", "")
         # Configuration belongs to the invoked installation, not cwd or an env override.
         self.env["IRONWOOD_HOME"] = str(self.scratch)
@@ -80,6 +87,33 @@ class JvmOptionsTests(unittest.TestCase):
                         expected.extend(["--help", "file with spaces", ""])
                         self.assertEqual(json.loads(result.stdout), expected)
                         self.assertEqual(result.stderr, "")
+
+    def test_java_home_overrides_bundle_and_path(self):
+        home = self.scratch / "explicit jdk"
+        (home / "bin").mkdir(parents=True)
+        shutil.copy2(self.java, home / "bin/java")
+        record = self.scratch / "selected-java.txt"
+        self.env.update(JAVA_HOME=str(home), IRONWOOD_TEST_JAVA_RECORD=str(record))
+        self.run_tools()
+        self.assertEqual(record.read_text(), str(home / "bin/java"))
+
+    def test_missing_explicit_java_never_falls_back(self):
+        self.env["JAVA_HOME"] = str(self.scratch / "missing jdk")
+        self.run_tools(error="selected Java is missing", returncode=1)
+
+    def test_missing_or_mixed_jdk_tools_never_use_path(self):
+        command = ["/bin/bash", "-c", 'source "$1"; ironwood_select_java "$2"; ironwood_require_jdk',
+                   "jdk-test", str(self.root / "scripts/jdk.sh"), str(self.root)]
+        result = subprocess.run(command, env=self.env, text=True, capture_output=True)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("missing bin/javac", result.stderr)
+        for name in ("javac", "jar"):
+            path = self.system_bin / name
+            path.write_text("#!/bin/sh\necho 'javac 22.0.2'\n")
+            path.chmod(0o755)
+        result = subprocess.run(command, env=self.env, text=True, capture_output=True)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("java/javac versions differ", result.stderr)
 
     def test_missing_file_uses_defaults(self):
         self.run_tools()

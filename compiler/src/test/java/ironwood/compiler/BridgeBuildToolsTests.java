@@ -18,6 +18,25 @@ final class BridgeBuildToolsTests {
         check(BridgeBuildTools.requireJdk("test").equals(Path.of(System.getProperty("java.home"))), "tools use another JDK");
         Path base = Path.of("workspace/java-bridge/evidence/jdk-tools").toAbsolutePath(); Files.createDirectories(base);
         Path directory = Files.createTempDirectory(base, "run-");
+        String originalHome = System.getProperty("java.home");
+        boolean macos = System.getProperty("os.name").equals("Mac OS X");
+        BridgeBuildTools.requireJniHeaders(macos);
+        try {
+            System.setProperty("java.home", directory.toString());
+            for (String missing : List.of("jni.h", "jni_md.h")) {
+                try {
+                    BridgeBuildTools.requireJniHeaders(macos);
+                    throw new AssertionError("missing JNI header admitted");
+                } catch (IOException expected) {
+                    check(expected.getMessage().contains("selected JDK's JNI header")
+                            && expected.getMessage().endsWith(missing), "unclear JNI header diagnostic");
+                }
+                Files.createDirectories(directory.resolve("include"));
+                Files.writeString(directory.resolve("include/jni.h"), "test header");
+            }
+        } finally {
+            System.setProperty("java.home", originalHome);
+        }
         Path source = directory.resolve("Baseline.java"), classes = directory.resolve("classes"); Files.createDirectories(classes);
         Files.writeString(source, "public final class Baseline { private Baseline() {} public static String value() { return \"21\"; } }\n");
         var output = new ByteArrayOutputStream(); var diagnostics = new PrintStream(output);

@@ -3,6 +3,8 @@
 set -euo pipefail
 EXAMPLE_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 REPOSITORY=$(CDPATH= cd -- "$EXAMPLE_DIR/../../.." && pwd)
+source "$REPOSITORY/scripts/jdk.sh"
+ironwood_select_java "$REPOSITORY"
 if [[ $# != 1 ]]; then
     echo 'usage: produce.sh <build-directory>' >&2
     exit 2

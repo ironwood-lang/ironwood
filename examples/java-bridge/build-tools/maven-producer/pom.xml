@@ -10,7 +10,9 @@
     <plugin>
       <groupId>org.codehaus.mojo</groupId><artifactId>exec-maven-plugin</artifactId><version>3.5.0</version>
       <executions><execution><id>bridge</id><phase>package</phase><goals><goal>exec</goal></goals>
-        <configuration><executable>bash</executable><arguments>
+        <configuration><executable>bash</executable>
+          <environmentVariables><JAVA_HOME>${java.home}</JAVA_HOME></environmentVariables>
+          <arguments>
           <argument>${project.basedir}/../produce.sh</argument><argument>${project.build.directory}</argument>
         </arguments></configuration>
       </execution></executions>

@@ -4,6 +4,10 @@
 set -euo pipefail
 
 PROJECT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+BRIDGE_JDK_ROOT=$(CDPATH= cd -- "$PROJECT_DIR/../../.." && pwd)
+source "$BRIDGE_JDK_ROOT/scripts/jdk.sh"
+ironwood_select_java "$BRIDGE_JDK_ROOT"
+ironwood_require_jdk
 cd "$PROJECT_DIR"
 
 REPO_ROOT=$(CDPATH= cd -- "$PROJECT_DIR/../../.." && pwd)

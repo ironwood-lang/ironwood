@@ -5,6 +5,7 @@ version = '0.1.0-local'
 layout.buildDirectory = layout.projectDirectory.dir('target')
 
 def produce = tasks.register('bridge', Exec) {
+    environment 'JAVA_HOME', System.getProperty('java.home')
     commandLine 'bash', file('../produce.sh'), layout.buildDirectory.get().asFile
 }
 tasks.named('assemble') { dependsOn produce }
