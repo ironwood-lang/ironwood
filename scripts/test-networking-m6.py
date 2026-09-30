@@ -125,6 +125,10 @@ def certificates():
     fixture_env = os.environ.copy()
     for key in ('OPENSSL_CONF', 'OPENSSL_MODULES', 'SSL_CERT_FILE', 'SSL_CERT_DIR'):
         fixture_env.pop(key, None)
+    # Relocated OpenSSL must not consult its original build-prefix configuration.
+    configuration = certs / 'openssl.cnf'
+    configuration.write_text('[req]\ndistinguished_name=dn\n[dn]\n')
+    fixture_env['OPENSSL_CONF'] = str(configuration)
     for name in ('trusted', 'other'):
         run('certificate-' + name, ['openssl', 'req', '-x509', '-newkey', 'ec', '-pkeyopt',
             'ec_paramgen_curve:prime256v1', '-nodes', '-keyout', certs / (name + '.key'),

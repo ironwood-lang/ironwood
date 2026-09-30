@@ -107,6 +107,13 @@ IRONWOOD_TLS_PREFIX=${IRONWOOD_TLS_HOME:-$IRONWOOD_IDK_TOOLCHAIN_HOME/ironwood-t
 "$IRONWOOD_IDK_TOOLCHAIN_HOME/bin/python" "$IRONWOOD_SCRIPT_DIR/prepare-tls.py" --verify \
     --prefix "$IRONWOOD_TLS_PREFIX" --llvm-home "$IRONWOOD_IDK_TOOLCHAIN_HOME"
 
+IRONWOOD_BRIDGE_SUPPORT_PREFIX=
+if [[ "$IRONWOOD_OS" == Linux ]]; then
+    IRONWOOD_BRIDGE_SUPPORT_PREFIX=${IRONWOOD_BRIDGE_SUPPORT_HOME:-$IRONWOOD_IDK_TOOLCHAIN_HOME/ironwood-bridge-support}
+    "$IRONWOOD_IDK_TOOLCHAIN_HOME/bin/python" "$IRONWOOD_SCRIPT_DIR/prepare-java-bridge-support.py" --check \
+        --target "$IRONWOOD_PLATFORM" --prefix "$IRONWOOD_BRIDGE_SUPPORT_PREFIX"
+fi
+
 IRONWOOD_PACKAGE_NAME="ironwood-idk-$IRONWOOD_VERSION-$IRONWOOD_PLATFORM"
 IRONWOOD_DIST_DIR="$IRONWOOD_PROJECT_ROOT/dist"
 IRONWOOD_STAGE_DIR="$IRONWOOD_DIST_DIR/$IRONWOOD_PACKAGE_NAME"
@@ -184,9 +191,11 @@ cp "$IRONWOOD_PROJECT_ROOT/docs/NETWORKING_M5_VERIFICATION.md" "$IRONWOOD_STAGE_
 cp "$IRONWOOD_PROJECT_ROOT/docs/NETWORKING_M6_VERIFICATION.md" "$IRONWOOD_STAGE_DIR/docs/NETWORKING_M6_VERIFICATION.md"
 mkdir -p "$IRONWOOD_STAGE_DIR/packaging"
 cp "$IRONWOOD_PROJECT_ROOT/packaging/tls-dependencies.properties" "$IRONWOOD_STAGE_DIR/packaging/"
+cp "$IRONWOOD_PROJECT_ROOT/packaging/java-bridge-support.properties" "$IRONWOOD_STAGE_DIR/packaging/"
 cp "$IRONWOOD_PROJECT_ROOT/packaging/idk-environment.yml" "$IRONWOOD_STAGE_DIR/packaging/"
 mkdir -p "$IRONWOOD_STAGE_DIR/scripts"
 cp "$IRONWOOD_PROJECT_ROOT/scripts/prepare-tls.py" "$IRONWOOD_STAGE_DIR/scripts/prepare-tls.py"
+cp "$IRONWOOD_PROJECT_ROOT/scripts/prepare-java-bridge-support.py" "$IRONWOOD_STAGE_DIR/scripts/prepare-java-bridge-support.py"
 cp "$IRONWOOD_PROJECT_ROOT/scripts/test-networking-m6.py" "$IRONWOOD_STAGE_DIR/scripts/test-networking-m6.py"
 mkdir -p "$IRONWOOD_STAGE_DIR/integration-tests/native"
 cp "$IRONWOOD_PROJECT_ROOT/integration-tests/native/tls_interpose.c" "$IRONWOOD_STAGE_DIR/integration-tests/native/tls_interpose.c"
@@ -221,14 +230,22 @@ printf '%s\n' "$IRONWOOD_VERSION" > "$IRONWOOD_STAGE_DIR/VERSION"
     -p "$IRONWOOD_IDK_TOOLCHAIN_HOME" \
     -o "$IRONWOOD_TOOLCHAIN_ARCHIVE" \
     --exclude 'ironwood-tls/*' \
+    --exclude 'ironwood-bridge-support/*' \
     --force
 tar -xzf "$IRONWOOD_TOOLCHAIN_ARCHIVE" -C "$IRONWOOD_STAGE_DIR/toolchain"
 # Copy the separately verified application SDK, never the toolchain's OpenSSL.
 rm -rf "$IRONWOOD_STAGE_DIR/toolchain/ironwood-tls"
 cp -R "$IRONWOOD_TLS_PREFIX" "$IRONWOOD_STAGE_DIR/toolchain/ironwood-tls"
+if [[ -n "$IRONWOOD_BRIDGE_SUPPORT_PREFIX" ]]; then
+    rm -rf "$IRONWOOD_STAGE_DIR/toolchain/ironwood-bridge-support"
+    cp -R "$IRONWOOD_BRIDGE_SUPPORT_PREFIX" "$IRONWOOD_STAGE_DIR/toolchain/ironwood-bridge-support"
+    "$IRONWOOD_IDK_TOOLCHAIN_HOME/bin/python" "$IRONWOOD_SCRIPT_DIR/prepare-java-bridge-support.py" --check \
+        --target "$IRONWOOD_PLATFORM" --prefix "$IRONWOOD_STAGE_DIR/toolchain/ironwood-bridge-support"
+fi
 rm -f "$IRONWOOD_TOOLCHAIN_ARCHIVE"
 
 "$IRONWOOD_IDK_TOOLCHAIN_HOME/bin/python" - "$IRONWOOD_IDK_TOOLCHAIN_HOME" "$IRONWOOD_PROJECT_ROOT/packaging/tls-dependencies.properties" \
+        "$IRONWOOD_PROJECT_ROOT/packaging/java-bridge-support.properties" "$IRONWOOD_BRIDGE_SUPPORT_PREFIX" \
         > "$IRONWOOD_STAGE_DIR/THIRD-PARTY-PACKAGES.tsv" <<'PYTHON'
 import glob
 import json
@@ -250,7 +267,11 @@ with open(sys.argv[2], encoding="utf-8") as source:
     pins = dict(line.strip().split("=", 1) for line in source if line.strip() and not line.startswith("#"))
 for key, name in (("openssl", "openssl-static"), ("ca", "mozilla-ca-bundle")):
     print("\t".join((name, pins[key + ".version"], pins[key + ".license"], pins[key + ".url"])))
+if sys.argv[4]:
+    with open(sys.argv[3], encoding="utf-8") as source:
+        bridge = dict(line.strip().split("=", 1) for line in source if line.strip() and not line.startswith("#"))
+    print("\t".join(("java-bridge-gcc-runtime", bridge["gcc.version"], bridge["license"], bridge["gcc.source.url"])))
 PYTHON
 
-tar -C "$IRONWOOD_DIST_DIR" -czf "$IRONWOOD_ARCHIVE" "$IRONWOOD_PACKAGE_NAME"
+COPYFILE_DISABLE=1 tar --no-xattrs -C "$IRONWOOD_DIST_DIR" -czf "$IRONWOOD_ARCHIVE" "$IRONWOOD_PACKAGE_NAME"
 echo "packaged $IRONWOOD_ARCHIVE"

@@ -212,3 +212,59 @@ This confirms a macOS IDK usability gap for end-users selecting SDK 27. The
 previous SDK 26.5 bridge matrix remains valid, but selecting an older installed
 SDK is a workaround rather than SDK 27 qualification. No compiler/toolchain
 implementation changes were made in this follow-up.
+
+## Out-of-box IDK repair plan, 2026-09-30
+
+- Keep the existing java-bridge branch and local-only commits; canonical root,
+  origins and clean tree reverified. Preserve all previous evidence.
+- macOS: select Apple's SDK and linker through the same developer environment;
+  pass explicit SDK/linker flags while retaining LLVM 23 compilation. Record
+  actual SDK and linker identities in native build inputs. Honor explicit SDK
+  selection and reject missing components; do not fall back to SDK 26.5.
+- Linux: validate and package the existing pinned bridge support closure, pins,
+  required source/notices and checksum manifests. Default installed discovery
+  must work without IRONWOOD_BRIDGE_SUPPORT_HOME. No runtime/ownership/IR changes.
+- Consumers of changed machinery: ordinary native executables, shared bridge
+  images, TLS links, package relocation, source/class/archive bridge production.
+  Paired cases: SDK 27 and 26.5 succeed; invalid SDK/linker/support fail clearly;
+  default and explicit JDK 21/22/23 work; Java 24+ and artifact mismatches reject.
+- Focused checks: SDK selection regression, existing native target and bridge
+  producer/tools/assembly/distribution tests, package/IDK smoke paths, relocated
+  IDK bridge matrices on Mac ARM64, local Linux ARM64 and physical Linux x86-64.
+  Revisit the selection if scope changes; no unfiltered suites or hosted jobs.
+
+### Repair checkpoint
+
+- Implemented `MacNativeTools`: one explicit Apple SDK/linker selection shared
+  by adapter/runtime compilation, target discovery and final Clang linking;
+  actual SDK settings/stubs and linker content/version enter native identity.
+  LLVM 23 compilation/optimization, JNI and runtime/IR/safety code are unchanged.
+- Linux IDK packaging now checks and copies the complete prepared support SDK,
+  preserving source/notices/checksum manifests and adding the package inventory
+  record. Source/host archives carry the pins/preparation helper. The existing
+  release-only workflow prepares Linux support; no development jobs were added.
+- Both Linux generic IDK archive smokes pass, including default bridge callbacks,
+  ordinary O0/O3 builds, source/class/archive inputs, TLS/wget and glibc 2.17.
+  macOS generic smoke passed the SDK 27 native builds and remaining pre-TLS
+  stages; the failed TLS certificate fixtures were corrected to use a local
+  OpenSSL config. Focused continuation passes all TLS/wget/static-closure checks.
+- Initial installed-IDK matrix passes all 27 host producer/consumer cells with
+  exact Temurin pins already recorded above. Bundled defaults add Azul
+  21.0.10+7-LTS on Mac and OpenJDK 21.0.10-internal on Linux. Native tools are
+  LLVM 23.1.0; PATH contains only IDK bin, /usr/bin and /bin. No overrides select
+  LLVM/support/SDK. SDK 26.5 and CLT SDK 27.0 explicit checks also pass; invalid
+  SDK overrides preserve existing artifacts. Java 24 producer/values/assembler
+  and consumer refusal passes with the repaired compiler.
+- Assembly correctly rejected the prototype Mac archive: AppleDouble files
+  ending in .c/.h had entered its runtime inventory, unlike Linux. Archive
+  writers now omit Apple metadata; fresh final archives and the Mac matrix are
+  being checked before assembly. No identity check was relaxed. Initial failed
+  harness/assembly logs remain preserved alongside successful retries.
+- Focused SDK/native/producer/tools/assembly/distribution checks pass (six exact
+  tests); ten support setup/check negative tests and the license audit pass.
+  Evidence root: `workspace/java-bridge/idk-repair`; original matrix/evidence is
+  unchanged. Host evidence remains under `~/temp/java-bridge/idk-repair-20260930`.
+  No installation, publishing, push or unfiltered suite was performed.
+- Pending: final portable archive inventories, refreshed Mac artifacts,
+  three-target assembly/replay, host package smoke, durable artifact catalog,
+  final diff checks and focused local commits.

@@ -74,6 +74,9 @@ builds and immutable recipe revision are in
 The SDK and delivered support directory retain the complete matching GCC source
 archive, upstream package recipes/patches, zlib build source and GPLv3/Runtime
 Exception texts. No GCC implementation has been translated into Ironwood code.
+Linux IDK archives include the complete prepared SDK at
+`toolchain/ironwood-bridge-support`, with the same source/notices and manifests;
+packaging verifies the closure before and after copying it.
 The independently implemented preparation and linking code keep the default
 Ironwood license. See [the native support review](JAVA_BRIDGE_NATIVE_SUPPORT.md)
 for exact inspected upstream headers, linking conventions and distribution scope.

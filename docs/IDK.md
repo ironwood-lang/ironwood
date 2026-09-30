@@ -343,7 +343,9 @@ Official IDK archives are produced for:
 - Linux ARM64;
 - Linux x86-64.
 
-Linux archives include their compiler/linker dependencies.
+Linux archives include their compiler/linker dependencies and the complete pinned
+Java Bridge support SDK, including its source, recipes, notices and checksums.
+Bridge production needs no separate support preparation or environment override.
 Linux IDKs support glibc 2.17 and newer. Native programs produced by an official
 Linux IDK keep the same glibc baseline. Musl-based systems are not supported.
 
@@ -355,20 +357,44 @@ through that package:
 xcode-select --install
 ```
 
-The 2026-09-15 local networking verification used the installed macOS 26.5 SDK.
-The bundled linker rejected the newer 27.0 SDK's `arm64e.x1` text-stub tag before
-reaching the networking smoke program. When both SDKs are installed, selecting
-26.5 for that command avoids this toolchain mismatch without changing the
-system-wide developer selection:
+Native builds use the macOS SDK and Apple linker selected by `xcrun`, while the
+bundled LLVM 23 toolchain performs compilation and optimization. This avoids the
+older bundled linker's inability to read SDK 27 text stubs. SDK 26.5 and 27.0 are
+qualified; an older SDK selection is no longer required. Inspect the current
+selection with:
 
 ```sh
-DEVELOPER_DIR=/Library/Developer/CommandLineTools SDKROOT=/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk ./scripts/test-idk.sh dist/ironwood-idk-0.4.2-beta-macos-arm64.tar.gz
+xcode-select -p
+xcrun --sdk macosx --show-sdk-version
+xcrun --sdk macosx --show-sdk-path
+xcrun --sdk macosx --find ld
 ```
+
+Optional `DEVELOPER_DIR` selects another installed Apple developer environment;
+`SDKROOT` selects an explicit SDK. A missing or invalid explicit selection fails
+with a diagnostic rather than falling back. These are build-time tools; Java
+consumers need neither the SDK nor LLVM. See the
+[Java Bridge workflow](JAVA_BRIDGE_USAGE.md) for JDK 21/22/23 production and use.
 
 See `docs/LANGUAGE.md` for the implemented language subset and
 `docs/COMPILER.md` for compiler architecture.
 
 ## Optional TLS dependency packaging
+
+Linux release packagers also prepare the Java Bridge support SDK once before
+calling `package-idk.sh` (use `linux-x86_64` for that architecture):
+
+```sh
+"$IRONWOOD_IDK_TOOLCHAIN_HOME/bin/python" -B scripts/prepare-java-bridge-support.py \
+  --setup --target linux-arm64 \
+  --prefix "$IRONWOOD_IDK_TOOLCHAIN_HOME/ironwood-bridge-support"
+```
+
+The packaging command only checks/copies existing dependencies and fails if
+support is missing or altered. End-users of the resulting Linux IDK do not run
+this setup. The release-only workflow prepares it automatically. Its full GCC
+source/runtime-exception notices and checksum manifest remain in the IDK;
+`THIRD-PARTY-PACKAGES.tsv` includes the pinned bridge GCC runtime record.
 
 M5 provides a separate native TLS adapter, selected only from retained typed
 operations after closed-world pruning. IDKs include pinned OpenSSL 3.5.8 static

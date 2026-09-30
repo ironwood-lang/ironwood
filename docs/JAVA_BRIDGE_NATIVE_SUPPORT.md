@@ -57,8 +57,11 @@ python3 -B scripts/prepare-java-bridge-support.py --check --target linux-arm64 \
 ```
 
 Use `linux-x86_64` for the other target. Setup refuses to overwrite an existing
-prefix. Producer processes set `IRONWOOD_BRIDGE_SUPPORT_HOME` to the prepared
-SDK, or install it at `toolchain/ironwood-bridge-support` in their distribution.
+prefix. Source/host producer processes set `IRONWOOD_BRIDGE_SUPPORT_HOME` to the
+prepared SDK. Linux IDKs include it at `toolchain/ironwood-bridge-support` and
+select it automatically; end-users need no preparation or override. IDK packaging
+verifies the complete SDK before copying it and again in the staged archive,
+retaining all matching source, recipes, license texts and checksum manifests.
 An unset optional override is not a request to use system copies. The compiler
 requires matching platform, LLVM 23.1.0, pins, binary/source hashes, complete
 source/notices and the prepared glibc 2.17 sysroot.
@@ -67,7 +70,10 @@ For Linux shared linking only, the compiler disables the Clang configuration
 that injects a development-prefix RPATH. It supplies the same pinned sysroot and
 GCC toolchain explicitly, selects the private libraries at link time, and emits
 an `$ORIGIN` path to a manifest-identified adjacent support directory. Linux
-bridge images retain `-Wl,-z,now`. Executable and macOS linking are unchanged.
+bridge images retain `-Wl,-z,now`. Linux executable linking is unchanged.
+macOS uses the Apple SDK/linker selected through `xcrun` with explicit Clang
+flags, retaining pinned LLVM compilation. The actual SDK/linker hashes and
+versions enter native build identity; SDK 26.5 and 27.0 are qualified.
 All support, source, recipes and notices are copied and verified before the
 support directory is published; an existing directory is reused only after
 verification. The source/support directory is part of the output, not disposable
