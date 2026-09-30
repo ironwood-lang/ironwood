@@ -13,7 +13,7 @@ fi
 
 IRONWOOD_SYSTEM_JAVA=$(command -v java || true)
 if [[ -z "$IRONWOOD_SYSTEM_JAVA" || ! -x "$IRONWOOD_SYSTEM_JAVA" ]]; then
-    echo "error: a system Java 21 runtime is required to test the host package" >&2
+    echo "error: a system Java 21 or newer runtime is required to test the host package" >&2
     exit 1
 fi
 IRONWOOD_JAVA_BIN=$(CDPATH= cd -- "$(dirname -- "$IRONWOOD_SYSTEM_JAVA")" && pwd)
@@ -84,6 +84,7 @@ IRONWOOD_REQUIRED_FILES=(
     bin/irondoc
     conf/jvm.options
     scripts/jvm-options.sh
+    scripts/jdk.sh
     lib/ironwoodc.jar
     lib/ironwood-stdlib.ironjar
     lib/ironwood-testing.ironjar
