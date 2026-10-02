@@ -9,4 +9,5 @@ source "$BRIDGE_JDK_ROOT/scripts/jdk.sh"
 ironwood_select_java "$BRIDGE_JDK_ROOT"
 cd "$PROJECT_DIR"
 
-exec java -cp target/orderbook.jar:target/consumer-classes org.ironwood.orderbook.Main "$@"
+# Native access is granted explicitly so the JVM links the critical calls without a warning.
+exec java --enable-native-access=ALL-UNNAMED -cp target/orderbook.jar:target/consumer-classes org.ironwood.orderbook.Main "$@"

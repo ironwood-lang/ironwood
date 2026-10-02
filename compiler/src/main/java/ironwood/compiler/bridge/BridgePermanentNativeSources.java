@@ -109,6 +109,29 @@ public final class BridgePermanentNativeSources {
             adapters.add(new Adapter(new BridgeJavaSources.NativeDeclaration(binding.binaryName(), binding.nativeName(), binding.descriptor()), function));
             emit(text, entry, binding, module, types, enums, java, function, admission, roots, rootTypes, artifact);
         }
+        var criticals = java.declarations().bindings().stream().filter(binding -> binding.critical() >= 0).toList();
+        if (criticals.isEmpty() != java.declarations().supportNatives().isEmpty()) {
+            throw new IllegalArgumentException("critical adapters and their support declarations must be generated together");
+        }
+        if (!criticals.isEmpty()) {
+            if (!generation.criticalCalls()) throw new IllegalArgumentException("critical adapters require a generation that selected them");
+            text.append(BridgeCriticalSources.NATIVE_FAILURE);
+            for (int index = 0; index < criticals.size(); index++) {
+                var binding = criticals.get(index);
+                if (binding.critical() != index) throw new IllegalArgumentException("critical adapter indices must follow declaration order");
+                var entry = entries.get(binding.entrySymbol());
+                var callable = entry.root().callable();
+                if (BridgeRootCalls.reservation(admission, callable).isPresent() || !BridgeRootRetentionSources.slots(admission, callable).isEmpty()
+                        || BridgeRootCalls.receiverState(admission, callable, !binding.method().isStatic())) {
+                    throw new IllegalArgumentException("critical adapter cannot carry root state or retention slots");
+                }
+                emitCritical(text, entry, binding, module);
+            }
+            text.append(BridgeCriticalSources.nativeSupport(criticals.size()));
+            for (var declaration : java.declarations().supportNatives()) {
+                adapters.add(new Adapter(declaration, BridgeCriticalSources.nativeFunction(declaration)));
+            }
+        }
         var conversions = new java.util.HashSet<BridgeJavaSources.NativeDeclaration>();
         var generics = BridgeGenericDomain.discover(artifact, admission.surface().types());
         for (var binding : java.declarations().bindings()) {
@@ -375,6 +398,70 @@ public final class BridgePermanentNativeSources {
                 || !BridgeByteViewInputSources.indices(id.parameters()).isEmpty()) {
             text.append("preparation_failed:\n"); release(text, strings);
             text.append(BridgeArrayInputSources.release(id.parameters())).append("    ").append(exit).append('\n');
+        }
+        text.append("}\n");
+    }
+
+    /** Same protected entry and result frame as the JNI adapter, without JNI conversions or a JNIEnv. */
+    private static void emitCritical(StringBuilder text, BridgeEntryModule.Entry entry, BridgeJavaSources.Binding binding,
+            BridgeEntryModule module) {
+        var id = entry.root().callable();
+        boolean instance = !binding.method().isStatic();
+        var enumParameters = module.enumConversions().map(conversions -> conversions.parameters().getOrDefault(id, List.of()))
+                .orElse(List.of()).stream().map(BridgeEnumConversions.Parameter::input).collect(Collectors.toSet());
+        if (id.kind() == IrCallableKind.CONSTRUCTOR || id.result().isReference() && !binding.returnsPermanentAddress()) {
+            throw new IllegalArgumentException("critical adapter requires a primitive, void or permanent address result");
+        }
+        var formals = new ArrayList<String>();
+        var arguments = new ArrayList<String>();
+        for (int index = 0; index < id.parameters().size(); index++) {
+            if (entry.fixedEnums().containsKey(index)) continue;
+            var type = id.parameters().get(index);
+            if (instance && index == 0) {
+                if (enumParameters.contains(index) || !type.isReference()) {
+                    throw new IllegalArgumentException("critical adapter requires a permanent facade receiver");
+                }
+                formals.add("jlong arg0"); arguments.add("(void *)(uintptr_t)arg0");
+            } else if (enumParameters.contains(index)) {
+                if (!binding.enumTokenParameters().contains(index - (instance ? 1 : 0))) {
+                    throw new IllegalArgumentException("critical adapter requires primitive enum tokens");
+                }
+                formals.add("jint arg" + index); arguments.add("arg" + index);
+            } else if (type.isReference()) {
+                throw new IllegalArgumentException("critical adapter cannot convert a reference argument");
+            } else {
+                formals.add(BridgeValueNativeSources.jniType(type) + " arg" + index); arguments.add("arg" + index);
+            }
+        }
+        arguments.add("(int64_t)(uintptr_t)&result");
+        var carrier = BridgeCriticalSources.Carrier.of(binding.returnsPermanentAddress(), id.result());
+        String returned = switch (carrier) {
+            case STATUS -> "jint";
+            case ADDRESS, NARROW -> "jlong";
+            case WIDE -> jniType(id.result());
+        };
+        String failed = switch (carrier) {
+            case STATUS, ADDRESS -> "1";
+            case NARROW -> "INT64_C(1) << 32";
+            case WIDE -> "0";
+        };
+        text.append("static ").append(returned).append(" iw_critical_").append(binding.critical()).append('(')
+                .append(formals.isEmpty() ? "void" : String.join(", ", formals)).append(") {\n")
+                .append("    struct ironwood_bridge_result result;\n")
+                .append("    int32_t status = ").append(entry.function().linkageName()).append('(').append(String.join(", ", arguments)).append(");\n")
+                .append("    if (__builtin_expect(status != 0, 0)) { iw_critical_failure(status, result.exception); return ")
+                .append(failed).append("; }\n");
+        switch (carrier) {
+            case STATUS -> text.append("    return 0;\n");
+            case ADDRESS -> text.append("    return (jlong)(uintptr_t)result.value.reference;\n");
+            case NARROW -> {
+                // Java narrows the low half again, so sign or zero extension is immaterial.
+                if (id.result().kind() == IrType.Kind.F32) {
+                    text.append("    union { float value; uint32_t bits; } single = {result.value.single};\n")
+                            .append("    return (jlong)single.bits;\n");
+                } else text.append("    return (jlong)(uint32_t)result.value.").append(BridgeValueNativeSources.field(id.result())).append(";\n");
+            }
+            case WIDE -> text.append("    return result.value.").append(BridgeValueNativeSources.field(id.result())).append(";\n");
         }
         text.append("}\n");
     }

@@ -21,7 +21,8 @@ import java.util.stream.Collectors;
 
 /** Java declarations and matching JNI descriptors, generated from one admitted surface. */
 public record BridgeJavaSources(Map<String, String> sources, List<Binding> bindings, List<String> generatedTypes,
-                                String ensureMethod, List<FacadeRegistration> facadeRegistrations, List<RootDestruction> rootDestructions) {
+                                String ensureMethod, List<FacadeRegistration> facadeRegistrations, List<RootDestruction> rootDestructions,
+                                List<NativeDeclaration> supportNatives) {
     private static final String HEADER = "// SPDX-License-Identifier: MIT OR Apache-2.0\n\n";
 
     public BridgeJavaSources {
@@ -30,6 +31,12 @@ public record BridgeJavaSources(Map<String, String> sources, List<Binding> bindi
         generatedTypes = List.copyOf(generatedTypes);
         facadeRegistrations = List.copyOf(facadeRegistrations);
         rootDestructions = List.copyOf(rootDestructions);
+        supportNatives = List.copyOf(supportNatives);
+    }
+
+    public BridgeJavaSources(Map<String, String> sources, List<Binding> bindings, List<String> generatedTypes,
+            String ensureMethod, List<FacadeRegistration> facadeRegistrations, List<RootDestruction> rootDestructions) {
+        this(sources, bindings, generatedTypes, ensureMethod, facadeRegistrations, rootDestructions, List.of());
     }
 
     public BridgeJavaSources(Map<String, String> sources, List<Binding> bindings, List<String> generatedTypes,
@@ -41,10 +48,19 @@ public record BridgeJavaSources(Map<String, String> sources, List<Binding> bindi
         this(sources, bindings, generatedTypes, ensureMethod, List.of());
     }
 
+    /** A nonnegative critical index names this binding's additional transition-free native adapter. */
     public record Binding(String binaryName, String nativeName, String descriptor,
                           BridgeApiFacts.Callable method, String entrySymbol, String permanentConversion, Set<Integer> enumTokenParameters,
-                          Map<Integer, Integer> fixedEnums) {
-        public Binding { enumTokenParameters = Set.copyOf(enumTokenParameters); fixedEnums = Map.copyOf(fixedEnums); }
+                          Map<Integer, Integer> fixedEnums, int critical) {
+        public Binding {
+            enumTokenParameters = Set.copyOf(enumTokenParameters); fixedEnums = Map.copyOf(fixedEnums);
+            if (critical < -1) throw new IllegalArgumentException("invalid critical adapter index");
+        }
+        public Binding(String binaryName, String nativeName, String descriptor,
+                BridgeApiFacts.Callable method, String entrySymbol, String permanentConversion, Set<Integer> enumTokenParameters,
+                Map<Integer, Integer> fixedEnums) {
+            this(binaryName, nativeName, descriptor, method, entrySymbol, permanentConversion, enumTokenParameters, fixedEnums, -1);
+        }
         public Binding(String binaryName, String nativeName, String descriptor,
                 BridgeApiFacts.Callable method, String entrySymbol, String permanentConversion, Set<Integer> enumTokenParameters) {
             this(binaryName, nativeName, descriptor, method, entrySymbol, permanentConversion, enumTokenParameters, Map.of());
@@ -77,7 +93,8 @@ public record BridgeJavaSources(Map<String, String> sources, List<Binding> bindi
                         binding.binaryName(), binding.nativeName(), binding.descriptor())),
                 facadeRegistrations.stream().map(binding -> new NativeDeclaration(binding.binaryName(), binding.nativeName(), binding.descriptor())),
                 rootDestructions.stream().map(binding -> new NativeDeclaration(binding.binaryName(), binding.nativeName(), binding.descriptor())),
-                bindings.stream().filter(Binding::returnsPermanentAddress).map(Binding::conversionDeclaration).distinct())
+                bindings.stream().filter(Binding::returnsPermanentAddress).map(Binding::conversionDeclaration).distinct(),
+                supportNatives.stream())
                 .flatMap(java.util.function.Function.identity())
                 .toList();
     }

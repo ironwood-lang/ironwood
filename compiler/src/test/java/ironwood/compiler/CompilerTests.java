@@ -262,6 +262,9 @@ public final class CompilerTests {
         test(BridgeEnumJavaSourceTests.NAME, BridgeEnumJavaSourceTests::declarations);
         test(BridgeFixedEnumTests.STRUCTURE, BridgeFixedEnumTests::structure);
         test(BridgeFixedEnumTests.NATIVE, BridgeFixedEnumTests::nativeBehavior);
+        test(BridgeCriticalCallTests.SELECTION, BridgeCriticalCallTests::selection);
+        test(BridgeCriticalCallTests.STRUCTURE, BridgeCriticalCallTests::structure);
+        test(BridgeCriticalCallTests.NATIVE, BridgeCriticalCallTests::nativeBehavior);
         test(BridgeEnumFacadeNativeTests.NAME, BridgeEnumFacadeNativeTests::facades);
         test(BridgeEnumFacadeFailureTests.NAME, BridgeEnumFacadeFailureTests::failures);
         test("Java Bridge producer inventories preserve content and reject incomplete inputs", BridgeGenerationTests::producerInputs);

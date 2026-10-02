@@ -17,8 +17,12 @@ for type in OrderBook Order 'Order$Side' 'Order$Type' PriceLevel; do
     fi
 done
 expected=$'initial\n99\n100\n101\n80\nafter-market\n102\n30\n2\n120\nfinal\ntrue\ntrue\n4\n170\n2'
-[[ "$(./run.sh)" == "$expected" ]]
-[[ "$(java -Xcheck:jni -cp target/orderbook.jar:target/consumer-classes org.ironwood.orderbook.Main)" == "$expected" ]]
+[[ "$(./run.sh 2>&1)" == "$expected" ]]
+[[ "$(java -Xcheck:jni --enable-native-access=ALL-UNNAMED -cp target/orderbook.jar:target/consumer-classes org.ironwood.orderbook.Main 2>&1)" == "$expected" ]]
+# The consumer override selects the registered JNI methods, with no native-access option.
+[[ "$(java -Xcheck:jni -Dironwood.bridge.calls=jni -cp target/orderbook.jar:target/consumer-classes org.ironwood.orderbook.Main 2>&1)" == "$expected" ]]
+# Without either option the JVM links the critical calls and reports its own warning on stderr.
+[[ "$(java -cp target/orderbook.jar:target/consumer-classes org.ironwood.orderbook.Main 2>/dev/null)" == "$expected" ]]
 output=$(./throughput.sh 0 1)
 [[ "$output" =~ ^[0-9]+$ && "$output" -gt 0 ]]
 output=$(./latency.sh 2 5 10)

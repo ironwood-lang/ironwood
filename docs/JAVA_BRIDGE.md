@@ -21,7 +21,10 @@
 > targets. D238 accepts JNI only and closes P7e through its keep-JNI outcome;
 > P7e1/P7e2 remain deliberately unimplemented. [P7f qualification](JAVA_BRIDGE_P7_QUALIFICATION.md)
 > is complete on all three targets. New extension numerical acceptance remains
-> maintainer review.
+> maintainer review. D241 adds producer-selected
+> [critical calls](JAVA_BRIDGE_USAGE.md#critical-calls) for proved object entries
+> and D242 tunes portable x86-64 images; see the
+> [2026-10-02 measurements](JAVA_BRIDGE_CRITICAL_CALLS.md).
 > Java 24+ remains refused. This is a producer
 > preview, not an announcement of a published release. The
 > [producer guide](JAVA_BRIDGE_USAGE.md) specifies the supported API and platform
@@ -216,9 +219,17 @@ The compiler batches only loops with proved equivalent behavior, preserving ever
 Java listener call. Other admitted loops keep ordinary JNI dispatch. These are
 amortized event times, not callback arrival percentiles, and are separate from the
 [OrderBook measurements](JAVA_BRIDGE_X86_EVIDENCE.md). The subsequent
-[host investigation](JAVA_BRIDGE_HOST_PERFORMANCE.md) finds the bridge slower
+[host investigation](JAVA_BRIDGE_HOST_PERFORMANCE.md) finds the JNI bridge slower
 than Java in the maintainer's ordinary Linux environment. The earlier OrderBook
 advantage depends on the validation container's security and CPU configuration.
+
+Short native operations are dominated by the JNI transition itself. A producer
+whose exported operations are all short can build with `--critical-calls=on`:
+proved entries are then called without that transition, and JNI remains the
+fallback. On the same ordinary host the OrderBook bridge then takes about 26%
+less time than Java and about 48% more than standalone Ironwood. Read the
+[contract](JAVA_BRIDGE_USAGE.md#critical-calls) before selecting it, and the
+[measurements](JAVA_BRIDGE_CRITICAL_CALLS.md) for what the remaining gap is.
 
 Use the [producer guide](JAVA_BRIDGE_USAGE.md) for current contracts and the
 [implementation plan](JAVA_BRIDGE_PLAN.md) for phase status. The

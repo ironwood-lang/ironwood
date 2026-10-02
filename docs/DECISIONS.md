@@ -9164,3 +9164,79 @@ occurrence order. If no
   refusal, JNI transport, artifact pairing, memory-safety proofs, exception and
   native-access behavior, D132/D133 and existing runtime performance constraints.
   No compiler IR, runtime lowering or steady-state JNI code changes are made.
+
+## D241 - Producer-selected critical calls for proved object entries
+
+- **Status:** Implemented on 2026-10-02 under the maintainer's direction to make
+  the OrderBook bridge as fast as possible on the ordinary Linux host. The
+  default-off selection, the duration obligation and the Java 21 mechanism below
+  are recorded for maintainer review.
+- **Finding:** On the host, eight JNI calls cost about 61 ns of a 154 ns bridge
+  cycle. Ordinary FFM keeps the same thread-state transition; only the critical
+  linker option removes it. See the
+  [investigation and measurements](JAVA_BRIDGE_CRITICAL_CALLS.md).
+- **Decision:** `ironwoodc --java-bridge --critical-calls=on` adds, for each
+  qualifying binding of an object projection, a second native adapter and a
+  constant method handle linked with the critical option. The default is off and
+  generates the unchanged JNI-only artifact. The selection is part of the
+  generation identity (`calls=critical-v1`). Every selected binding keeps its
+  registered JNI method, and generated Java uses it whenever a handle is absent.
+  No call is re-executed.
+- **Selection:** Static or instance methods only, with primitive or enum-token
+  parameters and a void, primitive or permanent-address result, and without root
+  state, reservations or retention slots. `BridgeCriticalCalls` additionally
+  requires the entry's complete native closure, including initializers and
+  cleanup, to contain only resolved native calls and memory-only operations.
+  Java callbacks, unresolved calls and every unclassified operation refuse.
+  The analysis feeds transport selection only. It admits no export and replaces
+  no ownership, retention, non-reclamation or exception proof.
+- **Producer obligation:** A critical call delays every JVM safepoint until it
+  returns. The compiler proves the absence of Java reentry and of blocking
+  runtime services. It does not bound running time. Selecting the option states
+  that exported operations are short.
+- **Failure transport:** The adapter calls the same protected entry with the
+  same result frame. On failure it parks the status and exception for the calling
+  thread and reports failure in the returned word: a status for void, 1 for an
+  address, a high bit for 32-bit and smaller values. `long` and `double` results
+  have no spare value, so Java reads one pending-failure counter after those
+  calls. A JNI helper then delivers the existing translated exception. Only a
+  failing call touches thread-local storage; D132/D133 are preserved.
+- **Java and launch policy:** Java 21-23 and the Java 24+ refusal are unchanged,
+  and classes stay Java 21 class files. Handles are created reflectively: the
+  preview API on Java 21 without `--enable-preview`, the final API on 22/23.
+  Linking is a restricted operation. The artifact never grants itself native
+  access. With no option the JVM prints its own warning; a launch that enables
+  native access only for other modules, or `-Dironwood.bridge.calls=jni`, selects
+  JNI. Any linkage failure selects JNI.
+- **Supersession:** Supersedes D238's JNI-only outcome for artifacts built with
+  the option, and replaces the unimplemented P7e1/P7e2 candidate boundaries.
+  P7e2 required a proved extremely short bound with no allocation, loops,
+  initialization or raising work. D241 instead admits those under an explicit
+  producer selection and proves only the absence of Java reentry and blocking
+  services. D238 remains the default. Callback, value and rooted-state transport,
+  D220-D224 and every lifetime contract are unchanged.
+- **Evidence:** Median of 15 round-robin processes on the host, Oracle JDK
+  21.0.1: bridge 1544.8 ms before, 1090.8 ms with critical calls, Java 1483.6 ms,
+  standalone 734.7 ms for 80M operations. The remaining standalone gap is
+  structural and is not claimed closed. Focused tests cover selection, exact
+  inventories, every result carrier, failure delivery and each fallback route.
+
+## D242 - Tune portable x86-64 bridge images for fast unaligned access
+
+- **Status:** Implemented on 2026-10-02 with D241.
+- **Finding:** LLVM's baseline x86-64 model assumes slow unaligned 16-byte
+  memory access unless SSE4.2 or SSE4A is enabled. Portable bridge images
+  therefore cleared and copied adjacent fields one word at a time. Feature
+  isolation on the standalone OrderBook shows that this assumption, and no
+  newer instruction, explains the difference from `-march=native`.
+- **Decision:** x86-64 shared bridge images pass `-mattr=-slow-unaligned-mem-16`
+  to `opt` and `llc`. The instruction set remains baseline x86-64 and the
+  recorded `native.cpu` remains `baseline-x86_64`. The argument is a native
+  build input (`cpu.tuning`). ARM64 images and ordinary executables are
+  unchanged. `-march=native` is still not accepted by the bridge producer.
+- **Compatibility:** Every x86-64 processor executes the emitted SSE2 moves.
+  Processors older than SSE4.2/SSE4A may run them more slowly; they remain
+  correct.
+- **Evidence:** The native-only floor of the OrderBook bridge library improves
+  from about 96 to 88 ns per cycle, and the JNI bridge from 1544.8 to 1464.0 ms.
+  Applying the same tuning to portable executables is a separate decision.
