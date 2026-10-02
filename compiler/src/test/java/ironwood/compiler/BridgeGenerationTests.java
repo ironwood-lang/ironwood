@@ -106,7 +106,7 @@ final class BridgeGenerationTests {
                 check(expected.getMessage() != null, "missing generation diagnostic");
             }
         }
-        check(generation.manifest().get("java.supported").equals("21,22,23"), "baseline changed");
+        check(generation.manifest().get("java.supported").equals("21,22,23,24,25"), "baseline changed");
         check(generation.supportPackage().endsWith(generation.identity()), "support namespace lost complete identity");
         var relocated = compiler.analyzeForBridge(List.of(SourceFile.of("elsewhere/Engine.iron", SOURCE)));
         check(generation.identity().equals(create(relocated).identity()), "source relocation changed generation");

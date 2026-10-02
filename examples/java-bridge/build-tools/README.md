@@ -5,7 +5,7 @@
 These examples build the existing value example through the public producer,
 package standard Maven coordinates and IDE companions, then consume the ordinary
 dependency in a fresh JVM. No Ironwood-specific build-tool plugin is required.
-Use the producer's JDK 21, 22 or 23, LLVM 23 and host SDK prerequisites, with `ironwoodc`
+Use the producer's JDK 21 to 25, LLVM 23 and host SDK prerequisites, with `ironwoodc`
 on PATH. `IRONWOODC` can select an absolute executable path. The consumer needs
 only its build tool, a supported Java JDK and the dependency repository.
 IDK distributions include these build files and their native prerequisites:

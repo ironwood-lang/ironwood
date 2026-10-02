@@ -61,21 +61,26 @@ python3 scripts/java-bridge/p7/qualify.py launch \
 Use the corresponding target name and prepared JDK parent for ARM64/Mac. Each
 launch stage requires 18 clean successful launches: Java 21/22/23, class path,
 module path and executable JAR, each with and without `-Xcheck:jni`. No
-native-access flags are used. Verify Java 24 refusal separately on the Mac;
-keep support at 21-23. Minimal-JVM container smoke launches and signature/native
-dependency inspections supplement this prepared-toolchain matrix.
+native-access flags are used on those releases. Verify Java 24/25 admission
+separately on the Mac with the pinned launchers (D245). Minimal-JVM container
+smoke launches and signature/native dependency inspections supplement this
+prepared-toolchain matrix.
 
-On the Mac, audit every combined native image and test the pinned Java 24 guard:
+On the Mac, audit every combined native image and check the pinned Java 24/25
+launchers:
 
 ```sh
 PYTHONDONTWRITEBYTECODE=1 python3 scripts/java-bridge/p7/audit.py \
   --candidate evidence/combined --java24 /path/to/temurin-24/Contents/Home \
-  --output evidence/payload-audit
+  --java25 /path/to/temurin-25/Contents/Home --output evidence/payload-audit
 ```
 
 The audit records signatures, ELF dependencies/baselines, optimized disassembly,
-Java 21 class-file versions and ten isolated Java 24 refusal launches. Refused
-launches must leave the temporary extraction directory empty.
+Java 21 class-file versions and, per supplied launcher, ten isolated admission
+launches under `--enable-native-access=ALL-UNNAMED` (plain and checked JNI,
+which must extract the image and run without the JEP 472 warning) plus five
+`--illegal-native-access=deny` launches, which must fail in the facade
+initializer before any native use.
 
 Each stage records commands, output, exits, compiler/runner/consumer identities
 and an output hash catalog. Exit 0 with `exit.txt` containing 0 means that stage

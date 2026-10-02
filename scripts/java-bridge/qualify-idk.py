@@ -21,14 +21,14 @@ spec.loader.exec_module(workflow)
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--idk', required=True, type=Path)
-    parser.add_argument('--jdk', required=True, action='append', help='21=/home, repeated for 22 and 23')
+    parser.add_argument('--jdk', required=True, action='append', help='21=/home, repeated for 22 and 23; 24 and 25 are optional')
     parser.add_argument('--output', required=True, type=Path)
-    parser.add_argument('--producer', type=int, choices=(21, 22, 23))
+    parser.add_argument('--producer', type=int, choices=sorted(workflow.PINS))
     parser.add_argument('--resume', action='store_true', help='Reuse matching successful commands and preserve failed logs')
     args = parser.parse_args()
     idk = args.idk.resolve(); out = args.output.resolve()
     homes = {int(value.split('=', 1)[0]): Path(value.split('=', 1)[1]).resolve() for value in args.jdk}
-    if set(homes) != {21, 22, 23}: parser.error('supply all three supported JDK homes')
+    if not set(workflow.REQUIRED) <= set(homes) <= set(workflow.PINS): parser.error('supply the pinned JDK 21, 22 and 23 homes; 24 and 25 are optional')
     out.mkdir(parents=True, exist_ok=args.resume)
     records = json.loads((out / 'records.json').read_text()) if args.resume and (out / 'records.json').exists() else []
     env = os.environ.copy()
@@ -93,7 +93,7 @@ def main():
 
     def installed(path): return idk / path.relative_to(ROOT)
 
-    for producer in ([args.producer] if args.producer else [21, 22, 23]):
+    for producer in ([args.producer] if args.producer else sorted(homes)):
         folder = out / ('producer-' + str(producer)); artifacts = folder / 'artifacts'; artifacts.mkdir(parents=True, exist_ok=args.resume)
         selected = dict(env, JAVA_HOME=str(homes[producer]))
 
@@ -145,14 +145,14 @@ def main():
                 for checked in (False, True):
                     with tempfile.TemporaryDirectory(dir=cell) as temporary:
                         run(cell, name + ('-checked' if checked else ''), [home / 'bin/java', '-Djava.io.tmpdir=' + temporary,
-                            *(['-Xcheck:jni'] if checked else []), '-cp', cp + os.pathsep + str(classes), name], selected, result)
+                            *(['-Xcheck:jni'] if checked else []), *workflow.native_access(consumer), '-cp', cp + os.pathsep + str(classes), name], selected, result)
             modules = []
             for jar in sorted(artifacts.glob('*.jar')):
                 with zipfile.ZipFile(jar) as archive:
                     manifest = archive.read('META-INF/MANIFEST.MF').decode().replace('\r\n ', '')
                     modules.append(next(line.split(': ', 1)[1] for line in manifest.splitlines() if line.startswith('Automatic-Module-Name: ')))
             with tempfile.TemporaryDirectory(dir=cell) as temporary:
-                run(cell, 'module', [home / 'bin/java', '-Djava.io.tmpdir=' + temporary, '-Xcheck:jni', '--module-path', cp,
+                run(cell, 'module', [home / 'bin/java', '-Djava.io.tmpdir=' + temporary, '-Xcheck:jni', *workflow.native_access(consumer, modules), '--module-path', cp,
                     '--add-modules', ','.join(modules), '-cp', classes, 'CombinedConsumer'], selected, workflow.EXPECTED['CombinedConsumer'])
         (folder / 'exit.txt').write_text('0\n')
     (out / 'exit.txt').write_text('0\n')

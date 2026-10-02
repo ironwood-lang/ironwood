@@ -104,20 +104,29 @@ final class BridgeEnumFacadeNativeTests {
                 Path consumer = folder.resolve("EnumNativeConsumer.java");
                 Files.writeString(consumer, CONSUMER.replace("MIXED", mixed ? MIXED : "throw new AssertionError(scenario);"));
                 BridgeEntryTests.run(folder, List.of(javaHome.resolve("bin/javac").toString(), "--release", "21", "-Xlint:all", "-Werror", "-cp", jar.toString(), consumer.toString()), "consumer-javac");
-                for (String scenario : mixed ? List.of("receiver", "argument", "normal", "failure", "budget")
-                        : List.of("receiver", "normal", BridgeGeneratedJarTests.target().equals("macos-arm64") ? "metadata" : "passive")) {
+                var scenarios = new ArrayList<>(mixed ? List.of("receiver", "argument", "normal", "failure", "budget") : List.of("receiver", "normal", "passive"));
+                // Pinned Java 24/25 launchers: Java-only enum inspection still extracts nothing, then native use is admitted.
+                if (!mixed && BridgeGeneratedJarTests.target().equals("macos-arm64")) scenarios.addAll(List.of("metadata24", "metadata25"));
+                for (String scenario : scenarios) {
                     var command = new ArrayList<String>();
                     if (scenario.equals("budget")) command.addAll(List.of("/usr/bin/env", "IRONWOOD_ALLOCATION_LIMIT=0"));
-                    Path launcher = scenario.equals("metadata") ? Path.of("workspace/java-bridge/jdks/temurin-24-macos-arm64/jdk-24.0.2+12/Contents/Home/bin/java").toAbsolutePath()
-                            : javaHome.resolve("bin/java");
+                    Path launcher = switch (scenario) {
+                        case "metadata24" -> Path.of("workspace/java-bridge/jdks/temurin-24-macos-arm64/jdk-24.0.2+12/Contents/Home/bin/java").toAbsolutePath();
+                        case "metadata25" -> Path.of("workspace/java-bridge/jdks/temurin-25-macos-arm64/jdk-25.0.4.1+1/Contents/Home/bin/java").toAbsolutePath();
+                        default -> javaHome.resolve("bin/java");
+                    };
                     check(Files.isExecutable(launcher), "missing pinned enum metadata launcher: " + launcher);
                     Path temporary = folder.resolve("tmp-" + scenario); Files.createDirectories(temporary);
-                    command.addAll(List.of(launcher.toString(), "-Xcheck:jni", "-Xmx64m", "-Djava.io.tmpdir=" + temporary, "-cp", jar + java.io.File.pathSeparator + folder,
-                            "EnumNativeConsumer", scenario));
+                    command.addAll(List.of(launcher.toString(), "-Xcheck:jni", "-Xmx64m", "-Djava.io.tmpdir=" + temporary));
+                    if (scenario.startsWith("metadata")) command.add("--enable-native-access=ALL-UNNAMED");
+                    command.addAll(List.of("-cp", jar + java.io.File.pathSeparator + folder, "EnumNativeConsumer", scenario));
                     String output = BridgeEntryTests.run(folder, command, "consumer-" + scenario);
                     check(output.endsWith("enum-native-ok:" + scenario + "\n") && !output.contains("WARNING") && !output.contains("FATAL"), output);
-                    if (scenario.equals("metadata") || scenario.equals("passive")) try (var files = Files.list(temporary)) {
-                        check(files.findAny().isEmpty(), "Java-only enum access or version refusal extracted a native payload");
+                    if (scenario.equals("passive")) try (var files = Files.list(temporary)) {
+                        check(files.findAny().isEmpty(), "Java-only enum access extracted a native payload");
+                    }
+                    if (scenario.startsWith("metadata")) try (var files = Files.list(temporary)) {
+                        check(files.findAny().isPresent(), "admitted Java 24/25 launch did not extract the native payload");
                     }
                 }
                 BridgeEntryTests.run(folder, List.of(toolchain.clang().resolveSibling("llvm-objdump").toString(), "--disassemble",
@@ -135,15 +144,16 @@ final class BridgeEnumFacadeNativeTests {
                 public static void main(String[] args) throws Exception {
                     String scenario = args[0];
                     if (scenario.equals("receiver")) check(Mode.SELL.index() == 29);
-                    else if (scenario.equals("metadata") || scenario.equals("passive")) {
-                        if (scenario.equals("metadata")) check(Runtime.version().feature() == 24);
+                    else if (scenario.startsWith("metadata") || scenario.equals("passive")) {
+                        if (scenario.startsWith("metadata")) check(Runtime.version().feature() == Integer.parseInt(scenario.substring(8)));
                         Thread thread = new Thread(() -> { check(Mode.SELL.ordinal() == 0 && Mode.BUY.name().equals("BUY")); });
                         var failure = new java.util.concurrent.atomic.AtomicReference<Throwable>();
                         thread.setUncaughtExceptionHandler((ignored, error) -> failure.set(error)); thread.start(); thread.join();
                         check(failure.get() == null && Mode.Empty.values().length == 0 && Mode.values().length == 2);
-                        if (scenario.equals("metadata")) {
-                            try { Mode.SELL.index(); throw new AssertionError("version guard missing"); }
-                            catch (LinkageError expected) { check(expected.getMessage().contains("21-23")); }
+                        if (scenario.startsWith("metadata")) {
+                            // Java-only inspection extracted nothing; the first native use on Java 24/25 then loads normally.
+                            try (var files = java.nio.file.Files.list(java.nio.file.Path.of(System.getProperty("java.io.tmpdir")))) { check(files.findAny().isEmpty()); }
+                            check(Mode.SELL.index() == 29);
                         }
                     } else if (scenario.equals("normal")) {
                         check(Mode.choose(null) == null && Mode.choose(Mode.SELL) == Mode.SELL && Mode.choose(Mode.BUY) == Mode.BUY);

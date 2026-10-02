@@ -15,11 +15,11 @@ import javax.tools.ToolProvider;
 final class BridgeBuildTools {
     private BridgeBuildTools() {}
 
-    static boolean supportsJdk(int feature) { return feature >= 21 && feature <= 23; }
+    static boolean supportsJdk(int feature) { return feature >= 21 && feature <= 25; }
 
     static Path requireJdk(String operation) throws IOException {
         if (!supportsJdk(Runtime.version().feature())) {
-            throw new IOException("Java Bridge " + operation + " requires JDK 21, 22 or 23; detected " + Runtime.version());
+            throw new IOException("Java Bridge " + operation + " requires JDK 21, 22, 23, 24 or 25; detected " + Runtime.version());
         }
         if (ToolProvider.getSystemJavaCompiler() == null) {
             throw new IOException("Java Bridge " + operation + " requires the selected JDK's javac component: " + System.getProperty("java.home"));

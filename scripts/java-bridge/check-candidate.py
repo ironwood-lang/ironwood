@@ -83,7 +83,7 @@ def main():
     if not mac: run(evidence, "libc", ["ldd", "--version"])
     jdks = {}
     if not args.audit_only:
-        for major in (21, 22, 23, *([24] if mac else [])):
+        for major in (21, 22, 23, *([24, 25] if mac else [])):
             pins = PREPARATION.PINS if major == 21 else PREPARATION.PINS.with_name(f"java-bridge-jdks-{major}.json")
             prefix = args.java21_prefix if major == 21 and args.java21_prefix else args.jdk_root / f"temurin-{major}-{args.target}"
             jdks[major] = PREPARATION.check_jdk(prefix, args.target, json.loads(pins.read_text()), pins)
@@ -143,13 +143,23 @@ def main():
                     if mac: run(cell, "extracted-signature", ["codesign", "--verify", "--strict", extracted[0]])
                     records.append({"case": case, "jdk": major, "form": form, "checked": checked, "exit": 0})
         if mac and case.startswith("version-"):
-            for form in ("class", "module"):
-                cell = folder / ("java24-refusal-" + form); cell.mkdir(); temporary = cell / "tmp"; temporary.mkdir()
-                launch = ["-cp", str(jar) + os.pathsep + str(combined / "consumer-classes")] if form == "class" else ["--module-path", jar, "--add-modules", manifest["java.module"], "-cp", combined / "consumer-classes"]
-                result = run(cell, "launch", [jdks[24]["java"], "-Djava.io.tmpdir=" + str(temporary), *launch, main_class, "refuse"])
-                if result.stderr or "requires Java 21-23; detected 24.0.2" not in result.stdout or list(temporary.iterdir()):
-                    raise ValueError("Java 24 refusal did not precede extraction")
-                records.append({"case": case, "jdk": 24, "form": form, "scope": "unsupported version refusal", "exit": 0})
+            # D245: pinned Java 24/25 admit the artifact under each launch form's native-access grant
+            # without the JEP 472 warning, and explicit denial fails cleanly before native use.
+            for major in (24, 25):
+                for form in ("class", "module"):
+                    cell = folder / f"java{major}-admission-{form}"; cell.mkdir(); temporary = cell / "tmp"; temporary.mkdir()
+                    grant = "--enable-native-access=" + ("ALL-UNNAMED" if form == "class" else manifest["java.module"])
+                    launch = ["-cp", str(jar) + os.pathsep + str(combined / "consumer-classes")] if form == "class" else ["--module-path", jar, "--add-modules", manifest["java.module"], "-cp", combined / "consumer-classes"]
+                    run(cell, "launch", [jdks[major]["java"], "-Djava.io.tmpdir=" + str(temporary), grant, *launch, main_class], expected)
+                    extracted = list(temporary.rglob(payload.name))
+                    if len(extracted) != 1 or digest(extracted[0]) != digest(payload): raise ValueError("extracted image changed")
+                    records.append({"case": case, "jdk": major, "form": form, "scope": "D245 admission with native-access grant", "exit": 0})
+                cell = folder / f"java{major}-deny"; cell.mkdir(); temporary = cell / "tmp"; temporary.mkdir()
+                result = run(cell, "launch", [jdks[major]["java"], "-Djava.io.tmpdir=" + str(temporary), "--illegal-native-access=deny",
+                                              "-cp", str(jar) + os.pathsep + str(combined / "consumer-classes"), main_class, "deny"])
+                if result.stdout.count("denied:") != 1 or "denied-image-not-mapped\n" not in result.stdout:
+                    raise ValueError(f"Java {major} denial did not fail cleanly before native use")
+                records.append({"case": case, "jdk": major, "form": "class", "scope": "explicit native-access denial", "exit": 0})
     if len({(item["compiler"], item["runtime"]) for item in identities.values()}) != 1:
         raise ValueError("mixed production compiler/runtime candidates")
     result = {"target": args.target, "execution_scope": args.execution_scope, "audit_only": args.audit_only,

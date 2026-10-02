@@ -8,7 +8,7 @@ on the invoking thread. A registration stays alive until replacement, clearing
 or processor `free()`. A suspended `process()` keeps its original registration
 even if the listener replaces it during a reentrant call.
 
-Use the same JDK 21, 22 or 23 and LLVM 23 setup as the [value example](../README.md).
+Use the same JDK 21 to 25 and LLVM 23 setup as the [value example](../README.md).
 From this directory:
 
 ```sh

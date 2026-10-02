@@ -9347,3 +9347,63 @@ occurrence order. If no
   `-O3` tests (pool release helpers, stack-trace round trips, native target
   layout, field value forwarding, field aliases, initialized specialization and
   Throwable rendering) passed unchanged.
+
+## D245 - Admit Java 24 and 25 under the JDK's native-access policy
+
+- **Status:** Implemented on 2026-10-02 at the maintainer's direction, so the
+  bridge can be measured on the Java 25 JVMs that `BENCHMARK.md`'s pure-Java rows
+  use. The qualification below is the review basis for that measurement, not a
+  published release.
+- **Decision:** The producer (`BridgeBuildTools`), the generated `Support`
+  loader and the generation metadata admit exactly Java 21, 22, 23, 24 and 25.
+  `java.supported` becomes `21,22,23,24,25`, which changes every generation
+  identity; `java.release` stays 21 and generated classes remain Java 21 class
+  files. Java 26 or later and anything below 21 are still refused by the same
+  Java-only predicate before extraction, `System.load` or native bootstrap, with
+  the diagnostic now naming Java 21-25. No bypass or self-granted access exists.
+- **JEP 472 behavior:** On Java 24 and 25 `System.load` is a restricted method.
+  With no option the JVM prints its own four-line warning once per module, naming
+  `java.lang.System::load`, the artifact's `Support` class and jar, and
+  suggesting `--enable-native-access=ALL-UNNAMED`; loading then proceeds. The
+  warning is the JDK's, and the bridge neither prints nor hides it. D241's
+  critical-call handles link under the same per-module grant, so one grant covers
+  both. The grants are `--enable-native-access=ALL-UNNAMED` for the class path,
+  `--enable-native-access=<Automatic-Module-Name>` for the module path and the
+  `Enable-Native-Access: ALL-UNNAMED` manifest attribute for an executable jar
+  started with `java -jar`. Under `--illegal-native-access=deny`, `System.load`
+  throws `IllegalCallerException` inside the facade's class initializer, before
+  native bootstrap: the first use fails with `ExceptionInInitializerError`, later
+  uses with `NoClassDefFoundError`, no partially bound world exists and the
+  extracted image is never mapped. `-Dironwood.bridge.calls=jni` still selects
+  JNI and `-Xcheck:jni` passes. Native access enabled only for other modules now
+  follows the default warn policy on 24/25, so the handles link with the
+  warning, where Java 21-23 keep the silent JNI fallback.
+- **Qualified:** macOS ARM64 with pinned Temurin 24.0.2+12 and 25.0.4.1+1 as
+  producer and consumer, and Linux x86-64 with Oracle JDK 25.0.4.1 and Oracle
+  GraalVM 25.0.4 as producer and consumer, through the focused tests below and
+  the OrderBook bridge workflow. Not verified: Linux ARM64 on Java 24/25, Temurin
+  24/25 on Linux, other vendors' JVMs, and the IDK, Maven/Gradle and
+  full-matrix qualification runs on the new releases. Single observations from
+  the Linux runs are recorded in the [Java 25 report](JAVA_BRIDGE_JAVA25.md);
+  they are not benchmark results.
+- **Supersession:** Supersedes D203's refusal, and D209's retained-refusal
+  outcome, for exactly Java 24 and 25; the "Java 24+ refusal" statements carried
+  by D238, D239 and D241 are superseded to the same extent. D203's mechanism
+  remains for every other version. D241's fallback routes, D243's extraction and
+  every ownership, retention and exception proof are unchanged. The pinned
+  Temurin 24 and 25 macOS launchers become supported matrix pins instead of
+  refusal controls. Their pin files are byte-identical to the provisioned
+  installations' recorded pins, so they keep their original `purpose` text;
+  Linux pins for them are not provisioned.
+- **Verification:** `BridgeBuildToolsTests` and `BridgeLoaderSourceTests` check
+  the predicates with 21-25 accepted and 8, 17, 20, 26, 27 and 99 refused. The
+  object, root and retaining producer tests run their consumers on pinned Temurin
+  22-25, and on 24/25 additionally assert the exact default warning, silence
+  under each of the three grants, and clean denial. The enum facade test keeps
+  Java-only inspection extraction-free on 24/25 before the first native load. The
+  critical-call test asserts the warn-policy handle linking and clean denial with
+  and without the JNI override when the runner is Java 24+. All of these, with
+  the loader, identity, permanent facade, private enum, OrderBook producer,
+  OrderBook allocation and assembly tests, passed on macOS ARM64 with JAVA_HOME
+  set to the pinned 21, 24 and 25 JDKs and on Linux x86-64 with Oracle JDK 25 and
+  GraalVM 25, as listed in the Java 25 report.

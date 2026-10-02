@@ -28,7 +28,8 @@ qualification commit adds tests, IDK smoke coverage and documentation only.
 Production and benchmark JVM: Temurin 21.0.12.1+1. Replay JVMs: Temurin
 22.0.2+9 and 23.0.2+7. Native tools: LLVM 23.1.0. Linux uses the existing pinned
 glibc 2.17 bridge support SDK. No translated x86 execution is presented as
-hardware evidence. The final artifact still refuses Java 24 before native entry.
+hardware evidence. The final artifact of this run refuses Java 24 before native entry (D245
+later admits Java 24 and 25).
 
 The three view fixtures cover typed operations and P0 confinement proofs,
 producer behavior, and shared-dependency binding/composition. Source, class and

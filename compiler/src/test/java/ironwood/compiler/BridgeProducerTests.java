@@ -121,7 +121,7 @@ final class BridgeProducerTests {
         var properties = new Properties();
         try (var zip = new ZipFile(jar.toFile())) {
             try (var input = zip.getInputStream(zip.getEntry(BridgePackageManifest.PATH))) { properties.load(input); }
-            check(properties.getProperty("java.supported").equals("21,22,23") && properties.getProperty("native.target").equals("macos-arm64"), "incorrect support manifest");
+            check(properties.getProperty("java.supported").equals("21,22,23,24,25") && properties.getProperty("native.target").equals("macos-arm64"), "incorrect support manifest");
             for (var entry : zip.stream().toList()) {
                 if (entry.getName().equals(BridgePackageManifest.PATH)) continue;
                 try (var input = zip.getInputStream(entry)) {

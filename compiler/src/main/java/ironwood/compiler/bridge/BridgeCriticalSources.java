@@ -227,8 +227,8 @@ public final class BridgeCriticalSources {
                     Class<?> layout = null;
                     Method downcall = null, segment = null, descriptor = null, voidDescriptor = null;
                     MethodHandle pending = null;
-                    // Java 21 offers this API as a preview and Java 22/23 as final API.
-                    // Reflection keeps these classes loadable on all three releases.
+                    // Java 21 offers this API as a preview and Java 22-25 as final API.
+                    // Reflection keeps these classes loadable on all five releases.
                     if (!"jni".equals(System.getProperty("ironwood.bridge.calls"))) {
                         try {
                             Class<?> linkerType = Class.forName("java.lang.foreign.Linker");
@@ -254,7 +254,7 @@ public final class BridgeCriticalSources {
                             }
                             // A constant handle reads the native pending-failure count with one load.
                             Object counter = segmentType.getMethod("reinterpret", long.class).invoke(segment.invoke(null, address(-1)), 4L);
-                            // Java 21 binds only the segment; Java 22/23 also take a base offset.
+                            // Java 21 binds only the segment; Java 22 and later also take a base offset.
                             Object path = Array.newInstance(Class.forName("java.lang.foreign.MemoryLayout$PathElement"), 0);
                             VarHandle access = (VarHandle) layout.getMethod("varHandle", path.getClass()).invoke(layouts[4], path);
                             MethodHandle read = MethodHandles.insertArguments(access.toMethodHandle(VarHandle.AccessMode.GET), 0, counter);

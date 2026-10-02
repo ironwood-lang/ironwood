@@ -58,7 +58,7 @@ public final class BridgeGeneration {
             manifest.put("calls", CRITICAL_CALLS);
         }
         if (!SCHEMA.equals(manifest.get("schema")) || !"jni".equals(manifest.get("transport"))
-                || !"21".equals(manifest.get("java.release")) || !"21,22,23".equals(manifest.get("java.supported"))) {
+                || !"21".equals(manifest.get("java.release")) || !"21,22,23,24,25".equals(manifest.get("java.supported"))) {
             throw new IllegalArgumentException("unsupported bridge generation contract");
         }
         for (String key : List.of("compiler.sha256", "runtime.sha256", "program", "api")) requireHash(manifest.get(key));
@@ -177,7 +177,7 @@ public final class BridgeGeneration {
         manifest.put("transport", "jni");
         manifest.put("artifact", artifactName);
         manifest.put("java.release", "21");
-        manifest.put("java.supported", "21,22,23");
+        manifest.put("java.supported", "21,22,23,24,25");
         manifest.put("compiler.version", compilerVersion);
         manifest.put("compiler.sha256", compilerHash);
         manifest.put("runtime.sha256", runtimeHash);

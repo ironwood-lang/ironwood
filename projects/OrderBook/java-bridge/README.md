@@ -8,7 +8,7 @@ The engine sources and official benchmark definitions are unchanged.
 
 ## Build and run
 
-From the repository root, select a **JDK 21, 22 or 23** on `PATH` and in `JAVA_HOME`,
+From the repository root, select a **JDK 21 to 25** on `PATH` and in `JAVA_HOME`,
 with `ironwoodc` on `PATH` and the pinned LLVM 23 toolchain available. On Linux,
 set `IRONWOOD_BRIDGE_SUPPORT_HOME` to the prepared target SDK. See the
 [producer prerequisites](../../../docs/JAVA_BRIDGE_USAGE.md#build-and-run).
@@ -25,8 +25,9 @@ export PATH="$PWD/bin:$PATH"
 The scripts locate their own directory, so they also work from elsewhere.
 Build stages print their commands. `run.sh` prints the same demonstration
 snapshots as the other versions, ending with `true`, `true`, `4`, `170`, `2`.
-A built consumer needs only Java 21, 22 or 23 on the matching target. Java 24+
-is refused. No manual library loading is needed.
+A built consumer needs only Java 21 to 25 on the matching target; Java 26 or
+later is refused. The scripts pass `--enable-native-access=ALL-UNNAMED`, which
+Java 24 and 25 need to stay warning-free. No manual library loading is needed.
 
 - `compile.sh` compiles only the existing Ironwood engine closure into
   `target/iron-classes`.

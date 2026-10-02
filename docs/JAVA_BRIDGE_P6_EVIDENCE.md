@@ -10,7 +10,7 @@ implementation, measured ARM64/x86-64 results and remaining qualification.
 
 P6a is complete for implementation. P6b and release qualification are open.
 Java 21-23 remain the supported baseline under the recorded D209 product
-decision. P5 callbacks and P7 extensions remain rejected/deferred.
+decision at this run's revision; D245 later admits Java 24 and 25. P5 callbacks and P7 extensions remain rejected/deferred.
 
 The candidate was built with production compiler revision `2559e145` on local
 branch `java-bridge`. Later test/documentation changes do not change those

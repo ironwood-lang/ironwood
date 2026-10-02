@@ -271,6 +271,7 @@ final class BridgeEntryTests {
             """;
 
     static String run(Path directory, List<String> command, String name) throws Exception {
+        command = grantNativeAccess(command);
         Path log = directory.resolve(name + ".log");
         Files.writeString(directory.resolve(name + ".command.txt"), String.join("\n", command) + "\n");
         var process = new ProcessBuilder(new ArrayList<>(command)).redirectErrorStream(true).redirectOutput(log.toFile()).start();
@@ -281,6 +282,30 @@ final class BridgeEntryTests {
         String output = Files.readString(log, StandardCharsets.UTF_8);
         check(process.exitValue() == 0, command + ": " + output);
         return output;
+    }
+
+    /**
+     * Java 24 and later treat System.load as a restricted method (JEP 472). A consumer launched on the
+     * runner's own JDK receives the documented grant for its launch form, so expected output stays
+     * exact, unless the command already selects a native-access policy of its own.
+     */
+    private static List<String> grantNativeAccess(List<String> command) {
+        if (Runtime.version().feature() < 24) return command;
+        int launcher = -1;
+        for (int index = 0; index < command.size() && launcher < 0; index++) {
+            if (Path.of(command.get(index)).getFileName().toString().equals("java")) launcher = index;
+        }
+        if (launcher < 0 || !Path.of(command.get(launcher)).equals(Path.of(System.getProperty("java.home"), "bin", "java"))) return command;
+        if (command.stream().anyMatch(argument -> argument.startsWith("--enable-native-access") || argument.startsWith("--illegal-native-access"))) return command;
+        int modules = command.indexOf("--add-modules");
+        var granted = new ArrayList<>(command);
+        granted.add(launcher + 1, "--enable-native-access=ALL-UNNAMED" + (modules < 0 ? "" : "," + command.get(modules + 1)));
+        return granted;
+    }
+
+    /** Keeps the JDK's default native-access policy on Java 24+, where run() otherwise adds the documented grant. */
+    static List<String> defaultNativeAccess() {
+        return Runtime.version().feature() < 24 ? List.of() : List.of("--illegal-native-access=warn");
     }
 
     private static void check(boolean condition, String message) {

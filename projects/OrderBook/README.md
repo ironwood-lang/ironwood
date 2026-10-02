@@ -60,7 +60,7 @@ $ java-bridge/run.sh
 ```
 
 The [Java Bridge guide](java-bridge/README.md) covers Java 21 build prerequisites,
-supported Java 21-23 consumers and the generated host-target JAR. Its benchmark
+supported Java 21-25 consumers and the generated host-target JAR. Its benchmark
 drivers are compiled directly from the existing Java source files against the
 generated native API. The engine and official workload sources are unchanged.
 

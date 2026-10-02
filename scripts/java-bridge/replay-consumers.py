@@ -45,7 +45,7 @@ def main():
     parser.add_argument("--fixture", type=Path, action="append", required=True,
                         help="exact evidence directory of a passed test, repeat as needed")
     parser.add_argument("--jdk-prefix", type=Path, required=True)
-    parser.add_argument("--java-major", type=int, choices=(21, 22, 23), required=True)
+    parser.add_argument("--java-major", type=int, choices=(21, 22, 23, 24, 25), required=True)
     parser.add_argument("--target", choices=("macos-arm64", "linux-arm64", "linux-x86_64"), required=True)
     parser.add_argument("--execution-scope", choices=("ARM64 hardware", "ARM64 virtualization",
                         "x86-64 Rosetta translation", "x86-64 physical hardware"), required=True)
@@ -84,7 +84,7 @@ def main():
             if command_file.name.startswith("limit-"):
                 excluded.append({"command": str(command_file), "reason": "destructive stack diagnostics require the separate adaptive probe"}); continue
             if "temurin-24-" in command[index]:
-                excluded.append({"command": str(command_file), "reason": "Java 24 negative is not a supported-JDK replay"}); continue
+                excluded.append({"command": str(command_file), "reason": "recorded Java 24 refusal negative from a D203-era artifact is not a supported-JDK replay"}); continue
             if index and (command[0] != "/usr/bin/env" or any(not re.fullmatch(r"IRONWOOD_[A-Z_]+=.*", value) for value in command[1:index])):
                 raise ValueError("unrecognized consumer command prefix: " + str(command_file))
             environment = os.environ.copy()

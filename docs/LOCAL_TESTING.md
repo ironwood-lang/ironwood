@@ -860,11 +860,31 @@ records the additional existing selections that were run with them.
   --test 'Java Bridge critical calls preserve values failures and JNI fallback'
 ```
 
+D245 version-policy changes use the checks below. The first two probe the
+producer and loader predicates on any host. The others launch pinned Temurin
+22-25 consumers from `workspace/java-bridge/jdks/`, so they need macOS ARM64 with
+those launchers installed; on Java 24/25 they assert the exact JEP 472 warning
+of a default launch, silence under the class-path, module-path and manifest
+grants, and clean `--illegal-native-access=deny` failures. Run the three
+critical-call checks above and the object producer check once more with
+`JAVA_HOME` set to a Java 24 and a Java 25 JDK, so the runner's own JDK exercises
+the producer and the consumer grants on those releases.
+
+```sh
+./scripts/test.sh \
+  --test 'Java Bridge JDK tools preserve Java 21 APIs and reject unsupported versions' \
+  --test 'Java Bridge generated loader validates metadata versions and canonical extraction' \
+  --test 'Java Bridge object producer preserves final proofs packaged parity and pending capability refusal' \
+  --test 'Java Bridge root producer preserves packaged input parity and consumer lifetime' \
+  --test 'Java Bridge retaining producer preserves mixed lifetime parity and complete slot commits' \
+  --test 'Java Bridge generated enum jars preserve cold conversion and initializer containment'
+```
+
 D243 loader extraction changes use the two checks below. The first exercises the
 generated `Support` source with fixture bytes on any host: cache path identity,
 write-free reuse, coexisting builds, the shared runtime file and every refusal.
 The second builds real images and launches consumer JVMs against populated
-caches, so it needs the native toolchain and a Java 21-23 `JAVA_HOME`.
+caches, so it needs the native toolchain and a Java 21-25 `JAVA_HOME`.
 
 ```sh
 ./scripts/test.sh \

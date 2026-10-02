@@ -21,11 +21,13 @@ This preview is not a release qualification.
 
 ## Build and run
 
-The producer supports JDK 21, 22 and 23, with compiler/Javadoc tools and JNI headers,
+The producer supports JDK 21, 22, 23, 24 and 25, with compiler/Javadoc tools and JNI headers,
 LLVM 23 and the matching macOS SDK or pinned Linux glibc 2.17 sysroot/private
 runtime SDK. Build the checkout compiler using the repository's normal
 instructions, with that JDK selected. A generated consumer requires only Java
-21, 22 or 23 and the jar on a compatible host. The macOS image declares its real
+21 to 25 and the jar on a compatible host; on Java 24 and 25 the JDK's
+native-access policy applies, as described under
+[runtime and distribution contracts](#runtime-and-distribution-contracts). The macOS image declares its real
 minimum OS version; Linux images declare their glibc 2.17 baseline and include
 their pinned compiler runtimes. Windows, musl and 32-bit hosts are unsupported.
 One host build contains one target; combine matched host jars using the assembly
@@ -143,7 +145,7 @@ Build every host jar from the same compiler/runtime, complete source or compiled
 input closure, producer basename, exports and distribution inputs. Use the pinned
 native toolchain and the same producer JDK version/vendor on each matching build host. Copy the
 completed jars back without modifying their contents. Assembly needs the matching
-Ironwood compiler/runtime distribution and a JDK 21, 22 or 23, but no native compilation:
+Ironwood compiler/runtime distribution and a JDK 21 to 25, but no native compilation:
 
 ```sh
 ironwoodc --java-bridge-assemble -o dist/engine.jar \
@@ -238,19 +240,21 @@ under JNI.
 **What the consumer sees.** The public API, exceptions, native traces, facade
 identity and lifetime checks are unchanged. Each selected method keeps its
 registered JNI method and uses it whenever the handle is unavailable. Java
-21-23 remain the supported versions and no `--enable-preview` option is
+21-25 are the supported versions and no `--enable-preview` option is
 needed. On Java 21 the handles use the preview foreign-function API through
-reflection; on Java 22 and 23 they use the final API.
+reflection; on Java 22 to 25 they use the final API.
 
-Linking a handle is a restricted operation in the JDK. Launch policy decides
-what happens:
+Linking a handle is a restricted operation in the JDK, and on Java 24 and 25 so
+is the loader's `System.load` (JEP 472). One grant covers both, because they are
+made from the same module. Launch policy decides what happens:
 
-| Launch | Result |
-| --- | --- |
-| `--enable-native-access=ALL-UNNAMED` (class path) or `--enable-native-access=<artifact module>` (module path) | Critical calls, no warning |
-| No native-access option | Critical calls; the JVM prints its restricted-method warning once |
-| Native access enabled only for other modules | JNI, no warning |
-| `-Dironwood.bridge.calls=jni` | JNI, no warning |
+| Launch | Java 21-23 | Java 24-25 |
+| --- | --- | --- |
+| `--enable-native-access=ALL-UNNAMED` (class path), `--enable-native-access=<artifact module>` (module path) or `Enable-Native-Access: ALL-UNNAMED` in an executable jar's manifest | Critical calls, no warning | Critical calls, no warning |
+| No native-access option | Critical calls; the JVM prints its restricted-method warning once | Critical calls; the JVM prints its restricted-method warning once, at `System.load` |
+| Native access enabled only for other modules | JNI, no warning | Critical calls with the same warning (the default `--illegal-native-access=warn` policy applies) |
+| `-Dironwood.bridge.calls=jni` | JNI, no warning | JNI; the warning still appears unless native access is granted |
+| `--illegal-native-access=deny` | Not an option on these releases | No native use at all: loading fails cleanly (see the contracts section) |
 
 The artifact never grants itself access or hides a refusal. A failing critical
 call parks its protected-entry status for the calling thread, and a JNI helper
@@ -326,7 +330,7 @@ complete permanent-value proof; a generic getter cannot manufacture a borrowed
 result or make arbitrary retained storage reclaimable. Unsupported transfers
 between loaded retaining slots, cyclic retention and unknown effects remain
 rejected. Generic methods, arrays, inheritance, listeners and primitive generic
-projections remain outside this boundary. Java 21-23 remains the support baseline.
+projections remain outside this boundary. Java 21-25 is the support baseline.
 
 ## Runtime and distribution contracts
 
@@ -503,9 +507,30 @@ delete the path named by the error, or the whole directory. Loaders generated
 before D243 used one `jvm-<pid>-<hash>` directory per launch; those directories
 are never reused and can be deleted.
 
-Java 24+ is refused before extraction or native loading. There is no bypass flag.
-[D209's separate Java 25 experiment](JAVA_BRIDGE_JAVA25.md) found working default-
-policy calls with visible warnings; support remains Java 21-23 for this run.
+Java 21 to 25 are admitted (D245); Java 26 or later and anything below 21 are
+refused before extraction or native loading, and there is no bypass flag. Java 24
+and 25 treat the loader's `System.load` as a restricted method (JEP 472):
+
+- With no option, the JVM prints its own warning once per module and then loads
+  normally. The warning names `java.lang.System::load`, the artifact's `Support`
+  class and its jar, and suggests `--enable-native-access=ALL-UNNAMED`. The bridge
+  does not print or suppress it.
+- Silence it with the grant that matches the launch form:
+  `--enable-native-access=ALL-UNNAMED` for a class-path launch,
+  `--enable-native-access=<Automatic-Module-Name>` (the jar manifest's value, also
+  recorded as `java.module` in `bridge.properties`) for a module-path launch, or
+  the `Enable-Native-Access: ALL-UNNAMED` manifest attribute of an executable jar
+  started with `java -jar`. The same grant covers D241's critical-call handles.
+- `--illegal-native-access=deny` makes `System.load` throw
+  `IllegalCallerException` inside the facade's class initializer, before native
+  bootstrap. The first use fails with `ExceptionInInitializerError` carrying that
+  cause, later uses with `NoClassDefFoundError`; no partially bound world exists
+  and the extracted image is never mapped. Explicit denial is a deployment-policy
+  decision, not a bridge or JNI failure.
+- `-Dironwood.bridge.calls=jni` and `-Xcheck:jni` behave as on Java 21-23.
+
+[D209's Java 25 experiment](JAVA_BRIDGE_JAVA25.md) established this behavior
+before D245 admitted both releases; that report records the qualification runs.
 
 The jar contains Java classes, generated Java sources/Javadoc, its native image,
 the versioned pairing/content manifest, required Ironwood/runtime/library notices

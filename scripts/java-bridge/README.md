@@ -137,7 +137,8 @@ python3 -B scripts/test-prepare-java-bridge-support.py
 
 ## JDK producer and consumer qualification
 
-JDK 21, 22 and 23 can build and run the compiler and produce JNI artifacts.
+JDK 21, 22, 23, 24 and 25 can build and run the compiler and produce JNI artifacts
+(24 and 25 under D245).
 Generated Java APIs and classes retain the Java 21 baseline. Existing phase
 reports retain their historical toolchain pins. For the current complete
 producer/consumer matrix, use prepared target JDKs and LLVM 23, without installs:
@@ -158,15 +159,16 @@ class-file versions, exact ByteView companion bytes, plain/checked JNI and modul
 loading. A new output directory is mandatory; `--producer 22` limits a retry to
 that producer. Run on each native target with its prepared support SDK. Commands,
 selected environment, outputs, exits and identities are recorded. Assembly,
-Java 24 refusal, missing-component negatives and host/IDK/Maven/Gradle smoke
+Java 24 refusal at that revision, missing-component negatives and host/IDK/Maven/Gradle smoke
 checks supplement this stage, as recorded in the
 [JDK progress log](../../docs/JAVA_BRIDGE_JDK_PROGRESS.md).
 
-## Java version policy experiment
+## Java version policy check
 
-P2's D203 refusal smoke test and D209 product experiment use two additional
-macOS ARM64 launchers. These are controls/probes, not supported consumer cells.
-Prepare once, with network access, using `--java-version 24` and `25` separately:
+D245 admits Java 24 and 25. The pinned macOS ARM64 Temurin 24 and 25 launchers
+that served D203's refusal smoke test and D209's experiment are now supported
+launchers. Prepare once, with network access, using `--java-version 24` and `25`
+separately:
 
 ```sh
 python3 scripts/prepare-java-bridge.py --setup --java-version 24 --target macos-arm64 \
@@ -185,13 +187,15 @@ python3 -B scripts/java-bridge/check-java-version-policy.py \
 ```
 
 The directory must be new. The runner checks pinned JDK identities, rejects JVM
-option injection, and builds O0/O3 ordinary and separately paired experimental
-jars. Only a private compiler copy's version admission/metadata changes. It
-records default, checked-JNI and explicit-deny launches across class path,
-module path and executable jars, including native-image signatures, exact bytes,
-warnings, native-denial mapping evidence and continued functional calls.
-No public producer bypass is installed. Java 21-23 remains the support baseline;
-see [the D209 report](../../docs/JAVA_BRIDGE_JAVA25.md).
+option injection, and builds O0/O3 jars with the ordinary producer. It launches
+the probe consumer on Java 21 (silent control) and on Java 24 and 25 under the
+default policy (exactly one JEP 472 warning), with `-Xcheck:jni`, under each
+launch form's grant (class-path and module-path options, executable-jar
+manifest attribute; no output) and under `--illegal-native-access=deny`
+(clean failure, image extracted but never mapped), across class path, module
+path and executable jars, recording native-image signatures, exact bytes,
+warnings and continued functional calls. The D209 experiment that preceded
+admission is recorded in [the Java 25 report](../../docs/JAVA_BRIDGE_JAVA25.md).
 
 ## P2 producer loader qualification
 
@@ -291,8 +295,9 @@ integration check, not a substitute for the final native/JDK qualification.
 It rejects changed jars/manifests or mixed compiler/runtime identities, audits
 the selected native payload and dependencies, saves disassembly, and runs all
 three launch forms under pinned Java 21/22/23 with plain and checked JNI. On
-macOS it also checks extracted signatures and repeats the Java 24 refusal on
-class/module paths with empty extraction directories.
+macOS it also checks extracted signatures and runs the version-probe cases on
+pinned Java 24/25: class/module paths under the matching native-access grant,
+and a clean `--illegal-native-access=deny` failure.
 
 ```sh
 python3 scripts/java-bridge/check-candidate.py \
@@ -321,8 +326,9 @@ options and fault environment. It substitutes only the pinned launcher and a
 fresh temporary extraction directory. It checks recorded output/exit contracts
 and jar-native hashes. Comparisons normalize only elapsed-time fields, absolute
 Java allocation totals into deltas and process-private extraction paths.
-Actual consumer assertions are unchanged. Unsupported Java 24 checks and
-destructive stack probes are explicitly excluded from supported-JDK replay.
+Actual consumer assertions are unchanged. Recorded Java 24 refusal negatives from
+D203-era fixtures and destructive stack probes are explicitly excluded from
+supported-JDK replay.
 
 `check-stack.py` builds its public O0/O3 stack fixture through the fixed compiler,
 requires matching candidate compiler/runtime identities, and checks all three
@@ -470,7 +476,9 @@ python3 -B scripts/java-bridge/qualify-idk.py --idk /path/to/extracted/idk \
   --output workspace/java-bridge/new-idk-check
 ```
 
-Use a new output directory. `--producer 23` limits a focused retry to one
+Use a new output directory. `--jdk "24=..."` and `--jdk "25=..."` add those
+producers and consumers (D245); their consumer launches receive the documented
+native-access grant. `--producer 23` limits a focused retry to one
 producer while retaining all consumers. `--resume` reuses successful matching
 commands/environments and preserves earlier failed logs; use it only with the
 same IDK, JDKs and source inputs. Evidence retains exact commands, selected

@@ -53,9 +53,9 @@ final class BridgeLoaderSourceTests {
             try (var first = loader(classes); var second = loader(classes)) {
                 var firstSupport = Class.forName(generation.supportPackage() + ".Support", true, first);
                 var secondSupport = Class.forName(generation.supportPackage() + ".Support", true, second);
-                for (int feature : new int[]{0, 17, 20, 21, 22, 23, 24, 25, Integer.MAX_VALUE}) {
+                for (int feature : new int[]{0, 17, 20, 21, 22, 23, 24, 25, 26, 27, Integer.MAX_VALUE}) {
                     check(invoke(firstSupport, "supportedVersion", new Class<?>[]{int.class}, feature)
-                                    .equals(feature >= 21 && feature <= 23), "version predicate admitted " + feature);
+                                    .equals(feature >= 21 && feature <= 25), "version predicate admitted " + feature);
                 }
                 check(invoke(firstSupport, "atLeast", new Class<?>[]{String.class, String.class}, "26.6.2", "11.0").equals(true)
                         && invoke(firstSupport, "atLeast", new Class<?>[]{String.class, String.class}, "10.15", "11.0").equals(false)

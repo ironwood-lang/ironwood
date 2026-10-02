@@ -965,7 +965,8 @@ String-array entry shape and the native `int` status extension.
 - **Java host bridge implementation:** [`JAVA_BRIDGE_PLAN.md`](JAVA_BRIDGE_PLAN.md)
   supersedes the earlier [proposal](IRONWOOD_JAVA_BRIDGE.md) and defines package
   exports, typed native adapters, generated Java facades, and automatic jar
-  loading for Java 21-23, with Java 24+ deferred. D189 selects explicit `free()`;
+  loading for Java 21-23, with Java 24+ deferred (D245 later admits Java 24 and
+  25). D189 selects explicit `free()`;
   D190 accepts compiler ownership proofs and shared Java lifetime state with
   the stated boundary checks, targeting primitive-call cost close to plain JNI.
   D191 settles first-release implementation contracts and checkpoints, defers
@@ -992,7 +993,8 @@ String-array entry shape and the native `int` status extension.
   cleanup checks and permanent loader anchoring with a mapped-image binding guard.
   D202 adds eager Linux symbol binding, states the private-entry trust boundary
   and rejects mixed fresh/borrowed reclaimable results in the first release.
-  D203 refuses Java 24+ before extraction/native loading, with P2/P6 negative
+  D203 refuses Java 24+ before extraction/native loading (superseded for Java 24
+  and 25 by D245), with P2/P6 negative
   tests separate from the nine supported Java 21-23 matrix cells.
   D204 makes root registration native with preallocated JNI global references;
   Java weak-cache failures cannot lose root identity or create duplicate owners.

@@ -39,7 +39,7 @@ final class BridgeObjectGenerationTests {
         var generation = generate(artifact, admission);
         check(generation.matchesObjects(artifact, admission), "exact object identity does not match");
         check(!generation.matches(artifact, admission.surface()), "object identity entered the value-only route");
-        check(generation.manifest().get("java.supported").equals("21,22,23"), "object identity broadened version support");
+        check(generation.manifest().get("java.supported").equals("21,22,23,24,25"), "object identity broadened version support");
         check(admission.lifetime().exceptions().projection().customTypes().size() == 1, "missing declared snapshot");
         check(admission.surface().types().stream().flatMap(type -> type.fields().stream())
                 .anyMatch(field -> field.name().equals("bytesTransferred") && field.constant().isEmpty()),

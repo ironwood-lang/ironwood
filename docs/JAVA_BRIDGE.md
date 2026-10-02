@@ -3,7 +3,7 @@
 # Native Ironwood for Java
 
 > **Implementation status, 2026-09-29:** The Java Bridge producer is implemented
-> for Java 21-23 on macOS ARM64, Linux ARM64 and Linux x86-64. P5's bounded
+> for Java 21-25 on macOS ARM64, Linux ARM64 and Linux x86-64. P5's bounded
 > synchronous callbacks, including retained listeners, are implemented and
 > qualified on all three targets. Callback numerical acceptance remains
 > maintainer review; see the [measurements and evidence](JAVA_BRIDGE_P5_EVIDENCE.md).
@@ -25,7 +25,8 @@
 > [critical calls](JAVA_BRIDGE_USAGE.md#critical-calls) for proved object entries
 > and D242 tunes portable x86-64 images; see the
 > [2026-10-02 measurements](JAVA_BRIDGE_CRITICAL_CALLS.md).
-> Java 24+ remains refused. This is a producer
+> D245 admits Java 24 and 25 under the JDK's native-access policy, qualified on
+> macOS ARM64 and Linux x86-64; Java 26 or later is refused. This is a producer
 > preview, not an announcement of a published release. The
 > [producer guide](JAVA_BRIDGE_USAGE.md) specifies the supported API and platform
 > boundaries; the [implementation plan](JAVA_BRIDGE_PLAN.md) is authoritative
@@ -74,7 +75,7 @@ for prerequisites, arguments, output, smoke tests and comparison boundaries.
 Use the Java 21 JDK, pinned LLVM 23 and native platform prerequisites from the
 [producer guide](JAVA_BRIDGE_USAGE.md#build-and-run), with `ironwoodc` on `PATH`.
 Linux producers also need the pinned native support SDK described there.
-Consumers use Java 21, 22 or 23.
+Consumers use Java 21 to 25.
 
 Keep Ironwood and Java source in their familiar source roots:
 

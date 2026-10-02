@@ -152,7 +152,7 @@ public final class BridgeLoaderSources {
                     try {
                         Runtime.Version version = Runtime.version();
                         if (!supportedVersion(version.feature())) {
-                            throw new UnsatisfiedLinkError("Ironwood artifact " + GENERATION + " requires Java 21-23; detected " + version);
+                            throw new UnsatisfiedLinkError("Ironwood artifact " + GENERATION + " requires Java 21-25; detected " + version);
                         }
                         ClassLoader loader = Support.class.getClassLoader();
                         if (loader == null) throw new LinkageError("Ironwood artifact requires a defining application loader: " + GENERATION);
@@ -169,7 +169,7 @@ public final class BridgeLoaderSources {
                     }
                 }
 
-                private static boolean supportedVersion(int feature) { return feature >= 21 && feature <= 23; }
+                private static boolean supportedVersion(int feature) { return feature >= 21 && feature <= 25; }
 
                 private static void fail(Throwable problem) {
                     if (problem instanceof Error error) throw error;
