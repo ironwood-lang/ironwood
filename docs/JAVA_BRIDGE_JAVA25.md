@@ -125,7 +125,7 @@ same warning on 24/25, where Java 21-23 keep the silent JNI fallback.
 
 | Host and JDK | Role | Checks | Result |
 | --- | --- | --- | --- |
-| macOS ARM64, pinned Temurin 21.0.12.1+1 | producer and runner | JDK tools, loader, identities, critical calls (3), object/root/retaining producers with pinned 22-25 consumer replays, enum facades, permanent facades, private enum entries (2), OrderBook producer, OrderBook allocation, assembly, colliding generations | 21 focused tests passed |
+| macOS ARM64, pinned Temurin 21.0.12.1+1 | producer and runner | JDK tools, loader, identities, critical calls (3), object/root/retaining producers with pinned 22-25 consumer replays, enum facades, permanent facades, private enum entries (2), OrderBook producer, OrderBook allocation, assembly, colliding generations | 17 focused tests passed |
 | macOS ARM64, pinned Temurin 24.0.2+12 | producer and runner | JDK tools, loader, identities, critical calls (3), object producer, enum facades, permanent facades, private enum entries (2) | 11 passed |
 | macOS ARM64, pinned Temurin 25.0.4.1+1 | producer and runner | the 11 above plus root and retaining producers | 13 passed |
 | macOS ARM64, `check-java-version-policy.py` | Java 21 producer, Java 21/24/25 launchers | O0/O3 version probe: default, checked JNI, granted and denied launches on class path, module path and executable jar | 54 child launches passed; evidence in `workspace/java-bridge/evidence/d245/version-policy-1/` |
