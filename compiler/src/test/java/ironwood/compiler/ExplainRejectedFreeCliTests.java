@@ -39,7 +39,16 @@ final class ExplainRejectedFreeCliTests {
                 "       Partial inlining defaults: on at -O3, LLVM default otherwise.",
                 "       Both compilation and linking accept --unfreed=off|warn|error (default: warn)",
                 "       and --explain-rejected-free (notes on rejected frees; default: off).",
-                "       ironwoodc --version|-v  (compiler version and LLVM selection)", "");
+                "       ironwoodc --version|-v  (compiler version and LLVM selection)",
+                "       ironwoodc --java-bridge --export <exact-package>... -o <artifact.jar>",
+                "                 [-cp <class-path>] [--source-path <source-path>] [source.iron...]",
+                "                 [-O0|-O1|-O2|-O3] [--llvm-home <directory>]",
+                "                 [--license <notice-file>]...",
+                "                 [--unfreed=off|warn|error] [--explain-rejected-free]",
+                "                 [--critical-calls=on|off]  (transition-free calls for proved entries; default: off)",
+                "       ironwoodc --java-bridge-assemble -o <artifact.jar> <host.jar>...",
+                "       ironwoodc --java-bridge-distribution --input <paired.jar> --group-id <group>",
+                "                 --artifact-id <name> --version <version> -d <new-directory>", "");
         for (String option : new String[]{"-h", "--help"}) {
             Result result = run(option);
             require(result.status == 2 && result.stdout.isEmpty() && result.stderr.equals(usage),
