@@ -816,11 +816,16 @@ then verifies/extracts the selected image and private dependencies before loadin
 and native bootstrap. Linux host packaging audits ELF architecture, eager binding,
 relative dependency paths and the glibc 2.17 symbol-version ceiling, preserving
 the pinned runtime source/license delivery. macOS retains signed-image checks.
-The private POSIX cache keys owner, JVM PID/start identity, generation and target,
-so independent loaders in one JVM select one canonical image path. Exclusive
-partial files are verified and atomically hard-linked into place without replacing
-an existing image. Existing files/directories require the expected owner, mode
-and digest; symlinks and stale partial selection are rejected. Source-level tests
+Under D243 the private POSIX cache keys owner, generation, target and a digest of
+the selected files' paths and contents. Independent loaders and later JVMs select
+one canonical image path for identical payloads; another native build of the same
+generation selects its own. Each distinct file is stored once under its SHA-256
+name in the owner's `blobs` directory and hard-linked into every build directory
+that needs it, so the private Linux C++ runtime is shared. Exclusive partial files
+are verified and atomically hard-linked into place without replacing an existing
+file. Existing files/directories require the expected owner, mode and digest on
+every launch; symlinks and stale partial selection are rejected. The loader never
+deletes or repairs cache entries. Source-level tests
 exercise concurrent extraction using nonexecutable fixture bytes. Generated-jar
 checks also exercise actual registration, anchoring, signatures and launch forms;
 final distribution-candidate qualification remains pending.

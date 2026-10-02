@@ -261,29 +261,46 @@ public final class BridgeLoaderSources {
                     finally { Files.delete(probe); }
                     String user = HexFormat.of().formatHex(sha256().digest(owner.getName().getBytes(java.nio.charset.StandardCharsets.UTF_8)));
                     Path root = privateDirectory(base.resolve("ironwood-java-bridge-" + user), owner);
-                    ProcessHandle process = ProcessHandle.current();
-                    String started = process.info().startInstant().orElseThrow(() -> new IOException("cannot identify current JVM start time")).toString();
-                    String jvm = process.pid() + "-" + HexFormat.of().formatHex(sha256().digest(started.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
-                    root = privateDirectory(root.resolve("jvm-" + jvm), owner);
+                    Path blobs = privateDirectory(root.resolve("blobs"), owner);
+                    // Later JVMs reuse this directory, so its name covers every selected
+                    // file. Another native build of the generation never shares a path.
+                    MessageDigest content = sha256();
+                    for (String[] file : FILES) {
+                        if (file[0].equals(payload[0])) content.update((file[1] + "\\n" + file[2] + "\\n").getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                    }
                     root = privateDirectory(root.resolve(GENERATION), owner);
                     root = privateDirectory(root.resolve(payload[0]), owner);
+                    root = privateDirectory(root.resolve(HexFormat.of().formatHex(content.digest())), owner);
                     for (String[] file : FILES) {
                         if (!file[0].equals(payload[0])) continue;
                         Path parent = root;
                         String[] components = file[1].split("/");
                         for (int index = 0; index < components.length - 1; index++) parent = privateDirectory(parent.resolve(components[index]), owner);
-                        extractFile(parent.resolve(components[components.length - 1]), owner,
+                        extractFile(parent.resolve(components[components.length - 1]), blobs.resolve(file[2]), owner,
                                 "/META-INF/ironwood/native/" + payload[0] + "/" + GENERATION + "/" + file[1], file[2]);
                     }
                     return root.resolve(payload[3]).toRealPath();
                 }
 
-                private static void extractFile(Path image, UserPrincipal owner, String resource, String expectedSha256) throws IOException {
+                private static void extractFile(Path image, Path blob, UserPrincipal owner, String resource, String expectedSha256) throws IOException {
                     if (Files.exists(image, LinkOption.NOFOLLOW_LINKS)) {
                         verify(image, owner, expectedSha256);
                         return;
                     }
-                    Path partial = Files.createTempFile(image.getParent(), ".payload-", ".partial", PosixFilePermissions.asFileAttribute(FILE_MODE));
+                    if (!Files.exists(blob, LinkOption.NOFOLLOW_LINKS)) publish(blob, owner, resource, expectedSha256);
+                    // A damaged blob is refused here, before any build links to it.
+                    verify(blob, owner, expectedSha256);
+                    // Hard-link publication is atomic and cannot replace an existing image
+                    // when independent classloaders or JVMs race for the same payload.
+                    try { Files.createLink(image, blob); }
+                    catch (FileAlreadyExistsException raced) { /* Verify the winner below. */ }
+                    verify(image, owner, expectedSha256);
+                }
+
+                // Each distinct file is stored once per user under its SHA-256 name and
+                // shared by every build that needs it, such as the private C++ runtime.
+                private static void publish(Path blob, UserPrincipal owner, String resource, String expectedSha256) throws IOException {
+                    Path partial = Files.createTempFile(blob.getParent(), ".payload-", ".partial", PosixFilePermissions.asFileAttribute(FILE_MODE));
                     try {
                         try (InputStream input = Support.class.getResourceAsStream(resource)) {
                             if (input == null) throw new IOException("missing paired native resource " + resource);
@@ -292,11 +309,8 @@ public final class BridgeLoaderSources {
                             }
                         }
                         verify(partial, owner, expectedSha256);
-                        // Hard-link publication is atomic and cannot replace an existing
-                        // image, even when independent classloaders race with different builds.
-                        try { Files.createLink(image, partial); }
-                        catch (FileAlreadyExistsException raced) { /* Verify the winner below. */ }
-                        verify(image, owner, expectedSha256);
+                        try { Files.createLink(blob, partial); }
+                        catch (FileAlreadyExistsException raced) { /* The caller verifies the winner. */ }
                     } finally { Files.deleteIfExists(partial); }
                 }
 

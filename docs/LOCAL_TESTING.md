@@ -860,6 +860,18 @@ records the additional existing selections that were run with them.
   --test 'Java Bridge critical calls preserve values failures and JNI fallback'
 ```
 
+D243 loader extraction changes use the two checks below. The first exercises the
+generated `Support` source with fixture bytes on any host: cache path identity,
+write-free reuse, coexisting builds, the shared runtime file and every refusal.
+The second builds real images and launches consumer JVMs against populated
+caches, so it needs the native toolchain and a Java 21-23 `JAVA_HOME`.
+
+```sh
+./scripts/test.sh \
+  --test 'Java Bridge generated loader validates metadata versions and canonical extraction' \
+  --test 'Java Bridge permanent facades reject colliding generations before extraction'
+```
+
 ## Test platforms and retry failures
 
 ```sh
