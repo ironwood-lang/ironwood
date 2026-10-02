@@ -34,7 +34,9 @@ are recorded, including physical Linux x86-64 execution under D213. Final
 OrderBook numerical acceptance is recorded in D225. New P5 callback measurements
 have their own [three-target qualification and measurement report](JAVA_BRIDGE_P5_EVIDENCE.md).
 Rosetta observations remain separate functional/static evidence.
-JNI remains the supported transport under D238; optional FFM is unimplemented.
+JNI is the default transport under D238. D241 adds producer-selected
+[critical calls](#critical-calls) for proved object entries, with JNI kept as
+the registered fallback.
 The [combined P7 qualification record](JAVA_BRIDGE_P7_QUALIFICATION.md) tracks
 the current array, ByteView, generic and listener artifacts together.
 
@@ -190,6 +192,74 @@ may already be reset and returned to the pool. Strongly held wrappers may be use
 for identity comparisons across reuse, without treating a released order as an
 active business handle. The [P4 audit](JAVA_BRIDGE_P4_EVIDENCE.md) records paired
 behavior, capacity errors and separate hit/miss allocation results.
+
+## Critical calls
+
+A JNI call changes the Java thread's state on entry and on return. That
+transition costs several nanoseconds, which dominates short native operations.
+The producer can instead call proved entries without the transition:
+
+```sh
+ironwoodc --java-bridge --export org.ironwood.orderbook --unfreed=off \
+  -cp projects/OrderBook/target/bridge-classes -O3 --critical-calls=on \
+  -o projects/OrderBook/target/orderbook.jar
+```
+
+The default is `--critical-calls=off`, which generates exactly the JNI-only
+artifact. The option changes generated declarations, so it selects its own
+generation; build every host jar of an assembly with the same setting.
+
+**What the producer selects.** A binding gets a critical adapter only when:
+
+- it is a static or instance method of an object projection, not a constructor;
+- every parameter is a primitive or an enum, and the result is void, a
+  primitive or a permanent object facade;
+- it needs no root state, root reservation or retention slot;
+- its complete native closure, including type initializers and cleanup, has
+  only resolved native calls and memory-only operations: computation, field and
+  array access, allocation and exception unwinding. A Java callback, an
+  unresolved call, console, file, stream, socket, TLS, clock, environment or
+  process operation, or an unaudited String operation keeps JNI.
+
+Everything else keeps JNI, including String, array, ByteView, enum and root
+results, methods of enum constants, and the value and callback projections.
+The producer reports how many bindings were selected. Selection never admits
+an export and never replaces an ownership, retention or exception proof.
+
+**What the producer asserts.** A critical call cannot be interrupted for a JVM
+safepoint. Garbage collection and every other safepoint operation, for all Java
+threads, wait until it returns. The compiler proves that a selected entry cannot
+call Java or block in a runtime service. It does not bound running time: loops,
+allocation, type initialization and raising an exception are admitted. Select
+critical calls only when every exported operation is short. Deep native
+recursion can exhaust the Java thread's stack without recovery, as it can
+under JNI.
+
+**What the consumer sees.** The public API, exceptions, native traces, facade
+identity and lifetime checks are unchanged. Each selected method keeps its
+registered JNI method and uses it whenever the handle is unavailable. Java
+21-23 remain the supported versions and no `--enable-preview` option is
+needed. On Java 21 the handles use the preview foreign-function API through
+reflection; on Java 22 and 23 they use the final API.
+
+Linking a handle is a restricted operation in the JDK. Launch policy decides
+what happens:
+
+| Launch | Result |
+| --- | --- |
+| `--enable-native-access=ALL-UNNAMED` (class path) or `--enable-native-access=<artifact module>` (module path) | Critical calls, no warning |
+| No native-access option | Critical calls; the JVM prints its restricted-method warning once |
+| Native access enabled only for other modules | JNI, no warning |
+| `-Dironwood.bridge.calls=jni` | JNI, no warning |
+
+The artifact never grants itself access or hides a refusal. A failing critical
+call parks its protected-entry status for the calling thread, and a JNI helper
+then delivers the same translated exception. A successful call reads no shared
+state unless its result is `long` or `double`, which have no spare value to
+report failure; those read one pending-failure counter.
+
+See the [measurements and design record](JAVA_BRIDGE_CRITICAL_CALLS.md) and
+D241.
 
 ## Read-only generic facades
 

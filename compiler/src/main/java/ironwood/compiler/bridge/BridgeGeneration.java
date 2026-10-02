@@ -26,6 +26,7 @@ import java.util.TreeMap;
 /** Target-independent generation identity, separate from API compatibility and image bytes. */
 public final class BridgeGeneration {
     public static final String SCHEMA = "1";
+    private static final String CRITICAL_CALLS = "critical-v1";
     private final Map<String, String> manifest;
 
     private BridgeGeneration(Map<String, String> manifest) {
@@ -36,6 +37,8 @@ public final class BridgeGeneration {
     public String identity() { return manifest.get("generation"); }
     public String apiIdentity() { return manifest.get("api"); }
     public String supportPackage() { return "ironwood.bridge.generated.g" + identity(); }
+    /** Producer-selected critical downcalls; registered JNI entries remain the complete fallback transport. */
+    public boolean criticalCalls() { return CRITICAL_CALLS.equals(manifest.get("calls")); }
 
     /** Restores packaging identity only, never a compiler admission or lifetime proof. */
     public static BridgeGeneration fromManifest(Map<String, String> packaged) {
@@ -47,6 +50,12 @@ public final class BridgeGeneration {
         if (packaged.containsKey("projection")) {
             if (!Set.of("objects-v1", "callbacks-v1", "owner-callbacks-v1").contains(packaged.get("projection"))) throw new IllegalArgumentException("unsupported bridge projection");
             manifest.put("projection", packaged.get("projection"));
+        }
+        if (packaged.containsKey("calls")) {
+            if (!CRITICAL_CALLS.equals(packaged.get("calls")) || !"objects-v1".equals(packaged.get("projection"))) {
+                throw new IllegalArgumentException("unsupported bridge call transport");
+            }
+            manifest.put("calls", CRITICAL_CALLS);
         }
         if (!SCHEMA.equals(manifest.get("schema")) || !"jni".equals(manifest.get("transport"))
                 || !"21".equals(manifest.get("java.release")) || !"21,22,23".equals(manifest.get("java.supported"))) {
@@ -68,7 +77,8 @@ public final class BridgeGeneration {
     public boolean matchesObjects(CompilationArtifact artifact, BridgeObjectAdmission admission) {
         return "objects-v1".equals(manifest.get("projection")) && admission.matches(artifact, admission.surface())
                 && manifest.equals(createObjects(manifest.get("artifact"), artifact, admission,
-                        manifest.get("compiler.version"), manifest.get("compiler.sha256"), manifest.get("runtime.sha256")).manifest);
+                        manifest.get("compiler.version"), manifest.get("compiler.sha256"), manifest.get("runtime.sha256"),
+                        criticalCalls()).manifest);
     }
 
     public boolean matchesCallbacks(BridgeCallbackAdmission admission) {
@@ -121,6 +131,13 @@ public final class BridgeGeneration {
     /** Object identities require the final admission, not a signature-only selection or a caller's lifetime label. */
     public static BridgeGeneration createObjects(String artifactName, CompilationArtifact artifact,
             BridgeObjectAdmission admission, String compilerVersion, String compilerHash, String runtimeHash) {
+        return createObjects(artifactName, artifact, admission, compilerVersion, compilerHash, runtimeHash, false);
+    }
+
+    /** Critical calls change generated declarations, so they select a distinct generation. */
+    public static BridgeGeneration createObjects(String artifactName, CompilationArtifact artifact,
+            BridgeObjectAdmission admission, String compilerVersion, String compilerHash, String runtimeHash,
+            boolean criticalCalls) {
         if (!admission.matches(artifact, admission.surface())) {
             throw new IllegalArgumentException("object generation requires the exact current final admission");
         }
@@ -139,7 +156,8 @@ public final class BridgeGeneration {
             }
             api.put("type." + type.binaryName() + ".projection", role);
         }
-        return create(artifactName, artifact, compilerVersion, compilerHash, runtimeHash, api, Map.of("projection", "objects-v1"));
+        return create(artifactName, artifact, compilerVersion, compilerHash, runtimeHash, api,
+                criticalCalls ? Map.of("projection", "objects-v1", "calls", CRITICAL_CALLS) : Map.of("projection", "objects-v1"));
     }
 
     private static BridgeGeneration create(String artifactName, CompilationArtifact artifact, String compilerVersion,

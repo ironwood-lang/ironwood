@@ -2,6 +2,11 @@
 
 # OrderBook host performance investigation
 
+**2026-10-02 follow-up:** A later [investigation](JAVA_BRIDGE_CRITICAL_CALLS.md)
+attributes the host gap to JNI thread-state transitions and to baseline x86-64
+tuning of the portable payload, and records the D241/D242 changes. The findings
+below remain accurate for the JNI bridge they measured.
+
 ## Finding, 2026-09-29
 
 The maintainer's host result is reproducible: the ordinary Java Bridge OrderBook

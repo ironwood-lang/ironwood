@@ -18,4 +18,5 @@ WARMUP_BATCHES=${1:-10000}
 MEASURED_BATCHES=${2:-50000}
 CYCLES_PER_BATCH=${3:-1000}
 
-exec java -cp target/orderbook.jar:target/consumer-classes org.ironwood.orderbook.LatencyBench "$WARMUP_BATCHES" "$MEASURED_BATCHES" "$CYCLES_PER_BATCH"
+# Native access is granted explicitly so the JVM links the critical calls without a warning.
+exec java --enable-native-access=ALL-UNNAMED -cp target/orderbook.jar:target/consumer-classes org.ironwood.orderbook.LatencyBench "$WARMUP_BATCHES" "$MEASURED_BATCHES" "$CYCLES_PER_BATCH"

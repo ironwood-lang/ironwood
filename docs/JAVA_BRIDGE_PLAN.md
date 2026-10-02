@@ -30,7 +30,9 @@ P7d2 final-bounded construction/mutation is implemented and qualified on all thr
 targets under D237, with evidence in that log. P7e0's isolated
 [transport experiment](JAVA_BRIDGE_FFM_EXPERIMENT.md) is complete on all three
 targets. D238 accepts JNI only, closing P7e through its permitted keep-JNI
-outcome. P7e1/P7e2 remain deliberately unimplemented.
+outcome. P7e1/P7e2 remain deliberately unimplemented. D241 later adds
+producer-selected [critical calls](JAVA_BRIDGE_USAGE.md#critical-calls) with its
+own boundary, replacing those candidates; JNI stays the default.
 [P7f combined qualification](JAVA_BRIDGE_P7_QUALIFICATION.md) is complete on all
 three targets; numerical acceptance of the extension measurements remains review.
 Release work belongs to the maintainer,
@@ -1707,6 +1709,13 @@ P7e is complete as an evaluation; P7e1/P7e2 are deliberately unimplemented,
 not claimed implemented or qualified. Their candidate contracts below are
 retained for any separately authorized future reconsideration.
 [P7f combined qualification](JAVA_BRIDGE_P7_QUALIFICATION.md) is complete.
+
+**Later outcome, D241 (2026-10-02):** producer-selected critical calls are
+implemented for proved object entries, with JNI as the default and as the
+registered fallback. D241 replaces the P7e1/P7e2 candidates below with its own
+selection and producer obligation. It does not implement ordinary FFM, and it
+does not satisfy P7e2's stricter proved-bound contract. See the
+[measurements and verification](JAVA_BRIDGE_CRITICAL_CALLS.md).
 
 **P7e0 experiment, completed:** the [experiment report](JAVA_BRIDGE_FFM_EXPERIMENT.md)
 records the matched JNI/FFM results, native-access matrix, failure/lifetime checks,

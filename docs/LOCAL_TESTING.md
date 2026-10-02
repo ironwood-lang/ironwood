@@ -846,6 +846,20 @@ That report also records the pinned-JDK replays, matching payload identities,
 allocation checks and standalone conversion benchmark. Fault-injected images
 must remain separate from production performance payloads.
 
+D241 critical-call changes use the three focused checks below. They cover closure
+selection, exact declaration and adapter inventories, and a consumer that runs
+every result carrier, failure delivery and each JNI fallback route. Run them with
+each supported JDK selected through `JAVA_HOME` when the generated Java or the
+linking code changes. The [critical-call report](JAVA_BRIDGE_CRITICAL_CALLS.md)
+records the additional existing selections that were run with them.
+
+```sh
+./scripts/test.sh \
+  --test 'Java Bridge critical calls admit only memory-only closures' \
+  --test 'Java Bridge critical calls keep JNI declarations and exact adapter inventories' \
+  --test 'Java Bridge critical calls preserve values failures and JNI fallback'
+```
+
 ## Test platforms and retry failures
 
 ```sh

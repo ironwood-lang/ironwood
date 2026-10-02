@@ -145,6 +145,8 @@ public final class NativeBackend {
                     toolchain.opt().toString(), "-passes=" + optimizationLevel.optPassPipeline()));
             optimizeCommand.addAll(optimizationLevel.optExtraArguments(inlineThreshold, partialInlining));
             optimizeCommand.addAll(targetMachine.llvmArguments());
+            List<String> sharedTuning = shared ? sharedImageTuning(target.triple()) : List.of();
+            optimizeCommand.addAll(sharedTuning);
             if (optimizationReport != null) {
                 optimizeCommand.addAll(List.of("-pass-remarks-output="
                         + optimizationReport.toAbsolutePath().normalize(), "-pass-remarks-format=yaml",
@@ -173,6 +175,7 @@ public final class NativeBackend {
             List<String> codeCommand = new java.util.ArrayList<>(List.of(toolchain.llc().toString(),
                     "-filetype=obj", "--relocation-model=pic", optimizationLevel.llcArgument()));
             codeCommand.addAll(targetMachine.llvmArguments());
+            codeCommand.addAll(sharedTuning);
             codeCommand.addAll(List.of(optimizedBitcode.toString(), "-o", objectFile.toString()));
             LinkResult codeGeneration = run("LLVM object generation", codeCommand);
             if (!codeGeneration.success()) {
@@ -242,6 +245,17 @@ public final class NativeBackend {
         } finally {
             deleteTree(temporaryDirectory);
         }
+    }
+
+    /**
+     * Tuning for portable shared images; it selects no instruction-set extension.
+     * LLVM's baseline x86-64 model assumes slow unaligned 16-byte memory access,
+     * which holds only for processors older than SSE4.2/SSE4A. It then zeroes and
+     * copies adjacent fields one word at a time. Shared images keep the baseline
+     * SSE2 instruction set and use its unaligned 16-byte moves.
+     */
+    public static List<String> sharedImageTuning(String triple) {
+        return triple.startsWith("x86_64-") ? List.of("-mattr=-slow-unaligned-mem-16") : List.of();
     }
 
     private static synchronized LinkResult prepareRuntimeObject(LlvmToolchain toolchain,

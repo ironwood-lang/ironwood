@@ -18,7 +18,7 @@ final class BridgeFixedEnumSources {
     static List<Alternative> generate(StringBuilder text, BridgeObjectAdmission admission,
             BridgeApiFacts.Callable method, String binaryName, String address, String receiver,
             String nativeResult, String conversion, String throwsClause, Set<String> occupied,
-            List<BridgeJavaSources.Binding> bindings, String indent) {
+            List<BridgeJavaSources.Binding> bindings, BridgeCriticalSources.Emitter transport, String indent) {
         var alternatives = new ArrayList<Alternative>();
         var callable = method.target().orElseThrow();
         for (var entry : admission.entries().entries()) {
@@ -46,13 +46,16 @@ final class BridgeFixedEnumSources {
             descriptor.append(')').append(conversion.isEmpty() ? BridgeJavaTypes.descriptor(method.result()) : "J");
             text.append(indent).append("    private static native ").append(nativeResult).append(' ').append(name)
                     .append('(').append(String.join(", ", formals)).append(')').append(throwsClause).append(";\n");
+            var reserved = transport != null && transport.admits(entry.function().linkageName()) ? transport.reserve() : null;
+            if (reserved != null) transport.emit(text, reserved, name, formals, nativeResult,
+                    BridgeCriticalSources.Carrier.of(!conversion.isEmpty(), method.result()), throwsClause, indent);
             bindings.add(new BridgeJavaSources.Binding(binaryName, name, descriptor.toString(), method,
-                    entry.function().linkageName(), conversion, Set.of(), entry.fixedEnums()));
+                    entry.function().linkageName(), conversion, Set.of(), entry.fixedEnums(), reserved == null ? -1 : reserved.index()));
             String argument = method.parameterNames().get(input - 1);
             // Null must not trigger Java enum initialization through a constant field read.
             String condition = argument + " != null && " + argument + " == "
                     + BridgePermanentJavaSources.javaType(mapping.declaredType(), admission.surface()) + "." + constant.field().name();
-            alternatives.add(new Alternative(condition, name + "(" + String.join(", ", arguments) + ")"));
+            alternatives.add(new Alternative(condition, (reserved == null ? name : reserved.call()) + "(" + String.join(", ", arguments) + ")"));
         }
         return List.copyOf(alternatives);
     }

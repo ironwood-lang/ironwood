@@ -638,6 +638,18 @@ closure proof. Java retention does not grant source borrowing or safe-free facts
 Other reference callback values still reject. General inheritance, arrays and optional TLS dependencies remain rejected at their pending
 implementation boundaries. Linux payloads use the pinned native support closure.
 
+`--critical-calls=on|off` (default off) selects D241's critical calls for object
+projections. `BridgeCriticalCalls` analyzes the final admitted program through
+the shared `BridgeCallTargets` edges and admits a native function only when its
+complete closure has resolved calls and memory-only operations. The permanent
+Java and native generators then add one constant method handle and one adapter
+without a `JNIEnv` per selected binding, beside the unchanged JNI declaration
+and adapter. The selection is recorded in the generation identity, so it also
+names distinct generated support packages. It is a transport choice made after
+admission and consumes no lifetime proof. x86-64 shared images additionally
+receive D242's `-mattr=-slow-unaligned-mem-16` tuning from
+`NativeBackend.sharedImageTuning`; ordinary executables do not.
+
 `BridgeProducer` supports JDK 21, 22 and 23 with compiler/Javadoc tools and JNI headers,
 the pinned LLVM toolchain and the matching macOS SDK or Linux support SDK. It uses the existing optimizer and
 shared linker, verifies the signed final image and derives its deployment floor

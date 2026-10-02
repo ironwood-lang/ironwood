@@ -17,4 +17,5 @@ fi
 WARMUP_MILLIONS=${1:-10}
 MEASURED_MILLIONS=${2:-100}
 
-exec java -cp target/orderbook.jar:target/consumer-classes org.ironwood.orderbook.Bench "$WARMUP_MILLIONS" "$MEASURED_MILLIONS"
+# Native access is granted explicitly so the JVM links the critical calls without a warning.
+exec java --enable-native-access=ALL-UNNAMED -cp target/orderbook.jar:target/consumer-classes org.ironwood.orderbook.Bench "$WARMUP_MILLIONS" "$MEASURED_MILLIONS"

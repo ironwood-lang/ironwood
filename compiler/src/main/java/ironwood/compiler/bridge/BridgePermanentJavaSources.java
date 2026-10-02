@@ -77,12 +77,13 @@ public final class BridgePermanentJavaSources {
         var facades = new ArrayList<Facade>();
         var enums = new ArrayList<EnumFacade>();
         var types = new TreeSet<String>();
+        var critical = BridgeCriticalSources.plan(admission, generation);
         for (var type : surface.types()) {
             types.add(type.binaryName());
             if (type.enclosingType().isPresent()) continue;
             var text = new StringBuilder(HEADER).append("package ").append(type.packageName()).append(";\n\n")
                     .append("import static ").append(support).append(".Support.").append(ensure).append(";\n\n");
-            emit(text, type, artifact, admission, entries, bindings, registrations, facades, enums, snapshots, roots, support + ".PermanentCache", annotation, ensure, "");
+            emit(text, type, artifact, admission, entries, bindings, registrations, facades, enums, snapshots, roots, critical, support + ".PermanentCache", annotation, ensure, "");
             sources.put(type.binaryName().replace('.', '/') + ".java", text.toString());
         }
         if (!bindings.stream().map(BridgeJavaSources.Binding::entrySymbol).collect(Collectors.toSet()).equals(
@@ -111,25 +112,34 @@ public final class BridgePermanentJavaSources {
             var state = BridgeRootStateSources.generate(artifact, admission, generation);
             sources.putAll(state.sources()); types.addAll(state.types());
         }
+        List<BridgeJavaSources.NativeDeclaration> supportNatives = List.of();
+        if (critical != null && critical.count() > 0) {
+            String name = BridgeCriticalSources.binaryName(generation);
+            if (!types.add(name) || sources.putIfAbsent(name.replace('.', '/') + ".java",
+                    BridgeCriticalSources.javaSource(generation, ensure)) != null) {
+                throw new IllegalArgumentException("critical call support collides with generated declarations");
+            }
+            supportNatives = BridgeCriticalSources.declarations(generation);
+        }
         return new Sources(new BridgeJavaSources(sources, bindings, new ArrayList<>(types), ensure, registrations,
-                roots == null ? List.of() : roots.destructions()), facades, enums);
+                roots == null ? List.of() : roots.destructions(), supportNatives), facades, enums);
     }
 
     private static void emit(StringBuilder text, BridgeApiFacts.Type type, CompilationArtifact artifact, BridgeObjectAdmission admission,
             Map<BridgeCallableId, String> entries, List<BridgeJavaSources.Binding> bindings,
             List<BridgeJavaSources.FacadeRegistration> registrations, List<Facade> facades, List<EnumFacade> enums,
-            BridgeCustomSnapshotSources.Context snapshots, RootContext roots,
+            BridgeCustomSnapshotSources.Context snapshots, RootContext roots, BridgeCriticalSources.Plan critical,
             String permanentCache, String annotation, String ensure, String indent) {
         if (type.throwable()) {
             if (snapshots == null) throw new IllegalArgumentException("custom snapshot declaration has no complete projection");
             BridgeCustomSnapshotSources.emit(text, type, admission.surface(), snapshots, annotation, indent);
-            nested(text, type, artifact, admission, entries, bindings, registrations, facades, enums, snapshots, roots, permanentCache, annotation, ensure, indent);
+            nested(text, type, artifact, admission, entries, bindings, registrations, facades, enums, snapshots, roots, critical, permanentCache, annotation, ensure, indent);
             text.append(indent).append("}\n"); return;
         }
         if (type.kind() == BridgeApiFacts.Kind.ENUM) {
             enums.add(BridgeEnumJavaSources.emit(text, type, artifact, admission, roots == null ? "" : roots.stateType(),
                     entries, bindings, annotation, ensure, indent));
-            nested(text, type, artifact, admission, entries, bindings, registrations, facades, enums, snapshots, roots, permanentCache, annotation, ensure, indent);
+            nested(text, type, artifact, admission, entries, bindings, registrations, facades, enums, snapshots, roots, critical, permanentCache, annotation, ensure, indent);
             text.append(indent).append("}\n");
             return;
         }
@@ -143,6 +153,7 @@ public final class BridgePermanentJavaSources {
         String address = unique(occupied, "$ironwood$address"), typeName = unique(occupied, "$ironwood$type");
         String receiver = unique(occupied, "$ironwood$receiver"), registration = unique(occupied, "$ironwood$remember");
         String state = roots == null ? "" : unique(occupied, "$ironwood$state");
+        var transport = new BridgeCriticalSources.Emitter(critical, occupied);
         text.append(indent).append(annotation).append(indent).append("public ")
                 .append(type.enclosingType().isPresent() ? "static " : "").append("final class ").append(simple)
                 .append(type.generic() ? "<" + type.typeParameters().stream().map(variable -> variable.name()
@@ -217,9 +228,16 @@ public final class BridgePermanentJavaSources {
             boolean dependent = BridgeGenericDomain.dependent(method.result());
             String erased = dependent ? javaErasedType(method.result(), admission.surface()) : result;
             String nativeResult = addressResult ? "long" : erased;
+            // Critical adapters carry only primitives, enum tokens and object addresses. Root
+            // state, reservations and retention slots need JNI references and keep that transport.
+            boolean plainCarriers = !constructor && !reserve && !receiverState && (addressResult || !method.result().isReference())
+                    && BridgeRootRetentionSources.slots(admission, callable).isEmpty()
+                    && java.util.stream.IntStream.range(0, method.parameters().size()).allMatch(index ->
+                            parameters.tokens().contains(index) || !method.parameters().get(index).isReference());
             var alternatives = BridgeFixedEnumSources.generate(text, admission, method, type.binaryName(), address, receiver,
-                    nativeResult, conversion, throwsClause, occupied, bindings, indent);
-            String invocation = nativeName + "(" + String.join(", ", arguments) + ")";
+                    nativeResult, conversion, throwsClause, occupied, bindings, plainCarriers ? transport : null, indent);
+            var reserved = plainCarriers && transport.admits(entries.get(callable)) ? transport.reserve() : null;
+            String invocation = (reserved == null ? nativeName : reserved.call()) + "(" + String.join(", ", arguments) + ")";
             if (!method.result().equals(IrType.VOID)) invocation = BridgeFixedEnumSources.select(alternatives, invocation);
             String ownership = BridgeRootCalls.documentation(admission, callable);
             if (!ownership.isEmpty()) text.append(indent).append("    /** ").append(ownership).append(" */\n");
@@ -250,21 +268,24 @@ public final class BridgePermanentJavaSources {
             text.append(indent).append("    }\n").append(indent).append("    private static native ").append(nativeResult).append(' ').append(nativeName)
                     .append('(').append(String.join(", ", nativeFormals)).append(')').append(throwsClause).append(";\n");
             if (addressResult) text.append(indent).append("    private static native ").append(erased).append(' ').append(conversion).append("(long address);\n");
+            if (reserved != null) transport.emit(text, reserved, nativeName, nativeFormals, nativeResult,
+                    BridgeCriticalSources.Carrier.of(addressResult, method.result()), throwsClause, indent);
             bindings.add(new BridgeJavaSources.Binding(type.binaryName(), nativeName, "(" + parameterDescriptors + ")"
-                    + (constructor || addressResult ? "J" : BridgeJavaTypes.descriptor(method.result())), method, entries.get(method.target().orElseThrow()), conversion, parameters.tokens()));
+                    + (constructor || addressResult ? "J" : BridgeJavaTypes.descriptor(method.result())), method, entries.get(method.target().orElseThrow()), conversion, parameters.tokens(),
+                    Map.of(), reserved == null ? -1 : reserved.index()));
         }
-        nested(text, type, artifact, admission, entries, bindings, registrations, facades, enums, snapshots, roots, permanentCache, annotation, ensure, indent);
+        nested(text, type, artifact, admission, entries, bindings, registrations, facades, enums, snapshots, roots, critical, permanentCache, annotation, ensure, indent);
         text.append(indent).append("}\n");
     }
 
     private static void nested(StringBuilder text, BridgeApiFacts.Type type, CompilationArtifact artifact, BridgeObjectAdmission admission,
             Map<BridgeCallableId, String> entries, List<BridgeJavaSources.Binding> bindings,
             List<BridgeJavaSources.FacadeRegistration> registrations, List<Facade> facades, List<EnumFacade> enums,
-            BridgeCustomSnapshotSources.Context snapshots, RootContext roots,
+            BridgeCustomSnapshotSources.Context snapshots, RootContext roots, BridgeCriticalSources.Plan critical,
             String permanentCache, String annotation, String ensure, String indent) {
         for (var nested : admission.surface().types()) {
             if (nested.enclosingType().filter(type.binaryName()::equals).isPresent()) {
-                emit(text, nested, artifact, admission, entries, bindings, registrations, facades, enums, snapshots, roots, permanentCache, annotation, ensure, indent + "    ");
+                emit(text, nested, artifact, admission, entries, bindings, registrations, facades, enums, snapshots, roots, critical, permanentCache, annotation, ensure, indent + "    ");
             }
         }
     }

@@ -26,18 +26,27 @@ The scripts locate their own directory, so they also work from elsewhere.
 Build stages print their commands. `run.sh` prints the same demonstration
 snapshots as the other versions, ending with `true`, `true`, `4`, `170`, `2`.
 A built consumer needs only Java 21, 22 or 23 on the matching target. Java 24+
-is refused. No native-access flags or manual library loading are needed.
+is refused. No manual library loading is needed.
 
 - `compile.sh` compiles only the existing Ironwood engine closure into
   `target/iron-classes`.
-- `link.sh` builds `target/orderbook.jar` with `-O3`, then compiles the existing
-  Java `Main`, `Bench`, `LatencyBench` and `LatencyReport` into
-  `target/consumer-classes`. An empty Java source path prevents implicit
+- `link.sh` builds `target/orderbook.jar` with `-O3 --critical-calls=on`, then
+  compiles the existing Java `Main`, `Bench`, `LatencyBench` and `LatencyReport`
+  into `target/consumer-classes`. An empty Java source path prevents implicit
   compilation of the Java engine. `OrderBook`, `Order` and their enums come
   exclusively from the generated JAR.
 - `run.sh`, `throughput.sh` and `latency.sh` start those JVM drivers with that
-  JAR. All generated build files stay under this folder's ignored `target/`
-  directory; program results go to standard output.
+  JAR and `--enable-native-access=ALL-UNNAMED`. All generated build files stay
+  under this folder's ignored `target/` directory; program results go to
+  standard output.
+
+Every order operation is short and memory-only, so the build selects
+[critical calls](../../../docs/JAVA_BRIDGE_USAGE.md#critical-calls): the producer
+proves 25 of the 35 native bindings eligible and Java reaches them without a
+JVM thread-state transition. Their registered JNI methods remain the fallback.
+Without the native-access option the same JAR still uses critical calls and the
+JVM prints its restricted-method warning once. Add `-Dironwood.bridge.calls=jni`
+to a `java` command to measure the JNI transport with the same JAR.
 
 The bridge producer uses its supported target CPU baseline; it does not accept
 `-march=native`. Other OrderBook native scripts currently use host CPU tuning.
@@ -63,6 +72,9 @@ as compiler flags. The [Estonia host investigation](../../../docs/JAVA_BRIDGE_HO
 shows that Docker's speculative-store-bypass mitigation changes the relative
 OrderBook performance. Its earlier container speedup does not hold on the
 ordinary host; compare all three variants in the same deployment environment.
+The [critical-call measurements](../../../docs/JAVA_BRIDGE_CRITICAL_CALLS.md)
+record the current ordinary-host comparison and what the remaining gap to the
+standalone executable consists of.
 
 Latency arguments are **warmup batches, measured batches, cycles per batch**,
 with defaults `10000 50000 1000`. Each cycle has eight order operations. The
