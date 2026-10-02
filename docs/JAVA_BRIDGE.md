@@ -40,7 +40,10 @@ loading are required for supported APIs.
 
 ## Try the included programs
 
-Select Java 21 for building, put the checkout's `bin` on `PATH`, and prepare
+[JAVA_BRIDGE_EXAMPLE.md](JAVA_BRIDGE_EXAMPLE.md) is the shortest route: it walks
+through the basics example command by command.
+
+Select a JDK 21 to 25 for building, put the checkout's `bin` on `PATH`, and prepare
 the [native prerequisites](JAVA_BRIDGE_USAGE.md#build-and-run). From the
 repository root, start with the [basics example](../examples/java-bridge/basics/README.md):
 
@@ -72,7 +75,7 @@ for prerequisites, arguments, output, smoke tests and comparison boundaries.
 
 ### 1. Set up the project
 
-Use the Java 21 JDK, pinned LLVM 23 and native platform prerequisites from the
+Use a JDK 21 to 25, pinned LLVM 23 and native platform prerequisites from the
 [producer guide](JAVA_BRIDGE_USAGE.md#build-and-run), with `ironwoodc` on `PATH`.
 Linux producers also need the pinned native support SDK described there.
 Consumers use Java 21 to 25.
@@ -186,11 +189,12 @@ mkdir -p target/app-classes
 javac --release 21 -cp target/pricing-bridge.jar -d target/app-classes \
     src/main/java/com/acme/app/Main.java
 
-java -cp target/pricing-bridge.jar:target/app-classes com.acme.app.Main
+java --enable-native-access=ALL-UNNAMED -cp target/pricing-bridge.jar:target/app-classes com.acme.app.Main
 ```
 
-The program prints `498750`. Maven and Gradle projects use the same jar
-as a normal dependency.
+The program prints `498750`. The `--enable-native-access=ALL-UNNAMED` option keeps
+Java 24 and 25 from printing their native-access warning; Java 21-23 ignore it.
+Maven and Gradle projects use the same jar as a normal dependency.
 
 The library loads automatically when first used. Application code does not
 need `System.loadLibrary`, JNI wrappers, C headers, or platform-specific call

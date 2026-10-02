@@ -34,8 +34,9 @@ the paired jar and companion bytes are unchanged. The examples configure no
 remote publishing destination. Maven 3.8.6 and Gradle 8.14.3 are the locally
 tested build-tool versions, not extra Java consumer runtime requirements.
 
-Both workflows use `org.ironwood.example:ironwood-values:0.1.0-local`. Their
-four program output lines must be:
+Both workflows use `org.ironwood.example:ironwood-values:0.1.0-local` and start
+the consumer JVM with `--enable-native-access=ALL-UNNAMED`, which Java 24 and 25
+need to stay warning-free. Their four program output lines must be:
 
 ```text
 42

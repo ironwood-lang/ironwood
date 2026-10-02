@@ -5,7 +5,9 @@
 Start with [basics](basics/README.md): a small native Ironwood `Counter` and
 `CounterListener` interface, implemented by a Java application. Two Java calls
 into the counter produce two callbacks into Java. It includes compile, link,
-run and test scripts, plus explicit native cleanup.
+run and test scripts, plus explicit native cleanup. The
+[step-by-step guide](../../docs/JAVA_BRIDGE_EXAMPLE.md) shows the exact commands
+those scripts run.
 
 With the prerequisites below on `PATH`, run from this directory:
 
@@ -38,8 +40,10 @@ Run from this directory:
 Compilation writes ordinary `.ironclass` files. Linking feeds them through the
 public bridge producer, writes `value/target/ironwood-values.jar`, includes the
 example's license texts, and compiles the Java consumer against that jar. Running
-uses Java and those dependency/consumer classes only, without native tools,
-manual loading or native-access flags. Its program output is:
+uses Java and those dependency/consumer classes only, without native tools or
+manual loading. Every run script passes `--enable-native-access=ALL-UNNAMED`,
+which keeps Java 24 and 25 from printing their native-access warning and which
+Java 21-23 ignore. Its program output is:
 
 ```text
 42
@@ -51,7 +55,8 @@ continued: 42
 Every script prints its command; successful execution exits zero. The same built
 consumer can run with supported Java 22 to 25. The payload's recorded minimum
 macOS version comes from its actual linked image; Linux uses the pinned glibc 2.17
-baseline. Java 24 and 25 run under the JDK's native-access policy; see the
+baseline. Pass the same native-access grant in your own launch commands on Java
+24 and 25; see the
 [producer guide](../../docs/JAVA_BRIDGE_USAGE.md#runtime-and-distribution-contracts).
 Java 26+ and targets absent from the jar are refused. The producer also
 supports proved object facades and explicit root `free()`; this value example

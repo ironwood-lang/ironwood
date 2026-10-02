@@ -14,7 +14,7 @@ if [[ "$actual" != "$expected" ]]; then
     printf 'FAIL: unexpected output:\n%s\n' "$actual" >&2
     exit 1
 fi
-actual=$(java -Xcheck:jni -cp target/ironwood-basics.jar:target/consumer-classes \
+actual=$(java -Xcheck:jni --enable-native-access=ALL-UNNAMED -cp target/ironwood-basics.jar:target/consumer-classes \
     org.ironwood.javabridge.basicsconsumer.Main)
 if [[ "$actual" != "$expected" ]]; then
     printf 'FAIL: unexpected checked-JNI output:\n%s\n' "$actual" >&2

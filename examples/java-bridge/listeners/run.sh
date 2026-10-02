@@ -7,4 +7,5 @@ source "$BRIDGE_JDK_ROOT/scripts/jdk.sh"
 ironwood_select_java "$BRIDGE_JDK_ROOT"
 cd "$EXAMPLE_DIR"
 set -x
-java -cp target/ironwood-listeners.jar:target/consumer-classes org.ironwood.javabridge.listenerconsumer.Main
+# The grant keeps Java 24 and 25 from printing their native-access warning; Java 21-23 ignore it.
+java --enable-native-access=ALL-UNNAMED -cp target/ironwood-listeners.jar:target/consumer-classes org.ironwood.javabridge.listenerconsumer.Main

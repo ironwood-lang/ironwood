@@ -6,7 +6,8 @@ BRIDGE_JDK_ROOT=$(CDPATH= cd -- "$EXAMPLE_DIR/../../.." && pwd)
 source "$BRIDGE_JDK_ROOT/scripts/jdk.sh"
 ironwood_select_java "$BRIDGE_JDK_ROOT"
 cd "$EXAMPLE_DIR"
-COMMAND=(java -cp target/ironwood-values.jar:target/consumer-classes org.ironwood.javabridge.consumer.Main)
+# The grant keeps Java 24 and 25 from printing their native-access warning; Java 21-23 ignore it.
+COMMAND=(java --enable-native-access=ALL-UNNAMED -cp target/ironwood-values.jar:target/consumer-classes org.ironwood.javabridge.consumer.Main)
 printf '+'
 printf ' %q' "${COMMAND[@]}"
 printf '\n'

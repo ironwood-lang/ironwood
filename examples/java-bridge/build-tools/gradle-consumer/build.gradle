@@ -5,4 +5,4 @@ repositories { mavenLocal() }
 dependencies { implementation 'org.ironwood.example:ironwood-values:0.1.0-local' }
 sourceSets.main.java.srcDirs = ['../../value/src/main/java']
 tasks.withType(JavaCompile).configureEach { options.release = 21; options.encoding = 'UTF-8' }
-application { mainClass = 'org.ironwood.javabridge.consumer.Main' }
+application { mainClass = 'org.ironwood.javabridge.consumer.Main'; applicationDefaultJvmArgs = ['--enable-native-access=ALL-UNNAMED'] }
