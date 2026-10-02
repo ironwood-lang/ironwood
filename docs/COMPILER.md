@@ -646,9 +646,10 @@ Java and native generators then add one constant method handle and one adapter
 without a `JNIEnv` per selected binding, beside the unchanged JNI declaration
 and adapter. The selection is recorded in the generation identity, so it also
 names distinct generated support packages. It is a transport choice made after
-admission and consumes no lifetime proof. x86-64 shared images additionally
-receive D242's `-mattr=-slow-unaligned-mem-16` tuning from
-`NativeBackend.sharedImageTuning`; ordinary executables do not.
+admission and consumes no lifetime proof. x86-64 shared images receive the
+`-mattr=-slow-unaligned-mem-16` tuning of D242 from
+`NativeBackend.portableTuning`, which D244 extended to every portable x86-64
+image; the recorded `cpu.tuning` input is unchanged.
 
 `BridgeProducer` supports JDK 21, 22 and 23 with compiler/Javadoc tools and JNI headers,
 the pinned LLVM toolchain and the matching macOS SDK or Linux support SDK. It uses the existing optimizer and
@@ -2133,6 +2134,18 @@ explains how these choices affect different application shapes.
 [IMPORTANT_OPTIMIZATIONS.md](IMPORTANT_OPTIMIZATIONS.md) is the detailed
 account of this configuration, of the cold-path outlining and guarded dispatch
 described above, and of the Linux benchmark guidance for evaluating them.
+
+On x86-64, the default target machine also passes `-mattr=-slow-unaligned-mem-16`
+to `opt` and `llc` at every optimization level, for executables and shared
+images alike (D242, D244). LLVM's baseline x86-64 model otherwise assumes slow
+unaligned 16-byte memory access, an assumption that holds only for processors
+older than SSE4.2/SSE4A, and zeroes or copies adjacent fields one 8-byte word at
+a time. The argument selects no instruction-set extension: the image stays
+baseline x86-64 and uses SSE2's unaligned 16-byte moves, so the raw
+`--emit-llvm` module and the optimizer's decisions are unchanged and only
+instruction selection differs. `-march=native` passes `-mcpu=native` instead and
+takes the host processor's own tuning. ARM64 targets receive no tuning argument.
+The Clang-compiled runtime objects are not tuned.
 
 Within existing initialized-state fast paths, the compiler folds proven
 enum `int`/`long` final-field reads and pure accessor calls on exact receivers.

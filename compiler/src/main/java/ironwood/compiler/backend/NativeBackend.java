@@ -145,8 +145,9 @@ public final class NativeBackend {
                     toolchain.opt().toString(), "-passes=" + optimizationLevel.optPassPipeline()));
             optimizeCommand.addAll(optimizationLevel.optExtraArguments(inlineThreshold, partialInlining));
             optimizeCommand.addAll(targetMachine.llvmArguments());
-            List<String> sharedTuning = shared ? sharedImageTuning(target.triple()) : List.of();
-            optimizeCommand.addAll(sharedTuning);
+            List<String> tuning = targetMachine == TargetMachine.DEFAULT
+                    ? portableTuning(target.triple()) : List.of();
+            optimizeCommand.addAll(tuning);
             if (optimizationReport != null) {
                 optimizeCommand.addAll(List.of("-pass-remarks-output="
                         + optimizationReport.toAbsolutePath().normalize(), "-pass-remarks-format=yaml",
@@ -175,7 +176,7 @@ public final class NativeBackend {
             List<String> codeCommand = new java.util.ArrayList<>(List.of(toolchain.llc().toString(),
                     "-filetype=obj", "--relocation-model=pic", optimizationLevel.llcArgument()));
             codeCommand.addAll(targetMachine.llvmArguments());
-            codeCommand.addAll(sharedTuning);
+            codeCommand.addAll(tuning);
             codeCommand.addAll(List.of(optimizedBitcode.toString(), "-o", objectFile.toString()));
             LinkResult codeGeneration = run("LLVM object generation", codeCommand);
             if (!codeGeneration.success()) {
@@ -248,13 +249,15 @@ public final class NativeBackend {
     }
 
     /**
-     * Tuning for portable shared images; it selects no instruction-set extension.
-     * LLVM's baseline x86-64 model assumes slow unaligned 16-byte memory access,
-     * which holds only for processors older than SSE4.2/SSE4A. It then zeroes and
-     * copies adjacent fields one word at a time. Shared images keep the baseline
-     * SSE2 instruction set and use its unaligned 16-byte moves.
+     * Tuning for portable images on the default target machine, executables and
+     * shared images alike; it selects no instruction-set extension. LLVM's
+     * baseline x86-64 model assumes slow unaligned 16-byte memory access, which
+     * holds only for processors older than SSE4.2/SSE4A. It then zeroes and copies
+     * adjacent fields one word at a time. Portable images keep the baseline SSE2
+     * instruction set and use its unaligned 16-byte moves. {@code -march=native}
+     * takes the host processor's own tuning instead, and other targets are unchanged.
      */
-    public static List<String> sharedImageTuning(String triple) {
+    public static List<String> portableTuning(String triple) {
         return triple.startsWith("x86_64-") ? List.of("-mattr=-slow-unaligned-mem-16") : List.of();
     }
 

@@ -872,6 +872,21 @@ caches, so it needs the native toolchain and a Java 21-23 `JAVA_HOME`.
   --test 'Java Bridge permanent facades reject colliding generations before extraction'
 ```
 
+D244 portable x86-64 tuning changes use the checks below. The first asserts the
+triple selection on every host and, on an x86-64 host, disassembles a portable
+`-O3` executable to check merged SSE2 stores without any instruction-set
+extension. The other two link every target machine at `-O0` and `-O3` and keep
+the raw `--emit-llvm` module target-neutral. Run them on both an x86-64 and an
+ARM64 host when the tuning or `TargetMachine` changes, and rerun the OrderBook
+throughput and latency benchmarks on the Linux x86-64 host.
+
+```sh
+./scripts/test.sh \
+  --test 'portable x86-64 tuning merges adjacent stores with baseline SSE2' \
+  --test 'native target layout agrees with configured Clang before optimization' \
+  --test 'mixed-width native layouts survive class and archive links'
+```
+
 ## Test platforms and retry failures
 
 ```sh

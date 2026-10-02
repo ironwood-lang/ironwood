@@ -1065,6 +1065,8 @@ public final class CompilerTests {
                 ironwood.compiler.backend.NativeTargetTests::layoutMatchesClang);
         test("mixed-width native layouts survive class and archive links",
                 ironwood.compiler.backend.NativeTargetTests::mixedObjectsAcrossArtifacts);
+        test("portable x86-64 tuning merges adjacent stores with baseline SSE2",
+                ironwood.compiler.backend.NativeTargetTests::portableTuningMergesAdjacentStores);
         test("field aliases preserve mandatory safety", FieldAliasTests::safety);
         test("field value forwarding requires exact receiver and effect proofs", FieldValueForwardingTests::structure);
         test("field value forwarding preserves native behavior and artifacts", FieldValueForwardingTests::nativeArtifacts);

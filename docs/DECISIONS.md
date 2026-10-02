@@ -9302,3 +9302,48 @@ occurrence order. If no
   holding another optimization level's build of the same generations. On the
   Linux x86-64 host five OrderBook launches left 24.6 MB in total where the
   previous loader added 24.6 MB per launch, and a second build added 0.4 MB.
+
+## D244 - Tune every portable x86-64 image for fast unaligned access
+
+- **Status:** Implemented on 2026-10-02. The maintainer accepted the default
+  after reviewing the measurements below.
+- **Finding:** D242 cleared LLVM's `slow-unaligned-mem-16` tuning for x86-64
+  shared bridge images only, and left ordinary executables on the baseline
+  model, which zeroes and copies adjacent fields one 8-byte word at a time.
+  Reproducing D242's feature isolation on portable OrderBook executables showed
+  the same gap: 817.2 ms at baseline against 733.6 ms with only the tuning and
+  734.8 ms with `-march=native` (medians of 15 round-robin processes, 8M warmup
+  and 80M measured operations). The latency benchmark's median mean batch
+  improved from 82.50 µs to 73.78 µs against 75.70 µs for `-march=native`. The
+  `examples/bench` programs were unchanged within variation.
+- **Decision:** `NativeBackend.portableTuning` passes
+  `-mattr=-slow-unaligned-mem-16` to `opt` and `llc` for every image whose
+  target triple is x86-64 and whose target machine is the default, executables
+  and shared images alike, at every optimization level. The instruction set
+  remains baseline x86-64. `-march=native` keeps `-mcpu=native` and the host
+  processor's own tuning without the argument. ARM64 targets, the raw
+  `--emit-llvm` module, the Clang-compiled runtime objects and the bridge's
+  recorded `cpu.tuning` input are unchanged.
+- **Machine code:** In the OrderBook `Bench` executable the optimized IR differs
+  only in the function attribute groups that record the feature; the mid-end
+  makes the same decisions and `llc` alone reproduces the tuned assembly.
+  Instruction selection merges runs of `movq $0, n(%reg)` into `xorps` and
+  `movups` stores and copies through `movups` and `movdqu`. No mnemonic appears
+  that the baseline build did not already use; `Bench.run` shrinks from 903 to
+  857 instructions. D132 and D133 are untouched: no bookkeeping or helper call
+  is added on any path.
+- **Compatibility:** Every x86-64 processor executes the emitted SSE2 moves.
+  Processors without SSE4.2/SSE4A may run them more slowly; they remain correct
+  and were not measured. The official `BENCHMARK.md` results use `-march=native`
+  and are unaffected.
+- **Supersession:** Refines D242, whose "ordinary executables are unchanged"
+  boundary no longer holds; D242's shared-image behavior and recorded identity
+  are unchanged. The D134 `-O3` pipeline options are unchanged.
+- **Verification:** The focused test `portable x86-64 tuning merges adjacent
+  stores with baseline SSE2` asserts the triple selection, the merged stores and
+  the SSE2-only instruction set on an x86-64 host, and links every target
+  machine on every host. On the Linux x86-64 host with the tuning active,
+  `scripts/test-bench.sh`, the OrderBook demo output and seven focused native
+  `-O3` tests (pool release helpers, stack-trace round trips, native target
+  layout, field value forwarding, field aliases, initialized specialization and
+  Throwable rendering) passed unchanged.

@@ -257,7 +257,7 @@ final class BridgeProducer {
         inputs.put("target.triple", target.triple()); inputs.put("target.layout", target.dataLayout());
         inputs.put("llvm.version", toolchain.version()); inputs.put("clang.version", toolchain.clangVersion());
         inputs.put("optimization", optimization.toString()); inputs.put("cpu", "default-baseline");
-        var tuning = NativeBackend.sharedImageTuning(target.triple());
+        var tuning = NativeBackend.portableTuning(target.triple());
         if (!tuning.isEmpty()) inputs.put("cpu.tuning", String.join(" ", tuning));
         inputs.put("adapter.flags", "-std=c11 -Wall -Wextra -Werror -fPIC -fvisibility=hidden " + optimization.clangArgument());
         if (macos) {
