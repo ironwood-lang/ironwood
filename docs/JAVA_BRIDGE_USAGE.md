@@ -488,6 +488,21 @@ Native payloads are extracted privately with content and permission checks;
 broken or unsafe existing files are refused rather than overwritten or repaired.
 The digest checks pairing consistency, not publisher trust.
 
+Extraction is a per-user cache under `java.io.tmpdir`, in
+`ironwood-java-bridge-<owner hash>/<generation>/<target>/<payload digest>/`
+(D243). The first JVM that uses a build extracts it; later JVMs check owner,
+mode and SHA-256 of every file again and load the same path without writing.
+Each distinct file is stored once in the sibling `blobs` directory and
+hard-linked into the builds that need it, so the private Linux `libstdc++.so.6`
+and `libgcc_s.so.1` are not copied per build. A launch therefore adds nothing,
+and a new build adds only its own image. The loader never deletes cache
+entries. The whole `ironwood-java-bridge-*` directory can be removed whenever no
+JVM is starting a bridge artifact; the next launch extracts again. Because
+entries now outlive the JVM, a refused file stays refused until it is removed:
+delete the path named by the error, or the whole directory. Loaders generated
+before D243 used one `jvm-<pid>-<hash>` directory per launch; those directories
+are never reused and can be deleted.
+
 Java 24+ is refused before extraction or native loading. There is no bypass flag.
 [D209's separate Java 25 experiment](JAVA_BRIDGE_JAVA25.md) found working default-
 policy calls with visible warnings; support remains Java 21-23 for this run.

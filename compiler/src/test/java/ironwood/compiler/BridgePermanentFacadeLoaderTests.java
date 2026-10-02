@@ -113,6 +113,23 @@ final class BridgePermanentFacadeLoaderTests {
                         "-Djava.io.tmpdir=" + temporary, "-cp", folder.toString(), "ObjectLoaderConsumer", folder.toString(), scenario), "consumer-" + scenario);
                 check(output.endsWith("object-loader-ok:" + scenario + "\n") && !output.contains("WARNING") && !output.contains("FATAL"), output);
             }
+            // Later JVMs reuse the verified extraction instead of adding a copy per
+            // launch. The first level's directory then also receives this level's
+            // build of the same generations, which must not disturb those files.
+            List<String> published = BridgeLoaderSourceTests.tree(folder.resolve("tmp-disjoint"));
+            check(published.stream().noneMatch(entry -> entry.contains("jvm-")), "extraction is still keyed by JVM identity");
+            for (Path temporary : new java.util.LinkedHashSet<>(List.of(folder.resolve("tmp-disjoint"),
+                    directory.resolve(OptimizationLevel.O0.toString()).resolve("tmp-disjoint")))) {
+                boolean sameBuild = temporary.startsWith(folder);
+                List<String> earlier = BridgeLoaderSourceTests.tree(temporary);
+                String output = BridgeEntryTests.run(folder, List.of(javaHome.resolve("bin/java").toString(), "-Xcheck:jni", "-Xmx64m",
+                        "-Djava.io.tmpdir=" + temporary, "-cp", folder.toString(), "ObjectLoaderConsumer", folder.toString(), "disjoint"),
+                        sameBuild ? "consumer-reuse" : "consumer-other-build");
+                check(output.endsWith("object-loader-ok:disjoint\n") && !output.contains("WARNING") && !output.contains("FATAL"), output);
+                List<String> after = BridgeLoaderSourceTests.tree(temporary);
+                check(sameBuild ? after.equals(published) : after.containsAll(earlier) && after.size() > earlier.size(),
+                        "later JVM launch changed the extraction cache: " + temporary);
+            }
         }
         System.out.println("permanent object loader evidence: " + directory);
     }

@@ -83,7 +83,23 @@ final class BridgeLoaderSourceTests {
                 check(java.util.Arrays.equals(Files.readAllBytes(image), content), "extraction changed bytes");
                 check(Files.getPosixFilePermissions(image).equals(PosixFilePermissions.fromString("rw-------")), "unsafe file mode");
                 check(Files.getPosixFilePermissions(image.getParent()).equals(PosixFilePermissions.fromString("rwx------")), "unsafe directory mode");
+                Path keyed = image.getParent().getParent();
+                check(keyed.getFileName().toString().equals(target) && keyed.getParent().getFileName().toString().equals(generation.identity()),
+                        "cache path lost its generation and target");
+                Path blob = keyed.getParent().getParent().resolve("blobs").resolve(payload.imageSha256());
+                check(Files.isSameFile(image, blob) && Files.getPosixFilePermissions(blob.getParent()).equals(PosixFilePermissions.fromString("rwx------")),
+                        "image is not a private link to its content blob");
+                // The path carries no process identity, so a later JVM selects the
+                // same files. A fresh loader stands in for that launch; it must
+                // verify and reuse them without creating or rewriting anything.
+                List<String> published = tree(cache);
+                check(published.stream().noneMatch(entry -> entry.contains("jvm-")), "extraction is still keyed by JVM identity");
+                try (var later = loader(classes)) {
+                    check(extract(Class.forName(generation.supportPackage() + ".Support", true, later)).equals(image), "later loader selected another image");
+                }
+                check(tree(cache).equals(published), "reused extraction wrote files");
                 Files.writeString(image.getParent().resolve("ignored.partial"), "stale unrelated partial");
+                Files.writeString(blob.getParent().resolve(".payload-stale.partial"), "stale unrelated partial");
                 check(extract(secondSupport).equals(image), "stale partial affected image selection");
                 Files.writeString(image, "corrupt existing image");
                 expectFailure(firstSupport, "extract", new Class<?>[0], java.io.IOException.class, "digest mismatch");
@@ -95,6 +111,11 @@ final class BridgeLoaderSourceTests {
                 Files.setPosixFilePermissions(image.getParent(), PosixFilePermissions.fromString("rwxr-x---"));
                 expectFailure(firstSupport, "extract", new Class<?>[0], java.io.IOException.class, "unsafe Ironwood extraction directory");
                 Files.setPosixFilePermissions(image.getParent(), PosixFilePermissions.fromString("rwx------"));
+                // The write above went through the shared inode. The damaged blob
+                // is named and refused; it is neither repaired nor linked again.
+                expectFailure(firstSupport, "extract", new Class<?>[0], java.io.IOException.class, "blobs/" + payload.imageSha256());
+                check(Files.notExists(image, java.nio.file.LinkOption.NOFOLLOW_LINKS) && Files.readString(blob).equals("corrupt existing image"),
+                        "damaged blob was linked or repaired");
             }
             for (String scenario : List.of("identity", "marker", "signature", "missing")) {
                 var altered = new java.util.TreeMap<>(sources);
@@ -154,21 +175,50 @@ final class BridgeLoaderSourceTests {
                 Files.createDirectories(root.resolve(dependencyPath).getParent()); Files.write(root.resolve(dependencyPath), dependency);
             }
         }
+        // Another native build of the same generation: a different image beside
+        // the same private runtime, as produced by another optimization level.
+        byte[] rebuiltImage = "rebuilt target image extraction fixture".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        var rebuiltPayloads = new ArrayList<BridgeLoaderSources.Payload>();
+        for (var payload : payloads) {
+            rebuiltPayloads.add(new BridgeLoaderSources.Payload(generation.nativeBuild(payload.build().target(), Map.of("fixture", "targets-rebuilt")),
+                    payload.minimumOs(), BridgeGeneration.bytesDigest(rebuiltImage), payload.dependencies()));
+        }
+        sources.put(generation.supportPackage().replace('.', '/') + "/Support.java", BridgeLoaderSources.generate(generation, declarations, rebuiltPayloads));
+        Path rebuiltClasses = compile(directory.resolve("targets-rebuilt"), sources);
+        for (var payload : rebuiltPayloads) {
+            Path root = rebuiltClasses.resolve("META-INF/ironwood/native/" + payload.build().target() + "/" + generation.identity());
+            Files.createDirectories(root); Files.write(root.resolve(payload.filename()), rebuiltImage);
+            if (!payload.dependencies().isEmpty()) {
+                Files.createDirectories(root.resolve(dependencyPath).getParent()); Files.write(root.resolve(dependencyPath), dependency);
+            }
+        }
         String os = System.getProperty("os.name"), arch = System.getProperty("os.arch"), version = System.getProperty("os.version"), bits = System.getProperty("sun.arch.data.model");
-        try (var loader = loader(classes)) {
+        try (var loader = loader(classes); var rebuiltLoader = loader(rebuiltClasses)) {
             Class<?> support = Class.forName(generation.supportPackage() + ".Support", true, loader);
+            Class<?> rebuiltSupport = Class.forName(generation.supportPackage() + ".Support", true, rebuiltLoader);
             for (String[] host : List.of(new String[]{"Mac OS X", "aarch64", "macos-arm64"},
                     new String[]{"Linux", "aarch64", "linux-arm64"}, new String[]{"Linux", "amd64", "linux-x86_64"})) {
                 System.setProperty("os.name", host[0]); System.setProperty("os.arch", host[1]); System.setProperty("os.version", "26.0");
                 String[] selected = (String[]) invoke(support, "requireHost", new Class<?>[0]); check(selected[0].equals(host[2]), "wrong selected target");
                 Path cache = directory.resolve("cache-" + host[2]); Files.createDirectory(cache); System.setProperty("java.io.tmpdir", cache.toString());
                 Path extracted = extract(support);
-                check(java.util.Arrays.equals(image, Files.readAllBytes(extracted)) && extracted.getParent().getFileName().toString().equals(host[2]), "wrong extracted target");
+                check(java.util.Arrays.equals(image, Files.readAllBytes(extracted))
+                        && extracted.getParent().getParent().getFileName().toString().equals(host[2]), "wrong extracted target");
+                // Both builds share one cache. Neither may claim or replace the
+                // other's image, which the former per-JVM directory guaranteed.
+                Path rebuilt = extract(rebuiltSupport);
+                check(!rebuilt.getParent().equals(extracted.getParent()) && rebuilt.getParent().getParent().equals(extracted.getParent().getParent()),
+                        "another build of the generation shared an image directory");
+                check(java.util.Arrays.equals(image, Files.readAllBytes(extracted)) && java.util.Arrays.equals(rebuiltImage, Files.readAllBytes(rebuilt)),
+                        "another build of the generation replaced an image");
                 if (host[0].equals("Linux")) {
                     Path library = extracted.getParent().resolve(dependencyPath);
                     check(java.util.Arrays.equals(dependency, Files.readAllBytes(library)), "dependency bytes changed");
+                    check(Files.isSameFile(library, rebuilt.getParent().resolve(dependencyPath)), "identical private runtime was stored once per build");
                     Files.writeString(library, "corrupted dependency");
                     expectFailure(support, "extract", new Class<?>[0], java.io.IOException.class, "digest mismatch");
+                    // The other build links the same damaged runtime and is refused too.
+                    expectFailure(rebuiltSupport, "extract", new Class<?>[0], java.io.IOException.class, "digest mismatch");
                     Files.delete(library); Files.createSymbolicLink(library, classes.resolve("META-INF/ironwood/native/" + host[2] + "/" + generation.identity() + "/" + dependencyPath));
                     expectFailure(support, "extract", new Class<?>[0], java.io.IOException.class, "unsafe Ironwood extraction file");
                 }
@@ -208,6 +258,19 @@ final class BridgeLoaderSourceTests {
         var method = type.getDeclaredMethod(name, parameters);
         method.setAccessible(true);
         return method.invoke(null, arguments);
+    }
+
+    /** Every entry below a temporary directory; regular files add identity, size and modification time. */
+    static List<String> tree(Path root) throws Exception {
+        var entries = new ArrayList<String>();
+        try (var paths = Files.walk(root)) {
+            for (Path path : paths.sorted().toList()) {
+                var attributes = Files.readAttributes(path, java.nio.file.attribute.BasicFileAttributes.class, java.nio.file.LinkOption.NOFOLLOW_LINKS);
+                entries.add(root.relativize(path) + (attributes.isRegularFile()
+                        ? " " + attributes.fileKey() + " " + attributes.size() + " " + attributes.lastModifiedTime() : ""));
+            }
+        }
+        return entries;
     }
 
     private static Path extract(Class<?> type) {

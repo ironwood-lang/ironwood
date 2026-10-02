@@ -9240,3 +9240,65 @@ occurrence order. If no
 - **Evidence:** The native-only floor of the OrderBook bridge library improves
   from about 96 to 88 ns per cycle, and the JNI bridge from 1544.8 to 1464.0 ms.
   Applying the same tuning to portable executables is a separate decision.
+
+## D243 - Reuse verified Java Bridge extractions across JVMs
+
+- **Status:** Implemented on 2026-10-02. The maintainer selected this scope over
+  per-JVM deletion after reviewing the alternatives below.
+- **Finding:** The generated loader extracted into
+  `jvm-<pid>-<start hash>/<generation>/<target>/` and never removed it. On the
+  Linux x86-64 host each launch left about 25 MB: 23.9 MB of `libstdc++.so.6`,
+  0.9 MB of `libgcc_s.so.1` and a 0.36 MB image. 74 leftover directories held
+  1.8 GB with one runtime digest and three image digests. That `/tmp` is only
+  emptied at boot. The per-JVM directory existed because the image filename is
+  independent of its digest: two native builds of one generation would
+  otherwise contend for one path, and the second would be refused forever.
+- **Decision:** Extract into
+  `ironwood-java-bridge-<owner hash>/<generation>/<target>/<payload digest>/`,
+  where the digest covers the relative path and SHA-256 of every file selected
+  for the target. The path carries no process identity, so later JVMs select it,
+  repeat the owner, mode and SHA-256 checks on every file, and load it without
+  writing. Each distinct file is published once as
+  `ironwood-java-bridge-<owner hash>/blobs/<sha256>` and hard-linked into each
+  build directory, so the private runtime is stored once per user rather than
+  once per build. The loader deletes nothing.
+- **Preserved:** Owner-only directories and files, validated at every level
+  without following links. Exclusive partial files, verification before
+  publication, and atomic hard-link publication that cannot replace an existing
+  file. No overwrite or repair of an existing file or directory. One canonical
+  path for identical payloads, so the JVM still refuses the same image in a
+  second defining loader (D191, D201). D203's version refusal still precedes
+  extraction. No process-global Java registry, shutdown hook or warmed-call
+  work is added.
+- **Changed behavior:** A broken or unsafe cached file is now refused by every
+  launch until the user removes it, where a new JVM formerly started from an
+  empty directory. A damaged blob is refused before any build links to it and
+  blocks every build that shares it. A different native build of one generation
+  in a second loader of the same JVM formerly failed with a digest mismatch; it
+  now selects its own directory and loads as an independent image, exactly as a
+  different generation in a second loader already did. Isolated duplicate
+  worlds remain unsupported. Stale partial files from a killed extraction stay
+  in `blobs` and are never selected. The cache grows by one image per distinct
+  build and is bounded by builds, not launches; users may delete it between
+  launches.
+- **Alternatives rejected:** Deleting the per-JVM directory at exit misses
+  killed or crashed JVMs, and a sweep of directories whose owner is gone
+  misjudges liveness when a temporary directory is shared across PID
+  namespaces, so it could delete a live JVM's image before it loads; it also
+  makes the loader delete paths it did not create. Unlinking after load leaves
+  nothing on success but removes the on-disk image that debuggers, profilers
+  and crash reports resolve, extracts again for a refused second loader, and
+  would need D210's macOS signature qualification repeated. Both keep the full
+  write on every launch.
+- **Supersession:** Replaces the JVM PID/start component of the P2 loader cache
+  recorded in `COMPILER.md` and the progress log's statement that a later JVM
+  gets its own cache. Refines the plan's loader step 4. D191, D201, D203 and
+  D210 are unchanged.
+- **Verification:** The generated-loader source test covers path identity,
+  write-free reuse by a fresh loader, coexisting builds of one generation, a
+  runtime file shared between builds, and refusal without repair of a damaged
+  image, damaged blob, symlink and unsafe directory. The permanent-facade loader
+  test reruns a consumer JVM against a populated cache and against a cache
+  holding another optimization level's build of the same generations. On the
+  Linux x86-64 host five OrderBook launches left 24.6 MB in total where the
+  previous loader added 24.6 MB per launch, and a second build added 0.4 MB.

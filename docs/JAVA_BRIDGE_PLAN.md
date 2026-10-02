@@ -1180,6 +1180,8 @@ Loader sequence:
 4. Extract to a private, versioned location with safe filenames, restrictive
    permissions, atomic creation, and payload integrity checks. Handle concurrent
    JVMs and stale partial files. A digest checks consistency, not publisher trust.
+   D243 makes this location a content-addressed per-user cache that later JVMs
+   verify and reuse, replacing the earlier directory per JVM.
 5. Load the exact absolute path and validate bootstrap schema/API/build identity.
    Preflight all package markers and resolved generated classes before any
    native registration; only then bind the checked classes and publish the
