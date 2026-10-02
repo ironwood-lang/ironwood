@@ -106,7 +106,8 @@ it includes the installed-IDK smoke addition but predates only a supplementary
 mixed-argument allocation-failure assertion. All final Linux builds verify the
 per-file input manifest. Both Linux hosts passed five selected tests, 28 Java
 22/23 replays and every full benchmark checksum/allocation assertion. Mac final
-producer/packaging and 28 Java 22/23 replays passed; Java 24 remains refused.
+producer/packaging and 28 Java 22/23 replays passed; Java 24 was refused at that
+revision (D245 later admits it).
 The supplementary mixed-failure check passed nine children on each target using
 the exact final source/class/archive producer jars. Its JSON records jar/source
 identities and commands separately from the frozen input archive.

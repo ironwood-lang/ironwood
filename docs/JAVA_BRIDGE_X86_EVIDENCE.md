@@ -11,7 +11,8 @@ collection, including D213's deferred P0-10 stack experiments. The nine supporte
 platform/JDK cells now have matching execution evidence. **Final numerical
 acceptance remains the maintainer's review; P6b and release readiness remain
 open.** No production change or expanded support was needed. P5/P7 are deferred;
-Java 21-23 remain supported and Java 24+ remains refused.
+Java 21-23 remain supported and Java 24+ remains refused at this run's
+revision; D245 later admits Java 24 and 25.
 
 ## Hardware, identities and execution
 

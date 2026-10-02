@@ -14,7 +14,14 @@ import zipfile
 ROOT = Path(__file__).resolve().parents[2]
 P7 = ROOT / 'scripts/java-bridge/p7'
 EXAMPLES = ROOT / 'examples/java-bridge'
-PINS = {21: '21.0.12.1+1', 22: '22.0.2+9', 23: '23.0.2+7'}
+PINS = {21: '21.0.12.1+1', 22: '22.0.2+9', 23: '23.0.2+7', 24: '24.0.2+12', 25: '25.0.4.1+1'}
+REQUIRED = (21, 22, 23)
+
+
+def native_access(major, modules=None):
+    # Java 24 and 25 treat System.load as a restricted method (JEP 472); the grant keeps expected output exact.
+    if major < 24: return []
+    return ['--enable-native-access=' + (','.join(modules) if modules else 'ALL-UNNAMED')]
 CASES = {
     'arrays': ('arraybench', sorted((EXAMPLES / 'arrays').glob('ArrayOps.iron'))),
     'byteviews': ('bytebench', [EXAMPLES / 'byteviews/ByteOps.iron']),
@@ -57,12 +64,12 @@ def check_classes(path):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--target', required=True, choices=['macos-arm64', 'linux-arm64', 'linux-x86_64'])
-    parser.add_argument('--jdk', required=True, action='append', help='21=/path/to/home, repeated for 22 and 23')
+    parser.add_argument('--jdk', required=True, action='append', help='21=/path/to/home, repeated for 22 and 23; 24 and 25 are optional')
     parser.add_argument('--output', required=True, type=Path, help='New evidence directory')
-    parser.add_argument('--producer', type=int, choices=[21, 22, 23], help='Only this producer, for focused retries')
+    parser.add_argument('--producer', type=int, choices=sorted(PINS), help='Only this producer, for focused retries')
     args = parser.parse_args()
     homes = {int(value.split('=', 1)[0]): Path(value.split('=', 1)[1]).resolve() for value in args.jdk}
-    if set(homes) != set(PINS): parser.error('supply all three pinned JDK homes')
+    if not set(REQUIRED) <= set(homes) <= set(PINS): parser.error('supply the pinned JDK 21, 22 and 23 homes; 24 and 25 are optional')
     out = args.output.resolve(); out.mkdir(parents=True, exist_ok=False)
     records = []
     env = os.environ.copy()
@@ -149,7 +156,7 @@ def main():
         inventory['ironwoodc.jar'] = {'sha256': digest(folder / 'ironwoodc.jar'), 'classes': check_classes(folder / 'ironwoodc.jar')}
         (folder / 'artifacts.json').write_text(json.dumps(inventory, indent=2) + '\n')
         cp = os.pathsep.join(str(p) for p in sorted(artifacts.glob('*.jar')))
-        sources = [P7 / 'CombinedConsumer.java', P7 / 'VersionRefusal.java',
+        sources = [P7 / 'CombinedConsumer.java', P7 / 'VersionAdmission.java',
             EXAMPLES / 'basics/src/main/java/org/ironwood/javabridge/basicsconsumer/Main.java',
             EXAMPLES / 'value/src/main/java/org/ironwood/javabridge/consumer/Main.java',
             ROOT / 'projects/OrderBook/java/src/main/java/org/ironwood/orderbook/Main.java']
@@ -162,7 +169,7 @@ def main():
                     with tempfile.TemporaryDirectory(dir=cell) as temporary:
                         run(cell, name + ('-checked' if checked else ''), [consumer_home / 'bin/java',
                             '-Djava.io.tmpdir=' + temporary, *(['-Xcheck:jni'] if checked else []),
-                            '-cp', cp + os.pathsep + str(classes), name], selected, expected)
+                            *native_access(consumer), '-cp', cp + os.pathsep + str(classes), name], selected, expected)
             modules = []
             for jar in sorted(artifacts.glob('*.jar')):
                 with zipfile.ZipFile(jar) as archive:
@@ -172,7 +179,7 @@ def main():
                     modules.append(next(line.split(': ', 1)[1] for line in manifest.splitlines() if line.startswith('Automatic-Module-Name: ')))
             with tempfile.TemporaryDirectory(dir=cell) as temporary:
                 run(cell, 'module', [consumer_home / 'bin/java', '-Djava.io.tmpdir=' + temporary,
-                    '-Xcheck:jni', '--module-path', cp, '--add-modules', ','.join(modules),
+                    '-Xcheck:jni', *native_access(consumer, modules), '--module-path', cp, '--add-modules', ','.join(modules),
                     '-cp', classes, 'CombinedConsumer'], selected, EXPECTED['CombinedConsumer'])
         (folder / 'exit.txt').write_text('0\n')
     (out / 'exit.txt').write_text('0\n')

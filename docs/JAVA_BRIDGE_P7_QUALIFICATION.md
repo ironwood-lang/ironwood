@@ -290,7 +290,8 @@ worktrees, main changes, pushes or publication occurred.
 with JNI retained; optional FFM remains unimplemented. P7a-P7d stay within their
 accepted bounded contracts. Unsupported array/object shapes, unrestricted
 generics and callback patterns outside the proofs remain rejected. Java 21-23
-remains the supported baseline, with Java 24+ refusal unchanged.
+remained the supported baseline at this run's revision, with Java 24+ refusal
+unchanged; D245 later admits Java 24 and 25.
 
 No P7 implementation or selected x86-64 hardware validation remains pending.
 Numerical acceptance of the new extension measurements remains the maintainer's

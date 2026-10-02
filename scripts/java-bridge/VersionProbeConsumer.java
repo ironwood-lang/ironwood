@@ -14,7 +14,7 @@ public final class VersionProbeConsumer {
                     VersionProbe.value();
                     throw new AssertionError("blocked target executed");
                 } catch (UnsatisfiedLinkError refusal) {
-                    if (!mode.equals("refuse") || !refusal.getMessage().contains("requires Java 21-23; detected " + Runtime.version())) throw refusal;
+                    if (!mode.equals("refuse") || !refusal.getMessage().contains("requires Java 21-25; detected " + Runtime.version())) throw refusal;
                     System.out.println("refused:" + refusal.getMessage());
                 } catch (IllegalCallerException denial) {
                     if (!mode.equals("deny") || !denial.getMessage().contains("native access")) throw denial;

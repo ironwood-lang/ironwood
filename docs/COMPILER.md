@@ -555,13 +555,13 @@ alone needs extracted detailMessage completion; overwriting the same field on
 file/path exceptions would corrupt their constructor-derived reason/message.
 The private JNI fixture validates DateTime transport/allocation fallback, native
 cause cycles and copy limits, IOException wrappers and file/path snapshot fields
-on Java 21-23. It also checks native secondary order/limits, trace truncation,
+on Java 21-25. It also checks native secondary order/limits, trace truncation,
 retained initializer failures and an implicit OOM secondary followed by another
 call. D070/D081's second allocation failure during active implicit-OOM unwinding
 remains a documented target-process termination, tested separately in a child;
 the bridge does not expand native catchability. Public source/archive producer
 jars additionally verify those graph/field/initializer cases and native/Java
-exhaustion recovery on Java 21-23, with exact payload identities in the P2 audit.
+exhaustion recovery on Java 21-25, with exact payload identities in the P2 audit.
 
 `BridgeValueNativeSources` generates scalar and copied-String JNI marshalling
 from those proved typed entries. The generated registration descriptors retain
@@ -584,12 +584,12 @@ Original-loader repeats are idempotent; another loader, changed class set or
 failed binding is refused. Late registration failure unregisters this artifact's
 completed classes and the potentially partial failing class, preserving the
 original Java failure. The mapped-image flag never resets. O0/O3 integration
-fixtures package generated jars, load them automatically on Java 21-23, preserve
+fixtures package generated jars, load them automatically on Java 21-25, preserve
 signed macOS image bytes, and verify lazy native initialization and allocation
 failure containment. Public-producer O0/O3 jars now pass duplicate-class and
 package-only collision checks in both resolution/first-use orders, disjoint
 loading, mixed-class/signature refusal, explicit bootstrap pairing, GC anchoring
-and retained-image reload refusal on Java 21-23. A separate fault producer counts
+and retained-image reload refusal on Java 21-25. A separate fault producer counts
 partial-registration cleanup while preserving a loaded disjoint artifact.
 Deployment controls cover unsupported hosts/floors, missing/corrupt resources,
 unsafe extraction directories, unchanged corrupt existing files and native-build
@@ -651,7 +651,7 @@ admission and consumes no lifetime proof. x86-64 shared images receive the
 `NativeBackend.portableTuning`, which D244 extended to every portable x86-64
 image; the recorded `cpu.tuning` input is unchanged.
 
-`BridgeProducer` supports JDK 21, 22 and 23 with compiler/Javadoc tools and JNI headers,
+`BridgeProducer` supports JDK 21, 22, 23, 24 and 25 with compiler/Javadoc tools and JNI headers,
 the pinned LLVM toolchain and the matching macOS SDK or Linux support SDK. It uses the existing optimizer and
 shared linker, verifies the signed final image and derives its deployment floor
 from that image. It stages Java 21 classes, generated Java source/Javadoc (including
@@ -662,7 +662,8 @@ The Java automatic module name derives from the producing jar basename and stays
 stable across implementation updates under that name. Use distinct producing
 basenames for independent modules. Consumer renaming does not change that name.
 `META-INF/ironwood/bridge.properties` records it and the paired build inventory.
-Consumers use ordinary Java 21-23 dependency loading without native tools.
+Consumers use ordinary Java 21-25 dependency loading without native tools; on Java 24
+and 25 the JDK's native-access policy applies to the loader's `System.load` (D245).
 
 `BridgeGeneration` separates the logical Java API hash from the complete analyzed
 source-program and producer generation, target-specific native build identity,
@@ -807,11 +808,11 @@ field loads, conversion errors and source execution remain inside those protecte
 typed entries. Focused pure-enum and mixed permanent-object jars cover cold calls,
 nullable/empty values, initializer failure, copied Strings and zero-allocation
 warmed calls. Separate injected artifacts cover metadata, preparation and delivery
-failure cleanup. Java 24 permits Java-only enum inspection and refuses native use
-before extraction. These checks do not complete P3 or final qualification.
+failure cleanup. Java 24 and 25 permit Java-only enum inspection without extraction
+and then load normally under the JDK's native-access policy. These checks do not complete P3 or final qualification.
 
 `BridgeLoaderSources` generates the artifact-private multi-target support
-class. Its one-time path checks Java 21-23, preflights all resolved identity and
+class. Its one-time path checks Java 21-25, preflights all resolved identity and
 private-native descriptors without initializing facades, checks host constraints,
 then verifies/extracts the selected image and private dependencies before loading
 and native bootstrap. Linux host packaging audits ELF architecture, eager binding,

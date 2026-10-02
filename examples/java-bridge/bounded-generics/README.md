@@ -8,7 +8,7 @@ native representation. Java calls use the source API without handwritten JNI
 or loading code. A holder retains its input root until replacement or `free()`;
 destroy holders before their retained values. `echo` preserves input identity.
 
-With a supported JDK 21, 22 or 23 selected in `JAVA_HOME` and LLVM 23 on PATH, and the prepared support SDK
+With a supported JDK 21 to 25 selected in `JAVA_HOME` and LLVM 23 on PATH, and the prepared support SDK
 on Linux, run from the repository root:
 
 ```sh
@@ -17,8 +17,8 @@ on Linux, run from the repository root:
 ./examples/java-bridge/bounded-generics/run.sh
 ```
 
-Expected output: `bounded values: 17 29`, exit zero. Java 21-23 use the same jar;
-Java 24+ remains refused. Unrestricted mutable `Holder<T>`, generic methods,
+Expected output: `bounded values: 17 29`, exit zero. Java 21-25 use the same jar;
+Java 26+ is refused. Unrestricted mutable `Holder<T>`, generic methods,
 generic arrays, listeners and inheritance remain rejected. Every variable must
 have a single admitted final facade bound. See the
 [usage contract](../../../docs/JAVA_BRIDGE_USAGE.md#bounded-generic-inputs).

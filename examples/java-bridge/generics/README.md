@@ -9,7 +9,7 @@ the producer generates the loading and JNI code. Shared Quote/Trade values have
 proved process lifetime. Each factory-created box is an owning root, explicitly
 freed by the consumer. Reading through a wildcard preserves the actual value.
 
-With a supported JDK 21, 22 or 23 selected in `JAVA_HOME` and LLVM 23 on PATH, and the prepared Linux support
+With a supported JDK 21 to 25 selected in `JAVA_HOME` and LLVM 23 on PATH, and the prepared Linux support
 SDK when building on Linux, run from the repository root:
 
 ```sh
@@ -19,7 +19,8 @@ SDK when building on Linux, run from the repository root:
 ```
 
 Expected output: `generic values: 17 29`. Successful execution exits zero.
-Java 22 and 23 can consume the same artifact. Java 24+ remains refused.
+Java 22 to 25 can consume the same artifact; Java 24 and 25 need the
+native-access grant to stay warning-free. Java 26+ is refused.
 Public generic construction/mutation, generic facade parameters, standalone
 generic methods, generic arrays and generic inheritance remain outside P7d1.
 See the [bridge usage guide](../../../docs/JAVA_BRIDGE_USAGE.md).

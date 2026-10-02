@@ -37,13 +37,15 @@ own boundary, replacing those candidates; JNI stays the default.
 three targets; numerical acceptance of the extension measurements remains review.
 Release work belongs to the maintainer,
 outside this implementation task.
-JDK 21, 22 and 23 are supported producer and consumer environments under D239.
+JDK 21, 22 and 23 are supported producer and consumer environments under D239,
+and D245 adds Java 24 and 25 under the JDK's native-access policy.
 Compiler and generated Java classes/APIs retain the Java 21 baseline. Exact
 pairing/assembly checks remain mandatory; see the
 [JDK workflow verification record](JAVA_BRIDGE_JDK_PROGRESS.md).
 
 The release gates below still apply. The maintainer selected **Java 21-23** as the initial consumer
-support range, deferring Java 24+ and its native-access authorization work.
+support range, deferring Java 24+ and its native-access authorization work;
+D245 later admitted Java 24 and 25 with documented native-access grants.
 This replaces the initial Java 21+ target. The maintainer selected explicit
 `free()` for native reclamation (D189) and compiler ownership proofs plus shared
 Java lifetime state (D190), including the stated boundary costs. The maintainer
@@ -62,7 +64,8 @@ D201 adds dependency/stack experiments, explicit OOM-state cleanup and permanent
 loader binding for the first release.
 D202 requires eager Linux symbol binding, defines the private-entry trust boundary
 and rejects mixed reclaimable result ownership in the first release.
-D203 sets the current Java-only version guard refusing Java 24+ before loading.
+D203 sets the Java-only version guard before loading; D245 moves its refusal to
+Java 26+.
 D204 places the authoritative root index in native memory, separate from Java's
 weak facade caches, so adapter-side registration cannot depend on Java allocation.
 D205 defines host/JDK preparation and separates translated functional evidence
@@ -71,6 +74,7 @@ D206 specifies noncritical JNI string access and matched buffer cleanup.
 D207 distinguishes bridge lifetime refusals with an artifact-private exception subtype.
 D208 makes actual OrderBook constructor rollback a P0-8 proof/runtime experiment.
 D209 reopens D203 as a product choice: test Java 25 in P2 and decide before P6.
+D245 records that decision: Java 24 and 25 are admitted.
 D210 adds macOS signature-preservation and pinned-launcher load experiments in P1.
 D211 makes P0-5/P0-8 reusable compiler analysis foundations carried forward into P3.
 D212 divides P0/P3/P6 into dependency checkpoints and defines shared-model handoffs.
@@ -148,17 +152,17 @@ be necessary on the consumer's machine.
 | Matching native and Java builds | Automatic validation before user code executes. |
 | OS/CPU selection | Automatic among packaged, compatible targets. |
 | Java 21-23 JNI class-path application | No bridge-specific launch flags under ordinary JVM policy. |
-| Java 24+ | D203's current baseline refuses before native loading. D209 schedules a Java 25 warning-versus-refusal experiment in P2 and a decision before P6; support is not yet expanded. |
+| Java 24-25 | Admitted under D245. The JDK's default policy warns once at `System.load`; the documented `--enable-native-access` grant or manifest attribute silences it, and `--illegal-native-access=deny` fails cleanly before native use. |
+| Java 26+ | Refused before native loading by D203's guard. |
 | Native cleanup | Explicit `free()` with compiler ownership proofs and shared Java lifetime state. No automatic fallback is implied. |
 | Unsupported signature or unsafe ownership | Producer build diagnostic, not generated methods that fail only when called. |
 | Unsupported platform or restricted extraction | Clear load-time diagnostic; no guessed binary or runtime download. |
 
 The initial release uses generated JNI on Java 21, 22, and 23. Automatic native
-loading is part of the bridge; consumers do not supply native-access flags.
-Java 24+ support, permission handling, executable-manifest grants, and related
-deployment support tests are deferred, except for D209's bounded Java 25 product
-experiment. The D203 refusal test remains required under the current baseline;
-the D209 decision must update the version policy and its tests before P6 if changed.
+loading is part of the bridge; consumers on Java 21-23 do not supply native-access
+flags. D245 admits Java 24 and 25: consumers may supply the documented grant to
+silence the JDK's warning, and the version-policy tests cover the default,
+granted and denied launches. Refusal tests cover the predicate for Java 26+.
 Compiling facade classes with `--release 21` does not imply support for every
 later Java version. FFM also remains a separate future option.
 
@@ -1173,8 +1177,8 @@ hierarchies, checked signatures, enum names, and generated support isolation.
 
 Loader sequence:
 
-1. Check `Runtime.version().feature()` in Java; admit only 21, 22 and 23.
-   Refuse Java 24+ before resource extraction, `System.load` or native bootstrap.
+1. Check `Runtime.version().feature()` in Java; admit only 21 to 25 (D245).
+   Refuse other versions before resource extraction, `System.load` or native bootstrap.
 2. Resolve the resource from the facade's defining loader and identify the host.
 3. Select a compatible payload; report available targets when none matches.
 4. Extract to a private, versioned location with safe filenames, restrictive
@@ -1190,21 +1194,22 @@ Loader sequence:
 7. Keep the successfully bound defining loader and image alive for the JVM's
    lifetime as specified below. Freeing every object does not release that binding.
 
-**D203: current baseline, subject to D209's product review.** Unsupported JVM
+**D203 guard, with D245's admitted range.** Unsupported JVM
 versions fail at first native use. The version guard
 throws `UnsatisfiedLinkError` identifying the artifact, detected full runtime
-version and supported range (Java 21-23). There is no consumer bypass or native-access flag
+version and supported range (Java 21-25). There is no consumer bypass or native-access flag
 workaround. Keep this check in one-time loading, not warmed method calls. Pure
 Java enum initialization and type inspection need not load the bridge or fail
 this check. Java versions below 21 normally reject the facade class-file version
 before this guard can run; no custom diagnostic is promised there.
 
-D203 is stricter than the documented default native-access policy of
+D203's original Java 24+ refusal was stricter than the documented default native-access policy of
 [Java 24](https://docs.oracle.com/en/java/javase/24/docs/specs/man/java.html) and
 [Java 25](https://docs.oracle.com/en/java/javase/25/docs/specs/man/java.html), which
-warn rather than deny by default. It is a product choice, not an unavoidable JVM
-requirement. D209's separate experimental artifact may admit exactly Java 25 to
-evaluate that choice; the ordinary artifact retains this guard pending review.
+warn rather than deny by default. It was a product choice, not an unavoidable JVM
+requirement. D209's experimental artifact admitted exactly Java 25 to evaluate
+that choice, and D245 admitted Java 24 and 25 under that default policy with
+documented grants.
 
 ### Class identity and registration preflight
 
@@ -1373,9 +1378,9 @@ creation before native entry; no bridge-specific diagnostic is promised when
 the JVM rejects the [module configuration](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/module/Configuration.html) first.
 Custom nested/fat-jar loaders and relocated/shaded facades are unsupported in
 the first release. Test extraction failure, read-only/noexec
-locations, paths with spaces, checksum mismatch, and missing symbols. Java 24+
-native-access support tests are deferred except for D209's P2 Java 25 experiment.
-Unsupported-version refusal remains required under the current P2/P6 baseline.
+locations, paths with spaces, checksum mismatch, and missing symbols. Java 24/25
+native-access launch tests (default warning, grants, denial) are covered under
+D245. Unsupported-version refusal remains required for the predicate.
 Offer advanced location overrides only
 for real deployment constraints; ordinary use must require none.
 
@@ -1479,7 +1484,7 @@ or weakening a phase's exit criteria. A submilestone is not a separate release.
 | P2: first plug-and-play jar | Extend the shared model with deterministic package/signature discovery, exclusive packages and generation identity; emit Java 21 source/classes, generated JNI, complete registration preflight, loader with JVM version guard, manifest pairing and a macOS ARM64 preview jar with required notices/source availability. Static primitives and copied strings where cleanup is proved; built-in exception mapping and trace snapshots. | Plain Java 21-23 consumer runs without native tools, flags or manual loading; signature types outside exports diagnosed; disjoint artifacts work; colliding packages/classes fail before any rebinding and preserve an already usable artifact; platform/build/extraction errors remain actionable. D203 version-predicate checks and the Java 24 refusal smoke test pass before extraction/native loading. Permanent loader anchoring and mapped-image rebinding refusal pass the GC/reload fixture. Java catches expected built-in checked/unchecked types with correct declarations, messages, representable causes/secondary failures and Ironwood frames; initializer/repeated failures and translation exhaustion are tested. Under `IRONWOOD_ALLOCATION_LIMIT`, string argument conversion raises Java `OutOfMemoryError` before target effects; result/snapshot failures return safely and the child JVM continues. D206 API inspection and normal/exceptional/partial-acquisition string-buffer cleanup checks pass. D210 signature/extraction/load checks repeat through the generated macOS jar/loader. D209 Java 25 default-policy comparison and recommendation are recorded, including any failures. |
 | P3: object and lifetime model | Constructors, identity, Java-only inherited Object methods with immutable facade metadata, concrete facades/static nested types/enums with typed initialization-before-conversion, owner/dependent enforcement, explicit `free()`, failure rollback, mandatory native root-index capacity/global-reference preallocation, nonthrowing adapter commit, generated signature validation; extend/integrate D211's P0 retention-slot and non-reclamation analyses, implement root-only persistent slot records and world-level identity caching; generate custom exception classes, hierarchy and snapshot getters. | D211's reused analyses cover the admitted production surface, preserve P0 regressions and cannot be disabled to bypass export proof. Mixed fresh/existing reclaimable result origins fail producer build; nullable single-ownership and uniformly permanent results retain their supported behavior. D207 lifetime-refusal type/counter checks and producer-error controls pass. Reclaimable aliases remain safe; root-slot writes/clears reconcile on success and failure, including helper writes to known argument roots; copied/moved slot values, child-held slots and unknown owner/effect cases fail export. Counts survive facade GC; cleanup verified. Reservation failure prevents native execution; count/slot commits finish before any Java error delivery, including after store-then-throw. Post-return StackOverflowError/facade-allocation failure cannot expose undercounts or unregistered roots. D204 weak-cache insertion failure and collection preserve the indexed state on re-exposure; eligible destruction occurs once, and index/global-reference cleanup passes. Inherited equality/hash/text stay stable after free, hash-collection removal works, and asynchronous logging performs no native entry; source overrides keep liveness/confinement requirements. Cold enum receiver/argument calls and initializer failure pass before P4. P2 collision checks cover object facades as well; valid same-world arguments work, with no fabricated public cross-world case. Permanent pooled returns and receiver publication pass without fabricated ownership; reachable reclamation or unknown deallocation effects fail the permanent proof. Source/class/archive results agree. Custom checked/unchecked declarations, superclass catches and getter values pass Java consumer tests; unsupported projections fail producer build and snapshots remain valid after eligible native cleanup. Throwing/allocating custom getters stay inside protected snapshot extraction and exercise its bounded fallback. |
 | P4: current OrderBook | Apply P3's non-reclamation proof to the dedicated engine closure; generate its actual API including nested enums and pooled orders; run the paired workload and section 11's P4 allocation acceptance cases. | `createLimit`, `cancel` and `reduceTo` export successfully under the proved permanent-storage contract; consumer imports actual classes without glue; correctness matches; D207 capacity-exhaustion controls remain producer exceptions, not bridge refusals; warmed scalar/cache-hit loops have zero native and Java allocations with strongly held facades, and weak-cache recreation meets the separate miss/collection criteria. No liveness bookkeeping is added to permanent scalar calls. Retention/cross-owner argument tests use the separate reclaimable fixture. Timing acceptance is deferred to P6. |
-| P6: distribution and final release readiness | Multi-target assembly, final classloader/module qualification, producer Maven/Gradle conventions, sources/Javadoc, license/source payloads, deployment diagnostics, final performance measurements. | Before starting, D209's product decision and any revised guard/tests/matrix are recorded. Clean consumer machines need only supported Java and dependency; all nine pinned Temurin/target cells below pass their focused checks on matching hardware under D205, including diagnostic and flag-free launches; the separate Java 24 refusal test passes; package content reproducible and reviewed; D210 macOS signature/load checks pass on final payloads; final numerical performance acceptance recorded. |
+| P6: distribution and final release readiness | Multi-target assembly, final classloader/module qualification, producer Maven/Gradle conventions, sources/Javadoc, license/source payloads, deployment diagnostics, final performance measurements. | Before starting, D209's product decision and any revised guard/tests/matrix are recorded. Clean consumer machines need only supported Java and dependency; all nine pinned Temurin/target cells below pass their focused checks on matching hardware under D205, including diagnostic and flag-free launches; the separate Java 24/25 policy checks pass (D245); package content reproducible and reviewed; D210 macOS signature/load checks pass on final payloads; final numerical performance acceptance recorded. |
 | P5: bounded callbacks and Java exception propagation, implemented and qualified | Typed foreign calls/proxies, conservative effects, retained listener lifecycle, nested invocation contexts and callback-originated Java throwable propagation. Reuse P2/P3 native-to-Java translation. | Listener works as a Java interface; reentrancy, retained arguments and callback-triggered free tested; unchanged callback throwables preserve Java identity through nested calls, with carrier cleanup on catch/replace/retain paths; neither runtime unwinds across the boundary. D206 string-bearing callbacks allocate, reenter and throw without critical-region violations or leaked outer/nested buffers. |
 | P7: measured optimization and API expansion | D231 compiler-proved automatic callback batching, D233 copied primitive arrays and D234 bounded byte views are implemented and qualified. P7d0-P7d2 bounded reference generics and P7e0's isolated transport experiment are complete; D238 retains JNI, P7e1/P7e2 remain unimplemented, and P7f combined qualification is complete; new numerical acceptance remains review. | Each extension has a compatibility/proof contract, focused tests, allocation evidence, and machine-code/benchmark justification. |
 
@@ -1501,7 +1506,7 @@ Planning checkpoint, 2026-09-28. The maintainer requested this breakdown after
 closing P5 implementation and deferring further callback performance work.
 These are planned boundaries, not newly supported APIs or authorization to
 implement every extension. P7a is already delivered; the maintainer subsequently
-authorized P7b. Keep Java 21-23, the Java 24+ refusal, the three current targets, exact
+authorized P7b. Keep the supported Java range (21-23 then, 21-25 under D245), the three current targets, exact
 exports and generated wiring. No handwritten JNI, native declarations or loader
 code is required from application developers. Explicit data ownership remains
 part of using the API.
@@ -1958,7 +1963,7 @@ This is preparation for the ten cases, not an eleventh experiment:
 | Compiler-only assertions, including the proof portions of P0-5/P0-7/P0-8 | Any prepared host may run them. Preserve both lowering pipelines where applicable; no target execution claim follows. |
 | P0-9 static disassembly | Cross-built or emulation-built target artifacts may satisfy structural checks on any inspection host. Inspect the actual O0/O3 target adapter/typed-entry machine code and handwritten JNI baseline, record target triples and binary hashes, and match them to the functional fixtures. Do not inspect Rosetta's translated code or infer timings or runtime stack behavior. |
 | P0-10 stack envelope and limit probes | Require matching hardware on all three targets: ARM64 macOS, ARM64 Linux (including Colima virtualization), and Linux on physical x86-64 hardware, optionally through same-architecture virtualization. Execute the ARM64 cases in P0 and the x86-64 hardware cases at the end of P6b under D213. Rosetta/QEMU translated stack runs are diagnostic only and cannot pass this case. |
-| P6 runtime, stack, allocation and timing evidence | All nine JVM/target cells require matching hardware with the same virtualization allowance; no translated run passes a release cell. Record VM resources and host contention for timing review. The Java 24 refusal test runs on macOS ARM64 as already specified. |
+| P6 runtime, stack, allocation and timing evidence | All nine JVM/target cells require matching hardware with the same virtualization allowance; no translated run passes a release cell. Record VM resources and host contention for timing review. The Java 24/25 admission and denial checks run on macOS ARM64 with the pinned launchers (D245). |
 
 Run each runtime case below on macOS ARM64, Linux ARM64 and Linux x86-64 using
 the pinned Temurin 21 build in the P6 matrix, with native `-O0` and `-O3` and
@@ -2035,6 +2040,8 @@ rows need complete evidence before release; numerical performance remains deferr
 the completed macOS ARM64 value experiment. The maintainer retains Java 21-23
 and Java 24+ refusal for this run to keep its qualification scope bounded.
 This settles the required pre-P6 product decision without expanding the matrix.
+On 2026-10-02, D245 revisited that outcome and admitted Java 24 and 25; the
+experiment steps below are retained as the historical procedure.
 The experiment procedure below remains the reproducible acceptance contract.
 
 Run this when the P2 jar and consumer exist, not during the documentation pass
@@ -2082,15 +2089,15 @@ prerequisite to starting P6, not a requirement that the Java 25 probe succeed.
 Provision all pinned JDKs below using P0's explicit selection and checksum/cache
 rules before P6. Add Temurin 22/23 for both Linux image architectures and reverify
 the macOS 21/22/23 installations provisioned in P1 under D210,
-plus the macOS Java 24 refusal-test build already required in P2. Reconfirm
+plus the macOS Java 24/25 launchers, which D245 makes supported pins. Reconfirm
 access to D205's matching hardware hosts before scheduling the nine cells.
 The existing translated x86-64
 runner can provide rehearsal results only for release qualification. Under D213,
 missing x86-64 hardware does not block P6a or ARM64 P6b work; it blocks completion
 of P6b and release. It does not authorize a new hosted or paid test environment.
 
-The following is the current baseline, to be revised explicitly before P6 if
-D209 selects broader support. The mandatory reference distribution is
+The following is the Java 21-23 baseline; D245 extends it as described after
+the table. The mandatory reference distribution is
 **Eclipse Temurin HotSpot**.
 Use the following exact consumer builds, verified against official releases:
 [21.0.12.1+1](https://github.com/adoptium/temurin21-binaries/releases/tag/jdk-21.0.12.1%2B1),
@@ -2115,14 +2122,14 @@ alongside the exact OS/glibc, CPU, compiler and payload versions. A patch upgrad
 requires an explicit matrix update and rerunning its affected cells; do not
 silently use a moving `latest` alias. Other vendors/JVMs are not mandatory cells
 or claimed verified by these runs; adding them requires named builds and results.
-Keep Java 24+ outside the supported range. Separately require a negative smoke
-test on Temurin HotSpot 24.0.2+12 on macOS ARM64, recording the same download,
-checksum and runtime metadata. On both class path and module path, first native
-use must report the D203 version error before extraction or native bootstrap;
-assert zero payload extraction/load attempts and no bridge-caused native-access
-warning. This refusal test is not a tenth supported matrix cell. P2 establishes
-it and P6 repeats it against the final jar. Test the Java version predicate with
-21/22/23 accepted and 24/25/higher rejected, without a public override switch.
+Under D245, pinned Temurin HotSpot 24.0.2+12 and 25.0.4.1+1 on macOS ARM64 are
+supported launchers, recorded with the same download, checksum and runtime
+metadata; Linux pins for them are not provisioned, so Linux coverage on those
+releases comes from the named vendor JVMs in the D245 report. On class path,
+module path and executable jar, first native use must load after the JDK's
+default warning, silently under the documented grant, and fail cleanly under
+`--illegal-native-access=deny`. Test the Java version predicate with 21-25
+accepted and 26/higher rejected, without a public override switch.
 
 Every cell must run the focused first-release bridge consumer cases in section
 13 using the final O3 payload and `-Xcheck:jni`, including exceptions, conversions,
@@ -2144,7 +2151,7 @@ hosts under section 14.C's effective OS/JVM baseline, recording tested OS versio
 without expanding the native IDK's advertised support. These focused runs use
 local/maintainer-controlled hosts, not new hosted development builds. Collect P6
 timings separately without `-Xcheck:jni`; all nine cells and the maintainer's
-final numerical performance review, plus the Java 24 refusal test, are required
+final numerical performance review, plus the Java 24/25 policy checks, are required
 to close P6.
 
 ## 13. Pre-change contracts and verification plan
@@ -2163,7 +2170,7 @@ constructor rollback. Bridge facts must not alter unrelated native programs.
 | --- | --- |
 | Root preservation | Method called only by Java survives; unreachable non-export does not. Check overload and inherited dispatch targets. |
 | Artifacts | Same API and proof results from source, class-directory, individual class, and archive reconstruction. |
-| Runtime version (P2/P6) | Under the current D203 baseline, Java 21-23 loads normally; Java 24+ fails the Java-only guard with artifact, full runtime version and supported range before extraction/loading. Run the pinned Java 24 negative smoke test and version-predicate checks in section 12. Pure Java enum initialization remains independent of native loading. |
+| Runtime version (P2/P6) | Java 21-25 load normally (Java 24/25 under the JDK's native-access policy, D245); other versions fail the Java-only guard with artifact, full runtime version and supported range before extraction/loading. Run the pinned Java 24/25 policy checks and version-predicate checks in section 12. Pure Java enum initialization remains independent of native loading. |
 | Java 25 product probe (P2) | D209 compares the ordinary refusal with the separate Java 25 admission artifact under default flags, with captured warnings and functional results across the three launch forms. Separate JNI-diagnostic and deny controls distinguish JVM policy from misuse. Report inconclusive/failing results honestly; settle the product decision before P6. |
 | Initialization | Java's first call initializes once; recursive and failed initialization preserve existing behavior without a synthetic main. |
 | Enum first use | In a fresh child JVM, `Side.SELL.index()` as the first native operation returns 1 without a prior book operation. A separate cold enum-argument fixture with asymmetric slots (for example BUY=11, SELL=29) selects SELL correctly; empty OrderBook counts of zero on both sides are not a discriminating test. Inspect typed IR and verify O0/O3 and source/class/archive paths. |
@@ -2225,10 +2232,10 @@ native link, javac compilation, and child-JVM execution as applicable. Use
 tests in subprocesses so a native bug cannot terminate the entire test harness.
 Do not replace existing process-isolated native tests wholesale with JNI calls.
 
-Test Java 21, 22, and 23 on supported target hosts. Java 24+ compatibility and
-native-access authorization support tests are deferred except for D209's P2
-experiment; D203 refusal tests remain mandatory under the current baseline.
-Settle D209 before P6 and update the matrix/tests explicitly if support changes.
+Test Java 21, 22, and 23 on supported target hosts, and Java 24 and 25 where
+D245's launchers are available. Native-access launch tests (default warning,
+grants, denial) are part of the version-policy checks; predicate refusal tests
+remain mandatory.
 Use local targeted
 verification; hosted three-platform builds remain release-only. Run the current
 OrderBook deterministic workload and inspect O3 machine code when changing hot
@@ -2248,9 +2255,10 @@ results are claimed by this document.
 
 ## 14. Settled implementation contracts
 
-Confirmed support range: Java 21-23 initially; Java 24+ is refused before native
-loading under the current D203 baseline. D209 reopens that product choice through
-a P2 Java 25 experiment and a required decision before P6. Keep facade
+Confirmed support range: Java 21-23 initially, extended to Java 24 and 25 by
+D245 under the JDK's native-access policy; other versions are refused before
+native loading by D203's guard. D209's P2 Java 25 experiment informed that
+decision. Keep facade
 bytecode compatible with Java 21. Confirmed reclamation API: explicit `free()`
 (D189); no generated `close()` alias or automatic fallback is implied.
 Confirmed contract: D188, single-threaded access as a caller obligation without
@@ -2475,9 +2483,9 @@ would be unsafe. This is an explicit later capability, not a hidden P3 promise.
 | Retention | Fixed fields on reclaimable roots with persistent host records only; the authoritative native root index has reserved capacity and JNI global references to Java root state before execution. The adapter commits registration/count/slot updates before Java resumes; only weak facade caching follows in Java. P3 proves every write and rejects slot-value transfers or hidden publication. Borrowed-child retention slots and permanent holders of reclaimable targets are deferred. |
 | OrderBook | Preserve the actual project's process-lifetime graph using P3's non-reclaimable classification. Demonstrate complete `free()`, retention and cross-owner argument behavior using a separate reclaimable owner/child fixture. Reclaimable production OrderBook is a separate producer change; it is not claimed by this release. |
 | Platforms | macOS ARM64, Linux ARM64 and Linux x86-64. Reuse official IDK native baselines, including Linux glibc 2.17; record the macOS deployment target and required CPU features in the artifact. Effective support also requires a supported Java 21-23 JVM on that host. Do not advertise an older OS merely because the native payload can load there. |
-| Loading | Current baseline: refuse Java 24+ before native extraction/loading (D203), subject to the D209 product decision before P6. Ordinary class path, module path, and executable jars with standard dependency loading. Multiple bridge artifacts require disjoint generated packages. Validate generation identity on every resolved class and package marker before any native registration. One defining classloader per artifact is permanently anchored for the JVM lifetime, with a bound-image load guard; reject a second independent load before user-native initialization. Custom nested-jar loaders, relocated/shaded facades, isolated duplicate worlds, unloading and hot reload are deferred. |
+| Loading | Admit Java 21-25 and refuse other versions before native extraction/loading (D203 guard, D245 range); Java 24/25 follow the JDK's native-access policy with documented grants. Ordinary class path, module path, and executable jars with standard dependency loading. Multiple bridge artifacts require disjoint generated packages. Validate generation identity on every resolved class and package marker before any native registration. One defining classloader per artifact is permanently anchored for the JVM lifetime, with a bound-image load guard; reject a second independent load before user-native initialization. Custom nested-jar loaders, relocated/shaded facades, isolated duplicate worlds, unloading and hot reload are deferred. |
 | JVM verification | Eclipse Temurin HotSpot 21.0.12.1+1, 22.0.2+9 and 23.0.2+7 on each of the three targets, as specified in section 12. Other vendors are not claimed verified. |
-| Release gate | Record the D209 product decision and any explicitly revised version tests/matrix before P6. Under the current baseline, complete P0-P4 and P6, including all ten P0 cases (with D213's deferred x86-64 hardware evidence completed in P6b), P4 allocation cases, all nine P6 JVM/target cells on D205 matching hardware and the separate Java 24 refusal test. P5 and P7 are extensions. No callback signature is admitted before P5, so P3 does not depend on unfinished callback machinery. |
+| Release gate | Record the D209 product decision and any explicitly revised version tests/matrix before P6. Under the current baseline, complete P0-P4 and P6, including all ten P0 cases (with D213's deferred x86-64 hardware evidence completed in P6b), P4 allocation cases, all nine P6 JVM/target cells on D205 matching hardware and the separate Java 24/25 policy checks (D245). P5 and P7 are extensions. No callback signature is admitted before P5, so P3 does not depend on unfinished callback machinery. |
 
 The classloader restriction requires a reliable duplicate-load failure path;
 do not bypass JVM library ownership by silently extracting a new image for

@@ -13,8 +13,8 @@ final class BridgeBuildToolsTests {
     private BridgeBuildToolsTests() {}
 
     static void tools() throws Exception {
-        for (int feature : List.of(21, 22, 23)) check(BridgeBuildTools.supportsJdk(feature), "supported producer refused");
-        for (int feature : List.of(8, 17, 20, 24, 25, 99)) check(!BridgeBuildTools.supportsJdk(feature), "unsupported producer admitted");
+        for (int feature : List.of(21, 22, 23, 24, 25)) check(BridgeBuildTools.supportsJdk(feature), "supported producer refused");
+        for (int feature : List.of(8, 17, 20, 26, 27, 99)) check(!BridgeBuildTools.supportsJdk(feature), "unsupported producer admitted");
         check(BridgeBuildTools.requireJdk("test").equals(Path.of(System.getProperty("java.home"))), "tools use another JDK");
         Path base = Path.of("workspace/java-bridge/evidence/jdk-tools").toAbsolutePath(); Files.createDirectories(base);
         Path directory = Files.createTempDirectory(base, "run-");

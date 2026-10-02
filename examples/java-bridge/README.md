@@ -24,7 +24,7 @@ a declared IOException, and continues calling the same artifact. Generated
 transport handles proved temporary String reclamation. The consumer runs on one
 thread, as required by the bridge's confinement contract.
 
-Use a JDK 21, 22 or 23, LLVM 23 and the macOS SDK or the prepared Linux bridge support
+Use a JDK 21 to 25, LLVM 23 and the macOS SDK or the prepared Linux bridge support
 SDK described in the producer guide. Put `ironwoodc`,
 `javac` and `java` on PATH, or set `JAVA_HOME` to select the same JDK for both build steps.
 Run from this directory:
@@ -49,9 +49,11 @@ continued: 42
 ```
 
 Every script prints its command; successful execution exits zero. The same built
-consumer can run with supported Java 22 or 23. The payload's recorded minimum
+consumer can run with supported Java 22 to 25. The payload's recorded minimum
 macOS version comes from its actual linked image; Linux uses the pinned glibc 2.17
-baseline. Java 24+ and targets absent from the jar are refused. The producer also
+baseline. Java 24 and 25 run under the JDK's native-access policy; see the
+[producer guide](../../docs/JAVA_BRIDGE_USAGE.md#runtime-and-distribution-contracts).
+Java 26+ and targets absent from the jar are refused. The producer also
 supports proved object facades and explicit root `free()`; this value example
 does not qualify them or final release readiness.
 

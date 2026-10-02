@@ -3,7 +3,8 @@
 # Java Bridge JDK 21-23 implementation and verification
 
 Authorized scope: build and run the compiler and JNI bridge with JDK 21, 22 or
-23; Java 21 language/API/class-file baseline; Java 24+ remains refused.
+23; Java 21 language/API/class-file baseline; Java 24+ remained refused until
+D245 admitted Java 24 and 25 on 2026-10-02.
 Work stays on the existing `java-bridge` branch, with local commits only.
 
 ## Initial review

@@ -8,7 +8,7 @@ You do not need to install Java or LLVM and you do not need to build Ironwood
 from source.
 
 The experimental [Java Bridge producer](JAVA_BRIDGE_USAGE.md) additionally
-supports a complete JDK 21, 22 or 23 with compiler/Javadoc tools and JNI headers and
+supports a complete JDK 21 to 25 with compiler/Javadoc tools and JNI headers and
 produces macOS ARM64, Linux ARM64 and Linux x86-64 jars with the corresponding
 pinned native toolchain/support SDK. Generated consumers need supported Java and
 the paired jar. Byte-view APIs also require the shared
@@ -17,10 +17,12 @@ licenses inside the jar. The producer emits a matching companion automatically;
 no native tools are required by Java consumers. See the producer guide for exact
 support boundaries and the current byte-view qualification status.
 
-Set `JAVA_HOME` to a complete external JDK 21, 22 or 23 to override the bundled
-Java for bridge production. Leave it unset to use the bundled JDK. The native
-toolchain remains bundled. Generated classes target Java 21 on every producer;
-Java 24+ remains outside the bridge range. Do not combine independently rebuilt
+Set `JAVA_HOME` to a complete external JDK 21, 22, 23, 24 or 25 to override the
+bundled Java for bridge production. Leave it unset to use the bundled JDK. The native
+toolchain remains bundled. Generated classes target Java 21 on every producer.
+Java 24 and 25 consumers follow the JDK's
+[native-access policy](JAVA_BRIDGE_USAGE.md#runtime-and-distribution-contracts);
+Java 26 or later remains outside the bridge range. Do not combine independently rebuilt
 ByteView companion jars: retain the exact companion paired with the artifact.
 
 ## Compile your first program
@@ -374,7 +376,7 @@ Optional `DEVELOPER_DIR` selects another installed Apple developer environment;
 `SDKROOT` selects an explicit SDK. A missing or invalid explicit selection fails
 with a diagnostic rather than falling back. These are build-time tools; Java
 consumers need neither the SDK nor LLVM. See the
-[Java Bridge workflow](JAVA_BRIDGE_USAGE.md) for JDK 21/22/23 production and use.
+[Java Bridge workflow](JAVA_BRIDGE_USAGE.md) for JDK 21-25 production and use.
 
 See `docs/LANGUAGE.md` for the implemented language subset and
 `docs/COMPILER.md` for compiler architecture.

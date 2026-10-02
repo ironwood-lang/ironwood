@@ -89,7 +89,7 @@ final class BridgeObjectProducerTests {
         var properties = new Properties();
         try (var zip = new ZipFile(jar.toFile())) {
             try (var input = zip.getInputStream(zip.getEntry(BridgePackageManifest.PATH))) { properties.load(input); }
-            check(properties.getProperty("projection").equals("objects-v1") && properties.getProperty("java.supported").equals("21,22,23"), "object projection or Java baseline changed");
+            check(properties.getProperty("projection").equals("objects-v1") && properties.getProperty("java.supported").equals("21,22,23,24,25"), "object projection or Java baseline changed");
             check(properties.containsKey("native.input.object.adapters.sha256"), "object adapter identity absent");
             for (var entry : zip.stream().toList()) {
                 if (entry.getName().equals(BridgePackageManifest.PATH)) continue;
@@ -131,17 +131,45 @@ final class BridgeObjectProducerTests {
             else command.addAll(List.of("-jar", executable.toString()));
             check(BridgeEntryTests.run(folder, command, "consumer-" + form).equals("object-producer-ok\n"), "object consumer launch failed");
         }
-        if (versions) for (String version : List.of("22", "23", "24")) {
-            String release = switch (version) { case "22" -> "22.0.2+9"; case "23" -> "23.0.2+7"; default -> "24.0.2+12"; };
+        // The pinned Temurin 22-25 launchers are provisioned on macOS ARM64 only.
+        if (versions && BridgeGeneratedJarTests.target().equals("macos-arm64")) for (String version : List.of("22", "23", "24", "25")) {
+            String release = switch (version) { case "22" -> "22.0.2+9"; case "23" -> "23.0.2+7"; case "24" -> "24.0.2+12"; default -> "25.0.4.1+1"; };
             Path launcher = Path.of("workspace/java-bridge/jdks/temurin-" + version + "-macos-arm64/jdk-" + release + "/Contents/Home/bin/java").toAbsolutePath();
             check(Files.isExecutable(launcher), "missing pinned launcher " + launcher);
+            boolean restricted = version.equals("24") || version.equals("25");
             Path temporary = folder.resolve("tmp-" + version); Files.createDirectories(temporary);
-            var command = new ArrayList<>(List.of(launcher.toString(), "-Xcheck:jni", "-Djava.io.tmpdir=" + temporary,
-                    "-cp", jar + System.getProperty("path.separator") + classes, "Consumer"));
-            if (version.equals("24")) command.add("version");
+            var command = new ArrayList<>(List.of(launcher.toString(), "-Xcheck:jni", "-Djava.io.tmpdir=" + temporary));
+            // Java 24 and 25 treat System.load as a restricted method; the class-path grant keeps the launch silent.
+            if (restricted) command.add("--enable-native-access=ALL-UNNAMED");
+            command.addAll(List.of("-cp", jar + System.getProperty("path.separator") + classes, "Consumer"));
             check(BridgeEntryTests.run(folder, command, "consumer-java" + version).equals("object-producer-ok\n"), "object version check failed");
-            if (version.equals("24")) try (var files = Files.list(temporary)) { check(files.findAny().isEmpty(), "Java 24 refusal extracted native payload"); }
+            if (restricted) nativeAccessPolicy(folder, launcher, version, jar, manifest, classes, mainManifest);
         }
+    }
+
+    /** JEP 472 launch policy on Java 24/25: the JVM's own warning by default, silence under each form's grant, clean denial. */
+    private static void nativeAccessPolicy(Path folder, Path launcher, String version, Path jar, Properties manifest, Path classes, Path mainManifest) throws Exception {
+        String separator = System.getProperty("path.separator");
+        Path temporary = folder.resolve("tmp-" + version + "-default"); Files.createDirectories(temporary);
+        String defaulted = BridgeEntryTests.run(folder, List.of(launcher.toString(), "-Djava.io.tmpdir=" + temporary, "--illegal-native-access=warn",
+                "-cp", jar + separator + classes, "Consumer"), "consumer-java" + version + "-default");
+        check(defaulted.endsWith("object-producer-ok\n") && defaulted.contains("WARNING: A restricted method in java.lang.System has been called")
+                && defaulted.contains("WARNING: Use --enable-native-access=ALL-UNNAMED to avoid a warning for callers in this module")
+                && defaulted.indexOf("WARNING: A restricted method") == defaulted.lastIndexOf("WARNING: A restricted method"), defaulted);
+        temporary = folder.resolve("tmp-" + version + "-module"); Files.createDirectories(temporary);
+        check(BridgeEntryTests.run(folder, List.of(launcher.toString(), "-Djava.io.tmpdir=" + temporary, "--enable-native-access=" + manifest.getProperty("java.module"),
+                "--module-path", jar.toString(), "--add-modules", manifest.getProperty("java.module"), "-cp", classes.toString(), "Consumer"),
+                "consumer-java" + version + "-module").equals("object-producer-ok\n"), "module grant was not silent");
+        Path granted = folder.resolve("consumer-native-access.jar"), grantedManifest = folder.resolve("consumer-native-access.mf");
+        Files.writeString(grantedManifest, Files.readString(mainManifest).replace("Main-Class:", "Enable-Native-Access: ALL-UNNAMED\nMain-Class:"));
+        BridgeEntryTests.run(folder, List.of(launcher.resolveSibling("jar").toString(), "--create", "--file", granted.toString(), "--manifest",
+                grantedManifest.toString(), "-C", classes.toString(), "."), "consumer-native-access-jar");
+        temporary = folder.resolve("tmp-" + version + "-executable"); Files.createDirectories(temporary);
+        check(BridgeEntryTests.run(folder, List.of(launcher.toString(), "-Djava.io.tmpdir=" + temporary, "-jar", granted.toString()),
+                "consumer-java" + version + "-executable").equals("object-producer-ok\n"), "manifest grant was not silent");
+        temporary = folder.resolve("tmp-" + version + "-deny"); Files.createDirectories(temporary);
+        check(BridgeEntryTests.run(folder, List.of(launcher.toString(), "-Djava.io.tmpdir=" + temporary, "--illegal-native-access=deny",
+                "-cp", jar + separator + classes, "Consumer", "deny"), "consumer-java" + version + "-deny").equals("object-producer-denied\n"), "denial was not clean");
     }
 
     private static String command(Path folder, String name, int expected, List<String> args) throws Exception {
@@ -156,9 +184,14 @@ final class BridgeObjectProducerTests {
                 public static void main(String[] args) throws Exception {
                     check(Mode.SELL.ordinal() == 0 && Mode.BUY.name().equals("BUY"));
                     if (args.length != 0) {
-                        try { new Box(Mode.SELL); throw new AssertionError("version guard absent"); }
-                        catch (LinkageError expected) { check(expected.getMessage().contains("21-23")); }
-                        System.out.println("object-producer-ok"); return;
+                        // --illegal-native-access=deny: the loader fails at System.load before any native use, and the
+                        // failed facade initializer stays failed instead of binding a partial world.
+                        for (int attempt = 0; attempt < 2; attempt++) {
+                            try { new Box(Mode.SELL); throw new AssertionError("native access admitted under deny"); }
+                            catch (ExceptionInInitializerError expected) { check(attempt == 0 && expected.getCause() instanceof IllegalCallerException denial && denial.getMessage().contains("native access")); }
+                            catch (NoClassDefFoundError expected) { check(attempt == 1); }
+                        }
+                        System.out.println("object-producer-denied"); return;
                     }
                     Box box = new Box(Mode.SELL);
                     check(box.publish() == box && Box.recall() == box && box.self() == box && box.mode() == Mode.SELL);
@@ -185,9 +218,14 @@ final class BridgeObjectProducerTests {
                 }
                 public static void main(String[] args) {
                     if (args.length != 0) {
-                        try { new Holder.Item(); throw new AssertionError("version guard absent"); }
-                        catch (LinkageError expected) { check(expected.getMessage().contains("21-23")); }
-                        System.out.println("object-producer-ok"); return;
+                        // --illegal-native-access=deny: the loader fails at System.load before any native use, and the
+                        // failed facade initializer stays failed instead of binding a partial world.
+                        for (int attempt = 0; attempt < 2; attempt++) {
+                            try { new Holder.Item(); throw new AssertionError("native access admitted under deny"); }
+                            catch (ExceptionInInitializerError expected) { check(attempt == 0 && expected.getCause() instanceof IllegalCallerException denial && denial.getMessage().contains("native access")); }
+                            catch (NoClassDefFoundError expected) { check(attempt == 1); }
+                        }
+                        System.out.println("object-producer-denied"); return;
                     }
                     Holder.Catalog catalog = new Holder.Catalog(); check(catalog.remember() == catalog);
                     Holder.Item first = new Holder.Item(), second = new Holder.Item();
@@ -208,9 +246,14 @@ final class BridgeObjectProducerTests {
             public final class Consumer {
                 public static void main(String[] args) {
                     if (args.length != 0) {
-                        try { new Root(); throw new AssertionError("version guard absent"); }
-                        catch (LinkageError expected) { check(expected.getMessage().contains("21-23")); }
-                        System.out.println("object-producer-ok"); return;
+                        // --illegal-native-access=deny: the loader fails at System.load before any native use, and the
+                        // failed facade initializer stays failed instead of binding a partial world.
+                        for (int attempt = 0; attempt < 2; attempt++) {
+                            try { new Root(); throw new AssertionError("native access admitted under deny"); }
+                            catch (ExceptionInInitializerError expected) { check(attempt == 0 && expected.getCause() instanceof IllegalCallerException denial && denial.getMessage().contains("native access")); }
+                            catch (NoClassDefFoundError expected) { check(attempt == 1); }
+                        }
+                        System.out.println("object-producer-denied"); return;
                     }
                     long rootLive = Root.live();
                     Root root = new Root(); Root.Child child = root.child();

@@ -58,8 +58,8 @@ source "$IRONWOOD_SCRIPT_DIR/jdk.sh"
 JAVA_HOME="$IRONWOOD_IDK_TOOLCHAIN_HOME/lib/jvm"
 ironwood_select_java "$IRONWOOD_PROJECT_ROOT"
 ironwood_require_jdk
-if [[ "$IRONWOOD_JAVA_FEATURE" -gt 23 ]]; then
-    echo "error: IDK Java Bridge tooling requires JDK 21, 22 or 23; found $IRONWOOD_JAVA_FEATURE" >&2
+if [[ "$IRONWOOD_JAVA_FEATURE" -gt 25 ]]; then
+    echo "error: IDK Java Bridge tooling requires JDK 21 to 25; found $IRONWOOD_JAVA_FEATURE" >&2
     exit 1
 fi
 IRONWOOD_JNI_PLATFORM=linux

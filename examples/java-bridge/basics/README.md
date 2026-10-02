@@ -19,7 +19,7 @@ and release its listener registration. The Java listener itself is JVM-managed.
 
 ## Build, run and test
 
-Use a JDK 21, 22 or 23, the pinned LLVM 23 and the
+Use a JDK 21 to 25, the pinned LLVM 23 and the
 [native platform prerequisites](../../../docs/JAVA_BRIDGE_USAGE.md#build-and-run).
 Put the checkout's `bin` directory and the JDK's `bin` directory on `PATH` so
 `ironwoodc`, `javac` and `java` are available. Linux also needs the prepared bridge
@@ -56,8 +56,9 @@ The [Java source](src/main/java/org/ironwood/javabridge/basicsconsumer/Main.java
 shows the complete integration and cleanup.
 
 The generated JAR contains the native image and required support files; keep it
-intact when copying it to another application. Consumers need only Java 21, 22
-or 23 on the artifact's native target. Java 24+ remains unsupported. Keep counter
+intact when copying it to another application. Consumers need only Java 21 to
+25 on the artifact's native target; Java 24 and 25 print the JDK's native-access
+warning unless `--enable-native-access=ALL-UNNAMED` is given. Java 26+ is unsupported. Keep counter
 use and callbacks on the owning thread.
 
 For more callback behavior, including replacement, reentry and exception

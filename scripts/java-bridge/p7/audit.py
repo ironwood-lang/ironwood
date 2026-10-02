@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MIT OR Apache-2.0
-"""Inspect exact combined P7f payloads on the Mac, including the Java 24 refusal."""
+"""Inspect exact combined P7f payloads on the Mac, including Java 24/25 admission and denial."""
 import argparse
 import importlib.util
 import json
@@ -17,7 +17,8 @@ p7 = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(p7)
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--candidate', required=True, type=Path)
-parser.add_argument('--java24', required=True, type=Path, help='Pinned Temurin 24 installation Home')
+parser.add_argument('--java24', type=Path, help='Pinned Temurin 24 installation Home')
+parser.add_argument('--java25', type=Path, help='Pinned Temurin 25 installation Home')
 parser.add_argument('--output', required=True, type=Path)
 args = parser.parse_args()
 candidate = args.candidate.resolve(); out = args.output.resolve(); out.mkdir(parents=True, exist_ok=False)
@@ -65,18 +66,27 @@ for name in p7.CASES:
 
 jars = [candidate / (name + '.jar') for name in p7.CASES] + [candidate / 'ironwood-bridge-values.jar']
 cp = os.pathsep.join(map(str, jars))
-run('javac-refusal', [java / 'bin/javac', '--release', '21', '-Xlint:all', '-Werror', '-cp', cp,
-                     '-d', out / 'classes', HERE / 'VersionRefusal.java'])
-version = run('java24-version', [args.java24 / 'bin/java', '-version'])
-if 'Temurin-24.0.2+12' not in version: raise RuntimeError('unexpected Java 24 pin')
-for name in p7.CASES:
-    for checked in (False, True):
-        with tempfile.TemporaryDirectory(prefix='p7-java24-') as scratch:
-            run('refusal-' + name + '-' + str(checked), [args.java24 / 'bin/java', *(['-Xcheck:jni'] if checked else []),
-                '-Djava.io.tmpdir=' + scratch, '-cp', cp + os.pathsep + str(out / 'classes'), 'VersionRefusal', name],
-                'java24-refused:' + name + '\n')
-            if any(Path(scratch).rglob('*')): raise RuntimeError('unsupported JVM extracted native files')
+run('javac-admission', [java / 'bin/javac', '--release', '21', '-Xlint:all', '-Werror', '-cp', cp,
+                       '-d', out / 'classes', HERE / 'VersionAdmission.java'])
+# D245: Java 24/25 admit the artifact; the class-path grant keeps the JEP 472 warning out of the
+# expected output, and explicit denial fails before any native use.
+for major, pin, home in ((24, 'Temurin-24.0.2+12', args.java24), (25, 'Temurin-25.0.4.1+1', args.java25)):
+    if home is None: continue
+    version = run('java' + str(major) + '-version', [home / 'bin/java', '-version'])
+    if pin not in version: raise RuntimeError('unexpected Java ' + str(major) + ' pin')
+    for name in p7.CASES:
+        for checked in (False, True):
+            with tempfile.TemporaryDirectory(prefix='p7-java' + str(major) + '-') as scratch:
+                run('admission-' + str(major) + '-' + name + '-' + str(checked), [home / 'bin/java', *(['-Xcheck:jni'] if checked else []),
+                    '--enable-native-access=ALL-UNNAMED', '-Djava.io.tmpdir=' + scratch,
+                    '-cp', cp + os.pathsep + str(out / 'classes'), 'VersionAdmission', name],
+                    'java' + str(major) + '-admitted:' + name + '\n')
+                if not any(Path(scratch).rglob('*')): raise RuntimeError('admitted JVM did not extract native files')
+        with tempfile.TemporaryDirectory(prefix='p7-java' + str(major) + '-deny-') as scratch:
+            run('denial-' + str(major) + '-' + name, [home / 'bin/java', '--illegal-native-access=deny',
+                '-Djava.io.tmpdir=' + scratch, '-cp', cp + os.pathsep + str(out / 'classes'), 'VersionAdmission', name, 'deny'],
+                'java' + str(major) + '-denied:' + name + '\n')
 (out / 'payloads.json').write_text(json.dumps(records, indent=2))
 (out / 'files.json').write_text(json.dumps({str(p.relative_to(out)): p7.digest(p) for p in out.rglob('*') if p.is_file()}, indent=2))
 (out / 'exit.txt').write_text('0\n')
-print('P7f payload audit and Java 24 refusals passed: ' + str(out))
+print('P7f payload audit and Java 24/25 admission checks passed: ' + str(out))

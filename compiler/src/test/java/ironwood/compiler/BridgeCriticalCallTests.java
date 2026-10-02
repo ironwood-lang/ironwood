@@ -203,15 +203,28 @@ final class BridgeCriticalCallTests {
             // Granted native access: linked handles, checked JNI for the fallback-only members, no warning.
             check(BridgeEntryTests.run(folder, List.of(java.resolve("java").toString(), "-Xcheck:jni", "--enable-native-access=ALL-UNNAMED",
                     "-cp", path, "CriticalConsumer", "critical"), "granted-" + level).equals("critical-calls-ok\n"), "granted consumer mismatch");
-            // The consumer override and a launch that denies this module both select the registered JNI methods.
+            // The consumer override selects the registered JNI methods on every JDK.
             check(BridgeEntryTests.run(folder, List.of(java.resolve("java").toString(), "-Xcheck:jni", "-Dironwood.bridge.calls=jni",
                     "-cp", path, "CriticalConsumer", "jni"), "override-" + level).equals("critical-calls-ok\n"), "override consumer mismatch");
-            check(BridgeEntryTests.run(folder, List.of(java.resolve("java").toString(), "--enable-native-access=java.base",
-                    "-cp", path, "CriticalConsumer", "jni"), "denied-" + level).equals("critical-calls-ok\n"), "denied consumer mismatch");
+            // Native access enabled only for other modules: Java 21-23 refuse the handles silently and keep JNI;
+            // Java 24+ follow the default warn policy instead (JEP 472), so the handles link and the JVM warns once.
+            boolean restricted = Runtime.version().feature() >= 24;
+            String others = BridgeEntryTests.run(folder, List.of(java.resolve("java").toString(), "--enable-native-access=java.base",
+                    "-cp", path, "CriticalConsumer", restricted ? "critical" : "jni"), "others-" + level);
+            check(restricted ? others.endsWith("critical-calls-ok\n") && others.contains("WARNING") : others.equals("critical-calls-ok\n"), others);
             // The default launch links the handles; the JVM reports its own restricted-method warning.
-            String defaulted = BridgeEntryTests.run(folder, List.of(java.resolve("java").toString(),
-                    "-cp", path, "CriticalConsumer", "critical"), "default-" + level);
+            var defaultLaunch = new ArrayList<>(List.of(java.resolve("java").toString()));
+            defaultLaunch.addAll(BridgeEntryTests.defaultNativeAccess());
+            defaultLaunch.addAll(List.of("-cp", path, "CriticalConsumer", "critical"));
+            String defaulted = BridgeEntryTests.run(folder, defaultLaunch, "default-" + level);
             check(defaulted.endsWith("critical-calls-ok\n") && defaulted.contains("WARNING"), defaulted);
+            // Explicit denial on Java 24+ fails in the facade initializer before any native use, with or without the override.
+            if (restricted) for (String selection : List.of("critical", "jni")) {
+                var denied = new ArrayList<>(List.of(java.resolve("java").toString(), "--illegal-native-access=deny"));
+                if (selection.equals("jni")) denied.add("-Dironwood.bridge.calls=jni");
+                denied.addAll(List.of("-cp", path, "CriticalConsumer", "deny"));
+                check(BridgeEntryTests.run(folder, denied, "deny-" + selection + "-" + level).equals("critical-calls-denied\n"), "denial was not clean");
+            }
         }
         // The same source without the option keeps the JNI-only artifact.
         Path jni = folder.resolve("jni.jar");
@@ -251,6 +264,11 @@ final class BridgeCriticalCallTests {
             import java.lang.reflect.Modifier;
             public final class CriticalConsumer {
                 public static void main(String[] args) throws Exception {
+                    if (args[0].equals("deny")) {
+                        try { new Engine(); throw new AssertionError("native access admitted under deny"); }
+                        catch (ExceptionInInitializerError expected) { check(expected.getCause() instanceof IllegalCallerException denial && denial.getMessage().contains("native access")); }
+                        System.out.println("critical-calls-denied"); return;
+                    }
                     boolean critical = args[0].equals("critical");
                     Engine engine = new Engine().publish();
                     int handles = 0;
