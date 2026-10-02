@@ -146,6 +146,86 @@ public final class NativeTargetTests {
         }
     }
 
+    public static void portableTuningMergesAdjacentStores() throws Exception {
+        List<String> x86Tuning = List.of("-mattr=-slow-unaligned-mem-16");
+        require(NativeBackend.portableTuning("x86_64-unknown-linux-gnu").equals(x86Tuning), "Linux x86-64 tuning");
+        require(NativeBackend.portableTuning("x86_64-conda-linux-gnu").equals(x86Tuning), "pinned toolchain x86-64 tuning");
+        require(NativeBackend.portableTuning("x86_64-apple-macosx11.0.0").equals(x86Tuning), "macOS x86-64 tuning");
+        require(NativeBackend.portableTuning("aarch64-unknown-linux-gnu").isEmpty(), "Linux ARM64 must stay untuned");
+        require(NativeBackend.portableTuning("arm64-apple-macosx11.0.0").isEmpty(), "macOS ARM64 must stay untuned");
+        LlvmToolchain tools = LlvmToolchain.discover(null).toolchain().orElseThrow();
+        Path root = Files.createTempDirectory("ironwood-portable-tuning-");
+        try {
+            // Four adjacent zero stores through an 8-byte-aligned pointer: the shape
+            // every object initialization and reset produces, kept out of line so
+            // its machine code can be inspected on its own.
+            String llvm = """
+                    @storage = internal global [4 x i64] [i64 1, i64 2, i64 3, i64 4], align 8
+                    define void @zero_fields(ptr noundef %object) noinline {
+                    entry:
+                      store i64 0, ptr %object, align 8
+                      %field1 = getelementptr inbounds i8, ptr %object, i64 8
+                      store i64 0, ptr %field1, align 8
+                      %field2 = getelementptr inbounds i8, ptr %object, i64 16
+                      store i64 0, ptr %field2, align 8
+                      %field3 = getelementptr inbounds i8, ptr %object, i64 24
+                      store i64 0, ptr %field3, align 8
+                      ret void
+                    }
+                    define i32 @main() {
+                    entry:
+                      call void @zero_fields(ptr @storage)
+                      %a = load i64, ptr @storage, align 8
+                      %b = load i64, ptr getelementptr inbounds (i8, ptr @storage, i64 8), align 8
+                      %c = load i64, ptr getelementptr inbounds (i8, ptr @storage, i64 16), align 8
+                      %d = load i64, ptr getelementptr inbounds (i8, ptr @storage, i64 24), align 8
+                      %ab = or i64 %a, %b
+                      %cd = or i64 %c, %d
+                      %all = or i64 %ab, %cd
+                      %zero = icmp eq i64 %all, 0
+                      %exit = select i1 %zero, i32 42, i32 1
+                      ret i32 %exit
+                    }
+                    """;
+            Path input = root.resolve("zero.ll");
+            Files.writeString(input, llvm);
+            Path probeSource = root.resolve("probe.c");
+            Path probe = root.resolve("probe.ll");
+            Files.writeString(probeSource, "");
+            run(List.of(tools.clang().toString(), "-std=c11", "-S", "-emit-llvm", "-x", "c",
+                    probeSource.toString(), "-o", probe.toString()), 0);
+            String hostTriple = NativeTarget.fromLlvm(Files.readString(probe)).triple();
+            for (TargetMachine machine : TargetMachine.values()) {
+                Path binary = root.resolve("zero-" + machine);
+                LinkResult link = new NativeBackend().link(tools, input, binary, OptimizationLevel.O3,
+                        NativeLinkRequirements.NONE, machine);
+                require(link.success(), machine + ": " + link.output());
+                run(List.of(binary.toString()), 42);
+                if (machine != TargetMachine.DEFAULT || !hostTriple.startsWith("x86_64-")) continue;
+                String disassembly = run(List.of(tools.llvmObjcopy().resolveSibling("llvm-objdump").toString(),
+                        "--disassemble", "--no-show-raw-insn", binary.toString()), 0);
+                var function = java.util.regex.Pattern.compile("<_?zero_fields>:\\n(.*?)(?:\\n\\n|\\z)",
+                        java.util.regex.Pattern.DOTALL).matcher(disassembly);
+                require(function.find(), "zero_fields missing from disassembly:\n" + disassembly);
+                List<String> mnemonics = function.group(1).lines()
+                        .map(line -> line.substring(line.indexOf(':') + 1).strip())
+                        .filter(line -> !line.isEmpty())
+                        .map(line -> line.split("\\s+")[0]).toList();
+                // Alignment padding after the return is not part of the function.
+                int end = mnemonics.indexOf("retq") >= 0 ? mnemonics.indexOf("retq") : mnemonics.indexOf("ret");
+                require(end >= 0, "zero_fields does not return: " + mnemonics);
+                mnemonics = mnemonics.subList(0, end + 1);
+                // Baseline SSE2 only: one zeroed register and unaligned 16-byte stores,
+                // with no word-at-a-time stores and no instruction-set extension.
+                List<String> sse2 = List.of("xorps", "xorpd", "pxor", "movups", "movupd", "movdqu", "ret", "retq");
+                require(mnemonics.contains("movups"), "portable x86-64 stores were not merged: " + mnemonics);
+                require(sse2.containsAll(mnemonics), "unexpected portable x86-64 instructions: " + mnemonics);
+            }
+        } finally {
+            deleteTree(root);
+        }
+    }
+
     private static void cli(String... arguments) {
         var errors = new ByteArrayOutputStream();
         require(Main.run(arguments, new PrintStream(new ByteArrayOutputStream()), new PrintStream(errors)) == 0,
