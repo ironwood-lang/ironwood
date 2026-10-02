@@ -19,8 +19,8 @@ SDK when building on Linux, run from the repository root:
 ```
 
 Expected output: `generic values: 17 29`. Successful execution exits zero.
-Java 22 to 25 can consume the same artifact; Java 24 and 25 need the
-native-access grant to stay warning-free. Java 26+ is refused.
+Java 22 to 25 can consume the same artifact; `run.sh` passes the native-access
+grant that keeps Java 24 and 25 warning-free. Java 26+ is refused.
 Public generic construction/mutation, generic facade parameters, standalone
 generic methods, generic arrays and generic inheritance remain outside P7d1.
 See the [bridge usage guide](../../../docs/JAVA_BRIDGE_USAGE.md).
