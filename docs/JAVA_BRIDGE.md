@@ -26,8 +26,7 @@
 > and D242 tunes portable x86-64 images; see the
 > [2026-10-02 measurements](JAVA_BRIDGE_CRITICAL_CALLS.md).
 > D245 admits Java 24 and 25 under the JDK's native-access policy, qualified on
-> macOS ARM64 and Linux x86-64; Java 26 or later is refused. This is a producer
-> preview, not an announcement of a published release. The
+> macOS ARM64 and Linux x86-64; Java 26 or later is refused. The
 > [producer guide](JAVA_BRIDGE_USAGE.md) specifies the supported API and platform
 > boundaries; the [implementation plan](JAVA_BRIDGE_PLAN.md) is authoritative
 > over historical proposals. For checkpoints, see

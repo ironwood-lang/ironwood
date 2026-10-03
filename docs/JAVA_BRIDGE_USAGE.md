@@ -1,8 +1,8 @@
 <!-- SPDX-License-Identifier: MIT OR Apache-2.0 -->
 
-# Java Bridge producer preview
+# Java Bridge producer
 
-The experimental producer builds host-target Java dependencies for macOS ARM64,
+The producer builds host-target Java dependencies for macOS ARM64,
 Linux ARM64 and Linux x86-64, exposing primitive,
 copied-String and proved copied primitive-array APIs, Java-owned bounded ByteView
 storage, roots and borrowed object views with bounded retention,
@@ -17,7 +17,6 @@ D236. P7d2 adds construction/mutation and inputs when every variable has one
 exported final facade bound under D237. Generic methods remain rejected.
 See [read-only generics](#read-only-generic-facades), [bounded inputs](#bounded-generic-inputs) and
 the [generic progress/evidence log](JAVA_BRIDGE_GENERIC_PROGRESS.md).
-This preview is not a release qualification.
 
 ## Build and run
 

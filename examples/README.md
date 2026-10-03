@@ -17,7 +17,7 @@ example/
 Each run script executes one program and reports its exit status. Every script
 prints the command it runs.
 
-The experimental [Java Bridge examples](java-bridge/README.md) have separate
+The [Java Bridge examples](java-bridge/README.md) have separate
 nested compile/link/run workflows for paired Java dependencies and their JVM
 consumers. They are outside the ordinary native example catalog below.
 
