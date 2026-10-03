@@ -78,7 +78,7 @@ final class BridgeObjectStringTests {
             var stringDenied = BridgeRootRetentionAnalyzer.analyze(artifact, stringRoots);
             check(stringDenied.status() == BridgeProof.Status.REJECTED && stringDenied.reason().contains("copied value"),
                     "String acquired a native root facade: " + stringDenied);
-            check(BridgeExportSurface.valuePreview(artifact, List.of("objectstrings")).surface().isEmpty(),
+            check(BridgeExportSurface.staticValues(artifact, List.of("objectstrings")).surface().isEmpty(),
                     "incomplete object converter became public");
             var old = BridgeStringResults.prove(artifact, roots);
             check(old.entrySet().stream().filter(entry -> entry.getKey().name().equals("text"))

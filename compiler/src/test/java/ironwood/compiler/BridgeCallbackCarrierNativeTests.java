@@ -54,7 +54,7 @@ final class BridgeCallbackCarrierNativeTests {
             BridgeCallbackCarrierNativeSources.generate(initial, operations);
             throw new AssertionError("stale carrier entries accepted");
         } catch (IllegalArgumentException expected) { check(expected.getMessage().contains("matching"), expected.toString()); }
-        var surface = BridgeExportSurface.scalarPreview(artifact, List.of("translationfixture")).surface().orElseThrow();
+        var surface = BridgeExportSurface.scalarValues(artifact, List.of("translationfixture")).surface().orElseThrow();
         var scalar = BridgeEntryModule.scalars(artifact, surface.roots());
         var projected = BridgeExceptionProjection.builtins(artifact,
                 List.of("ironwood.lang.IllegalStateException", "ironwood.lang.OutOfMemoryError"));

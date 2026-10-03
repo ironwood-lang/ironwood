@@ -121,7 +121,7 @@ public final class BridgeGeneration {
     public static BridgeGeneration create(String artifactName, CompilationArtifact artifact,
             BridgeExportSurface surface, String compilerVersion, String compilerHash, String runtimeHash) {
         var packages = surface.types().stream().map(BridgeApiFacts.Type::packageName).distinct().sorted().toList();
-        var selected = BridgeExportSurface.valuePreview(artifact, packages);
+        var selected = BridgeExportSurface.staticValues(artifact, packages);
         if (selected.surface().isEmpty() || !selected.surface().orElseThrow().equals(surface)) {
             throw new IllegalArgumentException("generation requires the complete current resolved export surface");
         }

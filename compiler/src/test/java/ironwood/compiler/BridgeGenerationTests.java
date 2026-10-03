@@ -184,7 +184,7 @@ final class BridgeGenerationTests {
     }
 
     private static BridgeExportSurface surface(CompilationArtifact artifact) {
-        var selection = BridgeExportSurface.scalarPreview(artifact, List.of("generation"));
+        var selection = BridgeExportSurface.scalarValues(artifact, List.of("generation"));
         check(selection.surface().isPresent(), selection.diagnostics().toString());
         return selection.surface().orElseThrow();
     }

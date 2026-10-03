@@ -56,7 +56,7 @@ final class BridgeArrayInputTests {
                 var result = proof(artifact, name);
                 check(result.status() == BridgeProof.Status.PROVED, name + ": " + result);
             }
-            var selected = BridgeExportSurface.valuePreview(artifact, List.of("arrayfixture"));
+            var selected = BridgeExportSurface.staticValues(artifact, List.of("arrayfixture"));
             check(selected.surface().isPresent(), selected.diagnostics().toString());
             var module = BridgeEntryModule.stringValues(artifact, selected.surface().orElseThrow().roots());
             String llvm = new ironwood.compiler.backend.LlvmEmitter().emit(module);

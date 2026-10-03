@@ -38,7 +38,7 @@ final class BridgeBootstrapNativeTests {
                 }
                 """)));
         check(artifact.valid(), artifact.diagnostics().toString());
-        var surface = BridgeExportSurface.valuePreview(artifact, List.of("bootpreview")).surface().orElseThrow();
+        var surface = BridgeExportSurface.staticValues(artifact, List.of("bootpreview")).surface().orElseThrow();
         var module = BridgeEntryModule.stringValues(artifact, surface.roots());
         var closure = BridgeExceptionClosure.builtins(artifact, module);
         check(closure.status() == BridgeProof.Status.PROVED, closure.reason());

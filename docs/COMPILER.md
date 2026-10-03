@@ -288,12 +288,12 @@ and their complete initialization roots. Default tokens follow sorted names,
 independent of native ordinals. Empty enum metadata is valid; it does not grant
 an instance invocation. P0 input proofs reuse this mapping contract and retain
 their separate retention, non-reclamation and scalar/final-dispatch restrictions.
-`BridgeExportSurface.scalarPreview` validates the complete
+`BridgeExportSurface.scalarValues` validates the complete
 public package union, signature accessibility and explicit-package closure before
 selecting P0 callable roots. It reserves `_IronwoodBridgePackage` in each owned
 API package. Unsupported constructors, instance/reference/generic surfaces,
 inheritance, custom exceptions and nonconstant fields produce located errors,
-with no partial selection. `valuePreview` adds String-result signature selection
+with no partial selection. `staticValues` adds String-result signature selection
 for the generated value transport. Signature selection supplies no lifetime
 permission: copied inputs and String results still require their borrowing,
 cleanup and retention proofs before typed lowering.
@@ -688,7 +688,7 @@ and its final proofs. Its API identity additionally covers enum declaration
 order, custom snapshot fields and the proved facade role (permanent, root,
 view, combined root/view, enum, snapshot or static container). Changing a private
 implementation so that generated destruction disappears therefore changes the
-Java API identity as well. Object identities cannot enter the value-preview
+Java API identity as well. Object identities cannot enter the static-value
 generator. Identity generation does not enable unfinished object adapters.
 
 `BridgeIdentityCacheSources` generates the internal permanent-world weak cache

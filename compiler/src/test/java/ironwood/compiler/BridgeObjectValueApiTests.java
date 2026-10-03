@@ -89,7 +89,7 @@ final class BridgeObjectValueApiTests {
                 .allMatch(id -> id.parameters().equals(List.of(IrType.I32)))
                 && ids.stream().filter(id -> id.name().equals("values") || id.name().equals("valueOf")).count() == 2,
                 "generated enum operations confused with source overloads");
-        check(BridgeExportSurface.valuePreview(artifact, List.of("objectvalues")).surface().isEmpty()
+        check(BridgeExportSurface.staticValues(artifact, List.of("objectvalues")).surface().isEmpty()
                 && BridgeExportSurface.concreteObjects(artifact, List.of("objectvalues")).surface().isEmpty(),
                 "mixed signature discovery expanded incomplete producer admission");
         try {

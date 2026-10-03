@@ -30,7 +30,7 @@ final class BridgeLoaderSourceTests {
                 }
                 """)));
         check(artifact.valid(), artifact.diagnostics().toString());
-        var surface = BridgeExportSurface.scalarPreview(artifact, List.of("loaderpreview")).surface().orElseThrow();
+        var surface = BridgeExportSurface.scalarValues(artifact, List.of("loaderpreview")).surface().orElseThrow();
         var generation = BridgeGeneration.create("loader.jar", artifact, surface, "test", "1".repeat(64), "2".repeat(64));
         var declarations = BridgeJavaSources.generate(artifact, surface, generation, BridgeEntryModule.scalars(artifact, surface.roots()));
         byte[] content = "not a native library: extraction-only test".getBytes(java.nio.charset.StandardCharsets.UTF_8);

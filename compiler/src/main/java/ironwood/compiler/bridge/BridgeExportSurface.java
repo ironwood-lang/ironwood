@@ -64,12 +64,12 @@ public record BridgeExportSurface(List<BridgeApiFacts.Type> types, BridgeRootSet
     public static Set<String> builtinThrowableNames() { return BUILTIN_THROWABLES; }
 
     /** Narrow scalar-result shape retained for foundation consumers without result transport. */
-    public static Selection scalarPreview(CompilationArtifact artifact, List<String> exports) {
+    public static Selection scalarValues(CompilationArtifact artifact, List<String> exports) {
         return select(artifact, exports, Shape.SCALAR);
     }
 
     /** Static primitive/String signatures; typed-entry proofs still govern executable admission. */
-    public static Selection valuePreview(CompilationArtifact artifact, List<String> exports) {
+    public static Selection staticValues(CompilationArtifact artifact, List<String> exports) {
         return select(artifact, exports, Shape.VALUE);
     }
 
@@ -193,7 +193,7 @@ public record BridgeExportSurface(List<BridgeApiFacts.Type> types, BridgeRootSet
                     .anyMatch(method -> !method.isStatic() && !method.owner().equals("ironwood.lang.Object"))) {
                 error(diagnostics, type.source(), type.span(), "type '" + type.sourceName()
                         + (objects(shape) ? "' requires a final concrete Java Bridge facade"
-                        : "' is outside the static scalar Java Bridge preview"));
+                        : "' is outside the static scalar Java Bridge surface"));
             }
             for (var parent : type.supertypes()) {
                 if (parent.equals(IrType.reference("ironwood.lang.Object"))) continue;
@@ -250,7 +250,7 @@ public record BridgeExportSurface(List<BridgeApiFacts.Type> types, BridgeRootSet
                     error(diagnostics, method.source(), method.span(), "public member '" + member
                             + (objects(shape) ? "' is outside the concrete-object Java Bridge signature surface"
                             : "' is outside the static " + (shape == Shape.VALUE ? "primitive/String-value"
-                            : "scalar/copied-string-input") + " Java Bridge preview"));
+                            : "scalar/copied-string-input") + " Java Bridge surface"));
                 } else if (dispatch != null) {
                     dispatch.targets().stream().filter(target -> !target.javaIdentity()).map(BridgeEnumDispatch.Target::callable)
                             .forEach(requested::add);
@@ -267,7 +267,7 @@ public record BridgeExportSurface(List<BridgeApiFacts.Type> types, BridgeRootSet
         if (Diagnostic.hasErrors(diagnostics)) return new Selection(Optional.empty(), diagnostics);
         var roots = BridgeRootSet.resolve(artifact.program().orElseThrow(), requested);
         if (!roots.resolved() && !(shape == Shape.OBJECT_VALUE && requested.isEmpty() && roots.problems().isEmpty())) {
-            diagnostics.add(Diagnostic.global("Java Bridge preview requires resolved native callable roots: " + roots.problems()));
+            diagnostics.add(Diagnostic.global("Java Bridge requires resolved native callable roots: " + roots.problems()));
             return new Selection(Optional.empty(), diagnostics);
         }
         return new Selection(Optional.of(new BridgeExportSurface(selected, roots)), diagnostics);

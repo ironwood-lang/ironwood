@@ -27,7 +27,7 @@ final class BridgeExceptionSourceTests {
         var artifact = new CompilerPipeline(UnfreedMode.OFF).analyzeForBridge(List.of(SourceFile.of("Engine.iron", source.toString())));
         check(artifact.valid(), artifact.diagnostics().toString());
         var projection = BridgeExceptionProjection.builtins(artifact, BridgeExportSurface.builtinThrowableNames()).contract().orElseThrow();
-        var surface = BridgeExportSurface.scalarPreview(artifact, List.of("snapshotfactory")).surface().orElseThrow();
+        var surface = BridgeExportSurface.scalarValues(artifact, List.of("snapshotfactory")).surface().orElseThrow();
         var generation = BridgeGeneration.create("exceptions.jar", artifact, surface, "test", "1".repeat(64), "2".repeat(64));
         var module = BridgeEntryModule.scalars(artifact, surface.roots());
         var declarations = BridgeJavaSources.generate(artifact, surface, generation, module, projection);

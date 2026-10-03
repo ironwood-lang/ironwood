@@ -52,7 +52,7 @@ final class BridgeArrayValueTests {
                 if (!artifact.valid()) continue;
                 check(BridgeArrayInputs.values(artifact, target(artifact)).status() != BridgeProof.Status.PROVED,
                         "unsafe array closure admitted: " + declaration);
-                check(BridgeExportSurface.valuePreview(artifact, List.of("arrayvalues")).surface().isEmpty(),
+                check(BridgeExportSurface.staticValues(artifact, List.of("arrayvalues")).surface().isEmpty(),
                         "unsafe array export admitted: " + declaration);
             }
             var varargs = new CompilerPipeline(mode).analyzeForBridge(List.of(SourceFile.of("Values.iron",
@@ -69,7 +69,7 @@ final class BridgeArrayValueTests {
             Files.writeString(source, BridgeArrayValueProducerTests.SOURCE);
             var original = new CompilerPipeline(UnfreedMode.OFF).analyzeForBridge(List.of(SourceFile.read(source)));
             check(original.valid(), original.diagnostics().toString());
-            var selected = BridgeExportSurface.valuePreview(original, List.of("arrayvalues"));
+            var selected = BridgeExportSurface.staticValues(original, List.of("arrayvalues"));
             check(selected.surface().isPresent(), selected.diagnostics().toString());
             var ids = selected.surface().orElseThrow().roots().roots().stream().map(BridgeRootSet.Root::callable)
                     .filter(id -> id.result().isArray() || id.parameters().stream().anyMatch(ironwood.compiler.ir.IrType::isArray)).toList();
@@ -104,7 +104,7 @@ final class BridgeArrayValueTests {
                 check(loaded.diagnostics().isEmpty(), loaded.diagnostics().toString());
                 var restored = new CompilerPipeline(UnfreedMode.OFF).analyzeForBridge(loaded.sources());
                 check(rejected.equals(BridgeArrayInputs.values(restored, target(restored))), "retaining result changed after reconstruction");
-                check(BridgeExportSurface.valuePreview(restored, List.of("arrayvalues")).surface().isEmpty(), "archive bypassed array confinement");
+                check(BridgeExportSurface.staticValues(restored, List.of("arrayvalues")).surface().isEmpty(), "archive bypassed array confinement");
             }
         } finally {
             try (var paths = Files.walk(directory)) {

@@ -135,7 +135,7 @@ final class BridgeEnumApiTests {
         denied(() -> BridgeEnumDispatch.prove(artifact, modeType, code, modeMapping));
         var sourceValues = side.callables().stream().filter(method -> method.name().equals("values") && !method.synthetic()).findFirst().orElseThrow();
         denied(() -> BridgeEnumDispatch.prove(artifact, sideType, sourceValues, mapping));
-        check(BridgeExportSurface.valuePreview(artifact, List.of("enuminventory")).surface().isEmpty()
+        check(BridgeExportSurface.staticValues(artifact, List.of("enuminventory")).surface().isEmpty()
                 && BridgeExportSurface.concreteObjects(artifact, List.of("enuminventory")).surface().isEmpty(),
                 "metadata alone admitted unfinished enum conversion");
         try {

@@ -34,7 +34,7 @@ final class BridgeProducerCommand {
         var artifact = new CompilerPipeline(options.unfreed(), options.explain(), null).analyzeForBridge(loaded.sources());
         diagnostics(artifact.diagnostics(), err);
         if (!artifact.valid()) return 1;
-        var selection = BridgeExportSurface.valuePreview(artifact, options.exports());
+        var selection = BridgeExportSurface.staticValues(artifact, options.exports());
         BridgeObjectAdmission objects = null;
         BridgeCallbackAdmission callbacks = null;
         BridgeOwnedCallbackAdmission owners = null;

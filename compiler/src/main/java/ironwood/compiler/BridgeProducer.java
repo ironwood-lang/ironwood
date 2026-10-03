@@ -39,7 +39,7 @@ final class BridgeProducer {
             LlvmToolchain toolchain, OptimizationLevel optimization, BridgeDistributionInputs.Options packaging,
             boolean criticalCalls, PrintStream diagnostics) throws IOException {
         if (!objects.matches(artifact, objects.surface())) {
-            throw new IOException("Java Bridge object preview requires exact final object admission");
+            throw new IOException("Java Bridge objects require exact final object admission");
         }
         build(artifact, objects.surface(), objects, null, null, criticalCalls, output, toolchain, optimization, packaging, diagnostics);
     }
@@ -84,7 +84,7 @@ final class BridgeProducer {
                 }
             }
         }
-        if (NativeLinkRequirements.from(projection.program()).tls()) throw new IOException("Java Bridge preview does not yet package optional TLS dependencies");
+        if (NativeLinkRequirements.from(projection.program()).tls()) throw new IOException("Java Bridge does not yet package optional TLS dependencies");
         String llvm = new LlvmEmitter().emit(projection.program());
         Files.createDirectories(destination.getParent());
         Path stage = Files.createTempDirectory(destination.getParent(), ".ironwood-bridge-build-");

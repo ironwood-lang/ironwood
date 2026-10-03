@@ -69,7 +69,7 @@ final class BridgePackageTests {
             var analyzed = pipeline.analyzeForBridge(loaded.sources());
             check(analyzed.valid(), analyzed.diagnostics().toString());
             var signatures = signatures(analyzed);
-            var selection = ironwood.compiler.bridge.BridgeExportSurface.scalarPreview(analyzed, exports);
+            var selection = ironwood.compiler.bridge.BridgeExportSurface.scalarValues(analyzed, exports);
             check(selection.surface().isPresent(), selection.diagnostics().toString());
 
             Path classes = directory.resolve("classes");
@@ -92,7 +92,7 @@ final class BridgePackageTests {
                 var artifact = pipeline.analyzeForBridge(restored.sources());
                 check(artifact.valid(), artifact.diagnostics().toString());
                 check(signatures(artifact).equals(signatures), "artifact overload/nested identities changed");
-                var selected = ironwood.compiler.bridge.BridgeExportSurface.scalarPreview(artifact, exports);
+                var selected = ironwood.compiler.bridge.BridgeExportSurface.scalarValues(artifact, exports);
                 check(selected.surface().isPresent(), selected.diagnostics().toString());
                 check(selected.surface().orElseThrow().roots().roots().stream().map(root -> root.callable()).toList()
                                 .equals(selection.surface().orElseThrow().roots().roots().stream().map(root -> root.callable()).toList()),
