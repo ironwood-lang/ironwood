@@ -1,0 +1,26 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+package genericbench;
+
+// Nongeneric control for the identical reference getter and facade-cache path.
+// Static factory storage matches Box's class-initialization guard as well.
+// The supplied Quote is permanent; freeing Plain does not reclaim that Quote.
+public final class Plain {
+
+    private final Quote value;
+    private static final Quote shared = new Quote();
+
+    public Plain(Quote value) {
+
+        this.value = value;
+    }
+
+    public Quote get() {
+
+        return this.value;
+    }
+
+    public static Plain quote() {
+
+        return new Plain(shared);
+    }
+}

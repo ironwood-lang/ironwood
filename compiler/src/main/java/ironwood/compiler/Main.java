@@ -48,6 +48,11 @@ public final class Main {
             return 0;
         }
 
+        if (java.util.Arrays.asList(args).contains("--java-bridge-values")) return BridgeValuesLibrary.run(args, out, err);
+        if (java.util.Arrays.asList(args).contains("--java-bridge-assemble")) return BridgeAssembler.run(args, out, err);
+        if (java.util.Arrays.asList(args).contains("--java-bridge-distribution")) return BridgeDistributionCommand.run(args, out, err);
+        if (java.util.Arrays.asList(args).contains("--java-bridge")) return BridgeProducerCommand.run(args, out, err);
+
         CommandLine commandLine = CommandLine.parse(args, err);
         if (commandLine == null) {
             return 2;
@@ -91,8 +96,7 @@ public final class Main {
             return 0;
         }
 
-        var linkedProgram = ClosedWorldPruner.prune(artifact.program().orElseThrow());
-        linkedProgram = UnreadFieldStoreEliminator.eliminate(linkedProgram);
+        var linkedProgram = NativeLinkPipeline.finish(artifact.program().orElseThrow());
 
         ToolchainDiscovery discovery = LlvmToolchain.discover(commandLine.llvmHome());
         if (!discovery.successful()) {
@@ -510,6 +514,7 @@ public final class Main {
             stream.println("       Both compilation and linking accept --unfreed=off|warn|error (default: warn)");
             stream.println("       and --explain-rejected-free (notes on rejected frees; default: off).");
             stream.println("       ironwoodc --version|-v  (compiler version and LLVM selection)");
+            BridgeProducerCommand.usage(stream);
         }
     }
 }

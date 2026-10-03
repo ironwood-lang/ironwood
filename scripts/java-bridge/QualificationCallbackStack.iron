@@ -1,0 +1,19 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package callbackstackprobe;
+
+// Bounded D201 callback qualification, not a general safe recursion-depth promise.
+public final class QualificationCallbackStack {
+
+    private QualificationCallbackStack() {
+
+    }
+
+    public static long recurse(StackListener listener, int depth, long seed, boolean fail) {
+
+        if (depth == 0) return listener.step(depth, seed, fail);
+        // Keep depth and seed live while Java reenters. Integer overflow is intentional.
+        long value = listener.step(depth, seed, fail);
+        return (value * value + depth) ^ seed;
+    }
+}

@@ -30,6 +30,13 @@ do not transfer an existing caller-owned allocation to a new owner. Ordinary
 container insertion and receiver-field retention remain borrowing operations
 unless a documented specialized compiler contract states otherwise.
 
+A getter may return a private owned child as a dependent borrow, including a
+nullable result. A conditional child-or-null expression and a separate early
+null return preserve the same owner relationship. Casts do not grant ownership.
+The borrowed child cannot be freed independently or used after its owner is
+freed. Returning another non-null origin, publishing the child, or passing it
+to an unknown retaining operation still requires the corresponding proof.
+
 ## Missing-free diagnostics
 
 The `--unfreed` option (D140) controls how the compiler reports known local

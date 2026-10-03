@@ -27,6 +27,22 @@ public final class IrCfgRenamer {
 
     public IrInstruction instruction(IrInstruction instruction) {
         return switch (instruction) {
+            case IrBridgeBatchAppendInstruction i -> new IrBridgeBatchAppendInstruction(
+                    values.apply(i.result()), operand(i.context()), operand(i.index()), operand(i.count()),
+                    i.arguments().stream().map(this::operand).toList(), i.sourceSpan());
+            case IrForeignCallInstruction i -> new IrForeignCallInstruction(
+                    i.result().map(values), i.targetLinkageName(), i.returnType(),
+                    i.arguments().stream().map(this::operand).toList(), i.invocationContext().map(this::operand), i.sourceSpan());
+            case IrBridgeStringCopyInstruction i -> new IrBridgeStringCopyInstruction(
+                    values.apply(i.result()), operand(i.address()), operand(i.length()), i.sourceSpan());
+            case IrBridgeArrayCopyInstruction i -> new IrBridgeArrayCopyInstruction(
+                    values.apply(i.result()), operand(i.stateAddress()), i.sourceSpan());
+            case IrBridgeFailureSnapshotInstruction i -> new IrBridgeFailureSnapshotInstruction(
+                    operand(i.exception()), operand(i.frameAddress()), i.sourceSpan());
+            case IrBridgeResultStoreInstruction i -> new IrBridgeResultStoreInstruction(
+                    operand(i.frameAddress()), i.slot(), operand(i.value()), i.sourceSpan());
+            case IrBridgeSlotStoreInstruction i -> new IrBridgeSlotStoreInstruction(
+                    operand(i.frameAddress()), i.index(), operand(i.holder()), operand(i.value()), i.sourceSpan());
             case IrAddSecondaryExceptionInstruction i -> new IrAddSecondaryExceptionInstruction(
                     operand(i.primary()), operand(i.secondary()), i.sourceSpan());
             case IrAllocateInstruction i -> new IrAllocateInstruction(
@@ -129,6 +145,8 @@ public final class IrCfgRenamer {
                     values.apply(i.result()), i.operation(), i.arguments().stream().map(this::operand).toList(), i.sourceSpan());
             case IrStringCaseInstruction i -> new IrStringCaseInstruction(
                     values.apply(i.result()), operand(i.source()), operand(i.upper()), i.sourceSpan());
+            case IrByteViewInstruction i -> new IrByteViewInstruction(i.result().map(values), i.operation(),
+                    operand(i.view()), i.arguments().stream().map(this::operand).toList(), i.sourceSpan());
             case IrStringCharAtInstruction i -> new IrStringCharAtInstruction(
                     values.apply(i.result()), operand(i.string()), operand(i.index()), i.sourceSpan());
             case IrStringConcatInstruction i -> new IrStringConcatInstruction(

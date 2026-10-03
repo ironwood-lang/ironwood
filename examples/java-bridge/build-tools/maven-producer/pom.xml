@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- SPDX-License-Identifier: MIT OR Apache-2.0 -->
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>org.ironwood.example</groupId><artifactId>values-producer-workflow</artifactId><version>0.1.0-local</version>
+  <packaging>pom</packaging>
+  <properties><distribution>${project.build.directory}/distribution/ironwood-values-0.1.0-local</distribution></properties>
+  <build><plugins>
+    <plugin>
+      <groupId>org.codehaus.mojo</groupId><artifactId>exec-maven-plugin</artifactId><version>3.5.0</version>
+      <executions><execution><id>bridge</id><phase>package</phase><goals><goal>exec</goal></goals>
+        <configuration><executable>bash</executable>
+          <environmentVariables><JAVA_HOME>${java.home}</JAVA_HOME></environmentVariables>
+          <arguments>
+          <argument>${project.basedir}/../produce.sh</argument><argument>${project.build.directory}</argument>
+        </arguments></configuration>
+      </execution></executions>
+    </plugin>
+    <plugin>
+      <groupId>org.apache.maven.plugins</groupId><artifactId>maven-install-plugin</artifactId><version>3.1.3</version>
+      <executions><execution><id>install-bridge</id><phase>install</phase><goals><goal>install-file</goal></goals>
+        <configuration>
+          <file>${distribution}.jar</file><pomFile>${distribution}.pom</pomFile>
+          <sources>${distribution}-sources.jar</sources><javadoc>${distribution}-javadoc.jar</javadoc>
+        </configuration>
+      </execution></executions>
+    </plugin>
+  </plugins></build>
+</project>

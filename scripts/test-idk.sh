@@ -89,10 +89,35 @@ for IRONWOOD_EXECUTABLE in "${IRONWOOD_REQUIRED_EXECUTABLES[@]}"; do
         exit 1
     fi
 done
+# Validate the shared Java value dependency from its installed location, including
+# generation by the relocated compiler without an external JDK or downloads.
+cat > "$IRONWOOD_TEST_DIR/ByteViewSmoke.java" <<'JAVA'
+// SPDX-License-Identifier: MIT OR Apache-2.0
+import ironwood.bridge.ByteView;
+public final class ByteViewSmoke {
+    public static void main(String[] args) {
+        ByteView bytes = ByteView.allocate(4);
+        ByteView slice = bytes.slice(1, 2).asReadOnly();
+        bytes.put(1, (byte)-7);
+        if (slice.get(0) != -7 || slice.length() != 2) throw new AssertionError();
+        try { slice.put(-1, (byte)0); throw new AssertionError(); }
+        catch (UnsupportedOperationException expected) {}
+        System.out.println("packaged byte views passed");
+    }
+}
+JAVA
+"$IRONWOOD_IDK_ROOT/toolchain/lib/jvm/bin/javac" --release 21 -Xlint:all -Werror \
+    -cp "$IRONWOOD_IDK_ROOT/lib/ironwood-bridge-values.jar" \
+    -d "$IRONWOOD_TEST_DIR/byteview-classes" "$IRONWOOD_TEST_DIR/ByteViewSmoke.java"
+"$IRONWOOD_IDK_ROOT/toolchain/lib/jvm/bin/java" \
+    -cp "$IRONWOOD_IDK_ROOT/lib/ironwood-bridge-values.jar:$IRONWOOD_TEST_DIR/byteview-classes" ByteViewSmoke
+env -u JAVA_HOME -u IRONWOOD_LLVM_HOME PATH=/usr/bin:/bin \
+    "$IRONWOOD_IDK_ROOT/bin/ironwoodc" --java-bridge-values -o "$IRONWOOD_TEST_DIR/values.jar"
+cmp "$IRONWOOD_IDK_ROOT/lib/ironwood-bridge-values.jar" "$IRONWOOD_TEST_DIR/values.jar"
 if [[ $(uname -s) == Linux ]]; then
     case "$(uname -m)" in
-        aarch64|arm64) IRONWOOD_SYSROOT_PACKAGE=sysroot_linux-aarch64 ;;
-        x86_64|amd64) IRONWOOD_SYSROOT_PACKAGE=sysroot_linux-64 ;;
+        aarch64|arm64) IRONWOOD_SYSROOT_PACKAGE=sysroot_linux-aarch64; IRONWOOD_BRIDGE_PLATFORM=linux-arm64 ;;
+        x86_64|amd64) IRONWOOD_SYSROOT_PACKAGE=sysroot_linux-64; IRONWOOD_BRIDGE_PLATFORM=linux-x86_64 ;;
         *)
             echo "error: unsupported Linux architecture for IDK smoke test: $(uname -m)" >&2
             exit 1
@@ -119,11 +144,35 @@ PYTHON
         echo "error: packaged Linux IDK requires glibc sysroot $IRONWOOD_GLIBC_BASELINE, found $IRONWOOD_SYSROOT_VERSION" >&2
         exit 1
     fi
+    "$IRONWOOD_IDK_ROOT/toolchain/bin/python" "$IRONWOOD_IDK_ROOT/scripts/prepare-java-bridge-support.py" --check \
+        --target "$IRONWOOD_BRIDGE_PLATFORM" \
+        --prefix "$IRONWOOD_IDK_ROOT/toolchain/ironwood-bridge-support"
 fi
 if [[ ! -f "$IRONWOOD_IDK_ROOT/toolchain/bin/conda-unpack" ]]; then
     echo "error: packaged IDK is missing toolchain/bin/conda-unpack" >&2
     exit 1
 fi
+# Exercise native bridge production and Java callbacks with installed defaults.
+for IRONWOOD_BRIDGE_STEP in compile link; do
+    env -u JAVA_HOME -u IRONWOOD_LLVM_HOME -u IRONWOOD_BRIDGE_SUPPORT_HOME \
+        PATH="$IRONWOOD_IDK_ROOT/bin:/usr/bin:/bin" \
+        "$IRONWOOD_IDK_ROOT/examples/java-bridge/basics/$IRONWOOD_BRIDGE_STEP.sh"
+done
+IRONWOOD_BRIDGE_OUTPUT=$(env -u JAVA_HOME -u IRONWOOD_LLVM_HOME -u IRONWOOD_BRIDGE_SUPPORT_HOME \
+    PATH="$IRONWOOD_IDK_ROOT/bin:/usr/bin:/bin" "$IRONWOOD_IDK_ROOT/examples/java-bridge/basics/run.sh")
+if [[ "$IRONWOOD_BRIDGE_OUTPUT" != $'Java listener: 2\nJava listener: 5\nCounter total: 5' ]]; then
+    echo "error: packaged Java Bridge callback example produced unexpected output: $IRONWOOD_BRIDGE_OUTPUT" >&2
+    exit 1
+fi
+echo "packaged Java Bridge callbacks passed without external build tools or support overrides"
+for IRONWOOD_BRIDGE_BUILD_FILE in maven-producer/pom.xml maven-consumer/pom.xml \
+        gradle-producer/build.gradle gradle-producer/settings.gradle \
+        gradle-consumer/build.gradle gradle-consumer/settings.gradle; do
+    if [[ ! -r "$IRONWOOD_IDK_ROOT/examples/java-bridge/build-tools/$IRONWOOD_BRIDGE_BUILD_FILE" ]]; then
+        echo "error: packaged Java Bridge example is missing $IRONWOOD_BRIDGE_BUILD_FILE" >&2
+        exit 1
+    fi
+done
 if [[ ! -f "$IRONWOOD_IDK_ROOT/lib/ironwoodc.jar" ]]; then
     echo "error: packaged IDK is missing lib/ironwoodc.jar" >&2
     exit 1
@@ -633,9 +682,9 @@ env -u JAVA_HOME -u IRONWOOD_RUNTIME_HOME -u IRONWOOD_LLVM_HOME PATH="/usr/bin:/
     "$IRONWOOD_IDK_ROOT/bin/ironwoodc" --link --main-class org.ironwood.proxy.ProxyTunnel \
     -cp "$IRONWOOD_PROXY_EXAMPLE/target/classes" -o "$IRONWOOD_PROXY_EXAMPLE/target/ProxyTunnel" \
     --unfreed=error -O3
-python3 "$IRONWOOD_PROXY_EXAMPLE/peer.py"
+"$IRONWOOD_IDK_ROOT/toolchain/bin/python" "$IRONWOOD_PROXY_EXAMPLE/peer.py"
 
-python3 "$IRONWOOD_SCRIPT_DIR/test-tls-package.py" "$IRONWOOD_IDK_ROOT"
+"$IRONWOOD_IDK_ROOT/toolchain/bin/python" "$IRONWOOD_SCRIPT_DIR/test-tls-package.py" "$IRONWOOD_IDK_ROOT"
 
 if [[ $(uname -s) == Linux ]]; then
     for IRONWOOD_GENERATED_BINARY in \

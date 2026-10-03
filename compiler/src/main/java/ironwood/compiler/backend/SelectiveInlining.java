@@ -25,6 +25,7 @@ final class SelectiveInlining {
         Map<String, Set<String>> edges = new HashMap<>();
         Set<String> excluded = new HashSet<>();
         program.entryPoint().ifPresent(f -> excluded.add(f.linkageName()));
+        excluded.addAll(program.exportRoots());
         program.classes().forEach(c -> {
             c.dispatchEntries().forEach(e -> excluded.add(e.targetLinkageName()));
             c.destructorChain().ifPresent(excluded::add);
@@ -42,11 +43,14 @@ final class SelectiveInlining {
         }
         Set<String> result = new LinkedHashSet<>();
         int remaining = 4096;
+        // Library callers cannot benefit from whole executable-loop inlining.
+        // Admit larger leaf loops so their small callers expose constant state.
+        int maximumBody = program.exportRoots().isEmpty() ? 256 : 512;
         for (IrFunction function : functions.values()) {
             String name = function.linkageName();
             int cost = cost(function);
             List<IrFunction> sites = callers.getOrDefault(name, List.of());
-            if (function.kind() != IrCallableKind.METHOD || excluded.contains(name) || cost < 64 || cost > 256
+            if (function.kind() != IrCallableKind.METHOD || excluded.contains(name) || cost < 64 || cost > maximumBody
                     || sites.isEmpty() || sites.size() > 4 || sites.stream().anyMatch(f -> cost(f) > 48)
                     || !hasLoop(function)) continue;
             Set<String> reached = reachable(name, edges);
@@ -57,6 +61,16 @@ final class SelectiveInlining {
             result.add(name);
             remaining -= growth;
         }
+        // Expand the trusted bounded-view accessors before LLVM argument promotion:
+        // promotion would synthesize caller loads without the descriptor's invariant
+        // metadata. This preserves permission/range proofs and does not assert that
+        // two payloads are disjoint. Counterfeit same-name classes have no typed ops.
+        boolean typedViews = functions.values().stream().flatMap(SelectiveInlining::operations)
+                .anyMatch(IrByteViewInstruction.class::isInstance);
+        if (typedViews) functions.values().stream()
+                .filter(function -> function.ownerClass().equals(IrByteViewInstruction.TYPE.referenceName())
+                        && function.kind() == IrCallableKind.METHOD && !program.exportRoots().contains(function.linkageName()))
+                .map(IrFunction::linkageName).forEach(result::add);
         return Set.copyOf(result);
     }
 

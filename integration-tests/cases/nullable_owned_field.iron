@@ -1,0 +1,54 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// Nullable getters lend the owned child; only freeing its owner reclaims it.
+// Exit 42 confirms both getter forms, absent values and one child destruction.
+final class Leaf {
+
+    int read() {
+
+        return 42;
+    }
+
+    destructor {
+
+        Main.destroyed++;
+    }
+}
+
+final class Owner {
+
+    private final Leaf leaf = new Leaf();
+
+    Leaf conditional(boolean absent) {
+
+        return absent ? null : leaf;
+    }
+
+    Leaf early(boolean absent) {
+
+        if (absent) return null;
+        return leaf;
+    }
+
+    destructor {
+
+        free leaf;
+    }
+}
+
+class Main {
+
+    static int destroyed;
+
+    public static int main(String[] args) {
+
+        Owner owner = new Owner();
+        Leaf first = owner.conditional(false);
+        Leaf second = owner.early(false);
+        int result = first.read();
+        boolean valid = first == second && owner.conditional(true) == null
+                && owner.early(true) == null;
+        free owner;
+        return valid && destroyed == 1 ? result : 1;
+    }
+}

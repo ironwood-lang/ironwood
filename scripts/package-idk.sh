@@ -53,6 +53,24 @@ if [[ ! -x "$IRONWOOD_IDK_TOOLCHAIN_HOME/lib/jvm/bin/java" ]]; then
     exit 1
 fi
 
+# The bundled Java also produces bridge companions and must be a complete supported JDK.
+source "$IRONWOOD_SCRIPT_DIR/jdk.sh"
+JAVA_HOME="$IRONWOOD_IDK_TOOLCHAIN_HOME/lib/jvm"
+ironwood_select_java "$IRONWOOD_PROJECT_ROOT"
+ironwood_require_jdk
+if [[ "$IRONWOOD_JAVA_FEATURE" -gt 25 ]]; then
+    echo "error: IDK Java Bridge tooling requires JDK 21 to 25; found $IRONWOOD_JAVA_FEATURE" >&2
+    exit 1
+fi
+IRONWOOD_JNI_PLATFORM=linux
+if [[ "$IRONWOOD_OS" == Darwin ]]; then IRONWOOD_JNI_PLATFORM=darwin; fi
+for IRONWOOD_JDK_COMPONENT in bin/javadoc include/jni.h "include/$IRONWOOD_JNI_PLATFORM/jni_md.h"; do
+    if [[ ! -r "$JAVA_HOME/$IRONWOOD_JDK_COMPONENT" ]]; then
+        echo "error: IDK JDK is missing $IRONWOOD_JDK_COMPONENT: $JAVA_HOME" >&2
+        exit 1
+    fi
+done
+
 if [[ -n "$IRONWOOD_LINUX_SYSROOT_PACKAGE" ]]; then
     IRONWOOD_SYSROOT_METADATA=(
         "$IRONWOOD_IDK_TOOLCHAIN_HOME/conda-meta/$IRONWOOD_LINUX_SYSROOT_PACKAGE"-*.json
@@ -89,13 +107,21 @@ IRONWOOD_TLS_PREFIX=${IRONWOOD_TLS_HOME:-$IRONWOOD_IDK_TOOLCHAIN_HOME/ironwood-t
 "$IRONWOOD_IDK_TOOLCHAIN_HOME/bin/python" "$IRONWOOD_SCRIPT_DIR/prepare-tls.py" --verify \
     --prefix "$IRONWOOD_TLS_PREFIX" --llvm-home "$IRONWOOD_IDK_TOOLCHAIN_HOME"
 
+IRONWOOD_BRIDGE_SUPPORT_PREFIX=
+if [[ "$IRONWOOD_OS" == Linux ]]; then
+    IRONWOOD_BRIDGE_SUPPORT_PREFIX=${IRONWOOD_BRIDGE_SUPPORT_HOME:-$IRONWOOD_IDK_TOOLCHAIN_HOME/ironwood-bridge-support}
+    "$IRONWOOD_IDK_TOOLCHAIN_HOME/bin/python" "$IRONWOOD_SCRIPT_DIR/prepare-java-bridge-support.py" --check \
+        --target "$IRONWOOD_PLATFORM" --prefix "$IRONWOOD_BRIDGE_SUPPORT_PREFIX"
+fi
+
 IRONWOOD_PACKAGE_NAME="ironwood-idk-$IRONWOOD_VERSION-$IRONWOOD_PLATFORM"
 IRONWOOD_DIST_DIR="$IRONWOOD_PROJECT_ROOT/dist"
 IRONWOOD_STAGE_DIR="$IRONWOOD_DIST_DIR/$IRONWOOD_PACKAGE_NAME"
 IRONWOOD_ARCHIVE="$IRONWOOD_DIST_DIR/$IRONWOOD_PACKAGE_NAME.tar.gz"
 IRONWOOD_TOOLCHAIN_ARCHIVE="$IRONWOOD_DIST_DIR/.idk-toolchain-$IRONWOOD_PLATFORM.tar.gz"
 
-IRONWOOD_VERSION="$IRONWOOD_VERSION" "$IRONWOOD_SCRIPT_DIR/build.sh"
+JAVA_HOME="$IRONWOOD_IDK_TOOLCHAIN_HOME/lib/jvm" \
+    IRONWOOD_VERSION="$IRONWOOD_VERSION" "$IRONWOOD_SCRIPT_DIR/build.sh"
 
 rm -rf "$IRONWOOD_STAGE_DIR"
 rm -f "$IRONWOOD_ARCHIVE" "$IRONWOOD_TOOLCHAIN_ARCHIVE"
@@ -116,6 +142,8 @@ cp "$IRONWOOD_PROJECT_ROOT/bin/ironjar" "$IRONWOOD_STAGE_DIR/bin/ironjar"
 cp "$IRONWOOD_PROJECT_ROOT/bin/irondoc" "$IRONWOOD_STAGE_DIR/bin/irondoc"
 cp "$IRONWOOD_PROJECT_ROOT/conf/jvm.options" "$IRONWOOD_STAGE_DIR/conf/jvm.options"
 cp "$IRONWOOD_PROJECT_ROOT/compiler/build/ironwoodc.jar" "$IRONWOOD_STAGE_DIR/lib/ironwoodc.jar"
+"$IRONWOOD_IDK_TOOLCHAIN_HOME/lib/jvm/bin/java" -jar "$IRONWOOD_PROJECT_ROOT/compiler/build/ironwoodc.jar" \
+    --java-bridge-values -o "$IRONWOOD_STAGE_DIR/lib/ironwood-bridge-values.jar"
 cp "$IRONWOOD_PROJECT_ROOT/compiler/build/ironwood-stdlib.ironjar" \
     "$IRONWOOD_STAGE_DIR/lib/ironwood-stdlib.ironjar"
 cp "$IRONWOOD_PROJECT_ROOT/compiler/build/ironwood-testing.ironjar" \
@@ -134,6 +162,9 @@ cp "$IRONWOOD_PROJECT_ROOT/LICENSES/Unicode-15.0.txt" "$IRONWOOD_STAGE_DIR/LICEN
 cp "$IRONWOOD_PROJECT_ROOT/LICENSES/MPL-2.0.txt" "$IRONWOOD_STAGE_DIR/LICENSES/MPL-2.0.txt"
 cp "$IRONWOOD_PROJECT_ROOT/docs/THIRD_PARTY_NOTICES.md" "$IRONWOOD_STAGE_DIR/THIRD_PARTY_NOTICES.md"
 cp "$IRONWOOD_PROJECT_ROOT/docs/COMPILER.md" "$IRONWOOD_STAGE_DIR/docs/COMPILER.md"
+for IRONWOOD_BRIDGE_DOC in JAVA_BRIDGE_USAGE.md JAVA_BRIDGE_JDK_PROGRESS.md JAVA_BRIDGE_JDK_IDENTITIES.json JAVA_BRIDGE_IDK_IDENTITIES.json JAVA_BRIDGE_NATIVE_SUPPORT.md; do
+    cp "$IRONWOOD_PROJECT_ROOT/docs/$IRONWOOD_BRIDGE_DOC" "$IRONWOOD_STAGE_DIR/docs/$IRONWOOD_BRIDGE_DOC"
+done
 cp "$IRONWOOD_PROJECT_ROOT/docs/DECISIONS.md" "$IRONWOOD_STAGE_DIR/docs/DECISIONS.md"
 cp "$IRONWOOD_PROJECT_ROOT/docs/LANGUAGE.md" "$IRONWOOD_STAGE_DIR/docs/LANGUAGE.md"
 cp "$IRONWOOD_PROJECT_ROOT/docs/MEMORY.md" "$IRONWOOD_STAGE_DIR/docs/MEMORY.md"
@@ -160,13 +191,16 @@ cp "$IRONWOOD_PROJECT_ROOT/docs/NETWORKING_M5_VERIFICATION.md" "$IRONWOOD_STAGE_
 cp "$IRONWOOD_PROJECT_ROOT/docs/NETWORKING_M6_VERIFICATION.md" "$IRONWOOD_STAGE_DIR/docs/NETWORKING_M6_VERIFICATION.md"
 mkdir -p "$IRONWOOD_STAGE_DIR/packaging"
 cp "$IRONWOOD_PROJECT_ROOT/packaging/tls-dependencies.properties" "$IRONWOOD_STAGE_DIR/packaging/"
+cp "$IRONWOOD_PROJECT_ROOT/packaging/java-bridge-support.properties" "$IRONWOOD_STAGE_DIR/packaging/"
 cp "$IRONWOOD_PROJECT_ROOT/packaging/idk-environment.yml" "$IRONWOOD_STAGE_DIR/packaging/"
 mkdir -p "$IRONWOOD_STAGE_DIR/scripts"
 cp "$IRONWOOD_PROJECT_ROOT/scripts/prepare-tls.py" "$IRONWOOD_STAGE_DIR/scripts/prepare-tls.py"
+cp "$IRONWOOD_PROJECT_ROOT/scripts/prepare-java-bridge-support.py" "$IRONWOOD_STAGE_DIR/scripts/prepare-java-bridge-support.py"
 cp "$IRONWOOD_PROJECT_ROOT/scripts/test-networking-m6.py" "$IRONWOOD_STAGE_DIR/scripts/test-networking-m6.py"
 mkdir -p "$IRONWOOD_STAGE_DIR/integration-tests/native"
 cp "$IRONWOOD_PROJECT_ROOT/integration-tests/native/tls_interpose.c" "$IRONWOOD_STAGE_DIR/integration-tests/native/tls_interpose.c"
 cp "$IRONWOOD_PROJECT_ROOT/scripts/jvm-options.sh" "$IRONWOOD_STAGE_DIR/scripts/jvm-options.sh"
+cp "$IRONWOOD_PROJECT_ROOT/scripts/jdk.sh" "$IRONWOOD_STAGE_DIR/scripts/jdk.sh"
 cp "$IRONWOOD_PROJECT_ROOT/scripts/GenerateCaseData.java" "$IRONWOOD_STAGE_DIR/scripts/GenerateCaseData.java"
 cp "$IRONWOOD_PROJECT_ROOT/docs/SYSTEM_OUTPUT_SOURCE_REVIEW.md" "$IRONWOOD_STAGE_DIR/docs/SYSTEM_OUTPUT_SOURCE_REVIEW.md"
 cp "$IRONWOOD_PROJECT_ROOT/docs/TESTING.md" "$IRONWOOD_STAGE_DIR/docs/TESTING.md"
@@ -175,7 +209,8 @@ while IFS= read -r IRONWOOD_EXAMPLE_FILE; do
     mkdir -p "$IRONWOOD_STAGE_DIR/examples/$(dirname -- "$IRONWOOD_EXAMPLE_RELATIVE")"
     cp "$IRONWOOD_EXAMPLE_FILE" "$IRONWOOD_STAGE_DIR/examples/$IRONWOOD_EXAMPLE_RELATIVE"
 done < <(find "$IRONWOOD_PROJECT_ROOT/examples" -type f \
-    \( -name '*.iron' -o -name '*.sh' -o -name '*.py' -o -name 'README.md' \) -print)
+    \( -name '*.iron' -o -name '*.java' -o -name '*.sh' -o -name '*.py' \
+        -o -name 'pom.xml' -o -name '*.gradle' -o -name 'README.md' \) -print)
 while IFS= read -r IRONWOOD_PROJECT_FILE; do
     IRONWOOD_PROJECT_RELATIVE=${IRONWOOD_PROJECT_FILE#"$IRONWOOD_PROJECT_ROOT/projects/"}
     mkdir -p "$IRONWOOD_STAGE_DIR/projects/$(dirname -- "$IRONWOOD_PROJECT_RELATIVE")"
@@ -192,18 +227,26 @@ printf '%s\n' "$IRONWOOD_VERSION" > "$IRONWOOD_STAGE_DIR/VERSION"
 
 # The separately copied SDK must not acquire conda-unpack relocation entries:
 # rewriting its build provenance (including configdata.pm) invalidates checksums.
-"$IRONWOOD_IDK_TOOLCHAIN_HOME/bin/conda-pack" \
+"$IRONWOOD_IDK_TOOLCHAIN_HOME/bin/python" "$IRONWOOD_IDK_TOOLCHAIN_HOME/bin/conda-pack" \
     -p "$IRONWOOD_IDK_TOOLCHAIN_HOME" \
     -o "$IRONWOOD_TOOLCHAIN_ARCHIVE" \
     --exclude 'ironwood-tls/*' \
+    --exclude 'ironwood-bridge-support/*' \
     --force
 tar -xzf "$IRONWOOD_TOOLCHAIN_ARCHIVE" -C "$IRONWOOD_STAGE_DIR/toolchain"
 # Copy the separately verified application SDK, never the toolchain's OpenSSL.
 rm -rf "$IRONWOOD_STAGE_DIR/toolchain/ironwood-tls"
 cp -R "$IRONWOOD_TLS_PREFIX" "$IRONWOOD_STAGE_DIR/toolchain/ironwood-tls"
+if [[ -n "$IRONWOOD_BRIDGE_SUPPORT_PREFIX" ]]; then
+    rm -rf "$IRONWOOD_STAGE_DIR/toolchain/ironwood-bridge-support"
+    cp -R "$IRONWOOD_BRIDGE_SUPPORT_PREFIX" "$IRONWOOD_STAGE_DIR/toolchain/ironwood-bridge-support"
+    "$IRONWOOD_IDK_TOOLCHAIN_HOME/bin/python" "$IRONWOOD_SCRIPT_DIR/prepare-java-bridge-support.py" --check \
+        --target "$IRONWOOD_PLATFORM" --prefix "$IRONWOOD_STAGE_DIR/toolchain/ironwood-bridge-support"
+fi
 rm -f "$IRONWOOD_TOOLCHAIN_ARCHIVE"
 
 "$IRONWOOD_IDK_TOOLCHAIN_HOME/bin/python" - "$IRONWOOD_IDK_TOOLCHAIN_HOME" "$IRONWOOD_PROJECT_ROOT/packaging/tls-dependencies.properties" \
+        "$IRONWOOD_PROJECT_ROOT/packaging/java-bridge-support.properties" "$IRONWOOD_BRIDGE_SUPPORT_PREFIX" \
         > "$IRONWOOD_STAGE_DIR/THIRD-PARTY-PACKAGES.tsv" <<'PYTHON'
 import glob
 import json
@@ -225,7 +268,11 @@ with open(sys.argv[2], encoding="utf-8") as source:
     pins = dict(line.strip().split("=", 1) for line in source if line.strip() and not line.startswith("#"))
 for key, name in (("openssl", "openssl-static"), ("ca", "mozilla-ca-bundle")):
     print("\t".join((name, pins[key + ".version"], pins[key + ".license"], pins[key + ".url"])))
+if sys.argv[4]:
+    with open(sys.argv[3], encoding="utf-8") as source:
+        bridge = dict(line.strip().split("=", 1) for line in source if line.strip() and not line.startswith("#"))
+    print("\t".join(("java-bridge-gcc-runtime", bridge["gcc.version"], bridge["license"], bridge["gcc.source.url"])))
 PYTHON
 
-tar -C "$IRONWOOD_DIST_DIR" -czf "$IRONWOOD_ARCHIVE" "$IRONWOOD_PACKAGE_NAME"
+COPYFILE_DISABLE=1 tar --no-xattrs -C "$IRONWOOD_DIST_DIR" -czf "$IRONWOOD_ARCHIVE" "$IRONWOOD_PACKAGE_NAME"
 echo "packaged $IRONWOOD_ARCHIVE"

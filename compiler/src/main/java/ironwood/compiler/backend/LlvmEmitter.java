@@ -143,12 +143,22 @@ public final class LlvmEmitter {
     private FunctionLayout layout;
     private String currentBlockLabel;
     private int guardOrdinal;
+    private Set<String> bridgeEntries = Set.of();
 
     public String emit(IrProgram program) {
         return emit(program, true);
     }
 
     public String emit(IrProgram program, boolean selectiveInlining) {
+        return emit(program, selectiveInlining, program.exportRoots());
+    }
+
+    public String emit(ironwood.compiler.bridge.BridgeEntryModule module) {
+        return emit(module.program(), true, module.entrySymbols());
+    }
+
+    private String emit(IrProgram program, boolean selectiveInlining, Set<String> bridgeEntries) {
+        this.bridgeEntries = Set.copyOf(bridgeEntries);
         tracePlan = new TracePlan(program);
         throwHelpers.clear();
         planDispatchReceivers(program);
@@ -158,6 +168,7 @@ public final class LlvmEmitter {
         output.append("source_filename = \"").append(escapeString(program.moduleName())).append("\"\n\n");
         output.append("%\"ironwood.typeinfo\" = type { i32, ptr, ptr, ptr, i32, ptr, ptr, i1, i1 }\n");
         output.append("%\"ironwood.array\" = type { ptr, i64, i64, i32, i32, [0 x i8] }\n");
+        output.append("%\"ironwood.byteview\" = type { ptr, i32, i8 }\n");
         output.append("%\"ironwood.string\" = type { ptr, i32, i32, [0 x i16] }\n");
         output.append("%\"ironwood.string.concat.part\" = type { i32, i32, i64 }\n");
         for (IrClass irClass : program.classes()) {
@@ -246,6 +257,7 @@ public final class LlvmEmitter {
             output.append('\n');
         }
         emitThrowableTraceMetadata(output, program);
+        emitForeignDeclarations(output, program);
         for (IrThrowableTraceInstruction.Operation operation : IrThrowableTraceInstruction.Operation.values()) {
             output.append("declare ").append(llvmType(operation.returnType())).append(" @")
                     .append(operation.runtimeName()).append('(')
@@ -369,6 +381,9 @@ public final class LlvmEmitter {
         output.append("declare void @ironwood_throw(ptr) noreturn cold\n");
         output.append("declare ptr @ironwood_exception_take(ptr)\n");
         output.append("declare void @ironwood_exception_caught(ptr)\n");
+        output.append("declare void @ironwood_bridge_snapshot_failure(ptr, ptr)\n");
+        output.append("declare ptr @ironwood_bridge_copy_string(ptr, i32, ptr, ptr)\n");
+        output.append("declare ptr @ironwood_bridge_copy_array(ptr, i64, i32, ptr, ptr)\n");
         output.append("declare void @ironwood_exception_add_secondary(ptr, ptr)\n");
         output.append("declare i32 @ironwood_exception_secondary_count(ptr)\n");
         output.append("declare ptr @ironwood_exception_secondary_at(ptr, i32)\n");
@@ -398,9 +413,21 @@ public final class LlvmEmitter {
             }
         }
         program.entryPoint().ifPresent(entryPoint -> emitNativeEntryPoint(output, entryPoint, program));
+        if (!bridgeEntries.isEmpty()) emitBridgeBootstrap(output);
         emitThrowHelpers(output);
         tracePlan.emitDebugMetadata(output);
         return output.toString();
+    }
+
+    private void emitBridgeBootstrap(StringBuilder output) {
+        output.append("\n@ironwood_bridge_initialized = internal global i1 false\n")
+                .append("define hidden void @ironwood_bridge_bootstrap() {\n")
+                .append("entry:\n  %ready = load i1, ptr @ironwood_bridge_initialized\n")
+                .append("  br i1 %ready, label %done, label %initialize\n")
+                .append("initialize:\n  call void @ironwood_trace_register_current(ptr @ironwood_trace_sites, i32 ")
+                .append(tracePlan.sites().size()).append(")\n")
+                .append("  store i1 true, ptr @ironwood_bridge_initialized\n  br label %done\n")
+                .append("done:\n  ret void\n}\n");
     }
 
     private void emitClass(StringBuilder output, IrClass irClass) {
@@ -653,7 +680,8 @@ public final class LlvmEmitter {
     }
 
     private void emitFunction(StringBuilder output, IrFunction function) {
-        output.append("define internal ").append(llvmType(function.returnType())).append(' ')
+        output.append(bridgeEntries.contains(function.linkageName()) ? "define hidden " : "define internal ")
+                .append(llvmType(function.returnType())).append(' ')
                 .append(functionName(function.linkageName())).append('(');
         output.append(function.parameters().stream()
                 .map(this::parameter)
@@ -779,6 +807,45 @@ public final class LlvmEmitter {
         if (writesTraceLine(instruction)) {
             emitTraceProbe(output, tracePlan.site(function, instruction));
             output.append("\n  ");
+        }
+        if (instruction instanceof ironwood.compiler.ir.IrForeignCallInstruction call) {
+            emitForeignCall(output, call, "call", ", !dbg !" + tracePlan.site(function, instruction).callLocationMetadata());
+            return;
+        }
+        if (instruction instanceof ironwood.compiler.ir.IrBridgeBatchAppendInstruction append) {
+            emitBatchAppend(output, append, scratchNames);
+            return;
+        }
+        if (instruction instanceof ironwood.compiler.ir.IrBridgeSlotStoreInstruction store) {
+            String base = scratchNames.next("bridge.frame");
+            String holder = scratchNames.next("bridge.holder");
+            String value = scratchNames.next("bridge.value");
+            long offset = ironwood.compiler.ir.IrBridgeSlotStoreInstruction.FRAME_PREFIX_BYTES
+                    + (long) store.index() * ironwood.compiler.ir.IrBridgeSlotStoreInstruction.RECORD_BYTES;
+            output.append(base).append(" = inttoptr i64 ").append(operand(store.frameAddress())).append(" to ptr\n  ")
+                    .append(holder).append(" = getelementptr i8, ptr ").append(base).append(", i64 ").append(offset).append("\n  ")
+                    .append(value).append(" = getelementptr i8, ptr ").append(base).append(", i64 ").append(offset + 8).append("\n  ")
+                    .append("store ptr ").append(operand(store.holder())).append(", ptr ").append(holder).append(", align 8\n  ")
+                    .append("store ptr ").append(operand(store.value())).append(", ptr ").append(value).append(", align 8");
+            return;
+        }
+        if (instruction instanceof ironwood.compiler.ir.IrBridgeResultStoreInstruction store) {
+            String base = scratchNames.next("bridge.frame");
+            String address = scratchNames.next("bridge.slot");
+            output.append(base).append(" = inttoptr i64 ").append(operand(store.frameAddress())).append(" to ptr\n  ")
+                    .append(address).append(" = getelementptr i8, ptr ").append(base).append(", i64 ")
+                    .append(store.slot() == ironwood.compiler.ir.IrBridgeResultStoreInstruction.Slot.VALUE ? 0 : 8)
+                    .append("\n  ");
+            String value = operand(store.value());
+            String type = llvmType(store.value().type());
+            if (store.value().type().equals(IrType.I1)) {
+                value = scratchNames.next("bridge.boolean");
+                output.append(value).append(" = zext i1 ").append(operand(store.value())).append(" to i8\n  ");
+                type = "i8";
+            }
+            output.append("store ").append(type).append(' ').append(value).append(", ptr ").append(address)
+                    .append(", align 8");
+            return;
         }
         if (instruction instanceof ironwood.compiler.ir.IrTypeInitializedInstruction test) {
             String state = scratchNames.next("initialized.state");
@@ -1091,6 +1158,10 @@ public final class LlvmEmitter {
                     .append(operand(toString.object())).append(", ptr ")
                     .append(typeInfoName("ironwood.lang.String")).append(", ptr ")
                     .append(allocationFailureName()).append(')');
+            return;
+        }
+        if (instruction instanceof ironwood.compiler.ir.IrByteViewInstruction view) {
+            LlvmByteViewEmitter.emit(output, view, this::operand, scratchNames::next);
             return;
         }
         if (instruction instanceof IrStringCharAtInstruction charAt) {
@@ -1747,6 +1818,39 @@ public final class LlvmEmitter {
                 + " unwind label %" + invoke.unwindTarget()
                 + ", !dbg !" + traceSite.callLocationMetadata();
         IrInstruction call = invoke.call();
+        if (call instanceof ironwood.compiler.ir.IrForeignCallInstruction foreign) {
+            emitForeignCall(output, foreign, "invoke", suffix);
+            return;
+        }
+        if (call instanceof ironwood.compiler.ir.IrBridgeStringCopyInstruction copy) {
+            String characters = scratchNames.next("bridge.characters");
+            output.append(characters).append(" = inttoptr i64 ").append(operand(copy.address())).append(" to ptr\n  ")
+                    .append(operand(copy.result())).append(" = invoke ptr @ironwood_bridge_copy_string(ptr ")
+                    .append(characters).append(", i32 ").append(operand(copy.length())).append(", ptr ")
+                    .append(typeInfoName("ironwood.lang.String")).append(", ptr ")
+                    .append(allocationFailureName()).append(')').append(suffix);
+            return;
+        }
+        if (call instanceof ironwood.compiler.ir.IrBridgeArrayCopyInstruction copy) {
+            String state = scratchNames.next("bridge.array.state");
+            String sizePointer = scratchNames.next("bridge.array.element.size.ptr");
+            String size = scratchNames.next("bridge.array.element.size");
+            output.append(state).append(" = inttoptr i64 ").append(operand(copy.stateAddress())).append(" to ptr\n  ")
+                    .append(sizePointer).append(" = getelementptr ").append(llvmType(copy.result().type().elementType()))
+                    .append(", ptr null, i32 1\n  ").append(size).append(" = ptrtoint ptr ").append(sizePointer).append(" to i64\n  ")
+                    .append(operand(copy.result())).append(" = invoke ptr @ironwood_bridge_copy_array(ptr ").append(state)
+                    .append(", i64 ").append(size).append(", i32 ").append(arrayElementKind(copy.result().type().elementType()))
+                    .append(", ptr ").append(typeInfoName(copy.result().type().displayName()))
+                    .append(", ptr ").append(allocationFailureName()).append(')').append(suffix);
+            return;
+        }
+        if (call instanceof ironwood.compiler.ir.IrBridgeFailureSnapshotInstruction snapshot) {
+            String frame = scratchNames.next("bridge.snapshot.frame");
+            output.append(frame).append(" = inttoptr i64 ").append(operand(snapshot.frameAddress())).append(" to ptr\n  ")
+                    .append("invoke void @ironwood_bridge_snapshot_failure(ptr ").append(operand(snapshot.exception()))
+                    .append(", ptr ").append(frame).append(')').append(suffix);
+            return;
+        }
         if (call instanceof IrEnsureTypeInitializedInstruction ensure) {
             output.append("invoke void ").append(typeInitializerName(ensure.typeName()))
                     .append("()").append(suffix);
@@ -2300,8 +2404,91 @@ public final class LlvmEmitter {
         output.append(" }\n");
     }
 
+    private void emitForeignDeclarations(StringBuilder output, IrProgram program) {
+        Map<String, String> declarations = new LinkedHashMap<>();
+        for (var function : program.functions()) {
+            for (var block : function.blocks()) {
+                var operations = Stream.concat(block.instructions().stream(), block.terminator() instanceof IrInvokeTerminator invoke
+                        ? Stream.of(invoke.call()) : Stream.empty());
+                operations.filter(ironwood.compiler.ir.IrForeignCallInstruction.class::isInstance)
+                        .map(ironwood.compiler.ir.IrForeignCallInstruction.class::cast).forEach(call -> {
+                            validateForeignAbi(call);
+                            if (program.functions().stream().anyMatch(target -> target.linkageName().equals(call.targetLinkageName()))) {
+                                throw new IllegalArgumentException("foreign adapter collides with native function");
+                            }
+                            String declaration = "declare " + llvmType(call.returnType()) + " " + functionName(call.targetLinkageName())
+                                    + "(i64" + call.arguments().stream().map(argument -> ", " + llvmType(argument.type()))
+                                    .collect(java.util.stream.Collectors.joining()) + ")\n";
+                            String previous = declarations.putIfAbsent(call.targetLinkageName(), declaration);
+                            if (previous != null && !previous.equals(declaration)) {
+                                throw new IllegalArgumentException("foreign adapter has inconsistent callback ABI");
+                            }
+                        });
+            }
+        }
+        declarations.values().forEach(output::append);
+    }
+
+    private static void validateForeignAbi(ironwood.compiler.ir.IrForeignCallInstruction call) {
+        if (call.invocationContext().isEmpty()) {
+            throw new IllegalArgumentException("foreign callback requires admitted invocation-context lowering");
+        }
+        // Integral/boolean values have already been normalized in typed IR.
+        // Nominal reference arguments retain their pointer type. Producer
+        // admission separately proves their facade transport and lifetime;
+        // this ABI validation grants no source borrowing or reclamation fact.
+        if ((!call.returnType().equals(IrType.VOID) && !foreignCarrier(call.returnType()))
+                || call.arguments().stream().anyMatch(argument -> !foreignCarrier(argument.type())
+                && !(argument.type().isNominalReference() && argument.type().typeArguments().isEmpty()))) {
+            throw new IllegalArgumentException("foreign adapter requires normalized primitive results and primitive or nominal reference arguments");
+        }
+    }
+
+    private static boolean foreignCarrier(IrType type) {
+        return type.equals(IrType.I64) || type.equals(IrType.F32) || type.equals(IrType.F64);
+    }
+
+    private void emitBatchAppend(StringBuilder output, ironwood.compiler.ir.IrBridgeBatchAppendInstruction append,
+                                 ScratchNames names) {
+        String frame = names.next("batch.frame"), dataSlot = names.next("batch.data.slot"), data = names.next("batch.data");
+        String used = names.next("batch.used"), index = names.next("batch.index");
+        String offset = names.next("batch.offset"), nextIndex = names.next("batch.next.index");
+        String full = names.next("batch.full"), last = names.next("batch.last");
+        output.append(frame).append(" = inttoptr i64 ").append(operand(append.context())).append(" to ptr\n  ")
+                .append(dataSlot).append(" = getelementptr i8, ptr ").append(frame).append(", i64 ")
+                .append(ironwood.compiler.ir.IrBridgeBatchAppendInstruction.DATA_OFFSET).append("\n  ")
+                .append(data).append(" = load ptr, ptr ").append(dataSlot).append(", align 8\n  ")
+                .append(used).append(" = and i32 ").append(operand(append.index())).append(", ")
+                .append(ironwood.compiler.ir.IrBridgeBatchAppendInstruction.CAPACITY - 1).append("\n  ")
+                .append(index).append(" = zext i32 ").append(used).append(" to i64\n  ")
+                .append(offset).append(" = mul i64 ").append(index).append(", ").append(append.arguments().size()).append("\n  ");
+        for (int indexOfArgument = 0; indexOfArgument < append.arguments().size(); indexOfArgument++) {
+            String position = names.next("batch.position"), address = names.next("batch.address");
+            output.append(position).append(" = add i64 ").append(offset).append(", ").append(indexOfArgument).append("\n  ")
+                    .append(address).append(" = getelementptr i64, ptr ").append(data).append(", i64 ").append(position).append("\n  ")
+                    .append("store i64 ").append(operand(append.arguments().get(indexOfArgument))).append(", ptr ").append(address).append(", align 8\n  ");
+        }
+        output.append(nextIndex).append(" = add i32 ").append(operand(append.index())).append(", 1\n  ")
+                .append(full).append(" = icmp eq i32 ").append(used).append(", ")
+                .append(ironwood.compiler.ir.IrBridgeBatchAppendInstruction.CAPACITY - 1).append("\n  ")
+                .append(last).append(" = icmp eq i32 ").append(nextIndex).append(", ").append(operand(append.count())).append("\n  ")
+                .append(operand(append.result())).append(" = or i1 ").append(full).append(", ").append(last);
+    }
+
+    private void emitForeignCall(StringBuilder output, ironwood.compiler.ir.IrForeignCallInstruction call,
+                                        String operation, String suffix) {
+        validateForeignAbi(call);
+        call.result().ifPresent(result -> output.append(operand(result)).append(" = "));
+        output.append(operation).append(' ').append(llvmType(call.returnType())).append(' ')
+                .append(functionName(call.targetLinkageName())).append("(i64 ")
+                .append(operand(call.invocationContext().orElseThrow()));
+        call.arguments().forEach(argument -> output.append(", ").append(llvmType(argument.type())).append(' ').append(operand(argument)));
+        output.append(')').append(suffix);
+    }
+
     private static boolean writesTraceLine(IrInstruction instruction) {
         return instruction instanceof IrCallInstruction
+                || instruction instanceof ironwood.compiler.ir.IrForeignCallInstruction
                 || instruction instanceof IrVirtualCallInstruction
                 || instruction instanceof IrInterfaceCallInstruction
                 || instruction instanceof IrEnsureTypeInitializedInstruction

@@ -48,6 +48,27 @@ public final class SelectiveInliningTests {
                 "disabled policy retained selected attribute");
     }
 
+    public static void libraryStructure() throws Exception {
+        String source = Files.readString(SOURCE).replace("sum += values[0];", "sum += values[0];\n".repeat(4));
+        var original = analyze(source);
+        require(!SelectiveInlining.select(original).contains("ironwood.Main.work"), "executable policy changed");
+        var library = library(original);
+        require(SelectiveInlining.select(library).contains("ironwood.Main.work"), "library loop remains behind a call");
+        require(!SelectiveInlining.select(library).contains("ironwood.Main.wrapper"), "export root selected");
+        require(new LlvmEmitter().emit(library).contains("i1 %v2) alwaysinline"), "library inline attribute missing");
+        require(!new LlvmEmitter().emit(library, false).contains("i1 %v2) alwaysinline"), "library override ignored");
+        String recursive = source.replace("return sum;", "if (count > 100) return work(values, count - 1, fail); return sum;");
+        require(!SelectiveInlining.select(library(analyze(recursive))).contains("ironwood.Main.work"), "recursive library loop selected");
+        String larger = source.replace("sum += values[0];", "sum += values[0];\n".repeat(4));
+        require(!SelectiveInlining.select(library(analyze(larger))).contains("ironwood.Main.work"), "library policy bound lost");
+    }
+
+    private static IrProgram library(IrProgram program) {
+        return new IrProgram(program.moduleName(), program.classes(), program.staticFields(),
+                program.typeInitializations(), program.arrayTypes(), program.stringConstants(), program.dispatchSlots(),
+                program.functions(), java.util.Optional.empty(), program.allocationFailure(), Set.of("ironwood.Main.wrapper"));
+    }
+
     public static void nativeBehavior() throws Exception {
         nativeBehavior(true);
         nativeBehavior(false);

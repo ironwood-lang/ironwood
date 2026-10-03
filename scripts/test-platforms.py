@@ -79,6 +79,28 @@ def verify_rosetta(root, dry_run=False):
     print("linux-x86_64: Rosetta active", flush=True)
 
 
+def bridge_support(root, target):
+    return root / "workspace/java-bridge/support" / target
+
+
+def prepare_bridge_support(root, target, dry_run):
+    # The pinned Linux bridge support SDK lives in the ignored checkout workspace,
+    # like the maintainer's other bridge runners, and is prepared with the image's
+    # Python 3.14 so no host interpreter requirement is added. Setup verifies an
+    # existing SDK against the current pins instead of overwriting it.
+    prefix = bridge_support(root, target)
+    arch = "arm64" if target == "linux-arm64" else "amd64"
+    command = [*DOCKER, "run", "--rm", "--platform", "linux/" + arch, "--user", f"{os.getuid()}:{os.getgid()}",
+               "--env", "HOME=/tmp", "--mount", f"type=bind,source={root},target={root}", "--workdir", str(root),
+               image(root, target), "python", "-B", "scripts/prepare-java-bridge-support.py",
+               "--check" if prefix.exists() else "--setup", "--target", target, "--prefix", str(prefix)]
+    try:
+        run(command, root, dry_run)
+    except subprocess.CalledProcessError as error:
+        raise ValueError(f"{target}: Java Bridge support SDK preparation failed at {prefix}; "
+                         "delete a stale directory and rerun scripts/test-platforms.sh --setup") from error
+
+
 def setup(root, targets, dry_run):
     linux = [target for target in targets if target.startswith("linux-")]
     if not linux:
@@ -95,17 +117,19 @@ def setup(root, targets, dry_run):
             arch = "arm64" if target == "linux-arm64" else "amd64"
             run([*DOCKER, "build", "--platform", "linux/" + arch, "--tag", image(root, target),
                  "<temporary toolchain-only build context>"], root, True)
-        return
-    with tempfile.TemporaryDirectory(prefix="ironwood-toolchain-context-") as temporary:
-        context = Path(temporary)
-        for name in IMAGE_INPUTS:
-            destination = context / ("Dockerfile" if name.endswith("/Dockerfile") else name)
-            destination.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(root / name, destination)
-        for target in linux:
-            arch = "arm64" if target == "linux-arm64" else "amd64"
-            run([*DOCKER, "build", "--platform", "linux/" + arch, "--tag", image(root, target),
-                 str(context)], root)
+    else:
+        with tempfile.TemporaryDirectory(prefix="ironwood-toolchain-context-") as temporary:
+            context = Path(temporary)
+            for name in IMAGE_INPUTS:
+                destination = context / ("Dockerfile" if name.endswith("/Dockerfile") else name)
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(root / name, destination)
+            for target in linux:
+                arch = "arm64" if target == "linux-arm64" else "amd64"
+                run([*DOCKER, "build", "--platform", "linux/" + arch, "--tag", image(root, target),
+                     str(context)], root)
+    for target in linux:
+        prepare_bridge_support(root, target, dry_run)
 
 
 def test_command(root, target, names, container=None):
@@ -119,6 +143,7 @@ def test_command(root, target, names, container=None):
             "--user", f"{os.getuid()}:{os.getgid()}", "--env", "HOME=/tmp",
             "--env", "LANG=C.UTF-8", "--env", "LC_ALL=C.UTF-8",
             "--env", "IRONWOOD_TLS_HOME=/opt/ironwood-tls",
+            "--env", "IRONWOOD_BRIDGE_SUPPORT_HOME=" + str(bridge_support(root, target)),
             "--mount", f"type=bind,source={root},target={root}",
             "--mount", f"type=bind,source={build},target={root / 'compiler/build'}",
             "--mount", f"type=bind,source={storage / 'integration-target' / target},target={root / 'integration-tests/target'}",
@@ -237,6 +262,9 @@ def execute(root, args):
                 except (OSError, subprocess.CalledProcessError) as error:
                     raise ValueError(f"{target}: VM or toolchain image is unavailable; "
                                      "run scripts/test-platforms.sh --setup first") from error
+                if not (bridge_support(root, target) / "build.properties").is_file():
+                    raise ValueError(f"{target}: Java Bridge support SDK is missing at {bridge_support(root, target)}; "
+                                     "run scripts/test-platforms.sh --setup first")
     if not args.dry_run:
         storage.mkdir(parents=True, exist_ok=True)
     results = []

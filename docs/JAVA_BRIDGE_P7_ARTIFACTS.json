@@ -1,0 +1,228 @@
+{
+  "license": "SPDX-License-Identifier: MIT OR Apache-2.0",
+  "scope": "P7f combined JNI packages; identities do not assert numerical acceptance",
+  "production_snapshot_revision": "38fda699",
+  "qualification_tools_revision": "3f2e3652",
+  "compiler_jar_sha256": "14c59cd2f7cda9b71dde336ffe7ba7164db755b25ba1cb1bf53463ff2bd9f836",
+  "shared_values_jar_sha256": "2e1a99e54b68698e79c8136ba91cebef2d27a9edc10adbfe0e0e0d0ee79d29bc",
+  "artifacts": {
+    "arrays": {
+      "jar_sha256": "e99a87f9fc79e524e624adb1f26f427900b46e3d4f6c23590810ff16b8f9a158",
+      "metadata": {
+        "api": "8123c66e3d0b4507acdc59b1488d89bcbd992015c49b0eb240af9532a6dfcc6b",
+        "generation": "4e88cabe76a687b55b1731217190bc536727d0582cbc645b3603a9c4c323ab38",
+        "program": "4f75b3401c1e83441e0391ba360bb88773fb61ead1ca45233856bbcbdaee58b8",
+        "schema": "1",
+        "compiler.sha256": "34bde0590929c8565a61d2e790dbf348c8063b4ea13f699163867f494bc8685e",
+        "compiler.version": "0.5.5-beta",
+        "runtime.sha256": "9327fdc20bbdf5bf310a77a071a68ee2d536a644c1987ec3fb692641693036e0",
+        "java.module": "ironwood.bridge.a8d08e6faeda29efe3b67d1a65acaa1bcb3fa01a9246783ac1a36d12c959b8ee2",
+        "java.release": "21",
+        "java.supported": "21,22,23",
+        "transport": "jni"
+      },
+      "targets": {
+        "macos-arm64": {
+          "build": "fd687341e60aa04e2c9cf84d90a2e0f1206d27d188d9cbfa8ec4aa3453eaa564",
+          "sha256": "0929b3006f20d87eb3e42b3364f70527473929bb721098b6151f3b7373fed6a8",
+          "resource": "META-INF/ironwood/native/macos-arm64/4e88cabe76a687b55b1731217190bc536727d0582cbc645b3603a9c4c323ab38/libbridge.dylib",
+          "cpu": "baseline-arm64"
+        },
+        "linux-arm64": {
+          "build": "18b659c8c136974c8783b22a6c76ed1b0e2dcc3846d13681acc81f9cfc8cc786",
+          "sha256": "5e3a118afc1c7a9dfc73207a2a69e6b22b3180b28d30609f1fa8e5397e5986ef",
+          "resource": "META-INF/ironwood/native/linux-arm64/4e88cabe76a687b55b1731217190bc536727d0582cbc645b3603a9c4c323ab38/libbridge.so",
+          "cpu": "baseline-arm64"
+        },
+        "linux-x86_64": {
+          "build": "df6f7595878370ca074f2a0b2c8e5e8c70e3ea43a23bf9ab7453a484c170eeb9",
+          "sha256": "f0b1e1df99ba53be9d25bc72cceea846ba415df13a4f4d5ded05433f0a4eb0bc",
+          "resource": "META-INF/ironwood/native/linux-x86_64/4e88cabe76a687b55b1731217190bc536727d0582cbc645b3603a9c4c323ab38/libbridge.so",
+          "cpu": "baseline-x86_64"
+        }
+      },
+      "distribution": {
+        "arrays-0.0.0-p7f.jar": "e99a87f9fc79e524e624adb1f26f427900b46e3d4f6c23590810ff16b8f9a158",
+        "arrays-0.0.0-p7f.pom": "2d9f8050be4212a44b5574103269181b458cad04de41bad54adb190426648951",
+        "arrays-0.0.0-p7f-javadoc.jar": "410c71be37321e2639460eebf5cac29dae332468c038ae53a58eb19136175454",
+        "arrays-0.0.0-p7f-sources.jar": "26a0f429a23658ed5dffdd6d9de96404025466af9ae71f625e5d6d7f1934ed62",
+        "bridge-distribution.properties": "47aacd5bcde68821dccdbc0390cf74199a55e76d5a4a0d66919ed39fb94e443a"
+      }
+    },
+    "byteviews": {
+      "jar_sha256": "3b7a643fbd9e2a4f132cffca98252a20284fc8d78e1f89c7bc3f82a36651bf8b",
+      "metadata": {
+        "api": "b0d554a21ed1f74b1b247a78ee46ba5856be2a4e5e4492789891c430f185349f",
+        "generation": "cc42de46246710c4ae6e9c8b7524aaf96ba38e1e064adf832ab5fdf652cb5480",
+        "program": "2a2f6898f2853dc989d9869d3214b7e7d5c976a37a54d3038e1b60e96a0e3b94",
+        "schema": "1",
+        "compiler.sha256": "34bde0590929c8565a61d2e790dbf348c8063b4ea13f699163867f494bc8685e",
+        "compiler.version": "0.5.5-beta",
+        "runtime.sha256": "9327fdc20bbdf5bf310a77a071a68ee2d536a644c1987ec3fb692641693036e0",
+        "java.module": "ironwood.bridge.aec8bee060cd2e10c62a5aa540a3311707710e6167951656c2c5ab9d150971fa2",
+        "java.release": "21",
+        "java.supported": "21,22,23",
+        "transport": "jni"
+      },
+      "targets": {
+        "macos-arm64": {
+          "build": "9da33fa68182aeb31d4542db313110e54446d858ef6212bf03133354e3e75129",
+          "sha256": "65347d23f8812fe63b9be74cc9964dd0dfaf25f8485bb001a7f00f2023a23fff",
+          "resource": "META-INF/ironwood/native/macos-arm64/cc42de46246710c4ae6e9c8b7524aaf96ba38e1e064adf832ab5fdf652cb5480/libbridge.dylib",
+          "cpu": "baseline-arm64"
+        },
+        "linux-arm64": {
+          "build": "83da9e848d764de24a778a43578540513a4f959f60f959bf7dd75406b65817a9",
+          "sha256": "56b5d95b913a3326821a535f949a96a31802b63422e48989149868503b3036d4",
+          "resource": "META-INF/ironwood/native/linux-arm64/cc42de46246710c4ae6e9c8b7524aaf96ba38e1e064adf832ab5fdf652cb5480/libbridge.so",
+          "cpu": "baseline-arm64"
+        },
+        "linux-x86_64": {
+          "build": "0bd55fb2c3af28c33ecde7eafc4199205b107dc06fc4fb0e5f91cd7bddc9927e",
+          "sha256": "d537e832868ad9bb6b6a54cfe6006a83cea5f41986c7315bf291c5b1c164c059",
+          "resource": "META-INF/ironwood/native/linux-x86_64/cc42de46246710c4ae6e9c8b7524aaf96ba38e1e064adf832ab5fdf652cb5480/libbridge.so",
+          "cpu": "baseline-x86_64"
+        }
+      },
+      "distribution": {
+        "byteviews-0.0.0-p7f.pom": "25b4e3909651590abca13d0729dc582456ee03f6fb3c16d61ecb4421968c4e6e",
+        "ironwood-bridge-values-0.5.5-beta.pom": "168cd7320d9d7e8cab79ebbaf1b53983195a16ca40acdf1eda1320b253b7a2dc",
+        "byteviews-0.0.0-p7f-javadoc.jar": "b8ddcc5253d625005b1ac02dc052272be1d430264a98fa55fd534d40215f3247",
+        "byteviews-0.0.0-p7f-sources.jar": "19a923ad1a23a773b000a1fc77e94b329e28eae3f4741c37b189544ddbac02da",
+        "ironwood-bridge-values-0.5.5-beta.jar": "2e1a99e54b68698e79c8136ba91cebef2d27a9edc10adbfe0e0e0d0ee79d29bc",
+        "byteviews-0.0.0-p7f.jar": "3b7a643fbd9e2a4f132cffca98252a20284fc8d78e1f89c7bc3f82a36651bf8b",
+        "bridge-distribution.properties": "cb4e6e43e755a8d1aeb3780af3071b80d74ba0e9e600a8bcea7d7af01bac0e6e",
+        "ironwood-bridge-values-0.5.5-beta-sources.jar": "9ef4664433cd18017eeefebee5ba8eb43b148fe36442bfd4355141b595030503"
+      }
+    },
+    "generics": {
+      "jar_sha256": "346a97998f0e883fbba36a7787cfca17e9e85de3f7be73ecb127aae954b71822",
+      "metadata": {
+        "api": "c26657fce3e3786de7b7aa3273a5173ce68167d03950404d9ca39bb0e71ecb3f",
+        "generation": "7fb79620d1074da83abd1ed6f58104f61ee3f163808ee02ef18fdf63d44cf4a7",
+        "program": "2e30481583a6994551d26d8782b84ae55e5d9d586c2c95fe11d63de89da8b135",
+        "schema": "1",
+        "compiler.sha256": "34bde0590929c8565a61d2e790dbf348c8063b4ea13f699163867f494bc8685e",
+        "compiler.version": "0.5.5-beta",
+        "runtime.sha256": "9327fdc20bbdf5bf310a77a071a68ee2d536a644c1987ec3fb692641693036e0",
+        "java.module": "ironwood.bridge.abbd6ec8a2319bb5d93c570e7a2f7898d7312c58cbedb0a7bdb23fb7b237b1160",
+        "java.release": "21",
+        "java.supported": "21,22,23",
+        "transport": "jni"
+      },
+      "targets": {
+        "macos-arm64": {
+          "build": "c926fc96855578ce5124209885451f27d92539ee08a18f9237e686d1606be17b",
+          "sha256": "a31cebbe028cc90bc2ddb560180ef5b95f072e1012c8cb2b6b469096e004e508",
+          "resource": "META-INF/ironwood/native/macos-arm64/7fb79620d1074da83abd1ed6f58104f61ee3f163808ee02ef18fdf63d44cf4a7/libbridge.dylib",
+          "cpu": "baseline-arm64"
+        },
+        "linux-arm64": {
+          "build": "8830a3af44625bb529a87e3592b2e0b55627492a7e733dba6f191100282d35e5",
+          "sha256": "2f9595292269678f7021458af90cc483400bebdfddf40ef3dd3edefb7994f2a0",
+          "resource": "META-INF/ironwood/native/linux-arm64/7fb79620d1074da83abd1ed6f58104f61ee3f163808ee02ef18fdf63d44cf4a7/libbridge.so",
+          "cpu": "baseline-arm64"
+        },
+        "linux-x86_64": {
+          "build": "34c2621066257361b9f6fbba786a621bd8b88b017d7303cd120c9d1ca1a50587",
+          "sha256": "f7b3451aefea759500ffee030891025858a1ed0a796e8e5dd17d5a39e77ecbe0",
+          "resource": "META-INF/ironwood/native/linux-x86_64/7fb79620d1074da83abd1ed6f58104f61ee3f163808ee02ef18fdf63d44cf4a7/libbridge.so",
+          "cpu": "baseline-x86_64"
+        }
+      },
+      "distribution": {
+        "generics-0.0.0-p7f-javadoc.jar": "bba8207aae152ac108bd4fea470d18b68b6c8b4260a3d7e8976636aba7415e5a",
+        "generics-0.0.0-p7f-sources.jar": "92d4672e022e0bdc4f7b028d7885cb67f5e9750249c786b7b25fd302cb17b10d",
+        "generics-0.0.0-p7f.pom": "7ae6f5170a064d091287eead0c8ae969f75aef3ba3455e620f5a5457880420e5",
+        "generics-0.0.0-p7f.jar": "346a97998f0e883fbba36a7787cfca17e9e85de3f7be73ecb127aae954b71822",
+        "bridge-distribution.properties": "dc66634b2bd3cd7e9e181bd6a7c177bc844d817e5bd1fcdbe9a6471d3920718e"
+      }
+    },
+    "bounded-generics": {
+      "jar_sha256": "d897f939b1d15b0e87b9eedccce1545df4866c1b498006e71cbedbfe7bff0477",
+      "metadata": {
+        "api": "b4bb953fa7b571979e454d25ac2c986de1e9a4ddd81917838207654f41503377",
+        "generation": "14533d83037559da6d09fa2ad07b48ce0785e4a5123126beb4d67f6937fce1b4",
+        "program": "56ca7620c9c651682618cb2af06a588699d0421e3064913859f00da14f4477c5",
+        "schema": "1",
+        "compiler.sha256": "34bde0590929c8565a61d2e790dbf348c8063b4ea13f699163867f494bc8685e",
+        "compiler.version": "0.5.5-beta",
+        "runtime.sha256": "9327fdc20bbdf5bf310a77a071a68ee2d536a644c1987ec3fb692641693036e0",
+        "java.module": "ironwood.bridge.a9c7a0b5a41538d68ac28abc050ca1181d6307815704852b24a8db881458d8da6",
+        "java.release": "21",
+        "java.supported": "21,22,23",
+        "transport": "jni"
+      },
+      "targets": {
+        "macos-arm64": {
+          "build": "7e0a9dce01268517d9b1efc39643dfa3ab6061930f220a0b7294eec81340be70",
+          "sha256": "5681bf563d7ee674f6b7b281917eab12fe9cfadb3f642723efd37c19b5cb9e9c",
+          "resource": "META-INF/ironwood/native/macos-arm64/14533d83037559da6d09fa2ad07b48ce0785e4a5123126beb4d67f6937fce1b4/libbridge.dylib",
+          "cpu": "baseline-arm64"
+        },
+        "linux-arm64": {
+          "build": "fff09c0ed6dfd099498734f1a51fb38589e2f578326207143a10fee80435aa35",
+          "sha256": "2bbfd81b8bdc8ab9f089c12b046ffb914e23090ba6fa0cb359dddc83a82bc088",
+          "resource": "META-INF/ironwood/native/linux-arm64/14533d83037559da6d09fa2ad07b48ce0785e4a5123126beb4d67f6937fce1b4/libbridge.so",
+          "cpu": "baseline-arm64"
+        },
+        "linux-x86_64": {
+          "build": "c7851828243bc4b7c0822410fecb1f0bf4050b6e9b463c3c2d4fdedef9214d7c",
+          "sha256": "d58e890f39f24c646885ff97b159579fa3e3774b79d6b95e7f9208dc8c769406",
+          "resource": "META-INF/ironwood/native/linux-x86_64/14533d83037559da6d09fa2ad07b48ce0785e4a5123126beb4d67f6937fce1b4/libbridge.so",
+          "cpu": "baseline-x86_64"
+        }
+      },
+      "distribution": {
+        "bounded-generics-0.0.0-p7f-javadoc.jar": "5c33fc3289e695c5b7c832a762e6f0b42afb857129fa7931cadd82a4de926946",
+        "bounded-generics-0.0.0-p7f-sources.jar": "ff122ff14d77316cb172318e605cbb514ae9c1dfe457b2538090d33d9c4606a2",
+        "bounded-generics-0.0.0-p7f.jar": "d897f939b1d15b0e87b9eedccce1545df4866c1b498006e71cbedbfe7bff0477",
+        "bounded-generics-0.0.0-p7f.pom": "c0a1f7a6afb9d2146b30f1451b631369e5afe91e9a57fde29bcc458d339e8718",
+        "bridge-distribution.properties": "00eb0600697639ad5885f2b4d392cf894bf7b4d0e0b09c7a93d40d87f444fa33"
+      }
+    },
+    "listeners": {
+      "jar_sha256": "57c0a0313fe3dcde8147bf404dbe4dd29ea3e424bb2865aa951274ce7ff40067",
+      "metadata": {
+        "api": "f1af7d82e68b1b14321dacd18bc63bea8752f593b4c8641ce8436db6ace5dbeb",
+        "generation": "fa0360d36d94f065cd16d732d5431309464b5a08e54225c50877bd0e96c99807",
+        "program": "77d9afe55ebf01481c3c8474d82fba520bec9cd01bd6d267556361bb5bd09c4c",
+        "schema": "1",
+        "compiler.sha256": "34bde0590929c8565a61d2e790dbf348c8063b4ea13f699163867f494bc8685e",
+        "compiler.version": "0.5.5-beta",
+        "runtime.sha256": "9327fdc20bbdf5bf310a77a071a68ee2d536a644c1987ec3fb692641693036e0",
+        "java.module": "ironwood.bridge.aecd30f88e7d802db131a3f6f9bad53fe7b77dd34855fc544c0e76d7aa8758c1e",
+        "java.release": "21",
+        "java.supported": "21,22,23",
+        "transport": "jni"
+      },
+      "targets": {
+        "macos-arm64": {
+          "build": "dbfe034c9167640715008be8714c2cf4b703ad75101420dd915ccbd79c1f9aec",
+          "sha256": "965b77cd35e987104da1dffcb78c4f64914d047fb53049b7ed309208023a7136",
+          "resource": "META-INF/ironwood/native/macos-arm64/fa0360d36d94f065cd16d732d5431309464b5a08e54225c50877bd0e96c99807/libbridge.dylib",
+          "cpu": "baseline-arm64"
+        },
+        "linux-arm64": {
+          "build": "00b670246d52360fea0b8680bd25e139f250d75e394cf48a8d6c4460675d2a1b",
+          "sha256": "3ec02958b24eb539bb31c27e6b0b6aace5acd02901d73c850ae3ea99f554f0d5",
+          "resource": "META-INF/ironwood/native/linux-arm64/fa0360d36d94f065cd16d732d5431309464b5a08e54225c50877bd0e96c99807/libbridge.so",
+          "cpu": "baseline-arm64"
+        },
+        "linux-x86_64": {
+          "build": "60fdd95a33794949c1618be0adda4973cca09d7b48195af5030827fe371a14a5",
+          "sha256": "75499a16a182546862db2bb2ba08f05ec037d125f51f49c7a7232d1d7f3ee3dc",
+          "resource": "META-INF/ironwood/native/linux-x86_64/fa0360d36d94f065cd16d732d5431309464b5a08e54225c50877bd0e96c99807/libbridge.so",
+          "cpu": "baseline-x86_64"
+        }
+      },
+      "distribution": {
+        "listeners-0.0.0-p7f.pom": "5962b1375bf790de53be198488602286e79d403505aba297ae0cd0449815406c",
+        "listeners-0.0.0-p7f.jar": "57c0a0313fe3dcde8147bf404dbe4dd29ea3e424bb2865aa951274ce7ff40067",
+        "listeners-0.0.0-p7f-sources.jar": "3956be4baf543927c3f2477f5e4f22e9628b084b8442379af85ed536ffa04d1b",
+        "listeners-0.0.0-p7f-javadoc.jar": "37ddf1e142fdc3e840b73b8c8a865b588eb031013db7f61b91f94fe19c1649ab",
+        "bridge-distribution.properties": "782dfcb1698e172153f7963d8015c5e01c67a4a5f6a0b5eea3e1cef1fa78d3d6"
+      }
+    }
+  }
+}

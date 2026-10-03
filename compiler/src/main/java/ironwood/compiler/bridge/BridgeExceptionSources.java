@@ -1,0 +1,110 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.bridge;
+
+import ironwood.compiler.CompilationArtifact;
+
+import java.util.List;
+import java.util.Map;
+
+/** Java construction after protected native extraction; no native ownership or graph traversal. */
+final class BridgeExceptionSources {
+    private BridgeExceptionSources() {}
+
+    record Sources(Map<String, String> sources, List<String> types) {}
+
+    static Sources generate(CompilationArtifact artifact, BridgeGeneration generation, BridgeExceptionProjection projection) {
+        return generate(artifact, generation, projection, null);
+    }
+
+    static Sources generate(CompilationArtifact artifact, BridgeGeneration generation, BridgeExceptionProjection projection,
+            BridgeCallbackCarrierEntries carriers) {
+        if (carriers != null && !carriers.matches(artifact)) {
+            throw new IllegalArgumentException("callback exception factory requires matching carrier entries");
+        }
+        if (!artifact.valid() || !projection.matches(artifact.program().orElseThrow())) {
+            throw new IllegalArgumentException("exception source projection does not match the analyzed program");
+        }
+        var custom = projection.customTypes().isEmpty() ? null : new BridgeCustomSnapshotSources.Context(projection,
+                BridgeCustomSnapshotLayout.create(artifact, projection), generation.supportPackage() + ".SnapshotData");
+        String binaryName = generation.supportPackage() + ".ExceptionFactory";
+        String annotation = "@Identity(" + BridgeJavaSources.quote(generation.identity()) + ")";
+        boolean parsed = projection.types().stream().anyMatch(type -> type.nativeName().equals("ironwood.time.format.DateTimeParseException"));
+        var source = new StringBuilder("// SPDX-License-Identifier: MIT OR Apache-2.0\n\npackage ")
+                .append(generation.supportPackage()).append(";\n\n").append(annotation)
+                .append("\nfinal class ExceptionFactory {\n    private ExceptionFactory() {}\n")
+                .append("    private static Throwable create(int type, String message, Throwable cause,\n")
+                .append("            String first, String second, String third, int number").append(custom == null ? "" : ", SnapshotData copied").append(") {\n")
+                .append(custom == null ? "" : "        if (copied != null) copied.cause = cause;\n")
+                .append("        Throwable value = switch (type) {\n");
+        for (var type : projection.types()) {
+            if (projection.customTypes().containsKey(type.nativeName())) {
+                source.append("            case ").append(type.typeId()).append(" -> construct(snapshotConstructor").append(type.typeId()).append(", copied);\n");
+                continue;
+            }
+            source.append("            case ").append(type.typeId()).append(" -> new ").append(type.javaName()).append('(')
+                    .append(arguments(type.nativeName())).append(");\n");
+        }
+        source.append("            default -> throw new LinkageError(\"unmapped Ironwood exception type: \" + type);\n")
+                .append("        };\n")
+                .append("        if (value instanceof java.io.InterruptedIOException interrupted) interrupted.bytesTransferred = number;\n")
+                .append("        return value;\n    }\n");
+        source.append(BridgeExceptionGraphSources.generate(projection, custom, carriers != null));
+        // Failure-only reporting must never replace the original failure, including
+        // when allocating a diagnostic or the suppressed-exception list fails.
+        source.append("""
+                    private static boolean arrayFailure(Throwable primary, Throwable failure, int input) {
+                        try {
+                            Throwable diagnostic = new IllegalStateException(
+                                    "Ironwood array copy-back failed at native parameter " + input,
+                                    primary == failure ? null : failure);
+                            primary.addSuppressed(diagnostic);
+                            for (Throwable item : primary.getSuppressed()) if (item == diagnostic) return true;
+                        } catch (Throwable unavailable) { }
+                        return false;
+                    }
+                """);
+        if (custom != null) source.append(BridgeCustomSnapshotSources.factory(custom));
+        if (parsed) {
+            // A legal native CharSequence may render to null. Java's constructor
+            // requires the sequence, but preserves its toString result unchanged.
+            source.append("    private static final CharSequence NULL_PARSED_TEXT = new NullParsedText();\n")
+                    .append("    ").append(annotation).append("\n")
+                    .append("    private static final class NullParsedText implements CharSequence {\n")
+                    .append("        @Override public int length() { return 0; }\n")
+                    .append("        @Override public char charAt(int index) { throw new IndexOutOfBoundsException(index); }\n")
+                    .append("        @Override public CharSequence subSequence(int start, int end) {\n")
+                    .append("            if (start != 0 || end != 0) throw new IndexOutOfBoundsException();\n")
+                    .append("            return this;\n        }\n")
+                    .append("        @Override public String toString() { return null; }\n    }\n");
+        }
+        source.append("}\n");
+        var sources = new java.util.TreeMap<String, String>();
+        sources.put(binaryName.replace('.', '/') + ".java", source.toString());
+        var types = new java.util.ArrayList<>(parsed ? List.of(binaryName, binaryName + "$NullParsedText") : List.of(binaryName));
+        if (custom != null) {
+            var data = BridgeCustomSnapshotSources.data(generation); sources.putAll(data.sources()); types.addAll(data.types());
+        }
+        return new Sources(sources, types);
+    }
+
+    private static String arguments(String type) {
+        return switch (type) {
+            case "ironwood.nio.InvalidMarkException", "ironwood.nio.BufferUnderflowException",
+                    "ironwood.nio.BufferOverflowException", "ironwood.nio.file.ClosedDirectoryStreamException" -> "";
+            case "ironwood.nio.file.FileSystemException", "ironwood.nio.file.FileAlreadyExistsException",
+                    "ironwood.nio.file.NoSuchFileException", "ironwood.nio.file.AccessDeniedException" -> "first, second, third";
+            case "ironwood.nio.file.DirectoryNotEmptyException", "ironwood.nio.file.FileSystemLoopException" -> "first";
+            case "ironwood.nio.file.InvalidPathException" -> "first, second, number";
+            case "ironwood.time.format.DateTimeParseException" -> "message, first == null ? NULL_PARSED_TEXT : first, number";
+            case "ironwood.nio.file.DirectoryIteratorException" -> "(java.io.IOException) cause";
+            case "ironwood.io.UncheckedIOException" -> "message, (java.io.IOException) cause";
+            default -> {
+                if (!BridgeExportSurface.builtinThrowableNames().contains(type)) {
+                    throw new IllegalArgumentException("unmapped exception constructor: " + type);
+                }
+                yield "message";
+            }
+        };
+    }
+}

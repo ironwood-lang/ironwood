@@ -1,0 +1,18 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+package boundedbench;
+
+// Independently owned native value, retained while a holder refers to it.
+public final class Value {
+
+    private final int number;
+
+    public Value(int number) {
+
+        this.number = number;
+    }
+
+    public int number() {
+
+        return this.number;
+    }
+}

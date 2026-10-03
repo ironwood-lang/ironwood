@@ -18,10 +18,9 @@ IRONWOOD_TESTING_SOURCES_FILE="$IRONWOOD_BUILD_DIR/testing-sources.txt"
 IRONWOOD_VERSION_FILE="$IRONWOOD_PROJECT_ROOT/VERSION"
 IRONWOOD_VERSION=${IRONWOOD_VERSION:-}
 
-if ! command -v javac >/dev/null 2>&1; then
-    echo "error: javac is required (JDK 21 or newer)" >&2
-    exit 1
-fi
+source "$IRONWOOD_SCRIPT_DIR/jdk.sh"
+ironwood_select_java "$IRONWOOD_PROJECT_ROOT"
+ironwood_require_jdk
 if [[ -z "$IRONWOOD_VERSION" ]]; then
     if [[ ! -f "$IRONWOOD_VERSION_FILE" ]]; then
         echo "error: missing compiler version file: $IRONWOOD_VERSION_FILE" >&2
@@ -49,10 +48,10 @@ if [[ ! -s "$IRONWOOD_SOURCES_FILE" ]]; then
     exit 1
 fi
 
-javac --release 21 -encoding UTF-8 -Xlint:all -Werror \
+"$IRONWOOD_JAVAC" --release 21 -encoding UTF-8 -Xlint:all -Werror \
     -d "$IRONWOOD_CLASSES_DIR" "@$IRONWOOD_SOURCES_FILE"
 printf '%s\n' "$IRONWOOD_VERSION" > "$IRONWOOD_CLASSES_DIR/ironwood/compiler/VERSION"
-jar --create --file "$IRONWOOD_JAR" --main-class ironwood.compiler.Main -C "$IRONWOOD_CLASSES_DIR" .
+"$IRONWOOD_JAR_TOOL" --create --file "$IRONWOOD_JAR" --main-class ironwood.compiler.Main -C "$IRONWOOD_CLASSES_DIR" .
 
 rm -rf "$IRONWOOD_STDLIB_CLASSES_DIR"
 mkdir -p "$IRONWOOD_STDLIB_CLASSES_DIR"
@@ -69,12 +68,12 @@ if [[ ${#IRONWOOD_STDLIB_SOURCES[@]} -eq 0 ]]; then
     echo "error: no standard-library Ironwood sources found" >&2
     exit 1
 fi
-java -jar "$IRONWOOD_JAR" "${IRONWOOD_STDLIB_SOURCES[@]}" \
+"$IRONWOOD_JAVA" -jar "$IRONWOOD_JAR" "${IRONWOOD_STDLIB_SOURCES[@]}" \
     -d "$IRONWOOD_STDLIB_CLASSES_DIR" \
     --source-path "$IRONWOOD_PROJECT_ROOT/stdlib/src/main/ironwood" \
     --unfreed=error
 touch "$IRONWOOD_STDLIB_CLASSES_DIR/.built"
-java -cp "$IRONWOOD_JAR" ironwood.compiler.IronJarMain \
+"$IRONWOOD_JAVA" -cp "$IRONWOOD_JAR" ironwood.compiler.IronJarMain \
     --create --file "$IRONWOOD_STDLIB_ARCHIVE" \
     --license "$IRONWOOD_PROJECT_ROOT/LICENSE" \
     --license "$IRONWOOD_PROJECT_ROOT/LICENSE-APACHE" \
@@ -119,12 +118,12 @@ if [[ ${#IRONWOOD_TESTING_SOURCES[@]} -eq 0 ]]; then
     echo "error: no standard-library testing sources found" >&2
     exit 1
 fi
-java -jar "$IRONWOOD_JAR" "${IRONWOOD_TESTING_SOURCES[@]}" \
+"$IRONWOOD_JAVA" -jar "$IRONWOOD_JAR" "${IRONWOOD_TESTING_SOURCES[@]}" \
     -d "$IRONWOOD_TESTING_CLASSES_DIR" \
     --source-path "$IRONWOOD_PROJECT_ROOT/stdlib/src/testing/ironwood" \
     --unfreed=error
 touch "$IRONWOOD_TESTING_CLASSES_DIR/.built"
-java -cp "$IRONWOOD_JAR" ironwood.compiler.IronJarMain \
+"$IRONWOOD_JAVA" -cp "$IRONWOOD_JAR" ironwood.compiler.IronJarMain \
     --create --file "$IRONWOOD_TESTING_ARCHIVE" \
     --license "$IRONWOOD_PROJECT_ROOT/LICENSE" \
     --license "$IRONWOOD_PROJECT_ROOT/LICENSE-APACHE" \

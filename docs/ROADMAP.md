@@ -962,10 +962,11 @@ String-array entry shape and the native `int` status extension.
   bodies, and unacceptable code growth remain valid reasons not to inline. The
   directive must add no runtime bookkeeping and must not introduce general
   annotations, metadata, processing, or reflection.
-- **Java host bridge review:** [`JAVA_BRIDGE_PLAN.md`](JAVA_BRIDGE_PLAN.md)
-  reviews the earlier [proposal](IRONWOOD_JAVA_BRIDGE.md) and plans package
+- **Java host bridge implementation:** [`JAVA_BRIDGE_PLAN.md`](JAVA_BRIDGE_PLAN.md)
+  supersedes the earlier [proposal](IRONWOOD_JAVA_BRIDGE.md) and defines package
   exports, typed native adapters, generated Java facades, and automatic jar
-  loading for Java 21-23, with Java 24+ deferred. D189 selects explicit `free()`;
+  loading for Java 21-23, with Java 24+ deferred (D245 later admits Java 24 and
+  25). D189 selects explicit `free()`;
   D190 accepts compiler ownership proofs and shared Java lifetime state with
   the stated boundary checks, targeting primitive-call cost close to plain JNI.
   D191 settles first-release implementation contracts and checkpoints, defers
@@ -992,7 +993,8 @@ String-array entry shape and the native `int` status extension.
   cleanup checks and permanent loader anchoring with a mapped-image binding guard.
   D202 adds eager Linux symbol binding, states the private-entry trust boundary
   and rejects mixed fresh/borrowed reclaimable results in the first release.
-  D203 refuses Java 24+ before extraction/native loading, with P2/P6 negative
+  D203 refuses Java 24+ before extraction/native loading (superseded for Java 24
+  and 25 by D245), with P2/P6 negative
   tests separate from the nine supported Java 21-23 matrix cells.
   D204 makes root registration native with preallocated JNI global references;
   Java weak-cache failures cannot lose root identity or create duplicate owners.
@@ -1017,7 +1019,19 @@ String-array entry shape and the native `int` status extension.
   to proceed while hardware evidence stays pending. Release still requires it.
   D188 accepts single-threaded use
   as a caller obligation without runtime enforcement of thread misuse. The
-  bridge remains unimplemented; no supported feature status changes.
+  bridge now passes P0 through P4 and P6a, with selected ARM64 and physical
+  x86-64 checks and measurements recorded in [P6 evidence](JAVA_BRIDGE_P6_EVIDENCE.md).
+  D225 records acceptance of the measured implementation and defers further
+  performance tuning. Final P6b qualification closeout remains before release.
+  D226's bounded P5 callbacks are implemented and qualified on all three targets;
+  see [listener evidence and measurements](JAVA_BRIDGE_P5_EVIDENCE.md). D246 accepts the recorded
+  listener measurements. P7a automatic callback batching, P7b
+  copied primitive arrays, P7c Java-owned ByteView storage, and P7d bounded
+  reference generics are implemented. D238 closes P7e with JNI retained after
+  its transport experiment; optional FFM remains unimplemented. Combined
+  [P7f qualification](JAVA_BRIDGE_P7_QUALIFICATION.md) is complete on all three
+  targets; D246 accepts the recorded extension measurements and presents the
+  bridge as implemented.
 
 Cross-cutting work includes Linux x86-64 and macOS development, reproducible
 toolchain diagnostics, native debug information, benchmarks kept separate from

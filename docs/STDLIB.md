@@ -337,6 +337,8 @@ array, and dynamic String-result boundaries.
 `IOException` and its descendants are checked, so callers of fallible
 whole-file operations must catch or declare them. `FileSystemException`
 preserves the file, optional other file, reason, and Java-shaped message;
+the message is null when all three constructor values are null, while empty
+strings remain distinct from null.
 `NoSuchFileException` identifies the common missing-path category.
 
 `NoSuchElementException` in `ironwood.util` and `BufferOverflowException` and

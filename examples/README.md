@@ -1,6 +1,6 @@
 # Ironwood examples
 
-Every example follows the same Ironwood project layout. Single-program examples
+Native examples follow the same Ironwood project layout. Single-program examples
 have `run.sh`; a multi-program example may number its run scripts:
 
 ```text
@@ -16,6 +16,10 @@ example/
 `target/classes`. `link.sh` writes the native executable under `target`.
 Each run script executes one program and reports its exit status. Every script
 prints the command it runs.
+
+The [Java Bridge examples](java-bridge/README.md) have separate
+nested compile/link/run workflows for paired Java dependencies and their JVM
+consumers. They are outside the ordinary native example catalog below.
 
 For example:
 

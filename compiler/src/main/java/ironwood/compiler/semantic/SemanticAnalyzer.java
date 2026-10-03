@@ -90,6 +90,7 @@ public final class SemanticAnalyzer {
 
     private SourceFile source;
     private ClosedWorldEffectAnalyzer reclamationEffects;
+    private ironwood.compiler.bridge.BridgeListenerProxies listenerProxies;
     private GenericTypeSystem genericTypes;
     private LexicalTypeScopes lexicalTypeScopes = LexicalTypeScopes.empty();
     private boolean lexicalTypesRequireFunctionLowering;
@@ -150,6 +151,23 @@ public final class SemanticAnalyzer {
         return analyze(units, true, Optional.of(mainClass));
     }
 
+    /** Internal bridge analysis, with all ordinary semantic checks still enabled. */
+    public SemanticResult analyzeForBridge(List<CompilationUnit> units) {
+        return analyze(units, false, Optional.empty(), true);
+    }
+
+    public SemanticResult analyzeForBridge(List<CompilationUnit> units,
+            ironwood.compiler.bridge.BridgeListenerProxies proxies) {
+        proxies.validateUnits(units);
+        if (listenerProxies != null) throw new IllegalStateException("listener analysis is already active");
+        listenerProxies = proxies;
+        try {
+            return analyze(units, false, Optional.empty(), true);
+        } finally {
+            listenerProxies = null;
+        }
+    }
+
     private void initializeLexicalCallableTypeVariables(Map<String, TypeSymbol> types,
                                                         List<Diagnostic> diagnostics) {
         List<CallableTypeScope> callableScopes = new ArrayList<>();
@@ -202,6 +220,11 @@ public final class SemanticAnalyzer {
 
     private SemanticResult analyze(List<CompilationUnit> units, boolean requireMain,
                                    Optional<String> mainClass) {
+        return analyze(units, requireMain, mainClass, false);
+    }
+
+    private SemanticResult analyze(List<CompilationUnit> units, boolean requireMain,
+                                   Optional<String> mainClass, boolean bridgeAnalysis) {
         List<Diagnostic> diagnostics = new ArrayList<>();
         if (units.isEmpty()) {
             return new SemanticResult(Optional.empty(), List.of(Diagnostic.global(
@@ -497,12 +520,16 @@ public final class SemanticAnalyzer {
         }
         List<IrArrayType> irArrayTypes = buildIrArrayTypes(specializedProgram.functions(),
                 specializedProgram.classes());
-        return new SemanticResult(Optional.of(new IrProgram(specializedProgram.moduleName(),
+        IrProgram program = new IrProgram(specializedProgram.moduleName(),
                 specializedProgram.classes(), specializedProgram.staticFields(),
                 specializedProgram.typeInitializations(), irArrayTypes,
                 specializedProgram.stringConstants(), specializedProgram.dispatchSlots(),
                 specializedProgram.functions(), specializedProgram.entryPoint(),
-                specializedProgram.allocationFailure())), diagnostics);
+                specializedProgram.allocationFailure(), specializedProgram.exportRoots());
+        return new SemanticResult(Optional.of(program), diagnostics, bridgeAnalysis
+                ? Optional.of(BridgeConstructionFacts.project(rawProgram, program, types,
+                        escapeSummaries, ownedArrayFields)) : Optional.empty(), bridgeAnalysis
+                ? Optional.of(BridgeApiFacts.project(program, types, hierarchy)) : Optional.empty());
     }
 
     private void reportFinishedEvidenceBudget() {
@@ -644,7 +671,8 @@ public final class SemanticAnalyzer {
                         evidence.localTruncated(),
                         evidence.invocationStopped());
             }
-            return result.withSourceIdentity(sourceFileName(type.source()), kind);
+            result = result.withSourceIdentity(sourceFileName(type.source()), kind);
+            return listenerProxies == null ? result : listenerProxies.lower(result, type.irClass(), type.source());
         } finally {
             analyzer.closeRejectedFreeEvidence();
         }

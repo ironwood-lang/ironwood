@@ -1,0 +1,62 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+package versionprobe;
+
+// D209 child-process fixture. Consumers check stored initialization, copied
+// results and repeated failures. The deny control inspects JVM image mappings.
+public final class VersionProbe {
+
+    private static int initialized = initialize();
+
+    private VersionProbe() {
+
+    }
+
+    private static int initialize() {
+
+        return 42;
+    }
+
+    public static int value() {
+
+        return initialized;
+    }
+
+    public static int add(int a, int b) {
+
+        return a + b;
+    }
+
+    public static String copy(String value) {
+
+        return new String(value);
+    }
+
+    public static String echo(String value) {
+
+        return value;
+    }
+
+    public static void fail() throws ironwood.io.IOException {
+
+        throw new ironwood.io.IOException("version probe");
+    }
+
+    public static final class Lazy {
+
+        private static int value = initialize();
+
+        private Lazy() {
+
+        }
+
+        private static int initialize() {
+
+            throw new IllegalStateException("lazy version probe");
+        }
+
+        public static int read() {
+
+            return value;
+        }
+    }
+}

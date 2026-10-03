@@ -97,7 +97,7 @@ final class PrimitiveGenericSpecializer {
         return new IrProgram(program.moduleName(), rewrittenClasses, rewrittenStatics,
                 program.typeInitializations(), List.of(), program.stringConstants(),
                 List.copyOf(dispatchSlots), List.copyOf(materializedFunctions.values()),
-                Optional.ofNullable(entry), program.allocationFailure());
+                Optional.ofNullable(entry), program.allocationFailure(), program.exportRoots());
     }
 
     private void drainRequests() {
@@ -317,6 +317,17 @@ final class PrimitiveGenericSpecializer {
     private IrInstruction instruction(IrInstruction instruction,
                                       Map<String, IrType> substitutions,
                                       IrFunction function) {
+        if (instruction instanceof IrForeignCallInstruction call) {
+            var arguments = call.arguments().stream().map(argument -> operand(argument, substitutions, function)).toList();
+            var returnType = physicalType(call.returnType().substitute(substitutions));
+            if (!returnType.equals(call.returnType()) || !arguments.stream().map(IrOperand::type).toList()
+                    .equals(call.arguments().stream().map(IrOperand::type).toList())) {
+                throw new IllegalArgumentException("foreign callback signature cannot be specialized without a matching adapter");
+            }
+            return new IrForeignCallInstruction(call.result().map(result -> value(result, substitutions)),
+                    call.targetLinkageName(), returnType, arguments,
+                    call.invocationContext().map(context -> operand(context, substitutions, function)), call.sourceSpan());
+        }
         if (instruction instanceof IrAllocateInstruction value) {
             IrValueReference result = value(value.result(), substitutions);
             return new IrAllocateInstruction(result, result.type().referenceName(), value.sourceSpan());
@@ -583,6 +594,11 @@ final class PrimitiveGenericSpecializer {
             IrStaticField field = staticFields.getOrDefault(value.field(), value.field());
             return new IrStaticFieldStoreInstruction(field,
                     operand(value.value(), substitutions, function), value.sourceSpan());
+        }
+        if (instruction instanceof ironwood.compiler.ir.IrByteViewInstruction view) {
+            return new ironwood.compiler.ir.IrByteViewInstruction(view.result().map(result -> value(result, substitutions)),
+                    view.operation(), operand(view.view(), substitutions, function),
+                    view.arguments().stream().map(argument -> operand(argument, substitutions, function)).toList(), view.sourceSpan());
         }
         if (instruction instanceof IrStringCharAtInstruction value) {
             return new IrStringCharAtInstruction(value(value.result(), substitutions),

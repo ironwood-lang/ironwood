@@ -171,6 +171,16 @@ final class SymbolicReturnOriginAnalyzer {
         escapingFreshOrigins = new LinkedHashSet<>();
         currentDynamicStringConcatenationSpans = dynamicStringConcatenationSpans
                 .getOrDefault(candidate.linkageName(), Set.of());
+        if (escapeSummaries != null && escapeSummaries.hasForeignBody(candidate)) {
+            Set<ReturnOrigin> inputs = new LinkedHashSet<>();
+            if (!candidate.isStatic() && !escapeSummaries.foreignReceiverConfined(candidate)) inputs.add(ReturnOrigin.thisOrigin());
+            for (int index = 0; index < candidate.parameterTypes().size(); index++) {
+                if (candidate.parameterTypes().get(index).isReference()) inputs.add(ReturnOrigin.parameter(index));
+            }
+            boolean reference = candidate.returnType().isReference();
+            return new ReturnSummary(reference ? inputs : Set.of(), Set.of(), inputs,
+                    reference, reference, reference, reference);
+        }
         ReturnSummary poolContract = PoolSemantics.symbolic(candidate);
         if (poolContract != null) { return poolContract; }
         if (AllocationResultSemantics.returnsOwnedFresh(candidate)) {

@@ -91,11 +91,30 @@ The isolated bootstrap runtime exposes these C ABI functions:
   raised by `finally` while an earlier primary exception is propagating,
   flattening completed nested-cleanup sequences onto that original primary;
 - `ironwood_trace_register`, which receives immutable source-site and optimized
-  function-address metadata once at process startup; stack capture uses native
+  function-address metadata at executable startup or bridge image bootstrap.
+  On macOS, registration locates the image containing the source-site table,
+  so a shared image uses its own pseudo-probe section. Stack capture uses native
   unwinding and LLVM pseudo-probe decoding only on the exception path; and
 - `ironwood_uncaught_exception`, which reports the concrete qualified type,
   optional message, and captured source trace for the primary and each direct
   secondary exception in order, then exits with status 1.
+
+The internal Java Bridge fixture path uses `ironwood_bridge_snapshot_failure`
+under a separately protected typed entry region, after ordinary catch cleanup.
+It copies the exception type and up to 32 immutable source-site pointers into
+adapter-owned stack storage, reporting unavailable/truncated traces explicitly.
+It performs no allocation or native source getter call. The image must remain
+loaded while the adapter consumes those pointers. The private transport in
+`include/ironwood_bridge.h` is not a public API or a complete exception translator.
+The private `ironwood_bridge_copy_string` helper copies a caller-owned UTF-16
+buffer into one ordinary String allocation. Only a protected typed entry invokes
+it, supplying the image's implicit allocation-failure context. Length -1 denotes
+null; other lengths come from checked JNI transport. The compiler must prove
+each copied argument temporary before generating its nonthrowing raw release.
+Exceeding the native UTF-8 byte-length representation raises catchable OOM before
+allocating the copy; it does not take the existing internal abort-only helper path.
+Fault-injection and emergency-state accessors exist only in ignored test copies
+of the runtime, never in production payloads.
 
 Feature 105 implements bounded catchable source-allocation exhaustion using one
 compiler-emitted immortal `OutOfMemoryError` and runtime-private emergency

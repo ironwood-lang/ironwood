@@ -36,6 +36,26 @@ final class SourceSetLoader {
     }
 
     SourceLoadResult load(List<Path> explicitInputs, List<String> explicitClassTypes) {
+        return load(explicitInputs, explicitClassTypes, false);
+    }
+
+    SourceLoadResult loadBridge(List<Path> explicitInputs, List<String> exports) {
+        var inputs = BridgePackageInputs.discover(explicitInputs, sourcePath, classPath, exports, standardLibrary);
+        if (!inputs.diagnostics().isEmpty()) return new SourceLoadResult(List.of(), inputs.diagnostics());
+        var loaded = load(inputs.sources(), inputs.classes(), true);
+        if (!loaded.diagnostics().isEmpty()) return loaded;
+        var present = new LinkedHashSet<String>();
+        for (var source : loaded.sources()) {
+            SourceParser.parse(source).unit().ifPresent(unit -> present.add(unit.packageName()));
+        }
+        var diagnostics = new ArrayList<Diagnostic>();
+        exports.stream().distinct().sorted().filter(name -> !present.contains(name)).forEach(name ->
+                diagnostics.add(Diagnostic.global("cannot find Java Bridge export package '" + name + "'")));
+        return new SourceLoadResult(loaded.sources(), diagnostics);
+    }
+
+    private SourceLoadResult load(List<Path> explicitInputs, List<String> explicitClassTypes,
+                                  boolean bridgePackages) {
         List<Diagnostic> diagnostics = new ArrayList<>();
         Map<String, SourceFile> sourcesByPath = new LinkedHashMap<>();
         List<CompilationUnit> units = new ArrayList<>();
@@ -53,7 +73,7 @@ final class SourceSetLoader {
             if (declaredTypes.containsKey(type)) {
                 continue;
             }
-            Optional<SourceFile> source = locateClass(type, diagnostics);
+            Optional<SourceFile> source = bridgePackages ? locate(type, diagnostics) : locateClass(type, diagnostics);
             if (source.isEmpty()) {
                 diagnostics.add(Diagnostic.global("cannot find class '" + type + "' on the class path"));
                 continue;

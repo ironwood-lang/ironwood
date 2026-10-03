@@ -61,6 +61,801 @@ once, immediate null check, source constructor arguments, allocation, then
 construction. Feature 105 retains that ordering for catchable allocation
 failure rather than adopting Java's earlier allocation attempt.
 
+## Java Bridge producer and analysis foundations
+
+The `ironwoodc --java-bridge` producer composes scalar/String,
+proved copied primitive arrays and borrowed byte views, permanent-object,
+root/view, bounded-retention and bounded callback protocols on macOS ARM64 and
+both Linux targets. The
+[P3 audit](JAVA_BRIDGE_P3CD_EVIDENCE.md) and [P4 OrderBook audit](JAVA_BRIDGE_P4_EVIDENCE.md)
+record their implementation gates. P6 implementation was accepted under D225;
+P5, P7b and P7c implementation and qualification are complete. The
+[array evidence](JAVA_BRIDGE_ARRAY_EVIDENCE.md) and
+[byte-view evidence](JAVA_BRIDGE_BUFFER_EVIDENCE.md) record supported boundaries
+and measurements. P7d0 foundations and P7d1 read-only generic facade admission
+are implemented; P7d2 bounded construction/mutation is implemented and qualified
+on all three targets, with evidence in the generic log. P7e-P7f remain pending.
+[The implementation plan](JAVA_BRIDGE_PLAN.md) defines the
+phase gates, and [the progress log](JAVA_BRIDGE_PROGRESS.md) records evidence.
+
+`BridgeApiFacts` preserves complete ordered type-variable bounds, declaration
+erasure, implicit-bound primitive eligibility, applied owner views and generic
+member signatures. `BridgeCallableId.SourceSignature` identifies the source
+contract separately from its optional exact typed native target. Signature proofs
+bind the complete identity and final program, without granting export or lifetime
+permission. The inventory's native candidates remain available to specialized
+dispatch proofs; direct bindings additionally require the exact applied receiver.
+Facts match their producing program instance: source-only bound
+changes can leave lowered IR equal. Artifact reconstruction reprojects facts and
+revalidates signatures. P7d1 uses these proofs for final factory-produced generic
+facades. `BridgeGenericDomain` closes the exact allocation/signature domain;
+source construction facts independently project finite variable alternatives.
+Only matching facts narrow exposed variable types, while deallocation effects
+remain conservative. Reference applications share native storage identity for
+root ownership and destruction; source signatures stay exact. Unknown result
+origins and publication require family-wide D192 non-reclamation proofs.
+Cold result conversion uses the actual native type ID, with no generic-specific
+work on the warmed getter path. P7d2 admits inputs and constructors only when
+every class variable has one exported final facade bound. These declarations
+prove a singleton domain even without native factory allocations. The surface
+admits exact variable/application inputs, Java static native formals use their
+erasures, and existing root conversion/retention uses the proved storage type.
+No general semantic ownership analysis or runtime protocol is weakened.
+Unrestricted generic inputs and generic methods remain refused.
+See [D235](DECISIONS.md#d235---preserve-exact-generic-source-identities-before-bridge-admission),
+[D236](DECISIONS.md#d236---read-only-factory-produced-generic-java-facades),
+[D237](DECISIONS.md#d237---final-bounded-generic-construction-and-inputs)
+and the [generic verification log](JAVA_BRIDGE_GENERIC_PROGRESS.md).
+
+`BridgeArrayInputs` combines final P0 borrowing, retention, result-origin and
+non-reclamation facts with complete typed effect closure. A descriptor alone
+cannot admit an array export. Protected `IrBridgeArrayCopyInstruction` lowering
+constructs valid native arrays; generated adapters coalesce Java input identities
+and reclaim conversion storage. `BridgeArrayValueSources` emits ordered mutable
+copy-back and fresh/alias-result delivery, preserving the primary failure even
+when diagnostic aggregation fails. These protocols add no array state to
+unrelated scalar entries.
+
+`BridgeByteViews` proves non-retention/non-reclamation and complete borrowed
+effect closure for the exact trusted ByteView declaration. Dedicated typed
+`IrByteViewInstruction` operations use stack descriptors rather than object or
+array headers. Descriptor loads are immutable during the call; payload memory
+retains ordinary aliasing. Typed accessors expand before LLVM argument promotion
+to preserve these facts. JNI roots the Java-owned backing storage without
+copying it. The exact shared values jar is verified before native initialization
+and travels through producer, assembler, Maven distribution and IDK packaging.
+
+`BridgeAssembler` combines independently produced host jars only when complete
+generation, Java declarations and common source/license/content inventories match.
+It checks native build identities and platform/dependency delivery, regenerates
+only the loader's target table with the matching producer, preserves native bytes
+and publishes atomically. A changed input order produces the same assembled jar.
+Assembly performs no native compilation and grants no new ownership proof.
+
+macOS shared-image linking records a stable relocatable install name instead of
+the staging directory. Before shared-image linking, `SharedTraceOrder` sorts
+independent Mach-O/ELF pseudo-probe root groups while retaining each nested group byte-for-byte.
+It changes no code, function address or runtime decoder and refuses malformed or
+relocated probe sections. This removes LLVM metadata ordering differences from
+repeat payloads; executable linking keeps its existing path.
+
+`BridgeDistributionCommand` verifies paired content through `BridgePairedArchive`,
+copies the main jar unchanged, derives standard source/Javadoc companions and
+emits explicit Maven coordinates plus a hash inventory into a new directory.
+It performs no upload or toolchain invocation. D218 and the runnable Maven/Gradle
+examples define ordinary local producer/consumer conventions.
+
+`BridgeRootSet` resolves explicit compiler-owned callable identities against typed
+IR, retaining source spans and native value ABI distinctions. Reconstruction and
+specialization require revalidation; missing or changed identities expose no
+partial root set. An opaque reference descriptor does not authorize a facade or
+ownership conversion. `BridgeProof` distinguishes proved contracts from unknown
+and rejected outcomes; an unproved outcome cannot carry an accepted contract.
+
+The opt-in `BridgeRetentionAnalyzer` computes immutable reference-store
+attribution from typed bodies, including exceptional blocks, helper substitution,
+initializers and all resolved dispatch targets. It preserves loaded-reference
+provenance through helpers and rejects transfers into slots, static storage or
+arrays, and writes through unresolved or child destinations. Only supported,
+fully attributed effects can produce a slot list, including an empty list for
+observing entries. Recursive summaries converge over a finite origin/store
+lattice before unresolved origins acquire unknown status. Missing targets and
+unclassified runtime effects remain unknown. Ordinary compilation does not call
+this analysis.
+
+These are store-attribution facts, not complete export permissions. P0 combines
+them with owning-root validation, acyclic dependencies and native fixture evidence.
+Production bridge admission
+must combine those proofs and revalidate synthesized/specialized code before
+enabling any export. Existing mandatory reclamation analysis is unchanged.
+
+`BridgeRootRetentionContract` also records possible independent root owners for
+each exposed reference type. A retained borrowed view protects its root rather
+than its child storage; if that type also has standalone construction, its own
+root identity remains an alternative. Repeated-call cycle checks include every
+possible owner edge, including multiple declaring owners of the same view type.
+Borrowed types cannot hold persistent slots, unknown owner origins remain rejected,
+and loaded slot values cannot be transferred. Typed slot payloads still report
+the actual stored reference. A host adapter must use the bound input/view owner
+state when reconciling those values; this analysis alone does not enable a public
+reclaimable adapter.
+
+`BridgeNonReclamationAnalyzer` separately traverses the complete explicit export
+closure, including initialization, dynamic dispatch and native cleanup. It
+compares possible deallocation types against every possible exposed dynamic type,
+including array covariance. `BridgeCallTargets` supplies shared resolved call and
+initialization edges to both analyses. Unknown runtime effects remain unknown;
+reachable candidate deallocation refuses the classification. The internal
+`CompilerPipeline.analyzeForBridge` option projects final constructor escape,
+owned-storage and borrowed-input facts only after ordinary validation succeeds.
+These immutable facts bind to the complete IR. Exact additive entry/getter
+synthesis preserves unchanged source facts after checking the complete function
+inventory and metadata, without granting facts to generated methods.
+`NativeLinkTransformation` records the exact input/output and actual clone
+origins while executing the fixed native-link passes. Only that result can carry
+conservative facts into final bridge analysis; arbitrary edits fail binding.
+Cloned reference-result origins remain unknown because constant substitution
+can change parameter provenance. Actual final calls, generated rollback and
+cleanup are still revalidated before any permanent classification is accepted.
+`BridgeRollbackAnalysis` attributes exact allocation/invoke/unwind edges and
+generated entry failure cleanup to unpublished construction storage, checks the
+actual rollback body and keeps destructor effects in the ordinary closure.
+The resulting contracts record each excluded allocation origin and cleanup.
+Descriptor cleanup uses a restricted retention query over destructor/rollback
+bodies. It does not add implicit initialization of their owning class, which
+cleanup dispatch does not invoke. Actual typed initialization and helper effects
+inside those bodies remain in the closure; ordinary bridge entries still include
+their implicit initialization. This prevents unrelated static storage publication
+from invalidating otherwise proved cleanup without waiving source destructor
+restrictions or publication checks.
+Actual OrderBook lifetime proofs survive source/class/archive reconstruction;
+P0-8 records JNI constructor-failure cleanup and continued use of exposed controls.
+
+`BridgeEntryModule` begins the private native fixture mechanism with scalar
+entries authorized by resolved roots and complete retention facts. Its copied
+String mode additionally requires final non-retaining/non-invalidating input
+proofs for static methods with scalar results. It rejects other object/conversion
+shapes. Generated typed CFGs protect both type
+initialization and target invocation, perform ordinary exception occurrence
+cleanup and write into a bounded adapter-local result frame. The result-store
+operation has no source syntax. Initialization barriers may be omitted only when
+the complete resolved prerequisite closure has no initializer body.
+`IrBridgeStringCopyInstruction` materializes raw UTF-16 buffers with a non-null
+allocation-failure context inside protected typed control flow. Native null uses
+an explicit negative-length transport sentinel; empty and malformed-surrogate
+strings retain their UTF-16 content. Each acquisition prefix has its own unwind
+cleanup, freeing only successfully copied, proved temporary String storage.
+Success and target/initializer failure clean the complete prefix. JNI fixtures
+acquire/release noncritical buffers on all paths, including partial acquisition.
+Retention analysis follows resolved free/rollback destructor effects while
+non-reclamation analysis continues to treat the deallocation itself separately.
+Failure type/source-frame extraction uses `IrBridgeFailureSnapshotInstruction`
+under a separate typed unwind edge after catch cleanup. Its fallback catches
+and cleans the extraction failure without another extraction attempt. The
+private transport header bounds trace storage; extraction copies immutable
+image metadata pointers without allocating. It does not yet snapshot messages,
+causes or custom getters. C fixtures consume the returned data without calling
+source getters after the entry returns.
+`NativeBackend.linkShared` uses the existing
+LLVM pipeline and separately compiled C adapters with private runtime symbols.
+These internal facilities do not constitute a public producer command or a
+complete Java exception translation contract.
+
+P2's internal `SourceSetLoader.loadBridge` seeds the ordinary dependency loader
+from exact package unions in source paths, class directories, individual classes
+and archives. Nested declarations retain their binary identities; selecting a
+package does not recursively select child packages. Invalid/missing packages,
+malformed artifacts and mismatched source packages are diagnosed. This does not
+yet enable the public producer or admit an unsupported API surface.
+
+`BridgeApiFacts` is an opt-in immutable projection of final resolved semantic
+types, enclosing visibility, inherited public methods/fields, constants, exact
+callable targets and declared exceptions. It remains bound to its analyzed IR;
+ordinary analysis does not collect it, and native transformations do not carry
+it as fresh evidence. Enum inventory records named constants in declaration order,
+their resolved constant-specific native types and source spans. Synthesized
+callables remain distinct from source overloads such as `values(int)`. This
+metadata supplies no native conversion token, initialization or lifetime proof.
+Exact instance dispatch slots let `BridgeEnumDispatch` inventory each named
+constant's resolved implementation, including abstract declarations with no base
+function. Synthesized enum identity methods and inherited identity implementations
+remain Java behavior; a source override on one constant does not change another
+constant's projection. This target inventory grants no invocation capability.
+`BridgeEnumInvocation` composes these actual bodies with complete enum
+non-reclamation and copied-String confinement proofs. Its receiver parameters
+admit only constants selecting each body; ordinary enum arguments remain
+nullable. Conversion initializers enter the proof closure, and Java identity
+alternatives add no native entry. String values retain separate result cleanup
+contracts. Enum results require complete declared-name mappings and include
+result-only initialization and non-reclamation obligations. Ordinary object
+results remain outside this enum-only invocation mode.
+`enumValues` uses the root/String protected-entry builder and the same named
+conversion blocks as P0. String copies precede active-use conversion; normal,
+conversion-failure and target-failure exits preserve their cleanup contracts.
+Constant-specific receivers are loaded from their declaring enum's public fields
+and converted only to the proved body receiver type. An instance entry adds no
+separate active-use guard for the synthetic constant class; actual source-body
+initialization is preserved. Native enum results map back by comparing the paired
+public fields under the same protected active-use rules; a null result maps to
+the reserved null token without initialization. Result-conversion failure releases
+all acquired String copies before snapshot extraction, including when the target
+returns a published constant after its declaring initializer failed. Successful
+enum results have no reclamation or facade-state operation. This internal
+transport still does not enable public
+enum generation or promise a boundary for privileged private-entry bypass.
+`BridgeEnumConstants` binds producer tokens by name to those exact typed fields
+and their complete initialization roots. Default tokens follow sorted names,
+independent of native ordinals. Empty enum metadata is valid; it does not grant
+an instance invocation. P0 input proofs reuse this mapping contract and retain
+their separate retention, non-reclamation and scalar/final-dispatch restrictions.
+`BridgeExportSurface.scalarValues` validates the complete
+public package union, signature accessibility and explicit-package closure before
+selecting P0 callable roots. It reserves `_IronwoodBridgePackage` in each owned
+API package. Unsupported constructors, instance/reference/generic surfaces,
+inheritance, custom exceptions and nonconstant fields produce located errors,
+with no partial selection. `staticValues` adds String-result signature selection
+for the generated value transport. Signature selection supplies no lifetime
+permission: copied inputs and String results still require their borrowing,
+cleanup and retention proofs before typed lowering.
+
+The internal P3 `concreteObjects` selector additionally inventories final concrete
+constructors, instance methods and static nested types. It excludes inherited
+Object identity methods from native roots while retaining supported source
+overrides. General inheritance, arrays, generics, custom exception snapshots and
+enums remain outside this incremental selector. Source/class/archive selection
+agrees. This is signature validation only; public production additionally requires
+complete final admission and the implemented adapter for every selected role.
+`objectValues` composes those concrete signatures with declared enums, copied
+Strings and scalar values. It selects the exact native implementation for each
+inhabited enum constant, including abstract public declarations and partial
+constant-specific overrides. Synthesized enum values/valueOf and inherited identity
+remain Java projections; source overloads still undergo complete signature checks.
+Ironwood's valueCount/valueAt traversal helpers retain native entries and their
+source initialization and exceptional behavior.
+An empty enum's unsupported members cannot disappear merely because it has no
+constant targets. Custom exception declarations use the separate copied-snapshot
+inventory, including abstract catch parents and declared checked exceptions.
+Their constructors are not native entry roots. Catch parents and getter result
+and throws types must remain inside the exact exported-package closure.
+Ordinary object inheritance, arrays and generics retain their separate admission
+boundaries. This combined selector
+does not grant lifetime permission or enable public generation.
+A constant-only API surface may have no native entry roots.
+`BridgeEnumConversions` binds the complete signature surface's enum parameter,
+result and exact receiver mappings, together with the used conversion initializer
+roots, independently of ownership or non-reclamation permission. It preserves
+ordinary object/String parameters for the later admission consumer and refuses
+missing enum dispatch, tokens or entry roots. The enum-only invocation proof
+reuses this inventory while retaining its stricter lifetime and confinement gates.
+
+`BridgeStringResults` supplies separate, proof-only cleanup contracts for fresh,
+input-alias and immortal/null String results. Fresh and alias origins reuse final
+semantic summaries; literal/null returns reuse the retention solver through
+helpers. Return-only borrowing keeps input copies alive through result consumption
+and does not replace ordinary borrowing. Missing producers remain unknown through
+phi/conversion/helper propagation, after local forward references reach a fixed
+point. Publication, invalidation, mixed fresh/alias results and unknown effects
+remain rejected. These facts do not enable String-result transport or public
+producer admission on their own.
+
+P3's `proveForRoots` additionally binds String conversion to a matching complete
+root-retention contract. Copied String parameters require ordinary or return-only
+borrowing; they cannot become persistent root slots. A getter's exact owned-field
+origin permits copying its borrowed String while the root or view owner is live,
+without freeing that storage afterward. Fresh results and temporary input aliases
+retain their distinct cleanup authority. `rootObjects` consumes these contracts
+in the shared protected lowering: copies precede initialization/allocation,
+partial-copy and constructor failures release acquired temporaries, and actual
+root slots are reported before failure snapshots. This internal entry capability
+does not enable public object facades. Nullable owned-field
+returns preserve dependent-borrow facts through conditional/cast and early-null
+forms; unrelated non-null origins and publication remain conservative.
+
+`BridgePermanentValues` binds independently proved concrete permanent candidates
+to a mixed root surface, optionally including its enum conversions. Root
+admission uses the complete entry/initializer closure and preserves separate
+constructed-root types, dependencies and destruction capabilities. Permanent
+fields and purely permanent publication need no root slots; a permanent holder
+capturing a reclaimable input remains rejected. String results still require
+their copied or borrowed ownership proof. The final lifetime check includes all
+generated root destruction, rollback and protected snapshot getters before a
+permanent candidate can authorize a native payload. A root destructor that
+reclaims that candidate fails the complete proof. This internal capability
+does not choose candidates by retrying failed root proofs or enable Java facade
+production; host lifetime transport remains separate.
+
+`BridgeObjectAdmission` performs automatic internal selection for concrete object
+surfaces and enum/custom-snapshot value projections. A proved value module with
+no object references has an empty lifetime inventory and no destruction state;
+copied-String and protected snapshot proofs remain mandatory. Unknown semantic
+object results and explicit receiver publication into
+non-input storage request independent permanent proofs; ordinary root arguments
+are not promoted merely because another object captures them. A proved dependent
+view follows its permanent owner. The existing retention solver supplies receiver
+publication sites without changing source escape facts. All candidates must pass
+complete non-reclamation analysis, and the selected root, mixed or uniform
+permanent protocol then passes final generated/snapshot closure checks. Failed
+cycle, slot-transfer and destruction proofs are not retried as permanent APIs.
+The immutable result binds the source artifact, full surface, entry module and
+final program. It does not enable the unfinished Java object adapters.
+
+`proveForPermanent` binds the same copied-value contracts to complete D192
+non-reclamation facts. Its separate retention projection allows publication of
+proved permanent references while preserving copied String input provenance
+through helpers, field/static/array stores and exception capture. Ordinary
+retention analysis keeps its original publication restrictions. String types
+never acquire permanent facade identity; owned-field getters borrow their live
+permanent owner for copying, and only fresh or temporary-alias results permit
+release. `permanentObjects` reuses the protected String lowering without generated
+root state. Its mixed-value overload requires the bound enum conversion inventory,
+adds every used conversion initializer to the lifetime/rollback proof closure and
+preserves exact constant-specific receiver restrictions. Constructors and object
+methods can consume and return enums while enum methods consume/return permanent
+objects. Copied String confinement is still mandatory across that full closure;
+unknown effects, reachable exposed-type reclamation and unproved rollback prevent
+admission. Conversion initializers are proof roots, not exported callable entries.
+The uniform permanent path remains separate from reclaimable-object admission.
+The original overload retains the same proof and lowering behavior without enum
+conversion metadata. Both paths avoid generated destruction, root state or slot
+commits. This uniform internal module does not
+admit mixed permanent/reclaimable surfaces or expose public object adapters.
+
+The retention solver recognizes fixed runtime String copies, concatenation of
+converted values, char-prefix/range and UTF-8 snapshots, default identity text
+and Throwable descriptions as fresh inline storage without source-reference
+retention. Owned-text release helpers only deallocate proved fresh String storage;
+ordinary reclamation and getter ownership proofs remain separate. Producer
+overrides retain ordinary call effects, and unclassified array copying or
+secondary-exception origins remain unknown.
+
+Stores between independently fresh objects introduce no entry-input retention.
+This classification runs after complete helper/store propagation: a fresh child
+that captures an input is still rejected at its own capture site, as are loaded
+references, mixed origins and untracked publication. Purely native graph cycles
+may therefore have empty retention contracts without acquiring a reclamation
+or result-ownership proof.
+
+Outward throwable origins also participate in the fixed point. Protected invoke
+and throw predecessors supply landing-pad object provenance through the exact
+retained unwind edges; native wrapper handles stay opaque. Secondary associations
+are independent only when both occurrences have fresh or immortal native origins,
+with nested stores and unknown helper effects still preserved. Known implicit
+allocation failures carry independence, never fresh cleanup authority. A classified
+producer with no returned/thrown value differs from an absent producer; missing
+values/callees remain unknown. Raw null throw edges cannot yield a caught object;
+typed null-throw lowering supplies its explicit NullPointerException path.
+Ordinary escape, reclamation and result ownership analysis remain separate.
+
+Primitive arraycopy effects carry exact primitive array types through aliases,
+field loads, returns and erased helper parameters. The solver keeps conditional
+copy effects until caller substitution, accepting only matching known primitive
+element representations. Reference arrays, mixed or unknown alternatives and
+mismatched primitive types remain unproved. This is a retention proof, not a
+new reclamation permission, array signature capability or bounds/failure proof.
+
+`BridgeControlFlow` supplies an analysis-only view of reachable blocks and phi
+edges. An invoke loses its unwind edge only after final closed-world effects
+and complete callee/native-operation validation prove the whole helper closure
+nonraising and allocation-free. Missing targets, unclassified operations and
+potentially raising work retain the edge. Retention analysis uses this view to
+exclude impossible cleanup associations without granting associations a general
+non-retention exemption. Emitted IR and ordinary reclamation facts are unchanged.
+
+`BridgeEntryModule.stringValues` consumes these contracts in the existing typed
+String entry lowering. It reclaims every input copy except the exact returned
+alias, then returns the live result pointer in the private result frame. The JNI
+consumer copies UTF-16 with NewString before releasing a fresh/aliased result,
+including Java allocation failure; immortal/null results require no release.
+Native String's existing inline layout is shared in `ironwood_bridge.h`, with
+runtime ABI assertions retained. This needs no extra result-buffer allocation,
+registry, or raising C-side native conversion. Generated value facades and JNI
+transport now consume these proofs together; unsupported general object results
+and String input publication remain rejected.
+
+`BridgeExceptionProjection` resolves the built-in throwable catalog to exact
+per-type getter targets, constructor snapshot data and inherited transfer-count
+fields. It distinguishes final fresh String results from proved non-fresh
+literal/input/field results; an unknown getter does not acquire cleanup authority.
+Covariant causes keep their resolved native type. The immutable projection binds
+to its entire input program, including private type IDs; reconstruction compares
+semantic properties and rebinds IDs rather than carrying them between programs.
+This projection itself grants no native invocation or Java construction permission.
+Custom descendants retain inherited path/parse constructor getters and transfer
+counts, with the same exact target and String-ownership checks. A custom catch
+hierarchy cannot extend Java's final `DirectoryIteratorException`, directly or
+indirectly; snapshot discovery diagnoses that unrepresentable hierarchy.
+
+`BridgeCustomSnapshotLayout` binds copied primitive/String slots to one exact
+custom projection. Name/type keys preserve inherited and overridden getter slots;
+abstract catch declarations do not acquire instance extractors. Message and
+cause/secondary graph roles remain separate, and built-in ancestor metadata
+selects the eventual Java constructor shape. Layout metadata supplies no lifetime
+or getter-effect permission; transport still requires its exact protected entries.
+
+`BridgeExceptionClosure` derives the P2 projection by reusing native link
+reachability. Starting with the implicit allocation failure, it attaches protected
+getters and repeats closed-world pruning until the reachable Throwable type set
+stabilizes. Reachable custom types, including helper/initializer dependencies,
+are rejected pending P3; unreachable private exception methods do not force a
+projection. This includes conservative class-layout dependencies retained by the
+linker. Exact original-program and entry/projection binding remain mandatory.
+The producer integration must use this discovery rather than a caller-selected
+subset of exceptions; the lower-level projection constructor remains useful for
+focused compiler tests.
+
+P3's internal `snapshots` discovery uses the same fixed point with custom
+snapshot declaration/getter proofs, including further exceptions introduced by
+getters. Given the complete selected object surface, it also seeds every exported
+custom catch declaration, even one never thrown by reachable source code, and
+rejects reachable custom snapshot types outside the exported packages. The surface
+must match fresh signature selection and the module's exact entry roots. Both
+final lifetime validators accept this surface to include its protected getters
+before checking actual optimized effects. The scalar producer retains builtin-only
+discovery; the object producer consumes this complete custom closure.
+`BridgeFinalNonReclamation` derives every permanent/enum candidate from the
+proved entry module, adds this complete exception closure, performs recorded
+native linking and rechecks all emitted roots. Generated destruction and getter
+deallocation remain visible; no caller-selected subset can certify lifetime.
+Its immutable result binds the exact entry module, final program and per-type
+proofs. This is storage-lifetime evidence only, not root retention validation or
+permission to emit unfinished Java object/custom-exception adapters.
+
+`BridgeFinalRootRetention` rechecks the original root protocol against that final
+program. Its actual source-entry slot summaries must match the generated ordered
+holder/field, value-input and clearability payload exactly; cloned diagnostic
+site names are retained separately. Getters and initializers may introduce no
+unreported slots. All normal generated entry/getter roots must preserve root and
+view storage, and descriptor destruction/rollback must again prove nonthrowing,
+allocation-free cleanup. Only exact generated destruction capabilities are
+outside this normal-invocation query, while permanent/enum queries include them.
+The result binds both the original protocol metadata and the final emitted
+program; it does not provide the pending Java/C lifetime-state implementation.
+
+`BridgeExceptionEntries` attaches exact getter/field and trace follow-up functions
+to a matching typed entry module. Getter and trace calls use explicit unwind
+edges; failure paths perform ordinary occurrence cleanup and distinguish native
+allocation failure from another extraction failure without recursively taking
+another snapshot. Exact field reads are nonraising. The final native root set
+preserves every generated accessor through optimization. Entry and String-result
+retention validation consume matching final construction facts for private owned
+storage; copied inputs retain their ordinary borrowing and publication checks.
+A private JNI harness exercises protected DateTime getters and generated Java
+construction, including native allocation and Java delivery failure cleanup.
+Native graph traversal and complete Java exception delivery still require
+integration and runtime validation.
+
+`BridgeExceptionSources`, through the exception-aware `BridgeJavaSources`
+overload, generates a private Java constructor factory for the exact projected
+native type IDs. It preserves constructor fields, required IOException causes,
+transfer counts and nullable parsed text; its helper classes carry the generation
+annotation and belong to loader preflight. This is Java construction after native
+extraction, not permission to invoke getters or free native throwable storage.
+DirectoryIteratorException's final Java class derives a message from its Java
+cause, so the adapter must copy the extracted native message separately. A pinned
+JDK experiment verifies JNI access to nonfinal Throwable.detailMessage on Java
+21-23; production bootstrap and public producer jars validate that integration.
+`BridgeExceptionGraphSources` adds private bounded assembly of copied
+nodes: shared identities and representable cause/secondary cycles survive;
+self edges and explicitly omitted edges use a snapshot marker. Ordinary nodes
+precede constructor-required IOException wrappers, followed by edge attachment.
+Native frames precede bounded Java call-site frames. D214 records the limits.
+The assembler returns every node for JNI to finish message fields before Java
+delivery. It neither traverses native storage nor catches Java allocation errors.
+The native transport below performs traversal and per-node message completion
+inside the public producer's built-in snapshot pipeline.
+
+`BridgeExceptionNativeSources` generates that cold JNI transport as an internal
+component. It binds to the exact protected getter projection, validates/caches
+Java metadata before native initialization, traverses a bounded pointer queue,
+copies UTF-16 results and reclaims only proved fresh getter storage. Trace names
+use checked ordinary UTF-8 conversion, including supplementary characters;
+they are not passed to JNI's modified-UTF-8 constructor. Pending Java failures
+survive local-reference and temporary-storage cleanup. DirectoryIteratorException
+alone needs extracted detailMessage completion; overwriting the same field on
+file/path exceptions would corrupt their constructor-derived reason/message.
+The private JNI fixture validates DateTime transport/allocation fallback, native
+cause cycles and copy limits, IOException wrappers and file/path snapshot fields
+on Java 21-25. It also checks native secondary order/limits, trace truncation,
+retained initializer failures and an implicit OOM secondary followed by another
+call. D070/D081's second allocation failure during active implicit-OOM unwinding
+remains a documented target-process termination, tested separately in a child;
+the bridge does not expand native catchability. Public source/archive producer
+jars additionally verify those graph/field/initializer cases and native/Java
+exhaustion recovery on Java 21-25, with exact payload identities in the P2 audit.
+
+`BridgeValueNativeSources` generates scalar and copied-String JNI marshalling
+from those proved typed entries. The generated registration descriptors retain
+their exact callable and entry-symbol identities; mismatched programs and
+exception closures are refused. JNI UTF-16 acquisitions are released in reverse
+order on success, native failure and partial acquisition failure. Fresh or
+selected input-alias String results remain live through `NewString` and are
+released even when Java allocation fails; immortal results are never freed.
+The generated cold failure helper invokes the protected exception transport.
+Scalar calls add no world lookup, thread check, allocation or synchronization.
+Focused O0/O3 tests use private registration and separate fault-injected images.
+
+`BridgeBootstrapSources` connects the value adapters to the generated loader.
+Native bootstrap checks generation/schema/API/build pairing, then repeats complete
+Class identity and signature preflight using its own embedded manifest. The
+shared Java reflection helper does not initialize facades or read static fields.
+Only validated Class objects reach registration. Exception metadata, a permanent
+loader anchor and a private copy of the class set are allocated before binding.
+Original-loader repeats are idempotent; another loader, changed class set or
+failed binding is refused. Late registration failure unregisters this artifact's
+completed classes and the potentially partial failing class, preserving the
+original Java failure. The mapped-image flag never resets. O0/O3 integration
+fixtures package generated jars, load them automatically on Java 21-25, preserve
+signed macOS image bytes, and verify lazy native initialization and allocation
+failure containment. Public-producer O0/O3 jars now pass duplicate-class and
+package-only collision checks in both resolution/first-use orders, disjoint
+loading, mixed-class/signature refusal, explicit bootstrap pairing, GC anchoring
+and retained-image reload refusal on Java 21-25. A separate fault producer counts
+partial-registration cleanup while preserving a loaded disjoint artifact.
+Deployment controls cover unsupported hosts/floors, missing/corrupt resources,
+unsafe extraction directories, unchanged corrupt existing files and native-build
+mismatch. The P2 audit records these checks with completed distribution and
+D203/D209 version evidence. Object and final P6 checks remain separate gates.
+
+`BridgeMacPayload` inspects the final thin baseline ARM64 dylib for its actual
+macOS deployment target, SDK and dependency names. Bounded load-command parsing
+rejects malformed, wrong-platform or ambiguous deployment records. Packaging
+uses the image's minimum OS rather than a guessed host-independent baseline;
+successful loading on the current host does not qualify older systems.
+
+`BridgeDistributionInputs` inventories required notices, runtime C/header source
+and the exact standard-library source reconstructed for the analyzed program.
+It does not substitute a potentially newer installed source tree for archived
+library inputs, nor classify application implementation source as library source.
+Missing notices or conflicting source units fail packaging. `BridgeJarArchive`
+checks entry paths, writes deterministic contents with the Java manifest first,
+then reopens and verifies every staged entry before atomic output replacement.
+Unsupported atomic replacement fails instead of using a non-atomic fallback.
+Used class-path `.ironjar` notices are retained under archive-content identities,
+with analyzed source checked against the actual archive members. Unused archives
+add no notices. Repeated `--license <file>` supplies application notices or source-
+availability statements, preserved byte-for-byte in content-separated directories.
+Both input groups are rechecked before publication. Application distributors must
+still provide any additional corresponding source required by their dependencies;
+the producer does not infer application licensing or copy its implementation.
+
+`BridgeProducerCommand` accepts `--java-bridge`, repeated `--export <exact-package>`,
+required `-o <artifact.jar>`, `.iron` inputs, source/class search paths, LLVM home,
+optimization, `--license` files and missing-free diagnostic options. It discovers the complete
+selected packages and retains the scalar primitive/String route where applicable.
+Object surfaces require complete `BridgeObjectAdmission`; object, enum and custom
+snapshot routes use its exact final program without another transformation after
+proof. Unknown effects and unsafe frees remain errors in every mode. Roots and
+borrowed views use the proved lifetime adapters, including bounded independent-root
+retention slots with complete final contracts. Callback surfaces separately require
+`BridgeCallbackAdmission` or `BridgeOwnedCallbackAdmission`, binding the complete
+native closure, listener proxy lifetime, carrier cleanup and owner guard/slot
+protocol to paired Java/JNI generation. The retained-owner subset has exact final
+primitive/listener layouts, primitive constructors and primitive/void methods.
+Borrowed String inputs reuse P0 protected copy cleanup and noncritical JNI
+buffers. Exact final owners may be passed into callbacks as stable facades, with
+all originating entry inputs guarded and native publication excluded by the complete
+closure proof. Java retention does not grant source borrowing or safe-free facts.
+Other reference callback values still reject. General inheritance, arrays and optional TLS dependencies remain rejected at their pending
+implementation boundaries. Linux payloads use the pinned native support closure.
+
+`--critical-calls=on|off` (default off) selects D241's critical calls for object
+projections. `BridgeCriticalCalls` analyzes the final admitted program through
+the shared `BridgeCallTargets` edges and admits a native function only when its
+complete closure has resolved calls and memory-only operations. The permanent
+Java and native generators then add one constant method handle and one adapter
+without a `JNIEnv` per selected binding, beside the unchanged JNI declaration
+and adapter. The selection is recorded in the generation identity, so it also
+names distinct generated support packages. It is a transport choice made after
+admission and consumes no lifetime proof. x86-64 shared images receive the
+`-mattr=-slow-unaligned-mem-16` tuning of D242 from
+`NativeBackend.portableTuning`, which D244 extended to every portable x86-64
+image; the recorded `cpu.tuning` input is unchanged.
+
+`BridgeProducer` supports JDK 21, 22, 23, 24 and 25 with compiler/Javadoc tools and JNI headers,
+the pinned LLVM toolchain and the matching macOS SDK or Linux support SDK. It uses the existing optimizer and
+shared linker, verifies the signed final image and derives its deployment floor
+from that image. It stages Java 21 classes, generated Java source/Javadoc (including
+the JDK tool's generated legal files), exact library/runtime source and notices,
+native payload and content hashes before publishing the jar. Every generated
+class must match the bootstrap inventory. A failed build preserves earlier output.
+The Java automatic module name derives from the producing jar basename and stays
+stable across implementation updates under that name. Use distinct producing
+basenames for independent modules. Consumer renaming does not change that name.
+`META-INF/ironwood/bridge.properties` records it and the paired build inventory.
+Consumers use ordinary Java 21-25 dependency loading without native tools; on Java 24
+and 25 the JDK's native-access policy applies to the loader's `System.load` (D245).
+
+`BridgeGeneration` separates the logical Java API hash from the complete analyzed
+source-program and producer generation, target-specific native build identity,
+and final image byte digest. Generation includes private/native-only dependency
+source and compiler/runtime fingerprints; an unchanged API cannot authorize a
+different implementation. Canonical length-prefixed UTF-16 encoding preserves
+unpaired-surrogate constants. `BridgeProducerInputs` fingerprints the actual
+compiler classes/resources and runtime C/header inputs while ignoring jar entry
+timestamps and container paths. Native build inputs are separately hashed before
+embedding their identity, avoiding a self-referential final image digest. The
+producer supplies actual target, SDK, toolchain, JNI-header and generated-input
+identities and rechecks compiler/runtime/distribution inputs before publication.
+On macOS, `MacNativeTools` selects the SDK and Apple linker from the developer
+environment once per bridge build. Adapter/runtime compilation and final linking
+share that selection; native identity includes SDK settings/stub hashes and the
+linker version/hash. LLVM 23 still performs compilation and optimization. Explicit
+SDK failures do not fall back to another installed version.
+These identities do not independently qualify a payload or complete P2.
+
+The internal object identity route requires the exact `BridgeObjectAdmission`
+and its final proofs. Its API identity additionally covers enum declaration
+order, custom snapshot fields and the proved facade role (permanent, root,
+view, combined root/view, enum, snapshot or static container). Changing a private
+implementation so that generated destruction disappears therefore changes the
+Java API identity as well. Object identities cannot enter the static-value
+generator. Identity generation does not enable unfinished object adapters.
+
+`BridgeIdentityCacheSources` generates the internal permanent-world weak cache
+only for an exact admitted permanent concrete surface. Primitive address keys
+avoid boxing on lookup. A live hit allocates nothing; a miss adds one weak entry
+in addition to its facade, plus a bucket array when capacity grows. Rehashing
+reuses entries after successful array allocation and performs no method calls
+while relinking them. Collected-entry removal uses entry identity, preventing
+late queue delivery from evicting a replacement. This cache supplies no native
+ownership permission and belongs only on object conversion paths. Component
+checks are supplemented by generated facade/JNI integration and the recorded
+[P4](JAVA_BRIDGE_P4_EVIDENCE.md)/[P6](JAVA_BRIDGE_P6_EVIDENCE.md) allocation
+evidence. Numerical performance acceptance and x86-64 hardware remain separate.
+
+`BridgeJavaSources` emits Java 21 facade declarations, runtime-visible identity
+annotations, package markers and one matching private JNI binding list. It
+requires matching generation and proved typed entries, preserves overloads,
+checked declarations and nested names, and emits exact primitive/UTF-16 constants.
+Native entry names and the imported one-time bootstrap method avoid producer
+method collisions. The runtime support loader is a separate generation step;
+there is no inert production fallback. Current javac/reflection tests supply an
+explicit test-only support stub and do not establish runnable-jar qualification.
+
+The internal `BridgePermanentJavaSources` route emits proved permanent concrete
+facades and static nested classes. Private final address/type metadata supports
+Java-only inherited equality, hashing and text; native source overrides retain
+private JNI dispatch. Public constructors initialize all immutable metadata
+before a separate private native cache-registration helper. Raw conversion
+constructors are private, and permanent facades expose no generated destruction
+or mutable lifetime state. Loader and manifest inventories distinguish host cache
+registration from typed source entries. The value bootstrap refuses these host
+helpers. Reclaimable adapters remain outside this declaration route.
+
+`BridgeCustomSnapshotSources` emits Java-only custom throwable hierarchies and
+copied primitive/String getters using `BridgeCustomSnapshotLayout`. Generated
+non-public constructors accept artifact-local copied data; the factory accesses
+them within the same module and never invokes source constructors. Built-in
+superclass construction uses valid placeholders, so legal native getter overrides
+such as null path/parse text are preserved by the copied getters. Graph assembly
+validates covariant cause/secondary types before exposure. An omission marker
+that cannot satisfy a narrower custom return type fails with the bounded
+LinkageError fallback instead of a later getter cast failure. Snapshots carry no
+native handle or cleanup operation. Java-only class/module and heap-failure tests
+cover this component; the public permanent-object producer includes the same
+generated snapshot classes and transport.
+
+`BridgeCustomSnapshotNativeSources` generates cold extraction of those slots
+through their exact protected entries. Custom constructor properties bypass the
+built-in carriers and are captured once into copied arrays; transfer counts also
+populate the inherited Java field. Floating-point bits are copied without
+conversion. Owned native Strings are released after Java copying, including host
+allocation failure. Fixed node limits bound JNI array and local-frame lifetimes;
+no source-sized C stack arrays or native ownership registry are introduced.
+Generated O0/O3 jars cover exact capture counts, throwing/allocating getters,
+native budget failures and injected JNI array/String/graph delivery failures.
+The built-in-only factory descriptor and transport remain unchanged. Exception
+storage is not implicitly reclaimed; later root tests must demonstrate snapshots
+after independently eligible native destruction.
+
+`BridgeEnumJavaSources` emits actual Java enums with private final name-paired
+tokens, source declaration order and exact constant-specific native dispatch.
+Inherited Java enum identity, `values()`, `valueOf()` and type inspection do not
+bootstrap or initialize the native world. Empty enums preserve Java's inherited
+final `compareTo` rather than attempting a source declaration with no native
+target. Native method invocation performs the bridge's ordinary bootstrap check.
+No enum receives a native address, concrete facade state or weak-cache entry.
+
+`BridgePermanentNativeSources` binds those declarations to the exact final
+admission and emits object/String conversion around its protected typed entries.
+Its bootstrap validates source entries and host helpers together, then anchors
+facade classes and the weak cache. Facade constructor/field lookup is lazy after
+bootstrap, so cold result conversion does not initialize a facade during native
+registration. Scalar receivers pass their private final address directly, with
+no JNI field lookup or cache operation. Object-return cache hits reuse the live
+facade; misses call its private conversion constructor before cache insertion.
+The public macOS producer uses this path for exact object/enum/snapshot admission.
+Root generation additionally reserves the native index record and state global
+reference before entering native code. Registration commits before any Java
+facade/cache delivery, and the index preserves the state after delivery failure.
+Root facades check receiver liveness in Java; native object argument conversion
+checks the shared state before dereference. Approved destruction marks FREEING,
+calls the exact nonthrowing typed destructor, marks FREED and removes registration.
+Source/class/archive jars retain complete pairing, sources/Javadoc and notices.
+The retention generator consumes the final entry's existing typed slot payload,
+resolves fixed Java dependency fields before mutation and deduplicates aliased
+holders and roots. Its bounded preflight reserves JNI locals and checks incoming
+count headroom. Its native commit applies all increments, then decrements, then
+slot records on both successful and exceptional returns. Destruction acquires
+outgoing dependency references before FREEING and releases their counts after
+the typed destructor. The public producer selects this path only after complete
+final root admission; unknown effects, slot transfers, child-held slots and cycles
+remain rejected in every missing-free mode.
+Separately labeled fault jars verify buffer cleanup before target execution,
+owned-result cleanup after Java delivery failure, facade/cache retry without
+native reallocation, and global-reference cleanup on failed bootstrap. The
+production generator contains no allocation-failure hooks.
+
+For uniform permanent objects, selected instance methods also receive private
+constant-enum entries (D224). Eligibility requires exactly one nullable,
+two-constant enum argument, at least two other primitive arguments, no other
+reference argument, and no String or enum result. The public Java signature is
+unchanged. The facade selects the exact constant entry, whose private ABI omits
+that argument; null keeps the generic entry. Native active use and exception
+containment remain inside typed lowering. Generic roots remain mandatory proof
+inputs, and every added entry participates in synthesis and final lifetime
+validation. Root/view transport keeps its existing path. Shared conversion
+helpers appear once in Java/native registration and the packaged inventory.
+The artifact-wide permanent weak cache starts with 256 buckets to reduce address
+collisions; per-root caches still start with 16. Lookup, weak recreation, growth,
+allocation-failure behavior and ownership are unchanged.
+
+`BridgeEnumNativeSources` anchors preflighted enum classes without initialization,
+then lazily reads private Java tokens and named Java result singletons. The JNI
+carrier mapping must match the typed module's exact conversion inventory, including
+constant-specific receiver subsets. Native enum initialization, public constant
+field loads, conversion errors and source execution remain inside those protected
+typed entries. Focused pure-enum and mixed permanent-object jars cover cold calls,
+nullable/empty values, initializer failure, copied Strings and zero-allocation
+warmed calls. Separate injected artifacts cover metadata, preparation and delivery
+failure cleanup. Java 24 and 25 permit Java-only enum inspection without extraction
+and then load normally under the JDK's native-access policy. These checks do not complete P3 or final qualification.
+
+`BridgeLoaderSources` generates the artifact-private multi-target support
+class. Its one-time path checks Java 21-25, preflights all resolved identity and
+private-native descriptors without initializing facades, checks host constraints,
+then verifies/extracts the selected image and private dependencies before loading
+and native bootstrap. Linux host packaging audits ELF architecture, eager binding,
+relative dependency paths and the glibc 2.17 symbol-version ceiling, preserving
+the pinned runtime source/license delivery. macOS retains signed-image checks.
+Under D243 the private POSIX cache keys owner, generation, target and a digest of
+the selected files' paths and contents. Independent loaders and later JVMs select
+one canonical image path for identical payloads; another native build of the same
+generation selects its own. Each distinct file is stored once under its SHA-256
+name in the owner's `blobs` directory and hard-linked into every build directory
+that needs it, so the private Linux C++ runtime is shared. Exclusive partial files
+are verified and atomically hard-linked into place without replacing an existing
+file. Existing files/directories require the expected owner, mode and digest on
+every launch; symlinks and stale partial selection are rejected. The loader never
+deletes or repairs cache entries. Source-level tests
+exercise concurrent extraction using nonexecutable fixture bytes. Generated-jar
+checks also exercise actual registration, anchoring, signatures and launch forms;
+final distribution-candidate qualification remains pending.
+
+The P1 `CompilerPipeline.compileBridge` final-link path consumes the same P0
+scalar admission and protected entry lowering. `IrProgram.exportRoots` retains
+all generated entries independently of a source `main`; executable and library
+roots cannot coexist. Every typed-IR reconstruction preserves those identities.
+`NativeLinkPipeline` shares initialization and enum specialization, field
+forwarding, reachability pruning and unread-store elimination with executables.
+Foreign entries receive no assumed initialization or constant-argument facts.
+Library pruning preserves the allocation-failure context, initializer/cleanup
+closure and protected unwind edges, while removing unreachable source methods.
+Export signatures are revalidated after optimization, and pre-optimization
+semantic facts are not attached to transformed IR as newly proved contracts.
+`NativeOutputKind` selects executable or shared-library linking; the latter
+accepts separately compiled adapters and uses eager ELF binding on Linux.
+Linux shared links validate the prepared `BridgeNativeSupport` SDK, preserve
+the glibc 2.17 sysroot explicitly, and deliver private shared dependencies plus
+their source/notices under a relative loader path. A missing or changed SDK
+fails before linking, and existing delivered files are verified before reuse.
+Linux IDK packaging includes and verifies this complete support SDK, preserving
+its source/notices and manifests. Ordinary installed discovery requires no
+producer-side support override.
+See [native support](JAVA_BRIDGE_NATIVE_SUPPORT.md) for provenance and the
+minimal-JVM experiment. P1 dependency closure and macOS signing/extraction
+qualification are recorded separately in the progress log.
+
 ## IronDocs source documentation
 
 D098 adds the independent `irondoc` entry point in `ironwood.compiler.doc`.
@@ -393,8 +1188,9 @@ function call from the steady-state barrier.
 
 After semantic, ownership, effects and primitive-generic validation,
 `InitializedTypeSpecializer` can version a bounded, profitable loop-containing
-function and its direct callees. `IrTypeInitializedInstruction` only reads
-whether a type is in state 2; it never initiates initialization. Entry guards
+function or explicit native-library export root and its direct callees. Export
+roots receive priority so their callees share the entry facts (D223).
+`IrTypeInitializedInstruction` only reads whether a type is in state 2; it never initiates initialization. Entry guards
 select a copied fast CFG or the unchanged original body for states 0, 1 and 3.
 The fast CFG omits ensures of the proven types and calls guardless internal
 callee clones under the same facts. State 2 is permanent in the current
@@ -1340,6 +2136,18 @@ explains how these choices affect different application shapes.
 account of this configuration, of the cold-path outlining and guarded dispatch
 described above, and of the Linux benchmark guidance for evaluating them.
 
+On x86-64, the default target machine also passes `-mattr=-slow-unaligned-mem-16`
+to `opt` and `llc` at every optimization level, for executables and shared
+images alike (D242, D244). LLVM's baseline x86-64 model otherwise assumes slow
+unaligned 16-byte memory access, an assumption that holds only for processors
+older than SSE4.2/SSE4A, and zeroes or copies adjacent fields one 8-byte word at
+a time. The argument selects no instruction-set extension: the image stays
+baseline x86-64 and uses SSE2's unaligned 16-byte moves, so the raw
+`--emit-llvm` module and the optimizer's decisions are unchanged and only
+instruction selection differs. `-march=native` passes `-mcpu=native` instead and
+takes the host processor's own tuning. ARM64 targets receive no tuning argument.
+The Clang-compiled runtime objects are not tuned.
+
 Within existing initialized-state fast paths, the compiler folds proven
 enum `int`/`long` final-field reads and pure accessor calls on exact receivers.
 It proves literal construction and publication from typed IR, preserves final
@@ -1387,6 +2195,11 @@ Three link-only controls expose the profitability policy:
   planner's annotations, leaving LLVM's ordinary inliner, enum specialization
   and existing initialization-helper inlining active. It changes final link
   decisions, so compiled classes and archives can be relinked without rebuilding.
+  The structural loop-body bound is 256 operations for executables and 512 for
+  native libraries. The larger library bound exposes medium loops through small
+  callers when an outer application loop is unavailable to native optimization.
+  Direct-call, recursion, lifecycle and export-entry exclusions remain unchanged
+  (D222); no safety check or trace metadata is removed.
 - `--partial-inlining=on|off` controls LLVM's partial-inlining pass independently
   of the threshold and selective-inlining policy. Omission preserves the existing
   defaults: enabled at O3, LLVM's default at O0/O1/O2. Explicit `on` or `off`
@@ -1418,6 +2231,10 @@ existing tool invocation and output behavior.
 
 Raising the global budget affects more calls than the selective policy. Its
 default remains 1000; an individual rejected call's cost is not a new default.
+For explicit native libraries, initialized-type specialization prioritizes export
+roots, including non-looping roots, so direct callees share a guarded context.
+The original cold, recursive-initialization and failure paths remain intact;
+only proved complete state permits the specialized path (D223).
 See D174/D175 and the
 [Stage 3 report](PERFORMANCE_IMPROVEMENTS.md#round-2-stage-3-independent-specialization-and-inlining-candidates).
 

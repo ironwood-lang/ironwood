@@ -2,7 +2,7 @@
 
 > **Historical proposal, reviewed 2026-09-26:** The current implementation plan is
 > [JAVA_BRIDGE_PLAN.md](JAVA_BRIDGE_PLAN.md). It records Java 21-23 as the initial
-> support range, defers Java 24+, selects generated JNI, and records explicit
+> support range (D245 later admits Java 24 and 25), selects generated JNI, and records explicit
 > `free()` as the selected reclamation API. Its review corrects
 > assumptions below about ownership proofs, callback views, native loading,
 > shared-library startup, and the current OrderBook API. Retain this document

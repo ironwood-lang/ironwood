@@ -7677,7 +7677,9 @@ occurrence order. If no
 
 ## D190 - Java Bridge combines native ownership proofs with Java lifetime state
 
-- **Status:** Accepted design; the Java Bridge is not implemented.
+- **Status:** Callback-free P3 lifetime implementation and focused macOS ARM64
+  checks pass; see [P3 evidence](JAVA_BRIDGE_P3CD_EVIDENCE.md). P5 callback guards
+  and final P6 qualification remain pending.
 - **Decision:** Combine compiler ownership proofs for the native graph with
   shared Java lifetime state for its facades. Distinguish owned and borrowed
   objects. Refuse independent free of borrowed objects. Freeing an eligible
@@ -7914,7 +7916,8 @@ occurrence order. If no
 
 ## D196 - Java Bridge retention requires root-slot write proofs
 
-- **Status:** Accepted plan correction after review; not implemented.
+- **Status:** Implemented through the reused P0 proofs and P3 generated adapters;
+  [P3 evidence](JAVA_BRIDGE_P3CD_EVIDENCE.md) passes. Final P6 qualification remains.
 - **Problem:** Escape summaries do not establish complete slot writes/releases,
   destination owners or propagation of loaded slot values. Untracked copies can
   undercount dependencies and permit unsafe free. Borrowed-child slot records
@@ -7987,7 +7990,8 @@ occurrence order. If no
 
 ## D198 - Inherited Java facade identity methods survive native free
 
-- **Status:** Accepted plan correction after review; not implemented.
+- **Status:** Implemented for permanent and reclaimable facades; post-free identity,
+  hash collections and safely published logging pass in [P3](JAVA_BRIDGE_P3CD_EVIDENCE.md).
 - **Problem:** Liveness checks on inherited `equals` and native dispatch for
   inherited `hashCode`/`toString` break equality symmetry, hash-collection removal
   and logging after free. An asynchronous logger can also enter the native world
@@ -8057,7 +8061,8 @@ occurrence order. If no
 
 ## D200 - Java Bridge commits bookkeeping before returning to Java
 
-- **Status:** Accepted plan correction after review; not implemented.
+- **Status:** Implemented in generated P3 adapters; normal/exceptional and failure
+  checks pass in [P3](JAVA_BRIDGE_P3CD_EVIDENCE.md). Final P6 qualification remains.
 - **Problem:** Java failure during post-call count updates can expose native
   dependencies that are no longer protected by incoming counts. Increment-first
   ordering alone cannot protect a newly retained target before its first increment.
@@ -8133,7 +8138,8 @@ occurrence order. If no
 
 ## D202 - Java Bridge tightens first-release loading and ownership boundaries
 
-- **Status:** Accepted plan refinement after review; not implemented.
+- **Status:** P0 ownership proofs and P1 eager binding/dependency gates pass;
+  production P2/P3/P6 repetitions remain pending.
 - **ELF binding:** P1 links Linux bridge payloads with `-Wl,-z,now` and verifies
   BIND_NOW/NOW in the resulting ELF flags. A required unresolved relocation must
   cause catchable System.load failure before source execution, not a fatal first
@@ -8159,8 +8165,11 @@ occurrence order. If no
 - **Verification:** P0/P3 negative mixed-result proofs, positive nullable/permanent
   controls and source/class/archive parity; P1/P6 eager-binding flags and isolated
   missing-symbol load tests; P2/P3 public reflective-call/private-visibility checks.
-  This edit has source/documentation review and whitespace/link checks only.
-  No native build or runtime result is claimed.
+  P1 O0/O3 final ELF audits and minimal-JVM scalar, failure, missing-relocation
+  and two-image checks pass on Linux ARM64 and translated x86-64. Privately
+  delivered pinned support libraries preserve glibc 2.17 and require no consumer
+  setup. See [native support](JAVA_BRIDGE_NATIVE_SUPPORT.md) and the progress
+  log; real x86-64 hardware remains pending under D213.
 
 ## D203 - Java Bridge refuses unsupported JVM versions before native loading
 
@@ -8188,7 +8197,8 @@ occurrence order. If no
 
 ## D204 - Java Bridge root registration uses a native index
 
-- **Status:** Accepted plan correction after review; not implemented.
+- **Status:** Implemented in P3 with preallocation, authoritative recovery and
+  explicit destruction; [P3 evidence](JAVA_BRIDGE_P3CD_EVIDENCE.md) passes.
 - **Problem:** A Java root index cannot be updated by D200's adapter commit,
   which forbids allocation and Java collection calls. Deferring insertion until
   Java resumes can leave a live root unindexed after allocation failure, allowing
@@ -8274,7 +8284,8 @@ occurrence order. If no
 
 ## D207 - Java Bridge lifetime refusals have an artifact-private exception type
 
-- **Status:** Accepted plan correction; not implemented.
+- **Status:** Implemented in P3; exact refusal type, no-entry counters and producer
+  exception controls pass in [P3](JAVA_BRIDGE_P3CD_EVIDENCE.md). P4 adds OrderBook controls.
 - **Problem:** A producer can throw IllegalStateException itself, as OrderBook
   does on capacity exhaustion. A superclass-only assertion can therefore mistake
   producer failure for a successful bridge lifetime refusal.
@@ -8298,7 +8309,7 @@ occurrence order. If no
 
 ## D208 - Validate actual OrderBook rollback in P0
 
-- **Status:** Accepted experiment scope; not implemented or executed.
+- **Status:** P0 proof/runtime experiment passed; production-artifact repetition pending.
 - **Decision:** Add the real OrderBook constructor's partial Order/PriceLevel
   population and later array-allocation failure paths to P0-8 before P1. Inspect
   typed cleanup and ownership facts, then use calibrated allocation limits in
@@ -8314,13 +8325,18 @@ occurrence order. If no
   translated functional allowance to its O0/O3 three-target runtime checks;
   compiler proofs still need one host and stack/P6 hardware rules are unchanged.
   Repeat with production artifacts in P3/P4. No new experiment number is added.
-- **Verification:** OrderBook constructor, rollback lowering and owned-element
-  analyzer source review plus documentation checks only. No summary capability
-  or runtime cleanup result is claimed; experiment execution remains P0 work.
+- **Verification:** Actual constructor/rollback proofs and source/class/archive
+  reconstruction pass. O0/O3 JNI failures on both ARM64 targets and translated
+  x86-64 match the generated book/tail cleanup and preserve exposed controls.
+  Unpublished survivors are reported separately. See the
+  [P0 evidence audit](JAVA_BRIDGE_P0_EVIDENCE.md); P3/P4 must repeat these cases
+  through production artifacts, and translated evidence is not hardware qualification.
 
 ## D209 - Reconsider Java Bridge version refusal with a P2 Java 25 experiment
 
-- **Status:** Accepted experiment and product checkpoint; not executed.
+- **Status:** P2 experiment executed on macOS ARM64. The maintainer retains
+  Java 21-23 and D203's Java 24+ refusal for this implementation run, keeping
+  the bounded qualification scope; Java 25 admission remains a later review.
 - **Problem:** D203 rejects Java 25 even though its default native-access policy
   permits JNI with warnings. The restriction is a product choice that excludes
   an LTS release, not an unavoidable JVM authorization requirement.
@@ -8341,13 +8357,17 @@ occurrence order. If no
   coverage. Retaining refusal requires a recorded rationale. Java 21-23 remains
   the supported baseline until then; the experiment need not succeed to inform
   the decision. D205's hardware/evidence rules remain unchanged.
-- **Verification:** Official Java 24/25 launcher documentation and Temurin release
-  metadata checked; sources are linked in the plan. Documentation checks only;
-  no P2 consumer or Java 25 bridge run exists yet.
+- **Verification:** The paired production/experimental producers pass 36 O0/O3
+  child launches on pinned macOS ARM64 Temurin 21/24/25. Experimental Java 25
+  works in all three launch forms with native-access warnings and no observed
+  checked-JNI misuse. Explicit deny leaves the extracted image unmapped; ordinary
+  Java 24/25 refusal precedes extraction. See the reproducible commands, payload
+  identities, limitations and recommendation in [the report](JAVA_BRIDGE_JAVA25.md).
 
 ## D210 - Verify macOS bridge signatures and extracted-library loading in P1
 
-- **Status:** Accepted experiment scope; not executed.
+- **Status:** P1 private fixture passes all six pinned macOS cells; generated
+  P2/P6 repetitions remain pending.
 - **Decision:** Extend P1's dependency/install-name audit with O0/O3 ARM64 dylib
   signature verification before and after fixture-jar extraction. Require the
   same payload bytes and valid ad-hoc signature; finish binary edits before
@@ -8366,12 +8386,16 @@ occurrence order. If no
 - **Scope:** Refines D201's macOS audit and advances supported macOS JDK setup
   from P6 to P1. A private extraction fixture avoids a P1 dependency on P2.
   Ad-hoc signing is not a claim of notarization or arbitrary launcher support.
-  Verification now is source/documentation review and whitespace checks only;
-  no dylib has been built, signed, extracted or loaded for this experiment.
+- **Evidence:** O0/O3 linker-signed payloads preserve their bytes, ad-hoc
+  signatures and CDHashes after private atomic extraction. All three pinned
+  launchers pass ordinary and checked-JNI scalar/exception/continued-call runs
+  without modification or consumer configuration. The reproducible private
+  runner and matched evidence are recorded in
+  [the progress log](JAVA_BRIDGE_PROGRESS.md).
 
 ## D211 - Carry P0 compiler analysis foundations forward into P3
 
-- **Status:** Accepted implementation sequencing; not implemented.
+- **Status:** P0 reusable foundations delivered; P3a production admission in progress.
 - **Problem:** P0-5/P0-8 require substantive compiler analyses. Treating them as
   bounded throwaway experiments understates the work and risks a duplicate P3
   implementation with different proof behavior.
@@ -8390,10 +8414,23 @@ occurrence order. If no
   export/adapter integration, retaining P0 tests and source/class/archive parity.
   Temporary JNI harnesses may remain experimental; proof logic is durable code.
   Estimate platform experiments and compiler foundations separately.
+- **P3a implementation:** Concrete signature selection and root/String proof
+  composition reuse these foundations. String getters with a proved live owner
+  produce copied Java values, not native facade or destruction capabilities.
+  Nullable owned-field returns retain their original owner through conditional
+  and early-null forms. Unknown origins, copied-input publication and mixed
+  fresh/existing cleanup remain rejected. Uniform permanent objects compose
+  copied String conversion through a separately bound retention query: D192
+  publication of proved permanent references cannot hide temporary String capture.
+  These entries reuse protected conversion and add no destruction capability.
+  Public object production stays gated
+  until the dependent conversion and lifetime adapters pass their checkpoints.
 - **Scope:** Refines D196/D199/D208's prototype-versus-implementation split without
   moving the P0-5/P0-8 proof gates after P1 or reducing required evidence. No public
   CLI switch, Java consumer configuration or implementation is introduced now.
-  Verification is semantic-entry/result source review and documentation checks.
+  P0 verification includes paired proof tests, ordinary-diagnostic/IR isolation,
+  artifact reconstruction and proof-authorized JNI fixtures; see the
+  [P0 evidence audit](JAVA_BRIDGE_P0_EVIDENCE.md).
 
 ## D212 - Divide Java Bridge phases into explicit dependency checkpoints
 
@@ -8453,3 +8490,948 @@ occurrence order. If no
   translated functional allowance to P1-P4. Preserves proof requirements,
   hardware evidence standards, the supported matrix and all other release gates.
   Documentation checks only; no implementation, SSH session or experiment ran.
+
+## D214 - Bound Java Bridge exception snapshot graphs
+
+- **Status:** Implemented within D195 and qualified through the P2 value producer.
+- **Decision:** A copied snapshot holds at most 32 native throwable nodes,
+  32 secondary edges per node and 32 native frames per node. Append at most
+  64 Java call-site frames, reserving the last slot for an explicit truncation
+  frame when needed. Native traversal must likewise identify omitted edges and
+  frames rather than silently losing them.
+- **Representation:** Preserve shared node identity, secondary ordering and
+  representable cycles. Java forbids self-causation and self-suppression, so
+  self edges and graph-capacity omissions point to a graph-local IOException
+  marker identifying self-reference or a copy limit. This also supplies a
+  representable omitted cause for wrappers requiring IOException. Construct
+  ordinary nodes first, then required-cause wrappers, then attach other edges.
+  Invalid internal indices or required-cause types fail with LinkageError.
+- **Safety:** The Java assembler consumes copied data and grants no native
+  ownership or getter permission. JNI must finish extracted nonfinal message
+  fields before exposing any node. Allocation failure propagates without
+  recursive graph construction; native extraction still uses D197 protection
+  and its separately bounded failure status. No success-path bookkeeping is
+  added. No public exception API or supported producer surface expands here.
+- **Evidence:** Generated Java 21 factory/graph classes pass constructor,
+  identity/cycle/limit/trace and child-heap-exhaustion recovery checks on pinned
+  macOS ARM64 Temurin 21/22/23. Native transport tests and public source/archive
+  producer jars additionally pass graph/field/trace and allocation-exhaustion
+  checks on those launchers; see [the P2 audit](JAVA_BRIDGE_P2_EVIDENCE.md).
+- **Scope:** Refines D195's bounded copying convention without superseding its
+  mapping, source trace, containment or independent reclamation requirements.
+
+## D215 - Java Bridge preview artifact and module naming
+
+- **Status:** Implemented producer convention within D193's artifact boundary.
+- **Decision:** The producing jar basename is the preview's logical artifact
+  name. Its Automatic-Module-Name is `ironwood.bridge.a` followed by the SHA-256
+  of that name. Implementation updates under the same name keep the Java module
+  name stable while the complete generation and native build identities change.
+  Independent modules require distinct producing names. Renaming an already
+  produced jar changes neither its declared module nor its artifact identity.
+- **Distribution:** Package generated sources/Javadoc and the JDK tool's legal
+  output, exact standard-library/runtime source and required notices. Preserve
+  used archive notices with archive-content identities and accept repeated
+  `--license` application notice/source-availability files. Recheck inputs before
+  atomic publication; do not infer application licenses or expose its source.
+- **Verification:** Source/class/archive generation parity, all three ordinary
+  launch forms, exact content inventory, notice preservation and failed-output
+  preservation are covered by focused producer tests. This convention does not
+  complete P2 or the future P6 Maven/Gradle and multi-target qualification.
+
+## D216 - Preserve representable Java catch hierarchies in custom snapshots
+
+- **Status:** Enforced by P3 snapshot discovery and the macOS permanent-object
+  producer; remaining lifetime protocols and final qualification remain pending.
+- **Decision:** Custom snapshots retain the actual mapped Java catch hierarchy.
+  Reject direct or indirect descendants of `ironwood.nio.file.DirectoryIteratorException`
+  because its Java counterpart is final. Do not flatten that hierarchy or substitute
+  a different exception type. Ordinary Ironwood inheritance remains unchanged.
+- **Data:** Discover inherited path/parse constructor getters and transfer-count
+  fields through the native hierarchy. Exact protected getter targets and String
+  ownership proofs apply equally to inherited and source-overridden properties.
+- **Verification:** Focused layout/projection regressions cover inherited data,
+  unsafe String overrides and explicit rejection of the unrepresentable hierarchy;
+  existing custom proof tests retain source/class/archive and all-mode checks.
+- **Scope:** Refines D195's requirement to reject unsupported snapshot projections;
+  it supersedes no supported mapping or ordinary source-language behavior.
+
+## D217 - Construct custom snapshots from copied Java data
+
+- **Status:** Implemented Java/native P3 component and macOS permanent-object
+  producer integration; final lifetime and release qualification remain pending.
+- **Decision:** Generate non-public constructors accepting artifact-local copied
+  data and invoke them from the generated factory within the same Java module.
+  Never execute source exception constructors while translating a failure.
+  Preserve abstract catch declarations and concrete checked/unchecked ancestry.
+- **Data:** Generated getters read captured primitive bits, String values and
+  graph edges. Use valid placeholder arguments for built-in superclass
+  construction because legal source getter overrides can return values that
+  those Java constructors reject. Captured values remain authoritative.
+- **Bounded failure:** Apply D214's graph limits and marker. Validate covariant
+  cause/secondary types before exposing any snapshot. If an omitted-edge marker
+  cannot inhabit the declared custom return type, fail with LinkageError rather
+  than expose a getter that later fails a cast. Allocation failure propagates
+  without a recursive snapshot attempt. No snapshot owns a native handle.
+- **Scope:** Refines D195/D214 construction and representation; it grants no new
+  getter invocation or lifetime permission and does not supersede D216's rejected
+  final Java superclass boundary.
+
+## D218 - Java Bridge local distribution and build-tool conventions
+
+- **Status:** P6a implementation; final candidate and hardware qualification
+  remain separate gates.
+- **Decision:** Use explicit standard Maven coordinates and `sources`/`javadoc`
+  classifiers. The distribution command copies a verified host or assembled jar
+  unchanged, derives IDE companions from its embedded generated artifacts,
+  retains their notices, and records generation and output hashes. It publishes
+  only to a new local directory and performs no repository upload.
+- **Integration:** Invoke the existing producer/assembly/distribution commands
+  through ordinary Maven execution/install-file or Gradle Exec/Maven publication
+  facilities. Require no Ironwood-specific plugin, global service or consumer
+  toolchain. Native production still uses matching host toolchains; local Maven
+  coordinates do not imply a supported platform or Java version.
+- **Identity:** D215's producing basename remains the logical artifact name;
+  repository filenames can include the public version without regenerating or
+  relabeling the private native generation. A POM version change alone never
+  changes a generation. Keep covered runtime/source delivery in the main jar.
+- **Scope:** Records section 10's fixed convention, without superseding D193,
+  D203, D209 or D215 and without authorizing remote publishing.
+
+## D219 - Deterministic Java Bridge shared-image metadata
+
+- **Status:** P6a reproducibility correction; candidate qualification remains
+  separate from implementation checks.
+- **Decision:** Give macOS shared images a stable relocatable install name based
+  on their output basename. Canonicalize independent LLVM pseudo-probe root
+  groups in shared Mach-O/ELF objects before linking. Preserve all records,
+  nested order, section extent, code and function addresses. Ad-hoc signing
+  happens after the normal link; assembly retains the signed bytes unchanged.
+- **Boundary:** This is build-time metadata processing for the pinned LLVM
+  output format. Reject malformed metadata and relocations into reordered
+  sections. Do not discard trace information, normalize runtime state, change
+  reclamation facts, or introduce per-call work. Ordinary executable linking
+  keeps its existing path.
+- **Verification:** Repeated public builds in different staging parents must
+  produce identical jars. Preserve exact source traces, isolated artifact
+  loading, failure containment and source/class/archive behavior. An unfamiliar
+  toolchain format requires investigation and requalification, not a silent
+  fallback. This refines distribution reproducibility without superseding
+  D132/D133 or the private identity/loader contracts.
+
+## D220 - Keep permanent facade cache hits in generated Java
+
+- **Status:** Performance implementation under maintainer direction; refreshed
+  candidate and numerical qualification remain required.
+- **Decision:** A proved permanent object result may cross the paired private
+  JNI boundary as an address after native execution, commit and exception
+  containment. The generated Java method maps null and checks the existing weak
+  identity cache directly. A private registered native helper performs existing
+  wrapper creation on misses. No public address constructor is added. Artifact
+  support exposes only read-only lookup; cache insertion remains nonpublic.
+- **Reason:** Calling back into Java from the native adapter for every cache hit
+  adds substantial cost to fine-grained APIs. The Java-side lookup can be inlined
+  without changing the user's source API, native engine or benchmark workload.
+- **Invariants:** Preserve one live facade per native object, weak recreation,
+  exact generation binding, exceptional delivery and committed retention. No
+  new cache, strong ownership or automatic reclamation is introduced. Root/view
+  results keep their separate lifetime transport. Cold fallback remains subject
+  to host allocation failure and class initialization checks.
+- **Scope:** Refines implementation of D190/D191/D192 identity conversion;
+  supersedes no safety contract or version policy. Changed private declarations
+  and helper inventories are bound to their exact generated native adapters.
+
+## D221 - Private primitive transport for Java Bridge enum arguments
+
+- **Status:** Performance implementation; refreshed qualification is required.
+- **Decision:** Generated Java callers map declaration ordinals to the exact
+  generation's name-assigned enum tokens and pass private integer JNI arguments.
+  Null remains the existing null token. Protected typed native entries continue
+  to own native initialization, conversion and exception containment.
+- **Reason:** Valid generated enum values need no JNI field access merely to
+  recover a token already known to the paired Java projection. Declaration order
+  need not equal token order; generate the complete explicit mapping.
+- **Invariants:** Preserve public signatures, null behavior, cold initialization,
+  source/class/archive parity, retention ordering and preparation cleanup. No
+  public raw-token API or new supported enum shape is introduced. Paired private
+  descriptors and transport selections remain generation-bound.
+- **Scope:** Refines D190/D191 enum transport without superseding safety,
+  ownership, thread confinement or Java-version contracts.
+
+## D222 - Inline medium loops through small native-library callers
+
+- **Status:** Maintainer-directed performance improvement, with focused checks
+  passed; refreshed production qualification remains required.
+- **Decision:** Raise D175's structural loop-body selection bound from 256 to
+  512 typed operations for native libraries with explicit export roots. Preserve
+  the executable bound and every other direct-call, caller, recursion, lifecycle,
+  entry, reachability and compilation-work bound. LLVM's ordinary O3 threshold
+  remains 1000. This changes optimization selection, not supported APIs.
+- **Reason:** A native library cannot see the enclosing Java application loop.
+  OrderBook's 362-operation matching method sat behind its small creation
+  methods, blocking inlining and simplification of their known state. Inlining
+  removes this call without changing the engine or Java workload.
+- **Evidence:** Three interleaved warmed forks on physical Estonia improve the
+  Java21 bridge cycle from 192.22 to 178.84 ns; pure Ironwood is 124.47 ns and
+  Java21 is 240.28 ns in the latter comparison. Linux ARM64 also improves, from
+  82.58 to 78.16 ns, but still trails Java's 65.24 ns. These are development
+  observations, not final numerical acceptance. Exact inputs and all observations
+  are retained in `JAVA_BRIDGE_OPTIMIZATION.md`'s referenced evidence.
+- **Invariants:** Typed proof input is unchanged. Preserve evaluation, exceptions,
+  cleanup, source traces and all memory-safety enforcement. Focused tests cover
+  library selection and recursive fallback, unchanged executable selection,
+  exact native traces/cleanup, cold enums, mandatory final lifetime/root rejection
+  and actual OrderBook zero-allocation/weak-recreation behavior.
+- **Scope:** Supersedes only D175's 256-operation limit for explicit native
+  libraries. It does not supersede D132/D133, reclamation proofs or JNI contracts.
+
+## D223 - Share initialized-type contexts from native export roots
+
+- **Status:** Maintainer-directed performance refinement; focused correctness and
+  Linux measurements passed, refreshed candidate qualification still required.
+- **Decision:** D171's initialized-type specialization also considers non-looping
+  explicit library export roots and orders those roots before inner loops.
+  Their direct callees can share one guarded initialized context. Executable
+  root eligibility and ordering remain unchanged.
+- **Proof boundary:** Keep the exact immutable enum publication checks, explicit
+  state-2 guards, original cold/reentrant/failed fallback, mutable field loads,
+  clone provenance and transformation budgets. A successful ensure alone still
+  does not establish complete initialization. No eager initialization or Java
+  bookkeeping is introduced. Final bridge lifetime/retention proofs revalidate
+  the actual transformed program before any producer can emit it.
+- **Evidence:** Paired three-fork development comparisons improve Linux ARM64
+  from 78.45 to 76.71 ns/cycle and physical Estonia from 178.39 to 176.81.
+  Ten focused tests pass, covering non-looping library guards, ordinary safety,
+  cold/recursive/failed initialization, exact traces/cleanup, final lifetime/root
+  rejection, retention commits, artifact parity and actual OrderBook allocation
+  and weak recreation. See `JAVA_BRIDGE_OPTIMIZATION.md` for exact evidence.
+- **Scope:** Supersedes D171's loop-only region selection for explicit native
+  exports. All proof requirements and D132/D133 performance constraints remain.
+
+## D224 - Specialize private enum entries and reduce permanent cache collisions
+
+- **Status:** Maintainer-directed Linux performance implementation. Numerical
+  acceptance and final distribution qualification remain separate gates.
+- **Decision:** Add two private constant entries for an admitted permanent
+  instance method with exactly one nullable two-constant enum argument, at
+  least two other primitive arguments, no other reference argument and no String
+  or enum result. Generated Java selects the exact constant entry without that
+  argument in its private JNI ABI. Null uses the original generic entry. There
+  is no public overload or new supported API. Selection is linear per method,
+  without combinations of multiple enum arguments.
+- **Proof boundary:** Prove the original full surface first, retaining generic
+  roots and conservative effects. Include every added typed entry in generated
+  construction facts, exception closure, native export roots and final lifetime
+  proofs. Fixed conversion still ensures native initialization before loading
+  its exact constant; only existing state-2 proofs may eliminate that work.
+  Preserve cold, reentrant, failed and null behavior. Root/view transport is
+  unchanged. Validate exact private descriptors and register each shared result
+  converter once, including in the packaged manifest used by assembly.
+- **Cache:** Start the per-artifact permanent weak table at 256 buckets instead
+  of 16; per-root tables remain 16. This adds 240 reference slots once per
+  artifact and no new hit-path operation. Preserve hashing, weak identity,
+  collection/recreation, delayed-queue removal, growth and failed-insertion
+  behavior. Allocation tests calculate the growth threshold from actual capacity
+  and still require exact zero allocations on warmed hits.
+- **Evidence:** Ten paired physical Linux x86-64 Java21 forks improve the
+  settled cycle median from 174.59 to 167.90 ns; all ten pairs improve. Linux
+  ARM64 improves from 78.12 to 75.56 ns, nine of ten pairs, but still trails Java.
+  Keep the original protocol, volatile-enum control, all fork variation and the
+  negative initial Java22 latency cell. See `JAVA_BRIDGE_OPTIMIZATION.md` and
+  its artifact identities. These results are not a promise for every method or
+  a claim of numerical acceptance.
+- **Scope:** Refines D220/D221's implementation and supersedes only the permanent
+  cache's initial capacity. No reclamation, D132/D133, version, API, retention or
+  exception contract is superseded. Java21-23 and Java24+ refusal remain.
+
+## D225 - Accept the measured Java Bridge implementation and defer further tuning
+
+- **Status:** Accepted by the maintainer on 2026-09-28 after reviewing the
+  three-scenario Linux results and the optimization investigation.
+- **Decision:** Accept the implemented and tested bridge at its measured
+  performance and close this optimization run. Further performance work is
+  deferred. Linux x86-64 is faster than Java in the recorded OrderBook workload;
+  Linux ARM64 remains slower than Java, and both remain below standalone
+  Ironwood. These limitations are accepted for moving forward, not relabeled
+  as achieved speed targets or proof that further optimization is impossible.
+- **Evidence:** `JAVA_BRIDGE_D224_PERFORMANCE.md` records the final three-target
+  measurements and matching artifacts. The accepted OrderBook jar SHA-256 is
+  `b2f4a19d10a49290133259de2faef67cd699c52b96c2930e98f31dec7205f17e`,
+  produced from implementation commit `694ada30`; later local commits record
+  verification and rejected experiments without changing production code.
+- **Follow-up:** Consolidate documentation of the accepted candidate, supported
+  platforms and known limitations, preserving P6b's technical qualification
+  requirements and exact evidence. The OrderBook Java consumer already provides
+  real Java-to-Ironwood integration; another application is optional, not a
+  missing phase. Release preparation and publication belong to the maintainer
+  and are outside this agent task. P5 callbacks, P7 extensions and Java24+
+  support remain deferred. Later tuning may use OrderBook or another selected
+  application workload.
+- **Scope:** Supersedes this run's requirement to continue optimizing until the
+  bridge beats Java on every Linux target or approaches standalone performance.
+  Those objectives become deferred performance work. No API, reclamation,
+  exception, D132/D133, supported-version or qualification contract is weakened.
+
+## D226 - Implement P5 with a dedicated listener example
+
+- **Status:** Authorized by the maintainer on 2026-09-28.
+- **Decision:** Start P5 using a separate result-processor/listener example in
+  `examples/java-bridge/listeners/`. Preserve the official OrderBook project
+  and its benchmark definitions. Compare equivalent native processor/native
+  listener, Java processor/Java listener and native processor/Java listener
+  workloads, with Linux as the performance judge.
+- **Contract:** Follow the implementation plan's synchronous calling-thread
+  callback scope, typed foreign calls, conservative escape/effect proofs,
+  explicit invocation contexts, nested exception containment, retained-listener
+  lifecycle and active-use protection. Unknown Java behavior may retain,
+  allocate, throw and reenter. Incomplete capabilities remain producer errors.
+  P5 completion still requires every listed safety and validation exit.
+- **Scope:** Supersedes D225's P5 deferral. P7 and further OrderBook tuning stay
+  deferred. No supported Java version, reclamation or D132/D133 contract changes.
+  The maintainer intends to evaluate P5 and P7 before considering a candidate;
+  this does not authorize implementing P7 or taking over their release work.
+
+## D227 - Preserve native exception lifetimes for retained Java callback carriers
+
+- **Status:** Accepted by the maintainer on 2026-09-28 during P5 implementation.
+- **Decision:** A Java exception carrier retained by native code follows the
+  existing process-lifetime rule for caught or escaping native exceptions. Its
+  owned Java global reference remains live with the carrier, preserving later
+  unchanged rethrow identity. Unknown retention is treated as retention.
+- **Cleanup:** Reclaim only compiler-owned callback carriers proved not to
+  escape the invocation, after all native aliases, pending cleanup and unwind
+  uses have ended. Catching or replacing an exception is not itself that proof.
+  Exercise both reclaimed nonescaping carriers and deliberately retained carriers;
+  distinguish intentional retention from leaked temporary JNI references.
+- **Scope:** Clarifies P5 carrier ownership without changing ordinary exception
+  ownership or permitting source `free` of caught/thrown objects. Reclaimable
+  retained exceptions require a separate ownership change and are outside P5.
+  No mandatory proof, exception identity or boundary containment rule is relaxed.
+- **Implementation:** Public producer composition selects carrier cleanup per
+  entry at compile time. Only the invocation-owned subset receives the existing
+  strict destruction proof. Built-in Throwable static slots and bounded native
+  cause/secondary graphs may retain carriers; unknown lifetime remains retained.
+  No runtime policy flag, owner publication permission or source free exemption
+  is introduced.
+
+## D228 - Wrap Java callback failures enriched by native code
+
+- **Status:** Accepted by the maintainer on 2026-09-28 during P5 implementation.
+- **Decision:** When native code adds a cause or secondary cleanup failure to a
+  Java callback carrier, translate that carrier as a wrapper containing the
+  unchanged original Java throwable and the native additions. An unchanged
+  carrier still rethrows its original Java throwable by identity.
+- **Representation:** The wrapper's cause is the original Java throwable. Native
+  secondary failures become suppressed snapshots on the wrapper. A native-added
+  cause is represented by a labeled suppressed wrapper whose cause is that
+  native snapshot, preserving its distinction from a secondary cleanup failure.
+  Preserve the original throwable's cause, suppression and stack trace, including
+  when suppression is disabled. Repeated retained rethrows build fresh wrappers
+  without modifying or accumulating additions on the original Java object.
+- **Scope:** Refines P5's previously unspecified modified-carrier translation.
+  Existing bounded graph copying and D227 ownership still apply. This adds no
+  source reclamation permission; public callback exports still require their
+  independent complete admission proofs.
+
+
+## D229 - Preserve stable owner facades in synchronous callbacks
+
+- **Status:** Implementation convention within D226 and the accepted P5 lifetime contract.
+- **Decision:** Exact final owners admitted by the bounded callback proof may be
+  passed to Java listeners as stable facades. The complete native closure proves
+  that exposed owners originate only from guarded entry inputs. Java can retain
+  the facade; later explicit owner free invalidates all aliases through shared
+  root state. Resolve existing authoritative ownership and weak identity caching;
+  never retarget a Java reference or create a second native owner.
+- **Safety:** This host projection proof does not declare foreign arguments
+  borrowed. Typed reference arguments retain unknown Java effects in ordinary
+  source analysis, including mandatory free rejection. Native publication, hidden
+  owner creation and unguarded owner origins remain producer errors. Balance
+  temporary JNI references on success, callback failure and partial conversion.
+- **Boundary:** Primitive/void callback results remain required. Other reference
+  arguments, arbitrary escaping graphs and asynchronous callbacks remain rejected.
+  Primitive-only callbacks gain no identity conversion or lookup on dispatch.
+
+## D230 - Dispatch JNI callbacks through artifact-private Java relays
+
+- **Status:** Measured implementation optimization within the accepted P5 contract.
+- **Decision:** Generate static Java relays in the artifact-private support
+  package. Each relay invokes the original listener method with its exact typed
+  arguments and result. JNI uses cached static method IDs and a cached class
+  reference, validated and released with the existing binding metadata.
+- **Contract:** No event batching, callback deferral, extra hot-path allocation,
+  exception wrapping or foreign-effect exemption. Typed native context and proxy
+  lowering stay unchanged. Every callback still checks pending JNI exceptions,
+  preserving native carrier transport and unchanged Java throwable identity.
+  Generated relay source and class declarations participate in paired artifact
+  inventory and loading. Ordinary native-only code is unchanged.
+- **Evidence:** Estonia Java 21 measures 103.021 ns/event for the original
+  interface JNI path and 98.833 ns/event for the relay candidate. Java 22 improves
+  from 107.616 to 100.895; Java 23 is nearly unchanged at 108.923 versus 108.407.
+  This is a modest improvement and does not meet the maintainer's request for
+  callback throughput close to pure Java/native. See
+  [the investigation](JAVA_BRIDGE_CALLBACK_OPTIMIZATION.md). Numerical acceptance
+  is not implied by functional qualification.
+
+## D231 - Prove automatic batching for eligible callback loops
+
+- **Status:** Explicitly authorized by the maintainer on 2026-09-28 after the
+  JNI/FFM/batching control experiments.
+- **Decision:** Extend the current callback performance task to compiler-proved
+  automatic batching for eligible loops. Keep per-event Java listener calls,
+  their order, exception identity and reentrant behavior. Use ordinary JNI
+  dispatch whenever equivalence cannot be proved. No developer wiring or public
+  callback signature changes are required by this optimization.
+- **Proof boundary:** Computing future primitive results early must have no
+  observable native effects or possible intervening failures. Preserve the
+  listener captured by the original invocation and isolated buffers for nested
+  invocations. A failing callback stops further delivery and follows the same
+  protected native exception/carrier path. Unknown effects never acquire a
+  borrowing or reclamation exemption. Original native-only code stays unchanged.
+- **Transport convention:** For the initial proved counted loops, compute up to
+  1,024 events into private reusable direct storage and deliver them through one
+  JNI relay per chunk. Keep native computation in native code and Java listener
+  work in Java. Batch from two events onward; missing optional storage selects
+  ordinary JNI. The first callback may wait for chunk computation. Amortized
+  throughput/latency measurements do not establish callback arrival percentiles.
+- **Scope:** Supersedes the P7 batching deferral only for this measured automatic
+  callback optimization. Other P7 extensions, including production FFM and new
+  public array/zero-copy APIs, remain deferred. Java 21-23 and the Java 24+ refusal
+  remain unchanged. The control's 2.48 ns/event is research evidence, not a
+  promised or qualified production result.
+
+
+## D232 - Plan the remaining P7 extensions in bounded submilestones
+
+- **Status:** Planning requested by the maintainer after P5 completion; the
+  maintainer separately deferred further callback performance optimization.
+- **Decision:** Record the [P7 planning breakdown](JAVA_BRIDGE_PLAN.md#p7-submilestones-and-api-boundaries-d232):
+  P7a preserves delivered automatic batching; P7b covers copied primitive arrays;
+  P7c defines bounded byte buffers with an explicit API/lifetime gate; P7d covers
+  finite factory-created generic facades and final-bounded mutation; P7e evaluates optional
+  FFM while preserving default JNI; P7f qualifies the combined implemented surface.
+- **Authority:** This records a plan, not acceptance of a new public buffer API,
+  FFM deployment policy or authorization to implement the remaining extensions.
+  It adds the missing P7 breakdown without superseding D191/D231's current
+  producer boundaries. Unsafe/unimplemented capabilities stay rejected.
+- **Continuity:** Preserve Java 21-23, Java 24+ refusal, all existing safety and
+  ownership contracts, source/class/archive parity and unchanged official
+  OrderBook sources. Deferring callback tuning does not claim its numerical
+  target was met. Any material API or lifetime change is resolved at its stated
+  gate before dependent implementation.
+
+
+## D233 - Admit proved copied primitive array values
+
+- **Status:** P7b implementation authorized by the maintainer on 2026-09-28;
+  qualification checkpoints are recorded in the [array log](JAVA_BRIDGE_ARRAY_PROGRESS.md).
+- **Decision:** Supersede D191/D231's public-array exclusion and D232's planning-only
+  status for P7b only. Admit one-dimensional primitive arrays on proved methods,
+  including mutable inputs, input-alias results and fresh invocation-owned results.
+  Preserve all existing P0 borrowing, retention, origin and reclamation requirements.
+  Source, class and archive reconstruction must confer identical authority.
+- **Transport:** Use noncritical JNI regions and valid native arrays allocated
+  inside protected typed entries. Coalesce repeated Java identities per call.
+  Copy back only for closures that can write, once per identity in parameter order.
+  Return the original Java object for an input alias. Copy fresh array results to
+  Java and destroy their native storage on success and every delivery failure.
+  Reclaim all conversion temporaries. Unrelated scalar calls acquire no array state.
+- **Failures:** The maintainer chose original-failure precedence. Attempt later
+  copy-backs after an earlier failure, preserving the native failure as primary or
+  the first copy-back failure after native success. Attach indexed diagnostics;
+  if aggregation cannot allocate or suppression is unavailable, explicitly report
+  unavailable diagnostics on stderr without replacing the primary. Do not allocate
+  reserved Java diagnostic objects on successful calls. Thrown native exceptions
+  keep their previously accepted process lifetime.
+- **Boundary:** Reject native retention, free of inputs, callbacks/reentry,
+  unproved effects, retained/shared/native-field array results, constructors with array parameters,
+  object/multidimensional arrays, varargs and listener array signatures. The caller
+  excludes concurrent mutation. `System.arraycopy` remains rejected in these
+  closures until its runtime failures have a proved protected boundary. Other
+  result types still require their existing separate transport/lifetime proof.
+  P7c-P7f are not authorized by this decision. Java 21-23 and Java 24+ refusal remain.
+
+
+## D234 - Bounded byte views use JVM-owned storage and shared Java support
+
+- **Status:** P7c0 accepted, P7c1 authorized on 2026-09-28. The maintainer approved
+  JVM-managed storage, then requested P7c1 after the remaining shared-dependency
+  gate was reported. That instruction accepts the documented public type and
+  dependency and supersedes the earlier stop before P7c1 only. P7c1 is now
+  implemented and qualified on all three targets; numerical acceptance remains
+  maintainer review.
+- **Ownership:** Java allocates and owns reusable backing storage; each view
+  keeps its owner reachable. Native code borrows only for a synchronous call.
+  Expose no address, backing buffer, externally closable storage or close/free
+  operation. Release is JVM-managed with no deterministic deadline. No lifetime
+  counters, locks or scans. D188 confinement and D189 reclamation of native
+  Ironwood objects remain unchanged.
+- **API and packaging:** The [accepted design](JAVA_BRIDGE_BUFFER_DESIGN.md)
+  specifies `ironwood.bridge.ByteView`, exact source/Java methods, bounds and
+  permission semantics, immediate writes and typed alias/lifetime proofs.
+  A shared Java-only `ironwood-bridge-values.jar` permits reuse across independent
+  artifacts. This supersedes D191's single-jar delivery and exact signature
+  closure only for this explicit builtin dependency in buffer-using artifacts.
+  Other artifacts keep their existing delivery and export rules.
+- **Boundary:** D232's planning-only P7c status is superseded for P7c0/P7c1 only.
+  Implementation authorization does not admit unfinished capabilities or weaken
+  proofs. P7d-P7f remain pending; Java 21-23 and Java 24+ refusal remain unchanged.
+- **Verification:** P7c0 was documentation/source/specification review only.
+  The [P7c1 evidence](JAVA_BRIDGE_BUFFER_EVIDENCE.md) records focused positive
+  and negative checks, Java 21-23 consumers, exact artifact/dependency identities,
+  allocation and optimized machine-code evidence, and Linux measurements. The
+  zero-copy path has useful read/update gains over copied arrays; overlapping
+  writes retain a measured gap. The [log](JAVA_BRIDGE_BUFFER_PROGRESS.md) records
+  checkpoints. No later P7 submilestone is authorized by this completion.
+
+
+## D235 - Preserve exact generic source identities before bridge admission
+
+- **Status:** P7d0 implemented under the maintainer's 2026-09-29 authorization
+  for this checkpoint only. This supersedes D232's planning-only status solely
+  for generic signature foundations. D236/D237 separately admit P7d1/P7d2;
+  P7e-P7f remain pending.
+- **Metadata:** Preserve scoped class/method variables, ordered full bounds,
+  declaration erasure separately from substituted bounds, implicit-bound
+  primitive eligibility, exact applied receiver/declaring-owner views and member
+  parameters/results/throws. Public constructors, setters and unsupported
+  members remain in the inventory; do not omit them to make an API admissible.
+- **Identity and proof:** `BridgeCallableId.SourceSignature` is separate from the
+  native callable/ABI identity. Exact signature resolution returns metadata
+  evidence only. A generic source view does not acquire an exact native target
+  through equal erasure, linkage or explicit parameter types alone; compare its
+  receiver too. The inventory retains native candidates for separately proved
+  dispatch protocols, including inherited empty-enum Java identity methods;
+  these candidates are not exact direct-call bindings. Every lifetime, retention
+  and reclamation proof remains required.
+- **Revalidation:** Source-only secondary-bound changes can produce equal lowered
+  programs. API facts therefore match only the final program instance from their
+  semantic analysis. Source/class/archive reconstruction derives fresh facts;
+  stable complete source signatures and native targets are checked against them.
+  Existing artifact source reconstruction suffices; no format or runtime state is
+  added. Unknown, absent or stale facts cannot authorize an export.
+- **Boundary:** Generic class/method exports remain rejected, including unused
+  type variables whose ABI is otherwise scalar. P7d0 does not generate generic
+  Java declarations, enable raw Ironwood types, interpret Java unchecked casts
+  as native layout evidence, or implement generic lifetime conversion. Later
+  admission must support every Java-valid raw/wildcard/overloaded client use of
+  its emitted declaration. Native ABI, transport and hot lowering are unchanged.
+- **Verification:** The [P7d0 log](JAVA_BRIDGE_GENERIC_PROGRESS.md) records focused
+  signature/proof parity, same-IR changed-bound rejection, producer refusals and
+  adjacent bridge/ownership regressions. No new native performance or expanded
+  platform claim follows from this compiler-only foundation.
+
+## D236 - Read-only factory-produced generic Java facades
+
+- **Status:** Accepted by the maintainer's separate P7d1 implementation request
+  on 2026-09-29. P7d2 and later phases are not authorized by this checkpoint.
+- **Supersedes:** D235's blanket generic-class export refusal only for this
+  proved P7d1 boundary. D235's exact source identities/revalidation, P0 lifetime
+  proofs, D192 non-reclamation and D132/D133 performance constraints remain.
+- **Surface:** Final top-level generic classes with inaccessible constructors,
+  no public generic methods and no type-dependent inputs can expose ordinary
+  `Box<T>` declarations and native factories returning concrete applications.
+  Arguments are exported final nongeneric native facade classes. Complete
+  source allocations and exported results define the finite domain; unresolved
+  or primitive production is rejected. Bounds may name Object, an admitted
+  final facade or another class variable. Generic facade parameters, even fixed
+  applications, remain rejected because client unchecked casts cannot prove
+  native input types. Generic inheritance, arrays and listeners stay outside
+  this boundary. Never hide an unsupported public member to accept a package.
+- **Conversion:** Reference applications retain their existing shared native
+  layout and code. Java raw/wildcard/unchecked views preserve the actual value
+  identity and ordinary JVM cast behavior. Erased client hints never select a
+  native layout. A cache miss dispatches on the actual result's native type ID
+  within the proved finite final-class set; warmed reads reuse the existing
+  address/identity-cache path. No generic tags, dynamic native specialization,
+  new registry or generic-specific per-call bookkeeping are introduced.
+- **Ownership:** Exact API identities remain separate from the shared storage
+  identity used by native ownership/destruction. Fresh factory products require
+  confined construction and the existing cleanup/retention proofs. Borrowed
+  products share the exact owner's validity. Published generic families and
+  unknown-origin variable results require complete non-reclamation proofs for
+  every concrete alternative; no exemption follows from a generic declaration.
+  Source allocation domains are bound to semantic facts and carried only through
+  recorded additive adapters/native passes. Unknown effects and deallocation
+  scans remain conservative. Missing-free mode cannot disable safety errors.
+- **Verification:** The [generic log](JAVA_BRIDGE_GENERIC_PROGRESS.md) records
+  signature and ownership parity, Java cast/identity behavior, permanent and
+  borrowed products, negative APIs/unsafe frees, child-process native OOM,
+  checked JNI, Java 21-23 consumers and matched getter allocation/code evidence.
+  Numerical measurements are evidence for maintainer review, not a new release
+  or a claim that P7d2 is implemented.
+
+## D237 - Final-bounded generic construction and inputs
+
+- **Status:** Accepted by the maintainer's separate P7d2 implementation request
+  on 2026-09-29. P7e and P7f remain outside this checkpoint.
+- **Supersedes:** D236's generic constructor and input refusal only for classes
+  whose every variable has one exported final nongeneric facade class bound.
+  D235 exact source identities, D192 non-reclamation, P0 ownership proofs and
+  D132/D133 performance constraints remain mandatory.
+- **Surface:** Final top-level reference-generic classes may expose public
+  constructors, type-dependent inputs and applied facade inputs under these
+  final bounds. Every Java-valid type argument is represented, including raw,
+  wildcard and client-cast uses. Unrestricted or partially bounded mutable
+  classes remain rejected; unsupported public members are never hidden.
+  Generic methods, listeners, arrays, inheritance and primitive projections
+  remain outside the accepted bridge surface.
+- **Proof and conversion:** A final bound proves the sole native argument
+  independently of observed allocations. Source signatures remain exact;
+  generated private static JNI inputs use the bound's erased facade type.
+  Existing shared native storage and root/permanent conversion apply. No type
+  tags, runtime specialization, extra registry, allocation or generic-specific
+  check is added. Ordinary Ironwood type and reclamation analysis is unchanged.
+- **Ownership:** Inputs reuse existing exact owner, alias, retention-slot and
+  repeated-call acyclicity proofs. Borrowed inputs retain their actual owner.
+  Actual mutations are committed before exception translation; failed
+  unpublished construction uses existing rollback. Unknown getter origins
+  still require permanent-value proof. Loaded-slot transfers and unknown
+  effects remain conservative rather than acquiring generic exemptions.
+- **Verification:** The [generic log](JAVA_BRIDGE_GENERIC_PROGRESS.md) records
+  source/class/archive parity, raw/wildcard clients, identity/null behavior,
+  retained and borrowed lifetimes, normal/exceptional mutation, allocation
+  failure, negative APIs, unsafe frees and matched setter code/measurements.
+  Numerical performance acceptance remains maintainer review.
+
+## D238 - Retain JNI after the P7e experiment and qualify the combined bridge
+
+- **Status:** The maintainer accepted the keep-JNI recommendation, explicitly
+  selected JNI only, and authorized P7f in the existing task on 2026-09-29.
+- **Decision:** Close D232's P7e evaluation through its permitted keep-JNI
+  outcome. [P7e0 measurements](JAVA_BRIDGE_FFM_EXPERIMENT.md) show only about
+  0.23-0.39 ns/call improvement on physical Linux x86-64 for ordinary FFM,
+  alongside additional native-access launch requirements. P7e1/P7e2 remain
+  deliberately unimplemented; no optional FFM artifact or policy is selected.
+- **Supersession:** Replace P7e's pending deployment-selection status with this
+  accepted outcome. Preserve default JNI, Java 21-23 and the Java 24+ refusal.
+  This does not weaken any proof or label an unimplemented FFM backend complete.
+- **Next authorized work:** P7f combined qualification and documentation for the
+  implemented callbacks/batching, arrays, byte views and bounded generics.
+  Preserve the official OrderBook sources. Record matching artifacts, focused
+  positive/negative tests, three-target/JVM evidence and numerical measurements
+  in the [P7f log](JAVA_BRIDGE_P7_QUALIFICATION.md). Numerical acceptance remains
+  the maintainer's review; publishing remains outside this task.
+
+
+## D239 - Support JDK 21, 22 and 23 throughout the JNI bridge workflow
+
+- **Status:** Authorized by the maintainer's JDK compatibility implementation
+  request on 2026-09-29. Verification is recorded in the
+  [JDK progress log](JAVA_BRIDGE_JDK_PROGRESS.md).
+- **Decision:** The compiler build/run, bridge source/class/archive producer,
+  standalone ByteView companion producer, assembly, distribution packaging and
+  ordinary Java consumer workflow support JDK 21, 22 and 23. Compile Java at
+  `--release 21`; preserve Ironwood's language level and the Java 21 public API
+  and class-file baseline. JNI remains the only supported transport.
+- **Selection:** JAVA_HOME explicitly selects Java and its build tools. Otherwise
+  use the IDK bundle or resolve the PATH runtime's home. Java compiler/Javadoc
+  APIs and JNI headers come from the running producer JDK. Missing components
+  fail clearly, without substituting another JDK. Maven/Gradle producer examples
+  use their running JVM's home. IDK native tooling stays bundled on Java override.
+- **Identity:** Preserve exact compiler/runtime generation, common assembly
+  bytes, native JDK version/vendor/header hashes, content inventories and failed
+  publication preservation. Use a matching compiler build and matching producer
+  JDKs for host assembly. Different JDK compiler/Javadoc outputs are not treated
+  as interchangeable. Assembly may run on any supported JDK but still checks
+  its exact compiler/runtime against its inputs. Reproducibility remains an
+  identical-input contract.
+- **Scope:** Supersedes the Java-21-only producer/build-tool restriction in the
+  implementation and usage instructions. Extends D215/D218 without weakening
+  artifact pairing. D203/D238's Java 24+ refusal, native-access behavior, memory
+  safety, ownership, exception transport and D132/D133 remain unchanged. No
+  warmed-call code changes or new runtime checks are introduced.
+
+## D240 - Include native bridge dependencies in IDKs and use Apple's selected linker
+
+- **Status:** Authorized by the maintainer's out-of-box macOS/Linux repair request
+  on 2026-09-30. Verification is recorded in the
+  [JDK progress log](JAVA_BRIDGE_JDK_PROGRESS.md).
+- **Decision:** macOS native builds select the SDK and Apple linker through the
+  installed Command Line Tools/Xcode developer environment. Pass their paths
+  explicitly to the pinned LLVM 23 Clang driver for ordinary executables and
+  shared bridge images. LLVM retains compilation and optimization under D012;
+  Apple's development tools remain the macOS build prerequisite under D014.
+  Honor SDKROOT/DEVELOPER_DIR and reject invalid explicit selections. Native
+  bridge identity includes actual SDK settings/stub hashes and linker version/hash.
+- **Packaging:** Linux IDKs include the complete pinned bridge support SDK,
+  source, recipes, license texts and manifests at the installed discovery path.
+  Verify its closure before and after staging; do not substitute system runtimes
+  or weaken checksum checks. Source/host packages include preparation pins/recipe.
+- **Supersession and scope:** Replace the SDK 26.5 workaround in IDK instructions
+  and the requirement for Linux IDK end-users to prepare support separately.
+  Extend D239's Java 21/22/23 workflow. Preserve Java 21 APIs/classes, Java 24+
+  refusal, JNI transport, artifact pairing, memory-safety proofs, exception and
+  native-access behavior, D132/D133 and existing runtime performance constraints.
+  No compiler IR, runtime lowering or steady-state JNI code changes are made.
+
+## D241 - Producer-selected critical calls for proved object entries
+
+- **Status:** Implemented on 2026-10-02 under the maintainer's direction to make
+  the OrderBook bridge as fast as possible on the ordinary Linux host. The
+  default-off selection, the duration obligation and the Java 21 mechanism below
+  are recorded for maintainer review.
+- **Finding:** On the host, eight JNI calls cost about 61 ns of a 154 ns bridge
+  cycle. Ordinary FFM keeps the same thread-state transition; only the critical
+  linker option removes it. See the
+  [investigation and measurements](JAVA_BRIDGE_CRITICAL_CALLS.md).
+- **Decision:** `ironwoodc --java-bridge --critical-calls=on` adds, for each
+  qualifying binding of an object projection, a second native adapter and a
+  constant method handle linked with the critical option. The default is off and
+  generates the unchanged JNI-only artifact. The selection is part of the
+  generation identity (`calls=critical-v1`). Every selected binding keeps its
+  registered JNI method, and generated Java uses it whenever a handle is absent.
+  No call is re-executed.
+- **Selection:** Static or instance methods only, with primitive or enum-token
+  parameters and a void, primitive or permanent-address result, and without root
+  state, reservations or retention slots. `BridgeCriticalCalls` additionally
+  requires the entry's complete native closure, including initializers and
+  cleanup, to contain only resolved native calls and memory-only operations.
+  Java callbacks, unresolved calls and every unclassified operation refuse.
+  The analysis feeds transport selection only. It admits no export and replaces
+  no ownership, retention, non-reclamation or exception proof.
+- **Producer obligation:** A critical call delays every JVM safepoint until it
+  returns. The compiler proves the absence of Java reentry and of blocking
+  runtime services. It does not bound running time. Selecting the option states
+  that exported operations are short.
+- **Failure transport:** The adapter calls the same protected entry with the
+  same result frame. On failure it parks the status and exception for the calling
+  thread and reports failure in the returned word: a status for void, 1 for an
+  address, a high bit for 32-bit and smaller values. `long` and `double` results
+  have no spare value, so Java reads one pending-failure counter after those
+  calls. A JNI helper then delivers the existing translated exception. Only a
+  failing call touches thread-local storage; D132/D133 are preserved.
+- **Java and launch policy:** Java 21-23 and the Java 24+ refusal are unchanged,
+  and classes stay Java 21 class files. Handles are created reflectively: the
+  preview API on Java 21 without `--enable-preview`, the final API on 22/23.
+  Linking is a restricted operation. The artifact never grants itself native
+  access. With no option the JVM prints its own warning; a launch that enables
+  native access only for other modules, or `-Dironwood.bridge.calls=jni`, selects
+  JNI. Any linkage failure selects JNI.
+- **Supersession:** Supersedes D238's JNI-only outcome for artifacts built with
+  the option, and replaces the unimplemented P7e1/P7e2 candidate boundaries.
+  P7e2 required a proved extremely short bound with no allocation, loops,
+  initialization or raising work. D241 instead admits those under an explicit
+  producer selection and proves only the absence of Java reentry and blocking
+  services. D238 remains the default. Callback, value and rooted-state transport,
+  D220-D224 and every lifetime contract are unchanged.
+- **Evidence:** Median of 15 round-robin processes on the host, Oracle JDK
+  21.0.1: bridge 1544.8 ms before, 1090.8 ms with critical calls, Java 1483.6 ms,
+  standalone 734.7 ms for 80M operations. The remaining standalone gap is
+  structural and is not claimed closed. Focused tests cover selection, exact
+  inventories, every result carrier, failure delivery and each fallback route.
+
+## D242 - Tune portable x86-64 bridge images for fast unaligned access
+
+- **Status:** Implemented on 2026-10-02 with D241.
+- **Finding:** LLVM's baseline x86-64 model assumes slow unaligned 16-byte
+  memory access unless SSE4.2 or SSE4A is enabled. Portable bridge images
+  therefore cleared and copied adjacent fields one word at a time. Feature
+  isolation on the standalone OrderBook shows that this assumption, and no
+  newer instruction, explains the difference from `-march=native`.
+- **Decision:** x86-64 shared bridge images pass `-mattr=-slow-unaligned-mem-16`
+  to `opt` and `llc`. The instruction set remains baseline x86-64 and the
+  recorded `native.cpu` remains `baseline-x86_64`. The argument is a native
+  build input (`cpu.tuning`). ARM64 images and ordinary executables are
+  unchanged. `-march=native` is still not accepted by the bridge producer.
+- **Compatibility:** Every x86-64 processor executes the emitted SSE2 moves.
+  Processors older than SSE4.2/SSE4A may run them more slowly; they remain
+  correct.
+- **Evidence:** The native-only floor of the OrderBook bridge library improves
+  from about 96 to 88 ns per cycle, and the JNI bridge from 1544.8 to 1464.0 ms.
+  Applying the same tuning to portable executables is a separate decision.
+
+## D243 - Reuse verified Java Bridge extractions across JVMs
+
+- **Status:** Implemented on 2026-10-02. The maintainer selected this scope over
+  per-JVM deletion after reviewing the alternatives below.
+- **Finding:** The generated loader extracted into
+  `jvm-<pid>-<start hash>/<generation>/<target>/` and never removed it. On the
+  Linux x86-64 host each launch left about 25 MB: 23.9 MB of `libstdc++.so.6`,
+  0.9 MB of `libgcc_s.so.1` and a 0.36 MB image. 74 leftover directories held
+  1.8 GB with one runtime digest and three image digests. That `/tmp` is only
+  emptied at boot. The per-JVM directory existed because the image filename is
+  independent of its digest: two native builds of one generation would
+  otherwise contend for one path, and the second would be refused forever.
+- **Decision:** Extract into
+  `ironwood-java-bridge-<owner hash>/<generation>/<target>/<payload digest>/`,
+  where the digest covers the relative path and SHA-256 of every file selected
+  for the target. The path carries no process identity, so later JVMs select it,
+  repeat the owner, mode and SHA-256 checks on every file, and load it without
+  writing. Each distinct file is published once as
+  `ironwood-java-bridge-<owner hash>/blobs/<sha256>` and hard-linked into each
+  build directory, so the private runtime is stored once per user rather than
+  once per build. The loader deletes nothing.
+- **Preserved:** Owner-only directories and files, validated at every level
+  without following links. Exclusive partial files, verification before
+  publication, and atomic hard-link publication that cannot replace an existing
+  file. No overwrite or repair of an existing file or directory. One canonical
+  path for identical payloads, so the JVM still refuses the same image in a
+  second defining loader (D191, D201). D203's version refusal still precedes
+  extraction. No process-global Java registry, shutdown hook or warmed-call
+  work is added.
+- **Changed behavior:** A broken or unsafe cached file is now refused by every
+  launch until the user removes it, where a new JVM formerly started from an
+  empty directory. A damaged blob is refused before any build links to it and
+  blocks every build that shares it. A different native build of one generation
+  in a second loader of the same JVM formerly failed with a digest mismatch; it
+  now selects its own directory and loads as an independent image, exactly as a
+  different generation in a second loader already did. Isolated duplicate
+  worlds remain unsupported. Stale partial files from a killed extraction stay
+  in `blobs` and are never selected. The cache grows by one image per distinct
+  build and is bounded by builds, not launches; users may delete it between
+  launches.
+- **Alternatives rejected:** Deleting the per-JVM directory at exit misses
+  killed or crashed JVMs, and a sweep of directories whose owner is gone
+  misjudges liveness when a temporary directory is shared across PID
+  namespaces, so it could delete a live JVM's image before it loads; it also
+  makes the loader delete paths it did not create. Unlinking after load leaves
+  nothing on success but removes the on-disk image that debuggers, profilers
+  and crash reports resolve, extracts again for a refused second loader, and
+  would need D210's macOS signature qualification repeated. Both keep the full
+  write on every launch.
+- **Supersession:** Replaces the JVM PID/start component of the P2 loader cache
+  recorded in `COMPILER.md` and the progress log's statement that a later JVM
+  gets its own cache. Refines the plan's loader step 4. D191, D201, D203 and
+  D210 are unchanged.
+- **Verification:** The generated-loader source test covers path identity,
+  write-free reuse by a fresh loader, coexisting builds of one generation, a
+  runtime file shared between builds, and refusal without repair of a damaged
+  image, damaged blob, symlink and unsafe directory. The permanent-facade loader
+  test reruns a consumer JVM against a populated cache and against a cache
+  holding another optimization level's build of the same generations. On the
+  Linux x86-64 host five OrderBook launches left 24.6 MB in total where the
+  previous loader added 24.6 MB per launch, and a second build added 0.4 MB.
+
+## D244 - Tune every portable x86-64 image for fast unaligned access
+
+- **Status:** Implemented on 2026-10-02. The maintainer accepted the default
+  after reviewing the measurements below.
+- **Finding:** D242 cleared LLVM's `slow-unaligned-mem-16` tuning for x86-64
+  shared bridge images only, and left ordinary executables on the baseline
+  model, which zeroes and copies adjacent fields one 8-byte word at a time.
+  Reproducing D242's feature isolation on portable OrderBook executables showed
+  the same gap: 817.2 ms at baseline against 733.6 ms with only the tuning and
+  734.8 ms with `-march=native` (medians of 15 round-robin processes, 8M warmup
+  and 80M measured operations). The latency benchmark's median mean batch
+  improved from 82.50 µs to 73.78 µs against 75.70 µs for `-march=native`. The
+  `examples/bench` programs were unchanged within variation.
+- **Decision:** `NativeBackend.portableTuning` passes
+  `-mattr=-slow-unaligned-mem-16` to `opt` and `llc` for every image whose
+  target triple is x86-64 and whose target machine is the default, executables
+  and shared images alike, at every optimization level. The instruction set
+  remains baseline x86-64. `-march=native` keeps `-mcpu=native` and the host
+  processor's own tuning without the argument. ARM64 targets, the raw
+  `--emit-llvm` module, the Clang-compiled runtime objects and the bridge's
+  recorded `cpu.tuning` input are unchanged.
+- **Machine code:** In the OrderBook `Bench` executable the optimized IR differs
+  only in the function attribute groups that record the feature; the mid-end
+  makes the same decisions and `llc` alone reproduces the tuned assembly.
+  Instruction selection merges runs of `movq $0, n(%reg)` into `xorps` and
+  `movups` stores and copies through `movups` and `movdqu`. No mnemonic appears
+  that the baseline build did not already use; `Bench.run` shrinks from 903 to
+  857 instructions. D132 and D133 are untouched: no bookkeeping or helper call
+  is added on any path.
+- **Compatibility:** Every x86-64 processor executes the emitted SSE2 moves.
+  Processors without SSE4.2/SSE4A may run them more slowly; they remain correct
+  and were not measured. The official `BENCHMARK.md` results use `-march=native`
+  and are unaffected.
+- **Supersession:** Refines D242, whose "ordinary executables are unchanged"
+  boundary no longer holds; D242's shared-image behavior and recorded identity
+  are unchanged. The D134 `-O3` pipeline options are unchanged.
+- **Verification:** The focused test `portable x86-64 tuning merges adjacent
+  stores with baseline SSE2` asserts the triple selection, the merged stores and
+  the SSE2-only instruction set on an x86-64 host, and links every target
+  machine on every host. On the Linux x86-64 host with the tuning active,
+  `scripts/test-bench.sh`, the OrderBook demo output and seven focused native
+  `-O3` tests (pool release helpers, stack-trace round trips, native target
+  layout, field value forwarding, field aliases, initialized specialization and
+  Throwable rendering) passed unchanged.
+
+## D245 - Admit Java 24 and 25 under the JDK's native-access policy
+
+- **Status:** Implemented on 2026-10-02 at the maintainer's direction, so the
+  bridge can be measured on the Java 25 JVMs that `BENCHMARK.md`'s pure-Java rows
+  use. The qualification below is the review basis for that measurement, not a
+  published release.
+- **Decision:** The producer (`BridgeBuildTools`), the generated `Support`
+  loader and the generation metadata admit exactly Java 21, 22, 23, 24 and 25.
+  `java.supported` becomes `21,22,23,24,25`, which changes every generation
+  identity; `java.release` stays 21 and generated classes remain Java 21 class
+  files. Java 26 or later and anything below 21 are still refused by the same
+  Java-only predicate before extraction, `System.load` or native bootstrap, with
+  the diagnostic now naming Java 21-25. No bypass or self-granted access exists.
+- **JEP 472 behavior:** On Java 24 and 25 `System.load` is a restricted method.
+  With no option the JVM prints its own four-line warning once per module, naming
+  `java.lang.System::load`, the artifact's `Support` class and jar, and
+  suggesting `--enable-native-access=ALL-UNNAMED`; loading then proceeds. The
+  warning is the JDK's, and the bridge neither prints nor hides it. D241's
+  critical-call handles link under the same per-module grant, so one grant covers
+  both. The grants are `--enable-native-access=ALL-UNNAMED` for the class path,
+  `--enable-native-access=<Automatic-Module-Name>` for the module path and the
+  `Enable-Native-Access: ALL-UNNAMED` manifest attribute for an executable jar
+  started with `java -jar`. Under `--illegal-native-access=deny`, `System.load`
+  throws `IllegalCallerException` inside the facade's class initializer, before
+  native bootstrap: the first use fails with `ExceptionInInitializerError`, later
+  uses with `NoClassDefFoundError`, no partially bound world exists and the
+  extracted image is never mapped. `-Dironwood.bridge.calls=jni` still selects
+  JNI and `-Xcheck:jni` passes. Native access enabled only for other modules now
+  follows the default warn policy on 24/25, so the handles link with the
+  warning, where Java 21-23 keep the silent JNI fallback.
+- **Qualified:** macOS ARM64 with pinned Temurin 24.0.2+12 and 25.0.4.1+1 as
+  producer and consumer, and Linux x86-64 with Oracle JDK 25.0.4.1 and Oracle
+  GraalVM 25.0.4 as producer and consumer, through the focused tests below and
+  the OrderBook bridge workflow. Not verified: Linux ARM64 on Java 24/25, Temurin
+  24/25 on Linux, other vendors' JVMs, and the IDK, Maven/Gradle and
+  full-matrix qualification runs on the new releases. Single observations from
+  the Linux runs are recorded in the [Java 25 report](JAVA_BRIDGE_JAVA25.md);
+  they are not benchmark results.
+- **Supersession:** Supersedes D203's refusal, and D209's retained-refusal
+  outcome, for exactly Java 24 and 25; the "Java 24+ refusal" statements carried
+  by D238, D239 and D241 are superseded to the same extent. D203's mechanism
+  remains for every other version. D241's fallback routes, D243's extraction and
+  every ownership, retention and exception proof are unchanged. The pinned
+  Temurin 24 and 25 macOS launchers become supported matrix pins instead of
+  refusal controls. Their pin files are byte-identical to the provisioned
+  installations' recorded pins, so they keep their original `purpose` text;
+  Linux pins for them are not provisioned.
+- **Verification:** `BridgeBuildToolsTests` and `BridgeLoaderSourceTests` check
+  the predicates with 21-25 accepted and 8, 17, 20, 26, 27 and 99 refused. The
+  object, root and retaining producer tests run their consumers on pinned Temurin
+  22-25, and on 24/25 additionally assert the exact default warning, silence
+  under each of the three grants, and clean denial. The enum facade test keeps
+  Java-only inspection extraction-free on 24/25 before the first native load. The
+  critical-call test asserts the warn-policy handle linking and clean denial with
+  and without the JNI override when the runner is Java 24+. All of these, with
+  the loader, identity, permanent facade, private enum, OrderBook producer,
+  OrderBook allocation and assembly tests, passed on macOS ARM64 with JAVA_HOME
+  set to the pinned 21, 24 and 25 JDKs and on Linux x86-64 with Oracle JDK 25 and
+  GraalVM 25, as listed in the Java 25 report.
+
+## D246 - Present the Java Bridge as implemented and accept the recorded measurements
+
+- **Status:** Accepted by the maintainer on 2026-10-03 after that day's
+  three-platform compiler suite runs.
+- **Decision:** The Java Bridge is an implemented, supported feature. Current
+  documentation, the `BridgeExportSurface` selectors (`scalarValues`,
+  `staticValues`) and the producer diagnostics no longer call it a preview or
+  experimental. The recorded P5 listener and P7 extension measurements in
+  `JAVA_BRIDGE_P5_EVIDENCE.md`, `JAVA_BRIDGE_ARRAY_EVIDENCE.md`,
+  `JAVA_BRIDGE_BUFFER_EVIDENCE.md`, `JAVA_BRIDGE_GENERIC_PROGRESS.md`,
+  `JAVA_BRIDGE_CRITICAL_CALLS.md` and `JAVA_BRIDGE_P7_QUALIFICATION.md` are
+  accepted as the reference results of the implementation; no numerical review
+  remains open, and D225's deferral of further performance tuning stands.
+- **Scope:** The supported API is what the producer guide documents. General
+  object inheritance, object and multidimensional arrays, listener shapes outside
+  the proved subsets and optional TLS dependencies in bridge images are not
+  supported and are rejected at compile time; the implementation plan records
+  them as deferred work, not as pending parts of this feature. D215 keeps its
+  historical title, and dated evidence and progress logs keep their wording.
+  This supersedes the pending-qualification wording in D215's scope and the
+  "remains review" status of the P5 and P7 measurements in earlier decisions.
+  No API, reclamation, exception, safety or supported-version contract changes.
+  Merging `java-bridge` into `main` and publication remain the maintainer's
+  release steps.
+- **Evidence:** The 2026-10-03 full compiler suites on macOS ARM64, Linux ARM64
+  and Linux x86-64 pass after three test-only fixes, each rerun on all three
+  platforms; `LOCAL_TESTING.md` describes the platform workflow.

@@ -2,11 +2,50 @@
 
 # Ironwood Java Bridge implementation plan
 
-Status: design and implementation plan, updated 2026-09-26. No bridge implementation
-is authorized by this document. Repository observations were checked at
-`767e21d`; planned classes, commands, tests, and output formats below do not
-exist yet. The maintainer selected **Java 21-23** as the initial consumer
-support range, deferring Java 24+ and its native-access authorization work.
+Status: P0-P4/P6 implementation accepted under D225; bounded P5 implementation and qualification complete.
+Work followed the maintainer's separate 2026-09-26 authorization. See
+[the durable progress log](JAVA_BRIDGE_PROGRESS.md) for current checkpoints and evidence. This document alone does not authorize implementation.
+Repository observations were originally checked at `767e21d`. P0 through P4
+and the P6a distribution candidate are implemented; the [producer guide](JAVA_BRIDGE_USAGE.md),
+[OrderBook audit](JAVA_BRIDGE_P4_EVIDENCE.md) and [P6 evidence](JAVA_BRIDGE_P6_EVIDENCE.md)
+describe the current result. ARM64 and [physical x86-64 checks](JAVA_BRIDGE_X86_EVIDENCE.md)
+and performance measurements are recorded. The maintainer accepted the measured
+implementation under D225 and authorized P5 on 2026-09-28; see the
+[P5 evidence report](JAVA_BRIDGE_P5_EVIDENCE.md) and [progress log](JAVA_BRIDGE_P5_PROGRESS.md).
+Further callback performance optimization is deferred by the maintainer; the
+recorded numerical gap remains. D231's compiler-proved automatic
+callback batching is implemented and qualified; see the [optimization report](JAVA_BRIDGE_CALLBACK_OPTIMIZATION.md)
+for its narrow proof boundary, measured results and remaining numerical gap.
+P7b-P7f have a [concrete planning breakdown](#p7-submilestones-and-api-boundaries-d232).
+P7b implementation and three-target qualification are complete; D246 accepts the
+recorded measurements. See the [array evidence](JAVA_BRIDGE_ARRAY_EVIDENCE.md)
+and [progress log](JAVA_BRIDGE_ARRAY_PROGRESS.md). P7c0's
+[API/lifetime design](JAVA_BRIDGE_BUFFER_DESIGN.md) is accepted; P7c1 is
+implemented and qualified on all three targets; see the
+[buffer evidence and measurements](JAVA_BRIDGE_BUFFER_EVIDENCE.md). D246 accepts
+the recorded measurements. P7d0 foundations and P7d1 read-only generic
+facades are implemented and qualified on all three targets under D235/D236; see the
+[generic progress/evidence log](JAVA_BRIDGE_GENERIC_PROGRESS.md).
+P7d2 final-bounded construction/mutation is implemented and qualified on all three
+targets under D237, with evidence in that log. P7e0's isolated
+[transport experiment](JAVA_BRIDGE_FFM_EXPERIMENT.md) is complete on all three
+targets. D238 accepts JNI only, closing P7e through its permitted keep-JNI
+outcome. P7e1/P7e2 remain deliberately unimplemented. D241 later adds
+producer-selected [critical calls](JAVA_BRIDGE_USAGE.md#critical-calls) with its
+own boundary, replacing those candidates; JNI stays the default.
+[P7f combined qualification](JAVA_BRIDGE_P7_QUALIFICATION.md) is complete on all
+three targets; D246 accepts the extension measurements.
+Release work belongs to the maintainer,
+outside this implementation task.
+JDK 21, 22 and 23 are supported producer and consumer environments under D239,
+and D245 adds Java 24 and 25 under the JDK's native-access policy.
+Compiler and generated Java classes/APIs retain the Java 21 baseline. Exact
+pairing/assembly checks remain mandatory; see the
+[JDK workflow verification record](JAVA_BRIDGE_JDK_PROGRESS.md).
+
+The release gates below still apply. The maintainer selected **Java 21-23** as the initial consumer
+support range, deferring Java 24+ and its native-access authorization work;
+D245 later admitted Java 24 and 25 with documented native-access grants.
 This replaces the initial Java 21+ target. The maintainer selected explicit
 `free()` for native reclamation (D189) and compiler ownership proofs plus shared
 Java lifetime state (D190), including the stated boundary costs. The maintainer
@@ -25,7 +64,8 @@ D201 adds dependency/stack experiments, explicit OOM-state cleanup and permanent
 loader binding for the first release.
 D202 requires eager Linux symbol binding, defines the private-entry trust boundary
 and rejects mixed reclaimable result ownership in the first release.
-D203 sets the current Java-only version guard refusing Java 24+ before loading.
+D203 sets the Java-only version guard before loading; D245 moves its refusal to
+Java 26+.
 D204 places the authoritative root index in native memory, separate from Java's
 weak facade caches, so adapter-side registration cannot depend on Java allocation.
 D205 defines host/JDK preparation and separates translated functional evidence
@@ -34,12 +74,15 @@ D206 specifies noncritical JNI string access and matched buffer cleanup.
 D207 distinguishes bridge lifetime refusals with an artifact-private exception subtype.
 D208 makes actual OrderBook constructor rollback a P0-8 proof/runtime experiment.
 D209 reopens D203 as a product choice: test Java 25 in P2 and decide before P6.
+D245 records that decision: Java 24 and 25 are admitted.
 D210 adds macOS signature-preservation and pinned-launcher load experiments in P1.
 D211 makes P0-5/P0-8 reusable compiler analysis foundations carried forward into P3.
 D212 divides P0/P3/P6 into dependency checkpoints and defines shared-model handoffs.
 D213 moves Linux x86-64 hardware qualification to the end of P6b; implementation
 may proceed with that evidence explicitly pending.
-Numerical performance acceptance is deferred to the final release review.
+The recorded numerical results were accepted under D225, with further tuning
+deferred. P5 correctness qualification and measured performance are recorded
+separately; the new listener numbers remain for maintainer review.
 Discussion also confirmed that the
 bridge remains single-threaded by caller contract, without runtime enforcement
 of thread misuse; see
@@ -109,17 +152,17 @@ be necessary on the consumer's machine.
 | Matching native and Java builds | Automatic validation before user code executes. |
 | OS/CPU selection | Automatic among packaged, compatible targets. |
 | Java 21-23 JNI class-path application | No bridge-specific launch flags under ordinary JVM policy. |
-| Java 24+ | D203's current baseline refuses before native loading. D209 schedules a Java 25 warning-versus-refusal experiment in P2 and a decision before P6; support is not yet expanded. |
+| Java 24-25 | Admitted under D245. The JDK's default policy warns once at `System.load`; the documented `--enable-native-access` grant or manifest attribute silences it, and `--illegal-native-access=deny` fails cleanly before native use. |
+| Java 26+ | Refused before native loading by D203's guard. |
 | Native cleanup | Explicit `free()` with compiler ownership proofs and shared Java lifetime state. No automatic fallback is implied. |
 | Unsupported signature or unsafe ownership | Producer build diagnostic, not generated methods that fail only when called. |
 | Unsupported platform or restricted extraction | Clear load-time diagnostic; no guessed binary or runtime download. |
 
 The initial release uses generated JNI on Java 21, 22, and 23. Automatic native
-loading is part of the bridge; consumers do not supply native-access flags.
-Java 24+ support, permission handling, executable-manifest grants, and related
-deployment support tests are deferred, except for D209's bounded Java 25 product
-experiment. The D203 refusal test remains required under the current baseline;
-the D209 decision must update the version policy and its tests before P6 if changed.
+loading is part of the bridge; consumers on Java 21-23 do not supply native-access
+flags. D245 admits Java 24 and 25: consumers may supply the documented grant to
+silence the JDK's warning, and the version-policy tests cover the default,
+granted and denied launches. Refusal tests cover the predicate for Java 26+.
 Compiling facade classes with `--release 21` does not imply support for every
 later Java version. FFM also remains a separate future option.
 
@@ -802,6 +845,98 @@ listeners need explicit global-reference ownership and cleanup. `JNIEnv*`
 belongs to its thread and must not be cached as a transferable global. See the
 [JNI design specification](https://docs.oracle.com/en/java/javase/25/docs/specs/jni/design.html).
 
+The P5 transport binds proxy creation/cleanup to final P0/P3 proofs and
+owns a global reference until all registered slots and suspended invocation uses
+end. Preparing registration performs identity conversion, including listeners
+held only by suspended calls; invoking a registered listener performs no identity
+lookup. Preparation failure preserves the old slot. Callback-free listener-field
+mutators reuse P0 attribution and protected final snapshots on success/failure.
+Removed slot tokens remain owned until all active invocations of their holder
+end, including tokens installed during Java reentry. Retirement links are prepared
+with the slots before mutation; no allocation or Java call occurs during commit.
+Public retained-listener admission requires complete holder lifetime, owner guards
+and reconciliation. Registration keeps separate nominal proxies when one Java
+object implements multiple listener interfaces.
+
+The owner invocation proof binds constructor-only final P0 storage
+proofs to exact final classes with primitive/listener fields and empty initial
+listener slots. Complete callback closures may read listeners and read/write
+primitive fields; listener mutation, independent-root graphs, publication,
+ordinary allocation/free and hidden owner static state reject. Built-in Throwable
+static slots and bounded exception-graph additions follow D227/D228 below. Owner
+receivers and arguments become explicit guard obligations on protected entries. Generated
+guards cover each proved owner using stable evaluated root-state locals.
+Callback-free methods combine complete slot attribution, owner/proxy
+non-reclamation and the same bounded state checks. A bound native composition
+covers constructors, scalar/slot methods, callbacks and exception helpers with
+disjoint support symbols. The producer composes these proofs into paired Java
+holder facades and JNI adapters. Same-class owner inputs use generated Java
+guards; different-class inputs use cached private field metadata and balanced
+JNI-side guards. Fixed slot preparation covers candidates from every write to
+the same field because holder arguments can alias. Scalar getters have no slot
+payload or callback guard. This bounded route admits primitive constructor
+inputs and primitive/owner/listener/copied String method inputs with primitive/void
+results. Copied Strings require complete borrowing proofs and use P0 protected
+copy cleanup with noncritical JNI acquisition. Listener methods may take these
+exact final owners as arguments and return primitives/void. The complete bounded
+closure proves that every exposed owner derives from a guarded entry input:
+there are no owner allocations, owner-valued fields/statics, reference foreign
+results or native publication. This host projection proof does not classify the
+foreign call as borrowing; ordinary source reclamation still sees unknown effects.
+JNI resolves the authoritative root record and its weak facade cache. Java may
+retain that stable facade; explicit free after the invocation invalidates all its
+aliases. Cache misses reconstruct a facade with the same root state, never new
+native ownership. Conversion local references are released before propagating
+Java failure, including partial multi-argument conversion. Other reference callback
+arguments and all reference callback results remain rejected. The final bounded
+qualification is recorded in the P5 evidence report.
+
+Primitive callback bodies normalize boolean and integral arguments/results to
+I64 in typed IR, preserving signed byte/short/int and unsigned char semantics.
+Float and double use F32/F64 carriers. Boolean normalization uses ordinary typed
+control flow, which LLVM can eliminate. Generated JNI bodies use exact primitive
+method descriptors and typed `jvalue` arrays. Public artifacts use
+`CallStatic<Type>MethodA` to invoke artifact-private Java relays, allowing the JVM
+to optimize ordinary listener dispatch. The relay class and method IDs are
+cached during validated binding; checks for pending exceptions remain before
+further ordinary JNI work. D230 records this measured transport optimization.
+Proved owner arguments use
+nominal pointer carriers and exact generated facade descriptors; other reference
+values remain rejected.
+Canonical typed body matching preserves hidden receiver confinement without
+weakening the unknown effects of explicit foreign arguments.
+
+The first synchronous invocation proof accepts static primitive-result entries
+with borrowed listener and copied String inputs and a complete native closure. It rejects ordinary
+heap/static access, non-exception allocation, reclamation and unknown operations.
+Built-in Throwable static slots and cause/secondary additions are admitted under
+the separate carrier lifetime and bounded graph-translation proofs. Cold native
+fault construction must retain matching P0 constructor-confinement facts.
+All dispatch alternatives and initialization edges
+are inspected. Within this bounded closure there are no native facade owners for
+Java reentry to invalidate. Context specialization and protected entries reuse
+the existing compiler foundations. The producer now composes this proof with
+P0/P3 proxy construction/destruction and per-entry carrier lifetime policy, and
+emits ordinary Java interfaces with load-time cached callback method IDs. JNI
+local references keep borrowed Java listeners alive through the outer call and
+nested calls. Temporary proxies are destroyed on every normal, exceptional and
+partial-preparation exit; proved invocation-owned carrier cleanup follows outward
+exception translation. Retained or uncertain carriers keep their process lifetime.
+Within one invocation, equal Java listener inputs of the same declared interface
+share one proxy and one destruction. JNI identity checks occur during preparation,
+never during callback dispatch. Cross-interface or erased listener identity tests
+and dynamic listener interface queries remain rejected until their representation
+is proved; a single nominal proxy cannot model Java multi-interface membership.
+The generated interfaces participate in class-loader validation and generation/API
+identity. The stateless route requires top-level nongeneric interfaces with
+abstract primitive methods and static callback-bearing primitive/void exports.
+Interface fields/inheritance/default/static methods remain rejected. The stateless
+route does not admit reference callback values. Stateful holders, retained listeners and owner parameters use
+the separate bounded owner admission described above. Copied String inputs reuse D206's
+noncritical JNI buffers and P0/P3 typed copy/cleanup lowering. The bounded proof
+admits immutable String length/character reads, with complete helper dispatch and
+borrowed-input facts; it does not authorize publishing or freeing those copies.
+
 P5 string-bearing callback tests must retain the outer argument through a Java
 callback that allocates, reenters with another string and either returns or
 throws. Verify unchanged UTF-16 contents, independent nested buffers and complete
@@ -862,6 +997,9 @@ generated `free()` on the Java exception. Test custom checked and unchecked
 types, superclass catches, getter values and producer rejection of unsupported
 getter/data shapes. These exception hierarchies are part of the mandatory
 snapshot projection, not the deferred general native-facade inheritance feature.
+Reject a hierarchy that would require extending a final mapped Java exception,
+including direct or indirect DirectoryIteratorException descendants (D216).
+Do not flatten its catch hierarchy or substitute another type.
 
 Determine native ownership independently: fresh translation temporaries can
 be reclaimed when proved safe, but stored initialization failures, borrowed
@@ -881,6 +1019,34 @@ outer boundary rethrow the original Java throwable when it propagates unchanged.
 If native code catches, replaces, or retains it, define carrier ownership and
 reference release on every path. Never longjmp across JVM or Ironwood frames.
 See [JNI functions](https://docs.oracle.com/en/java/javase/21/docs/specs/jni/functions.html).
+
+D227 preserves existing native exception lifetimes: retained callback carriers
+and their owned Java global references remain live for the process lifetime.
+Unknown retention is retained. Reclaim only compiler-owned carriers proved not
+to escape, after all native aliases, unwind and cleanup uses have ended. A native
+catch or replacement alone is not sufficient proof. Ordinary source `free` of
+caught/thrown objects remains rejected; reclaimable retained exceptions are a
+separate ownership extension outside P5.
+
+Public callback admission applies this policy per exported entry. Reuse the
+strict carrier destruction proof for only the invocation-owned subset, without
+adding runtime policy checks. Built-in Throwable static slots and bounded native
+cause/secondary graphs can retain carriers. This does not admit owner publication,
+arbitrary reference fields or a borrowing exemption for foreign effects.
+
+Callback carriers inside a translated native wrapper's cause or secondary-failure
+graph preserve the original Java throwable as an existing graph node. Do not
+reconstruct its Java class or overwrite its existing Java cause, suppression or
+stack trace. Under D228, a carrier with a native-added cause or secondary failure
+becomes a `RuntimeException` wrapper whose cause is the unchanged Java original.
+Native secondary snapshots are suppressed on that wrapper. A native-added cause
+appears as a labeled `Ironwood native cause` suppressed wrapper, with the native
+snapshot as its cause. This distinguishes the two kinds of addition and supports
+Java originals with disabled suppression. Retained rethrows create fresh wrappers
+without accumulating changes on the original. The same representation applies to
+modified carriers embedded in another native graph. Native snapshot nodes retain
+the ordinary bounded translation rules. This transport rule grants no native
+reclamation permission.
 
 ## 9. Values and performance
 
@@ -1011,13 +1177,15 @@ hierarchies, checked signatures, enum names, and generated support isolation.
 
 Loader sequence:
 
-1. Check `Runtime.version().feature()` in Java; admit only 21, 22 and 23.
-   Refuse Java 24+ before resource extraction, `System.load` or native bootstrap.
+1. Check `Runtime.version().feature()` in Java; admit only 21 to 25 (D245).
+   Refuse other versions before resource extraction, `System.load` or native bootstrap.
 2. Resolve the resource from the facade's defining loader and identify the host.
 3. Select a compatible payload; report available targets when none matches.
 4. Extract to a private, versioned location with safe filenames, restrictive
    permissions, atomic creation, and payload integrity checks. Handle concurrent
    JVMs and stale partial files. A digest checks consistency, not publisher trust.
+   D243 makes this location a content-addressed per-user cache that later JVMs
+   verify and reuse, replacing the earlier directory per JVM.
 5. Load the exact absolute path and validate bootstrap schema/API/build identity.
    Preflight all package markers and resolved generated classes before any
    native registration; only then bind the checked classes and publish the
@@ -1026,21 +1194,22 @@ Loader sequence:
 7. Keep the successfully bound defining loader and image alive for the JVM's
    lifetime as specified below. Freeing every object does not release that binding.
 
-**D203: current baseline, subject to D209's product review.** Unsupported JVM
+**D203 guard, with D245's admitted range.** Unsupported JVM
 versions fail at first native use. The version guard
 throws `UnsatisfiedLinkError` identifying the artifact, detected full runtime
-version and supported range (Java 21-23). There is no consumer bypass or native-access flag
+version and supported range (Java 21-25). There is no consumer bypass or native-access flag
 workaround. Keep this check in one-time loading, not warmed method calls. Pure
 Java enum initialization and type inspection need not load the bridge or fail
 this check. Java versions below 21 normally reject the facade class-file version
 before this guard can run; no custom diagnostic is promised there.
 
-D203 is stricter than the documented default native-access policy of
+D203's original Java 24+ refusal was stricter than the documented default native-access policy of
 [Java 24](https://docs.oracle.com/en/java/javase/24/docs/specs/man/java.html) and
 [Java 25](https://docs.oracle.com/en/java/javase/25/docs/specs/man/java.html), which
-warn rather than deny by default. It is a product choice, not an unavoidable JVM
-requirement. D209's separate experimental artifact may admit exactly Java 25 to
-evaluate that choice; the ordinary artifact retains this guard pending review.
+warn rather than deny by default. It was a product choice, not an unavoidable JVM
+requirement. D209's experimental artifact admitted exactly Java 25 to evaluate
+that choice, and D245 admitted Java 24 and 25 under that default policy with
+documented grants.
 
 ### Class identity and registration preflight
 
@@ -1209,9 +1378,9 @@ creation before native entry; no bridge-specific diagnostic is promised when
 the JVM rejects the [module configuration](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/module/Configuration.html) first.
 Custom nested/fat-jar loaders and relocated/shaded facades are unsupported in
 the first release. Test extraction failure, read-only/noexec
-locations, paths with spaces, checksum mismatch, and missing symbols. Java 24+
-native-access support tests are deferred except for D209's P2 Java 25 experiment.
-Unsupported-version refusal remains required under the current P2/P6 baseline.
+locations, paths with spaces, checksum mismatch, and missing symbols. Java 24/25
+native-access launch tests (default warning, grants, denial) are covered under
+D245. Unsupported-version refusal remains required for the predicate.
 Offer advanced location overrides only
 for real deployment constraints; ordinary use must require none.
 
@@ -1315,19 +1484,313 @@ or weakening a phase's exit criteria. A submilestone is not a separate release.
 | P2: first plug-and-play jar | Extend the shared model with deterministic package/signature discovery, exclusive packages and generation identity; emit Java 21 source/classes, generated JNI, complete registration preflight, loader with JVM version guard, manifest pairing and a macOS ARM64 preview jar with required notices/source availability. Static primitives and copied strings where cleanup is proved; built-in exception mapping and trace snapshots. | Plain Java 21-23 consumer runs without native tools, flags or manual loading; signature types outside exports diagnosed; disjoint artifacts work; colliding packages/classes fail before any rebinding and preserve an already usable artifact; platform/build/extraction errors remain actionable. D203 version-predicate checks and the Java 24 refusal smoke test pass before extraction/native loading. Permanent loader anchoring and mapped-image rebinding refusal pass the GC/reload fixture. Java catches expected built-in checked/unchecked types with correct declarations, messages, representable causes/secondary failures and Ironwood frames; initializer/repeated failures and translation exhaustion are tested. Under `IRONWOOD_ALLOCATION_LIMIT`, string argument conversion raises Java `OutOfMemoryError` before target effects; result/snapshot failures return safely and the child JVM continues. D206 API inspection and normal/exceptional/partial-acquisition string-buffer cleanup checks pass. D210 signature/extraction/load checks repeat through the generated macOS jar/loader. D209 Java 25 default-policy comparison and recommendation are recorded, including any failures. |
 | P3: object and lifetime model | Constructors, identity, Java-only inherited Object methods with immutable facade metadata, concrete facades/static nested types/enums with typed initialization-before-conversion, owner/dependent enforcement, explicit `free()`, failure rollback, mandatory native root-index capacity/global-reference preallocation, nonthrowing adapter commit, generated signature validation; extend/integrate D211's P0 retention-slot and non-reclamation analyses, implement root-only persistent slot records and world-level identity caching; generate custom exception classes, hierarchy and snapshot getters. | D211's reused analyses cover the admitted production surface, preserve P0 regressions and cannot be disabled to bypass export proof. Mixed fresh/existing reclaimable result origins fail producer build; nullable single-ownership and uniformly permanent results retain their supported behavior. D207 lifetime-refusal type/counter checks and producer-error controls pass. Reclaimable aliases remain safe; root-slot writes/clears reconcile on success and failure, including helper writes to known argument roots; copied/moved slot values, child-held slots and unknown owner/effect cases fail export. Counts survive facade GC; cleanup verified. Reservation failure prevents native execution; count/slot commits finish before any Java error delivery, including after store-then-throw. Post-return StackOverflowError/facade-allocation failure cannot expose undercounts or unregistered roots. D204 weak-cache insertion failure and collection preserve the indexed state on re-exposure; eligible destruction occurs once, and index/global-reference cleanup passes. Inherited equality/hash/text stay stable after free, hash-collection removal works, and asynchronous logging performs no native entry; source overrides keep liveness/confinement requirements. Cold enum receiver/argument calls and initializer failure pass before P4. P2 collision checks cover object facades as well; valid same-world arguments work, with no fabricated public cross-world case. Permanent pooled returns and receiver publication pass without fabricated ownership; reachable reclamation or unknown deallocation effects fail the permanent proof. Source/class/archive results agree. Custom checked/unchecked declarations, superclass catches and getter values pass Java consumer tests; unsupported projections fail producer build and snapshots remain valid after eligible native cleanup. Throwing/allocating custom getters stay inside protected snapshot extraction and exercise its bounded fallback. |
 | P4: current OrderBook | Apply P3's non-reclamation proof to the dedicated engine closure; generate its actual API including nested enums and pooled orders; run the paired workload and section 11's P4 allocation acceptance cases. | `createLimit`, `cancel` and `reduceTo` export successfully under the proved permanent-storage contract; consumer imports actual classes without glue; correctness matches; D207 capacity-exhaustion controls remain producer exceptions, not bridge refusals; warmed scalar/cache-hit loops have zero native and Java allocations with strongly held facades, and weak-cache recreation meets the separate miss/collection criteria. No liveness bookkeeping is added to permanent scalar calls. Retention/cross-owner argument tests use the separate reclaimable fixture. Timing acceptance is deferred to P6. |
-| P6: distribution and final release readiness | Multi-target assembly, final classloader/module qualification, producer Maven/Gradle conventions, sources/Javadoc, license/source payloads, deployment diagnostics, final performance measurements. | Before starting, D209's product decision and any revised guard/tests/matrix are recorded. Clean consumer machines need only supported Java and dependency; all nine pinned Temurin/target cells below pass their focused checks on matching hardware under D205, including diagnostic and flag-free launches; the separate Java 24 refusal test passes; package content reproducible and reviewed; D210 macOS signature/load checks pass on final payloads; final numerical performance acceptance recorded. |
-| P5: deferred callbacks and Java exception propagation | Typed foreign calls/proxies, conservative effects, retained listener lifecycle, nested invocation contexts and callback-originated Java throwable propagation. Reuse P2/P3 native-to-Java translation. | Listener works as a Java interface; reentrancy, retained arguments and callback-triggered free tested; unchanged callback throwables preserve Java identity through nested calls, with carrier cleanup on catch/replace/retain paths; neither runtime unwinds across the boundary. D206 string-bearing callbacks allocate, reenter and throw without critical-region violations or leaked outer/nested buffers. |
-| P7: deferred measured optimization and API expansion | Evaluate FFM, bounded zero-copy, batching, additional arrays/generics based on real workload needs. | Each extension has a compatibility/proof contract, focused tests, allocation evidence, and machine-code/benchmark justification. |
+| P6: distribution and final release readiness | Multi-target assembly, final classloader/module qualification, producer Maven/Gradle conventions, sources/Javadoc, license/source payloads, deployment diagnostics, final performance measurements. | Before starting, D209's product decision and any revised guard/tests/matrix are recorded. Clean consumer machines need only supported Java and dependency; all nine pinned Temurin/target cells below pass their focused checks on matching hardware under D205, including diagnostic and flag-free launches; the separate Java 24/25 policy checks pass (D245); package content reproducible and reviewed; D210 macOS signature/load checks pass on final payloads; final numerical performance acceptance recorded. |
+| P5: bounded callbacks and Java exception propagation, implemented and qualified | Typed foreign calls/proxies, conservative effects, retained listener lifecycle, nested invocation contexts and callback-originated Java throwable propagation. Reuse P2/P3 native-to-Java translation. | Listener works as a Java interface; reentrancy, retained arguments and callback-triggered free tested; unchanged callback throwables preserve Java identity through nested calls, with carrier cleanup on catch/replace/retain paths; neither runtime unwinds across the boundary. D206 string-bearing callbacks allocate, reenter and throw without critical-region violations or leaked outer/nested buffers. |
+| P7: measured optimization and API expansion | D231 compiler-proved automatic callback batching, D233 copied primitive arrays and D234 bounded byte views are implemented and qualified. P7d0-P7d2 bounded reference generics and P7e0's isolated transport experiment are complete; D238 retains JNI, P7e1/P7e2 remain unimplemented, and P7f combined qualification is complete; D246 accepts the recorded measurements. | Each extension has a compatibility/proof contract, focused tests, allocation evidence, and machine-code/benchmark justification. |
 
 P2 is a usable scalar preview, not completion of the requested object feature.
-The first object release follows P0 -> P1 -> P2 -> P3 -> P4 -> P6. P5 callbacks
-and P7 expansion are later capabilities, not prerequisites. P1 contains native
+The initial object implementation followed P0 -> P1 -> P2 -> P3 -> P4 -> P6.
+D226 authorizes P5; D231 separately authorizes automatic callback batching.
+Other P7 extensions require separate implementation authorization. The
+maintainer intends to evaluate both before considering a candidate. P1 contains native
 unwinding; P2 maps built-in exceptions and traces; P3 maps custom exceptions and
-supported getters. All three are release prerequisites. Deferring P5 only
-defers callback-originated Java failure propagation. Incomplete native-to-Java
+supported getters. P5 adds callback-originated Java failure propagation.
+Incomplete native-to-Java
 translation or lifetime implementation is a release blocker,
 not a documentation caveat. D191 settles section 14's contracts; implementation
 remains a separate task.
+
+### P7 submilestones and API boundaries (D232)
+
+Planning checkpoint, 2026-09-28. The maintainer requested this breakdown after
+closing P5 implementation and deferring further callback performance work.
+These are planned boundaries, not newly supported APIs or authorization to
+implement every extension. P7a is already delivered; the maintainer subsequently
+authorized P7b. Keep the supported Java range (21-23 then, 21-25 under D245), the three current targets, exact
+exports and generated wiring. No handwritten JNI, native declarations or loader
+code is required from application developers. Explicit data ownership remains
+part of using the API.
+
+| Submilestone | Deliverable | Status / dependency | Objective exit |
+| --- | --- | --- | --- |
+| P7a: automatic callback batching | D231's proved pure counted loops, preserving every Java listener call and ordinary-JNI fallback. | Implemented and qualified at `bd0711b4` with stack runner `e5c0df7a`. Further numerical tuning deferred by the maintainer. | Existing proof, allocation, reentry, failure and platform evidence in the [optimization report](JAVA_BRIDGE_CALLBACK_OPTIMIZATION.md); no claim of matching pure Java. |
+| P7b: primitive array values | Ordinary one-dimensional primitive array parameters and bounded result cases, with explicit alias, mutation and cleanup proofs. | Implemented and qualified on all three targets; [evidence and measurements](JAVA_BRIDGE_ARRAY_EVIDENCE.md). D246 accepts the recorded measurements. | P7b1 and P7b2 below pass source/class/archive parity, positive/negative proof cases and generated Java consumers. No unsupported array shape is admitted. |
+| P7c: bounded zero-copy buffers | A distinct call-scoped byte-view contract and reusable storage, without public native addresses or unbounded views. | P7c0 [API/lifetime design](JAVA_BRIDGE_BUFFER_DESIGN.md) accepted under D234; P7c1 implemented and qualified on all three targets in the [buffer evidence](JAVA_BRIDGE_BUFFER_EVIDENCE.md). D246 accepts the recorded measurements. | Storage cannot disappear during access, no view escapes, bounds and overlapping ranges are correct, exceptional cleanup passes, and the zero-copy path demonstrably copies no payload. |
+| P7d: bounded reference generics | Java-shaped generic facades for a finite, enforceable native type domain. | P7d0 exact metadata, P7d1 read-only factory products and P7d2 final-bounded construction/mutation implemented under D235-D237; [verification log](JAVA_BRIDGE_GENERIC_PROGRESS.md). | Every Java-valid use of the emitted declaration is supported within its bounds, with preserved identity/ownership and no erased-signature loophole. |
+| P7e: optional FFM transport | Evaluation closed through D238's accepted keep-JNI outcome after the [three-target experiment](JAVA_BRIDGE_FFM_EXPERIMENT.md). P7e1/P7e2 remain deliberately unimplemented. | JNI only; no optional FFM artifact or deployment policy is selected. | A qualified, measured improvement with unchanged semantics and explicit deployment policy, or an evidence-backed decision to retain JNI. Research alone does not count as an implemented FFM backend. |
+| P7f: combined qualification and documentation | Integrate the enabled subsets, package matching artifacts and update user-facing support boundaries. | Follows the implemented P7b-P7e subsets and their explicit gate outcomes. | Applicable pinned JVM/target cells, packaging, regression, allocation and benchmark checks pass for the final bytes; remaining exclusions and numerical review are recorded. |
+
+Recommended order: **P7b -> P7c -> P7d -> P7e -> P7f**. An unresolved safety
+contract blocks its dependent implementation, not useful work on an independent
+submilestone. A failed feature cannot be labeled complete merely because it was
+omitted: a scope reduction needs an explicit recorded decision. P7e's measured
+keep-JNI outcome is intentionally an allowed evaluation result. Further callback
+speed work is not a dependency of P7b-P7f.
+
+#### P7b: copied primitive arrays
+
+Completed under D233. The producer additionally rejects `System.arraycopy` in
+array closures until its runtime failures have a proved protected boundary.
+The [producer guide](JAVA_BRIDGE_USAGE.md) records the enforced supported subset.
+
+**P7b1, read-only inputs:** admit `boolean[]`, `byte[]`, `short[]`, `char[]`,
+`int[]`, `long[]`, `float[]` and `double[]`, one dimension, on otherwise admitted
+static/instance methods. The complete closure must prove no writes, retention,
+free, publication, callbacks or array results. Preserve null, length, element
+values and reference equality between repeated aliases in the same invocation.
+Use one conversion per distinct Java input identity; an adapter's alias handling
+is conversion work, not permission to weaken source ownership. Unknown callees
+fail the proof. Copy into valid native representations inside protected entries;
+never reinterpret a Java element pointer as an Ironwood array object.
+
+**P7b2, mutation and results:** extend that proof to call-scoped mutable inputs,
+returning an input alias, and fresh invocation-owned primitive-array results.
+Returning an input alias must return the original Java array. Repeated arguments
+must share one native conversion, so writes through one alias are visible through
+another. Commit writes on normal return and on native failure before delivering
+the corresponding result/exception. Specify copy-back order, cleanup and primary
+versus conversion-failure precedence before enabling this path; do not silently
+lose writes or replace the original failure. Acquisition failure before native
+execution leaves all inputs unchanged. Fresh results need a nonescape/destruction
+proof for their native storage on Java allocation or copying failure as well as
+success. Retained, borrowed native-field and shared array results stay rejected.
+
+The maintainer accepted this failure-ordering detail on 2026-09-28: commit each
+distinct input in first-parameter order, attempting later copies after a failure.
+Keep the translated native failure primary, or the first copy-back failure when
+native execution succeeded. Attach indexed copy-back failures where possible.
+If the JVM cannot allocate the combined diagnostics, preserve the primary and
+explicitly report the unavailable copy-back diagnostics on stderr. Successful
+calls do not allocate reserved Java diagnostic objects.
+
+Copying cannot emulate Java reentry observing intermediate writes. Both stages
+therefore exclude callbacks, reentry, native retention and concurrent mutation
+by another thread during the call. Constructors with retained array fields,
+object/multidimensional arrays, varargs and arrays in listener signatures remain
+outside P7b. Callers retain their Java arrays; native `free` cannot reclaim them.
+Use noncritical JNI region operations; do not hold a critical region through
+native execution. This follows the [JNI array access contract](https://docs.oracle.com/en/java/javase/21/docs/specs/jni/functions.html#array-operations)
+and preserves D206.
+
+Paired cases: null/empty/large arrays; each primitive kind including signed zero,
+NaN and UTF-16 edge values; equal-but-distinct arrays versus repeated aliases;
+write-then-throw; result aliases versus fresh results; allocation/copy failures;
+retention through fields/helpers, unknown effects, free and callback rejection.
+Observe both Java and native allocations. Copying and a required Java result may
+allocate; prove every temporary native allocation is reclaimed. Reuse scratch
+only with a nested-invocation proof. No new allocation, lookup or bookkeeping is
+permitted on unrelated scalar calls.
+
+#### P7c: bounded buffers, with an API/lifetime gate
+
+The maintainer accepted the [concrete design](JAVA_BRIDGE_BUFFER_DESIGN.md) and
+subsequently authorized P7c1, superseding the earlier stop for that submilestone.
+D234 records JVM-managed, non-closeable storage and the shared
+`ironwood.bridge.ByteView` Java dependency. Proved input admission and protected
+transport are implemented and qualified on all three targets. The
+[buffer evidence](JAVA_BRIDGE_BUFFER_EVIDENCE.md) records functional, allocation,
+machine-code and Linux timing results, including the remaining overlap gap.
+The useful zero-copy advantage gate is demonstrated; D246 accepts the
+recorded results. The [buffer log](JAVA_BRIDGE_BUFFER_PROGRESS.md)
+records implementation checkpoints.
+
+**P7c0 deliverable:** a small reviewed public API and ownership table before
+adding code. Recommended first boundary: a dedicated bridge byte-buffer/view
+abstraction with explicit length, bounded absolute byte reads/writes and
+call-scoped native borrowing. Java owns reusable backing storage; the bridge
+controls its lifetime and any close/free operation. Fix its source and Java
+names, construction, slicing, read-only and failure behavior together. A new
+public type or a change to the existing `ironwood.nio.ByteBuffer` contract is a
+material API choice to review at this gate, not a routine lowering choice.
+
+Do not advertise transparent substitution of all `java.nio.ByteBuffer` behavior.
+The existing Ironwood buffer owns or borrows native arrays; it is not already a
+foreign-memory view. Prefer the small dedicated contract over changing that
+library's ownership model. An arbitrary direct Java buffer is also insufficient
+proof: a strong reference alone does not protect externally closable storage.
+Do not accept externally invalidatable regions without a supported lifetime
+mechanism that covers the entire invocation.
+
+**P7c1 initial implementation boundary:** Java-to-native borrowing only, byte
+storage only, synchronous callback-free methods, no stored/returned native view,
+no native free of the backing storage and no concurrent mutation/closure.
+Overlapping slices share actual storage and preserve write order. Validate
+ranges without integer overflow and enforce read-only views before writes.
+Use a typed bounded representation and existing bounds-check elimination;
+unknown effects reject the borrow. No casts to native array/object headers,
+public pointer-as-`long`, arbitrary-address constructor, or unbounded segment.
+Do not expose a raw Java view of reclaimable native storage that can outlive its
+owner. Native-owned outgoing views, other primitive views and callback retention
+remain future extensions.
+
+Exit cases include bounds/overflow, zero-length and overlapping slices,
+read-only writes, owner closure/free, failed entry, native failure and attempted
+escape/retention/free. Test any newly required lifetime refusal in child processes
+where failure could crash. Record cold allocation separately; warmed buffer reuse
+must allocate no Java/native objects and copy no payload. Compare identical
+copied-array and bounded-buffer workloads on Linux, with machine-code evidence.
+If safe lifetime or a useful advantage cannot be established, retain P7b's copied
+path and record P7c as blocked or explicitly deferred, not passed.
+
+#### P7d: finite reference-generic projection
+
+**P7d0 foundation, implemented:** the maintainer first authorized this checkpoint
+on 2026-09-29, then separately authorized P7d1. D235 preserves full ordered
+bounds, declaration erasure separately
+from applied bounds, exact owner views and generic member signatures in
+`BridgeApiFacts`, source callable identities and revalidated signature proofs.
+Source, individual-class, class-directory and archive reconstruction preserve
+the same facts. Equal lowered IR cannot validate source-only bounds; facts belong
+to their producing analysis and reconstruction must derive fresh facts. See the
+[verification log](JAVA_BRIDGE_GENERIC_PROGRESS.md).
+
+A resolved signature is not an export or lifetime proof. The native ABI/root
+identity remains separate. P7d0 alone refused every generic class/method export,
+including declarations whose unused type variables leave a scalar native ABI.
+D236/D237 supersede that refusal only for the proved class boundaries below.
+P7d1/P7d2 must check all Java-valid calls admitted by any emitted declaration,
+including raw, wildcard, unchecked-cast and overloaded client views. P7d0 neither
+emits generic Java facades nor relaxes Ironwood's rejection of raw source types.
+
+**P7d1, implemented under D236:** producer-created final generic facades with
+read-only access to their type-dependent values. For example, native factories
+may return `Box<Quote>` and `Box<Trade>` for two admitted final native facade types.
+The source API must already have inaccessible constructors and no public generic
+factory or method accepting values containing its type variables. Do not hide a
+public constructor/setter merely to make an export pass. Discover every produced
+concrete application from the closed native program and exported signatures;
+reject an unknown application. Preserve the ordinary `Box<T>` declaration and
+factory signatures rather than inventing specialized public names.
+
+The finite factory set limits what native instances can exist. Java raw/wildcard
+views and unchecked client casts must remain ordinary Java operations: reads
+return the actual facade and any client cast fails in Java as expected. They
+must never reinterpret a native object's layout from an erased Java type hint.
+Reuse exact owner, alias, borrowed-result and root-retention proofs for every
+concrete application. Native result dispatch may use only the proved finite
+variant set. No generic-specific reclamation exemption or runtime native code
+generation is permitted.
+
+P7d1 uses shared reference-generic storage and a finite cold result converter,
+with no added generic bookkeeping on warmed getter paths. Concrete arguments
+are exported final nongeneric classes. Class bounds are Object, admitted final
+facades or same-declaration variables. Generic facade parameters remain rejected
+unless they satisfy the P7d2 final-bound input contract below. Top-level final classes only; generic
+methods, arrays, inheritance, listeners and primitive projections remain refused.
+See the [usage boundary](JAVA_BRIDGE_USAGE.md#read-only-generic-facades),
+[runnable example](../examples/java-bridge/generics/README.md) and
+[qualification log](JAVA_BRIDGE_GENERIC_PROGRESS.md).
+
+**P7d2 bounded construction/mutation, implemented under D237:** admit public constructors and
+type-dependent inputs only where each class type parameter has a single
+already-admitted final native facade as its class bound. This makes every
+Java-valid type argument representable, including raw and wildcard client use.
+Preserve erased descriptors, null behavior, result identity and existing
+retention rules. Broader mutable `Box<T>` remains rejected: a producer cannot
+publish an unrestricted Java declaration then reject valid type arguments only
+at runtime. Standalone generic methods, generic listeners, generic inheritance,
+generic arrays and primitive generic projections stay outside both stages.
+Any later separately named specialization requires an explicit naming/API
+decision; existing nongeneric wrappers do not count as new generic support.
+
+The implementation reuses P0 construction, result-origin, retention and
+non-reclamation proofs. Exact generic facade inputs are admitted only for these
+final-bounded families; Java native parameters erase to the proved final facade.
+There is no new runtime generic bookkeeping. See the
+[bounded input contract](JAVA_BRIDGE_USAGE.md#bounded-generic-inputs),
+[example and matched setter runner](../examples/java-bridge/bounded-generics/README.md)
+and [qualification log](JAVA_BRIDGE_GENERIC_PROGRESS.md). P7e requires separate authorization.
+
+Exit cases: two distinct factory-produced concrete applications, final-bounded
+construction/mutation, null and identity round trips, legal raw/wildcard consumers,
+client casts, inherited identity operations, retained/borrowed ownership and
+failure cleanup; negative unrestricted constructors/setters, wrong-world owners,
+unknown specializations and unsafe frees. Prove parity of both generated Java signatures
+and native ownership for source, class and archive inputs. No runtime code
+generation, JVM class loading in native code or JCF emulation is introduced.
+
+#### P7e: measured FFM, preserving the default consumer contract
+
+**Accepted gate outcome, D238:** the maintainer selected JNI only after P7e0.
+P7e is complete as an evaluation; P7e1/P7e2 are deliberately unimplemented,
+not claimed implemented or qualified. Their candidate contracts below are
+retained for any separately authorized future reconsideration.
+[P7f combined qualification](JAVA_BRIDGE_P7_QUALIFICATION.md) is complete.
+
+**Later outcome, D241 (2026-10-02):** producer-selected critical calls are
+implemented for proved object entries, with JNI as the default and as the
+registered fallback. D241 replaces the P7e1/P7e2 candidates below with its own
+selection and producer obligation. It does not implement ordinary FFM, and it
+does not satisfy P7e2's stricter proved-bound contract. See the
+[measurements and verification](JAVA_BRIDGE_CRITICAL_CALLS.md).
+
+**P7e0 experiment, completed:** the [experiment report](JAVA_BRIDGE_FFM_EXPERIMENT.md)
+records the matched JNI/FFM results, native-access matrix, failure/lifetime checks,
+code inspection and recommendation. This is not an implemented producer backend.
+The original P7e0 task stopped before P7e1; D238 now records the keep-JNI outcome.
+Its comparison contract follows:
+compare generated-equivalent JNI and ordinary FFM downcalls
+on the same protected primitive ABI using Java 22/23. Keep Java 21 source/linkage
+free of final-API FFM classes. Java 22's [FFM API](https://docs.oracle.com/en/java/javase/22/docs/api/java.base/java/lang/foreign/package-summary.html)
+has restricted native-access calls and warning/authorization behavior, so test
+actual class-path and module-path launches with and without native-access options.
+Keep the current flag-free JNI artifact as the default. Selecting an optional
+FFM artifact or versioned implementation and its native-access policy is a
+recorded deployment decision before P7e1; no automatic policy bypass, duplicate
+facade packages or silent Java-version expansion. A Java 22-compiled optional
+implementation must be verified on both supported 22 and 23 JVMs.
+
+**P7e1 candidate boundary:** primitive scalar static methods first; then instance
+scalar calls only if existing world/lifetime behavior is preserved. Exclude
+callbacks, reference conversion, arrays/buffers and retention mutation from the
+initial transport proof. Reuse type initialization, protected result/error
+storage, native exception containment, payload identity and allowlisted symbols.
+No native unwind may cross an FFM frame. Unsupported entries keep JNI; do not
+fallback by re-executing a call that may already have performed native effects.
+No per-call arena, handle lookup or result-storage allocation on warmed scalar
+paths. Keep integration bounded to the accepted nine target/JVM cells, with JNI
+on Java 21 and an independently qualified candidate on 22/23.
+
+**P7e2 optional critical leaves:** evaluate only after ordinary FFM parity.
+Prove an extremely short bound on every path, no callbacks, allocation, blocking,
+unbounded loops, initialization or raising work. Keep noncritical dispatch for
+anything else. Do not use critical calls merely because a reference does not
+escape. The [Java 22 critical option contract](https://docs.oracle.com/en/java/javase/22/docs/api/java.base/java/lang/foreign/Linker.Option.html#critical(boolean))
+is stricter than ordinary downcall eligibility. Critical heap access is outside
+this first candidate. A benchmark result cannot substitute for a safety proof.
+
+Exit: primitive bit-pattern/ABI coverage, null/exception/status containment as
+applicable, initialization and loading failures, lifetime negatives, exact JVM
+and native allocation counts, child-process stack/failure experiments, optimized
+code inspection and repeated Linux measurements against JNI. Retain JNI if FFM
+adds policy burden or no useful measured gain; report that outcome explicitly.
+FFM upcalls and further callback tuning remain outside this submilestone.
+
+#### P7f: verification selection and completion record
+
+Before each implementation checkpoint, record affected consumers and paired
+safe/unsafe cases per the regression lessons. Shared consumers include export
+and generic metadata, `BridgeAbi`, P0 ownership/effect analyses, protected typed
+entries, CFG cloning/LLVM lowering, JNI generation, identity/root state, and
+artifact assembly/loading. Reuse them in production; private experiments are
+not substitute implementations. Unknown effects remain conservative everywhere.
+
+For each enabled capability, require focused source/class/archive tests,
+public generated-JAR consumers, normal/exceptional cleanup and allocation checks.
+Run relevant cases on macOS ARM64, Linux ARM64 virtualization and physical Estonia
+x86-64 with pinned Java 21/22/23 and LLVM 23. Requalify affected P5 listener paths
+and batching eligibility when a shared proof or adapter changes. Keep the
+existing official OrderBook sources and benchmark definitions unchanged; use
+separate array/buffer/generic fixtures. Measure matching native-only, Java-only
+and bridge workloads, report throughput and amortized latency distinctly from
+tail latency, and record the copied byte count and allocation policy.
+
+Finish with matching source/compiler/payload identities, refreshed package
+assembly, sources/Javadoc/notices and relevant loading smoke checks, the license
+audit and `git diff --check`. Record each submilestone's implementation and
+qualification separately from numerical acceptance. D232's original planning
+checkpoint required only documentation checks. D238 now authorizes execution of
+this focused P7f selection, with JNI retained and no FFM implementation.
 
 ### Execution checkpoints and handoffs (D212)
 
@@ -1500,7 +1963,7 @@ This is preparation for the ten cases, not an eleventh experiment:
 | Compiler-only assertions, including the proof portions of P0-5/P0-7/P0-8 | Any prepared host may run them. Preserve both lowering pipelines where applicable; no target execution claim follows. |
 | P0-9 static disassembly | Cross-built or emulation-built target artifacts may satisfy structural checks on any inspection host. Inspect the actual O0/O3 target adapter/typed-entry machine code and handwritten JNI baseline, record target triples and binary hashes, and match them to the functional fixtures. Do not inspect Rosetta's translated code or infer timings or runtime stack behavior. |
 | P0-10 stack envelope and limit probes | Require matching hardware on all three targets: ARM64 macOS, ARM64 Linux (including Colima virtualization), and Linux on physical x86-64 hardware, optionally through same-architecture virtualization. Execute the ARM64 cases in P0 and the x86-64 hardware cases at the end of P6b under D213. Rosetta/QEMU translated stack runs are diagnostic only and cannot pass this case. |
-| P6 runtime, stack, allocation and timing evidence | All nine JVM/target cells require matching hardware with the same virtualization allowance; no translated run passes a release cell. Record VM resources and host contention for timing review. The Java 24 refusal test runs on macOS ARM64 as already specified. |
+| P6 runtime, stack, allocation and timing evidence | All nine JVM/target cells require matching hardware with the same virtualization allowance; no translated run passes a release cell. Record VM resources and host contention for timing review. The Java 24/25 admission and denial checks run on macOS ARM64 with the pinned launchers (D245). |
 
 Run each runtime case below on macOS ARM64, Linux ARM64 and Linux x86-64 using
 the pinned Temurin 21 build in the P6 matrix, with native `-O0` and `-O3` and
@@ -1573,6 +2036,14 @@ rows need complete evidence before release; numerical performance remains deferr
 
 ### P2 Java 25 product experiment and pre-P6 decision (D209)
 
+**Implementation checkpoint:** [The D209 report](JAVA_BRIDGE_JAVA25.md) records
+the completed macOS ARM64 value experiment. The maintainer retains Java 21-23
+and Java 24+ refusal for this run to keep its qualification scope bounded.
+This settles the required pre-P6 product decision without expanding the matrix.
+On 2026-10-02, D245 revisited that outcome and admitted Java 24 and 25; the
+experiment steps below are retained as the historical procedure.
+The experiment procedure below remains the reproducible acceptance contract.
+
 Run this when the P2 jar and consumer exist, not during the documentation pass
 and not for the first time at P6. Java 25 is an
 [LTS release](https://adoptium.net/support/); excluding it warrants measured
@@ -1618,15 +2089,15 @@ prerequisite to starting P6, not a requirement that the Java 25 probe succeed.
 Provision all pinned JDKs below using P0's explicit selection and checksum/cache
 rules before P6. Add Temurin 22/23 for both Linux image architectures and reverify
 the macOS 21/22/23 installations provisioned in P1 under D210,
-plus the macOS Java 24 refusal-test build already required in P2. Reconfirm
+plus the macOS Java 24/25 launchers, which D245 makes supported pins. Reconfirm
 access to D205's matching hardware hosts before scheduling the nine cells.
 The existing translated x86-64
 runner can provide rehearsal results only for release qualification. Under D213,
 missing x86-64 hardware does not block P6a or ARM64 P6b work; it blocks completion
 of P6b and release. It does not authorize a new hosted or paid test environment.
 
-The following is the current baseline, to be revised explicitly before P6 if
-D209 selects broader support. The mandatory reference distribution is
+The following is the Java 21-23 baseline; D245 extends it as described after
+the table. The mandatory reference distribution is
 **Eclipse Temurin HotSpot**.
 Use the following exact consumer builds, verified against official releases:
 [21.0.12.1+1](https://github.com/adoptium/temurin21-binaries/releases/tag/jdk-21.0.12.1%2B1),
@@ -1642,20 +2113,23 @@ see the [Temurin support table](https://adoptium.net/support/).
 | Linux ARM64 (`aarch64_linux`, glibc) | Required | Required | Required |
 | Linux x86-64 (`x64_linux`, glibc) | Required | Required | Required |
 
-Compile Java facades with the pinned Temurin 21 JDK and `javac --release 21`.
+Under D239, qualify each of the three pinned JDKs as a producer against all
+three consumer JVMs on each native target. Compile Java facades with the selected
+producer JDK and `javac --release 21`. Keep the same identified compiler build
+and matching producer JDK version/vendor across hosts for multi-target assembly.
 Record each downloaded JDK's URL, SHA-256 and full `java -version` output,
 alongside the exact OS/glibc, CPU, compiler and payload versions. A patch upgrade
 requires an explicit matrix update and rerunning its affected cells; do not
 silently use a moving `latest` alias. Other vendors/JVMs are not mandatory cells
 or claimed verified by these runs; adding them requires named builds and results.
-Keep Java 24+ outside the supported range. Separately require a negative smoke
-test on Temurin HotSpot 24.0.2+12 on macOS ARM64, recording the same download,
-checksum and runtime metadata. On both class path and module path, first native
-use must report the D203 version error before extraction or native bootstrap;
-assert zero payload extraction/load attempts and no bridge-caused native-access
-warning. This refusal test is not a tenth supported matrix cell. P2 establishes
-it and P6 repeats it against the final jar. Test the Java version predicate with
-21/22/23 accepted and 24/25/higher rejected, without a public override switch.
+Under D245, pinned Temurin HotSpot 24.0.2+12 and 25.0.4.1+1 on macOS ARM64 are
+supported launchers, recorded with the same download, checksum and runtime
+metadata; Linux pins for them are not provisioned, so Linux coverage on those
+releases comes from the named vendor JVMs in the D245 report. On class path,
+module path and executable jar, first native use must load after the JDK's
+default warning, silently under the documented grant, and fail cleanly under
+`--illegal-native-access=deny`. Test the Java version predicate with 21-25
+accepted and 26/higher rejected, without a public override switch.
 
 Every cell must run the focused first-release bridge consumer cases in section
 13 using the final O3 payload and `-Xcheck:jni`, including exceptions, conversions,
@@ -1677,7 +2151,7 @@ hosts under section 14.C's effective OS/JVM baseline, recording tested OS versio
 without expanding the native IDK's advertised support. These focused runs use
 local/maintainer-controlled hosts, not new hosted development builds. Collect P6
 timings separately without `-Xcheck:jni`; all nine cells and the maintainer's
-final numerical performance review, plus the Java 24 refusal test, are required
+final numerical performance review, plus the Java 24/25 policy checks, are required
 to close P6.
 
 ## 13. Pre-change contracts and verification plan
@@ -1696,7 +2170,7 @@ constructor rollback. Bridge facts must not alter unrelated native programs.
 | --- | --- |
 | Root preservation | Method called only by Java survives; unreachable non-export does not. Check overload and inherited dispatch targets. |
 | Artifacts | Same API and proof results from source, class-directory, individual class, and archive reconstruction. |
-| Runtime version (P2/P6) | Under the current D203 baseline, Java 21-23 loads normally; Java 24+ fails the Java-only guard with artifact, full runtime version and supported range before extraction/loading. Run the pinned Java 24 negative smoke test and version-predicate checks in section 12. Pure Java enum initialization remains independent of native loading. |
+| Runtime version (P2/P6) | Java 21-25 load normally (Java 24/25 under the JDK's native-access policy, D245); other versions fail the Java-only guard with artifact, full runtime version and supported range before extraction/loading. Run the pinned Java 24/25 policy checks and version-predicate checks in section 12. Pure Java enum initialization remains independent of native loading. |
 | Java 25 product probe (P2) | D209 compares the ordinary refusal with the separate Java 25 admission artifact under default flags, with captured warnings and functional results across the three launch forms. Separate JNI-diagnostic and deny controls distinguish JVM policy from misuse. Report inconclusive/failing results honestly; settle the product decision before P6. |
 | Initialization | Java's first call initializes once; recursive and failed initialization preserve existing behavior without a synthetic main. |
 | Enum first use | In a fresh child JVM, `Side.SELL.index()` as the first native operation returns 1 without a prior book operation. A separate cold enum-argument fixture with asymmetric slots (for example BUY=11, SELL=29) selects SELL correctly; empty OrderBook counts of zero on both sides are not a discriminating test. Inspect typed IR and verify O0/O3 and source/class/archive paths. |
@@ -1758,10 +2232,10 @@ native link, javac compilation, and child-JVM execution as applicable. Use
 tests in subprocesses so a native bug cannot terminate the entire test harness.
 Do not replace existing process-isolated native tests wholesale with JNI calls.
 
-Test Java 21, 22, and 23 on supported target hosts. Java 24+ compatibility and
-native-access authorization support tests are deferred except for D209's P2
-experiment; D203 refusal tests remain mandatory under the current baseline.
-Settle D209 before P6 and update the matrix/tests explicitly if support changes.
+Test Java 21, 22, and 23 on supported target hosts, and Java 24 and 25 where
+D245's launchers are available. Native-access launch tests (default warning,
+grants, denial) are part of the version-policy checks; predicate refusal tests
+remain mandatory.
 Use local targeted
 verification; hosted three-platform builds remain release-only. Run the current
 OrderBook deterministic workload and inspect O3 machine code when changing hot
@@ -1781,9 +2255,10 @@ results are claimed by this document.
 
 ## 14. Settled implementation contracts
 
-Confirmed support range: Java 21-23 initially; Java 24+ is refused before native
-loading under the current D203 baseline. D209 reopens that product choice through
-a P2 Java 25 experiment and a required decision before P6. Keep facade
+Confirmed support range: Java 21-23 initially, extended to Java 24 and 25 by
+D245 under the JDK's native-access policy; other versions are refused before
+native loading by D203's guard. D209's P2 Java 25 experiment informed that
+decision. Keep facade
 bytecode compatible with Java 21. Confirmed reclamation API: explicit `free()`
 (D189); no generated `close()` alias or automatic fallback is implied.
 Confirmed contract: D188, single-threaded access as a caller obligation without
@@ -2003,14 +2478,14 @@ would be unsafe. This is an explicit later capability, not a hidden P3 promise.
 | Topic | Selected first-release contract |
 | --- | --- |
 | Transport and producer command | Generated C JNI adapters, `javac --release 21`, single-jar default, exact-package `--export` with exclusive ownership, and the command in section 5. Signature closure cannot silently add facade packages. |
-| API surface | Constructors, static/instance methods, primitives, copied strings with proved cleanup, concrete non-subclassable facades, enums/static nested types, owned roots, borrowed views and compiler-proved non-reclaimable results. Inherited concrete-facade Object methods are Java-only and survive free (D198); supported source overrides retain native preconditions. P2 built-in exception/trace mappings and P3 copyable custom exception snapshots/getters are mandatory before release. |
-| Deferred surface | Java callbacks/listeners (P5), arrays, general `CharSequence`/`Object` arguments (except inherited identity equality), source overrides of `equals(Object)`, exported reference generics, general native inheritance, Java subclassing, mutable public fields, mixed fresh/borrowed reclaimable results, and arbitrary object-graph conversion. Reject unsupported public signatures at producer build. Internal uses remain allowed when their boundary proofs hold. |
+| API surface | Constructors, static/instance methods, primitives, copied strings with proved cleanup, D233 copied primitive arrays on proved methods, concrete non-subclassable facades, enums/static nested types, owned roots, borrowed views and compiler-proved non-reclaimable results. Inherited concrete-facade Object methods are Java-only and survive free (D198); supported source overrides retain native preconditions. P2 built-in exception/trace mappings and P3 copyable custom exception snapshots/getters are mandatory before release. |
+| Deferred surface | Callback shapes outside the bounded synchronous/retained-owner proofs, including reference callback results and arguments other than proved owner facades, array shapes outside D233, general `CharSequence`/`Object` arguments (except inherited identity equality), source overrides of `equals(Object)`, generic exports outside D236/D237, general native inheritance, Java subclassing, mutable public fields, mixed fresh/borrowed reclaimable results, and arbitrary object-graph conversion. Reject unsupported public signatures at producer build. Internal uses remain allowed when their boundary proofs hold. |
 | Retention | Fixed fields on reclaimable roots with persistent host records only; the authoritative native root index has reserved capacity and JNI global references to Java root state before execution. The adapter commits registration/count/slot updates before Java resumes; only weak facade caching follows in Java. P3 proves every write and rejects slot-value transfers or hidden publication. Borrowed-child retention slots and permanent holders of reclaimable targets are deferred. |
 | OrderBook | Preserve the actual project's process-lifetime graph using P3's non-reclaimable classification. Demonstrate complete `free()`, retention and cross-owner argument behavior using a separate reclaimable owner/child fixture. Reclaimable production OrderBook is a separate producer change; it is not claimed by this release. |
 | Platforms | macOS ARM64, Linux ARM64 and Linux x86-64. Reuse official IDK native baselines, including Linux glibc 2.17; record the macOS deployment target and required CPU features in the artifact. Effective support also requires a supported Java 21-23 JVM on that host. Do not advertise an older OS merely because the native payload can load there. |
-| Loading | Current baseline: refuse Java 24+ before native extraction/loading (D203), subject to the D209 product decision before P6. Ordinary class path, module path, and executable jars with standard dependency loading. Multiple bridge artifacts require disjoint generated packages. Validate generation identity on every resolved class and package marker before any native registration. One defining classloader per artifact is permanently anchored for the JVM lifetime, with a bound-image load guard; reject a second independent load before user-native initialization. Custom nested-jar loaders, relocated/shaded facades, isolated duplicate worlds, unloading and hot reload are deferred. |
+| Loading | Admit Java 21-25 and refuse other versions before native extraction/loading (D203 guard, D245 range); Java 24/25 follow the JDK's native-access policy with documented grants. Ordinary class path, module path, and executable jars with standard dependency loading. Multiple bridge artifacts require disjoint generated packages. Validate generation identity on every resolved class and package marker before any native registration. One defining classloader per artifact is permanently anchored for the JVM lifetime, with a bound-image load guard; reject a second independent load before user-native initialization. Custom nested-jar loaders, relocated/shaded facades, isolated duplicate worlds, unloading and hot reload are deferred. |
 | JVM verification | Eclipse Temurin HotSpot 21.0.12.1+1, 22.0.2+9 and 23.0.2+7 on each of the three targets, as specified in section 12. Other vendors are not claimed verified. |
-| Release gate | Record the D209 product decision and any explicitly revised version tests/matrix before P6. Under the current baseline, complete P0-P4 and P6, including all ten P0 cases (with D213's deferred x86-64 hardware evidence completed in P6b), P4 allocation cases, all nine P6 JVM/target cells on D205 matching hardware and the separate Java 24 refusal test. P5 and P7 are extensions. No callback signature is admitted before P5, so P3 does not depend on unfinished callback machinery. |
+| Release gate | Record the D209 product decision and any explicitly revised version tests/matrix before P6. Under the current baseline, complete P0-P4 and P6, including all ten P0 cases (with D213's deferred x86-64 hardware evidence completed in P6b), P4 allocation cases, all nine P6 JVM/target cells on D205 matching hardware and the separate Java 24/25 policy checks (D245). P5 and P7 are extensions. No callback signature is admitted before P5, so P3 does not depend on unfinished callback machinery. |
 
 The classloader restriction requires a reliable duplicate-load failure path;
 do not bypass JVM library ownership by silently extracting a new image for
@@ -2042,6 +2517,12 @@ inventing a universal cutoff or claiming an unmeasured speedup. Structural
 performance constraints and repository-required focused benchmarks for changes
 to existing hot lowering still apply throughout implementation. Earlier timing
 measurements may inform work but are not an added milestone gate.
+
+D225 records the maintainer's 2026-09-28 acceptance of the measured D224
+implementation with its documented Linux ARM64 and standalone-native gaps.
+Further optimization is deferred. This supplies the numerical review for that
+candidate; every other P6b qualification requirement remains, and publication
+still requires separate authorization.
 
 Use explicit checkpoints:
 

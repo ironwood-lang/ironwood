@@ -1,0 +1,58 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+package org.ironwood.javabridge.listenernative;
+
+import org.ironwood.javabridge.listeners.ResultProcessor;
+
+// Prints raw, allocation-checked batch timings. The companion runner independently
+// checks event/checksum parity with Java/Java and native/Java. Exit zero means the
+// native driver finished; numerical acceptance belongs to the maintainer.
+public final class Benchmark {
+
+    // One process-lifetime listener, reused for all samples. Registration escapes
+    // the reference, so this driver does not claim a source free proof for it.
+    private static final Collector LISTENER = new Collector();
+
+    private Benchmark() {
+
+    }
+
+    public static int main(String[] args) {
+
+        if (args.length != 3) throw new IllegalArgumentException("events warmups samples");
+        int count = Integer.parseInt(args[0]);
+        int warmups = Integer.parseInt(args[1]);
+        int samples = Integer.parseInt(args[2]);
+        if (count <= 0 || warmups < 0 || samples <= 0) throw new IllegalArgumentException("invalid sample sizes");
+        Collector listener = LISTENER;
+        ResultProcessor processor = new ResultProcessor();
+        // The processor is reclaimed; its registered listener has static lifetime.
+        defer free processor;
+        processor.setListener(listener);
+        System.out.println("scenario,sample,events,elapsed_ns,checksum,last_value,native_allocations,java_bytes");
+        for (int sample = -warmups; sample < samples; sample++) {
+            listener.reset();
+            long before = System.allocationCount();
+            long start = System.nanoTime();
+            long last = processor.process(count, 17L + (long)sample);
+            long elapsed = System.nanoTime() - start;
+            long allocated = System.allocationCount() - before;
+            if (listener.events() != (long)count) throw new IllegalStateException("lost callback");
+            if (allocated != 0L) throw new IllegalStateException("native processing allocated");
+            if (sample >= 0) {
+                System.out.print("native-native,");
+                System.out.print(sample);
+                System.out.print(",");
+                System.out.print(count);
+                System.out.print(",");
+                System.out.print(elapsed);
+                System.out.print(",");
+                System.out.print(listener.checksum());
+                System.out.print(",");
+                System.out.print(last);
+                System.out.print(",0,-1\n");
+            }
+        }
+        processor.setListener(null);
+        return 0;
+    }
+}

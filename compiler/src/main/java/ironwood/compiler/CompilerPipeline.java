@@ -53,8 +53,60 @@ public final class CompilerPipeline {
         return compile(sources, false, Optional.empty());
     }
 
+    /** Internal analysis-only entry; emits no public bridge artifacts. */
+    public CompilationArtifact analyzeForBridge(List<SourceFile> sources) {
+        return compile(sources, false, Optional.empty(), true);
+    }
+
+    /** Rebind generated listener declarations before the ordinary mandatory proofs. */
+    public CompilationArtifact analyzeForBridge(List<SourceFile> sources,
+            ironwood.compiler.bridge.BridgeListenerProxies proxies) {
+        var combined = new ArrayList<>(sources);
+        combined.addAll(proxies.sources());
+        try {
+            return compile(combined, false, Optional.empty(), true, proxies);
+        } catch (IllegalArgumentException invalid) {
+            return new CompilationArtifact(Optional.empty(), Optional.empty(),
+                    List.of(Diagnostic.global("cannot analyze listener proxies: " + invalid.getMessage())));
+        }
+    }
+
+    /** Final-link scalar library entry; package discovery and Java/JNI generation are separate. */
+    public CompilationArtifact compileBridge(CompilationArtifact analyzed,
+            ironwood.compiler.bridge.BridgeRootSet roots) {
+        if (!analyzed.valid()) return analyzed;
+        try {
+            var module = ironwood.compiler.bridge.BridgeEntryModule.scalars(analyzed, roots);
+            var entryIds = module.entries().stream().map(entry ->
+                    ironwood.compiler.bridge.BridgeCallableId.of(entry.function())).toList();
+            var program = NativeLinkPipeline.finish(NativeLinkPipeline.optimize(module.program()));
+            var resolved = ironwood.compiler.bridge.BridgeRootSet.resolve(program, entryIds);
+            if (!resolved.resolved() || !program.exportRoots().equals(module.entrySymbols())) {
+                throw new IllegalArgumentException("native optimization changed an admitted bridge entry signature");
+            }
+            // Source semantic facts stay bound to their original analysis. Do not
+            // attach them to transformed IR as if fresh ownership had been proved.
+            return new CompilationArtifact(Optional.of(program), Optional.of(new LlvmEmitter().emit(program)), analyzed.diagnostics());
+        } catch (IllegalArgumentException exception) {
+            var diagnostics = new ArrayList<>(analyzed.diagnostics());
+            diagnostics.add(Diagnostic.global("cannot build bridge library: " + exception.getMessage()));
+            return new CompilationArtifact(Optional.empty(), Optional.empty(), diagnostics);
+        }
+    }
+
     private CompilationArtifact compile(List<SourceFile> sources, boolean requireMain,
                                         Optional<String> mainClass) {
+        return compile(sources, requireMain, mainClass, false);
+    }
+
+    private CompilationArtifact compile(List<SourceFile> sources, boolean requireMain,
+                                        Optional<String> mainClass, boolean bridgeAnalysis) {
+        return compile(sources, requireMain, mainClass, bridgeAnalysis, null);
+    }
+
+    private CompilationArtifact compile(List<SourceFile> sources, boolean requireMain,
+                                        Optional<String> mainClass, boolean bridgeAnalysis,
+                                        ironwood.compiler.bridge.BridgeListenerProxies proxies) {
         List<Diagnostic> diagnostics = new ArrayList<>();
         List<ironwood.compiler.ast.CompilationUnit> units = new ArrayList<>();
 
@@ -92,7 +144,8 @@ public final class CompilerPipeline {
         SemanticAnalyzer analyzer = analyzerFactory == null
                 ? new SemanticAnalyzer(unfreedMode, originalSources, explainRejectedFree)
                 : analyzerFactory.create(unfreedMode, originalSources, explainRejectedFree);
-        SemanticResult semanticResult = mainClass.isPresent()
+        SemanticResult semanticResult = proxies != null ? analyzer.analyzeForBridge(units, proxies)
+                : bridgeAnalysis ? analyzer.analyzeForBridge(units) : mainClass.isPresent()
                 ? analyzer.analyze(units, mainClass.orElseThrow())
                 : analyzer.analyze(units, requireMain);
         diagnostics.addAll(semanticResult.diagnostics());
@@ -101,11 +154,10 @@ public final class CompilerPipeline {
         }
 
         if (!requireMain) {
-            return new CompilationArtifact(semanticResult.program(), Optional.empty(), diagnostics);
+            return new CompilationArtifact(semanticResult.program(), Optional.empty(), diagnostics,
+                    semanticResult.bridgeConstructionFacts(), semanticResult.bridgeApiFacts());
         }
-        var program = InitializedTypeSpecializer.specialize(semanticResult.program().orElseThrow());
-        program = EnumArgumentSpecializer.specialize(program);
-        program = FieldValueForwarder.forward(program);
+        var program = NativeLinkPipeline.optimize(semanticResult.program().orElseThrow());
         String llvmIr = new LlvmEmitter().emit(program);
         return new CompilationArtifact(Optional.of(program), Optional.of(llvmIr), diagnostics);
     }

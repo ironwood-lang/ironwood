@@ -828,6 +828,20 @@ final class FunctionAnalyzer {
                     blocks.values().stream().map(MutableBlock::freeze).toList(), function.span());
         }
 
+        var byteViewOperation = ByteViewIntrinsic.operation(function, source);
+        if (byteViewOperation.isPresent()) {
+            var operation = byteViewOperation.orElseThrow();
+            Optional<IrValueReference> result = operation.resultType().equals(IrType.VOID)
+                    ? Optional.empty() : Optional.of(newValue(operation.resultType(), function.span()));
+            currentBlock.addInstruction(new ironwood.compiler.ir.IrByteViewInstruction(result, operation, thisOperand,
+                    parameters.stream().skip(1).map(parameter -> (IrOperand) parameter.value()).toList(), function.span()));
+            currentBlock.terminate(new IrReturnTerminator(result.map(value -> (IrOperand) value), function.span()));
+            exitScope();
+            return new IrFunction(function.ownerType(), function.sourceName(), function.linkageName(),
+                    function.returnType(), parameters,
+                    blocks.values().stream().map(MutableBlock::freeze).toList(), function.span());
+        }
+
         if (isStringCharAtIntrinsic()) {
             IrValueReference result = newValue(IrType.U16, function.span());
             currentBlock.addInstruction(new IrStringCharAtInstruction(result, thisOperand,

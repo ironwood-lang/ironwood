@@ -1,0 +1,30 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package org.ironwood.javabridge.value;
+
+// A Java consumer calls these static methods without handwritten JNI or loading.
+// Copied String inputs live only for the invocation. The generated entry copies
+// the fresh result back to Java and reclaims its proved temporary native storage.
+public final class Values {
+
+    private Values() {
+
+    }
+
+    public static int add(int left, int right) {
+
+        return left + right;
+    }
+
+    public static String copy(String input) {
+
+        return new String(input);
+    }
+
+    // The Java declaration uses java.io.IOException. Native unwinding stops
+    // inside the generated protected entry; Java receives a copied exception.
+    public static void fail() throws ironwood.io.IOException {
+
+        throw new ironwood.io.IOException("example failure");
+    }
+}

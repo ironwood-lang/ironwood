@@ -1,0 +1,55 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+package bridgeperf;
+
+// Independent measurement fixture, not a product API. Publication proves the
+// receiver permanent; retained facades exercise cache hits without reclamation.
+public final class PerformanceProbe {
+
+    private static PerformanceProbe saved;
+
+    private final long value;
+
+    public PerformanceProbe(long value) {
+
+        this.value = value;
+    }
+
+    public PerformanceProbe publish() {
+
+        saved = this;
+        return this;
+    }
+
+    public PerformanceProbe self() {
+
+        return this;
+    }
+
+    public long instance(long seed) {
+
+        return seed + value;
+    }
+
+    public static long scalar(long seed) {
+
+        return seed * 2862933555777941757L + 3037000493L;
+    }
+
+    public static long batch(int count, long seed) {
+
+        for (int i = 0; i < count; i++) {
+            seed = scalar(seed);
+        }
+        return seed;
+    }
+
+    public static String copy(String value) {
+
+        return new String(value);
+    }
+
+    public static void fail() throws ironwood.io.IOException {
+
+        throw new ironwood.io.IOException("measured failure");
+    }
+}

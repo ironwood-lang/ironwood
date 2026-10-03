@@ -1,0 +1,8 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+package org.ironwood.javabridge.listeners;
+
+// Generated as an ordinary Java interface. Calls stay on the invoking thread.
+public interface ResultListener {
+
+    void onResult(long sequence, long value);
+}
