@@ -14,7 +14,7 @@ REPO_ROOT=$(CDPATH= cd -- "$PROJECT_DIR/../../.." && pwd)
 # Every order operation is short and memory-only, so its calls can skip the JVM
 # thread-state transition. The registered JNI methods remain the fallback.
 COMMAND=(ironwoodc --java-bridge --export org.ironwood.orderbook
-    --unfreed=off -cp target/iron-classes -O3 --critical-calls=on
+    -cp target/iron-classes -O3 --critical-calls=on
     --license "$REPO_ROOT/LICENSE-MIT" --license "$REPO_ROOT/LICENSE-APACHE"
     -o target/orderbook.jar)
 printf '+'

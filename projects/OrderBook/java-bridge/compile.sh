@@ -11,7 +11,7 @@ cd "$PROJECT_DIR"
 
 # Compile only the existing engine closure, not the native benchmark drivers.
 rm -rf target/iron-classes
-COMMAND=(ironwoodc --unfreed=off --source-path ../src/main/ironwood
+COMMAND=(ironwoodc --source-path ../src/main/ironwood
     -d target/iron-classes ../src/main/ironwood/org/ironwood/orderbook/OrderBook.iron)
 printf '+'
 printf ' %q' "${COMMAND[@]}"
