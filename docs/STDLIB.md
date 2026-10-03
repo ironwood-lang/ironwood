@@ -1,7 +1,7 @@
 # Ironwood standard library
 
-Ironwood currently ships a bundled, Java-shaped standard library from 247
-source files. IronDocs covers 165 public and protected types across 13 packages:
+Ironwood currently ships a bundled, Java-shaped standard library from 248
+source files. IronDocs covers 166 public and protected types across 14 packages:
 
 | Package | Documented types | Purpose |
 | --- | ---: | --- |
@@ -18,6 +18,7 @@ source files. IronDocs covers 165 public and protected types across 13 packages:
 | `ironwood.pool` | 4 | Explicitly built, reusable object pools |
 | `ironwood.ds` | 26 | Low-allocation lists, maps, sets, and primitive collections |
 | `ironwood.bench` | 2 | Native latency measurement, warmup, and percentile reports |
+| `ironwood.bridge` | 1 | Synchronous borrowed byte views for Java Bridge calls |
 
 This document describes the library implemented in the current source tree. It
 is an inventory and behavioral guide rather than an API-stability promise. The
