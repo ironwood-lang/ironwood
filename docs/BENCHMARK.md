@@ -1,20 +1,22 @@
 # OrderBook Throughput and Latency Benchmarks
 
-## Linux throughput results: Ironwood vs Java and Native Image
+## Linux throughput results: Ironwood vs Java, Native Image, and Java Bridge
 
 After 8 million warmup operations, Ironwood completed 80 million measured
 operations in 0.731 seconds: 1.25x the throughput of GraalVM Native Image,
-1.83x that of Oracle JDK 25, and 2.09x that of GraalVM JDK 25.
+1.49x that of the Java Bridge on Oracle JDK 25, 1.83x that of Oracle JDK 25,
+and 2.09x that of GraalVM JDK 25.
 
 | Implementation | Elapsed time | Average elapsed per operation | Throughput | Ironwood advantage |
 |---|---:|---:|---:|---:|
 | Ironwood `-O3` | 730,658,117&nbsp;ns&nbsp;(0.731&nbsp;s) | 9.133 ns/op | 109.49 million ops/s | baseline |
 | GraalVM&nbsp;Native&nbsp;Image&nbsp;25 | 911,297,596&nbsp;ns&nbsp;(0.911&nbsp;s) | 11.391 ns/op | 87.79 million ops/s | 1.25x |
+| Java Bridge (Oracle JVM 25) | 1,089,767,417&nbsp;ns&nbsp;(1.090&nbsp;s) | 13.622 ns/op | 73.41 million ops/s | 1.49x |
 | Oracle JVM 25 | 1,334,067,437&nbsp;ns&nbsp;(1.334&nbsp;s) | 16.676 ns/op | 59.97 million ops/s | 1.83x |
 | GraalVM 25 | 1,525,100,964&nbsp;ns&nbsp;(1.525&nbsp;s) | 19.064 ns/op | 52.46 million ops/s | 2.09x |
 
-Ironwood used 19.8% less elapsed time than GraalVM Native Image, 45.2% less
-than Oracle JDK, and 52.1% less than GraalVM JDK.
+Ironwood used 19.8% less elapsed time than GraalVM Native Image, 33.0% less
+than the Java Bridge, 45.2% less than Oracle JDK, and 52.1% less than GraalVM JDK.
 
 The ns/op values are total elapsed time divided by operation count. For a
 distribution of batch timings, see the [latency benchmark](#latency-benchmark).
@@ -41,6 +43,20 @@ The GraalVM JDK result is Java running on the GraalVM JDK. The separate Native
 Image result uses the project's `-O3`, `-march=native`, Epsilon-collector build
 without PGO. The Java sources are compiled with `javac --release 21`, and the
 Ironwood benchmark is linked as a native executable with `-O3`.
+
+The Linux Java Bridge runs used Oracle JDK 25.0.4.1, build
+`25.0.4.1+1-LTS-5`, with the 64-bit HotSpot Server VM:
+
+```console
+$ java --version
+java 25.0.4.1 2026-08-18 LTS
+Java(TM) SE Runtime Environment (build 25.0.4.1+1-LTS-5)
+Java HotSpot(TM) 64-Bit Server VM (build 25.0.4.1+1-LTS-5, mixed mode, sharing)
+```
+
+The bridge build uses `-O3 --critical-calls=on` and its supported target CPU
+baseline; other OrderBook native scripts use host CPU tuning. See the
+[Java Bridge build and benchmark notes](../projects/OrderBook/java-bridge/README.md).
 
 ## The matching engine
 
@@ -69,6 +85,11 @@ timed collection loops, clock diagnostics, and workload validation. Ironwood
 uses `ironwood.bench.Bench` to report results; Java's `LatencyReport` sorts the
 measured samples and reproduces the same reporting conventions. Reporting,
 native allocation diagnostics, and native cleanup are outside the timed work.
+
+The Java Bridge reuses the Java `Bench` and `LatencyBench` drivers with the
+native Ironwood engine supplied by the generated JAR. Java calls the generated
+API for each operation in the shared workload; the measurements include those
+bridge calls.
 
 Both implementations construct an order book with capacity for eight orders
 and four price levels before warmup begins. Orders and price levels are reused
@@ -116,13 +137,14 @@ divide 80 million by elapsed seconds for operations per second.
 ## Latency benchmark
 
 Ironwood's mean latency per **1,000-cycle batch (8,000 operations)** was 20.8%
-lower than GraalVM Native Image's, 44.2% lower than Oracle JDK's, and 50.9%
-lower than GraalVM JDK's on Linux.
+lower than GraalVM Native Image's, 29.4% lower than the Java Bridge's, 44.2%
+lower than Oracle JDK's, and 50.9% lower than GraalVM JDK's on Linux.
 
 | Implementation | Mean batch | Minimum batch | p99 batch | p99.9 batch | p99.99 batch | Maximum batch |
 |---|---:|---:|---:|---:|---:|---:|
 | Ironwood `-O3` | 75.637 µs | 74.232 µs | 77.615 µs | 105.266 µs | 117.606 µs | 130.356 µs |
 | GraalVM Native Image 25 | 95.478 µs | 92.515 µs | 97.685 µs | 125.695 µs | 153.208 µs | 172.652 µs |
+| Java Bridge (Oracle JVM 25) | 107.125 µs | 105.462 µs | 136.924 µs | 137.499 µs | 170.084 µs | 188.306 µs |
 | Oracle JVM 25 | 135.617 µs | 132.502 µs | 163.893 µs | 182.132 µs | 206.446 µs | 355.198 µs |
 | GraalVM 25 | 154.148 µs | 151.982 µs | 165.493 µs | 194.499 µs | 238.356 µs | 262.085 µs |
 
@@ -137,7 +159,14 @@ $ ./java/compile-native-image.sh
 $ ./latency.sh 10000 50000 1000
 $ ./java/latency-native-image.sh 10000 50000 1000
 $ ./java/latency.sh 10000 50000 1000
+$ ./java-bridge/compile.sh
+$ ./java-bridge/link.sh
+$ ./java-bridge/latency.sh 10000 50000 1000
 ```
+
+For the Java Bridge, follow its
+[build prerequisites and compile/link steps](../projects/OrderBook/java-bridge/README.md#build-and-run),
+then run `./java-bridge/latency.sh 10000 50000 1000` from `projects/OrderBook`.
 
 The arguments specify 10,000 warmup batches, 50,000 measured batches, and
 1,000 cycles per batch. These defaults execute 80 million warmup operations
@@ -150,7 +179,8 @@ and is excluded from results. Reporting and validation happen afterward.
 
 Java runtimes:
 
-- Oracle JDK 25.0.4.1, build `25.0.4.1+1-LTS-5`, HotSpot Server VM.
+- Oracle JDK 25.0.4.1, build `25.0.4.1+1-LTS-5`, HotSpot Server VM, for both
+  the Java implementation and Java Bridge results.
 - Oracle GraalVM 25.0.4+7.1, build `25.0.4+7-LTS-jvmci-b01`, HotSpot Server VM
   with JVMCI. This runtime produced the GraalVM JDK latency result, not a Native
   Image result.
@@ -211,6 +241,27 @@ Avg Time: 95.478 micros | Min Time: 92.515 micros | Max Time: 172.652 micros
 99.9% = [avg: 95.435 micros, max: 125.695 micros]
 99.99% = [avg: 95.471 micros, max: 153.208 micros]
 99.999% = [avg: 95.478 micros, max: 172.652 micros]
+```
+
+Java Bridge on Oracle JDK 25 output:
+
+```console
+$ ./latency.sh 10000 50000 1000
+Empty interval average (ns): 15.540317
+Two clock reads plus loop average (ns): 33.091379
+Smallest observed positive clock delta (ns): 12
+Cycles per batch: 1000
+Operations per batch: 8000
+Measured operations: 400000000
+Batch latency (clock overhead included):
+Measurements: 50,000 | Warm-Up: 10,000 | Iterations: 60,000
+Avg Time: 107.125 micros | Min Time: 105.462 micros | Max Time: 188.306 micros
+75% = [avg: 106.087 micros, max: 106.329 micros]
+90% = [avg: 106.141 micros, max: 106.522 micros]
+99% = [avg: 106.813 micros, max: 136.924 micros]
+99.9% = [avg: 107.086 micros, max: 137.499 micros]
+99.99% = [avg: 107.118 micros, max: 170.084 micros]
+99.999% = [avg: 107.125 micros, max: 188.306 micros]
 ```
 
 Oracle JDK 25 output:
