@@ -781,7 +781,14 @@ Setup downloads Ubuntu 24.04 images and creates both Linux toolchain images from
 `packaging/idk-environment.yml`, including the release's pinned Java and LLVM.
 It also runs `scripts/prepare-tls.py` inside each image to build the pinned
 platform-specific SDK at `/opt/ironwood-tls`. Linux tests explicitly select that
-SDK, never the mounted checkout's macOS SDK. No dependency is downloaded during
+SDK, never the mounted checkout's macOS SDK. Setup then runs
+`scripts/prepare-java-bridge-support.py` with each image's Python to prepare the
+[pinned Java Bridge native support SDK](JAVA_BRIDGE_NATIVE_SUPPORT.md) at
+`workspace/java-bridge/support/<platform>/`, or verifies an existing directory
+against the current pins; Linux test containers select it through
+`IRONWOOD_BRIDGE_SUPPORT_HOME`, and a missing SDK stops a Linux run before any
+test starts. Delete a stale support directory before rerunning `--setup`.
+No dependency is downloaded during
 compiler or test execution; rerun `--setup` when preparation inputs change.
 First-time downloads and setup can take substantially longer than later runs.
 The images are cached locally and their names change when the Dockerfile or

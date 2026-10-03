@@ -109,8 +109,8 @@ final class BridgeLibraryNativeTests {
             Files.writeString(directory.resolve("sha256-" + level + ".txt"), HexFormat.of().formatHex(
                     MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(image))) + "  " + image.getFileName() + "\n");
             for (String budget : List.of("normal", "0", "1")) {
-                var command = List.of(javaHome.resolve("bin/java").toString(), "-Xcheck:jni", "-cp", directory.toString(),
-                        "BridgeLibraryConsumer", image.toString(), budget);
+                var command = BridgeEntryTests.grantNativeAccess(List.of(javaHome.resolve("bin/java").toString(), "-Xcheck:jni", "-cp", directory.toString(),
+                        "BridgeLibraryConsumer", image.toString(), budget));
                 String name = "consumer-" + level + "-" + budget;
                 Files.writeString(directory.resolve(name + ".command.txt"), String.join("\n", command)
                         + "\nIRONWOOD_ALLOCATION_LIMIT=" + budget + "\n");

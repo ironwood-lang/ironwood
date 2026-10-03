@@ -49,6 +49,10 @@ class PlatformWorkflowTests(unittest.TestCase):
     def execute(self, *arguments):
         return workflow.execute(self.root, workflow.parser().parse_args(arguments))
 
+    def prepare_bridge_support(self, *targets):
+        for target in targets:
+            self.write(f"workspace/java-bridge/support/{target}/build.properties", f"platform={target}\n")
+
     def test_requires_explicit_mode(self):
         for arguments in ([], ["--full", "--test", "Example"], ["--full", "--failed"],
                           ["--list", "--full"]):
@@ -81,6 +85,9 @@ class PlatformWorkflowTests(unittest.TestCase):
         self.assertIn("--platform linux/amd64", self.output.getvalue())
         self.assertIn("LANG=C.UTF-8", self.output.getvalue())
         self.assertIn("LC_ALL=C.UTF-8", self.output.getvalue())
+        for target in ("linux-arm64", "linux-x86_64"):
+            self.assertIn(f"scripts/prepare-java-bridge-support.py --setup --target {target} "
+                          f"--prefix {self.root / 'workspace/java-bridge/support' / target}", self.output.getvalue())
         self.assertNotIn("FINAL PLATFORM SUMMARY", self.output.getvalue())
 
     def test_full_run_ends_with_all_platform_results(self):
@@ -93,6 +100,7 @@ class PlatformWorkflowTests(unittest.TestCase):
             process.stdout = iter(line + "\n" for line in lines)
             process.wait.return_value = code
             processes.append(process)
+        self.prepare_bridge_support("linux-arm64", "linux-x86_64")
         # Simulate the three runs without starting Docker or a compiler suite.
         with patch.object(workflow, "verify_rosetta"), \
                 patch.object(workflow.subprocess, "run"), \
@@ -118,6 +126,7 @@ class PlatformWorkflowTests(unittest.TestCase):
             for target in ("linux-arm64", "linux-x86_64"):
                 command = workflow.test_command(self.root, target, ["TLS example"])
                 self.assertIn("IRONWOOD_TLS_HOME=/opt/ironwood-tls", command)
+                self.assertIn(f"IRONWOOD_BRIDGE_SUPPORT_HOME={self.root / 'workspace/java-bridge/support' / target}", command)
                 self.assertNotIn("/host/macos-sdk", " ".join(command))
                 for directory, destination in (("build", "compiler/build"),
                                                 ("integration-target", "integration-tests/target"),
@@ -170,6 +179,28 @@ class PlatformWorkflowTests(unittest.TestCase):
                 self.execute("--full", "--platform", "macos-arm64", "--platform", "linux-arm64")
             tests.assert_not_called()
 
+    def test_missing_bridge_support_stops_before_tests_and_setup_verifies_existing_sdk(self):
+        with patch.object(workflow.subprocess, "run"), patch.object(workflow.subprocess, "Popen") as tests:
+            with self.assertRaisesRegex(ValueError, "Java Bridge support SDK is missing.*--setup first"):
+                self.execute("--full", "--platform", "linux-arm64", "--platform", "macos-arm64")
+            tests.assert_not_called()
+        self.prepare_bridge_support("linux-arm64")
+        with patch.object(workflow, "run") as run:
+            self.assertEqual(0, self.execute("--setup", "--platform", "linux-arm64"))
+        commands = [call.args[0] for call in run.call_args_list]
+        prepared = [command for command in commands if "scripts/prepare-java-bridge-support.py" in command]
+        self.assertEqual(1, len(prepared))
+        self.assertIn("--check", prepared[0])
+        self.assertNotIn("--setup", prepared[0])
+        self.assertEqual(str(self.root / "workspace/java-bridge/support/linux-arm64"), prepared[0][-1])
+        self.assertIn(workflow.image(self.root, "linux-arm64"), prepared[0])
+        def fail_preparation(command, root, *args, **kwargs):
+            if "scripts/prepare-java-bridge-support.py" in command:
+                raise subprocess.CalledProcessError(1, command)
+        with patch.object(workflow, "run", side_effect=fail_preparation):
+            with self.assertRaisesRegex(ValueError, "support SDK preparation failed.*rerun"):
+                self.execute("--setup", "--platform", "linux-arm64")
+
     def test_rosetta_check_rejects_missing_or_competing_handlers(self):
         handler = "enabled\ninterpreter /mnt/lima-rosetta/rosetta\nflags: OCF\n"
         for output in ("", handler.replace("enabled", "disabled"),
@@ -214,6 +245,7 @@ class PlatformWorkflowTests(unittest.TestCase):
             self.execute("--platform", "macos-arm64", "--failed")
 
     def test_interrupt_saves_failures_and_removes_only_its_container(self):
+        self.prepare_bridge_support("linux-arm64")
         report = self.write("workspace/platform-tests/linux-arm64.json",
                             json.dumps({"exit_code": 0, "failed_tests": []}))
 

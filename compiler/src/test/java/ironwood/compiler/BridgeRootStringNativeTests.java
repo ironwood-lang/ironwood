@@ -124,8 +124,8 @@ final class BridgeRootStringNativeTests {
             // 100 + limit selects retained-slot failure after the initial roots exist.
             for (int budget : List.of(-1, 0, 1, 2, 3, 4, 5, 6, 105, 106, 107)) {
                 int limit = budget >= 100 ? budget - 100 : budget;
-                var command = List.of(javaHome.resolve("bin/java").toString(), "-Xcheck:jni", "-cp", directory.toString(),
-                        "RootStrings", image.toString(), Integer.toString(budget));
+                var command = BridgeEntryTests.grantNativeAccess(List.of(javaHome.resolve("bin/java").toString(), "-Xcheck:jni", "-cp", directory.toString(),
+                        "RootStrings", image.toString(), Integer.toString(budget)));
                 String name = "consumer-" + level + "-" + budget;
                 Files.writeString(directory.resolve(name + ".command.txt"), String.join("\n", command)
                         + "\nIRONWOOD_ALLOCATION_LIMIT=" + (budget < 0 ? "unset" : limit) + "\n");

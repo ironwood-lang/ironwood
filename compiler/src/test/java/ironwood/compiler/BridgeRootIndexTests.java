@@ -91,8 +91,8 @@ final class BridgeRootIndexTests {
                 var linked = new NativeBackend().linkShared(toolchain, llvm, image, level, List.of(object));
                 Files.writeString(folder.resolve("link-" + level + ".log"), linked.output()); check(linked.success(), linked.output());
                 Files.writeString(folder.resolve("payload-" + level + ".sha256"), BridgeGeneration.bytesDigest(Files.readAllBytes(image)) + "\n");
-                var command = List.of(javaHome.resolve("bin/java").toString(), "-Xcheck:jni", "-Xmx64m", "-cp", classes.toString(),
-                        "IndexProbe", image.toString(), faults ? "faults" : "production");
+                var command = BridgeEntryTests.grantNativeAccess(List.of(javaHome.resolve("bin/java").toString(), "-Xcheck:jni", "-Xmx64m", "-cp", classes.toString(),
+                        "IndexProbe", image.toString(), faults ? "faults" : "production"));
                 String output = BridgeEntryTests.run(folder, command, "consumer-" + level);
                 check(output.equals(faults ? "root-index-faults-ok\n" : "root-index-ok:registration:collection:destruction:growth\n"), output);
                 if (!faults) {

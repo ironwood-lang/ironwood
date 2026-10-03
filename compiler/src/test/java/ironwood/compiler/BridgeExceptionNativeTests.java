@@ -127,8 +127,8 @@ final class BridgeExceptionNativeTests {
                     "--no-show-raw-insn", image.toString()), "disassembly-" + level);
             for (String budget : List.of("normal", "0", "1", "2", "generated-0", "generated-1", "generated-2",
                     "secondary-1", "secondary-2", "secondary-0")) {
-                var command = List.of(javaHome.resolve("bin/java").toString(), "-Xcheck:jni", "-cp", classes.toString(),
-                        "ExceptionGetters", image.toString(), budget);
+                var command = BridgeEntryTests.grantNativeAccess(List.of(javaHome.resolve("bin/java").toString(), "-Xcheck:jni", "-cp", classes.toString(),
+                        "ExceptionGetters", image.toString(), budget));
                 String name = "consumer-" + level + "-" + budget;
                 String limit = budget.replace("generated-", "").replace("secondary-", "");
                 Files.writeString(directory.resolve(name + ".command.txt"), String.join("\n", command) + "\nIRONWOOD_ALLOCATION_LIMIT=" + limit + "\n");

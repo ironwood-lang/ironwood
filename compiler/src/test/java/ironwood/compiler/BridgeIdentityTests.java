@@ -61,8 +61,8 @@ final class BridgeIdentityTests {
             check(linked.success(), linked.output());
             Files.writeString(directory.resolve("sha256-" + level + ".txt"), HexFormat.of().formatHex(
                     MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(image))) + "  " + image.getFileName() + "\n");
-            var command = List.of(javaHome.resolve("bin/java").toString(), "-Xcheck:jni", "-Xmx64m", "-cp", directory.toString(),
-                    "BridgeIdentityConsumer", image.toString());
+            var command = BridgeEntryTests.grantNativeAccess(List.of(javaHome.resolve("bin/java").toString(), "-Xcheck:jni", "-Xmx64m", "-cp", directory.toString(),
+                    "BridgeIdentityConsumer", image.toString()));
             String output = BridgeEntryTests.run(directory, command, "consumer-" + level);
             check(output.matches("root-identity-benchmark:50000:0:0:[0-9]+:[0-9]+\\nreclaimable-scalar:50000:0:0:[0-9]+:[0-9]+\\n"
                     + "root-identity-ok:reuse:collection:reservation:growth\\n"), output);

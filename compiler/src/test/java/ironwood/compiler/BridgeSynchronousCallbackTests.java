@@ -32,12 +32,18 @@ final class BridgeSynchronousCallbackTests {
             """;
     private static final String STRINGS = SAFE.replace("long count)", "long count, String text)")
             .replace("long sum = 0L;", "long sum = text == null || text.length() == 0 ? 0L : (long)text.charAt(0);");
+    // D227 and D228 admit bounded native cause and secondary graph edits on
+    // callback carriers; the per-entry carrier policy retains such carriers.
+    private static final List<String> GRAPH_EDITS = List.of(
+            "static long run(Listener l, long n) { try { return l.call(n); } finally { l.call(n); } }",
+            "static long run(Listener l, long n) { try { return l.call(n); } catch (RuntimeException f) { f.initCause(null); throw f; } }");
     private BridgeSynchronousCallbackTests() {}
 
     static void proofs() throws Exception {
         for (var mode : UnfreedMode.values()) {
             accepted(List.of(SourceFile.of("Listener.iron", SAFE)), mode);
             accepted(List.of(SourceFile.of("Listener.iron", STRINGS)), mode);
+            for (String body : GRAPH_EDITS) accepted(List.of(SourceFile.of("Listener.iron", HEADER + "final class Driver { " + body + " }")), mode);
             for (String body : List.of(
                     "static Listener saved; static long run(Listener l, long n) { saved = l; return l.call(n); }",
                     "static long value; static long run(Listener l, long n) { return value + l.call(n); }",
@@ -47,8 +53,6 @@ final class BridgeSynchronousCallbackTests {
                     "long value; long run(Listener l, long n) { return value + l.call(n); }",
                     "static Listener run(Listener l, long n) { l.call(n); return l; }",
                     "static long run(Listener l, long n) { Driver d = new Driver(); free d; return l.call(n); }",
-                    "static long run(Listener l, long n) { try { return l.call(n); } finally { l.call(n); } }",
-                    "static long run(Listener l, long n) { try { return l.call(n); } catch (RuntimeException f) { f.initCause(null); throw f; } }",
                     "static long run(Listener l, long n) { return nativeOnly(n); } private static long nativeOnly(long n) { return n; }")) {
                 var sources = List.of(SourceFile.of("Listener.iron", HEADER + "final class Driver { " + body + " }"));
                 var pipeline = new CompilerPipeline(mode);

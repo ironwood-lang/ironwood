@@ -134,8 +134,8 @@ final class BridgeEnumValueNativeTests {
                     "--disassemble", "--no-show-raw-insn", image.toString()), "disassembly-" + level);
             for (int scenario = 0; scenario <= 9; scenario++) {
                 int limit = scenario == 3 || scenario == 9 ? 0 : scenario == 4 || scenario == 6 ? 1 : -1;
-                var command = List.of(javaHome.resolve("bin/java").toString(), "-Xcheck:jni", "-cp", directory.toString(),
-                        "EnumValues", image.toString(), Integer.toString(scenario));
+                var command = BridgeEntryTests.grantNativeAccess(List.of(javaHome.resolve("bin/java").toString(), "-Xcheck:jni", "-cp", directory.toString(),
+                        "EnumValues", image.toString(), Integer.toString(scenario)));
                 String name = "consumer-" + level + "-" + scenario;
                 Files.writeString(directory.resolve(name + ".command.txt"), String.join("\n", command)
                         + "\nIRONWOOD_ALLOCATION_LIMIT=" + (limit < 0 ? "unset" : limit) + "\n");
