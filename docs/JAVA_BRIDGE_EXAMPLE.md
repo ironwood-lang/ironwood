@@ -11,9 +11,9 @@ same steps; this page shows what they run.
 cd examples/java-bridge/basics
 ```
 
-## 1. The sources
+## 1. The Ironwood sources
 
-Three files. Nothing in them is bridge-specific, in other words, total **transparency**!
+Two files. Nothing in them is bridge-specific, in other words, total **transparency**!
 
 `src/main/ironwood/org/ironwood/javabridge/basics/CounterListener.iron`:
 
@@ -60,6 +60,33 @@ public final class Counter {
 }
 ```
 
+## 2. Compile the Ironwood code
+
+```sh
+ironwoodc --source-path src/main/ironwood -d target/classes --unfreed=error \
+    src/main/ironwood/org/ironwood/javabridge/basics/*.iron
+```
+
+This is an ordinary Ironwood compilation. It writes `.ironclass` files under
+`target/classes`. (`compile.sh`)
+
+## 3. Generate the library
+
+```sh
+ironwoodc --java-bridge --export org.ironwood.javabridge.basics -cp target/classes \
+    --license ../../../LICENSE-MIT --license ../../../LICENSE-APACHE \
+    -O3 -o target/ironwood-basics.jar
+```
+
+`--export` names the package whose public API Java gets. Repeat it for each
+package to export. The result, `target/ironwood-basics.jar`, is the library:
+the generated Java class `Counter` and interface `CounterListener` in package
+`org.ironwood.javabridge.basics`, the native library for this machine, the
+loader, sources, Javadoc and license texts. It is a normal jar: nothing has to
+be installed next to it. (first half of `link.sh`)
+
+## 4. The Java program
+
 `src/main/java/org/ironwood/javabridge/basicsconsumer/Main.java`:
 
 ```java
@@ -95,36 +122,11 @@ public final class Main implements CounterListener {
 }
 ```
 
-`Counter` and `CounterListener` are Ironwood. `Main` is plain Java: it
-implements the generated interface, constructs the generated class, and calls
-the generated `free()` when done. There is no `native` keyword, no JNI and no
-`System.load`.
+Plain Java: it imports the two generated types from the jar, implements the
+interface, constructs the class, and calls the generated `free()` when done.
+There is no `native` keyword, no JNI and no `System.load`.
 
-## 3. Compile the Ironwood code
-
-```sh
-ironwoodc --source-path src/main/ironwood -d target/classes --unfreed=error \
-    src/main/ironwood/org/ironwood/javabridge/basics/*.iron
-```
-
-This is an ordinary Ironwood compilation. It writes `.ironclass` files under
-`target/classes`. (`compile.sh`)
-
-## 4. Build the bridge jar
-
-```sh
-ironwoodc --java-bridge --export org.ironwood.javabridge.basics -cp target/classes \
-    --license ../../../LICENSE-MIT --license ../../../LICENSE-APACHE \
-    -O3 -o target/ironwood-basics.jar
-```
-
-`--export` names the package whose public API Java gets. Repeat it for each
-package to export. The result, `target/ironwood-basics.jar`, contains the
-generated Java classes for `Counter` and `CounterListener`, the native library
-for this machine, the loader, sources, Javadoc and license texts. It is a normal
-jar: nothing has to be installed next to it. (first half of `link.sh`)
-
-## 5. Compile the Java program against the jar
+## 5. Compile it against the library
 
 ```sh
 javac --release 21 -cp target/ironwood-basics.jar -d target/consumer-classes \
@@ -156,7 +158,7 @@ restricted-method warning; Java 21 to 23 accept and ignore it. (`run.sh`)
 `./test.sh` runs the program normally and under `-Xcheck:jni` and compares the
 output with the lines above.
 
-## 7. Use the jar in your own program
+## 7. Use the library in your own program
 
 1. Copy `target/ironwood-basics.jar` as it is. Do not unpack, shade or strip it.
 2. Put it on the compile classpath and the runtime classpath, exactly as in
