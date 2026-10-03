@@ -9407,3 +9407,31 @@ occurrence order. If no
   OrderBook allocation and assembly tests, passed on macOS ARM64 with JAVA_HOME
   set to the pinned 21, 24 and 25 JDKs and on Linux x86-64 with Oracle JDK 25 and
   GraalVM 25, as listed in the Java 25 report.
+
+## D246 - Present the Java Bridge as implemented and accept the recorded measurements
+
+- **Status:** Accepted by the maintainer on 2026-10-03 after that day's
+  three-platform compiler suite runs.
+- **Decision:** The Java Bridge is an implemented, supported feature. Current
+  documentation, the `BridgeExportSurface` selectors (`scalarValues`,
+  `staticValues`) and the producer diagnostics no longer call it a preview or
+  experimental. The recorded P5 listener and P7 extension measurements in
+  `JAVA_BRIDGE_P5_EVIDENCE.md`, `JAVA_BRIDGE_ARRAY_EVIDENCE.md`,
+  `JAVA_BRIDGE_BUFFER_EVIDENCE.md`, `JAVA_BRIDGE_GENERIC_PROGRESS.md`,
+  `JAVA_BRIDGE_CRITICAL_CALLS.md` and `JAVA_BRIDGE_P7_QUALIFICATION.md` are
+  accepted as the reference results of the implementation; no numerical review
+  remains open, and D225's deferral of further performance tuning stands.
+- **Scope:** The supported API is what the producer guide documents. General
+  object inheritance, object and multidimensional arrays, listener shapes outside
+  the proved subsets and optional TLS dependencies in bridge images are not
+  supported and are rejected at compile time; the implementation plan records
+  them as deferred work, not as pending parts of this feature. D215 keeps its
+  historical title, and dated evidence and progress logs keep their wording.
+  This supersedes the pending-qualification wording in D215's scope and the
+  "remains review" status of the P5 and P7 measurements in earlier decisions.
+  No API, reclamation, exception, safety or supported-version contract changes.
+  Merging `java-bridge` into `main` and publication remain the maintainer's
+  release steps.
+- **Evidence:** The 2026-10-03 full compiler suites on macOS ARM64, Linux ARM64
+  and Linux x86-64 pass after three test-only fixes, each rerun on all three
+  platforms; `LOCAL_TESTING.md` describes the platform workflow.

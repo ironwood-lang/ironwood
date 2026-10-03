@@ -84,7 +84,7 @@ final class BridgeProducer {
                 }
             }
         }
-        if (NativeLinkRequirements.from(projection.program()).tls()) throw new IOException("Java Bridge does not yet package optional TLS dependencies");
+        if (NativeLinkRequirements.from(projection.program()).tls()) throw new IOException("Java Bridge does not package optional TLS dependencies");
         String llvm = new LlvmEmitter().emit(projection.program());
         Files.createDirectories(destination.getParent());
         Path stage = Files.createTempDirectory(destination.getParent(), ".ironwood-bridge-build-");

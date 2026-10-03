@@ -59,8 +59,8 @@ proves this example eligible for automatic batching: native code computes chunks
 and crosses JNI once per chunk, then Java delivers each listener call in order.
 No handwritten batching is required. The first callback waits for its chunk's
 computation; these measurements do not describe individual callback arrival
-latency. Other loops use ordinary JNI when equivalence is unproved. Numerical
-acceptance remains review.
+latency. Other loops use ordinary JNI when equivalence is unproved. D246 accepts
+the recorded measurements.
 
 The [optimization report](../../../docs/JAVA_BRIDGE_CALLBACK_OPTIMIZATION.md) contains
 the current batching results. The [P5 evidence report](../../../docs/JAVA_BRIDGE_P5_EVIDENCE.md)

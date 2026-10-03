@@ -11,7 +11,7 @@ and extensions are tracked in the [P7 qualification record](JAVA_BRIDGE_P7_QUALI
 P7c1 is now implemented and qualified on all three targets; see the
 [evidence and measurements](JAVA_BRIDGE_BUFFER_EVIDENCE.md) and
 [implementation log](JAVA_BRIDGE_BUFFER_PROGRESS.md). This document remains the
-accepted contract; numerical performance acceptance remains maintainer review.
+accepted contract; D246 accepts the recorded performance results.
 
 The accepted design is a small `ironwood.bridge.ByteView` type: allocate reusable
 storage in Java, pass it directly to proved native methods, and expose only
