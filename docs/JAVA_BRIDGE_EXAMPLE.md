@@ -50,9 +50,7 @@ public final class Counter {
 
         this.value += amount;
 
-        CounterListener current = this.listener;
-        
-        if (current != null) current.onChanged(this.value);
+        if (this.listener != null) this.listener.onChanged(this.value);
     }
 
     public int getValue() {
