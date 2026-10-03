@@ -101,14 +101,13 @@ public final class Main implements CounterListener {
     public static void main(String[] args) {
 
         Counter counter = new Counter();
-        try {
-            counter.setListener(new Main());
-            counter.add(2);
-            counter.add(3);
-            System.out.println("Counter total: " + counter.getValue());
-        } finally {
-            counter.free();
-        }
+
+        counter.setListener(new Main());
+        counter.add(2);
+        counter.add(3);
+        System.out.println("Counter total: " + counter.getValue());
+
+        counter.free(); // GC will never release native memory, so you have to release yourself
     }
 }
 ```

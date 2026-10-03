@@ -16,14 +16,13 @@ public final class Main implements CounterListener {
     public static void main(String[] args) {
 
         Counter counter = new Counter();
-        try {
-            counter.setListener(new Main());
-            counter.add(2);
-            counter.add(3);
-            System.out.println("Counter total: " + counter.getValue());
-        } finally {
-            // Reclaim the native counter and release its listener registration.
-            counter.free();
-        }
+        
+        counter.setListener(new Main());
+        counter.add(2);
+        counter.add(3);
+        System.out.println("Counter total: " + counter.getValue());
+
+        // Reclaim the native counter and release its listener registration.
+        counter.free();
     }
 }
