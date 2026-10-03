@@ -65,8 +65,8 @@ final class BridgeRootNativeTests {
                     MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(image))) + "  " + image.getFileName() + "\n");
             for (String scenario : List.of("normal", "limited")) {
                 String name = "consumer-" + level + "-" + scenario;
-                var command = List.of(javaHome.resolve("bin/java").toString(), "-Xcheck:jni", "-cp", directory.toString(),
-                        "BridgeRootConsumer", image.toString(), scenario);
+                var command = BridgeEntryTests.grantNativeAccess(List.of(javaHome.resolve("bin/java").toString(), "-Xcheck:jni", "-cp", directory.toString(),
+                        "BridgeRootConsumer", image.toString(), scenario));
                 Files.writeString(directory.resolve(name + ".command.txt"), String.join("\n", command)
                         + "\nIRONWOOD_ALLOCATION_LIMIT=" + (scenario.equals("limited") ? "5" : "unset") + "\n");
                 var builder = new ProcessBuilder(command).redirectErrorStream(true).redirectOutput(directory.resolve(name + ".log").toFile());

@@ -165,8 +165,8 @@ final class BridgeStringTests {
                     MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(image))) + "  " + image.getFileName() + "\n");
             for (String budget : List.of("normal", "0", "1", "2")) {
                 String name = "consumer-" + level + "-" + budget;
-                List<String> command = List.of(javaHome.resolve("bin/java").toString(), "-Xcheck:jni", "-cp", directory.toString(),
-                        "BridgeStringConsumer", image.toString(), budget, faults ? "faults" : "production");
+                List<String> command = BridgeEntryTests.grantNativeAccess(List.of(javaHome.resolve("bin/java").toString(), "-Xcheck:jni", "-cp", directory.toString(),
+                        "BridgeStringConsumer", image.toString(), budget, faults ? "faults" : "production"));
                 Files.writeString(directory.resolve(name + ".command.txt"), String.join("\n", command) + "\nIRONWOOD_ALLOCATION_LIMIT=" + budget + "\n");
                 var builder = new ProcessBuilder(command).redirectErrorStream(true).redirectOutput(directory.resolve(name + ".log").toFile());
                 if (!budget.equals("normal")) builder.environment().put("IRONWOOD_ALLOCATION_LIMIT", budget);

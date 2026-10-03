@@ -38,8 +38,8 @@ final class BridgeProducerExceptionTests {
             BridgeEntryTests.run(folder, List.of(javaHome.resolve("bin/javac").toString(), "--release", "21", "-Xlint:all", "-Werror",
                     "-cp", jar.toString(), "-d", consumerClasses.toString(), consumer.toString()), "consumer-javac");
             for (String scenario : List.of("normal", "0", "1", "2", "secondary-1", "secondary-2", "secondary-0", "java-oom")) {
-                var command = List.of(javaHome.resolve("bin/java").toString(), "-Xcheck:jni", "-Xmx24m", "-XX:-UseGCOverheadLimit",
-                        "-cp", jar + java.io.File.pathSeparator + consumerClasses, "ProducerExceptions", scenario);
+                var command = BridgeEntryTests.grantNativeAccess(List.of(javaHome.resolve("bin/java").toString(), "-Xcheck:jni", "-Xmx24m", "-XX:-UseGCOverheadLimit",
+                        "-cp", jar + java.io.File.pathSeparator + consumerClasses, "ProducerExceptions", scenario));
                 var builder = new ProcessBuilder(command).redirectErrorStream(true).redirectOutput(folder.resolve(scenario + ".log").toFile());
                 builder.environment().remove("IRONWOOD_ALLOCATION_LIMIT");
                 if (!scenario.equals("normal") && !scenario.equals("java-oom")) builder.environment().put("IRONWOOD_ALLOCATION_LIMIT", scenario.replace("secondary-", ""));

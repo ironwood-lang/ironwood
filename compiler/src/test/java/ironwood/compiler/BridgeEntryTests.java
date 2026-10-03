@@ -287,9 +287,10 @@ final class BridgeEntryTests {
     /**
      * Java 24 and later treat System.load as a restricted method (JEP 472). A consumer launched on the
      * runner's own JDK receives the documented grant for its launch form, so expected output stays
-     * exact, unless the command already selects a native-access policy of its own.
+     * exact, unless the command already selects a native-access policy of its own. Tests that start
+     * consumers through their own ProcessBuilder apply this to the command they record and launch.
      */
-    private static List<String> grantNativeAccess(List<String> command) {
+    static List<String> grantNativeAccess(List<String> command) {
         if (Runtime.version().feature() < 24) return command;
         int launcher = -1;
         for (int index = 0; index < command.size() && launcher < 0; index++) {

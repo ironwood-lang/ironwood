@@ -113,8 +113,8 @@ final class BridgePermanentEnumNativeTests {
             BridgeEntryTests.run(directory, List.of(toolchain.home().resolve("bin/llvm-objdump").toString(),
                     "--disassemble", "--no-show-raw-insn", image.toString()), "disassembly-" + level);
             for (int budget : List.of(-1, 0, 1, 2, 3, 4, -2, -3, -4, -5)) {
-                var command = List.of(javaHome.resolve("bin/java").toString(), "-Xcheck:jni", "-cp", directory.toString(),
-                        "PermanentEnums", image.toString(), Integer.toString(budget));
+                var command = BridgeEntryTests.grantNativeAccess(List.of(javaHome.resolve("bin/java").toString(), "-Xcheck:jni", "-cp", directory.toString(),
+                        "PermanentEnums", image.toString(), Integer.toString(budget)));
                 String name = "consumer-" + level + "-" + budget;
                 Files.writeString(directory.resolve(name + ".command.txt"), String.join("\n", command)
                         + "\nIRONWOOD_ALLOCATION_LIMIT=" + (budget < 0 ? "unset" : budget) + "\n");
