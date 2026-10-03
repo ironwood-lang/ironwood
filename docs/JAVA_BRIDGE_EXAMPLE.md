@@ -3,27 +3,17 @@
 # Java Bridge, step by step
 
 This walks through [examples/java-bridge/basics](../examples/java-bridge/basics):
-a native Ironwood counter that a Java program calls, and that calls a Java
+a native Ironwood counter that a Java program calls, and then it calls a Java
 listener back. Every command runs from that directory. The scripts there do the
 same steps; this page shows what they run.
-
-## 1. Prerequisites
-
-- A JDK 21, 22, 23, 24 or 25. Put its `bin` on `PATH`, or set `JAVA_HOME`.
-- `ironwoodc` on `PATH`: the checkout's `bin` directory after building the
-  compiler, or an IDK's `bin`.
-- The native build tools from the
-  [producer guide](JAVA_BRIDGE_USAGE.md#build-and-run): LLVM 23, Apple's
-  Command Line Tools on macOS, the pinned bridge support SDK on Linux. An IDK
-  bundles LLVM and the Linux support SDK.
 
 ```sh
 cd examples/java-bridge/basics
 ```
 
-## 2. The sources
+## 1. The sources
 
-Three files. Nothing in them is bridge-specific.
+Three files. Nothing in them is bridge-specific, in other words, total **transparency**!
 
 `src/main/ironwood/org/ironwood/javabridge/basics/CounterListener.iron`:
 
@@ -32,7 +22,7 @@ package org.ironwood.javabridge.basics;
 
 public interface CounterListener {
 
-    void onChanged(int value);
+    public void onChanged(int value);
 }
 ```
 
@@ -59,7 +49,9 @@ public final class Counter {
     public void add(int amount) {
 
         this.value += amount;
+
         CounterListener current = this.listener;
+        
         if (current != null) current.onChanged(this.value);
     }
 

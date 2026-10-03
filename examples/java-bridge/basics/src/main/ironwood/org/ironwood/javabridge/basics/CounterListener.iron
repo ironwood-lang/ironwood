@@ -4,5 +4,5 @@ package org.ironwood.javabridge.basics;
 // The bridge generates a Java interface that the Java application implements.
 public interface CounterListener {
 
-    void onChanged(int value);
+    public void onChanged(int value);
 }
