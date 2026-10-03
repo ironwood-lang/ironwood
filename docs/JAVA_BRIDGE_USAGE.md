@@ -10,8 +10,9 @@ permanent concrete objects, enums, custom exception snapshots and bounded
 synchronous Java listeners. Consumers call
 generated Java classes and catch mapped Java exceptions using ordinary dependency
 loading. General object inheritance, object/multidimensional arrays, callback shapes outside the proved
-subsets and optional TLS dependencies
-remain rejected at their pending implementation boundaries.
+subsets and optional TLS dependencies are not supported; the producer rejects them at compile
+time, and the [implementation plan](JAVA_BRIDGE_PLAN.md#5-export-discovery-and-java-api-fidelity)
+records them as deferred work (D246).
 P7d1 admits read-only, factory-produced final reference-generic facades under
 D236. P7d2 adds construction/mutation and inputs when every variable has one
 exported final facade bound under D237. Generic methods remain rejected.
@@ -32,8 +33,8 @@ their pinned compiler runtimes. Windows, musl and 32-bit hosts are unsupported.
 One host build contains one target; combine matched host jars using the assembly
 step below. The [distribution candidate and three-target evidence](JAVA_BRIDGE_P6_EVIDENCE.md)
 are recorded, including physical Linux x86-64 execution under D213. Final
-OrderBook numerical acceptance is recorded in D225. New P5 callback measurements
-have their own [three-target qualification and measurement report](JAVA_BRIDGE_P5_EVIDENCE.md).
+OrderBook numerical acceptance is recorded in D225. The P5 callback measurements, accepted
+in D246, have their own [three-target qualification and measurement report](JAVA_BRIDGE_P5_EVIDENCE.md).
 Rosetta observations remain separate functional/static evidence.
 JNI is the default transport under D238. D241 adds producer-selected
 [critical calls](#critical-calls) for proved object entries, with JNI kept as
@@ -403,7 +404,7 @@ See the [accepted contract](JAVA_BRIDGE_BUFFER_DESIGN.md),
 and [three-target qualification and Linux measurements](JAVA_BRIDGE_BUFFER_EVIDENCE.md).
 Warmed views allocate no Java/native objects and copy no payload. The report
 records useful read/update improvements over copied arrays and the remaining
-overlapping-write gap; numerical acceptance remains maintainer review.
+overlapping-write gap; D246 accepts these recorded results.
 
 Permanent-object admission proves that exposed native storage cannot be reclaimed
 within the complete linked world. These facades have no generated `free()` or

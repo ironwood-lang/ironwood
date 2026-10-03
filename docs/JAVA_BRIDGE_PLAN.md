@@ -17,13 +17,13 @@ recorded numerical gap remains. D231's compiler-proved automatic
 callback batching is implemented and qualified; see the [optimization report](JAVA_BRIDGE_CALLBACK_OPTIMIZATION.md)
 for its narrow proof boundary, measured results and remaining numerical gap.
 P7b-P7f have a [concrete planning breakdown](#p7-submilestones-and-api-boundaries-d232).
-P7b implementation and three-target qualification are complete; numerical acceptance
-remains maintainer review. See the [array evidence](JAVA_BRIDGE_ARRAY_EVIDENCE.md)
+P7b implementation and three-target qualification are complete; D246 accepts the
+recorded measurements. See the [array evidence](JAVA_BRIDGE_ARRAY_EVIDENCE.md)
 and [progress log](JAVA_BRIDGE_ARRAY_PROGRESS.md). P7c0's
 [API/lifetime design](JAVA_BRIDGE_BUFFER_DESIGN.md) is accepted; P7c1 is
 implemented and qualified on all three targets; see the
-[buffer evidence and measurements](JAVA_BRIDGE_BUFFER_EVIDENCE.md). Numerical
-acceptance remains maintainer review. P7d0 foundations and P7d1 read-only generic
+[buffer evidence and measurements](JAVA_BRIDGE_BUFFER_EVIDENCE.md). D246 accepts
+the recorded measurements. P7d0 foundations and P7d1 read-only generic
 facades are implemented and qualified on all three targets under D235/D236; see the
 [generic progress/evidence log](JAVA_BRIDGE_GENERIC_PROGRESS.md).
 P7d2 final-bounded construction/mutation is implemented and qualified on all three
@@ -34,7 +34,7 @@ outcome. P7e1/P7e2 remain deliberately unimplemented. D241 later adds
 producer-selected [critical calls](JAVA_BRIDGE_USAGE.md#critical-calls) with its
 own boundary, replacing those candidates; JNI stays the default.
 [P7f combined qualification](JAVA_BRIDGE_P7_QUALIFICATION.md) is complete on all
-three targets; numerical acceptance of the extension measurements remains review.
+three targets; D246 accepts the extension measurements.
 Release work belongs to the maintainer,
 outside this implementation task.
 JDK 21, 22 and 23 are supported producer and consumer environments under D239,
@@ -1486,7 +1486,7 @@ or weakening a phase's exit criteria. A submilestone is not a separate release.
 | P4: current OrderBook | Apply P3's non-reclamation proof to the dedicated engine closure; generate its actual API including nested enums and pooled orders; run the paired workload and section 11's P4 allocation acceptance cases. | `createLimit`, `cancel` and `reduceTo` export successfully under the proved permanent-storage contract; consumer imports actual classes without glue; correctness matches; D207 capacity-exhaustion controls remain producer exceptions, not bridge refusals; warmed scalar/cache-hit loops have zero native and Java allocations with strongly held facades, and weak-cache recreation meets the separate miss/collection criteria. No liveness bookkeeping is added to permanent scalar calls. Retention/cross-owner argument tests use the separate reclaimable fixture. Timing acceptance is deferred to P6. |
 | P6: distribution and final release readiness | Multi-target assembly, final classloader/module qualification, producer Maven/Gradle conventions, sources/Javadoc, license/source payloads, deployment diagnostics, final performance measurements. | Before starting, D209's product decision and any revised guard/tests/matrix are recorded. Clean consumer machines need only supported Java and dependency; all nine pinned Temurin/target cells below pass their focused checks on matching hardware under D205, including diagnostic and flag-free launches; the separate Java 24/25 policy checks pass (D245); package content reproducible and reviewed; D210 macOS signature/load checks pass on final payloads; final numerical performance acceptance recorded. |
 | P5: bounded callbacks and Java exception propagation, implemented and qualified | Typed foreign calls/proxies, conservative effects, retained listener lifecycle, nested invocation contexts and callback-originated Java throwable propagation. Reuse P2/P3 native-to-Java translation. | Listener works as a Java interface; reentrancy, retained arguments and callback-triggered free tested; unchanged callback throwables preserve Java identity through nested calls, with carrier cleanup on catch/replace/retain paths; neither runtime unwinds across the boundary. D206 string-bearing callbacks allocate, reenter and throw without critical-region violations or leaked outer/nested buffers. |
-| P7: measured optimization and API expansion | D231 compiler-proved automatic callback batching, D233 copied primitive arrays and D234 bounded byte views are implemented and qualified. P7d0-P7d2 bounded reference generics and P7e0's isolated transport experiment are complete; D238 retains JNI, P7e1/P7e2 remain unimplemented, and P7f combined qualification is complete; new numerical acceptance remains review. | Each extension has a compatibility/proof contract, focused tests, allocation evidence, and machine-code/benchmark justification. |
+| P7: measured optimization and API expansion | D231 compiler-proved automatic callback batching, D233 copied primitive arrays and D234 bounded byte views are implemented and qualified. P7d0-P7d2 bounded reference generics and P7e0's isolated transport experiment are complete; D238 retains JNI, P7e1/P7e2 remain unimplemented, and P7f combined qualification is complete; D246 accepts the recorded measurements. | Each extension has a compatibility/proof contract, focused tests, allocation evidence, and machine-code/benchmark justification. |
 
 P2 is a usable scalar preview, not completion of the requested object feature.
 The initial object implementation followed P0 -> P1 -> P2 -> P3 -> P4 -> P6.
@@ -1514,8 +1514,8 @@ part of using the API.
 | Submilestone | Deliverable | Status / dependency | Objective exit |
 | --- | --- | --- | --- |
 | P7a: automatic callback batching | D231's proved pure counted loops, preserving every Java listener call and ordinary-JNI fallback. | Implemented and qualified at `bd0711b4` with stack runner `e5c0df7a`. Further numerical tuning deferred by the maintainer. | Existing proof, allocation, reentry, failure and platform evidence in the [optimization report](JAVA_BRIDGE_CALLBACK_OPTIMIZATION.md); no claim of matching pure Java. |
-| P7b: primitive array values | Ordinary one-dimensional primitive array parameters and bounded result cases, with explicit alias, mutation and cleanup proofs. | Implemented and qualified on all three targets; [evidence and measurements](JAVA_BRIDGE_ARRAY_EVIDENCE.md). Numerical acceptance remains review. | P7b1 and P7b2 below pass source/class/archive parity, positive/negative proof cases and generated Java consumers. No unsupported array shape is admitted. |
-| P7c: bounded zero-copy buffers | A distinct call-scoped byte-view contract and reusable storage, without public native addresses or unbounded views. | P7c0 [API/lifetime design](JAVA_BRIDGE_BUFFER_DESIGN.md) accepted under D234; P7c1 implemented and qualified on all three targets in the [buffer evidence](JAVA_BRIDGE_BUFFER_EVIDENCE.md). Numerical acceptance remains review. | Storage cannot disappear during access, no view escapes, bounds and overlapping ranges are correct, exceptional cleanup passes, and the zero-copy path demonstrably copies no payload. |
+| P7b: primitive array values | Ordinary one-dimensional primitive array parameters and bounded result cases, with explicit alias, mutation and cleanup proofs. | Implemented and qualified on all three targets; [evidence and measurements](JAVA_BRIDGE_ARRAY_EVIDENCE.md). D246 accepts the recorded measurements. | P7b1 and P7b2 below pass source/class/archive parity, positive/negative proof cases and generated Java consumers. No unsupported array shape is admitted. |
+| P7c: bounded zero-copy buffers | A distinct call-scoped byte-view contract and reusable storage, without public native addresses or unbounded views. | P7c0 [API/lifetime design](JAVA_BRIDGE_BUFFER_DESIGN.md) accepted under D234; P7c1 implemented and qualified on all three targets in the [buffer evidence](JAVA_BRIDGE_BUFFER_EVIDENCE.md). D246 accepts the recorded measurements. | Storage cannot disappear during access, no view escapes, bounds and overlapping ranges are correct, exceptional cleanup passes, and the zero-copy path demonstrably copies no payload. |
 | P7d: bounded reference generics | Java-shaped generic facades for a finite, enforceable native type domain. | P7d0 exact metadata, P7d1 read-only factory products and P7d2 final-bounded construction/mutation implemented under D235-D237; [verification log](JAVA_BRIDGE_GENERIC_PROGRESS.md). | Every Java-valid use of the emitted declaration is supported within its bounds, with preserved identity/ownership and no erased-signature loophole. |
 | P7e: optional FFM transport | Evaluation closed through D238's accepted keep-JNI outcome after the [three-target experiment](JAVA_BRIDGE_FFM_EXPERIMENT.md). P7e1/P7e2 remain deliberately unimplemented. | JNI only; no optional FFM artifact or deployment policy is selected. | A qualified, measured improvement with unchanged semantics and explicit deployment policy, or an evidence-backed decision to retain JNI. Research alone does not count as an implemented FFM backend. |
 | P7f: combined qualification and documentation | Integrate the enabled subsets, package matching artifacts and update user-facing support boundaries. | Follows the implemented P7b-P7e subsets and their explicit gate outcomes. | Applicable pinned JVM/target cells, packaging, regression, allocation and benchmark checks pass for the final bytes; remaining exclusions and numerical review are recorded. |
@@ -1590,8 +1590,8 @@ D234 records JVM-managed, non-closeable storage and the shared
 transport are implemented and qualified on all three targets. The
 [buffer evidence](JAVA_BRIDGE_BUFFER_EVIDENCE.md) records functional, allocation,
 machine-code and Linux timing results, including the remaining overlap gap.
-The useful zero-copy advantage gate is demonstrated; numerical acceptance
-remains maintainer review. The [buffer log](JAVA_BRIDGE_BUFFER_PROGRESS.md)
+The useful zero-copy advantage gate is demonstrated; D246 accepts the
+recorded results. The [buffer log](JAVA_BRIDGE_BUFFER_PROGRESS.md)
 records implementation checkpoints.
 
 **P7c0 deliverable:** a small reviewed public API and ownership table before

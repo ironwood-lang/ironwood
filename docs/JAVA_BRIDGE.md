@@ -2,11 +2,11 @@
 
 # Native Ironwood for Java
 
-> **Implementation status, 2026-09-29:** The Java Bridge producer is implemented
+> **Implementation status, 2026-10-03:** The Java Bridge producer is implemented
 > for Java 21-25 on macOS ARM64, Linux ARM64 and Linux x86-64. P5's bounded
 > synchronous callbacks, including retained listeners, are implemented and
-> qualified on all three targets. Callback numerical acceptance remains
-> maintainer review; see the [measurements and evidence](JAVA_BRIDGE_P5_EVIDENCE.md).
+> qualified on all three targets. D246 accepts the recorded callback
+> measurements; see the [measurements and evidence](JAVA_BRIDGE_P5_EVIDENCE.md).
 > Compiler-proved automatic callback batching is implemented under D231.
 > P7b copied primitive arrays are implemented and qualified on all three targets;
 > see the [array evidence and measurements](JAVA_BRIDGE_ARRAY_EVIDENCE.md). P7c1 bounded
@@ -20,8 +20,8 @@
 > [JNI/FFM experiment](JAVA_BRIDGE_FFM_EXPERIMENT.md) is complete on all three
 > targets. D238 accepts JNI only and closes P7e through its keep-JNI outcome;
 > P7e1/P7e2 remain deliberately unimplemented. [P7f qualification](JAVA_BRIDGE_P7_QUALIFICATION.md)
-> is complete on all three targets. New extension numerical acceptance remains
-> maintainer review. D241 adds producer-selected
+> is complete on all three targets. D246 accepts the recorded extension
+> measurements. D241 adds producer-selected
 > [critical calls](JAVA_BRIDGE_USAGE.md#critical-calls) for proved object entries
 > and D242 tunes portable x86-64 images; see the
 > [2026-10-02 measurements](JAVA_BRIDGE_CRITICAL_CALLS.md).
