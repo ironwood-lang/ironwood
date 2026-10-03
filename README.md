@@ -287,6 +287,10 @@ clients through an optional OpenSSL dependency and includes the
 
 See the [TCP client/server guide](docs/SIMPLE_TCP_ECHO.md) for more details and a simple example.
 
+## Transparent Java Bridge
+
+Ironwood native libraries can be called from Java through the Java Bridge. Compile the Ironwood classes as usual into machine code, then run `ironwoodc --java-bridge` on them: it produces a jar for the current platform that contains the native library and Java classes with the same API, and those classes load the native code themselves. A Java program puts the jar on its classpath and calls the classes like any other Java library, with no JNI code to write; it can also pass listeners that the native code calls back. The [step-by-step example](docs/JAVA_BRIDGE_EXAMPLE.md) builds a small counter library and calls it from Java.
+
 ## Performance Benchmark
 
 Equivalent single-threaded OrderBook implementations on Linux. Throughput
@@ -312,10 +316,6 @@ Like JavaDocs, Ironwood has IronDocs, which generates documentation in the Markd
 ## Packaging Libraries
 
 You can package compiled Ironwood classes into one .ironjar file. This is useful for distributing a library or reusing it in another Ironwood project. You can <a href="docs/IRONJAR.md">click here</a> for more info.
-
-## Transparent Java Bridge
-
-Ironwood native libraries can be called from Java through the Java Bridge. Compile the Ironwood classes as usual into machine code, then run `ironwoodc --java-bridge` on them: it produces a jar for the current platform that contains the native library and Java classes with the same API, and those classes load the native code themselves. A Java program puts the jar on its classpath and calls the classes like any other Java library, with no JNI code to write; it can also pass listeners that the native code calls back. The [step-by-step example](docs/JAVA_BRIDGE_EXAMPLE.md) builds a small counter library and calls it from Java.
 
 ## Differences from Java
 
