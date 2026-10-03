@@ -1,0 +1,318 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler;
+
+import ironwood.compiler.bridge.BridgeCallableId;
+import ironwood.compiler.bridge.BridgeExportSurface;
+import ironwood.compiler.bridge.BridgeListenerProxies;
+import ironwood.compiler.bridge.BridgeListenerProxyEntries;
+import ironwood.compiler.bridge.BridgeListenerSlotEntries;
+import ironwood.compiler.bridge.BridgeCallbackNativeSources;
+import ironwood.compiler.bridge.BridgeCallbackStringEntries;
+import ironwood.compiler.semantic.BridgeCallbackContextLowering;
+import ironwood.compiler.bridge.BridgeRootSet;
+import ironwood.compiler.ir.*;
+import ironwood.compiler.semantic.BridgeCallbackReachability;
+import ironwood.compiler.source.SourceFile;
+
+import java.io.ByteArrayOutputStream;
+import java.io.PrintStream;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Comparator;
+import java.util.List;
+
+final class BridgeListenerProxyTests {
+    static final String NAME = "Java Bridge listener proxies participate in mandatory source safety and artifact reconstruction";
+    private static final String SOURCE = """
+            package listenerfixture;
+            public interface Listener { void onResult(long sequence, long value); }
+            final class Processor {
+                private Listener listener;
+                private Listener other;
+                private Object object;
+                private Processor child;
+                private static Listener saved;
+                private static String savedText;
+                public Processor() {}
+                public void process(Listener listener, long sequence, long value) { listener.onResult(sequence, value); }
+                public void register(Listener value) { assign(value); }
+                private void assign(Listener value) { listener = value; }
+                public void clear() { listener = null; }
+                public void registerThenThrow(Listener value) { listener = value; throw new IllegalStateException("stored"); }
+                public void transfer() { other = listener; }
+                public void publish(Listener value) { saved = value; }
+                public void array(Listener[] values, Listener value) { values[0] = value; }
+                public void erased(Object value) { object = value; }
+                public void child(Listener value) { child.listener = value; }
+                public void callbackStore(Listener value) { value.onResult(1L, 2L); listener = value; }
+                public static long text(Listener listener, String value) {
+                    listener.onResult(1L, 2L); return value == null ? 0L : (long)value.length();
+                }
+                public static long textLeak(Listener listener, String value) {
+                    savedText = value; listener.onResult(1L, 2L); return 1L;
+                }
+            }
+            """;
+
+    private BridgeListenerProxyTests() {}
+
+    static void proofs() throws Exception {
+        for (var mode : UnfreedMode.values()) {
+            var sources = List.of(SourceFile.of("test/Listener.iron", SOURCE));
+            var pipeline = new CompilerPipeline(mode);
+            var original = pipeline.analyzeForBridge(sources);
+            check(original.valid(), original.diagnostics().toString());
+            var proxies = BridgeListenerProxies.discover(original, List.of("listenerfixture"));
+            check(proxies.proxies().size() == 1, "listener selection");
+            var artifact = pipeline.analyzeForBridge(sources, proxies);
+            check(artifact.valid(), artifact.diagnostics().toString());
+            slotEntries(artifact, proxies);
+            stringEntries(artifact, proxies);
+            var ownership = BridgeListenerProxyEntries.create(artifact, proxies);
+            var callbacks = BridgeCallbackNativeSources.generate(artifact, proxies);
+            check(callbacks.methods().size() == 1 && callbacks.methods().getFirst().descriptor().equals("(JJ)V")
+                    && callbacks.source().contains("CallVoidMethod") && callbacks.source().contains("ExceptionCheck"),
+                    "generated void callback lost JNI descriptor or exception containment");
+            check(ownership.operations().size() == 1 && ownership.matches(artifact) && !ownership.matches(original),
+                    "proxy ownership operations are not tied to their final artifact");
+            var changed = new java.util.ArrayList<>(sources);
+            changed.add(SourceFile.of("Extra.iron", "final class Extra {}"));
+            changed.addAll(proxies.sources());
+            var unbound = pipeline.analyzeForBridge(changed);
+            check(unbound.valid(), unbound.diagnostics().toString());
+            try {
+                BridgeListenerProxyEntries.create(unbound, proxies);
+                throw new AssertionError("changed source inventory acquired proxy ownership");
+            } catch (IllegalArgumentException expected) {
+                check(expected.getMessage().contains("inventory"), expected.toString());
+            }
+            var program = artifact.program().orElseThrow();
+            var proxy = proxies.proxies().getFirst();
+            var method = program.functions().stream().filter(function -> function.ownerClass().equals(proxy.binaryName())
+                    && function.sourceName().equals("onResult")).findFirst().orElseThrow();
+            check(method.blocks().getFirst().instructions().get(0) instanceof IrFieldLoadInstruction,
+                    "Java handle hidden from typed field observers");
+            check(method.blocks().getFirst().instructions().get(1) instanceof IrForeignCallInstruction,
+                    "proxy source stub survived final lowering");
+            var callback = (IrForeignCallInstruction) method.blocks().getFirst().instructions().get(1);
+            check(callback.arguments().size() == 3 && callback.arguments().stream().allMatch(value -> value.type().equals(IrType.I64)),
+                    "primitive callback exposes a native receiver reference");
+            var process = program.functions().stream().filter(function -> function.sourceName().equals("process")).findFirst().orElseThrow();
+            var plan = BridgeCallbackReachability.analyze(program);
+            check(plan.entries(BridgeRootSet.resolve(program, List.of(BridgeCallableId.of(process))))
+                    .get(BridgeCallableId.of(process)).foreign(), "generated proxy missing from native dispatch closure");
+            check(artifact.bridgeConstructionFacts().orElseThrow().matches(program), "facts do not match proxy-bearing program");
+            check(artifact.bridgeConstructionFacts().orElseThrow().borrowsInput(BridgeCallableId.of(method), 0),
+                    "private proxy receiver was published without crossing the foreign call");
+            check(artifact.bridgeConstructionFacts().orElseThrow().borrowsInput(BridgeCallableId.of(process), 1),
+                    "primitive-only interface dispatch falsely published its listener");
+            check(BridgeExportSurface.objectValues(artifact, List.of("listenerfixture")).surface().isEmpty(),
+                    "proxy synthesis alone enabled incomplete JNI export");
+            check(!pipeline.analyzeForBridge(List.of(SourceFile.of("test/Listener.iron", SOURCE.replace("long value", "int value"))), proxies).valid(),
+                    "stale source/proxy pairing accepted");
+            String collision = SOURCE + "\nfinal class " + proxy.binaryName().substring(proxy.binaryName().lastIndexOf('.') + 1) + " {}";
+            var collided = pipeline.analyzeForBridge(List.of(SourceFile.of("test/Listener.iron", collision)));
+            check(collided.valid(), collided.diagnostics().toString());
+            try {
+                BridgeListenerProxies.discover(collided, List.of("listenerfixture"));
+                throw new AssertionError("proxy name collision accepted");
+            } catch (IllegalArgumentException expected) {
+                check(expected.getMessage().contains("collision"), expected.toString());
+            }
+            sourceSafety(mode);
+            var values = List.of(SourceFile.of("Primitives.iron", PRIMITIVES));
+            var input = pipeline.analyzeForBridge(values);
+            var valueProxies = BridgeListenerProxies.discover(input, List.of("primitives"));
+            var lowered = pipeline.analyzeForBridge(values, valueProxies);
+            check(lowered.valid(), lowered.diagnostics().toString());
+            var bodies = BridgeCallbackNativeSources.generate(lowered, valueProxies);
+            check(bodies.methods().size() == 10 && bodies.methods().stream().anyMatch(value ->
+                    value.descriptor().equals("(ZZBSCIJFD)V")), "primitive JNI descriptors");
+            for (var function : lowered.program().orElseThrow().functions()) {
+                if (function.ownerClass().equals(valueProxies.proxies().getFirst().binaryName())
+                        && function.kind() == IrCallableKind.METHOD) {
+                    check(lowered.bridgeConstructionFacts().orElseThrow().borrowsInput(BridgeCallableId.of(function), 0),
+                            "primitive normalization lost receiver confinement: " + function.sourceName());
+                }
+            }
+            var references = List.of(SourceFile.of("Reference.iron",
+                    "package refs; public interface Reference { void call(Object value); }"));
+            var referenceProxies = BridgeListenerProxies.discover(pipeline.analyzeForBridge(references), List.of("refs"));
+            try {
+                BridgeCallbackNativeSources.generate(pipeline.analyzeForBridge(references, referenceProxies), referenceProxies);
+                throw new AssertionError("reference transport admitted without lifetime proof");
+            } catch (IllegalArgumentException expected) { check(expected.getMessage().contains("primitive"), expected.toString()); }
+        }
+        artifacts(SOURCE, "listenerfixture", "Listener", BridgeListenerProxyTests::proxyFunctions);
+        artifacts(PRIMITIVES, "primitives", "Primitives", BridgeListenerProxyTests::primitiveFunctions);
+    }
+
+    static final String PRIMITIVES = """
+            package primitives;
+            public interface Primitives {
+                boolean bool(boolean a, boolean b);
+                byte octet(byte value);
+                short small(short value);
+                char character(char value);
+                int integer(int value);
+                long wide(long value);
+                long empty();
+                float single(float value);
+                double real(double value);
+                void mixed(boolean a, boolean b, byte c, short d, char e, int f, long g, float h, double i);
+            }
+            """;
+
+    private static void sourceSafety(UnfreedMode mode) {
+        for (var source : List.of("""
+                package listenerfixture;
+                public interface Listener { void observe(Item value); }
+                final class Item {}
+                final class Local implements Listener { @Override public void observe(Item value) {} }
+                final class Client {
+                    static void run(Listener listener) { Item value = new Item(); listener.observe(value); free value; }
+                }
+                """)) {
+            var sources = List.of(SourceFile.of("test/Listener.iron", source));
+            var pipeline = new CompilerPipeline(mode);
+            var nativeOnly = pipeline.analyzeForBridge(sources);
+            check(nativeOnly.valid(), "native control failed: " + nativeOnly.diagnostics());
+            var proxies = BridgeListenerProxies.discover(nativeOnly, List.of("listenerfixture"));
+            var foreign = pipeline.analyzeForBridge(sources, proxies);
+            check(!foreign.valid(), "foreign callback acquired native-only safety proof in " + mode);
+            check(foreign.diagnostics().stream().anyMatch(diagnostic -> diagnostic.message().contains("cannot free")),
+                    "missing callback safety diagnostic: " + foreign.diagnostics());
+        }
+    }
+
+    private static List<IrFunction> stringEntries(CompilationArtifact artifact, BridgeListenerProxies proxies) {
+        var program = artifact.program().orElseThrow();
+        List<IrFunction> result = List.of();
+        for (String name : List.of("text", "textLeak")) {
+            var roots = BridgeRootSet.resolve(program, program.functions().stream()
+                    .filter(function -> function.ownerClass().equals("listenerfixture.Processor") && function.sourceName().equals(name))
+                    .map(BridgeCallableId::of).toList());
+            var context = BridgeCallbackContextLowering.lower(program, roots, BridgeCallbackReachability.analyze(program));
+            if (name.equals("textLeak")) {
+                try {
+                    BridgeCallbackStringEntries.create(artifact, proxies, roots, context);
+                    throw new AssertionError("published String input acquired callback cleanup");
+                } catch (IllegalArgumentException expected) { check(expected.getMessage().contains("cleanup"), expected.toString()); }
+            } else {
+                result = BridgeCallbackStringEntries.create(artifact, proxies, roots, context);
+                check(result.size() == 1, "missing callback String entry");
+                try {
+                    BridgeCallbackStringEntries.create(artifact, proxies, roots,
+                            new BridgeCallbackContextLowering.Result(context.program(), java.util.Map.of(), context.specializations()));
+                    throw new AssertionError("mismatched String callback context accepted");
+                } catch (IllegalArgumentException expected) { check(expected.getMessage().contains("context"), expected.toString()); }
+            }
+        }
+        return result;
+    }
+
+    private static List<IrFunction> slotEntries(CompilationArtifact artifact, BridgeListenerProxies proxies) {
+        var program = artifact.program().orElseThrow();
+        var roots = BridgeRootSet.resolve(program, program.functions().stream()
+                .filter(function -> function.ownerClass().equals("listenerfixture.Processor")
+                        && List.of("register", "clear", "registerThenThrow").contains(function.sourceName()))
+                .map(BridgeCallableId::of).toList());
+        var slots = BridgeListenerSlotEntries.create(artifact, proxies, roots);
+        check(slots.matches(artifact, roots) && slots.entries().size() == 3, "listener slot binding");
+        for (var entry : slots.entries()) {
+            check(entry.retention().slots().size() == 1, "missing listener slot");
+            var slot = entry.retention().slots().getFirst();
+            check(slot.holderInput() == 0 && slot.field().name().equals("listener"), "wrong holder attribution");
+            check(entry.callable().name().equals("clear") ? slot.mayClear() && slot.valueInputs().isEmpty()
+                    : slot.valueInputs().equals(java.util.Set.of(1)), "wrong input attribution");
+            for (String prefix : List.of("success.slots", "failure.before.slots")) {
+                check(entry.function().blocks().stream().filter(block -> block.label().startsWith(prefix))
+                        .flatMap(block -> block.instructions().stream()).anyMatch(IrBridgeSlotStoreInstruction.class::isInstance),
+                        "missing protected listener snapshot: " + prefix);
+            }
+        }
+        for (String name : List.of("transfer", "publish", "array", "erased", "child", "callbackStore")) {
+            var rejected = BridgeRootSet.resolve(program, program.functions().stream()
+                    .filter(function -> function.ownerClass().equals("listenerfixture.Processor") && function.sourceName().equals(name))
+                    .map(BridgeCallableId::of).toList());
+            try {
+                BridgeListenerSlotEntries.create(artifact, proxies, rejected);
+                throw new AssertionError("unsafe listener mutation accepted: " + name);
+            } catch (IllegalArgumentException expected) { check(!expected.getMessage().isEmpty(), expected.toString()); }
+            check(!slots.matches(artifact, rejected), "stale listener slot roots accepted");
+        }
+        return slots.entries().stream().map(BridgeListenerSlotEntries.Entry::function).toList();
+    }
+
+    private static void artifacts(String text, String packageName, String rootType,
+            java.util.function.Function<List<SourceFile>, List<IrFunction>> functions) throws Exception {
+        Path directory = Files.createTempDirectory("bridge listener proxies ");
+        try {
+            Path source = directory.resolve(rootType + ".iron");
+            Files.writeString(source, text);
+            var expected = functions.apply(List.of(SourceFile.read(source)));
+            Path classes = directory.resolve("classes");
+            var output = new ByteArrayOutputStream();
+            var stream = new PrintStream(output, true, StandardCharsets.UTF_8);
+            check(Main.run(new String[]{source.toString(), "-d", classes.toString()}, stream, stream) == 0,
+                    output.toString(StandardCharsets.UTF_8));
+            Path archive = directory.resolve("listeners.ironjar");
+            check(IronJarMain.run(new String[]{"--create", "--file", archive.toString(), classes.toString()}, stream, stream) == 0,
+                    output.toString(StandardCharsets.UTF_8));
+            Files.delete(source);
+            for (Path container : List.of(classes, classes.resolve(packageName + "/" + rootType + ".ironclass"), archive)) {
+                var loaded = new SourceSetLoader(List.of(directory.resolve("missing")), List.of(container))
+                        .loadBridge(List.of(), List.of(packageName));
+                check(loaded.diagnostics().isEmpty(), loaded.diagnostics().toString());
+                check(functions.apply(loaded.sources()).equals(expected), "proxy IR differs after reconstruction: " + container);
+            }
+        } finally {
+            try (var paths = Files.walk(directory)) {
+                for (var path : paths.sorted(Comparator.reverseOrder()).toList()) Files.delete(path);
+            }
+        }
+    }
+
+    private static List<IrFunction> primitiveFunctions(List<SourceFile> sources) {
+        List<IrFunction> expected = null;
+        for (var mode : UnfreedMode.values()) {
+            var pipeline = new CompilerPipeline(mode);
+            var original = pipeline.analyzeForBridge(sources);
+            check(original.valid(), original.diagnostics().toString());
+            var proxies = BridgeListenerProxies.discover(original, List.of("primitives"));
+            var artifact = pipeline.analyzeForBridge(sources, proxies);
+            check(artifact.valid(), artifact.diagnostics().toString());
+            BridgeCallbackNativeSources.generate(artifact, proxies);
+            var functions = artifact.program().orElseThrow().functions().stream()
+                    .filter(function -> function.ownerClass().equals(proxies.proxies().getFirst().binaryName())).toList();
+            if (expected != null) check(functions.equals(expected), "primitive proxy differs between unfreed modes");
+            expected = functions;
+        }
+        return expected;
+    }
+
+    private static List<IrFunction> proxyFunctions(List<SourceFile> sources) {
+        var pipeline = new CompilerPipeline(UnfreedMode.ERROR);
+        var original = pipeline.analyzeForBridge(sources);
+        check(original.valid(), original.diagnostics().toString());
+        var proxies = BridgeListenerProxies.discover(original, List.of("listenerfixture"));
+        var artifact = pipeline.analyzeForBridge(sources, proxies);
+        check(artifact.valid(), artifact.diagnostics().toString());
+        var process = artifact.program().orElseThrow().functions().stream()
+                .filter(function -> function.sourceName().equals("process")).findFirst().orElseThrow();
+        check(artifact.bridgeConstructionFacts().orElseThrow().borrowsInput(BridgeCallableId.of(process), 1),
+                "artifact reconstruction lost typed receiver confinement");
+        var functions = new java.util.ArrayList<>(artifact.program().orElseThrow().functions().stream().filter(function ->
+                proxies.proxies().stream().anyMatch(proxy -> proxy.binaryName().equals(function.ownerClass()))).toList());
+        functions.addAll(BridgeListenerProxyEntries.create(artifact, proxies).functions());
+        functions.addAll(slotEntries(artifact, proxies));
+        functions.addAll(stringEntries(artifact, proxies));
+        return List.copyOf(functions);
+    }
+
+    private static void check(boolean condition, String message) {
+        if (!condition) throw new AssertionError(message);
+    }
+}

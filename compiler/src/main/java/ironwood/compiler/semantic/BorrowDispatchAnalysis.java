@@ -132,6 +132,7 @@ final class BorrowDispatchAnalysis {
     private final RejectedFreeEvidence.Budget evidenceBudget;
     private int fallbackUnits;
     private final List<Operation> operations = new ArrayList<>();
+    private final Set<String> foreignBodies = new LinkedHashSet<>();
     private final boolean hasEntryPoint;
     private boolean changed;
 
@@ -159,6 +160,9 @@ final class BorrowDispatchAnalysis {
                 }
             }
         }
+        operations.stream().filter(operation -> operation.instruction()
+                instanceof ironwood.compiler.ir.IrForeignCallInstruction)
+                .forEach(operation -> foreignBodies.add(operation.function().linkageName()));
 
         // Without a selected entry point, library arguments are unknown. In a
         // closed-world executable, ordinary reference arguments originate in IR
@@ -275,8 +279,29 @@ final class BorrowDispatchAnalysis {
 
     java.util.Collection<IrFunction> functions() { return functions.values(); }
 
+    boolean hasForeignBody(String linkage) { return foreignBodies.contains(linkage); }
+
+    boolean foreignReceiverConfined(String linkage) {
+        var function = functions.get(linkage);
+        return function != null && BridgeForeignReceiverConfinement.proved(function);
+    }
+
     private void propagate(IrFunction function, IrInstruction instruction) {
         switch (instruction) {
+            case ironwood.compiler.ir.IrBridgeBatchAppendInstruction ignored ->
+                    throw new IllegalArgumentException("bridge batching must follow source borrow analysis");
+            case ironwood.compiler.ir.IrForeignCallInstruction call ->
+                    call.result().ifPresent(result -> unknownResult(function, result));
+            case ironwood.compiler.ir.IrBridgeFailureSnapshotInstruction ignored ->
+                    throw new IllegalArgumentException("bridge entry lowering must follow source borrow analysis");
+            case ironwood.compiler.ir.IrBridgeStringCopyInstruction ignored ->
+                    throw new IllegalArgumentException("bridge entry lowering must follow source borrow analysis");
+            case ironwood.compiler.ir.IrBridgeArrayCopyInstruction ignored ->
+                    throw new IllegalArgumentException("bridge entry lowering must follow source borrow analysis");
+            case ironwood.compiler.ir.IrBridgeResultStoreInstruction ignored ->
+                    throw new IllegalArgumentException("bridge entry lowering must follow source borrow analysis");
+            case ironwood.compiler.ir.IrBridgeSlotStoreInstruction ignored ->
+                    throw new IllegalArgumentException("bridge entry lowering must follow source borrow analysis");
             case IrAllocateInstruction allocate ->
                     addValue(function, allocate.result(), Set.of(allocate.className()));
             case IrReferenceConversionInstruction conversion -> addValue(function,
@@ -352,6 +377,7 @@ final class BorrowDispatchAnalysis {
             case IrEnsureTypeInitializedInstruction ignored -> { }
             case ironwood.compiler.ir.IrTypeInitializedInstruction ignored -> { }
             case IrObjectHashCodeInstruction ignored -> { }
+            case ironwood.compiler.ir.IrByteViewInstruction ignored -> { }
             case IrStringCharAtInstruction ignored -> { }
             case IrStringEqualsInstruction ignored -> { }
             case IrStringHashCodeInstruction ignored -> { }

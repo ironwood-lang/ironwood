@@ -315,7 +315,7 @@ You can package compiled Ironwood classes into one .ironjar file. This is useful
 
 ## Transparent Java Bridge
 
-Compile Ironwood code to a native library, and call it from a regular Java application as if it were an ordinary Java dependency. Total transparency with no handwritten bridge code, native declarations, or manual library loading will be required. **It is like Java calling Java.** For more details <a href="docs/JAVA_BRIDGE.md">click here</a>.
+Ironwood native libraries can be called from Java through the Java Bridge. Compile the Ironwood classes as usual into machine code, then run `ironwoodc --java-bridge` on them: it produces a jar for the current platform that contains the native library and Java classes with the same API, and those classes load the native code themselves. A Java program puts the jar on its classpath and calls the classes like any other Java library, with no JNI code to write; it can also pass listeners that the native code calls back. The [step-by-step example](docs/JAVA_BRIDGE_EXAMPLE.md) builds a small counter library and calls it from Java.
 
 ## Differences from Java
 

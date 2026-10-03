@@ -781,7 +781,14 @@ Setup downloads Ubuntu 24.04 images and creates both Linux toolchain images from
 `packaging/idk-environment.yml`, including the release's pinned Java and LLVM.
 It also runs `scripts/prepare-tls.py` inside each image to build the pinned
 platform-specific SDK at `/opt/ironwood-tls`. Linux tests explicitly select that
-SDK, never the mounted checkout's macOS SDK. No dependency is downloaded during
+SDK, never the mounted checkout's macOS SDK. Setup then runs
+`scripts/prepare-java-bridge-support.py` with each image's Python to prepare the
+[pinned Java Bridge native support SDK](JAVA_BRIDGE_NATIVE_SUPPORT.md) at
+`workspace/java-bridge/support/<platform>/`, or verifies an existing directory
+against the current pins; Linux test containers select it through
+`IRONWOOD_BRIDGE_SUPPORT_HOME`, and a missing SDK stops a Linux run before any
+test starts. Delete a stale support directory before rerunning `--setup`.
+No dependency is downloaded during
 compiler or test execution; rerun `--setup` when preparation inputs change.
 First-time downloads and setup can take substantially longer than later runs.
 The images are cached locally and their names change when the Dockerfile or
@@ -805,12 +812,12 @@ remain shared, so platform runs are sequential.
 No Git checkout or worktree is created. Run one orchestrator at a time and avoid
 editing source during validation.
 
-### Planned Java Bridge validation hosts
+### Java Bridge validation hosts
 
 The [Java Bridge P0 prerequisites](JAVA_BRIDGE_PLAN.md#p0-host-and-jdk-prerequisites-d205)
-schedule separate pinned Temurin preparation for these Linux images and macOS;
-the current conda OpenJDK selection does not satisfy that matrix. No bridge
-preparation or hardware runner is implemented by this documentation change.
+specify separate pinned Temurin preparation for these Linux images and macOS;
+an arbitrary system JDK does not satisfy that matrix. Use the implemented
+[preparation and qualification runners](../scripts/java-bridge/README.md).
 Under D205/D208, Rosetta may supply P0-1 through P0-8 functional evidence when
 labeled translated; P0-8 also includes compiler-only proofs. P0-9 inspects actual
 target binaries and needs no hardware execution.
@@ -826,6 +833,86 @@ bundle for the final hardware handoff. All x86-64 hardware cases must pass befor
 P6b or release is complete; a known failure is not excused by this deferral.
 These are bridge-specific evidence rules, separate from the networking smoke
 policy above. No paid hardware, hosted development jobs or full suites are added.
+
+P5 callback changes use the focused producer and native transport checks below.
+The [P5 log](JAVA_BRIDGE_P5_PROGRESS.md) records additional proof controls,
+failure injection, pinned-JDK replay and stack/performance evidence. Select only
+the checks affected by a change; this is not permission for an unfiltered suite.
+
+```sh
+./scripts/test.sh \
+  --test 'Java Bridge native carriers preserve catch replacement retained identity and allocation containment' \
+  --test 'Java Bridge paired owner callbacks preserve slots aliases foreign guards and exception identity' \
+  --test 'Java Bridge producer packages retained owner listeners with source class archive parity' \
+  --test 'Java Bridge producer packages proved synchronous listeners with artifact parity'
+```
+
+P7b array changes use the six exact proof/producer/fault tests listed in the
+[array evidence report](JAVA_BRIDGE_ARRAY_EVIDENCE.md#reproduction-and-evidence).
+That report also records the pinned-JDK replays, matching payload identities,
+allocation checks and standalone conversion benchmark. Fault-injected images
+must remain separate from production performance payloads.
+
+D241 critical-call changes use the three focused checks below. They cover closure
+selection, exact declaration and adapter inventories, and a consumer that runs
+every result carrier, failure delivery and each JNI fallback route. Run them with
+each supported JDK selected through `JAVA_HOME` when the generated Java or the
+linking code changes. The [critical-call report](JAVA_BRIDGE_CRITICAL_CALLS.md)
+records the additional existing selections that were run with them.
+
+```sh
+./scripts/test.sh \
+  --test 'Java Bridge critical calls admit only memory-only closures' \
+  --test 'Java Bridge critical calls keep JNI declarations and exact adapter inventories' \
+  --test 'Java Bridge critical calls preserve values failures and JNI fallback'
+```
+
+D245 version-policy changes use the checks below. The first two probe the
+producer and loader predicates on any host. The others launch pinned Temurin
+22-25 consumers from `workspace/java-bridge/jdks/`, so they need macOS ARM64 with
+those launchers installed; on Java 24/25 they assert the exact JEP 472 warning
+of a default launch, silence under the class-path, module-path and manifest
+grants, and clean `--illegal-native-access=deny` failures. Run the three
+critical-call checks above and the object producer check once more with
+`JAVA_HOME` set to a Java 24 and a Java 25 JDK, so the runner's own JDK exercises
+the producer and the consumer grants on those releases.
+
+```sh
+./scripts/test.sh \
+  --test 'Java Bridge JDK tools preserve Java 21 APIs and reject unsupported versions' \
+  --test 'Java Bridge generated loader validates metadata versions and canonical extraction' \
+  --test 'Java Bridge object producer preserves final proofs packaged parity and pending capability refusal' \
+  --test 'Java Bridge root producer preserves packaged input parity and consumer lifetime' \
+  --test 'Java Bridge retaining producer preserves mixed lifetime parity and complete slot commits' \
+  --test 'Java Bridge generated enum jars preserve cold conversion and initializer containment'
+```
+
+D243 loader extraction changes use the two checks below. The first exercises the
+generated `Support` source with fixture bytes on any host: cache path identity,
+write-free reuse, coexisting builds, the shared runtime file and every refusal.
+The second builds real images and launches consumer JVMs against populated
+caches, so it needs the native toolchain and a Java 21-25 `JAVA_HOME`.
+
+```sh
+./scripts/test.sh \
+  --test 'Java Bridge generated loader validates metadata versions and canonical extraction' \
+  --test 'Java Bridge permanent facades reject colliding generations before extraction'
+```
+
+D244 portable x86-64 tuning changes use the checks below. The first asserts the
+triple selection on every host and, on an x86-64 host, disassembles a portable
+`-O3` executable to check merged SSE2 stores without any instruction-set
+extension. The other two link every target machine at `-O0` and `-O3` and keep
+the raw `--emit-llvm` module target-neutral. Run them on both an x86-64 and an
+ARM64 host when the tuning or `TargetMachine` changes, and rerun the OrderBook
+throughput and latency benchmarks on the Linux x86-64 host.
+
+```sh
+./scripts/test.sh \
+  --test 'portable x86-64 tuning merges adjacent stores with baseline SSE2' \
+  --test 'native target layout agrees with configured Clang before optimization' \
+  --test 'mixed-width native layouts survive class and archive links'
+```
 
 ## Test platforms and retry failures
 

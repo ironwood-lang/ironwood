@@ -51,6 +51,9 @@ cp "$IRONWOOD_PROJECT_ROOT/LICENSES/Unicode-15.0.txt" "$IRONWOOD_STAGE_DIR/LICEN
 cp "$IRONWOOD_PROJECT_ROOT/LICENSES/MPL-2.0.txt" "$IRONWOOD_STAGE_DIR/LICENSES/MPL-2.0.txt"
 cp "$IRONWOOD_PROJECT_ROOT/docs/THIRD_PARTY_NOTICES.md" "$IRONWOOD_STAGE_DIR/THIRD_PARTY_NOTICES.md"
 cp "$IRONWOOD_PROJECT_ROOT/docs/COMPILER.md" "$IRONWOOD_STAGE_DIR/docs/COMPILER.md"
+for IRONWOOD_BRIDGE_DOC in JAVA_BRIDGE_USAGE.md JAVA_BRIDGE_JDK_PROGRESS.md JAVA_BRIDGE_JDK_IDENTITIES.json JAVA_BRIDGE_IDK_IDENTITIES.json JAVA_BRIDGE_NATIVE_SUPPORT.md; do
+    cp "$IRONWOOD_PROJECT_ROOT/docs/$IRONWOOD_BRIDGE_DOC" "$IRONWOOD_STAGE_DIR/docs/$IRONWOOD_BRIDGE_DOC"
+done
 cp "$IRONWOOD_PROJECT_ROOT/docs/DECISIONS.md" "$IRONWOOD_STAGE_DIR/docs/DECISIONS.md"
 cp "$IRONWOOD_PROJECT_ROOT/docs/LANGUAGE.md" "$IRONWOOD_STAGE_DIR/docs/LANGUAGE.md"
 cp "$IRONWOOD_PROJECT_ROOT/docs/MEMORY.md" "$IRONWOOD_STAGE_DIR/docs/MEMORY.md"
@@ -77,13 +80,16 @@ cp "$IRONWOOD_PROJECT_ROOT/docs/NETWORKING_M5_VERIFICATION.md" "$IRONWOOD_STAGE_
 cp "$IRONWOOD_PROJECT_ROOT/docs/NETWORKING_M6_VERIFICATION.md" "$IRONWOOD_STAGE_DIR/docs/NETWORKING_M6_VERIFICATION.md"
 mkdir -p "$IRONWOOD_STAGE_DIR/packaging"
 cp "$IRONWOOD_PROJECT_ROOT/packaging/tls-dependencies.properties" "$IRONWOOD_STAGE_DIR/packaging/"
+cp "$IRONWOOD_PROJECT_ROOT/packaging/java-bridge-support.properties" "$IRONWOOD_STAGE_DIR/packaging/"
 cp "$IRONWOOD_PROJECT_ROOT/packaging/idk-environment.yml" "$IRONWOOD_STAGE_DIR/packaging/"
 mkdir -p "$IRONWOOD_STAGE_DIR/scripts"
 cp "$IRONWOOD_PROJECT_ROOT/scripts/prepare-tls.py" "$IRONWOOD_STAGE_DIR/scripts/prepare-tls.py"
+cp "$IRONWOOD_PROJECT_ROOT/scripts/prepare-java-bridge-support.py" "$IRONWOOD_STAGE_DIR/scripts/prepare-java-bridge-support.py"
 cp "$IRONWOOD_PROJECT_ROOT/scripts/test-networking-m6.py" "$IRONWOOD_STAGE_DIR/scripts/test-networking-m6.py"
 mkdir -p "$IRONWOOD_STAGE_DIR/integration-tests/native"
 cp "$IRONWOOD_PROJECT_ROOT/integration-tests/native/tls_interpose.c" "$IRONWOOD_STAGE_DIR/integration-tests/native/tls_interpose.c"
 cp "$IRONWOOD_PROJECT_ROOT/scripts/jvm-options.sh" "$IRONWOOD_STAGE_DIR/scripts/jvm-options.sh"
+cp "$IRONWOOD_PROJECT_ROOT/scripts/jdk.sh" "$IRONWOOD_STAGE_DIR/scripts/jdk.sh"
 cp "$IRONWOOD_PROJECT_ROOT/scripts/GenerateCaseData.java" "$IRONWOOD_STAGE_DIR/scripts/GenerateCaseData.java"
 cp "$IRONWOOD_PROJECT_ROOT/docs/SYSTEM_OUTPUT_SOURCE_REVIEW.md" "$IRONWOOD_STAGE_DIR/docs/SYSTEM_OUTPUT_SOURCE_REVIEW.md"
 cp "$IRONWOOD_PROJECT_ROOT/docs/TESTING.md" "$IRONWOOD_STAGE_DIR/docs/TESTING.md"
@@ -92,7 +98,8 @@ while IFS= read -r IRONWOOD_EXAMPLE_FILE; do
     mkdir -p "$IRONWOOD_STAGE_DIR/examples/$(dirname -- "$IRONWOOD_EXAMPLE_RELATIVE")"
     cp "$IRONWOOD_EXAMPLE_FILE" "$IRONWOOD_STAGE_DIR/examples/$IRONWOOD_EXAMPLE_RELATIVE"
 done < <(find "$IRONWOOD_PROJECT_ROOT/examples" -type f \
-    \( -name '*.iron' -o -name '*.sh' -o -name '*.py' -o -name 'README.md' \) -print)
+    \( -name '*.iron' -o -name '*.java' -o -name '*.sh' -o -name '*.py' \
+        -o -name 'pom.xml' -o -name '*.gradle' -o -name 'README.md' \) -print)
 while IFS= read -r IRONWOOD_PROJECT_FILE; do
     IRONWOOD_PROJECT_RELATIVE=${IRONWOOD_PROJECT_FILE#"$IRONWOOD_PROJECT_ROOT/projects/"}
     mkdir -p "$IRONWOOD_STAGE_DIR/projects/$(dirname -- "$IRONWOOD_PROJECT_RELATIVE")"
@@ -107,5 +114,5 @@ cp "$IRONWOOD_PROJECT_ROOT/stdlib/README.md" "$IRONWOOD_STAGE_DIR/stdlib/README.
 cp -R "$IRONWOOD_PROJECT_ROOT/compiler/build/stdlib" "$IRONWOOD_STAGE_DIR/lib/stdlib"
 
 mkdir -p "$IRONWOOD_DIST_DIR"
-tar -C "$IRONWOOD_DIST_DIR" -czf "$IRONWOOD_DIST_DIR/$IRONWOOD_PACKAGE_NAME.tar.gz" "$IRONWOOD_PACKAGE_NAME"
+COPYFILE_DISABLE=1 tar --no-xattrs -C "$IRONWOOD_DIST_DIR" -czf "$IRONWOOD_DIST_DIR/$IRONWOOD_PACKAGE_NAME.tar.gz" "$IRONWOOD_PACKAGE_NAME"
 echo "packaged $IRONWOOD_DIST_DIR/$IRONWOOD_PACKAGE_NAME.tar.gz"

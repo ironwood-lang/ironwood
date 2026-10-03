@@ -6,8 +6,8 @@ import java.io.IOException;
 import java.util.regex.Pattern;
 
 /** Target specifications from the configured Clang, resolved only at native link. */
-record NativeTarget(String triple, String dataLayout) {
-    static NativeTarget fromLlvm(String llvm) throws IOException {
+public record NativeTarget(String triple, String dataLayout) {
+    public static NativeTarget fromLlvm(String llvm) throws IOException {
         return new NativeTarget(specification(llvm, "triple"), specification(llvm, "datalayout"));
     }
 

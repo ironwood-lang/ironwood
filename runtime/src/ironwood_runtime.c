@@ -6,6 +6,7 @@
 #endif
 
 #include "../include/ironwood_runtime.h"
+#include "../include/ironwood_bridge.h"
 #include "../include/ironwood_case.h"
 
 #include <errno.h>
@@ -26,9 +27,9 @@
 #include <unistd.h>
 
 #if defined(__APPLE__)
+#include <dlfcn.h>
 #include <mach-o/getsect.h>
 #include <mach-o/loader.h>
-extern const struct mach_header_64 _mh_execute_header;
 #elif defined(__linux__)
 extern const uint8_t __start_ironwood_trace[] __attribute__((weak));
 extern const uint8_t __stop_ironwood_trace[] __attribute__((weak));
@@ -62,6 +63,10 @@ struct ironwood_type_info {
     _Bool to_string_returns_owned_fresh;
     _Bool localized_message_returns_owned_fresh;
 };
+
+int32_t ironwood_bridge_type_id(const void *object) {
+    return object == NULL ? -1 : (int32_t) (*(const struct ironwood_type_info *const *) object)->type_id;
+}
 
 /* Compiler validation enforces this base-first Throwable layout.
  * The reserved integer slot owns native metadata; it is never a public handle. */
@@ -102,13 +107,6 @@ struct ironwood_exception_metadata {
     int32_t trace_count;
     struct ironwood_trace_element *trace;
     _Bool trace_truncated;
-};
-
-struct ironwood_string {
-    const struct ironwood_type_info *type;
-    int32_t utf16_length;
-    int32_t utf8_length;
-    uint16_t units[];
 };
 
 struct ironwood_print_stream {
@@ -279,7 +277,7 @@ static struct ironwood_array *try_allocate_array(int32_t length, size_t element_
     return array;
 }
 
-static int32_t utf8_length_of_utf16(const uint16_t *units, int32_t length) {
+static int64_t utf8_byte_count_of_utf16(const uint16_t *units, int32_t length) {
     int64_t bytes = 0;
     for (int32_t index = 0; index < length; index++) {
         uint32_t code_point = units[index];
@@ -296,10 +294,13 @@ static int32_t utf8_length_of_utf16(const uint16_t *units, int32_t length) {
         bytes += code_point <= UINT32_C(0x7F) ? 1
                 : code_point <= UINT32_C(0x7FF) ? 2
                 : code_point <= UINT32_C(0xFFFF) ? 3 : 4;
-        if (bytes > INT32_MAX) {
-            abort();
-        }
     }
+    return bytes;
+}
+
+static int32_t utf8_length_of_utf16(const uint16_t *units, int32_t length) {
+    int64_t bytes = utf8_byte_count_of_utf16(units, length);
+    if (bytes > INT32_MAX) abort();
     return (int32_t) bytes;
 }
 
@@ -2827,6 +2828,30 @@ void *ironwood_string_from_utf8(const void *source, int32_t length,
     return result;
 }
 
+void *ironwood_bridge_copy_string(const uint16_t *characters, int32_t length,
+                                  const void *string_type, void *allocation_failure) {
+    if (length == -1) return NULL;
+    int64_t encoded_length = utf8_byte_count_of_utf16(characters, length);
+    if (encoded_length > INT32_MAX) raise_allocation_failure(allocation_failure);
+    struct ironwood_string *result = allocate_string(length, string_type, allocation_failure);
+    if (length > 0) memcpy(result->units, characters, (size_t) length * sizeof(uint16_t));
+    result->utf8_length = (int32_t) encoded_length;
+    return result;
+}
+
+void *ironwood_bridge_copy_array(struct ironwood_bridge_array_input *input,
+        size_t element_size, uint32_t element_kind, const void *array_type,
+        void *allocation_failure) {
+    if (input->length == -1) return NULL;
+    if (input->converted != NULL) return input->converted;
+    struct ironwood_array *array = ironwood_allocate_array(input->length,
+            element_size, element_kind, array_type, allocation_failure);
+    if (input->length > 0) memcpy(array->data, input->elements,
+            (size_t) input->length * element_size);
+    input->converted = array;
+    return array;
+}
+
 void *ironwood_string_from_chars(const void *characters, int32_t length,
                                  const void *string_type, void *allocation_failure) {
     const struct ironwood_array *array = characters;
@@ -3544,8 +3569,10 @@ void ironwood_trace_register(const struct ironwood_trace_site *sites, int32_t si
     trace_function_count = function_count;
 #if defined(__APPLE__)
     unsigned long section_size = 0;
-    trace_section = getsectiondata(&_mh_execute_header, "__PSEUDO_PROBE", "__probes",
-            &section_size);
+    Dl_info image;
+    trace_section = dladdr(sites, &image) != 0
+            ? getsectiondata((const struct mach_header_64 *) image.dli_fbase,
+                    "__PSEUDO_PROBE", "__probes", &section_size) : NULL;
     trace_section_size = (size_t) section_size;
 #elif defined(__linux__)
     if (__start_ironwood_trace != NULL && __stop_ironwood_trace != NULL
@@ -3630,6 +3657,28 @@ void ironwood_exception_caught(void *object) {
             return;
         }
     }
+}
+
+void ironwood_bridge_snapshot_failure(const void *object, struct ironwood_bridge_result *result) {
+    struct ironwood_bridge_failure *failure = &result->failure;
+    failure->type_name = object_type_name(object);
+    failure->frame_count = 0;
+    failure->flags = 0;
+    const struct ironwood_exception_metadata *metadata = find_exception_metadata(object);
+    if (metadata == NULL || metadata->trace_state != IRONWOOD_TRACE_CAPTURED) {
+        failure->flags = IRONWOOD_BRIDGE_TRACE_UNAVAILABLE;
+        return;
+    }
+    int32_t count = metadata->trace_count;
+    if (count > IRONWOOD_BRIDGE_TRACE_CAPACITY) {
+        count = IRONWOOD_BRIDGE_TRACE_CAPACITY;
+        failure->flags |= IRONWOOD_BRIDGE_TRACE_TRUNCATED;
+    }
+    if (metadata->trace_truncated) failure->flags |= IRONWOOD_BRIDGE_TRACE_TRUNCATED;
+    for (int32_t index = 0; index < count; index++) {
+        failure->frames[index] = metadata->trace[index].site;
+    }
+    failure->frame_count = count;
 }
 
 void ironwood_exception_add_secondary(void *primary, void *secondary) {

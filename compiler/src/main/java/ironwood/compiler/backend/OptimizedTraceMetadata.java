@@ -22,6 +22,10 @@ final class OptimizedTraceMetadata {
     }
 
     static String inject(String optimizedLlvm, boolean leadingSymbolUnderscore) {
+        return inject(optimizedLlvm, leadingSymbolUnderscore, false);
+    }
+
+    static String inject(String optimizedLlvm, boolean leadingSymbolUnderscore, boolean shared) {
         List<Function> functions = optimizedFunctions(optimizedLlvm);
         if (leadingSymbolUnderscore) {
             functions = new ArrayList<>(functions);
@@ -65,7 +69,8 @@ final class OptimizedTraceMetadata {
             }
             injected.append("]\n");
         }
-        injected.append("\ndefine void @ironwood_trace_register_current(ptr %sites, i32 %site.count) {\n")
+        injected.append(shared ? "\ndefine hidden void" : "\ndefine void")
+                .append(" @ironwood_trace_register_current(ptr %sites, i32 %site.count) {\n")
                 .append("entry:\n")
                 .append("  call void @ironwood_trace_register(ptr %sites, i32 %site.count, ptr @ironwood_trace_functions, i32 ")
                 .append(functions.size()).append(")\n")

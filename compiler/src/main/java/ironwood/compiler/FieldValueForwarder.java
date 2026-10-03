@@ -26,14 +26,14 @@ final class FieldValueForwarder {
     }
 
     static IrProgram forward(IrProgram program) {
-        if (program.entryPoint().isEmpty()) return program;
+        if (!program.hasNativeRoots()) return program;
         var pass = new FieldValueForwarder(program);
         List<IrFunction> functions = program.functions().stream().map(pass::function).toList();
         return new IrProgram(program.moduleName(), program.classes(), program.staticFields(),
                 program.typeInitializations(), program.arrayTypes(), program.stringConstants(),
                 program.dispatchSlots(), functions, program.entryPoint().map(entry -> functions.stream()
                         .filter(f -> f.linkageName().equals(entry.linkageName())).findFirst().orElseThrow()),
-                program.allocationFailure());
+                program.allocationFailure(), program.exportRoots());
     }
 
     private IrFunction function(IrFunction function) {

@@ -53,6 +53,37 @@ public final class NativeBackend {
                            OptimizationLevel optimizationLevel, NativeLinkRequirements requirements,
                            TargetMachine targetMachine, Integer inlineThreshold, Boolean partialInlining,
                            Path optimizationReport) {
+        return linkImage(toolchain, llvmIr, output, optimizationLevel, requirements, targetMachine,
+                inlineThreshold, partialInlining, optimizationReport, NativeOutputKind.EXECUTABLE, List.of(), null);
+    }
+
+    /** Internal shared-image path; native adapters are compiled separately with Clang. */
+    public LinkResult linkShared(LlvmToolchain toolchain, Path llvmIr, Path output,
+                                 OptimizationLevel optimizationLevel, List<Path> adapterObjects) {
+        return linkShared(toolchain, llvmIr, output, optimizationLevel, adapterObjects, null);
+    }
+
+    public LinkResult linkShared(LlvmToolchain toolchain, Path llvmIr, Path output,
+                                 OptimizationLevel optimizationLevel, List<Path> adapterObjects, MacNativeTools macTools) {
+        return linkImage(toolchain, llvmIr, output, optimizationLevel, NativeLinkRequirements.NONE,
+                TargetMachine.DEFAULT, null, null, null, NativeOutputKind.SHARED_LIBRARY, List.copyOf(adapterObjects), macTools);
+    }
+
+    public LinkResult link(LlvmToolchain toolchain, Path llvmIr, Path output,
+                           OptimizationLevel optimizationLevel, NativeLinkRequirements requirements,
+                           TargetMachine targetMachine, NativeOutputKind kind, List<Path> adapterObjects) {
+        if (kind == NativeOutputKind.EXECUTABLE && !adapterObjects.isEmpty()) {
+            return new LinkResult(false, "native adapter objects require shared-library output");
+        }
+        return linkImage(toolchain, llvmIr, output, optimizationLevel, requirements, targetMachine,
+                null, null, null, kind, List.copyOf(adapterObjects), null);
+    }
+
+    private LinkResult linkImage(LlvmToolchain toolchain, Path llvmIr, Path output,
+                                 OptimizationLevel optimizationLevel, NativeLinkRequirements requirements,
+                                 TargetMachine targetMachine, Integer inlineThreshold, Boolean partialInlining,
+                                 Path optimizationReport, NativeOutputKind kind, List<Path> adapterObjects, MacNativeTools selectedMacTools) {
+        boolean shared = kind == NativeOutputKind.SHARED_LIBRARY;
         Path temporaryDirectory = null;
         try {
             Path outputParent = output.toAbsolutePath().normalize().getParent();
@@ -79,7 +110,14 @@ public final class NativeBackend {
 
             TlsDependency tls = requirements.tls() ? TlsDependency.discover(
                     runtime.source().orElseThrow().getParent().getParent().getParent(), toolchain) : null;
+            BridgeNativeSupport bridgeSupport = shared && System.getProperty("os.name").startsWith("Linux")
+                    ? BridgeNativeSupport.discover(toolchain) : null;
+            MacNativeTools macTools = System.getProperty("os.name").startsWith("Mac")
+                    ? selectedMacTools == null ? MacNativeTools.discover() : selectedMacTools : null;
             List<String> targetFlags = new java.util.ArrayList<>(targetMachine.clangArguments());
+            if (shared) targetFlags.add("-fvisibility=hidden");
+            if (macTools != null) targetFlags.addAll(macTools.compileFlags());
+            if (bridgeSupport != null) targetFlags.addAll(bridgeSupport.compileFlags());
             if (tls != null) targetFlags.addAll(tls.compileFlags());
 
             // Resolve the runtime's target before even assembling the program:
@@ -107,6 +145,9 @@ public final class NativeBackend {
                     toolchain.opt().toString(), "-passes=" + optimizationLevel.optPassPipeline()));
             optimizeCommand.addAll(optimizationLevel.optExtraArguments(inlineThreshold, partialInlining));
             optimizeCommand.addAll(targetMachine.llvmArguments());
+            List<String> tuning = targetMachine == TargetMachine.DEFAULT
+                    ? portableTuning(target.triple()) : List.of();
+            optimizeCommand.addAll(tuning);
             if (optimizationReport != null) {
                 optimizeCommand.addAll(List.of("-pass-remarks-output="
                         + optimizationReport.toAbsolutePath().normalize(), "-pass-remarks-format=yaml",
@@ -121,7 +162,7 @@ public final class NativeBackend {
             try {
                 Files.writeString(tracedLlvm, OptimizedTraceMetadata.inject(
                         Files.readString(optimizedLlvm, StandardCharsets.UTF_8),
-                        System.getProperty("os.name").startsWith("Mac")), StandardCharsets.UTF_8);
+                        System.getProperty("os.name").startsWith("Mac"), shared), StandardCharsets.UTF_8);
             } catch (IllegalArgumentException exception) {
                 return new LinkResult(false, "cannot finalize stack-trace metadata: "
                         + exception.getMessage());
@@ -135,10 +176,14 @@ public final class NativeBackend {
             List<String> codeCommand = new java.util.ArrayList<>(List.of(toolchain.llc().toString(),
                     "-filetype=obj", "--relocation-model=pic", optimizationLevel.llcArgument()));
             codeCommand.addAll(targetMachine.llvmArguments());
+            codeCommand.addAll(tuning);
             codeCommand.addAll(List.of(optimizedBitcode.toString(), "-o", objectFile.toString()));
             LinkResult codeGeneration = run("LLVM object generation", codeCommand);
             if (!codeGeneration.success()) {
                 return codeGeneration;
+            }
+            if (shared) {
+                Files.write(objectFile, SharedTraceOrder.canonicalize(Files.readAllBytes(objectFile)));
             }
             if (System.getProperty("os.name").startsWith("Linux")) {
                 LinkResult traceSection = run("LLVM stack-trace section preparation", List.of(
@@ -170,6 +215,15 @@ public final class NativeBackend {
                     toolchain.clang().toString(), "--driver-mode=g++", "--target=" + target.triple(),
                     objectFile.toString(), runtimeObjectFile.toString(), caseObjectFile.toString(),
                     tcpObjectFile.toString(), hostObjectFile.toString()));
+            if (macTools != null) linkCommand.addAll(macTools.linkFlags());
+            if (shared) linkCommand.add(System.getProperty("os.name").startsWith("Mac") ? "-dynamiclib" : "-shared");
+            if (shared && System.getProperty("os.name").startsWith("Mac")) {
+                // The linker otherwise embeds the temporary producer path in LC_ID_DYLIB.
+                linkCommand.addAll(List.of("-Xlinker", "-install_name", "-Xlinker", "@rpath/" + output.getFileName()));
+            }
+            if (shared && System.getProperty("os.name").startsWith("Linux")) linkCommand.add("-Wl,-z,now");
+            if (bridgeSupport != null) linkCommand.addAll(bridgeSupport.linkFlags());
+            adapterObjects.forEach(object -> linkCommand.add(object.toString()));
             if (tls != null) {
                 Path tlsObject = temporaryDirectory.resolve("ironwood_tls.o");
                 List<String> tlsFlags = new java.util.ArrayList<>(targetFlags);
@@ -184,12 +238,27 @@ public final class NativeBackend {
             }
             linkCommand.addAll(List.of(System.getProperty("os.name").startsWith("Mac")
                     ? "-Wl,-dead_strip" : "-Wl,--gc-sections", "-o", output.toString()));
-            return run("native link", linkCommand);
+            LinkResult linked = run("native link", linkCommand);
+            if (linked.success() && bridgeSupport != null) bridgeSupport.deliver(output);
+            return linked;
         } catch (IOException exception) {
             return new LinkResult(false, "cannot prepare native backend: " + exception.getMessage());
         } finally {
             deleteTree(temporaryDirectory);
         }
+    }
+
+    /**
+     * Tuning for portable images on the default target machine, executables and
+     * shared images alike; it selects no instruction-set extension. LLVM's
+     * baseline x86-64 model assumes slow unaligned 16-byte memory access, which
+     * holds only for processors older than SSE4.2/SSE4A. It then zeroes and copies
+     * adjacent fields one word at a time. Portable images keep the baseline SSE2
+     * instruction set and use its unaligned 16-byte moves. {@code -march=native}
+     * takes the host processor's own tuning instead, and other targets are unchanged.
+     */
+    public static List<String> portableTuning(String triple) {
+        return triple.startsWith("x86_64-") ? List.of("-mattr=-slow-unaligned-mem-16") : List.of();
     }
 
     private static synchronized LinkResult prepareRuntimeObject(LlvmToolchain toolchain,

@@ -1,0 +1,49 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+package ffmexperiment;
+
+// Private transport experiment. Each entry is protected by the production
+// bridge lowering. Successful primitive calls do not allocate. Throwing and
+// recursive entries deliberately exercise containment in child JVMs.
+final class Probe {
+    static int add(int a, int b) { return a + b; }
+    static boolean z(boolean value) { return value; }
+    static byte b(byte value) { return value; }
+    static short s(short value) { return value; }
+    static char c(char value) { return value; }
+    static int i(int value) { return value; }
+    static long j(long value) { return value; }
+    static float f(float value) { return value; }
+    static double d(double value) { return value; }
+    static void noop() { Counts.ticks++; }
+    static int ticks() { return Counts.ticks; }
+    static int fail() { throw null; }
+    static int initialized() { return Lazy.value; }
+    static int broken() { return Broken.value; }
+    static int allocate() {
+        Cell cell = new Cell(73);
+        int value = cell.value;
+        free cell;
+        return value;
+    }
+    static long recurse(int depth, long seed, boolean fail) {
+        if (depth == 0) {
+            if (fail) throw null;
+            return seed + 7L;
+        }
+        long value = recurse(depth - 1, seed + 3L, fail);
+        return (value * value + depth) ^ seed;
+    }
+}
+final class Counts { static int ticks; }
+final class Cell {
+    int value;
+    Cell(int value) { this.value = value; }
+}
+final class Lazy {
+    static int value = make();
+    static int make() { Counts.ticks++; return 37; }
+}
+final class Broken {
+    static int value = make();
+    static int make() { Counts.ticks++; throw null; }
+}

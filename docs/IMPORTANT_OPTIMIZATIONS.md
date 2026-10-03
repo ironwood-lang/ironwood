@@ -280,6 +280,9 @@ starts with two flag tests that almost always return, followed by a large loop
 with exception handling. LLVM inlines the guard and moves the body into an
 outlined function that is called only when a guard fails.
 
+On x86-64 the default target machine also passes `-mattr=-slow-unaligned-mem-16`
+to `opt` and `llc`; see [section 3.9](#39-portable-x86-64-unaligned-store-tuning).
+
 ### 3.6 Stack traces through outlined code
 
 D132 resolves stack traces on demand from native return addresses and LLVM
@@ -314,7 +317,9 @@ section 5 exercise exactly these cases.
 ### 3.7 Guarded fully initialized specialization
 
 The post-validation typed-IR pass versions selected loop-containing functions
-under read-only state-2 entry guards. A failed guard enters the original CFG;
+and explicit native-library export roots under read-only state-2 entry guards.
+Export roots receive priority to share initialization facts with their callees
+(D223). A failed guard enters the original CFG;
 it does not initialize a type. Zero-trip loops, untaken branches, recursive
 state-1 observations and cached state-3 failures retain their original behavior.
 The fast body removes ensures only for the guarded types. Guardless clones of
@@ -410,6 +415,45 @@ The separate overwritten-store experiment was rejected in D179: it produced
 identical LLVM and native instructions for unchanged OrderBook on ARM and x86.
 Its pass and dedicated tests were removed; the negative evidence is recorded in
 [PERFORMANCE_IMPROVEMENTS.md](PERFORMANCE_IMPROVEMENTS.md#round-2-stage-4-overwritten-store-elimination-experiment).
+
+### 3.9 Portable x86-64 unaligned-store tuning
+
+LLVM's baseline x86-64 model sets the `slow-unaligned-mem-16` tuning unless
+SSE4.2 or SSE4A is enabled, because only processors older than those extensions
+execute unaligned 16-byte moves slowly. Under that assumption a portable build
+zeroes and copies adjacent fields one 8-byte word at a time, which is the shape
+of every object initialization and pool reset in Java-shaped code. Feature
+isolation on the OrderBook benchmark showed that this assumption, and no newer
+instruction, explained the gap between portable and `-march=native` builds
+([JAVA_BRIDGE_CRITICAL_CALLS.md](JAVA_BRIDGE_CRITICAL_CALLS.md#where-the-time-went)).
+
+D242 cleared the tuning for x86-64 shared bridge images, and D244 extended it to
+every image built for the default target machine: `NativeBackend.portableTuning`
+passes `-mattr=-slow-unaligned-mem-16` to `opt` and `llc` whenever the target
+triple is x86-64 and `-march=native` is absent. The instruction set stays
+baseline x86-64. In the OrderBook `Bench` executable the optimized IR differs
+only in the function attribute groups, which record the feature; the mid-end
+makes the same decisions, and passing the argument to `llc` alone produces the
+same assembly. Instruction selection then merges each run of `movq $0, n(%reg)`
+stores into one `xorps` and `movups` stores, and copies use `movups` and
+`movdqu`, all SSE2 instructions. No mnemonic appears that the baseline build did
+not already use, and `Bench.run` shrinks from 903 to 857 instructions.
+
+On the Linux x86-64 host, with 15 round-robin processes per build at 8M warmup
+and 80M measured operations, the portable OrderBook throughput median improved
+from 817.2 ms to 733.6 ms, against 734.8 ms for `-march=native`. Five
+round-robin latency processes (`10000 50000 1000`) improved the median mean
+batch from 82.50 µs to 73.78 µs, against 75.70 µs for `-march=native`. The
+`examples/bench` arithmetic, bubble-sort and `IntMap` programs were unchanged
+within run-to-run variation. Processors without SSE4.2/SSE4A execute the emitted
+moves correctly but may run them more slowly; they were not measured.
+
+The official results in [BENCHMARK.md](BENCHMARK.md) use `-march=native` and are
+unaffected. ARM64 targets receive no tuning argument, the raw `--emit-llvm`
+module is unchanged, and the Clang-compiled runtime objects are not tuned. The
+focused test `portable x86-64 tuning merges adjacent stores with baseline SSE2`
+checks the triple selection, the merged stores and the instruction set on an
+x86-64 host.
 
 ## 4. Official Linux results
 
@@ -509,6 +553,11 @@ $ grep -c '^define internal void @"ironwood.throw\.' /tmp/bench.ll     # outline
 $ grep -c '\.guard\.[0-9]*\.join:' /tmp/bench.ll                       # guarded call sites
 $ grep "cost=" /tmp/inline.txt | sort | uniq -c | sort -rn | head        # remaining rejections
 ```
+
+To reproduce the compiler's x86-64 machine code from the optimized module, add
+`-mattr=-slow-unaligned-mem-16` to the `opt` and `llc` invocations
+([section 3.9](#39-portable-x86-64-unaligned-store-tuning)); it does not change
+the inliner's decisions.
 
 The optimized module shows which functions survive as call targets; `nm` on
 the executable shows the `ironwood.throw.*` helpers and any LLVM-outlined

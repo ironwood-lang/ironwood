@@ -1,0 +1,9 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package callbackstackprobe;
+
+// The Java implementation reenters the native fixture synchronously on this thread.
+public interface StackListener {
+
+    long step(int depth, long seed, boolean fail);
+}

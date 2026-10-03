@@ -97,3 +97,23 @@ its generated form available under the MPL; the SDK supplies both and the recipe
 Plain applications that prune all TLS operations do not include these inputs.
 Source/tool-only packages carry the adapter and recipe, and require an explicit
 prepared SDK for TLS links. See `docs/TLS.md` for preparation and redistribution.
+
+## Java Bridge Linux native support
+
+Linux Java Bridge shared outputs include unmodified GCC 16.2.0 `libgcc_s.so.1`
+and `libstdc++.so.6` from the architecture-specific Conda-forge builds pinned in
+`packaging/java-bridge-support.properties`. GCC runtime source is copyright the
+Free Software Foundation and its contributors. The binaries are classified
+`GPL-3.0-only WITH GCC-exception-3.1`. Their adjacent manifest-identified support
+directory contains verbatim `licenses/GPL-3.0.txt` and
+`licenses/GCC-exception-3.1.txt`, full corresponding GCC source, package
+recipes/patches and source notices. Preserve that directory when distributing
+the shared image. The included zlib 1.3.1 build-source archive retains its
+upstream zlib license; it does not add a bridge runtime library.
+
+Linux IDKs include the complete prepared SDK and its source/notices at
+`toolchain/ironwood-bridge-support`, with verified manifests. Source/tool-only
+distributions carry the pins and recipe and require explicit SDK preparation.
+macOS and ordinary executable links do not select this bridge
+support bundle. See `docs/JAVA_BRIDGE_NATIVE_SUPPORT.md` for provenance and the
+minimal-JVM dependency audit; final Java Bridge release qualification is pending.

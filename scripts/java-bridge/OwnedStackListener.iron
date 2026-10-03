@@ -1,0 +1,8 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+package ownedcallbackstackprobe;
+
+// Java reenters synchronously and may retain these stable owner facades.
+public interface OwnedStackListener {
+
+    long step(QualificationOwnedCallbackStack self, QualificationOwnedCallbackStack peer, int depth, long seed, boolean fail);
+}

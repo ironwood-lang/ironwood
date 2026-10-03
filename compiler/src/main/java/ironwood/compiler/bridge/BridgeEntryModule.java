@@ -1,0 +1,537 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.bridge;
+
+import ironwood.compiler.CompilationArtifact;
+import ironwood.compiler.ir.*;
+import ironwood.compiler.semantic.BridgeRetentionAnalyzer;
+import ironwood.compiler.semantic.BridgeCallTargets;
+import ironwood.compiler.semantic.BridgeRootRetentionAnalyzer;
+import ironwood.compiler.semantic.BridgeDestructionAnalyzer;
+import ironwood.compiler.semantic.BridgePermanentAnalyzer;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
+
+/** Internal protected-entry lowering shared by the P0 harness and later producer. */
+public final class BridgeEntryModule {
+    /** Fixed inputs use source-callable indices, including the instance receiver. */
+    public record Entry(BridgeRootSet.Root root, IrFunction function, Map<Integer, Integer> fixedEnums) {
+        public Entry { fixedEnums = Map.copyOf(fixedEnums); }
+        public Entry(BridgeRootSet.Root root, IrFunction function) { this(root, function, Map.of()); }
+    }
+    public record Destruction(BridgeDestructionContract contract, IrFunction function) {}
+
+    private final IrProgram program;
+    private final Optional<IrProgram> callbackOriginal;
+    private final List<Entry> entries;
+    private final Optional<BridgeRootRetentionContract> rootRetention;
+    private final List<Destruction> destructions;
+    private final Optional<BridgePermanentContract> permanent;
+    private final Map<BridgeCallableId, BridgeStringResultContract> stringResults;
+    private final Optional<BridgeEnumInvocation> enumInvocation;
+    private final Optional<BridgeEnumConversions> enumConversions;
+
+    private BridgeEntryModule(IrProgram program, List<Entry> entries) {
+        this(program, entries, Optional.empty(), List.of());
+    }
+
+    private BridgeEntryModule(IrProgram program, List<Entry> entries,
+            Optional<BridgeRootRetentionContract> rootRetention, List<Destruction> destructions) {
+        this(program, entries, rootRetention, destructions, Optional.empty());
+    }
+
+    private BridgeEntryModule(IrProgram program, List<Entry> entries,
+            Optional<BridgeRootRetentionContract> rootRetention, List<Destruction> destructions,
+            Optional<BridgePermanentContract> permanent) {
+        this(program, entries, rootRetention, destructions, permanent, Map.of());
+    }
+
+    private BridgeEntryModule(IrProgram program, List<Entry> entries,
+            Optional<BridgeRootRetentionContract> rootRetention, List<Destruction> destructions,
+            Optional<BridgePermanentContract> permanent,
+            Map<BridgeCallableId, BridgeStringResultContract> stringResults) {
+        this(program, entries, rootRetention, destructions, permanent, stringResults, Optional.empty());
+    }
+
+    private BridgeEntryModule(IrProgram program, List<Entry> entries,
+            Optional<BridgeRootRetentionContract> rootRetention, List<Destruction> destructions,
+            Optional<BridgePermanentContract> permanent, Map<BridgeCallableId, BridgeStringResultContract> stringResults,
+            Optional<BridgeEnumInvocation> enumInvocation) {
+        this(program, entries, rootRetention, destructions, permanent, stringResults, enumInvocation,
+                enumInvocation.map(BridgeEnumInvocation::conversions));
+    }
+
+    private BridgeEntryModule(IrProgram program, List<Entry> entries,
+            Optional<BridgeRootRetentionContract> rootRetention, List<Destruction> destructions,
+            Optional<BridgePermanentContract> permanent, Map<BridgeCallableId, BridgeStringResultContract> stringResults,
+            Optional<BridgeEnumInvocation> enumInvocation, Optional<BridgeEnumConversions> enumConversions) {
+        this.callbackOriginal = Optional.empty();
+        this.entries = List.copyOf(entries);
+        this.rootRetention = rootRetention;
+        this.destructions = List.copyOf(destructions);
+        this.permanent = permanent;
+        this.stringResults = Map.copyOf(stringResults);
+        this.enumInvocation = enumInvocation;
+        this.enumConversions = enumConversions;
+        this.program = new IrProgram(program.moduleName(), program.classes(), program.staticFields(),
+                program.typeInitializations(), program.arrayTypes(), program.stringConstants(), program.dispatchSlots(),
+                program.functions(), program.entryPoint(), program.allocationFailure(), entrySymbols());
+    }
+
+    public IrProgram program() { return program; }
+    public List<Entry> entries() { return entries; }
+    public List<Entry> primaryEntries() { return entries.stream().filter(entry -> entry.fixedEnums().isEmpty()).toList(); }
+    public Optional<BridgeRootRetentionContract> rootRetention() { return rootRetention; }
+    public List<Destruction> destructions() { return destructions; }
+    public Optional<BridgePermanentContract> permanent() { return permanent; }
+    public Map<BridgeCallableId, BridgeStringResultContract> stringResults() { return stringResults; }
+    public Optional<BridgeEnumInvocation> enumInvocation() { return enumInvocation; }
+    public Optional<BridgeEnumConversions> enumConversions() { return enumConversions; }
+    public Set<String> entrySymbols() {
+        return java.util.stream.Stream.concat(entries.stream().map(Entry::function), destructions.stream().map(Destruction::function))
+                .map(IrFunction::linkageName).collect(Collectors.toUnmodifiableSet());
+    }
+
+    /** Exact original identity, including proof-bound callback dispatch specialization. */
+    public boolean matchesOriginal(CompilationArtifact artifact) {
+        if (!artifact.valid() || artifact.program().isEmpty()) return false;
+        var original = artifact.program().orElseThrow();
+        if (callbackOriginal.isPresent()) return callbackOriginal.orElseThrow().equals(original);
+        var restored = new IrProgram(program.moduleName(), program.classes(), program.staticFields(), program.typeInitializations(),
+                program.arrayTypes(), program.stringConstants(), program.dispatchSlots(), original.functions(), original.entryPoint(),
+                program.allocationFailure(), original.exportRoots());
+        return restored.equals(original) && program.functions().containsAll(original.functions());
+    }
+
+    /** Complete primitive callback composition; additional exports are proof-owned support operations. */
+    public static BridgeEntryModule synchronousCallbacks(CompilationArtifact artifact, BridgeRootSet roots,
+            BridgeSynchronousCallbackEntries callbacks, BridgeCallbackCarrierEntries carriers,
+            BridgeCallbackCarrierPolicy cleanup) {
+        if (!callbacks.matches(artifact, roots) || !carriers.matches(artifact) || !cleanup.matches(artifact, roots)) {
+            throw new IllegalArgumentException("callback module requires matching invocation and ownership proofs");
+        }
+        var base = callbacks.context().program();
+        var functions = new ArrayList<>(base.functions());
+        var additions = new ArrayList<>(callbacks.proxies().functions());
+        additions.addAll(carriers.functions());
+        cleanup.cleanup().ifPresent(proof -> additions.add(proof.destruction()));
+        functions.addAll(additions);
+        functions.addAll(callbacks.functions());
+        if (functions.stream().map(IrFunction::linkageName).distinct().count() != functions.size()) {
+            throw new IllegalArgumentException("callback module symbol collision");
+        }
+        var selected = roots.revalidate(artifact.program().orElseThrow()).roots();
+        var entries = new ArrayList<Entry>();
+        for (int index = 0; index < selected.size(); index++) {
+            entries.add(new Entry(selected.get(index), callbacks.functions().get(index)));
+        }
+        var module = new BridgeEntryModule(new IrProgram(base.moduleName(), base.classes(), base.staticFields(),
+                base.typeInitializations(), base.arrayTypes(), base.stringConstants(), base.dispatchSlots(), functions,
+                Optional.empty(), base.allocationFailure()), entries);
+        // Support operations are invoked from C, so their closed-world roots must
+        // survive pruning even when no ordinary native entry calls them.
+        var support = additions.stream().map(IrFunction::linkageName).collect(Collectors.toSet());
+        return new BridgeEntryModule(module, support, artifact.program().orElseThrow());
+    }
+
+    /** Composition requires independent final storage, callback and callback-free slot proofs. */
+    public static BridgeEntryModule ownedCallbacks(CompilationArtifact artifact, BridgeRootSet requested,
+            BridgeEntryModule storage, ironwood.compiler.BridgeFinalRootRetention lifetime,
+            BridgeOwnedCallbackEntries callbacks, Optional<ironwood.compiler.semantic.BridgeOwnedListenerSlots> slots,
+            BridgeListenerProxyEntries proxies, BridgeCallbackCarrierEntries carriers, BridgeCallbackCarrierPolicy cleanup) {
+        var original = artifact.program().orElseThrow();
+        var callbackRoots = BridgeRootSet.resolve(original, callbacks.entries().stream()
+                .map(BridgeOwnedCallbackEntries.Entry::callable).toList());
+        if (!storage.matchesOriginal(artifact) || !lifetime.matches(storage, lifetime.program())
+                || !callbacks.matches(artifact, callbackRoots, storage, lifetime) || !proxies.matches(artifact)
+                || !carriers.matches(artifact) || !cleanup.matches(artifact, callbackRoots)) {
+            throw new IllegalArgumentException("owner callback module requires matching complete component proofs");
+        }
+        var lowered = new java.util.LinkedHashMap<BridgeCallableId, IrFunction>();
+        storage.entries().forEach(entry -> lowered.put(entry.root().callable(), entry.function()));
+        callbacks.entries().forEach(entry -> {
+            if (lowered.putIfAbsent(entry.callable(), entry.function()) != null) {
+                throw new IllegalArgumentException("owner callback root has multiple lowering routes");
+            }
+        });
+        if (slots.isPresent()) {
+            var slotProof = slots.orElseThrow();
+            var slotRoots = BridgeRootSet.resolve(original, slotProof.entries().entries().stream()
+                    .map(BridgeListenerSlotEntries.Entry::callable).toList());
+            if (!slotProof.matches(artifact, slotRoots, storage, lifetime)) {
+                throw new IllegalArgumentException("owner callback module requires matching slot ownership");
+            }
+            slotProof.entries().entries().forEach(entry -> {
+                if (lowered.putIfAbsent(entry.callable(), entry.function()) != null) {
+                    throw new IllegalArgumentException("owner slot root has multiple lowering routes");
+                }
+            });
+        }
+        var roots = requested.revalidate(original);
+        if (!roots.resolved() || !lowered.keySet().equals(roots.roots().stream().map(BridgeRootSet.Root::callable).collect(Collectors.toSet()))) {
+            throw new IllegalArgumentException("owner callback module must cover exactly the requested roots");
+        }
+        var base = callbacks.context().program();
+        var additions = new ArrayList<>(proxies.functions());
+        additions.addAll(carriers.functions());
+        cleanup.cleanup().ifPresent(proof -> additions.add(proof.destruction()));
+        storage.destructions().forEach(entry -> additions.add(entry.function()));
+        var functions = new ArrayList<>(base.functions());
+        functions.addAll(lowered.values()); functions.addAll(additions);
+        if (functions.stream().map(IrFunction::linkageName).distinct().count() != functions.size()) {
+            throw new IllegalArgumentException("owner callback module symbol collision");
+        }
+        var entries = roots.roots().stream().map(root -> new Entry(root, lowered.get(root.callable()))).toList();
+        var module = new BridgeEntryModule(new IrProgram(base.moduleName(), base.classes(), base.staticFields(),
+                base.typeInitializations(), base.arrayTypes(), base.stringConstants(), base.dispatchSlots(), functions,
+                Optional.empty(), base.allocationFailure()), entries, Optional.empty(), storage.destructions());
+        return new BridgeEntryModule(module, additions.stream().map(IrFunction::linkageName).collect(Collectors.toSet()), original);
+    }
+
+    private BridgeEntryModule(BridgeEntryModule module, Set<String> support, IrProgram original) {
+        callbackOriginal = Optional.of(original);
+        entries = module.entries;
+        rootRetention = module.rootRetention;
+        destructions = module.destructions;
+        permanent = module.permanent;
+        stringResults = module.stringResults;
+        enumInvocation = module.enumInvocation;
+        enumConversions = module.enumConversions;
+        var base = module.program;
+        var exports = new java.util.LinkedHashSet<>(base.exportRoots());
+        exports.addAll(support);
+        program = new IrProgram(base.moduleName(), base.classes(), base.staticFields(), base.typeInitializations(),
+                base.arrayTypes(), base.stringConstants(), base.dispatchSlots(), base.functions(), base.entryPoint(),
+                base.allocationFailure(), exports);
+    }
+
+    /** Uniform permanent storage, including proved unpublished constructor rollback. */
+    public static BridgeEntryModule permanentObjects(CompilationArtifact artifact, BridgeRootSet requested) {
+        return permanentObjects(artifact, requested, Optional.empty());
+    }
+
+    /** Uniform permanent mixed objects/enum values, never a fallback from failed reclaimable admission. */
+    public static BridgeEntryModule permanentObjects(CompilationArtifact artifact, BridgeRootSet requested,
+            BridgeEnumConversions conversions) {
+        return permanentObjects(artifact, requested, Optional.of(conversions));
+    }
+
+    private static BridgeEntryModule permanentObjects(CompilationArtifact artifact, BridgeRootSet requested,
+            Optional<BridgeEnumConversions> conversions) {
+        var proof = conversions.map(mapping -> BridgePermanentAnalyzer.analyze(artifact, requested, mapping))
+                .orElseGet(() -> BridgePermanentAnalyzer.analyze(artifact, requested));
+        if (proof.status() != BridgeProof.Status.PROVED) throw new IllegalArgumentException(proof.reason());
+        var contract = proof.contract().orElseThrow();
+        var original = contract.program();
+        if (original.allocationFailure().isEmpty()) throw new IllegalArgumentException("permanent entry requires allocation failure context");
+        Map<BridgeCallableId, BridgeStringResultContract> results = new java.util.LinkedHashMap<>();
+        BridgeStringResults.proveForPermanent(artifact, contract.roots(), contract).forEach((id, result) -> {
+            if (result.status() != BridgeProof.Status.PROVED) throw new IllegalArgumentException(result.reason());
+            results.put(id, result.contract().orElseThrow());
+        });
+        List<Entry> entries = new ArrayList<>();
+        List<IrFunction> functions = new ArrayList<>(original.functions());
+        var targets = new BridgeCallTargets(original);
+        for (var root : requested.revalidate(original).roots()) {
+            String symbol = "ironwood_bridge_entry_" + entries.size();
+            if (functions.stream().anyMatch(function -> function.linkageName().equals(symbol))) {
+                throw new IllegalArgumentException("generated bridge symbol collision: " + symbol);
+            }
+            var initialization = targets.initializers(root.callable().owner());
+            if (!initialization.complete()) throw new IllegalArgumentException("incomplete permanent entry initialization");
+            // Every reference input/result is non-reclaimable. Native publication
+            // needs no Java incoming-count delta; this is not a retention exemption
+            // for a mixed permanent/reclaimable export surface.
+            var enumParameters = conversions.map(mapping -> mapping.parameters().get(root.callable())).orElse(List.of());
+            boolean enumReceiver = enumParameters.stream().anyMatch(parameter -> parameter.input() == 0 && !parameter.nullable());
+            var function = BridgeRootEntryLowering.lower(root, symbol, new BridgeRetentionContract(List.of()),
+                    !initialization.targets().isEmpty() && !enumReceiver, Optional.ofNullable(results.get(root.callable())),
+                    enumParameters, conversions.map(mapping -> mapping.results().get(root.callable())));
+            functions.add(function);
+            entries.add(new Entry(root, function));
+        }
+        // Keep generic roots and their proofs. Private constant entries are additional
+        // real exports, analyzed through the same synthesis and final-link checks.
+        for (var primary : List.copyOf(entries)) {
+            var root = primary.root();
+            var callable = root.callable();
+            var parameters = conversions.map(mapping -> mapping.parameters().getOrDefault(callable, List.of())).orElse(List.of());
+            if (callable.kind() != IrCallableKind.METHOD || artifact.bridgeConstructionFacts().orElseThrow().isStatic(callable)
+                    || parameters.size() != 1 || !parameters.getFirst().nullable() || parameters.getFirst().input() == 0
+                    || parameters.getFirst().constants().size() != 2 || callable.parameters().size() < 4
+                    || results.containsKey(callable) || conversions.orElseThrow().results().containsKey(callable)) continue;
+            var parameter = parameters.getFirst();
+            boolean primitiveOthers = java.util.stream.IntStream.range(1, callable.parameters().size())
+                    .filter(index -> index != parameter.input()).allMatch(index -> !callable.parameters().get(index).isReference());
+            if (!primitiveOthers) continue;
+            for (var constant : parameter.constants()) {
+                String symbol = primary.function().linkageName() + "_enum_" + constant.token();
+                if (functions.stream().anyMatch(function -> function.linkageName().equals(symbol))) {
+                    throw new IllegalArgumentException("generated bridge symbol collision: " + symbol);
+                }
+                var fixed = Map.of(parameter.input(), constant.token());
+                var function = BridgeRootEntryLowering.lower(root, symbol, new BridgeRetentionContract(List.of()),
+                        !targets.initializers(callable.owner()).targets().isEmpty(), Optional.empty(), parameters, Optional.empty(), fixed);
+                functions.add(function);
+                entries.add(new Entry(root, function, fixed));
+            }
+        }
+        return new BridgeEntryModule(new IrProgram(original.moduleName(), original.classes(), original.staticFields(),
+                original.typeInitializations(), original.arrayTypes(), original.stringConstants(), original.dispatchSlots(),
+                functions, Optional.empty(), original.allocationFailure()), entries, Optional.empty(), List.of(), Optional.of(contract), results,
+                Optional.empty(), conversions);
+    }
+
+    /** Bounded constructed roots, proved uniform root results and exact slot payloads. */
+    public static BridgeEntryModule rootObjects(CompilationArtifact artifact, BridgeRootSet requested) {
+        return rootObjects(artifact, requested, Optional.empty(), Optional.empty());
+    }
+
+    /** The ordinary P0 storage proof, with disjoint support symbols for callback composition. */
+    public static BridgeEntryModule callbackOwnerStorage(CompilationArtifact artifact, BridgeRootSet requested) {
+        var roots = requested.revalidate(artifact.program().orElseThrow());
+        if (!roots.resolved() || roots.roots().stream().anyMatch(root -> root.callable().kind() != IrCallableKind.CONSTRUCTOR)) {
+            throw new IllegalArgumentException("callback owner storage requires constructor-only roots");
+        }
+        return rootObjects(artifact, roots, Optional.empty(), Optional.empty(), true);
+    }
+
+    public static BridgeEntryModule rootObjects(CompilationArtifact artifact, BridgeRootSet requested, BridgeEnumConversions conversions) {
+        return rootObjects(artifact, requested, Optional.of(conversions), Optional.empty());
+    }
+
+    public static BridgeEntryModule rootObjects(CompilationArtifact artifact, BridgeRootSet requested, BridgePermanentValues permanent) {
+        return rootObjects(artifact, requested, permanent.enums().map(BridgeEnumLifetime::conversions), Optional.of(permanent));
+    }
+
+    private static BridgeEntryModule rootObjects(CompilationArtifact artifact, BridgeRootSet requested,
+            Optional<BridgeEnumConversions> conversions, Optional<BridgePermanentValues> permanent) {
+        return rootObjects(artifact, requested, conversions, permanent, false);
+    }
+
+    private static BridgeEntryModule rootObjects(CompilationArtifact artifact, BridgeRootSet requested,
+            Optional<BridgeEnumConversions> conversions, Optional<BridgePermanentValues> permanent, boolean callbackStorage) {
+        var admitted = permanent.map(value -> BridgeRootRetentionAnalyzer.analyze(artifact, requested, value))
+                .orElseGet(() -> conversions.map(mapping -> BridgeRootRetentionAnalyzer.analyze(artifact, requested, mapping))
+                .orElseGet(() -> BridgeRootRetentionAnalyzer.analyze(artifact, requested)));
+        if (admitted.status() != BridgeProof.Status.PROVED) throw new IllegalArgumentException(admitted.reason());
+        var contract = admitted.contract().orElseThrow();
+        var original = contract.program();
+        if (original.allocationFailure().isEmpty()) throw new IllegalArgumentException("root creation requires allocation failure context");
+        Map<BridgeCallableId, BridgeStringResultContract> results = new java.util.LinkedHashMap<>();
+        if (contract.roots().roots().stream().anyMatch(root -> root.callable().result().equals(IrType.reference("ironwood.lang.String")))) {
+            BridgeStringResults.proveForRoots(artifact, contract.roots(), contract).forEach((id, proof) -> {
+                if (proof.status() != BridgeProof.Status.PROVED) throw new IllegalArgumentException(proof.reason());
+                results.put(id, proof.contract().orElseThrow());
+            });
+        }
+        List<Entry> entries = new ArrayList<>();
+        for (var root : contract.roots().roots()) {
+            if (root.callable().kind() == IrCallableKind.CONSTRUCTOR) {
+                // Root admission already validated the exact constructor and its effects.
+                // Failed construction cleanup also applies to permanent candidates.
+                var rollback = ironwood.compiler.semantic.BridgeCleanupAnalyzer.analyze(artifact, contract.analysisRoots(),
+                        IrType.reference(root.callable().owner()), Optional.of(root.callable()));
+                if (rollback.status() != BridgeProof.Status.PROVED) throw new IllegalArgumentException(rollback.reason());
+            }
+            String symbol = (callbackStorage ? "ironwood_bridge_owner_entry_" : "ironwood_bridge_entry_") + entries.size();
+            var initialization = new BridgeCallTargets(original).initializers(root.callable().owner());
+            if (!initialization.complete()) throw new IllegalArgumentException("incomplete root entry initialization");
+            var enumParameters = conversions.map(mapping -> mapping.parameters().get(root.callable())).orElse(List.of());
+            boolean enumReceiver = enumParameters.stream().anyMatch(parameter -> parameter.input() == 0 && !parameter.nullable());
+            entries.add(new Entry(root, BridgeRootEntryLowering.lower(root, symbol, contract.entries().get(root.callable()),
+                    !initialization.targets().isEmpty() && !enumReceiver, Optional.ofNullable(results.get(root.callable())),
+                    enumParameters, conversions.map(mapping -> mapping.results().get(root.callable())))));
+        }
+        List<Destruction> destructions = new ArrayList<>();
+        for (var type : contract.constructedRootTypes().stream().sorted(java.util.Comparator.comparing(IrType::displayName)).toList()) {
+            var proof = permanent.map(value -> BridgeDestructionAnalyzer.analyze(artifact, contract.roots(), type, value))
+                    .orElseGet(() -> conversions.map(mapping -> BridgeDestructionAnalyzer.analyze(artifact, contract.roots(), type, mapping))
+                    .orElseGet(() -> BridgeDestructionAnalyzer.analyze(artifact, contract.roots(), type)));
+            if (proof.status() != BridgeProof.Status.PROVED) throw new IllegalArgumentException(proof.reason());
+            var source = contract.roots().roots().stream().filter(root -> root.callable().owner().equals(type.referenceName()))
+                    .findFirst().orElseThrow();
+            var receiver = new IrValueReference(0, type, source.span());
+            var function = new IrFunction(type.referenceName(), "<bridge-destroy>",
+                    (callbackStorage ? "ironwood_bridge_owner_destroy_" : "ironwood_bridge_destroy_") + destructions.size(),
+                    IrType.VOID, List.of(new IrParameter("this", receiver, source.span())), List.of(new IrBasicBlock("entry",
+                    List.of(new IrFreeInstruction(receiver, source.span())), new IrReturnTerminator(Optional.empty(), source.span()), source.span())),
+                    source.span(), source.sourceFile(), IrCallableKind.METHOD);
+            destructions.add(new Destruction(proof.contract().orElseThrow(), function));
+        }
+        List<IrFunction> functions = new ArrayList<>(original.functions());
+        var generated = java.util.stream.Stream.concat(entries.stream().map(Entry::function), destructions.stream().map(Destruction::function)).toList();
+        for (var function : generated) {
+            if (functions.stream().anyMatch(existing -> existing.linkageName().equals(function.linkageName()))) {
+                throw new IllegalArgumentException("generated bridge symbol collision: " + function.linkageName());
+            }
+            functions.add(function);
+        }
+        return new BridgeEntryModule(new IrProgram(original.moduleName(), original.classes(), original.staticFields(),
+                original.typeInitializations(), original.arrayTypes(), original.stringConstants(), original.dispatchSlots(),
+                functions, Optional.empty(), original.allocationFailure()), entries, Optional.of(contract), destructions,
+                Optional.empty(), results, Optional.empty(), conversions);
+    }
+
+    /** Builds scalar-only entries; reference capabilities are rejected by this mode. */
+    public static BridgeEntryModule scalars(CompilationArtifact artifact, BridgeRootSet requested) {
+        return build(artifact, requested, false, false);
+    }
+
+    /** Scalar results and proved temporary String inputs; object results remain unsupported. */
+    public static BridgeEntryModule copiedStrings(CompilationArtifact artifact, BridgeRootSet requested) {
+        return build(artifact, requested, true, false);
+    }
+
+    /** Copied String values with proved result lifetime through JNI delivery. */
+    public static BridgeEntryModule stringValues(CompilationArtifact artifact, BridgeRootSet requested) {
+        return build(artifact, requested, true, true);
+    }
+
+    /** Exact named enum values and copied Strings share one protected entry. */
+    public static BridgeEntryModule enumValues(CompilationArtifact artifact, BridgeEnumInvocation proof) {
+        if (!artifact.valid() || !proof.matches(artifact.program().orElseThrow(), proof.entries())) {
+            throw new IllegalArgumentException("enum entries require matching complete invocation proofs");
+        }
+        var original = artifact.program().orElseThrow();
+        if (original.allocationFailure().isEmpty()) throw new IllegalArgumentException("enum entry requires allocation failure context");
+        List<Entry> entries = new ArrayList<>();
+        List<IrFunction> functions = new ArrayList<>(original.functions());
+        var targets = new BridgeCallTargets(original);
+        for (var root : proof.entries().roots()) {
+            String symbol = "ironwood_bridge_entry_" + entries.size();
+            if (functions.stream().anyMatch(function -> function.linkageName().equals(symbol))) {
+                throw new IllegalArgumentException("generated bridge symbol collision: " + symbol);
+            }
+            var initialization = targets.initializers(root.callable().owner());
+            if (!initialization.complete()) throw new IllegalArgumentException("incomplete enum entry initialization");
+            // A named receiver has already performed D194 active use of its
+            // declaring enum. An instance call adds no new owner active use;
+            // actual initialization instructions in the source body still run.
+            boolean initialize = artifact.bridgeConstructionFacts().orElseThrow().isStatic(root.callable())
+                    && !initialization.targets().isEmpty();
+            var function = BridgeRootEntryLowering.lower(root, symbol, new BridgeRetentionContract(List.of()),
+                    initialize, Optional.ofNullable(proof.stringResults().get(root.callable())),
+                    proof.parameters().get(root.callable()), Optional.ofNullable(proof.enumResults().get(root.callable())));
+            functions.add(function);
+            entries.add(new Entry(root, function));
+        }
+        return new BridgeEntryModule(new IrProgram(original.moduleName(), original.classes(), original.staticFields(),
+                original.typeInitializations(), original.arrayTypes(), original.stringConstants(), original.dispatchSlots(),
+                functions, Optional.empty(), original.allocationFailure()), entries, Optional.empty(), List.of(),
+                Optional.of(proof.lifetime()), proof.stringResults(), Optional.of(proof));
+    }
+
+    /** Named enum inputs and scalar results, with conversion and dispatch proofs. */
+    public static BridgeEntryModule enums(CompilationArtifact artifact, BridgeRootSet requested,
+                                         Map<IrType, Map<String, Integer>> tokens) {
+        var proof = BridgeEnumInputs.prove(artifact, requested, tokens);
+        var original = artifact.program().orElseThrow();
+        var roots = requested.revalidate(original);
+        List<Entry> entries = new ArrayList<>();
+        for (var root : roots.roots()) {
+            String symbol = "ironwood_bridge_entry_" + entries.size();
+            if (original.functions().stream().anyMatch(function -> function.linkageName().equals(symbol))) {
+                throw new IllegalArgumentException("generated bridge symbol collision: " + symbol);
+            }
+            var initialization = new BridgeCallTargets(original).initializers(root.callable().owner());
+            if (!initialization.complete()) throw new IllegalArgumentException("incomplete entry initialization");
+            entries.add(new Entry(root, BridgeEnumEntryLowering.lower(root, symbol, proof,
+                    !initialization.targets().isEmpty(), artifact.bridgeConstructionFacts().orElseThrow().isStatic(root.callable()))));
+        }
+        List<IrFunction> functions = new ArrayList<>(original.functions());
+        entries.forEach(entry -> functions.add(entry.function()));
+        return new BridgeEntryModule(new IrProgram(original.moduleName(), original.classes(), original.staticFields(),
+                original.typeInitializations(), original.arrayTypes(), original.stringConstants(), original.dispatchSlots(),
+                functions, Optional.empty(), original.allocationFailure()), entries);
+    }
+
+    private static BridgeEntryModule build(CompilationArtifact artifact, BridgeRootSet requested,
+            boolean strings, boolean stringResults) {
+        if (!artifact.valid() || artifact.bridgeConstructionFacts().isEmpty()) {
+            throw new IllegalArgumentException("bridge entry requires successful bridge semantic analysis");
+        }
+        var original = artifact.program().orElseThrow();
+        if (!artifact.bridgeConstructionFacts().orElseThrow().matches(original)) {
+            throw new IllegalArgumentException("bridge semantic facts do not match the input program");
+        }
+        var roots = requested.revalidate(original);
+        if (!roots.resolved()) throw new IllegalArgumentException("bridge entry requires resolved roots");
+        Map<BridgeCallableId, BridgeProof<BridgeRetentionContract>> retention = BridgeRetentionAnalyzer.analyze(original, roots,
+                artifact.bridgeConstructionFacts().orElseThrow());
+        Map<BridgeCallableId, BridgeStringResultContract> results = new java.util.LinkedHashMap<>();
+        if (stringResults) {
+            var selected = roots.roots().stream().map(BridgeRootSet.Root::callable)
+                    .filter(callable -> callable.result().equals(IrType.reference("ironwood.lang.String"))).toList();
+            if (!selected.isEmpty()) BridgeStringResults.prove(artifact, BridgeRootSet.resolve(original, selected))
+                    .forEach((callable, proof) -> {
+                        if (proof.status() != BridgeProof.Status.PROVED) throw new IllegalArgumentException(proof.reason());
+                        results.put(callable, proof.contract().orElseThrow());
+                    });
+        }
+        List<Entry> entries = new ArrayList<>();
+        for (var root : roots.roots()) {
+            var callable = root.callable();
+            boolean hasStrings = callable.parameters().contains(IrType.reference("ironwood.lang.String"));
+            boolean hasArrays = callable.parameters().stream().anyMatch(IrType::isArray);
+            boolean hasViews = callable.parameters().stream().anyMatch(ironwood.compiler.semantic.BridgeByteViews::view);
+            if (hasViews) {
+                var views = ironwood.compiler.semantic.BridgeByteViews.analyze(artifact, callable);
+                if (views.status() != BridgeProof.Status.PROVED) throw new IllegalArgumentException(views.reason());
+            }
+            boolean arrayResult = strings && ironwood.compiler.semantic.BridgeArrayInputs.primitiveArray(callable.result());
+            if (callable.kind() != IrCallableKind.METHOD || callable.parameters().stream().anyMatch(type -> type.isReference()
+                    && !(strings && (type.equals(IrType.reference("ironwood.lang.String"))
+                    || ironwood.compiler.semantic.BridgeArrayInputs.primitiveArray(type)
+                    || ironwood.compiler.semantic.BridgeByteViews.view(type))))
+                    || callable.result().isReference() && !results.containsKey(callable) && !arrayResult) {
+                throw new IllegalArgumentException("scalar entry does not admit object, constructor or conversion capabilities");
+            }
+            if (hasArrays || arrayResult) {
+                var arrays = ironwood.compiler.semantic.BridgeArrayInputs.values(artifact, callable);
+                if (arrays.status() != BridgeProof.Status.PROVED) throw new IllegalArgumentException(arrays.reason());
+            }
+            if (strings && (hasStrings || hasArrays)) {
+                if (!artifact.bridgeConstructionFacts().orElseThrow().isStatic(callable)) {
+                    throw new IllegalArgumentException("copied String entry requires a resolved static method");
+                }
+                if (original.allocationFailure().isEmpty()) throw new IllegalArgumentException("copy requires allocation failure context");
+                for (int index = 0; index < callable.parameters().size(); index++) {
+                    if (callable.parameters().get(index).isReference()
+                            && !(results.containsKey(callable) || arrayResult
+                            ? artifact.bridgeConstructionFacts().orElseThrow().borrowsThroughResult(callable, index)
+                            : artifact.bridgeConstructionFacts().orElseThrow().borrowsInput(callable, index))) {
+                        throw new IllegalArgumentException("copied input cleanup is not proved for parameter " + index);
+                    }
+                }
+            }
+            var proof = retention.get(callable);
+            if (proof.status() != BridgeProof.Status.PROVED || !proof.contract().orElseThrow().slots().isEmpty()) {
+                throw new IllegalArgumentException("scalar entry retention is not proved: " + proof.reason());
+            }
+            String symbol = "ironwood_bridge_entry_" + entries.size();
+            if (original.functions().stream().anyMatch(function -> function.linkageName().equals(symbol))) {
+                throw new IllegalArgumentException("generated bridge symbol collision: " + symbol);
+            }
+            var initialization = new BridgeCallTargets(original).initializers(callable.owner());
+            if (!initialization.complete()) throw new IllegalArgumentException("incomplete entry initialization");
+            entries.add(new Entry(root, hasStrings || hasArrays || hasViews || arrayResult || results.containsKey(callable)
+                    ? BridgeStringEntryLowering.lower(root, symbol, !initialization.targets().isEmpty(),
+                            Optional.ofNullable(results.get(callable)))
+                    : BridgeProtectedEntryLowering.lower(root, symbol, !initialization.targets().isEmpty())));
+        }
+        List<IrFunction> functions = new ArrayList<>(original.functions());
+        entries.forEach(entry -> functions.add(entry.function()));
+        var program = new IrProgram(original.moduleName(), original.classes(), original.staticFields(),
+                original.typeInitializations(), original.arrayTypes(), original.stringConstants(), original.dispatchSlots(),
+                functions, Optional.empty(), original.allocationFailure());
+        return new BridgeEntryModule(program, entries, Optional.empty(), List.of(), Optional.empty(), results);
+    }
+
+
+}

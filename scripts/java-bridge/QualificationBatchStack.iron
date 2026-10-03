@@ -1,0 +1,29 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+package batchstackprobe;
+
+// The listener reenters while a partial Java delivery is suspended. Each native
+// invocation computes only local primitive state and snapshots its registration.
+public final class QualificationBatchStack {
+
+    private BatchStackListener listener;
+
+    public QualificationBatchStack() {
+
+    }
+
+    public void setListener(BatchStackListener listener) {
+
+        this.listener = listener;
+    }
+
+    public long process(int count, long seed) {
+
+        BatchStackListener current = this.listener;
+        long value = seed;
+        for (int sequence = 0; sequence < count; sequence++) {
+            value = (value ^ (value >>> 13)) * 2862933555777941757L + 3037000493L;
+            current.event((long)sequence, value);
+        }
+        return value;
+    }
+}

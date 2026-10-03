@@ -1,0 +1,30 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+package bridgeperf;
+
+import org.ironwood.orderbook.Order;
+import org.ironwood.orderbook.OrderBook;
+import org.ironwood.orderbook.Order.Side;
+
+// Measurement-only coarse entry using the unchanged project's eight-operation
+// cycle. No engine API or ownership convention is changed by this fixture.
+public final class OrderBookBatch {
+
+    private OrderBookBatch() {
+
+    }
+
+    public static long run(OrderBook book, long cycles, long nextOrderId) {
+
+        for (long cycle = 0; cycle < cycles; cycle++) {
+            Order bid = book.createLimit(nextOrderId++, Side.BUY, 100, 10000000000L);
+            book.createLimit(nextOrderId++, Side.BUY, 100, 9900000000L);
+            Order ask = book.createLimit(nextOrderId++, Side.SELL, 100, 10200000000L);
+            book.createLimit(nextOrderId++, Side.SELL, 100, 10300000000L);
+            bid.reduceTo(50);
+            ask.cancel();
+            book.createMarket(nextOrderId++, Side.SELL, 150);
+            book.createMarket(nextOrderId++, Side.BUY, 100);
+        }
+        return nextOrderId;
+    }
+}

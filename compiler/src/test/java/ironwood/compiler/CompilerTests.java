@@ -130,6 +130,183 @@ public final class CompilerTests {
     }
 
     private int runAll() {
+        test("Java Bridge roots and ABI preserve resolved identities", BridgeModelTests::rootsAndAbi);
+        test("Java Bridge model survives source class and archive reconstruction", BridgeModelTests::artifacts);
+        test("Java Bridge proof outcomes fail closed", BridgeModelTests::proofs);
+        test("Java Bridge retention attributes helper and exceptional stores", BridgeRetentionTests::attribution);
+        test("Java Bridge retention rejects slot transfers and unknown effects", BridgeRetentionTests::rejections);
+        test("Java Bridge retention follows destructor and rollback effects", BridgeRetentionTests::cleanupEffects);
+        test("Java Bridge cleanup retention preserves actual initialization edges",
+                ironwood.compiler.semantic.BridgeCleanupInitializationTests::proofs);
+        test(ironwood.compiler.semantic.BridgeRollbackAttributionTests.NAME,
+                ironwood.compiler.semantic.BridgeRollbackAttributionTests::proofs);
+        test("Java Bridge retention proofs survive artifact reconstruction", BridgeRetentionTests::artifacts);
+        test("Java Bridge text retention distinguishes copied storage from publication", BridgeTextRetentionTests::effects);
+        test("Java Bridge fresh graphs preserve independent input retention proofs", BridgeFreshGraphTests::proofs);
+        test("Java Bridge secondary associations preserve caught input provenance", BridgeSecondaryRetentionTests::proofs);
+        test("Java Bridge primitive arraycopy proofs preserve erased-helper and artifact attribution", BridgeArrayCopyTests::proofs);
+        test("Java Bridge unwind reachability requires complete nonraising helper proofs",
+                ironwood.compiler.semantic.BridgeControlFlowTests::proofs);
+        test(ironwood.compiler.semantic.BridgeForeignCallTests.NAME,
+                ironwood.compiler.semantic.BridgeForeignCallTests::proofs);
+        test(ironwood.compiler.semantic.BridgeCallbackReachabilityTests.NAME,
+                ironwood.compiler.semantic.BridgeCallbackReachabilityTests::proofs);
+        test(BridgeListenerProxyTests.NAME, BridgeListenerProxyTests::proofs);
+        test(ironwood.compiler.semantic.BridgeCallbackContextTests.NAME,
+                ironwood.compiler.semantic.BridgeCallbackContextTests::proofs);
+        test(BridgeCallbackTransportTests.NAME, BridgeCallbackTransportTests::nativeTransport);
+        test(BridgeCallbackCarrierNativeTests.NAME, BridgeCallbackCarrierNativeTests::carriers);
+        test(BridgePrimitiveCallbackNativeTests.NAME, BridgePrimitiveCallbackNativeTests::primitives);
+        test(BridgeSynchronousCallbackTests.NAME, BridgeSynchronousCallbackTests::proofs);
+        test(BridgeOwnedCallbackTests.NAME, BridgeOwnedCallbackTests::proofs);
+        test(BridgeOwnedCallbackJavaTests.NAME, BridgeOwnedCallbackJavaTests::projection);
+        test(BridgeOwnedCallbackNativeTests.NAME, BridgeOwnedCallbackNativeTests::owners);
+        test(BridgeOwnedCallbackProducerTests.NAME, BridgeOwnedCallbackProducerTests::producer);
+        test(BridgeCallbackProducerTests.NAME, BridgeCallbackProducerTests::producer);
+        test(BridgeCallbackDispatchTests.NAME, BridgeCallbackDispatchTests::dispatch);
+        test(BridgeCallbackBatchingTests.PROOF, BridgeCallbackBatchingTests::proofs);
+        test(BridgeCallbackBatchingTests.NATIVE, BridgeCallbackBatchingTests::nativeBatches);
+        test(BridgeCallbackBatchingTests.ALLOCATION, BridgeCallbackBatchingTests::nativeAllocations);
+        test(ironwood.compiler.bridge.BridgeCallbackActiveUseTests.NAME,
+                ironwood.compiler.bridge.BridgeCallbackActiveUseTests::guards);
+        test(ironwood.compiler.semantic.BridgeCallbackCarrierLifetimeTests.NAME,
+                ironwood.compiler.semantic.BridgeCallbackCarrierLifetimeTests::proofs);
+        test("Java Bridge non-reclamation follows export and cleanup closure", BridgeNonReclamationTests::closure);
+        test(BridgeGeneratedReclamationTests.NAME, BridgeGeneratedReclamationTests::proofs);
+        test(BridgeGeneratedConstructionTests.NAME, BridgeGeneratedConstructionTests::proofs);
+        test(NativeLinkTransformationTests.NAME, NativeLinkTransformationTests::proofs);
+        test(BridgeFinalNonReclamationTests.NAME, BridgeFinalNonReclamationTests::proofs);
+        test(BridgeSnapshotSurfaceTests.NAME, BridgeSnapshotSurfaceTests::proofs);
+        test(BridgeMixedLifetimeTests.NAME, BridgeMixedLifetimeTests::proofs);
+        test(BridgeMixedLifetimeNativeTests.NAME, BridgeMixedLifetimeNativeTests::entries);
+        test(BridgeObjectAdmissionTests.NAME, BridgeObjectAdmissionTests::proofs);
+        test(BridgeFinalRootRetentionTests.NAME, BridgeFinalRootRetentionTests::proofs);
+        test("Java Bridge non-reclamation rejects unknown and dynamic deallocation", BridgeNonReclamationTests::unknownAndDispatch);
+        test("Java Bridge construction facts preserve ordinary safety and IR", BridgeConstructionTests::isolation);
+        test("Java Bridge construction facts survive artifact reconstruction", BridgeConstructionTests::artifacts);
+        test("Java Bridge actual OrderBook rollback is unpublished", BridgeOrderBookTests::construction);
+        test("Java Bridge OrderBook lifetime proofs survive artifact reconstruction", BridgeOrderBookTests::artifacts);
+        test("Java Bridge scalar entries protect typed operations and reject missing proofs", BridgeEntryTests::typedEntries);
+        test("Java Bridge scalar JNI calls contain exceptions at O0 and O3", BridgeEntryTests::nativeScalars);
+        test("Java Bridge shared images preserve disjoint native traces", BridgeImageTraceTests::disjointImages);
+        test("Java Bridge bounded native stack envelope and isolated limits", BridgeStackTests::envelope);
+        test("Java Bridge copied String proofs preserve cleanup and artifact parity", BridgeStringTests::proofs);
+        test(BridgeArrayInputTests.NAME, BridgeArrayInputTests::proofs);
+        test(BridgeByteViewTests.NAME, BridgeByteViewTests::proofs);
+        test(BridgeByteViewProducerTests.NAME, BridgeByteViewProducerTests::producer);
+        test(BridgeByteViewPackagingTests.NAME, BridgeByteViewPackagingTests::packaging);
+        test(BridgeArrayProducerTests.NAME, BridgeArrayProducerTests::producer);
+        test(BridgeArrayFaultTests.NAME, BridgeArrayFaultTests::failures);
+        test(BridgeArrayValueTests.NAME, BridgeArrayValueTests::proofs);
+        test(BridgeArrayValueProducerTests.NAME, BridgeArrayValueProducerTests::producer);
+        test(BridgeArrayValueFaultTests.NAME, BridgeArrayValueFaultTests::failures);
+        test("Java Bridge String result proofs preserve ownership and artifact parity", BridgeStringResultTests::proofs);
+        test(BridgeObjectStringTests.NAME, BridgeObjectStringTests::proofs);
+        test(BridgePermanentStringTests.NAME, BridgePermanentStringTests::proofs);
+        test(BridgePermanentEnumTests.NAME, BridgePermanentEnumTests::proofs);
+        test(BridgeRootEnumTests.NAME, BridgeRootEnumTests::proofs);
+        test(BridgeRootEnumNativeTests.NAME, BridgeRootEnumNativeTests::entries);
+        test(BridgePermanentEnumNativeTests.NAME, BridgePermanentEnumNativeTests::entries);
+        test(BridgePermanentStringNativeTests.NAME, BridgePermanentStringNativeTests::entries);
+        test(BridgeEnumValueNativeTests.NAME, BridgeEnumValueNativeTests::entries);
+        test(BridgeRootStringNativeTests.NAME, BridgeRootStringNativeTests::entries);
+        test("Java Bridge String results preserve native lifetime through JNI delivery", BridgeStringResultNativeTests::results);
+        test("Java Bridge copied strings contain repeated allocation failures", BridgeStringTests::nativeCopies);
+        test("Java Bridge loader preflight preserves bindings and permanent anchors", BridgeLoaderTests::lifecycle);
+        test("Java Bridge enum inputs require bound named conversion proofs", BridgeEnumTests::proofs);
+        test("Java Bridge enum JNI conversion initializes named native constants", BridgeEnumNativeTests::conversions);
+        test("Java Bridge root retention proves origins and repeated-call acyclicity", BridgeRootRetentionTests::proofs);
+        test("Java Bridge destruction requires complete nonthrowing cleanup", BridgeDestructionTests::proofs);
+        test("Java Bridge root entries preserve final slots before failure extraction", BridgeRootEntryTests::lowering);
+        test("Java Bridge root JNI payloads preserve mutation and unpublished rollback", BridgeRootNativeTests::payloads);
+        test("Java Bridge host commit completes retention before Java failure", BridgeCommitTests::commit);
+        test("Java Bridge result origins preserve uniform ownership and artifact parity", BridgeResultOriginTests::proofs);
+        test("Java Bridge root results require bounded uniform ownership", BridgeRootResultTests::admission);
+        test("Java Bridge native index preserves identity across reservation and delivery failure", BridgeIdentityTests::identity);
+        test("Java Bridge dependent views require exact root owners", BridgeViewTests::proofs);
+        test(BridgeViewRetentionTests.NAME, BridgeViewRetentionTests::proofs);
+        test("Java Bridge permanent entries require complete lifetime and rollback proofs", BridgePermanentTests::proofs);
+        test(BridgeOrderBookNativeTests.NAME, BridgeOrderBookNativeTests::failures);
+        test(BridgeLibraryTests.NAME, BridgeLibraryTests::rootsAndArtifacts);
+        test(BridgePackageTests.NAME, BridgePackageTests::discovery);
+        test(BridgeApiTests.NAME, BridgeApiTests::projection);
+        test(BridgeGenericFactsTests.NAME, BridgeGenericFactsTests::signatures);
+        test(BridgeGenericFactsTests.PARITY, BridgeGenericFactsTests::parity);
+        test(BridgeGenericProducerTests.NAME, BridgeGenericProducerTests::proofs);
+        test(BridgeGenericProducerTests.PRODUCER, BridgeGenericProducerTests::producer);
+        test(BridgeBoundedGenericTests.NAME, BridgeBoundedGenericTests::proofs);
+        test(BridgeBoundedGenericTests.PRODUCER, BridgeBoundedGenericTests::producer);
+        test(BridgeEnumApiTests.NAME, BridgeEnumApiTests::inventory);
+        test(BridgeEnumInvocationTests.NAME, BridgeEnumInvocationTests::proofs);
+        test(BridgeObjectValueApiTests.NAME, BridgeObjectValueApiTests::signatures);
+        test("Java Bridge public surface rejects incomplete capabilities and signature closure", BridgeApiTests::selection);
+        test("Java Bridge value surface requires proved String cleanup without admitting objects", BridgeApiTests::valueSelection);
+        test(BridgeObjectApiTests.NAME, BridgeObjectApiTests::signatures);
+        test(BridgeGenerationTests.NAME, BridgeGenerationTests::identities);
+        test(BridgeObjectGenerationTests.NAME, BridgeObjectGenerationTests::identities);
+        test(BridgeIdentityCacheTests.NAME, BridgeIdentityCacheTests::cache);
+        test(BridgeRootStateTests.NAME, BridgeRootStateTests::state);
+        test(BridgeRootIndexTests.NAME, BridgeRootIndexTests::index);
+        test(BridgeRootJavaSourceTests.NAME, BridgeRootJavaSourceTests::declarations);
+        test(BridgeRootFacadeNativeTests.NAME, BridgeRootFacadeNativeTests::facades);
+        test(BridgeRootFacadeFailureTests.NAME, BridgeRootFacadeFailureTests::failures);
+        test(BridgeRootReuseTests.NAME, BridgeRootReuseTests::reuse);
+        test(BridgeRootRetentionNativeTests.NAME, BridgeRootRetentionNativeTests::retention);
+        test(BridgeRootRetentionFailureTests.NAME, BridgeRootRetentionFailureTests::failures);
+        test("Java Bridge custom snapshots preserve retention through getter failures and native cleanup", BridgeRootRetentionNativeTests::snapshots);
+        test(BridgeObjectCollisionTests.NAME, BridgeObjectCollisionTests::collisions);
+        test(BridgePermanentJavaSourceTests.NAME, BridgePermanentJavaSourceTests::declarations);
+        test(BridgePermanentFacadeNativeTests.NAME, BridgePermanentFacadeNativeTests::facades);
+        test(BridgePermanentFacadeFailureTests.NAME, BridgePermanentFacadeFailureTests::failures);
+        test(BridgePermanentFacadeLoaderTests.NAME, BridgePermanentFacadeLoaderTests::loaders);
+        test(BridgeEnumJavaSourceTests.NAME, BridgeEnumJavaSourceTests::declarations);
+        test(BridgeFixedEnumTests.STRUCTURE, BridgeFixedEnumTests::structure);
+        test(BridgeFixedEnumTests.NATIVE, BridgeFixedEnumTests::nativeBehavior);
+        test(BridgeCriticalCallTests.SELECTION, BridgeCriticalCallTests::selection);
+        test(BridgeCriticalCallTests.STRUCTURE, BridgeCriticalCallTests::structure);
+        test(BridgeCriticalCallTests.NATIVE, BridgeCriticalCallTests::nativeBehavior);
+        test(BridgeEnumFacadeNativeTests.NAME, BridgeEnumFacadeNativeTests::facades);
+        test(BridgeEnumFacadeFailureTests.NAME, BridgeEnumFacadeFailureTests::failures);
+        test("Java Bridge producer inventories preserve content and reject incomplete inputs", BridgeGenerationTests::producerInputs);
+        test(BridgeJavaSourceTests.NAME, BridgeJavaSourceTests::declarations);
+        test(BridgeLoaderSourceTests.NAME, BridgeLoaderSourceTests::sourceAndExtraction);
+        test("Java Bridge builtin exception projections preserve exact getters and ownership", BridgeExceptionProjectionTests::projections);
+        test(BridgeCustomExceptionTests.NAME, BridgeCustomExceptionTests::proofs);
+        test(BridgeCustomSnapshotLayoutTests.NAME, BridgeCustomSnapshotLayoutTests::layouts);
+        test(BridgeCustomSnapshotJavaTests.NAME, BridgeCustomSnapshotJavaTests::snapshots);
+        test(BridgeCustomSnapshotNativeTests.NAME, BridgeCustomSnapshotNativeTests::snapshots);
+        test(BridgeCustomSnapshotGraphNativeTests.NAME, BridgeCustomSnapshotGraphNativeTests::graphs);
+        test(BridgeCustomExceptionNativeTests.NAME, BridgeCustomExceptionNativeTests::getters);
+        test("Java Bridge exception getters retain protected nonrecursive typed entries", BridgeExceptionProjectionTests::entries);
+        test(BridgeExceptionSourceTests.NAME, BridgeExceptionSourceTests::constructors);
+        test("Java Bridge protected exception getters contain allocation and Java delivery failures", BridgeExceptionNativeTests::getters);
+        test(BridgeValueNativeTests.NAME, BridgeValueNativeTests::adapters);
+        test(BridgeBootstrapNativeTests.NAME, BridgeBootstrapNativeTests::bootstrap);
+        test(BridgeMacPayloadTests.NAME, BridgeMacPayloadTests::metadata);
+        test(BridgeLinuxPayloadTests.NAME, BridgeLinuxPayloadTests::metadata);
+        test(BridgeLinuxProducerTests.NAME, BridgeLinuxProducerTests::producer);
+        test(BridgeDistributionTests.NAME, BridgeDistributionTests::inputs);
+        test("Java Bridge preserves used archive notices and rejects changed source inventories", BridgeDistributionTests::applicationInputs);
+        test(BridgeJarArchiveTests.NAME, BridgeJarArchiveTests::archive);
+        test(BridgeAssemblyTests.NAME, BridgeAssemblyTests::assembly);
+        test("Java Bridge shared traces preserve records under deterministic root ordering", ironwood.compiler.backend.SharedTraceOrderTests::ordering);
+        test(BridgeCompanionTests.NAME, BridgeCompanionTests::distribution);
+        test(BridgeProducerTests.NAME, BridgeProducerTests::producer);
+        test(BridgeBuildToolsTests.NAME, BridgeBuildToolsTests::tools);
+        test(BridgeObjectProducerTests.NAME, BridgeObjectProducerTests::producer);
+        test("Java Bridge root producer preserves packaged input parity and consumer lifetime", BridgeObjectProducerTests::roots);
+        test("Java Bridge retaining producer preserves mixed lifetime parity and complete slot commits", BridgeObjectProducerTests::retention);
+        test(BridgeOrderBookProducerTests.NAME, BridgeOrderBookProducerTests::producer);
+        test(BridgeOrderBookAllocationTests.NAME, BridgeOrderBookAllocationTests::allocations);
+        test(BridgeProducerExceptionTests.NAME, BridgeProducerExceptionTests::exceptions);
+        test("Java Bridge exception discovery rejects reachable custom types and preserves artifact parity", BridgeExceptionClosureTests::discovery);
+        test(FileSystemExceptionTests.NAME, FileSystemExceptionTests::messages);
+        test(BridgeLibraryNativeTests.NAME, BridgeLibraryNativeTests::libraries);
+        test("Java Bridge native support rejects stale inputs and preserves existing delivery",
+                ironwood.compiler.backend.BridgeNativeSupportTests::integrity);
+        test("Java Bridge production libraries preserve disjoint native traces", BridgeImageTraceTests::productionImages);
+        test("Java Bridge production scalar libraries preserve ABI and warm-path allocation", BridgeEntryTests::productionScalars);
+        test("Java Bridge production library stack envelope and isolated limits", BridgeStackTests::productionEnvelope);
         test("Milestone 1 program still lowers to typed IR", this::milestoneOneProgramStillLowers);
         test("comments and whitespace are accepted", this::commentsAndWhitespaceAreAccepted);
         test("IronDocs comments, CLI, links, and reproducible library documentation", IronDocTests::runAll);
@@ -510,6 +687,9 @@ public final class CompilerTests {
         test("safe free rejects double free and post-free use", this::safeFreeRejectsInvalidReuse);
         test("owned reusable helpers remain dependent borrows across calls",
                 this::ownedReusableHelpersAreDependentBorrows);
+        test(NullableOwnedFieldTests.NAME, NullableOwnedFieldTests::proofs);
+        test("nullable owned-field getters reclaim their owner graph at O3",
+                () -> runFixtureAtO3("nullable_owned_field.iron", 42));
         test("owned delegates distinguish observing and retaining extension paths",
                 OwnedDelegationTests::observingAndRetaining);
         test("TCP facade preserves typed options and result ownership",
@@ -578,6 +758,8 @@ public final class CompilerTests {
                 OwnedArrayExplanationTests::recordedObjects);
         test("owned-element defensive IR predicates retain selected evidence",
                 ironwood.compiler.semantic.OwnedArrayValidatorShapeTests::defensivePredicates);
+        test("String copies remain allocating in closed-world cleanup effects",
+                ironwood.compiler.semantic.StringCopyEffectTests::allocationEffects);
         test("owned-element notes retain class and archive source identities",
                 OwnedArrayExplanationTests::artifactSourceIdentity);
         test("fresh bulk results preserve detached element ownership under mutation",
@@ -672,6 +854,8 @@ public final class CompilerTests {
                 EnumArgumentTests::nativeArtifacts);
         test("selective inlining bounds loop candidates and preserves fallbacks",
                 ironwood.compiler.backend.SelectiveInliningTests::structure);
+        test("selective library inlining exposes medium loops and preserves recursive fallbacks",
+                ironwood.compiler.backend.SelectiveInliningTests::libraryStructure);
         test("selective inlining preserves native checks cleanup and traces",
                 ironwood.compiler.backend.SelectiveInliningTests::nativeBehavior);
         test("inlining link controls validate budgets and preserve enum specialization",
@@ -870,6 +1054,8 @@ public final class CompilerTests {
         test("bootstrap runtime boundary is discovered", this::bootstrapRuntimeIsDiscovered);
         test("runtime allocation and deallocation ABI works", this::runtimeAllocationAndDeallocationWorks);
         test("LLVM 23 toolchain is discovered", this::llvmToolchainIsDiscovered);
+        test(ironwood.compiler.backend.MacNativeToolsTests.NAME,
+                ironwood.compiler.backend.MacNativeToolsTests::selection);
         test("invalid LLVM home is diagnosed", this::invalidLlvmHomeIsDiagnosed);
         test("wrong LLVM major is diagnosed", this::wrongLlvmMajorIsDiagnosed);
         test("invalid optimization level is diagnosed", this::invalidOptimizationLevelIsDiagnosed);
@@ -879,6 +1065,8 @@ public final class CompilerTests {
                 ironwood.compiler.backend.NativeTargetTests::layoutMatchesClang);
         test("mixed-width native layouts survive class and archive links",
                 ironwood.compiler.backend.NativeTargetTests::mixedObjectsAcrossArtifacts);
+        test("portable x86-64 tuning merges adjacent stores with baseline SSE2",
+                ironwood.compiler.backend.NativeTargetTests::portableTuningMergesAdjacentStores);
         test("field aliases preserve mandatory safety", FieldAliasTests::safety);
         test("field value forwarding requires exact receiver and effect proofs", FieldValueForwardingTests::structure);
         test("field value forwarding preserves native behavior and artifacts", FieldValueForwardingTests::nativeArtifacts);

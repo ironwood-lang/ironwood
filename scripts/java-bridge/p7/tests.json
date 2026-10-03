@@ -1,0 +1,24 @@
+{
+  "license": "SPDX-License-Identifier: MIT OR Apache-2.0",
+  "scope": "P7 combined JNI qualification; exact focused selection, never a full compiler suite",
+  "tests": [
+    "Java Bridge batches only effect-free counted callback loops",
+    "Java Bridge automatic batches preserve order reentry failure and artifact parity",
+    "Java Bridge automatic batches allocate no native objects on warmed calls",
+    "Java Bridge producer packages retained owner listeners with source class archive parity",
+    "Java Bridge array input proofs preserve confinement and artifact parity",
+    "Java Bridge array value proofs distinguish mutation aliases fresh and retained results",
+    "Java Bridge mutable array producer preserves writes aliases and fresh results",
+    "Java Bridge array staging failures preserve inputs and release every acquired buffer",
+    "Java Bridge array copy-back faults preserve primary failures and reclaim results",
+    "Java Bridge byte-view proofs preserve typed bounds confinement and artifact parity",
+    "Java Bridge byte-view producer preserves shared storage bounds identity and artifact parity",
+    "Java Bridge byte-view dependency binds exactly and composes across artifacts and modules",
+    "Java Bridge read-only generics preserve finite production and reject input loopholes",
+    "Java Bridge generic producer preserves raw wildcard cast and lifetime behavior",
+    "Java Bridge bounded generic inputs preserve construction and retention proofs",
+    "Java Bridge bounded generic producer preserves erased clients and failure cleanup",
+    "Java Bridge assembly preserves paired bytes and rejects mixed or incomplete host artifacts",
+    "Java Bridge packages exact corresponding library source and required notices"
+  ]
+}

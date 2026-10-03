@@ -1,0 +1,33 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+package boundedbench;
+
+// The final bound covers every legal Java argument without runtime type tags.
+public final class Holder<T extends Value> {
+
+    private T value;
+
+    public Holder(T value) {
+
+        this.value = value;
+    }
+
+    public void set(T value) {
+
+        this.value = value;
+    }
+
+    public int read() {
+
+        return this.value == null ? 0 : this.value.number();
+    }
+
+    public T echo(T value) {
+
+        return value;
+    }
+
+    public static long allocations() {
+
+        return System.allocationCount();
+    }
+}

@@ -1,0 +1,11 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+package genericbench;
+
+// The other native type remains Trade even through an unchecked Box<Quote> cast.
+public final class Trade {
+
+    public int value() {
+
+        return 29;
+    }
+}

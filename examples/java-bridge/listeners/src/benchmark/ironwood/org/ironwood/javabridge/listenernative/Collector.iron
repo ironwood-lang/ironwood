@@ -1,0 +1,40 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+package org.ironwood.javabridge.listenernative;
+
+import org.ironwood.javabridge.listeners.ResultListener;
+
+// Same state transition as the Java benchmark listener. Whole-program native
+// compilation can devirtualize this concrete listener without any bridge code.
+public final class Collector implements ResultListener {
+
+    private long checksum;
+
+    private long events;
+
+    public Collector() {
+
+    }
+
+    @Override
+    public void onResult(long sequence, long value) {
+
+        this.checksum = (this.checksum << 7) ^ (this.checksum >>> 3) ^ value ^ sequence;
+        this.events++;
+    }
+
+    public void reset() {
+
+        this.checksum = 0L;
+        this.events = 0L;
+    }
+
+    public long checksum() {
+
+        return this.checksum;
+    }
+
+    public long events() {
+
+        return this.events;
+    }
+}

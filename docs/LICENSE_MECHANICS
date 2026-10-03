@@ -150,6 +150,17 @@ recorded in `SOURCE_PROVENANCE.md`, `THIRD_PARTY_NOTICES.md`, the checked-in
 TLS dependency pins and the SDK build manifest. Source/tool-only packages
 include the recipe and metadata without claiming to bundle static archives.
 
+Linux Java Bridge shared outputs additionally carry pinned unmodified GCC
+runtime libraries under GPLv3 with GCC Runtime Library Exception 3.1. Their
+adjacent support directory includes complete corresponding GCC source,
+upstream package recipes/patches, zlib build source, and verbatim license texts.
+Preserve all of that directory with the paired native image. The exception does
+not remove obligations for the covered runtime itself or reclassify original
+Ironwood implementation code. Source/tool-only packages include preparation
+code and pins without claiming to contain runtime binaries. See
+`JAVA_BRIDGE_NATIVE_SUPPORT.md`, `SOURCE_PROVENANCE.md` and
+`THIRD_PARTY_NOTICES.md` for exact inputs and scope.
+
 The presence of the GPLv2 and Classpath Exception texts prepares distributions
 to carry derived files; it does not classify otherwise permissive files as GPL.
 

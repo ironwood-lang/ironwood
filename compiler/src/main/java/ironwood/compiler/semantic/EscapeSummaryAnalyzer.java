@@ -294,6 +294,15 @@ final class EscapeSummaryAnalyzer {
         return summaries.getOrDefault(callable.linkageName(), EscapeSummary.unknown(callable));
     }
 
+    boolean hasForeignBody(CallableSymbol callable) {
+        return borrowDispatch != null && borrowDispatch.hasForeignBody(callable.linkageName());
+    }
+
+    boolean foreignReceiverConfined(CallableSymbol callable) {
+        return !callable.isStatic() && borrowDispatch != null
+                && borrowDispatch.foreignReceiverConfined(callable.linkageName());
+    }
+
     boolean isDetachedFreshArrayElement(String function, SourceSpan span) {
         if (borrowDispatch == null) { return false; }
         if (freshArrayElements == null) {
@@ -382,6 +391,7 @@ final class EscapeSummaryAnalyzer {
     }
 
     private void applyAuditedBorrowingContract(CallableSymbol callable) {
+        if (hasForeignBody(callable)) return;
         EscapeSummary summary = summaries.get(callable.linkageName());
         if (summary == null) {
             return;
@@ -502,6 +512,13 @@ final class EscapeSummaryAnalyzer {
     }
 
     private void analyze(CallableSymbol callable) {
+        if (hasForeignBody(callable)) {
+            // A source stub cannot supply effects for a generated foreign body.
+            var unknown = EscapeSummary.unknown(callable);
+            summaries.put(callable.linkageName(), foreignReceiverConfined(callable)
+                    ? new EscapeSummary(false, unknown.escapingParameters(), Set.of()) : unknown);
+            return;
+        }
         SymbolicReturnOriginAnalyzer.ReturnSummary poolContract = PoolSemantics.symbolic(callable);
         if (poolContract != null) {
             summaries.put(callable.linkageName(), new EscapeSummary(false, Set.of(), Set.of())

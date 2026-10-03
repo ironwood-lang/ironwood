@@ -1,0 +1,65 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+package arraydriver;
+
+import arraybench.ArrayOps;
+
+// Batch timings include the loop and data-dependent input update. Each row is
+// one whole sample, not a per-call latency percentile. Exit zero checks cleanup.
+public final class NativeBench {
+
+    private NativeBench() {
+
+    }
+
+    public static int main(String[] args) {
+
+        int operation = Integer.parseInt(args[0]);
+        int size = Integer.parseInt(args[1]);
+        int iterations = Integer.parseInt(args[2]);
+        int[] values = new int[size];
+        defer free values;
+        System.out.println("scenario,operation,size,sample,calls,elapsed_ns,checksum,native_allocations,java_bytes");
+        for (int sample = -3; sample < 7; sample++) {
+            int seed = 17;
+            long checksum = 0;
+            for (int i = 0; i < size; i++) values[i] = i;
+            long live = ArrayOps.live();
+            long allocations = ArrayOps.allocations();
+            long start = System.nanoTime();
+            for (int i = 0; i < iterations; i++) {
+                seed = (seed * 1664525 + 1013904223) & 0x7fffffff;
+                values[i % size] = seed;
+                if (operation == 0) {
+                    checksum += ArrayOps.read(values);
+                } else if (operation == 1) {
+                    checksum += ArrayOps.update(values);
+                } else {
+                    int[] result = ArrayOps.fresh(size, seed);
+                    checksum += result[size - 1];
+                    free result;
+                }
+            }
+            long elapsed = System.nanoTime() - start;
+            allocations = ArrayOps.allocations() - allocations;
+            if (ArrayOps.live() != live) throw new IllegalStateException("temporary native storage leaked");
+            if (sample >= 0) {
+                System.out.print("native,");
+                System.out.print(operation);
+                System.out.print(",");
+                System.out.print(size);
+                System.out.print(",");
+                System.out.print(sample);
+                System.out.print(",");
+                System.out.print(iterations);
+                System.out.print(",");
+                System.out.print(elapsed);
+                System.out.print(",");
+                System.out.print(checksum);
+                System.out.print(",");
+                System.out.print(allocations);
+                System.out.println(",-1");
+            }
+        }
+        return 0;
+    }
+}
