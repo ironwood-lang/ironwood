@@ -145,10 +145,21 @@ final class BridgeExceptionNativeTests {
                 Files.writeString(directory.resolve(name + ".expectation.txt"), nestedExhaustion
                         ? "documented target fatal-exhaustion control; exit 1; no JVM recovery claim\n"
                         : "recoverable transport; exit 0; subsequent calls succeed\n");
-                check(process.exitValue() == (nestedExhaustion ? 1 : 0) && output.equals(expected), name + ": " + output);
+                String controlled = nestedExhaustion ? controlledFatalOutput(output) : output;
+                check(process.exitValue() == (nestedExhaustion ? 1 : 0) && controlled.equals(expected), name + ": " + output);
             }
         }
         System.out.println("protected exception getter evidence: " + directory);
+    }
+
+    /**
+     * The fatal exhaustion control exits through the C runtime while the JVM is still running. Under
+     * Rosetta the -Xcheck:jni watcher has been observed reporting modified signal handlers during that
+     * exit; native Linux and macOS hosts print nothing more. Only that trailing JVM report is removed.
+     */
+    private static String controlledFatalOutput(String output) {
+        int report = output.indexOf("\nWarning: SIG");
+        return report < 0 ? output : output.substring(0, report + 1);
     }
 
     private static final String ADAPTER = """
