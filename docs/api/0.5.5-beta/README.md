@@ -6,7 +6,7 @@
 
 # Ironwood Standard Library
 
-**API reference** · 165 documented types · 13 packages
+**API reference** · 166 documented types · 14 packages
 
 Browse packages below, then open a type for its declaration, examples, and member reference.
 
@@ -15,6 +15,7 @@ Browse packages below, then open a type for its declaration, examples, and membe
 | Package | Types | Description |
 | --- | ---: | --- |
 | [`ironwood.bench`](ironwood/bench/package-summary.md) | 2 | Native latency measurement, warmup, and percentile reports. |
+| [`ironwood.bridge`](ironwood/bridge/package-summary.md) | 1 |  |
 | [`ironwood.ds`](ironwood/ds/package-summary.md) | 26 | Low-allocation lists, maps, sets, and primitive collections. |
 | [`ironwood.io`](ironwood/io/package-summary.md) | 32 | Synchronous byte and character streams, standard input/output/error, and checked I/O failures. |
 | [`ironwood.lang`](ironwood/lang/package-summary.md) | 38 | Object model, text, iteration, resource cleanup, numeric helpers, system services, and exceptions. |
@@ -34,6 +35,7 @@ Browse packages below, then open a type for its declaration, examples, and membe
 | --- | --- | --- |
 | [`Bench`](ironwood/bench/Bench.md) | `ironwood.bench` | Measures latency in nanoseconds, with warmup exclusion and percentile reports. |
 | [`NanoBench`](ironwood/bench/NanoBench.md) | `ironwood.bench` | Reports the count, average, minimum, and maximum latency in nanoseconds. |
+| [`ByteView`](ironwood/bridge/ByteView.md) | `ironwood.bridge` | A bounded byte range borrowed synchronously from the Java host. |
 | [`ArrayLinkedList`](ironwood/ds/ArrayLinkedList.md) | `ironwood.ds` | Provides an array-backed linked list. |
 | [`ArrayList`](ironwood/ds/ArrayList.md) | `ironwood.ds` | Provides a resizable array-backed list. |
 | [`ByteBufferMap`](ironwood/ds/ByteBufferMap.md) | `ironwood.ds` | Maps byte-buffer keys to values. |
