@@ -19,7 +19,7 @@ final class BridgeBootstrapNativeTests {
     static void bootstrap() throws Exception {
         if (!System.getProperty("os.name").startsWith("Mac")) return; // P2's loader target is macOS ARM64.
         var artifact = new CompilerPipeline(UnfreedMode.OFF).analyzeForBridge(List.of(SourceFile.of("Engine.iron", """
-                package bootpreview;
+                package bootfixture;
                 public final class Engine {
                     private Engine() {}
                     public static int add(int a, int b) { return a + b; }
@@ -38,7 +38,7 @@ final class BridgeBootstrapNativeTests {
                 }
                 """)));
         check(artifact.valid(), artifact.diagnostics().toString());
-        var surface = BridgeExportSurface.staticValues(artifact, List.of("bootpreview")).surface().orElseThrow();
+        var surface = BridgeExportSurface.staticValues(artifact, List.of("bootfixture")).surface().orElseThrow();
         var module = BridgeEntryModule.stringValues(artifact, surface.roots());
         var closure = BridgeExceptionClosure.builtins(artifact, module);
         check(closure.status() == BridgeProof.Status.PROVED, closure.reason());
@@ -163,7 +163,7 @@ final class BridgeBootstrapNativeTests {
                         }
                         invoke(support, ensure.getName(), new Class<?>[0]);
                         // A throwing source initializer must remain dormant during binding.
-                        Class<?> engine = Class.forName("bootpreview.Engine", true, loader);
+                        Class<?> engine = Class.forName("bootfixture.Engine", true, loader);
                         if (!invoke(engine, "add", new Class<?>[]{int.class, int.class}, 20, 22).equals(42)) throw new AssertionError("scalar");
                         if (!invoke(engine, "fixed", new Class<?>[0]).equals("fixed")) throw new AssertionError("immortal result");
                         if (args[2].equals("budget")) {
@@ -180,7 +180,7 @@ final class BridgeBootstrapNativeTests {
                             for (int i = 0; i < 2; i++) {
                                 try { invoke(engine, "fail", new Class<?>[0]); throw new AssertionError("missing checked exception"); }
                                 catch (java.io.IOException expected) { if (!expected.getMessage().equals("native message")) throw expected; }
-                                Class<?> lazy = Class.forName("bootpreview.Engine$Lazy", true, loader);
+                                Class<?> lazy = Class.forName("bootfixture.Engine$Lazy", true, loader);
                                 try { invoke(lazy, "read", new Class<?>[0]); throw new AssertionError("missing initializer exception"); }
                                 catch (IllegalStateException expected) { if (!expected.getMessage().equals("lazy failure")) throw expected; }
                             }

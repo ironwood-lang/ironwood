@@ -23,14 +23,14 @@ final class BridgeLoaderSourceTests {
     static void sourceAndExtraction() throws Exception {
         var compiler = new CompilerPipeline(UnfreedMode.OFF);
         var artifact = compiler.analyzeForBridge(List.of(SourceFile.of("Engine.iron", """
-                package loaderpreview;
+                package loadersource;
                 public final class Engine {
                     private Engine() {}
                     public static int value(int left, int right) { return left + right; }
                 }
                 """)));
         check(artifact.valid(), artifact.diagnostics().toString());
-        var surface = BridgeExportSurface.scalarValues(artifact, List.of("loaderpreview")).surface().orElseThrow();
+        var surface = BridgeExportSurface.scalarValues(artifact, List.of("loadersource")).surface().orElseThrow();
         var generation = BridgeGeneration.create("loader.jar", artifact, surface, "test", "1".repeat(64), "2".repeat(64));
         var declarations = BridgeJavaSources.generate(artifact, surface, generation, BridgeEntryModule.scalars(artifact, surface.roots()));
         byte[] content = "not a native library: extraction-only test".getBytes(java.nio.charset.StandardCharsets.UTF_8);
@@ -63,7 +63,7 @@ final class BridgeLoaderSourceTests {
                         "minimum OS predicate changed");
                 Class<?>[] checked = (Class<?>[]) invoke(firstSupport, "preflight", new Class<?>[]{ClassLoader.class}, first);
                 check(checked.length == declarations.generatedTypes().size(), "incomplete class preflight");
-                Class<?> engine = Class.forName("loaderpreview.Engine", false, first);
+                Class<?> engine = Class.forName("loadersource.Engine", false, first);
                 Class<?>[] nativeCheck = {ClassLoader.class, Class.class, String.class, String.class, String[].class};
                 String[] signatures = {declarations.bindings().getFirst().nativeName() + declarations.bindings().getFirst().descriptor()};
                 invoke(firstSupport, "nativePreflight", nativeCheck, first, engine, engine.getName(), generation.identity(), signatures);
@@ -119,11 +119,11 @@ final class BridgeLoaderSourceTests {
             }
             for (String scenario : List.of("identity", "marker", "signature", "missing")) {
                 var altered = new java.util.TreeMap<>(sources);
-                String name = scenario.equals("marker") ? "loaderpreview/_IronwoodBridgePackage.java" : "loaderpreview/Engine.java";
+                String name = scenario.equals("marker") ? "loadersource/_IronwoodBridgePackage.java" : "loadersource/Engine.java";
                 if (scenario.equals("signature")) {
                     altered.put(name, altered.get(name).replace("private static native int $ironwood$native$0(int left", "private static native int $ironwood$native$0(long left"));
                 } else if (scenario.equals("missing")) {
-                    altered.remove("loaderpreview/_IronwoodBridgePackage.java");
+                    altered.remove("loadersource/_IronwoodBridgePackage.java");
                 } else {
                     altered.put(name, altered.get(name).replace("\"" + generation.identity() + "\"", "\"different-generation\""));
                 }
