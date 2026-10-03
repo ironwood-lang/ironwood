@@ -24,11 +24,10 @@ public final class Benchmark {
         private JavaProcessor(ResultListener listener) { this.listener = listener; }
         private long process(int count, long seed) {
             if (count < 0) throw new IllegalArgumentException("negative count");
-            ResultListener current = listener;
             long value = seed;
             for (int sequence = 0; sequence < count; sequence++) {
                 value = (value ^ (value >>> 13)) * 2862933555777941757L + 3037000493L;
-                current.onResult(sequence, value);
+                listener.onResult(sequence, value);
             }
             return value;
         }
