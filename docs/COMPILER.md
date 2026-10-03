@@ -63,7 +63,7 @@ failure rather than adopting Java's earlier allocation attempt.
 
 ## Java Bridge producer and analysis foundations
 
-The experimental `ironwoodc --java-bridge` producer composes scalar/String,
+The `ironwoodc --java-bridge` producer composes scalar/String,
 proved copied primitive arrays and borrowed byte views, permanent-object,
 root/view, bounded-retention and bounded callback protocols on macOS ARM64 and
 both Linux targets. The

@@ -7,7 +7,7 @@ the platform linker tooling, examples, projects, and reference documentation.
 You do not need to install Java or LLVM and you do not need to build Ironwood
 from source.
 
-The experimental [Java Bridge producer](JAVA_BRIDGE_USAGE.md) additionally
+The [Java Bridge producer](JAVA_BRIDGE_USAGE.md) additionally
 supports a complete JDK 21 to 25 with compiler/Javadoc tools and JNI headers and
 produces macOS ARM64, Linux ARM64 and Linux x86-64 jars with the corresponding
 pinned native toolchain/support SDK. Generated consumers need supported Java and
