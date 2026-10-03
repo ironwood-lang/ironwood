@@ -37,10 +37,6 @@ public final class Counter {
 
     private CounterListener listener;
 
-    public Counter() {
-
-    }
-
     public void setListener(CounterListener listener) {
 
         this.listener = listener;
@@ -74,7 +70,6 @@ This is an ordinary Ironwood compilation. It writes `.ironclass` files under
 
 ```sh
 ironwoodc --java-bridge --export org.ironwood.javabridge.basics -cp target/classes \
-    --license ../../../LICENSE-MIT --license ../../../LICENSE-APACHE \
     -O3 -o target/ironwood-basics.jar
 ```
 
@@ -83,7 +78,8 @@ package to export. The result, `target/ironwood-basics.jar`, is the library:
 the generated Java class `Counter` and interface `CounterListener` in package
 `org.ironwood.javabridge.basics`, the native library for this machine, the
 loader, sources, Javadoc and license texts. It is a normal jar: nothing has to
-be installed next to it. (first half of `link.sh`)
+be installed next to it. (first half of `link.sh`, which also embeds the
+example's own license files with `--license`)
 
 ## 4. The Java program
 
@@ -96,10 +92,6 @@ import org.ironwood.javabridge.basics.Counter;
 import org.ironwood.javabridge.basics.CounterListener;
 
 public final class Main implements CounterListener {
-
-    private Main() {
-
-    }
 
     @Override
     public void onChanged(int value) {
@@ -129,11 +121,12 @@ There is no `native` keyword, no JNI and no `System.load`.
 ## 5. Compile it against the library
 
 ```sh
-javac --release 21 -cp target/ironwood-basics.jar -d target/consumer-classes \
+javac -cp target/ironwood-basics.jar -d target/consumer-classes \
     src/main/java/org/ironwood/javabridge/basicsconsumer/Main.java
 ```
 
-The jar is the only thing on the compile classpath. (second half of `link.sh`)
+The jar is the only thing on the compile classpath. (second half of `link.sh`,
+which adds `--release 21 -Xlint:all -Werror`)
 
 ## 6. Run
 

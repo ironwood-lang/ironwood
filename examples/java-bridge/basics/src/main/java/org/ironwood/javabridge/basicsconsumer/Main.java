@@ -7,10 +7,6 @@ import org.ironwood.javabridge.basics.CounterListener;
 // This Java object receives callbacks from the native Ironwood counter.
 public final class Main implements CounterListener {
 
-    private Main() {
-
-    }
-
     @Override
     public void onChanged(int value) {
 
