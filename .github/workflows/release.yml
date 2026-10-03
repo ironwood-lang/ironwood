@@ -43,7 +43,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - runner: macos-14
+          - runner: macos-15
             platform: macos-arm64
             sysroot: ""
           - runner: ubuntu-24.04-arm
@@ -108,7 +108,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - runner: macos-14
+          - runner: macos-15
             platform: macos-arm64
           - runner: ubuntu-24.04-arm
             platform: linux-arm64
