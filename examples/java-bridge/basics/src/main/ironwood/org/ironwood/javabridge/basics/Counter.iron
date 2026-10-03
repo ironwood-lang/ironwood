@@ -8,10 +8,6 @@ public final class Counter {
 
     private CounterListener listener;
 
-    public Counter() {
-
-    }
-
     // The bridge keeps the listener alive until replacement, clearing or free().
     public void setListener(CounterListener listener) {
 
