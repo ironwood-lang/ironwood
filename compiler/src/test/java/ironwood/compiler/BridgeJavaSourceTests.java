@@ -55,7 +55,7 @@ final class BridgeJavaSourceTests {
         var compiler = new CompilerPipeline(UnfreedMode.OFF);
         var artifact = compiler.analyzeForBridge(List.of(SourceFile.of("Engine.iron", SOURCE)));
         check(artifact.valid(), artifact.diagnostics().toString());
-        var selection = BridgeExportSurface.scalarPreview(artifact, List.of("generatedapi"));
+        var selection = BridgeExportSurface.scalarValues(artifact, List.of("generatedapi"));
         check(selection.surface().isPresent(), selection.diagnostics().toString());
         var surface = selection.surface().orElseThrow();
         var generation = BridgeGeneration.create("api.jar", artifact, surface, "test", "1".repeat(64), "2".repeat(64));

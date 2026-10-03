@@ -54,7 +54,7 @@ final class BridgeObjectApiTests {
         check(surface.roots().roots().stream().anyMatch(root -> root.callable().name().equals("hashCode"))
                 && surface.roots().roots().stream().anyMatch(root -> root.callable().name().equals("toString")),
                 "source overrides silently projected as Java identity methods");
-        check(BridgeExportSurface.valuePreview(artifact, List.of("objectapi")).surface().isEmpty(),
+        check(BridgeExportSurface.staticValues(artifact, List.of("objectapi")).surface().isEmpty(),
                 "signature selection enabled incomplete public object production");
         parity(source, selected);
 

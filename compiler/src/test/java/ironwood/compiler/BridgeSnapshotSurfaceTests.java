@@ -47,7 +47,7 @@ final class BridgeSnapshotSurfaceTests {
             var missing = BridgeExportSurface.objectValues(artifact, List.of("snapshotapi"));
             check(missing.surface().isEmpty() && missing.diagnostics().stream()
                     .anyMatch(diagnostic -> diagnostic.message().contains("add --export snapshoterrors")), "missing throws package admitted");
-            check(BridgeExportSurface.valuePreview(artifact, EXPORTS).surface().isEmpty(), "public value producer admitted snapshots");
+            check(BridgeExportSurface.staticValues(artifact, EXPORTS).surface().isEmpty(), "public value producer admitted snapshots");
             var selected = select(artifact);
             var module = BridgeEntryModule.rootObjects(artifact, selected.roots());
             var partial = new BridgeExportSurface(selected.types().stream().filter(type -> !type.throwable()).toList(), selected.roots());

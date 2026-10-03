@@ -61,7 +61,7 @@ final class BridgeApiTests {
         var compiler = new CompilerPipeline(UnfreedMode.OFF);
         var artifact = compiler.analyzeForBridge(List.of(SourceFile.of("Values.iron", source)));
         check(artifact.valid(), artifact.diagnostics().toString());
-        var selection = ironwood.compiler.bridge.BridgeExportSurface.valuePreview(artifact, List.of("selectedvalues"));
+        var selection = ironwood.compiler.bridge.BridgeExportSurface.staticValues(artifact, List.of("selectedvalues"));
         check(selection.surface().isPresent(), selection.diagnostics().toString());
         var surface = selection.surface().orElseThrow();
         var module = ironwood.compiler.bridge.BridgeEntryModule.stringValues(artifact, surface.roots());
@@ -73,13 +73,13 @@ final class BridgeApiTests {
         var unsafe = compiler.analyzeForBridge(List.of(SourceFile.of("Values.iron", source.replace("private Values() {}",
                 "private Values() {} private static String stored;").replace("return input;", "stored = input; return input;"))));
         check(unsafe.valid(), unsafe.diagnostics().toString());
-        var unsafeSurface = ironwood.compiler.bridge.BridgeExportSurface.valuePreview(unsafe, List.of("selectedvalues")).surface().orElseThrow();
+        var unsafeSurface = ironwood.compiler.bridge.BridgeExportSurface.staticValues(unsafe, List.of("selectedvalues")).surface().orElseThrow();
         try {
             ironwood.compiler.bridge.BridgeEntryModule.stringValues(unsafe, unsafeSurface.roots());
             throw new AssertionError("signature selection bypassed String input publication proof");
         } catch (IllegalArgumentException expected) { check(!expected.getMessage().isBlank(), "missing proof failure diagnostic"); }
         var object = compiler.analyzeForBridge(List.of(SourceFile.of("Values.iron", source.replace("String absent()", "Object absent()"))));
-        check(ironwood.compiler.bridge.BridgeExportSurface.valuePreview(object, List.of("selectedvalues")).surface().isEmpty(),
+        check(ironwood.compiler.bridge.BridgeExportSurface.staticValues(object, List.of("selectedvalues")).surface().isEmpty(),
                 "String value selection broadened general object admission");
     }
 
@@ -103,18 +103,18 @@ final class BridgeApiTests {
         var source = SourceFile.of("Utility.iron", utility);
         var artifact = compiler.analyzeForBridge(List.of(source));
         check(artifact.valid(), artifact.diagnostics().toString());
-        var selection = ironwood.compiler.bridge.BridgeExportSurface.scalarPreview(artifact, List.of("selected"));
+        var selection = ironwood.compiler.bridge.BridgeExportSurface.scalarValues(artifact, List.of("selected"));
         check(selection.surface().isPresent(), selection.diagnostics().toString());
         var surface = selection.surface().orElseThrow();
         check(surface.types().size() == 2 && surface.roots().roots().size() == 4, "public root union incomplete");
         var module = ironwood.compiler.bridge.BridgeEntryModule.copiedStrings(artifact, surface.roots());
         check(module.entries().size() == 4, "selected roots did not reuse P0 string/scalar proofs");
-        check(ironwood.compiler.bridge.BridgeExportSurface.scalarPreview(compiler.analyze(List.of(source)),
+        check(ironwood.compiler.bridge.BridgeExportSurface.scalarValues(compiler.analyze(List.of(source)),
                 List.of("selected")).surface().isEmpty(), "ordinary artifact supplied API authority");
         var changed = compiler.analyzeForBridge(List.of(SourceFile.of("Utility.iron", utility.replace("return true;", "return false;"))));
         var stale = new CompilationArtifact(changed.program(), changed.llvmIr(), changed.diagnostics(),
                 changed.bridgeConstructionFacts(), artifact.bridgeApiFacts());
-        check(ironwood.compiler.bridge.BridgeExportSurface.scalarPreview(stale, List.of("selected")).surface().isEmpty(),
+        check(ironwood.compiler.bridge.BridgeExportSurface.scalarValues(stale, List.of("selected")).surface().isEmpty(),
                 "stale API projection supplied authority");
         for (String member : List.of("public Utility(int value) {}", "public static int mutable;",
                 "public static final int runtime = value(1);", "public int instance() { return 1; }",
@@ -165,7 +165,7 @@ final class BridgeApiTests {
                 .replace("private Utility() {}", "private Utility() {} private static String retained;")
                 .replace("return input == null ? -1 : input.length();", "retained = input; return 1;"))));
         check(retaining.valid(), retaining.diagnostics().toString());
-        var retainedSurface = ironwood.compiler.bridge.BridgeExportSurface.scalarPreview(retaining, List.of("selected"));
+        var retainedSurface = ironwood.compiler.bridge.BridgeExportSurface.scalarValues(retaining, List.of("selected"));
         check(retainedSurface.surface().isPresent(), "signature selection should not invent lifetime facts");
         try {
             ironwood.compiler.bridge.BridgeEntryModule.copiedStrings(retaining, retainedSurface.surface().orElseThrow().roots());
@@ -179,7 +179,7 @@ final class BridgeApiTests {
                                         List<String> packages, String message) {
         var artifact = compiler.analyzeForBridge(sources);
         check(artifact.valid(), "invalid negative fixture: " + artifact.diagnostics());
-        var selection = ironwood.compiler.bridge.BridgeExportSurface.scalarPreview(artifact, packages);
+        var selection = ironwood.compiler.bridge.BridgeExportSurface.scalarValues(artifact, packages);
         check(selection.surface().isEmpty() && selection.diagnostics().stream()
                         .anyMatch(diagnostic -> diagnostic.source() != null && diagnostic.message().contains(message)),
                 "expected located API rejection containing '" + message + "': " + selection.diagnostics());
@@ -262,9 +262,9 @@ final class BridgeApiTests {
                 var restored = pipeline.analyzeForBridge(loaded.sources());
                 check(restored.valid(), restored.diagnostics().toString());
                 check(shape(facts).equals(shape(restored.bridgeApiFacts().orElseThrow())), "API projection differs for " + input);
-                var expectedErrors = ironwood.compiler.bridge.BridgeExportSurface.scalarPreview(artifact, List.of("inventory"))
+                var expectedErrors = ironwood.compiler.bridge.BridgeExportSurface.scalarValues(artifact, List.of("inventory"))
                         .diagnostics().stream().map(diagnostic -> diagnostic.message()).toList();
-                var actualErrors = ironwood.compiler.bridge.BridgeExportSurface.scalarPreview(restored, List.of("inventory"))
+                var actualErrors = ironwood.compiler.bridge.BridgeExportSurface.scalarValues(restored, List.of("inventory"))
                         .diagnostics().stream().map(diagnostic -> diagnostic.message()).toList();
                 check(expectedErrors.equals(actualErrors), "API rejection differs after reconstruction: " + input);
             }

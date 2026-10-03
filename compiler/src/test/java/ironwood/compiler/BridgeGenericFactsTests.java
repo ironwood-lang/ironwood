@@ -193,7 +193,7 @@ final class BridgeGenericFactsTests {
                 "public final class Only { private Only() {} public static <T> int value() { return 1; } }")) {
             var only = new CompilerPipeline(UnfreedMode.OFF).analyzeForBridge(
                     List.of(SourceFile.of("Only.iron", "package boundary; " + declaration)));
-            check(only.valid() && BridgeExportSurface.valuePreview(only, List.of("boundary")).surface().isEmpty()
+            check(only.valid() && BridgeExportSurface.staticValues(only, List.of("boundary")).surface().isEmpty()
                     && BridgeExportSurface.objectValues(only, List.of("boundary")).surface().isEmpty(),
                     "unused generic parameter bypassed the producer boundary");
         }

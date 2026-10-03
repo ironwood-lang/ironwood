@@ -72,7 +72,7 @@ final class BridgeCustomExceptionTests {
                     "fresh and borrowed String snapshots share cleanup");
             check(property(detail, "getMagnitude").type().equals(IrType.F64), "double snapshot lost its type");
             check(BridgeExceptionProjection.builtins(artifact, REQUESTED).status() != BridgeProof.Status.PROVED
-                    && BridgeExportSurface.valuePreview(artifact, List.of("customsnap")).surface().isEmpty(),
+                    && BridgeExportSurface.staticValues(artifact, List.of("customsnap")).surface().isEmpty(),
                     "unfinished custom snapshot transport became public");
             var signatures = BridgeExportSurface.objectValues(artifact, List.of("customsnap"));
             check(signatures.surface().isPresent() && signatures.surface().orElseThrow().roots().roots().size() == 1,

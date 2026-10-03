@@ -49,7 +49,7 @@ final class BridgeValueNativeTests {
         check(closure.status() == BridgeProof.Status.PROVED, closure.reason());
         var snapshot = closure.contract().orElseThrow();
         var generated = BridgeValueNativeSources.generate(artifact, module, snapshot.projection(), snapshot.entries());
-        var surface = BridgeExportSurface.scalarPreview(artifact, List.of("valueadapter")).surface().orElseThrow();
+        var surface = BridgeExportSurface.scalarValues(artifact, List.of("valueadapter")).surface().orElseThrow();
         try {
             BridgeValueNativeSources.generate(artifact, BridgeEntryModule.scalars(artifact, surface.roots()), snapshot.projection(), snapshot.entries());
             throw new AssertionError("accepted exception closure attached to different entries");

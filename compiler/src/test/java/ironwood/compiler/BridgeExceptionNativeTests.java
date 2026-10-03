@@ -54,7 +54,7 @@ final class BridgeExceptionNativeTests {
     static void getters() throws Exception {
         var artifact = new CompilerPipeline(UnfreedMode.OFF).analyzeForBridge(List.of(SourceFile.of("Errors.iron", SOURCE)));
         check(artifact.valid(), artifact.diagnostics().toString());
-        var surface = BridgeExportSurface.scalarPreview(artifact, List.of("snapshotnative")).surface().orElseThrow();
+        var surface = BridgeExportSurface.scalarValues(artifact, List.of("snapshotnative")).surface().orElseThrow();
         var module = BridgeEntryModule.scalars(artifact, surface.roots());
         var closure = BridgeExceptionClosure.builtins(artifact, module);
         check(closure.status() == BridgeProof.Status.PROVED, closure.reason());

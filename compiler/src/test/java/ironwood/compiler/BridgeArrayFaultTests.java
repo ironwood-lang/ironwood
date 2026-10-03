@@ -30,7 +30,7 @@ final class BridgeArrayFaultTests {
                 """;
         var artifact = new CompilerPipeline(UnfreedMode.OFF).analyzeForBridge(List.of(SourceFile.of("Values.iron", source)));
         check(artifact.valid(), artifact.diagnostics().toString());
-        var selection = BridgeExportSurface.valuePreview(artifact, List.of("arrayfault"));
+        var selection = BridgeExportSurface.staticValues(artifact, List.of("arrayfault"));
         check(selection.surface().isPresent(), selection.diagnostics().toString());
         var surface = selection.surface().orElseThrow();
         var module = BridgeEntryModule.stringValues(artifact, surface.roots());
