@@ -42,9 +42,11 @@ with 65 parameters, plus sixteen functions with 8/257 parameters, observer
 off/on. Paired sampling off/on and two repeats cover each applicable mode.
 
 The representative compiler-source consumer is also mandatory before G1. M1.1/
-M1.3 must retain a hashed manifest mapping the actual translated frontend and
-collection/text helper `.iron` sources to the 376-method frontend closure and
-its finite model. M2.1 must run both Java and native lexers/parsers on that real
+M1.3 deliver and hash their collection/text helper `.iron` sources. M2.1 supplies
+the translated Lexer/Parser/AST consumer sources and completes the combined
+manifest against the 376-method frontend closure and its finite model before
+qualification. Helpers precede consumers; M1 does not deliver frontend translation.
+M2.1 must run both Java and native lexers/parsers on that real
 source bundle, compare every unit's tokens/spans/AST/diagnostics, and measure the
 entire bundle in one invocation while retaining its required input/output graphs.
 It has the same already fixed 2-second/1-GiB frontend and stack limits. Per-file

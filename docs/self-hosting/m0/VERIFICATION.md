@@ -805,9 +805,10 @@ and complete-task whitespace were accepted; native consumers remain M1/M2 work.
 The numerical rationale records approximately fourfold wall/phase and at least
 twofold RSS headroom in the tightest categories, and uses the actual 8,176-KiB
 macOS main-stack cap. Exact corpus/kernel scale sets and external soft/hard stack,
-time/rusage/timeout enforcement are documented. M1.1/M1.3 must hash the actual
-translated frontend/helper bundle and gather its Java reference; M2.1 must compare
-and measure the whole retained bundle under these fixed caps before G1. This
+time/rusage/timeout enforcement are documented. M1.1/M1.3 deliver and hash their
+helpers; M2.1 supplies translated frontend consumers, completes the combined
+manifest and gathers its Java reference, then compares and measures the whole
+retained bundle under these fixed caps before G1. This
 real-source obligation cannot be substituted by example-only/generated inputs.
 Four synthetic category controls and twelve intentional wall/RSS/phase/nonfinite,
 stack/retirement/safety/method failures qualify check-pilot-budget.py without any

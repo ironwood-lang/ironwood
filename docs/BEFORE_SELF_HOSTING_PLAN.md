@@ -267,8 +267,12 @@ without treating unmeasured bytes or association counts as physical accounting.
 Only the qualified M5 macOS profile is covered; no native result is evaluated.
 Global classifications and final S0 reconciliation still precede M0 completion.
 The fixed frontend budget also gates the actual translated frontend/helper
-source bundle before G1: M1.1/M1.3 retain its source/closure manifest and fresh
-J0 reference, then M2.1 compares and measures the combined retained bundle.
+source bundle before G1: M1.1/M1.3 deliver and hash helper sources; M2.1 supplies
+frontend consumer sources, completes the combined source/closure manifest and
+fresh J0 reference, then compares and measures the combined retained bundle.
+Independent budget review confirmed baseline arithmetic, the frozen stack limit
+and combined retention requirement. The explicit helper/consumer phase split
+keeps M1 preparation separate from M2 frontend translation.
 Twelve synthetic resource/method controls exercise strict numeric enforcement;
 they are not native results. Stack rationale and external enforcement are explicit.
 Independent scoped review of `6a4dd09f` confirmed all source hashes, six logs,
