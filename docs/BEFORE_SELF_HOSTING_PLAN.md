@@ -176,6 +176,13 @@ It introduces no B2 sorting dependency or replacement vector implementation.
 exposes SlotOrder's line-18/line-19 explanation choice; preserve these original
 bytes before fixing snapshot ordering. Capped Java frame traces are lower bounds.
 Kernel/native-tool costs, repaired corpus references and budgets remain open.
+The array-slot ordering repair has a recorded pre-change consumer map and
+safe/unsafe verification selection in the M0 qualification record. It preserves
+incoming path/current-store insertion order before first witness selection;
+other snapshot hash paths remain outside that focused repair.
+The D247 repair and its four selected behavior tests now pass, including all
+unfreed modes and paired safe/unsafe array controls. The original J0 archive
+stays intact; the distinct ordered seed and fresh comparison are next.
 Next action: finish reviewed call and transitive ordering contracts, extend
 the corpus, and derive resource budgets before native pilot evaluation.
 

@@ -494,3 +494,52 @@ The shared adapter helpers changed only from private to package access.
 records a fresh strict-adapter BranchJoin capture matching all ten original
 canonical artifacts byte-for-byte, including typed IR and final LLVM. Source
 adapters compile with Java 21 -Xlint:all -Werror; diff and license checks pass.
+
+## Pre-change review: ordered array-slot snapshots
+
+The regression lessons and pre-change review have been read before editing
+shared ownership analysis. Preserve fixed ownership, mandatory free proofs in
+all unfreed modes, conservative incoming-path aliasing and D132/D133. No runtime
+program bookkeeping or hot LLVM lowering changes are involved. The original
+failed bytes and J0 identity are already retained in resources-original.tar.gz.
+
+Affected producer: recordArrayStore removes/reinserts a live ArraySlot into its
+LinkedHashMap, defining current-store insertion order. OwnershipSnapshot must
+make independent immutable membership without erasing that order. Consumers:
+restoreOwnership putAll, common-slot intersection/insertion and mergeOwnership's
+first selectBlocked reason/site, plus element/array lookup and recursive alias
+walks. ArraySlot equality stays container identity plus index; allocation values
+stay identity references. Preserve null rejection, immutable writes and independent
+source mutation. Other snapshot maps/sets and their global ordering proofs remain
+separate. The explicit minimum-index/container-allocation free-proof precedence
+is preserved and its obsolete unordered-snapshot comment will be corrected.
+
+Selected convention: incoming path list order, then that path's current-store
+insertion order, before the first blocking store is selected. Preserve original
+references, then freeze a distinctly identified ordered compiler baseline; do
+not overwrite or relabel J0. No diagnostic/IR sorting in the comparison adapter.
+
+Focused verification planned before implementation: a new exact test
+`array snapshot joins preserve current store witness order`, covering 8/32/128
+slots, forward/reverse store order and all unfreed modes, with explain off/on
+primary parity. Pair the rejected branch-retained alias with both-branch stores
+followed by complete detachment and accepted cleanup. Check immutable independent
+snapshot membership and null entries. Run the existing exact tests
+`safe free accounts for reference-array element aliases`,
+`rejected free preserves escape and uncertainty reason selection` and
+`rejected free preserves branch reclamation and field proof boundaries`.
+Reconstruct an ordered Java seed and rerun only the failed SlotOrder comparison
+and its BranchJoin control, preserving raw original/repaired references and
+compiler resource overhead. Other kernel/native-tool/budget work stays open.
+
+Implementation: the private array-slot copy checks null entries while inserting
+into owned LinkedHashMap storage and returns immutable membership. The outer
+snapshot caller now supplies its builder directly, removing the redundant
+pre-copy; the constructor still owns an independent copy. Other maps/sets,
+reason precedence and safety facts are unchanged. D247 records the scoped
+ordering contract. The [focused test record](array-order-focused-tests.json)
+and [raw log](array-order-focused-tests.txt.gz) show all four selected tests
+passing. The new test exercises 72 real analyze calls plus private snapshot
+independence/order/null checks. These script tests use explicit Java 21 with
+the script's default JVM options and are not resource measurements. The distinct
+ordered seed/fresh-process comparison and resource qualification remain next.

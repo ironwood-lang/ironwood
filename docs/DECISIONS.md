@@ -9435,3 +9435,30 @@ occurrence order. If no
 - **Evidence:** The 2026-10-03 full compiler suites on macOS ARM64, Linux ARM64
   and Linux x86-64 pass after three test-only fixes, each rerun on all three
   platforms; `LOCAL_TESTING.md` describes the platform workflow.
+
+## D247 - Preserve current array-store order through ownership snapshots
+
+- **Status:** Implemented as the M0 preparatory ordering contract on 2026-10-04.
+- **Decision:** FunctionAnalyzer's immutable array-slot snapshot preserves the
+  current-store insertion order of its LinkedHashMap builder. A store removes
+  and reinserts its slot, so overwriting a slot updates that current-store order.
+  Ownership merges retain incoming-path list precedence, then traverse each
+  path's slot membership in that order before choosing a blocking store witness.
+  Use an independent ordered shallow copy with immutable membership and null
+  entry rejection. ArraySlot equality remains container identity plus index;
+  allocation values remain identity references. Minimum-index/container-allocation
+  precedence in the ordinary free probe stays explicit and unchanged.
+- **Reason:** Original Map.copyOf erased the builder order. Fresh M0 resource
+  processes chose either of two incoming array stores for the same SlotOrder
+  explanation, while preserving its mandatory error. JDK hash iteration must
+  not choose the first explanation store or become a native compatibility rule.
+- **Boundary:** This changes the selected diagnostic witness, not mandatory
+  safety, ownership, alias facts, or emitted runtime bookkeeping. It does not
+  settle other snapshot maps, retained-owner traversal or optional-budget
+  prefixes. No earlier decision is superseded. Original J0 inputs and differing
+  evidence are retained; repaired references need a distinct source/seed identity.
+- **Verification:** The focused array-snapshot regression covers immutable
+  independent membership/null rejection and forward/reverse stores over
+  8/32/128 slots, all missing-free modes, explain parity and accepted fully
+  detached controls. Results and the focused existing-consumer checks are
+  recorded in the M0 qualification record; this decision does not establish S0.

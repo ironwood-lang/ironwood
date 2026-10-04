@@ -2073,7 +2073,7 @@ final class FunctionAnalyzer {
                 .filter(entry -> entry.getValue() == allocation)
                 .map(Map.Entry::getKey)
                 .filter(slot -> slot.container() != allocation)
-                // Snapshot maps do not preserve the original store order.
+                // Prefer slot index, then container allocation order, independently of store order.
                 .min(Comparator.comparingInt(ArraySlot::index)
                         .thenComparingInt(slot -> allocations.indexOf(slot.container())))
                 .orElse(null);
@@ -12516,7 +12516,7 @@ final class FunctionAnalyzer {
 
     private OwnershipSnapshot snapshotOwnership() {
         OwnershipSnapshot snapshot = new OwnershipSnapshot(snapshotAllocationStates(),
-                new LinkedHashMap<>(knownArraySlots),
+                knownArraySlots,
                 new LinkedHashMap<>(borrowedOwnedFields), new IdentityHashMap<>(retainedBorrows),
                 new IdentityHashMap<>(poolOwners), Set.copyOf(exposedContainerContents),
                 unfreed == null ? Set.of() : unfreed.snapshot());
@@ -14258,12 +14258,21 @@ final class FunctionAnalyzer {
             Set<AllocationInfo> unfreedLive) {
         private OwnershipSnapshot {
             states = Map.copyOf(states);
-            knownArraySlots = Map.copyOf(knownArraySlots);
+            knownArraySlots = copyArraySlots(knownArraySlots);
             borrowedOwnedFields = Map.copyOf(borrowedOwnedFields);
             retainedBorrows = Map.copyOf(retainedBorrows);
             poolOwners = Map.copyOf(poolOwners);
             exposedContainerContents = Set.copyOf(exposedContainerContents);
             unfreedLive = Set.copyOf(unfreedLive);
+        }
+
+        private static Map<ArraySlot, AllocationInfo> copyArraySlots(
+                Map<ArraySlot, AllocationInfo> source) {
+            Map<ArraySlot, AllocationInfo> copy = new LinkedHashMap<>();
+            source.forEach((slot, allocation) -> copy.put(
+                    java.util.Objects.requireNonNull(slot),
+                    java.util.Objects.requireNonNull(allocation)));
+            return java.util.Collections.unmodifiableMap(copy);
         }
     }
 
