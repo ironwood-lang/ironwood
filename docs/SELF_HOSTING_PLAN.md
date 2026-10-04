@@ -565,6 +565,12 @@ the repository's prescribed Git workflow.
 
 ### S0. Establish the baseline and comparison harness
 
+[B0a](BEFORE_SELF_HOSTING_PLAN.md#b0a-inventory-and-java-baseline) details this
+stage's compatibility inventory, frozen Java fixtures, resource measurements
+and budgets, and hash-iteration ordering audit. These are shared S0 deliverables;
+S0 remains the baseline gate definition, including the J0 qualification
+requirements below.
+
 Freeze a known Java compiler revision as `J0`, the standard library/runtime revision,
 LLVM 23 toolchain identity, flags, platform, and fixtures. Inventory Java member
 uses by module and classify each as directly supported, local rewrite, library

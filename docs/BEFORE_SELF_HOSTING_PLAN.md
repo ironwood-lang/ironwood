@@ -104,10 +104,13 @@ Primary source anchors for this audit:
 
 ## 3. B0: inventory and the S1 pilot
 
-B0a is the initial inventory; B0b executes the pilot defined in
+B0a delivers the inventory and Java-baseline preparation required by
+[S0](SELF_HOSTING_PLAN.md#s0-establish-the-baseline-and-comparison-harness):
+the compatibility inventory, frozen fixtures, resource measurements/budgets,
+and hash-iteration ordering audit. B0b executes the pilot defined in
 [S1](SELF_HOSTING_PLAN.md#s1-prove-portability-and-memory-feasibility) once its
-preparation dependencies are ready. S1 defines the migration gate; this section
-details its dependencies and evidence.
+preparation dependencies are ready. S0 and S1 define the respective migration
+gates; this section details their preparation dependencies and evidence.
 
 ### B0a: inventory and Java baseline
 
