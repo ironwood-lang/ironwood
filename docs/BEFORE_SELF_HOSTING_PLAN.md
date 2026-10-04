@@ -806,9 +806,43 @@ Tests must include an argument containing spaces, quotes, `$`, and shell
 metacharacters as literal data.
 
 File redirection avoids pipe-capacity deadlocks and unbounded managed buffering.
-Discovery code can read a bounded log and strip text as its existing contract
-requires; failure diagnostics can report the log location or an explicit bounded
-excerpt. Do not silently claim complete captured output after truncating it.
+It adds filesystem work to discovery, which B4 must measure explicitly.
+
+### Discovery probe lifecycle and invocation reuse
+
+`LlvmToolchain.run`, `MacNativeTools.run`, and `TlsDependency.command` currently
+read merged stdout/stderr into memory, decode UTF-8, and strip the result. With
+`runToFile`, each uncached probe instead needs exclusive temporary-file creation,
+child output writes, a read-back after completion, and deletion. This includes
+Homebrew/LLVM version probes, Apple SDK/linker queries, and TLS's SDK query;
+file-based output does not make their capture allocation-free or IO-free.
+
+Use a compiler-owned probe adapter with B3 temporary paths, preferably under one
+lazily created invocation staging directory. Create a fresh log per uncached
+probe, wait for completion, close the read handle after bounded read-back, and
+preserve the caller's decoding, stripping, empty-output, and failure behavior.
+An output limit must produce an explicit probe failure, never a truncated SDK
+path/version treated as a successful result. Capture a diagnostic excerpt before
+deleting the log; report a log location only if that file is deliberately retained
+under a documented diagnostic policy. Clean logs, paths, and private buffers on
+success, launch/read/decode failure, and catchable interruption. Retain the primary
+failure if cleanup also fails, and remove the staging directory at invocation end.
+
+Prefer lazy reuse of successful discovery facts in a small invocation-owned
+context: selected toolchain/version data, Clang version, Apple SDK/linker facts,
+and TLS SDK selection when needed. Preserve existing reuse first:
+`LlvmToolchain` already stores its LLVM version, and `BridgeProducer` passes its
+selected `MacNativeTools` into `NativeBackend.linkShared`. Measure remaining
+duplicate probes before adding another cache. Store results rather than log
+files or process handles; a reused result needs no new process or temporary log.
+
+Scope reuse to the selected executable/configuration, full probe arguments,
+working directory, and relevant inherited environment such as `PATH`, `SDKROOT`,
+and `DEVELOPER_DIR`. Different `xcrun` arguments are different queries. Changed
+configuration or a new compiler invocation requires fresh discovery. Do not
+memoize transient failures or arbitrary build commands, or suppress explicit
+input/identity revalidation before publication. Invocation cleanup releases the
+retained facts; no static cache or cross-invocation invalidation system is needed.
 
 ### Native design
 
@@ -849,6 +883,14 @@ child directory. Separately test LLVM/Homebrew discovery and TLS SDK discovery,
 including missing `brew`, PATH candidate order, and the fixed `/usr/bin/xcrun`
 choice. These caller adaptations must pass before removing launch-time PATH
 lookup from the port.
+
+Measure probe launches, temporary-file creates/deletes, bytes written/read,
+retained result memory, and elapsed discovery time for cold and repeated requests
+within one invocation. Verify repeated identical discovery reuses successful
+results, while changed configuration and a fresh invocation probe again. Inject
+launch, read-back, oversized-output, and cleanup failures; check diagnostics and
+absence of unintended leftover logs/directories. Distinct probes still require
+separate capture work even when repeated requests are cached.
 
 Then run selected real LLVM discovery and compile/link workflows, preserving
 the `llvm-as` -> `opt` -> `llc` plus Clang/runtime pipeline. Qualify each supported
@@ -1167,7 +1209,7 @@ manifest design.
 | 5 | SHA-256 and B7 reflection/value/text/numeric helpers for selected slices | 1 | Exact ByteView declaration authority by S3; Java baseline remains equivalent; native lexer/parser and analysis pilots pass |
 | 6 | MD5/trace GUID integration and S4 runtime-cache port decision | 1, 5 | Exact GUIDs, native-link hash consumers, and explicit cache omission or verified invalidation |
 | 7 | B3 traversal rewrites, temporary paths, cleanup, discovery, and publication primitives | 1; B2 for sorted inventories | Equivalent inventories and traversal behavior; native failure/resource/publication cases pass on qualified hosts |
-| 8 | B4 process service, executable-discovery adaptations, and driver adapter | 7 | Absolute-path launches, LLVM/Homebrew/TLS discovery, controlled process cases, and real LLVM pipeline pass |
+| 8 | B4 process service, executable-discovery adaptations, and driver adapter | 7 | Absolute-path launches; measured probe IO, cleanup, and invocation reuse; LLVM/Homebrew/TLS discovery, controlled process cases, and real LLVM pipeline pass |
 | 9 | CRC32 and artifact identity serialization using SHA-256 from increment 5 | 1, 5; B2 for sorted inventories | Known vectors and exact existing artifact identities |
 | 10 | B6 legacy inflate reader, selected native writer profiles, and artifact integration | 7, 9; STORED-versus-DEFLATED writer decision and codec selection | Cross-reader compatibility, malformed-input rejection, deterministic output; verified dependency-free codec path or pinned codec home |
 
