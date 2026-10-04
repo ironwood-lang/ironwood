@@ -1265,7 +1265,8 @@ These belong in compiler preparation, not in a general language expansion.
 | Java dependency or idiom | Proposed replacement | Required evidence |
 | --- | --- | --- |
 | Reflection over records/IR components | Explicit typed walkers or checked-in generated visitor code with a reproducible generator | Every variant/operand visited; nested arrays/constants/fields retained; unrelated unreachable code still pruned |
-| Records and sealed hierarchies | Ordinary final classes/interfaces; explicit value operations where needed | Equality/hash/identity distinctions and exhaustive dispatch coverage |
+| Records and sealed hierarchies | Ordinary final classes/interfaces; explicit value operations where needed | Equality/hash/identity distinctions; rewritten dispatch satisfies the variant coverage check below |
+| Type-pattern `switch` in IR/semantic/Bridge dispatch | Ordered `instanceof`-pattern `if`/`else` chains, following the [self-hosting language audit](SELF_HOSTING_PLAN.md#language-and-data-representation) | Evaluate the selector once; preserve arm order, null behavior, binding scopes, result values, and abrupt exits. Replace lost sealed-switch exhaustiveness with explicit per-consumer variant coverage. |
 | `BigInteger` literal validation and folding | Bounded checked magnitude scanner plus width-aware primitive arithmetic | Huge invalid literals, minimum signed values, nondecimal bit patterns, wrapping, shifts, casts, and division diagnostics |
 | `String.stripIndent` and lexer text helpers | Compiler-local exact text-block normalization | Raw/cooked blocks, closing delimiter, tabs/blank lines, CR/LF, escapes, UTF-16 spans |
 | Small binary/text APIs: unsigned byte comparison, range copies, unsigned widening, UTF-16 conversion, `String.split`, and `String.lines` | Compiler-local helpers and direct scans inventoried in [10.1](#101-small-binary-and-text-helpers) | Caller-specific ordering, bounds, separators, result ownership, and Java differential fixtures before each native slice |
@@ -1329,6 +1330,15 @@ runtime introspection API is necessary for these fixed compiler-owned data types
 Any generator should produce ordinary source, run deterministically, and fail
 when the model inventory and generated coverage disagree. It must not become
 an undeclared Java dependency of each native self-build.
+
+The pattern-switch rewrite is B7 work under excluded Features 106-108, not a
+new language prerequisite; supported non-pattern switches can remain. Apply the
+same [variant coverage check](SELF_HOSTING_PLAN.md#reflection-really-occurs-in-the-compiler)
+to rewritten dispatch and typed walkers. Derive the relevant variant inventory
+from model declarations or a checked finite schema independently of the dispatch
+arms. Record each consumer's treatment, including intentional no-ops and
+rejections; a generic fallback does not establish coverage. Demonstrate that
+adding an untreated variant or removing a treatment fails the build-time check.
 
 Treat producer identity migration as a separate S7 format/design task. Native
 compiler identity cannot be fabricated by keeping an expected `Main.class`
