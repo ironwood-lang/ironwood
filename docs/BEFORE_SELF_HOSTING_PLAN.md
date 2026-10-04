@@ -30,7 +30,7 @@ Section 8 records the proposed omission of that cache from the one-shot driver.
 | B2. Stable list-level comparator sorting | Large analysis/emission workloads | Early; direct list sorting and `TreeMap`/`TreeSet` consumer rewrites with explicit ordering contracts |
 | B3. Filesystem completion | Native driver and artifact publication | Incremental; temporary paths, real paths, access checks, explicit publication operations |
 | B4. Synchronous process execution | Replacing shell orchestration | Small native service; resolved executable paths, inherited environment, and file-based output |
-| B5. CRC32, MD5, and SHA-256 | SHA-256 by S3 for ByteView analysis; SHA-256/MD5 by S4 native linking; CRC32 by archive consumers | Named algorithms with exact byte contracts and reusable state; explicit runtime-cache port decision |
+| B5. CRC32, MD5, and SHA-256 | SHA-256 by S3 for ByteView analysis; SHA-256/MD5 by S4 native linking; CRC32 by archive consumers | Public `ironwood.util.zip.CRC32`; compiler-private `Md5`/`Sha256`; exact byte contracts and explicit runtime-cache port decision |
 | B6. Archive codec and publication integration | S6 artifact parity and S7 Bridge packaging | Preserve compressed input, validation, and publication; evaluate Ironwood inflate plus STORED native output before adding zlib |
 | B7. Compiler-local portability helpers | Each translated compiler slice | Explicit walkers, value types, bounded arithmetic, and text/format helpers |
 
@@ -948,11 +948,32 @@ helpers above the digest implementation and freeze independent golden vectors.
 
 ### Implementation boundary
 
-Add a small Java-shaped CRC32 class only for the supported operations:
-construction, reset, `update(int)`, byte-array/range updates, and `getValue()`.
-The integer update consumes its low byte; range and unsigned-result behavior
-need explicit tests. Do not advertise a larger checksum interface with missing
-inherited defaults.
+Choose a public standard-library class, `ironwood.util.zip.CRC32`, at
+`stdlib/src/main/ironwood/ironwood/util/zip/CRC32.iron`. The compiler and B6 archive
+services will consume that class. CRC32 has a reusable byte-stream contract and
+belongs to item 5, **Compression and checksums**, in
+[STDLIB_ROADMAP.md](STDLIB_ROADMAP.md#later-useful-library-tranches). This is the
+CRC32 slice of that item, not completion of its ZIP/GZIP APIs. Update `STDLIB.md`
+and the roadmap's partial status when implemented; this plan adds no implemented
+API claim.
+
+The initial public surface is `CRC32()`, `void reset()`, `void update(int)`,
+`void update(byte[])`, `void update(byte[], int, int)`, and `long getValue()`.
+Apply the [behavioral contract review](OPENJDK_PORTING.md#behavioral-contract-review)
+to every admitted call against the
+[Java 21 CRC32 contract](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/zip/CRC32.html).
+The integer update consumes its low eight bits, including widened primitive
+arguments; array null/range errors, reset, and nondestructive unsigned-result
+reads must have specified compatible behavior beyond the compiler's own uses.
+
+Omit the `Checksum` interface and `update(ByteBuffer)` from this first increment,
+with negative compilation coverage for those omissions. Implement the whole-array
+overload explicitly: Java obtains it from a
+[Checksum default](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/zip/Checksum.html#update(byte%5B%5D))
+that delegates to the range update, so review subclass dispatch as well as direct
+calls. Do not expose an incomplete interface or accept buffer calls that fail at
+runtime. The base implementation borrows input arrays only during updates;
+verify its actual effects without extending that guarantee to arbitrary overrides.
 
 Initially keep `Md5` and `Sha256` as named compiler helpers unless a separate
 library consumer justifies public placement. No provider registry,
@@ -975,6 +996,14 @@ Compare against Java digests/CRC for empty data, known vectors, every byte value
 randomized deterministic inputs, and incremental versus one-shot updates. Cover
 block/padding boundaries, nonzero offsets, repeated reset, finalization, and
 length accounting across large streamed inputs without allocating them whole.
+
+For public CRC32, also cover widened/negative integer arguments, null arrays,
+invalid and overflowing ranges, empty ranges, repeated `getValue()` followed by
+further updates, whole-array delegation through subclass overrides, and omitted
+API compilation failures. Verify no per-update allocation and pair safe input
+array reclamation after an ordinary update with rejection when an override retains
+that array. Public API completion requires this contract and ownership evidence,
+not only ZIP acceptance tests.
 
 Add golden compiler-specific cases: Unicode linkage names, signed-bit GUIDs and
 unsigned order, raw file hashes, sorted inventory ordering, empty strings,
@@ -1021,7 +1050,8 @@ existing policy everywhere.
 
 ### 9.2 Recommended implementation boundary
 
-Begin with compiler-private archive reader/writer services. Keep container
+Begin with compiler-private archive reader/writer services using B5's public
+`ironwood.util.zip.CRC32`. Keep container
 format parsing separate from raw DEFLATE, entry validation, and the
 IronClass/IronJar/Bridge profile logic. Promote reusable pieces into
 `ironwood.util.zip` only after their complete admitted contracts are established.
@@ -1210,7 +1240,7 @@ manifest design.
 | 6 | MD5/trace GUID integration and S4 runtime-cache port decision | 1, 5 | Exact GUIDs, native-link hash consumers, and explicit cache omission or verified invalidation |
 | 7 | B3 traversal rewrites, temporary paths, cleanup, discovery, and publication primitives | 1; B2 for sorted inventories | Equivalent inventories and traversal behavior; native failure/resource/publication cases pass on qualified hosts |
 | 8 | B4 process service, executable-discovery adaptations, and driver adapter | 7 | Absolute-path launches; measured probe IO, cleanup, and invocation reuse; LLVM/Homebrew/TLS discovery, controlled process cases, and real LLVM pipeline pass |
-| 9 | CRC32 and artifact identity serialization using SHA-256 from increment 5 | 1, 5; B2 for sorted inventories | Known vectors and exact existing artifact identities |
+| 9 | Public `ironwood.util.zip.CRC32` and artifact identity serialization using SHA-256 from increment 5 | 1, 5; B2 for sorted inventories | CRC32 public-contract/ownership review, known vectors, and exact existing artifact identities |
 | 10 | B6 legacy inflate reader, selected native writer profiles, and artifact integration | 7, 9; STORED-versus-DEFLATED writer decision and codec selection | Cross-reader compatibility, malformed-input rejection, deterministic output; verified dependency-free codec path or pinned codec home |
 
 These increments can overlap when independent. Do not delay S1 for increments
