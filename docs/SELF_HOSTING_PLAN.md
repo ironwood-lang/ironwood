@@ -531,8 +531,8 @@ native port's own memory budget.
 All new paths and commands in this section are proposals, not existing tooling.
 Use `compiler/src/main/ironwood/ironwood/compiler` for the maintained port,
 alongside the Java bootstrap. Use ignored build/scratch directories for pilot
-output. Keep development changes small and independently reviewable on the
-repository's prescribed branch workflow.
+output. Keep development changes small and independently reviewable, following
+the repository's prescribed Git workflow.
 
 ### S0. Establish the baseline and comparison harness
 
