@@ -670,7 +670,9 @@ and the gate rerun; do not defer it to S5.
 ### S4. Complete native code generation and a source-only compiler
 
 Port primitive specialization, initialized-type/enum specialization, field
-forwarding, unread-store elimination, closed-world pruning, and LLVM emission.
+forwarding, unread-store elimination, closed-world pruning,
+[`SelectiveInlining`](../compiler/src/main/java/ironwood/compiler/backend/SelectiveInlining.java)
+(invoked by `LlvmEmitter`), and LLVM emission.
 Port trace finalization, exact GUID hashing, target handling, and necessary
 binary utilities. Initially a checked shell driver may execute LLVM/Clang and
 manage temporary files, with native Ironwood modes doing compiler-specific
@@ -683,6 +685,12 @@ capability, not a replacement for the public class/archive CLI.
 
 Exit: the native core builds and runs representative programs at O0 and O3,
 preserving safety, exceptions, traces, specialization, and native output.
+Compare `SelectiveInlining` candidate sets and emitted `alwaysinline` attributes
+between Java and native compilers with `--selective-inlining` on and off,
+preserving the existing eligibility rules, budgets, and exclusions. Use its
+focused structural/native regressions and
+[Stage 3 benchmark history](PERFORMANCE_IMPROVEMENTS.md#round-2-stage-3-independent-specialization-and-inlining-candidates)
+to guide verification of this hot-lowering policy.
 Compare generated program machine code and deterministic benchmarks where hot
 lowering differs. All compiler-specific work on this route is native, even if
 the outer driver is shell.
