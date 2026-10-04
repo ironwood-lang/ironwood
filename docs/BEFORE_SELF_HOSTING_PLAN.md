@@ -171,6 +171,11 @@ Java qualification; global summary/ownership ordering and resources remain open.
 The effect slice reuses existing BitSet operations under B1 and starts copies
 with new BitSet plus or(source); its FIFO is M1.2, and primitive presence is B7.
 It introduces no B2 sorting dependency or replacement vector implementation.
+[Initial resource measurements](self-hosting/m0/RESOURCE_MEASUREMENTS.md) retain
+152 fresh outcomes and twelve strict-input follow-ups. Their exact qualifier
+exposes SlotOrder's line-18/line-19 explanation choice; preserve these original
+bytes before fixing snapshot ordering. Capped Java frame traces are lower bounds.
+Kernel/native-tool costs, repaired corpus references and budgets remain open.
 Next action: finish reviewed call and transitive ordering contracts, extend
 the corpus, and derive resource budgets before native pilot evaluation.
 

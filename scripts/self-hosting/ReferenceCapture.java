@@ -69,11 +69,11 @@ public final class ReferenceCapture {
         throw new IllegalArgumentException("unhandled wire type " + value.getClass().getName());
     }
 
-    private static void save(Path output, String name, Object value) throws Exception {
+    static void save(Path output, String name, Object value) throws Exception {
         Files.writeString(output.resolve(name + ".json"), wire(value) + "\n", StandardCharsets.UTF_8);
     }
 
-    private static void verifyLibrary(Path output) throws Exception {
+    static void verifyLibrary(Path output) throws Exception {
         String home = System.getenv("IRONWOOD_STDLIB_HOME");
         if (home == null) throw new IllegalStateException("qualification requires an explicit frozen library home");
         Path root = Path.of(home).toAbsolutePath().normalize();

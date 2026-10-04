@@ -459,3 +459,38 @@ by these private callers; this is not a claim about a public clone capacity
 contract. Q20 belongs to B1/M1.2; OptionalInt primitive presence belongs to
 B7/M1.3. No B2 comparator sort or new bit-vector implementation is selected.
 The exact use-site ledger has been regenerated with these corrected mappings.
+
+## Initial resource corpus, qualification remains open
+
+[RESOURCE_MEASUREMENTS.md](RESOURCE_MEASUREMENTS.md) records seventeen geometric
+and real-source workloads, separate frontend/complete boundaries, the 1 ms
+requested heap/frame sampler, observed and unobserved configurations, and
+whole-process wall/RSS accounting. All 152 initial serial processes complete
+with expected source verdicts. The exact qualifier rejects one SlotOrder
+explanation span difference, line 18 versus line 19, while preserving unchanged
+primary safety verdicts. This is a real original-J0 ordering failure, not a
+comparison tolerance. All failed reference bytes precede compiler edits.
+
+[resources-original.tar.gz](resources-original.tar.gz) and its
+[manifest](resources-original-manifest.json) preserve 1,219 exact evidence files,
+including all source/adapter bytes and raw settings/logs. The strict UTF-8 fix
+has twelve fresh BranchJoin follow-ups with identical semantic artifacts; both
+adapters reject malformed bytes identically. All initial sources strictly
+validate as UTF-8, so replacement decoding had not substituted their contents.
+The frame probe proves default sampled-trace truncation at 1,024 frames despite
+1,500 completed recursive calls. Sampled values are lower bounds; stack-byte
+high-water is unmeasured. Sampler and observer-plus-explanation overheads are
+reported, and the observed logical evidence counters finish at zero live units.
+
+Reproduce with `measure-resources.py --all --repeat 2 --output PATH`, then
+`qualify-resources.py PATH --output REPORT`, using new destinations. A semantic
+artifact mismatch retains an unsuccessful qualification report and exits
+nonzero. Source-level references, direct snapshot/effect kernel resources,
+separate native-tool costs and numerical budgets remain open; the initial
+measurements do not pass M0.3 or S0.
+
+The shared adapter helpers changed only from private to package access.
+[reference-access-qualification.json](reference-access-qualification.json)
+records a fresh strict-adapter BranchJoin capture matching all ten original
+canonical artifacts byte-for-byte, including typed IR and final LLVM. Source
+adapters compile with Java 21 -Xlint:all -Werror; diff and license checks pass.
