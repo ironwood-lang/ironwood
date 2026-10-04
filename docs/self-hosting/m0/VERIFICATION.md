@@ -562,3 +562,16 @@ All 36 selected ordered resource follow-ups pass exact artifact/primary parity
 and cleanup-accounting checks. Their raw evidence and manifests remain separate
 from the original failed measurements. D247 closes this array-slot first-store
 path; it does not close other ownership ordering or M0.3/S0.
+
+## Direct kernel measurements
+
+[KERNEL_RESOURCES.md](KERNEL_RESOURCES.md) records the input-construction,
+measured-operation and verification boundaries for real explanation-store
+save/restore/intersection/close and effect fixed-point chains. Both original J0
+and qualified J0-D247 pass 52 fresh runs; their exact results match across all
+52 paired configurations. The three reached kernel/interface source hashes are
+unchanged across seed identities. Two negative harness controls reject a changed
+result byte and a missing repeat. All 451 raw/tooling/identity/control files have
+an exact-byte archive manifest. These are selected Java kernel measurements,
+not native pilot or ownership-lifetime results. Expanded canonical references,
+native child accounting, budgets and global M0.2 contracts remain open.

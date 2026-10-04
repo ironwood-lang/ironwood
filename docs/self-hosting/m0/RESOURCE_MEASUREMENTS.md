@@ -137,6 +137,8 @@ The retained effective flags set MaxJavaStackTraceDepth=1024. A focused thread
 probe completes 1,500 recursive calls under the pinned stack profile and
 returns only 1,024 sampled frames. Therefore a capped trace is explicitly
 truncated; no frame budget or stack-byte claim may be derived from it. Completion
-of the deep inputs is still required. Direct real snapshot/effect kernel
-measurements, LLVM/Clang subprocess accounting, full canonical corpus captures
-and the repaired ordering baseline remain required before budgets are selected.
+of the deep inputs is still required. The [direct kernel measurements](KERNEL_RESOURCES.md)
+now qualify original and ordered explanation-store/effect results separately
+from these compiler workloads. The [repaired ordering baseline](ordered/DELTA.md)
+also passes its selected comparisons. LLVM/Clang subprocess accounting and
+expanded canonical corpus captures remain required before budgets are selected.

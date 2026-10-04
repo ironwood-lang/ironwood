@@ -175,20 +175,28 @@ It introduces no B2 sorting dependency or replacement vector implementation.
 152 fresh outcomes and twelve strict-input follow-ups. Their exact qualifier
 exposes SlotOrder's line-18/line-19 explanation choice; preserve these original
 bytes before fixing snapshot ordering. Capped Java frame traces are lower bounds.
-Kernel/native-tool costs, repaired corpus references and budgets remain open.
+Direct kernel measurements and native-tool costs are separate from these
+complete-compiler measurements; expanded corpus references and budgets remain open.
 The array-slot ordering repair has a recorded pre-change consumer map and
 safe/unsafe verification selection in the M0 qualification record. It preserves
 incoming path/current-store insertion order before first witness selection;
 other snapshot hash paths remain outside that focused repair.
 The D247 repair and its four selected behavior tests now pass, including all
 unfreed modes and paired safe/unsafe array controls. The original J0 archive
-stays intact; the distinct ordered seed and fresh comparison are next.
+stays intact; the distinct ordered seed and fresh comparison are qualified below.
 An additional focused overwrite case distinguishes current-store order from
 earliest-ever store order and the ordinary probe's minimum-index precedence.
 The [ordered baseline delta](self-hosting/m0/ordered/DELTA.md) now qualifies
 two matching seed reconstructions, four canonical captures per fixture and 36
 selected resource follow-ups. Original J0 evidence remains separate. D247's
 array-slot path passes; global ownership ordering and M0.3 budgets remain open.
+The [direct kernel evidence](self-hosting/m0/KERNEL_RESOURCES.md) qualifies 104
+fresh original/ordered runs of the actual explanation snapshot store and effect
+fixed-point analyzer. Exact results match across seeds, observation and sampling;
+store close retires every budget unit. Setup/projection costs are separate from
+the measured kernels, and these measurements do not replace ownership-proof
+snapshot workloads or native lifetime verification. Native-tool accounting and
+expanded canonical references remain before numerical budget selection.
 Next action: finish reviewed call and transitive ordering contracts, extend
 the corpus, and derive resource budgets before native pilot evaluation.
 
