@@ -10,9 +10,9 @@ stages S0 through S8; this document defines preparation work B0 through B7.
 
 Ironwood has enough language machinery to begin a self-hosting feasibility
 pilot. The immediate additions should concentrate on library contracts that the
-compiler depends on: independent collection snapshots, reliable traversal, and
-efficient sorting of compiler objects. Validate their ownership behavior using
-a real slice of analysis before translating the compiler broadly.
+compiler depends on: independent collection snapshots, reliable traversal,
+efficient worklists, and sorting of compiler objects. Validate their ownership
+behavior using a real slice of analysis before translating the compiler broadly.
 
 Complete the host and artifact facilities before the corresponding migration
 milestones, rather than making all of them prerequisites for the first parser
@@ -26,8 +26,8 @@ Section 8 records the proposed omission of that cache from the one-shot driver.
 | Preparation | Needed before | Priority and recommended scope |
 | --- | --- | --- |
 | B0. Contract inventory and ownership pilot | Broad translation after S1 | First gate; audit hash iteration order and establish practical memory use and semantic equivalence |
-| B1. Copies, snapshots, and traversal | Ownership pilot and S3 semantic analysis | First library work; extend the required `ironwood.ds` types only |
-| B2. Stable list-level comparator sorting | Large analysis/emission workloads | Early; sort compiler lists directly, including non-Comparable objects, without an array round trip |
+| B1. Copies, snapshots, traversal, and worklists | Ownership pilot and S3 semantic analysis | First collection work; independent copies and explicit stack/FIFO replacements for `ArrayDeque` |
+| B2. Stable list-level comparator sorting | Large analysis/emission workloads | Early; direct list sorting and `TreeMap`/`TreeSet` consumer rewrites with explicit ordering contracts |
 | B3. Filesystem completion | Native driver and artifact publication | Incremental; temporary paths, real paths, access checks, explicit publication operations |
 | B4. Synchronous process execution | Replacing shell orchestration | Small native service; inherited environment and file-based output |
 | B5. CRC32, MD5, and SHA-256 | SHA-256 by S3 for ByteView analysis; SHA-256/MD5 by S4 native linking; CRC32 by archive consumers | Named algorithms with exact byte contracts and reusable state; explicit runtime-cache port decision |
@@ -63,6 +63,8 @@ equivalents.
 | Identity and ordering | Allocation/IR identities coexist with structural type keys and deterministic insertion/sorted ordering | Identity, value, and linked containers exist; replacing all maps with one family is incorrect |
 | Traversal | Nested scans, key/value iteration, and collection callbacks | Many `ironwood.ds` iterators are reused; map iteration yields values with a container-level current-key accessor |
 | Sorting | Comparator-based list/stream sorting in documentation, trace ordering, and semantic analysis; `IronJar` indexes use natural String order through `TreeMap` and `sorted()`; no production `Arrays.sort` calls | `ArrayList` has neither sorting nor `toArray`; preserve natural ordering for archive indexes, while non-Comparable compiler objects need B2's explicit-comparator list helper |
+| Sorted maps/sets | 68 unqualified `TreeMap` and 11 `TreeSet` constructions, plus fully qualified uses; the only ordered-navigation call found is `BridgeAssembler.firstEntry()` | No equivalent sorted containers; B2 owns sorted snapshots, comparator-equivalent deduplication, and least-key selection |
+| Stacks and queues | 42 unqualified `ArrayDeque` constructions, plus fully qualified uses; scope stacks and analysis/specialization worklists | B1 must distinguish LIFO from FIFO: `ArrayList.removeFirst` shifts remaining items, while `ArrayLinkedList` exposes only stack-style end operations |
 | Native tools | `NativeBackend`, `LlvmToolchain`, `MacNativeTools`, `TlsDependency`, and `BridgeBuildTools` | No corresponding process facility; actual launch sites inherit the environment |
 | Filesystem | Driver staging, discovery, archive replacement, Bridge distribution; 16 `Files.walk` and two `Files.list` call sites | Rewrite stream-based traversal with existing visitors/directory streams; remaining operation gaps and publication guarantees need separate work |
 | Archives | `IronClass`, `IronJar`, and Bridge JAR consumers/producers | No ZIP or CRC32 implementation; existing artifacts include DEFLATE data |
@@ -322,6 +324,43 @@ individual removal. Copying creates another borrower. Clearing the source must
 not erase the destination's loan. Per-removal precision is a separate possible
 optimization, not a prerequisite for safe snapshots.
 
+### 4.5 Stack and FIFO worklists
+
+B1 owns the `ArrayDeque` migration warned about in
+[SELF_HOSTING_PLAN.md](SELF_HOSTING_PLAN.md). Extend B0's container inventory with
+each deque's operations, initialization order, iteration direction, empty-result
+behavior, duplicate/re-enqueue policy, and lifetime. Classify stacks, FIFO queues,
+and any mixed-end use before selecting a replacement.
+
+- For LIFO scope stacks such as `FunctionAnalyzer.scopes`, use `ArrayList`
+  append/remove-last and indexed peek. Preserve top-to-bottom traversal with
+  reverse indexing where needed; replacing push/pop alone can reverse scope
+  lookup and cleanup order. Preserve each caller's empty-stack behavior.
+- For FIFO worklists such as `PrimitiveGenericSpecializer`'s class/function
+  queues and `SelectiveInlining`'s reachability queue, start with a compiler-local
+  two-index worklist: append at the write end and advance a read index to dequeue.
+  Preserve seed order and items appended while draining, including ordering
+  between the specializer's two queues. Dequeue must not move the remaining items.
+- If sustained reuse or mixed-end operations require it, B1 includes a focused
+  ring-buffer deque in `ironwood.ds`, with amortized O(1) end operations and no
+  per-item node/wrapper allocation. Select only the operations demonstrated by
+  the inventory and apply the standard API contract review before implementation.
+
+[ArrayList.removeFirst](../stdlib/src/main/ironwood/ironwood/ds/ArrayList.iron)
+calls `removeAt(0)`, shifting the live suffix on every dequeue; draining n items
+that way costs O(n squared).
+[ArrayLinkedList](../stdlib/src/main/ironwood/ironwood/ds/ArrayLinkedList.iron)
+provides `addLast`/`removeLast`, not a FIFO dequeue operation. Neither is a
+drop-in queue replacement.
+
+Budget worklist storage explicitly. An append-only list retains space for all
+items ever enqueued until reset. Reset after draining; for long-running nonempty
+queues, use batched compaction with an amortized bound or the ring buffer so
+storage tracks peak live occupancy. Measure retained references as well as bytes.
+The worklist owns its backing storage and borrows its items; dequeue does not
+automatically discharge a loan or authorize freeing an item. Preserve section
+4.4's reclamation rules when growing, compacting, clearing, and destroying it.
+
 ### Verification and exit gate
 
 Test empty/nonempty copies, equal-but-distinct identity keys, insertion order,
@@ -335,6 +374,13 @@ unknown-call, helper-extraction, interface-dispatch, and exceptional-exit cases
 when their analysis paths change. Repeat affected cases through source, class,
 and archive reconstruction. Completion requires measured pilot-scale copying
 without source-iterator corruption and without weakened reclamation proofs.
+
+For worklists, compare processing order and final compiler results against Java,
+including nested scope lookup, duplicate/re-enqueued items, enqueue-during-drain,
+empty/reuse cycles, and growth/compaction or wraparound. Pair safe backing-storage
+cleanup with rejected frees of still-borrowed items. Measure geometrically
+increasing workloads, including a wide queue: require amortized O(1) enqueue and
+dequeue, no repeated front-shifting, and storage within the recorded B0 budget.
 
 ## 5. B2: stable list-level sorting for compiler objects
 
@@ -415,11 +461,39 @@ and apply B1's snapshot/read-only boundary where required. Preserve the original
 source collection and encounter order before sorting. The destination allocation
 required by a non-mutating operation is distinct from an avoidable array adapter.
 
-Replace `TreeMap`/`TreeSet` only where a hash/linked collection followed by a
-sorted key snapshot matches the actual algorithm. Queries requiring ordered
-navigation or ordered mutation need a separate implementation or algorithm
-change. Preserve unsigned GUID ordering, UTF-16 string ordering, and explicit
-tie-breakers used for deterministic compiler output.
+### Sorted-map and sorted-set consumer rewrites
+
+B2 owns the `TreeMap`/`TreeSet` replacements as well as the sorting primitive.
+The navigation audit finds only `firstEntry()` in
+[BridgeAssembler](../compiler/src/main/java/ironwood/compiler/BridgeAssembler.java):
+after rejecting empty input and duplicate targets, it selects the least target
+key's host. Select the first sorted key and look up its host, or perform an
+equivalent minimum-key scan; do not select the first insertion or hash entry.
+The remaining ordering demand is sorted traversal, so a general navigable-tree
+API is not a prerequisite on current evidence.
+
+Use hash/linked containers plus sorted key/element snapshots where the original
+lookup and duplicate rules agree with those containers. Sort at every required
+observation boundary identified by B0, including keys, values, entries, callbacks,
+and copies whose consumers retain encounter order. Rebuild a snapshot after
+relevant mutation; avoid sorting again for every lookup. B1 owns snapshot storage
+and borrowing contracts, while B2 owns ordering and consumer integration.
+
+Preserve comparator-defined key equivalence as well as iteration order: Java's
+[TreeMap](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/TreeMap.html)
+and [TreeSet](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/TreeSet.html)
+treat keys/elements comparing as zero as equivalent. A hash collection followed
+by sorting is valid only when its equality/deduplication gives the same result.
+Audit the custom comparator in
+[BridgeCustomSnapshotLayout](../compiler/src/main/java/ironwood/compiler/bridge/BridgeCustomSnapshotLayout.java)
+and preserve duplicate insertion results, retained representatives, and map-value
+replacement behavior. Use a matching canonical key or an explicit sort/deduplicate
+rewrite where needed. Preserve UTF-16 String order, existing Path/numeric order,
+unsigned GUID ordering, and B0's rules for deterministic tie-breakers.
+
+If a consumer needs frequent ordered observations during mutation, measure the
+snapshot strategy before accepting it; a focused ordered structure or algorithm
+rewrite remains B2 work if repeated sorting violates the budget.
 
 ### Verification and exit gate
 
@@ -432,6 +506,13 @@ compared or made live. Keep existing array-sort contract tests if its shared
 kernel changes. Use Java differential checks for the non-null comparator cases
 that match Java list sorting; test the distinctly named helper's extra contract
 directly.
+
+Compare rewritten sorted-container consumers with Java for duplicate keys,
+comparator-equal objects, shuffled insertion, mutation between observations,
+empty/singleton inputs, and BridgeAssembler's least-target host selection.
+Include archive/manifest bytes, documentation ordering, and snapshot slot IDs;
+completion requires an assigned replacement for every inventoried tree-container
+use, with equivalent lookup, duplicate, and traversal behavior.
 
 Measure comparison counts, time, scratch allocation, and peak temporary storage
 over geometrically increasing list sizes and actual compiler inventories. The
@@ -946,8 +1027,8 @@ manifest design.
 | --- | --- | --- | --- |
 | 1 | B0 inventory, per-traversal ordering audit, and frozen Java/native comparison fixtures | Current compiler | No unresolved ordering dependencies in compared outputs; required contracts and resource measurements can be reproduced |
 | 2 | ArrayList/BitSet copy slice and private compiler snapshots | 1 | Independent snapshots; safe/unsafe cleanup pairs; allocation-failure cleanup |
-| 3 | Required map/set copies and nested traversal solution | 2 | Identity/value/order preserved; ownership pilot fits its budget |
-| 4 | B2 stable comparator sorting directly on `ArrayList` | 1; B1 where snapshots are used | Non-Comparable compiler lists sort stably with measured scaling and no array round trip |
+| 3 | B1 map/set copies, nested traversal, and stack/FIFO worklist rewrites | 2 | Identity/value/order preserved; amortized O(1) worklist end operations; ownership/storage pilot fits its budget |
+| 4 | B2 stable comparator sorting directly on `ArrayList` and sorted-map/set consumer rewrites | 1; B1 for snapshots | Non-Comparable lists sort without an array round trip; tree consumers preserve ordering/deduplication with measured scaling |
 | 5 | SHA-256 and B7 reflection/value/text/numeric helpers for selected slices | 1 | Exact ByteView declaration authority by S3; Java baseline remains equivalent; native lexer/parser and analysis pilots pass |
 | 6 | MD5/trace GUID integration and S4 runtime-cache port decision | 1, 5 | Exact GUIDs, native-link hash consumers, and explicit cache omission or verified invalidation |
 | 7 | B3 traversal rewrites, temporary paths, cleanup, discovery, and publication primitives | 1; B2 for sorted inventories | Equivalent inventories and traversal behavior; native failure/resource/publication cases pass on qualified hosts |
