@@ -141,5 +141,6 @@ of the deep inputs is still required. The [direct kernel measurements](KERNEL_RE
 now qualify original and ordered explanation-store/effect results separately
 from these compiler workloads. The [repaired ordering baseline](ordered/DELTA.md)
 also passes its selected comparisons. [LLVM/Clang and total pipeline accounting](NATIVE_RESOURCES.md)
-now qualify separately. Expanded canonical corpus captures and explicit pilot
-closure remain required before budgets are selected.
+now qualify separately. The [expanded canonical corpus](CANONICAL_CORPUS.md)
+also has selected qualified ordered references, with original failed notes
+preserved. Explicit pilot closure and remaining inventory still precede budgets.

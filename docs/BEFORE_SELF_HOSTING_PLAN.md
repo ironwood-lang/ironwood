@@ -204,10 +204,17 @@ The [native pipeline evidence](self-hosting/m0/NATIVE_RESOURCES.md) qualifies 32
 original/ordered compile-then-link pipelines, including separate LLVM/Clang
 records and total wall/RSS observations. Wrappers preserve tool output bytes and
 exit codes; plain/profiled LLVM and executable results agree. Concurrent RSS
-sums remain distinct from physical memory and isolated JVM heap. Expanded
-canonical references and explicit pilot closure remain before budget selection.
-Next action: finish reviewed call and transitive ordering contracts, extend
-the corpus, and derive resource budgets before native pilot evaluation.
+sums remain distinct from physical memory and isolated JVM heap.
+The [expanded canonical corpus](self-hosting/m0/CANONICAL_CORPUS.md) retains 248
+fresh original/ordered captures across 31 accepted/rejected sources. Ordered
+repeat checks pass; original J0 reproduces the known SlotOrder note instability.
+Cross-seed differences stay restricted to that repaired note. Raw-byte storage
+reconstruction and deliberate diagnostic/IR/LLVM mismatches are qualified.
+Observed variants do not replace independent model/dispatch coverage. Explicit
+pilot closure and reviewed remaining inventory still precede budget selection.
+Next action: finish reviewed call and transitive ordering contracts, name the
+closed native pilot dependencies/workloads, and derive resource budgets before
+native pilot evaluation.
 
 ### M1. Minimum pilot prerequisites
 

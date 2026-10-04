@@ -607,3 +607,18 @@ Global note discard occurs after validation; notes require paired source/span
 while primary diagnostics permit one missing location field. Source identity and
 span value remain separate. These contracts join the frontend helper boundary;
 formatter rendering, native retirement and full corpus coverage remain separate.
+
+## Expanded canonical references
+
+[CANONICAL_CORPUS.md](CANONICAL_CORPUS.md) retains 248 fresh captures across 31
+named sources with all neutral protocol artifacts, raw logs, source/tool hashes
+and independent seed identities. All 124 ordered captures pass repeat/configuration
+checks. Original J0 completes all captures but reproduces its known SlotOrder
+note instability; its qualifier truthfully records failure and exact hashes.
+All 124 cross-seed pairs differ only in the two selected note artifact files for
+one original explanation-on repeat. Full raw artifacts are preserved through
+exact-byte deduplicated storage and reconstruct to ordinary comparison directories.
+The neutral harness catches a changed diagnostic, missing real branch edge and
+LLVM byte mismatch; storage controls reject a changed blob and missing repeat.
+This closes the selected expanded corpus evidence, not global variant coverage,
+pilot closure, numerical budgets or M0.2/M0.3/S0.

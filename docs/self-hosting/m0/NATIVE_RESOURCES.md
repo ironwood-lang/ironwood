@@ -118,5 +118,6 @@ Original/ordered maximum child wall observations, in milliseconds:
 Do not sum independent stage maxima as one observed pipeline. Largest child RSS
 is approximately 97 MiB during runtime compilation. Exact values and all runs
 are retained in qualification.json/measurement.json within the archive. Expanded
-canonical references, explicit pilot closure, complete dependency classifications
-and numerical budgets remain before M0/S0 exit.
+canonical references now have [separate evidence](CANONICAL_CORPUS.md). Explicit
+pilot closure, complete dependency classifications and numerical budgets remain
+before M0/S0 exit.
