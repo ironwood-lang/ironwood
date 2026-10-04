@@ -622,3 +622,24 @@ The neutral harness catches a changed diagnostic, missing real branch edge and
 LLVM byte mismatch; storage controls reject a changed blob and missing repeat.
 This closes the selected expanded corpus evidence, not global variant coverage,
 pilot closure, numerical budgets or M0.2/M0.3/S0.
+
+## Diagnostic allocation tracker closure
+
+[UNFREED_CONTRACTS.md](UNFREED_CONTRACTS.md) and the hash-pinned
+unfreed-reviewed.json.gz join all 25 exact external patterns/43 calls in the
+original tracker, three immediate captured rows, and nine H0866 propagated
+membership contributions. Ordered origins/findings drive diagnostic order;
+immutable live snapshots only supply membership and predecessor intersection.
+Other origins on shared traversal rows and upstream abandonment event ordering
+remain separately gated. OFF direct-helper warnings are distinguished from
+production omission of the tracker. Mandatory free proofs are unaffected.
+
+Reproduce with `python3 scripts/self-hosting/review-unfreed.py` and
+`python3 scripts/self-hosting/qualify-evidence.py --probe unfreed --output NEW_PATH`.
+Four fresh original J0 processes each pass 2,148 checks after Java 21 release/Xlint/
+Werror compilation. The raw initial null-query test failure is preserved in
+`target/self-hosting-m0/unfreed-probe-initial-null-query`; querying an immutable
+Set.copyOf result with null was a probe error, not a tracker regression. Final
+qualification checks existing membership after ignored null registration. This
+increment has no resource or native lifetime claim. License and diff checks pass.
+M0.2/M0.3/S0 remain open for the selected closure, global contracts and budgets.

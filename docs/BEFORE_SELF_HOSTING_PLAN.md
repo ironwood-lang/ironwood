@@ -212,6 +212,11 @@ Cross-seed differences stay restricted to that repaired note. Raw-byte storage
 reconstruction and deliberate diagnostic/IR/LLVM mismatches are qualified.
 Observed variants do not replace independent model/dispatch coverage. Explicit
 pilot closure and reviewed remaining inventory still precede budget selection.
+The [diagnostic allocation tracker](self-hosting/m0/UNFREED_CONTRACTS.md) adds
+25 exact patterns/43 calls, three immediate captured rows and all nine H0866
+membership-flow contributions. Its 2,148-check probe matches in four fresh JVMs;
+registration/finding order stays separate from snapshot membership order.
+Upstream caller event ordering and mandatory free proofs retain their own gates.
 Next action: finish reviewed call and transitive ordering contracts, name the
 closed native pilot dependencies/workloads, and derive resource budgets before
 native pilot evaluation.
