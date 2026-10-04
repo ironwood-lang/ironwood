@@ -151,6 +151,10 @@ all exact external member uses in that package, with qualified original helper
 probes. The [worklist contracts](self-hosting/m0/WORKLIST_CONTRACTS.md) map all
 44 deque origins to FIFO or scope-stack semantics and their actual references.
 Selected variant coverage, captures and upstream semantic ordering remain open.
+The [syntax discovery correction](self-hosting/m0/syntax-discovery-correction.json)
+separates 118 excluded uninitialized locals from 1,141 enhanced-for bindings and
+marks all 1,753 Java var declarations excluded. Original non-syntax tables are
+preserved; incidental javac wildcard names are not compiler semantic identities.
 Next action: finish reviewed call and transitive ordering contracts, extend
 the corpus, and derive resource budgets before native pilot evaluation.
 
