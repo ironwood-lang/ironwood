@@ -25,7 +25,8 @@ Section 8 records the proposed omission of that cache from the one-shot driver.
 
 | Preparation | Needed before | Priority and recommended scope |
 | --- | --- | --- |
-| B0. Contract inventory and ownership pilot | Broad translation after S1 | First gate; audit hash iteration order and establish practical memory use and semantic equivalence |
+| B0a. Contract inventory and Java baseline | B1/B7 preparation and S1 pilot | First work; audit hash iteration order, freeze comparison fixtures, and record resource budgets |
+| B0b. S1 portability and ownership pilot | Broad translation after S1 | Run S1's gate after the required B1 copies and B7 rewrites; establish practical memory use and semantic equivalence |
 | B1. Copies, snapshots, traversal, and worklists | Ownership pilot and S3 semantic analysis | First collection work; independent copies and explicit stack/FIFO replacements for `ArrayDeque` |
 | B2. Stable list-level comparator sorting | Large analysis/emission workloads | Early; direct list sorting and `TreeMap`/`TreeSet` consumer rewrites with explicit ordering contracts |
 | B3. Filesystem completion | Native driver and artifact publication | Incremental; temporary paths, real paths, access checks, explicit publication operations |
@@ -97,15 +98,25 @@ Primary source anchors for this audit:
   [BridgeJarArchive](../compiler/src/main/java/ironwood/compiler/BridgeJarArchive.java),
   [BridgeGeneration](../compiler/src/main/java/ironwood/compiler/bridge/BridgeGeneration.java).
 
-## 3. B0: establish contracts and run the ownership pilot
+## 3. B0: inventory and the S1 pilot
 
-### Deliverables
+B0a is the initial inventory; B0b executes the pilot defined in
+[S1](SELF_HOSTING_PLAN.md#s1-prove-portability-and-memory-feasibility) once its
+preparation dependencies are ready. S1 defines the migration gate; this section
+details its dependencies and evidence.
+
+### B0a: inventory and Java baseline
 
 Create a compiler-port compatibility inventory with one entry per dependency
 pattern, recording its callers, equality/ordering requirements, mutation rules,
 exception behavior, allocation owner, retained references, and cleanup boundary.
 Record the replacement and its evidence. This is more useful than a count of
 unsupported Java imports.
+
+Capture the Java comparison fixtures and resource measurements, and agree S1's
+budgets for the supported development machines before evaluating the native
+slices. B0a can finish using the current Java compiler and preparatory Java
+refactorings; it does not require the native pilot to pass.
 
 ### Hash iteration and comparison baselines
 
@@ -155,7 +166,17 @@ different capacities/load factors, and equal sort keys; vary insertion order
 where the result is required to be independent of it. Repeat comparisons across
 fresh processes to catch unstable ordering that one Java/native run can miss.
 
-### Ownership and resource pilot
+### B0b: execute the S1 pilot
+
+The lexer/parser slice needs B1's independent child-list copies (increment 2)
+and B7's text-block normalization and excluded-syntax rewrites (the S1 subset
+of increment 5), including fixed-arity or explicit-array replacements for
+`Parser.contiguousKinds(TokenKind...)`. The ownership slice needs B1's
+array/bit-set and map/set copies and nested traversal (increments 2 and 3), plus
+the B7 value/syntax helpers used by that slice. Include B2 from increment 4
+where B0a identifies an ordering dependency. Implement and verify these required
+slices before evaluating the S1 exit gate; the remaining B1/B2/B7 work can follow
+the needs of later migration stages.
 
 Build two representative native slices alongside the frozen Java baseline:
 
@@ -178,11 +199,11 @@ storage after cleanup. Use geometrically increasing generated inputs plus a
 representative compiler source slice. Record source hashes, host, flags, tools,
 and the baseline for reproducibility.
 
-Set resource budgets from these measurements and the supported development
-machines before expanding the migration. Do not infer that native compilation
-will be faster or that process-lifetime allocation will be affordable.
+Compare the native measurements with B0a's agreed budgets before expanding the
+migration. Do not infer that native compilation will be faster or that
+process-lifetime allocation will be affordable.
 
-### Exit gate
+### Evidence for the S1 exit gate
 
 - Every inventoried hash-container traversal has an ordering classification;
   unresolved dependencies in a slice block its differential comparison gate.
@@ -1233,6 +1254,7 @@ These belong in compiler preparation, not in a general language expansion.
 | Records and sealed hierarchies | Ordinary final classes/interfaces; explicit value operations where needed | Equality/hash/identity distinctions and exhaustive dispatch coverage |
 | `BigInteger` literal validation and folding | Bounded checked magnitude scanner plus width-aware primitive arithmetic | Huge invalid literals, minimum signed values, nondecimal bit patterns, wrapping, shifts, casts, and division diagnostics |
 | `String.stripIndent` and lexer text helpers | Compiler-local exact text-block normalization | Raw/cooked blocks, closing delimiter, tabs/blank lines, CR/LF, escapes, UTF-16 spans |
+| Varargs and convenience factories, including `Parser.contiguousKinds(TokenKind...)` | Fixed-arity helpers or explicit arrays/builders with clear ownership | Same argument order and empty/nonempty behavior; token adjacency and parser diagnostics preserved |
 | `SourceVersion.isName(name, RELEASE_21)` in `BridgePackageInputs` and `BridgeExportSurface` | Shared compiler-local Java 21 qualified-name validator | Empty/dotted components, keywords/literals/contextual keywords, Unicode identifiers, and unchanged export diagnostics |
 | Streams, method-reference pipelines, collectors | Direct loops and small named helpers using B1/B2 | Encounter order, short-circuiting, duplicate behavior, exception timing, and allocation measurements |
 | Regex and locale formatting | Purpose-specific scanners and deterministic numeric/string formatting | Existing grammar and malformed inputs; floating raw bits, signed zero, NaN, and rounding |
@@ -1288,20 +1310,23 @@ manifest design.
 
 | Increment | Concrete deliverable | Depends on | Completion evidence |
 | --- | --- | --- | --- |
-| 1 | B0 inventory, per-traversal ordering audit, and frozen Java/native comparison fixtures | Current compiler | No unresolved ordering dependencies in compared outputs; required contracts and resource measurements can be reproduced |
+| 1 | B0a inventory, per-traversal ordering audit, frozen Java comparison fixtures, and S1 resource budgets | Current compiler | Required contracts, Java reference outcomes, and resource measurements can be reproduced; pilot dependencies identified |
 | 2 | ArrayList/BitSet copy slice and private compiler snapshots | 1 | Independent snapshots; safe/unsafe cleanup pairs; allocation-failure cleanup |
-| 3 | B1 map/set copies, nested traversal, and stack/FIFO worklist rewrites | 2 | Identity/value/order preserved; amortized O(1) worklist end operations; ownership/storage pilot fits its budget |
+| 3 | B1 map/set copies, nested traversal, and stack/FIFO worklist rewrites | 2 | Identity/value/order preserved; amortized O(1) worklist end operations; copy/worklist allocation and storage costs measured |
 | 4 | B2 stable comparator sorting directly on `ArrayList` and sorted-map/set consumer rewrites | 1; B1 for snapshots | Non-Comparable lists sort without an array round trip; tree consumers preserve ordering/deduplication with measured scaling |
-| 5 | SHA-256 and B7 reflection/value/text/numeric helpers for selected slices | 1 | Exact ByteView declaration authority by S3; Java baseline remains equivalent; native lexer/parser and analysis pilots pass |
+| 5 | B7 helpers in stage order: S1 text-block, varargs, value, and numeric rewrites first; later reflection helpers and SHA-256 for S3 | 1; required B1/B2 slices for helpers that use them | Focused helper equivalence and ownership checks pass; Java baseline remains equivalent; exact ByteView declaration authority by S3 |
+| S1 gate | B0b lexer/parser and ownership-snapshot pilots; the S1 gate from SELF_HOSTING_PLAN.md | 1; required copy/traversal slices of 2 and 3; S1 helpers from 5; 4 where the inventory requires ordering work | S1 exit criteria pass: Java/native equivalence, accepted/rejected reclamation cases, and memory/stack/time within agreed budgets |
 | 6 | MD5/trace GUID integration and S4 runtime-cache port decision | 1, 5 | Exact GUIDs, native-link hash consumers, and explicit cache omission or verified invalidation |
 | 7 | B3 traversal rewrites, temporary paths, cleanup, discovery, and publication primitives | 1; B2 for sorted inventories | Equivalent inventories and traversal behavior; native failure/resource/publication cases pass on qualified hosts |
 | 8 | B4 process service, executable-discovery adaptations, and driver adapter | 7 | Absolute-path launches; measured probe IO, cleanup, and invocation reuse; LLVM/Homebrew/TLS discovery, controlled process cases, and real LLVM pipeline pass |
 | 9 | Public `ironwood.util.zip.CRC32` and artifact identity serialization using SHA-256 from increment 5 | 1, 5; B2 for sorted inventories | CRC32 public-contract/ownership review, known vectors, and exact existing artifact identities |
 | 10 | B6 legacy inflate reader, selected native writer profiles, and artifact integration | 7, 9; STORED-versus-DEFLATED writer decision and codec selection | Cross-reader compatibility, malformed-input rejection, deterministic output; verified dependency-free codec path or pinned codec home |
 
-These increments can overlap when independent. Do not delay S1 for increments
-7 through 10, and do not start broad translation merely because all library
-methods now compile. The decisive early gate remains the measured B0/B1 pilot.
+These increments can overlap when independent. Increment 1 comes first; the
+S1 gate follows its required slices of increments 2, 3, and 5, plus 4 where
+needed. Do not delay S1 for later-stage work in increment 5 or increments 6
+through 10. Do not start broad translation merely because all library methods
+now compile: the decisive early gate is S1, with B0b recording its evidence.
 New cursor APIs, reusable sort workspace, and per-removal loan precision require
 evidence from that pilot rather than automatic implementation.
 
@@ -1390,7 +1415,8 @@ mark these features implemented merely because this plan exists.
 
 Each increment should end with the chosen contract, measured results, focused
 verification, remaining platform/format boundaries, and its effect on S0-S8.
-The recommended first implementation is **the B0/B1 copy-and-ownership slice**,
-followed by B2. That establishes whether the existing language and its explicit
-reclamation model can support the compiler at useful scale before the larger
-host-service and archive work is undertaken.
+Begin with **B0a's inventory**, then the required B1 copies and B7 pilot rewrites,
+using B2 where the ordering audit requires it. Complete B0b's S1 evidence before
+broad translation. That establishes whether the existing language and its
+explicit reclamation model can support the compiler at useful scale before the
+larger host-service and archive work is undertaken.

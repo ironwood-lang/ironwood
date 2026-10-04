@@ -442,6 +442,8 @@ budgets from these measurements before evaluating the port against them.
 
 ### S1. Prove portability and memory feasibility
 
+[B0](BEFORE_SELF_HOSTING_PLAN.md#3-b0-inventory-and-the-s1-pilot) details this pilot's prerequisite work and evidence; S1 remains the gate definition.
+
 Port source spans, diagnostics, tokens, enough AST data, the lexer, and then the
 parser using supported syntax and actual library APIs. Independently port a
 small but representative ownership-snapshot/refinement workload from the current
