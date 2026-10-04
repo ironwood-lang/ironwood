@@ -9,6 +9,7 @@
   "external_patterns": 712,
   "map_set_variables": 2259,
   "syntax": {
+    "ENHANCED_FOR_VARIABLE": 1141,
     "INTERFACE": 13,
     "LAMBDA": 2020,
     "METHOD_REFERENCE": 958,
@@ -18,7 +19,7 @@
     "SYNCHRONIZED_METHOD": 1,
     "TEXT_BLOCK": 46,
     "TYPE_PATTERN": 1941,
-    "UNINITIALIZED": 1259,
+    "UNINITIALIZED": 118,
     "VAR": 1753,
     "VARARGS": 7
   }

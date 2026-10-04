@@ -76,7 +76,11 @@ def main():
     assert any(n.startswith('V:') and n.endswith('::viaField') for n in visited), 'lost alias mutation traversal'
     traversals = read('traversals.tsv')
     assert any(r['node'] in visited and 'map.keySet' in r['expression'] for r in traversals)
-    assert {'VAR', 'TEXT_BLOCK', 'SYNCHRONIZED_METHOD'} <= {r['kind'] for r in read('syntax.tsv')}
+    syntax = read('syntax.tsv')
+    assert {'VAR', 'TEXT_BLOCK', 'SYNCHRONIZED_METHOD', 'UNINITIALIZED', 'ENHANCED_FOR_VARIABLE'} <= {r['kind'] for r in syntax}
+    assert all(r['context'].startswith('excluded') for r in syntax if r['kind'] in ('VAR', 'UNINITIALIZED'))
+    assert all(r['context'].startswith('supported iteration binding:') for r in syntax if r['kind'] == 'ENHANCED_FOR_VARIABLE')
+    assert sum(r['kind'] == 'UNINITIALIZED' for r in syntax) == 1, 'iteration binding is not an optional initializer'
     print('PASS: overloads, inherited members, arrays, captures, syntax, helper/record/factory/view/copy flow')
 
 

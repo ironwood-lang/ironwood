@@ -207,7 +207,7 @@ python3 scripts/self-hosting/compare.py selftest \
 ```
 
 At the original-reference increment, the attributed inventory included compact record-constructor reassignment
-flows and supported `var`/text-block sites separately from the synchronized
+flows and Java `var`/supported text-block sites separately from the synchronized
 method. That hash-origin graph discovered 866 sources and 1,093 transitive
 traversals in 127 files. These are review obligations, not completed proofs.
 The archive manifest now includes previously compressed TSVs as well as newly
@@ -339,3 +339,30 @@ Deque.removeFirst member review or changing the reviewed origin line. Diff and
 license checks pass; no compiler behavior
 changes require a compiler suite. M0.2 remains open for global syntax/captures,
 other overloads and transitive ordering, followed by the full M0.3 resource gate.
+
+## Syntax discovery label correction
+
+Java `var` is excluded by Feature 88; the discovery's earlier context label
+incorrectly called it supported. Enhanced-for iteration declarations also have
+no initializer in javac's tree, but are supported loop bindings, rather than
+Java's excluded optional local initializers. Inventory now distinguishes those
+cases. All 12,413 syntax sites remain, including 1,753 excluded var declarations,
+118 excluded uninitialized locals and 1,141 enhanced-for bindings. The 1,941
+type patterns split into 1,405 supported INSTANCE_OF contexts and 536 excluded
+PATTERN_CASE_LABEL contexts. Text blocks remain supported syntax; their called
+normalization APIs have separate contracts.
+
+The focused fixture now requires an assigned-after-branch local, an enhanced-for
+binding, Java var, a text block and the synchronized method to remain distinct.
+Its attribution/flow checks pass. A fresh qualified 460-source attribution run
+exits zero without javac diagnostics. Only syntax.tsv.gz is replaced; all other
+versioned TSV payloads retain their previous bytes/hashes. Fresh non-syntax data
+agrees, except javac's ephemeral wildcard capture numbers in calls.tsv's
+instantiated_type and captures.tsv's retention_context fields; syntax.context
+has the same incidental naming difference in addition to the corrected labels.
+Those discovery-only names are not semantic compiler
+identities; original attributed tables stay intact. No diagnostics, AST, typed
+IR or LLVM are normalized. [syntax-discovery-correction.json](syntax-discovery-correction.json)
+records exact old/new hashes, row counts, changed-field limits and raw process
+streams. All eleven archive manifest entries verify. This fixes discovery
+labels; full excluded-syntax and callback contract review remains required.

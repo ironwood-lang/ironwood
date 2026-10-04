@@ -45,7 +45,11 @@ final class InventorySample {
         var text = """
                 qualification
                 """;
-        return text;
+        String chosen;
+        if (text.isEmpty()) chosen = "";
+        else chosen = text;
+        for (String item : List.of(chosen)) return item;
+        return chosen;
     }
 
     List<String> exercise(int captured) {

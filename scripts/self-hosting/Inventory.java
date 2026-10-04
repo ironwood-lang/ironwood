@@ -291,7 +291,7 @@ public final class Inventory {
                             long end = trees.getSourcePositions().getEndPosition(unit, tree);
                             if (start >= 0 && end >= start && sourceText.substring((int) start, (int) end)
                                     .matches("(?s)(?:final\\s+)?var\\s+.*"))
-                                construct(tree, "VAR", "supported inferred declaration");
+                                construct(tree, "VAR", "excluded inferred declaration; Feature 88");
                             if (e != null && tree.getInitializer() != null) {
                                 edge(node(tree.getInitializer()), "V:" + symbol(e), "INITIALIZER", tree);
                                 if (aggregate(getCurrentPath()))
@@ -302,8 +302,13 @@ public final class Inventory {
                                 method.getEnclosingElement().getEnclosedElements().stream()
                                         .filter(f -> f.getKind().isField() && f.getSimpleName().equals(e.getSimpleName()))
                                         .forEach(f -> edge("V:" + symbol(e), "V:" + symbol(f), "RECORD_COMPONENT", tree));
-                            if (e != null && e.getKind() == ElementKind.LOCAL_VARIABLE && tree.getInitializer() == null)
-                                construct(tree, "UNINITIALIZED", tree.getType());
+                            if (e != null && e.getKind() == ElementKind.LOCAL_VARIABLE && tree.getInitializer() == null) {
+                                boolean iteration = getCurrentPath().getParentPath().getLeaf().getKind()
+                                        == Tree.Kind.ENHANCED_FOR_LOOP;
+                                construct(tree, iteration ? "ENHANCED_FOR_VARIABLE" : "UNINITIALIZED",
+                                        (iteration ? "supported iteration binding: " : "excluded optional local initializer; Feature 88: ")
+                                                + tree.getType());
+                            }
                             if (e != null && container(e.asType().toString()))
                                 containers.println(location(tree) + "\t" + cell(symbol(e)) + "\t" + cell(e.asType()) +
                                         "\t" + cell(tree.getInitializer()));
