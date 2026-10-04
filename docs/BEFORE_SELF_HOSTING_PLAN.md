@@ -247,8 +247,20 @@ call-site reclamation. The required distinction is:
 The third statement is conditional. A source container stored in itself, a key
 that refers back to it, an escaped cursor, or a callback that publishes state
 prevents an unconditional source-independence claim. Do not whitelist a method
-name or mark all copies non-retaining. Derive any reusable proof from verified
-structure and preserve conservative handling of unknown effects.
+name alone across arbitrary types or mark all copies non-retaining. Follow
+[D107](DECISIONS.md#d107---track-releasable-caller-item-loans-from-local-data-structures):
+recognize audited container implementations on exact constructed types, with
+the required callback and lifetime proofs; arbitrary subclasses or same-named
+methods receive no exemption. Derive any reusable proof from verified structure
+and preserve conservative handling of unknown effects.
+
+This does not prohibit explicit classifications for audited library methods.
+For example, `EscapeSummaryAnalyzer.isBorrowingFilesFacade` checks the exact
+static owner `ironwood.nio.file.Files` and then switches on method names. Such
+entries encode reviewed implementation contracts; they are not inferred from
+the spelling of an unrelated method. B3 must maintain this existing Files rule
+when adding facades, while keeping argument borrowing, return aliases, and
+fresh-result ownership distinct.
 
 The existing [container loan rules](CONTAINER_REMOVAL_LOANS.md) generally
 discharge known local loans on whole-container clear/destruction, not after
@@ -454,18 +466,55 @@ be a separate decision.
 
 ### Compiler/runtime integration and verification
 
-Extend the existing typed file boundary:
-[IrFileInstruction](../compiler/src/main/java/ironwood/compiler/ir/IrFileInstruction.java),
-intrinsic binding in `FunctionAnalyzer`, dependency discovery in
-`TypeDependencyScanner`, `LlvmEmitter`, and isolated runtime functions/declarations.
-Audit `AllocationResultSemantics`, escape summaries, return origins, and owned
-results for newly allocated paths/attributes. Existing internal no-follow
-operations may be reused; a new public options framework is unnecessary.
+Trace each new facade and intrinsic through the following consumers. Several
+already handle `IrFileInstruction` generically, so adding an operation may need
+verification rather than a code change in every file; adding a new instruction
+shape or result contract requires revisiting those assumptions.
+
+| Boundary/consumer | Required integration or audit |
+| --- | --- |
+| `FunctionAnalyzer.fileIntrinsicOperation` and [IrFileInstruction](../compiler/src/main/java/ironwood/compiler/ir/IrFileInstruction.java) | Bind the exact intrinsic owner/signature, validate operation result/operand types, and preserve throwing versus nonthrowing lowering |
+| [EscapeSummaryAnalyzer](../compiler/src/main/java/ironwood/compiler/semantic/EscapeSummaryAnalyzer.java) | Maintain `isBorrowingFilesFacade` and its uses in inferred summaries and `applyAuditedBorrowingContract`; preserve call-scoped borrowing for audited Files parameters |
+| `AllocationResultSemantics`, symbolic return origins, and owned-result analysis | Classify genuinely fresh paths/attributes/arrays separately from returned input aliases and dependent borrows |
+| [ClosedWorldPruner](../compiler/src/main/java/ironwood/compiler/ClosedWorldPruner.java) and [ClosedWorldEffectAnalyzer](../compiler/src/main/java/ironwood/compiler/semantic/ClosedWorldEffectAnalyzer.java) | Preserve allocation-failure reachability and effects of file operations, including the current non-allocating `LAST_ERROR` distinction in effect analysis |
+| [BorrowDispatchAnalysis](../compiler/src/main/java/ironwood/compiler/semantic/BorrowDispatchAnalysis.java) | File reference results currently use conservative compatible-type propagation; new results must not become an empty dispatch set or gain invented non-retention facts |
+| [PrimitiveGenericSpecializer](../compiler/src/main/java/ironwood/compiler/semantic/PrimitiveGenericSpecializer.java) and [IrCfgRenamer](../compiler/src/main/java/ironwood/compiler/ir/IrCfgRenamer.java) | Reconstruct file operations with specialized/renamed results and operands, preserving the operation and source span |
+| [IrInvokeTerminator](../compiler/src/main/java/ironwood/compiler/ir/IrInvokeTerminator.java), `LlvmEmitter`, and isolated runtime functions/declarations | Preserve eligibility for potentially throwing file operations, normal/unwind paths, runtime ABI calls, and result/error conventions |
+| [TypeDependencyScanner](../compiler/src/main/java/ironwood/compiler/TypeDependencyScanner.java) | At the AST level, `isFileIntrinsic` recognizes helper names and adds `OutOfMemoryError` dependencies for declarations/calls; review new helper names here, not as an `IrFileInstruction` visitor |
+
+The Files borrowing classification is an explicit integration requirement.
+`isBorrowingFilesFacade` first requires the exact static Files owner, then uses
+a name switch. Its audited override prevents abstract `Path.toString` dispatch
+from making otherwise borrowed input paths permanently escape. Review every
+new Files method and helper, including each admitted overload, and add its name
+when the implementation satisfies that borrowing contract. Without the entry,
+the existing override does not apply and callers can lose the borrowing fact.
+Verify the resulting summary and safe caller cleanup rather than assuming that
+a delegating facade automatically inherits the classification.
+
+Do not add every name unconditionally: helpers such as `visitFailed` and
+`postDirectory` deliberately retain inferred effects because visitor callbacks
+may retain or rethrow an exception. Audit new callbacks, native retention, and
+returned aliases before granting a contract. The same-name static-owner switch
+does not distinguish overload signatures, so an overload with different effects
+requires a more precise predicate, not a blanket borrowing entry. Preserve the
+existing foreign-body guard and conservative unknown effects.
+
+Existing internal no-follow operations may be reused; a new public options
+framework is unnecessary.
 
 Preserve error categories sufficiently to distinguish absence, already-exists,
 permission failure, and unsupported atomic operation. Do not guess the reason
 from an error string. Cleanup must retain the primary failure and report
 secondary failures according to the existing exception policy.
+
+For each audited borrowing facade, pair a call followed by safe reclamation of
+its temporary input Path/String with an unsafe retained-alias or publishing
+callback case. Distinguish a returned input Path from a fresh result. Cover
+source/class/archive reconstruction, generic specialization, CFG cloning, and
+normal/exceptional cleanup so summaries and typed-IR rewrites agree. Include a
+missing-classification regression for newly added facades and verify allocation
+failure remains reachable after pruning.
 
 Test default-directory selection with `TMPDIR` unset, empty, and nonempty;
 confirm explicit-directory overloads ignore it and an unusable nonempty value
@@ -825,8 +874,8 @@ the scope changes:
 | --- | --- | --- |
 | Borrowing/copy/return-origin proofs | Lists/maps, pool release helpers, array detachment, returned library objects | Fresh private storage can be freed; borrowed/published inputs cannot |
 | List sorting and comparator dispatch/effects | ArrayList live-slot boundary and loans, reusable iteration, generic/interface calls, captured objects, backing-array reclamation | Inactive slots stay unobserved; safe scratch cleanup; retaining/throwing or list-mutating callbacks do not weaken reclamation proofs |
-| File/process result allocation and errors | Existing IO intrinsics, partial construction, finally/defer | Successful cleanup and failure rollback; no surviving pointer to freed input |
-| New typed IR operations | Dependency scanning, closed-world effects, optimization, emission, artifact reconstruction | Live effects survive transformations; unreachable facilities remain removable |
+| File/process result allocation and errors | Audited Files borrowing classification, return aliases/fresh results, existing IO intrinsics, partial construction, finally/defer | Safe caller-input cleanup; publishing/retaining cases remain conservative; failure rollback leaves no surviving pointer to freed input |
+| New typed IR operations | AST intrinsic dependency discovery, closed-world pruning/effects, borrow dispatch, specialization, CFG renaming, invoke handling, emission, artifact reconstruction | Allocation failures and live effects survive transformations; results retain conservative dispatch facts; unreachable facilities remain removable |
 | Checksums/codecs | ByteView declaration authority, native runtime-cache keys, trace metadata, TLS inventory, Bridge identity, class/archive loading | Exact known output; changed declarations lose authority; retained caches invalidate on header changes; malformed or mismatched input fails without false success |
 
 Preserve D132/D133 and mandatory memory safety in every mode. New host services
@@ -850,6 +899,9 @@ at implementation time. Relevant existing names include:
 - `rejected-free evidence snapshots retain identity and enforce storage limits`
 - `caller-owned library results survive source class archive and tree-shaking round trips`
 - `util compatibility helpers run at O3`
+- `U2 path and whole-file operations use typed IR and audited ownership`
+- `U5 file tree traversal enforces borrowed visitor callbacks`
+- `native filesystem scratch and resource cleanup survive injected failures`
 - `filesystem mutation and random access helpers run at O3`
 - `Files.readAllLines rolls back partial results on OOM`
 - `Clang version reporting preserves vendor identity and diagnoses query failures`
