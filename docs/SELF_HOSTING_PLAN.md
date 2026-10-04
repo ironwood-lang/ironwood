@@ -397,7 +397,7 @@ documentation, and Bridge helpers follow their respective stages.
 | Subprocesses | `NativeBackend`, `LlvmToolchain`, `MacNativeTools`, Bridge build tools use `ProcessBuilder`/`Process`; no Ironwood equivalent | Start with explicit shell orchestration. For a native driver, design a minimal synchronous process facility with argument arrays, cwd/environment, redirected output, wait/exit status, and failure cleanup. |
 | Filesystem details | Files/path basics exist, but compiler code uses temporary files/directories, executable/readable checks, real paths, no-follow options, and atomic replacement | Inventory exact calls. Reuse `walkFileTree`/directory streams; fill narrowly scoped gaps or let the initial driver perform them. `Files.move` currently has no-replace semantics and is not an atomic-replace substitute. |
 | Installation discovery | `StandardLibrary`, `RuntimeLibrary`, `CompilerVersion` use Java code-source/resource locations | Use an explicit installation root passed by the launcher and a build-generated version/identity resource. Preserve supported environment overrides and source-checkout operation. |
-| ZIP and CRC | `IronClass`, `IronJar`, Bridge archives use ZIP readers/writers and CRC32; no current ZIP library | Preserve current formats. A focused archive facility needs bounds/duplicate/path validation, checksum handling, and compatibility with existing compressed payloads. |
+| ZIP and CRC | `IronClass`, `IronJar`, Bridge archives use ZIP readers/writers and CRC32; no current ZIP library | Preserve reader compatibility, including existing compressed payloads and existing consumers reading native output. A focused archive facility needs bounds/duplicate/path validation and checksum handling; writer-profile changes require a recorded decision under B6. |
 | Hashes | `OptimizedTraceMetadata` and `LlvmEmitter` use MD5 for LLVM GUIDs at S4; `ByteViewIntrinsic.trusted` uses SHA-256 for exact source authority at S3; `NativeBackend.prepareRuntimeObject` hashes runtime headers for its in-process cache at S4; TLS and Bridge inventories also use SHA-256 | Supply exact algorithms through reviewed portable helpers or a narrowly justified native dependency. SHA-256 must be bit-exact before S3 handles ByteView programs, even though full Bridge production waits until S7. Do not replace established identity algorithms with an ad hoc hash. |
 | Binary object inspection | `SharedTraceOrder` reads Mach-O/ELF, byte order, unsigned fields, and probe groups | Reuse supported `ByteBuffer` members or explicit byte access; port exact extent validation and ordering. |
 | Properties/manifests | Bridge distribution and dependency inventories use `Properties`, JAR manifests, hex formatting | Specify and implement the accepted data formats, including required escaping, continuation, and duplicate rules. Do not assume a naive key/value split is equivalent. |
@@ -429,6 +429,18 @@ strict text validation. A STORED-only ZIP reader cannot consume all existing
 artifacts. Preserve the accepted reader behavior, nested payloads, type indexes,
 entry points, notices, entry ordering, and failure-preserving publication.
 Do not make a new serialized typed-IR format a self-hosting prerequisite.
+
+Here, preserving artifact compatibility means reader interoperability and
+unchanged payload/validation contracts. [B6](BEFORE_SELF_HOSTING_PLAN.md#9-b6-archive-codec-and-artifact-compatibility)
+proposes evaluating STORED native `.ironclass` and Bridge JAR output alongside
+the already-STORED `.ironjar` writer. Native readers must still accept legacy
+DEFLATED input, and existing Java readers and JAR consumers must accept the new
+output. Any writer-profile change needs a recorded decision in `DECISIONS.md`
+and the artifact specifications before canonical output fixtures change,
+including its metadata, archive-byte, and identity effects. Changed embedded
+`.ironclass` bytes also change the enclosing `.ironjar`. Retain same-writer
+determinism; Java/native byte equality is a separate writer-contract decision,
+as specified in [B6's verification gate](BEFORE_SELF_HOSTING_PLAN.md#94-verification-and-exit-gate).
 
 The backend is also more than emitting `.ll`:
 [`NativeBackend`](../compiler/src/main/java/ironwood/compiler/backend/NativeBackend.java)
@@ -754,9 +766,10 @@ Keep the independent Java differential and explicit negative safety corpus.
 
 ### S6. Reach complete command-line and artifact parity
 
-Port source/class/archive discovery and `ironjar`, preserving existing format-1
-source-bearing artifacts and reconstruction-time validation. Implement verified
-ZIP/CRC and publication behavior. Complete native host services or retain an
+Port source/class/archive discovery and `ironjar`, preserving reader compatibility
+with existing format-1 source-bearing artifacts and reconstruction-time
+validation. Implement verified ZIP/CRC and publication behavior. Complete native
+host services or retain an
 explicitly accepted shell-driver boundary; do not make a full process library a
 prerequisite if the smaller convention suffices. Port `irondoc` using the same
 parser/model and purpose-specific text helpers, including B7's shared Java 21
@@ -905,8 +918,11 @@ The plan recommends these defaults, subject to the indicated evidence gates:
 3. Use a small shell driver for the first bootstrap. Decide the later native
    process/filesystem API from concrete call requirements, including whether a
    focused native dependency is smaller and safer than a public subsystem.
-4. Preserve `.ironclass`/`.ironjar` compatibility. Select an archive implementation
-   only after reviewing compressed-input requirements, licensing, and validation.
+4. Preserve `.ironclass`/`.ironjar` reader compatibility in both directions.
+   Select an archive implementation only after reviewing compressed-input
+   requirements, licensing, and validation. Record any writer-profile change,
+   including STORED `.ironclass` or Bridge JAR output, in `DECISIONS.md` and the
+   artifact specifications before changing canonical output fixtures, following B6.
 5. Retain the Java bootstrap and independent test harness until fixed-point,
    full tool parity, IDE transition, and qualified platform gates pass.
 6. Preserve source/license provenance through translation. Read
