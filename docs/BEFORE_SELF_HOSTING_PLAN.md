@@ -155,6 +155,10 @@ The [syntax discovery correction](self-hosting/m0/syntax-discovery-correction.js
 separates 118 excluded uninitialized locals from 1,141 enhanced-for bindings and
 marks all 1,753 Java var declarations excluded. Original non-syntax tables are
 preserved; incidental javac wildcard names are not compiler semantic identities.
+The [callback contracts](self-hosting/m0/CALLBACK_CONTRACTS.md) review all exact
+functional-member calls, every captured constructor callback and a traced
+method-to-field observer. Remaining method-argument capture and stream/comparator
+contracts still block the full inventory gate.
 Next action: finish reviewed call and transitive ordering contracts, extend
 the corpus, and derive resource budgets before native pilot evaluation.
 

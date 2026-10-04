@@ -366,3 +366,33 @@ IR or LLVM are normalized. [syntax-discovery-correction.json](syntax-discovery-c
 records exact old/new hashes, row counts, changed-field limits and raw process
 streams. All eleven archive manifest entries verify. This fixes discovery
 labels; full excluded-syntax and callback contract review remains required.
+
+## Retained callback source review
+
+[CALLBACK_CONTRACTS.md](CALLBACK_CONTRACTS.md) reviews all nine exact
+java.util.function member patterns and their 105 attributed uses, ten selected
+private service fields, all 22 captured constructor callbacks (67 symbol rows)
+and one source-traced method-to-field observer. NativeLinkTransformation passes
+that observer through optimize into both specialization passes, retaining its
+sources-map capture for their bounded run. The map remains in use afterward to
+build provenance; the callback holders do not escape in the returned program.
+
+The joined [callbacks-reviewed.json.gz](callbacks-reviewed.json.gz) records
+every selected source position, captured symbol/type, field location, exact
+member caller, proof row and source hash. `review-callbacks.py` rejects missing
+or stale selected sites, new captured constructor callbacks and uncovered
+functional-member declarations. Source review records actual deferred LValue
+read/write timing, recursive inference probes, repeated binder/producer calls,
+SSA/label mapping order, clone observer state and exceptional flow counters.
+Source symbol rows are not an allocation measurement or a proof that captured
+objects can be freed. M0.3 still must select the real retained-service workload
+for M1/M2 and M1/M2 must qualify allocation/cleanup and mandatory safe/unsafe
+capture proofs.
+
+Reproduce with `python3 scripts/self-hosting/review-callbacks.py`. Focused checks
+pass, including missing constructor/member reviews and a stale field location;
+diff and license checks pass. The remaining
+2,986 method-argument capture rows are explicitly unreviewed here: stream and
+comparator factories can retain callbacks after returning, so parent syntax does
+not prove immediate execution or non-retention. Full global dependency/order
+and syntax/capture review remains open before the M0.3 corpus/resource gate.
