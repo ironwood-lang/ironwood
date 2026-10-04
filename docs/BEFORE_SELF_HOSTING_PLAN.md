@@ -64,7 +64,7 @@ equivalents.
 | Traversal | Nested scans, key/value iteration, and collection callbacks | Many `ironwood.ds` iterators are reused; map iteration yields values with a container-level current-key accessor |
 | Sorting | `List.sort` and stream `sorted()` in documentation, trace ordering, semantic analysis, archive indexes, and Bridge inventories; no production `Arrays.sort` calls | `ArrayList` has neither sorting nor `toArray`; existing `Arrays` reference sorts use insertion sort and require `T extends Comparable<T>` even with a comparator |
 | Native tools | `NativeBackend`, `LlvmToolchain`, `MacNativeTools`, `TlsDependency`, and `BridgeBuildTools` | No corresponding process facility; actual launch sites inherit the environment |
-| Filesystem | Driver staging, discovery, archive replacement, Bridge distribution | Core IO, directory traversal, attributes, copy, and move exist; missing operations and publication guarantees remain |
+| Filesystem | Driver staging, discovery, archive replacement, Bridge distribution; 16 `Files.walk` and two `Files.list` call sites | Rewrite stream-based traversal with existing visitors/directory streams; remaining operation gaps and publication guarantees need separate work |
 | Archives | `IronClass`, `IronJar`, and Bridge JAR consumers/producers | No ZIP or CRC32 implementation; existing artifacts include DEFLATE data |
 | Digests | ByteView declaration authority, native runtime-header cache keys, LLVM trace GUIDs, TLS input identity, Bridge content/generation identity | No matching named digest implementations; serialization rules and required milestones differ by consumer |
 
@@ -400,6 +400,48 @@ Obtain modification time through `readAttributes(path).lastModifiedTime()` when
 that suffices. Do not build a parallel filesystem abstraction or a generic file
 provider framework for this port.
 
+### Rewrite missing stream-based traversal
+
+The audited compiler source has 16 `Files.walk` calls and two `Files.list` calls.
+These require compiler-port rewrites, not new APIs returning streams or eager
+collections under those names. Preserve
+[D122](DECISIONS.md#d122---practical-java-shaped-standard-library-compatibility-expansion),
+which keeps `Files.list` absent, and the
+[traversal roadmap](STDLIB_ROADMAP.md#next-tranche-directories-and-file-metadata),
+which defers both stream-returning operations.
+
+| Current use | Replacement using existing Ironwood APIs |
+| --- | --- |
+| `Files.walk(root)` for source, class, runtime, and archive inventories | `Files.walkFileTree` with a visitor applying the existing filters/transforms; collect independent results only when later sorting or reuse needs them |
+| `Files.walk(directory, maxDepth)` in `IronDoc.selectPackage` | The fixed-arity `walkFileTree(directory, maxDepth, false, visitor)` overload, preserving the recursive versus depth-one selection |
+| Reverse-sorted walks for recursive staging cleanup | Delete files during visitation and directories after their children in `postVisitDirectory`, where only child-before-parent order matters; preserve explicit sorting when exact order is observable |
+| `Files.list(directory)` in `BridgePackageInputs` and `BridgeDistributionCommand` | `Files.newDirectoryStream(directory)` with explicit iteration, filtering, and B2 sorting where currently required; close the stream on every exit |
+
+Preserve root inclusion, maximum depth, default no-follow traversal, and each
+caller's error/diagnostic policy. A no-follow walk followed by
+`Files.isRegularFile(path)` can still select a symbolic link to a regular file;
+substituting only the visitor's no-follow attributes would change that filter.
+Keep deterministic ordering and deduplication explicit. Post-order cleanup must
+preserve best-effort versus propagating failures and leave the root until last.
+
+Respect the existing [traversal ownership rules](STDLIB.md): callback Paths and
+attributes are borrowed and cannot be retained after the callback. Collect
+independently owned copies or derived results with proved independence, not the
+borrowed callback objects. Directory-stream entries, in contrast, are fresh
+caller-owned Paths; reclaim discarded entries and assign a cleanup owner to
+retained ones. Close the stream before freeing its wrapper. Neither collecting
+into a list nor sorting transfers ownership of those Path objects.
+
+`Path.endsWith(String)` is absent, but it is not required by
+[StandardLibrary.discoverTypes](../compiler/src/main/java/ironwood/compiler/StandardLibrary.java):
+that pipeline applies `root.relativize`, then `Path.toString`, then
+`String.endsWith(extension)`. Preserve the existing
+[String.endsWith](../stdlib/src/main/ironwood/ironwood/lang/String.iron) extension
+check; do not replace it with a path-component comparison or add a Path API for
+this call site. These traversal rewrites can start with the current library.
+
+### Add the remaining filesystem operations
+
 Add the following small surface in dependency order. Signatures are proposals;
 Java-shaped names must pass the behavioral contract review before implementation.
 
@@ -515,6 +557,13 @@ source/class/archive reconstruction, generic specialization, CFG cloning, and
 normal/exceptional cleanup so summaries and typed-IR rewrites agree. Include a
 missing-classification regression for newly added facades and verify allocation
 failure remains reachable after pruning.
+
+Compare traversal rewrites on nested and empty trees, depth-one package scans,
+symbolic links to files/directories, missing roots, and iteration failures.
+Check selected source/type inventories and sorted outputs, deletion of children
+before their parent, and each cleanup failure policy. Pair accepted retention of
+independent copies with rejected retention of borrowed visitor Paths/attributes;
+check directory-stream closure and entry cleanup on normal and exceptional exits.
 
 Test default-directory selection with `TMPDIR` unset, empty, and nonempty;
 confirm explicit-directory overloads ignore it and an unusable nonempty value
@@ -847,7 +896,7 @@ manifest design.
 | 4 | B2 stable comparator sorting directly on `ArrayList` | 1; B1 where snapshots are used | Non-Comparable compiler lists sort stably with measured scaling and no array round trip |
 | 5 | SHA-256 and B7 reflection/value/text/numeric helpers for selected slices | 1 | Exact ByteView declaration authority by S3; Java baseline remains equivalent; native lexer/parser and analysis pilots pass |
 | 6 | MD5/trace GUID integration and S4 runtime-cache port decision | 1, 5 | Exact GUIDs, native-link hash consumers, and explicit cache omission or verified invalidation |
-| 7 | B3 temporary paths, cleanup, discovery, and publication primitives | 1 | Native failure/resource/publication cases pass on qualified hosts |
+| 7 | B3 traversal rewrites, temporary paths, cleanup, discovery, and publication primitives | 1; B2 for sorted inventories | Equivalent inventories and traversal behavior; native failure/resource/publication cases pass on qualified hosts |
 | 8 | B4 process service and driver adapter | 7 | Controlled process cases plus real LLVM pipeline pass |
 | 9 | CRC32 and artifact identity serialization using SHA-256 from increment 5 | 1, 5; B2 for sorted inventories | Known vectors and exact existing artifact identities |
 | 10 | B6 compressed archive readers, writers, and profile integration | 7, 9; codec dependency decision | Cross-reader compatibility, malformed-input rejection, deterministic output |
@@ -901,6 +950,8 @@ at implementation time. Relevant existing names include:
 - `util compatibility helpers run at O3`
 - `U2 path and whole-file operations use typed IR and audited ownership`
 - `U5 file tree traversal enforces borrowed visitor callbacks`
+- `U5 directory foundation enumerates entries and reads attributes`
+- `U5 file tree traversal controls depth links and cleanup`
 - `native filesystem scratch and resource cleanup survive injected failures`
 - `filesystem mutation and random access helpers run at O3`
 - `Files.readAllLines rolls back partial results on OOM`
