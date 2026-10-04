@@ -1029,15 +1029,29 @@ and Bridge JAR interoperability, and absence of an archive-codec zlib build/link
 requirement. Under the zlib option, test missing/mismatched dependency homes,
 manifest checksums, explicit overrides, and absence of a system-library fallback.
 
-For canonical `.ironjar` output, preserve the existing exact-byte reproducibility
-checks for identical input payload bytes. Replacing an embedded `.ironclass`
-with its new STORED encoding changes those input bytes and therefore the outer
-archive; record that change in the reviewed writer-profile fixtures. Compression
-output may also differ between codec implementations while decoded contents
-agree. Both changes need an explicit compatibility and reproducibility decision,
-not an unnoticed relaxation of tests. Native writer output must itself be
-deterministic under pinned inputs/tools. Never normalize away changed source,
-manifests, identities, or validation outcomes.
+The existing `Ironwood archives create list and reproduce exact bytes` test in
+[CompilerTests](../compiler/src/test/java/ironwood/compiler/CompilerTests.java)
+compiles its `.ironclass` inputs once, creates two `.ironjar` files with the same
+Java writer using directory input versus reordered explicit file inputs, and
+compares those archives with `Files.mismatch`. This establishes same-writer
+determinism for identical payload bytes, not agreement with a checked-in Java
+golden or Java-versus-native output equality. Preserve that test and apply the
+same reordered-input/repeat-run requirement independently to the native writer.
+
+Java-versus-native byte equality of `.ironclass` DEFLATE output is a separate
+writer-contract decision, not a property established by the existing archive
+test or by reader interoperability. If required, add dedicated cross-writer
+fixtures and pin compression settings, codec versions, and ZIP metadata; matching
+decoded entries alone does not satisfy that gate. If different compressed bytes
+are permitted, record that decision explicitly and compare decoded payloads,
+required metadata, and validation behavior while requiring each writer's output
+to remain deterministic under pinned inputs/tools.
+
+The proposed STORED `.ironclass` profile deliberately changes container bytes;
+embedding those changed bytes also changes the enclosing `.ironjar`. Record this
+in the reviewed writer-profile fixtures without weakening same-writer determinism
+for identical inputs. Never normalize away changed source, manifests, identities,
+or validation outcomes.
 
 Verify staged publication leaves no published partial artifact on failure and
 preserves earlier outputs according to each caller's policy. `IronClass.write`
