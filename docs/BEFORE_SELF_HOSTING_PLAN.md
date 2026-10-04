@@ -29,7 +29,7 @@ Section 8 records the proposed omission of that cache from the one-shot driver.
 | B1. Copies, snapshots, traversal, and worklists | Ownership pilot and S3 semantic analysis | First collection work; independent copies and explicit stack/FIFO replacements for `ArrayDeque` |
 | B2. Stable list-level comparator sorting | Large analysis/emission workloads | Early; direct list sorting and `TreeMap`/`TreeSet` consumer rewrites with explicit ordering contracts |
 | B3. Filesystem completion | Native driver and artifact publication | Incremental; temporary paths, real paths, access checks, explicit publication operations |
-| B4. Synchronous process execution | Replacing shell orchestration | Small native service; inherited environment and file-based output |
+| B4. Synchronous process execution | Replacing shell orchestration | Small native service; resolved executable paths, inherited environment, and file-based output |
 | B5. CRC32, MD5, and SHA-256 | SHA-256 by S3 for ByteView analysis; SHA-256/MD5 by S4 native linking; CRC32 by archive consumers | Named algorithms with exact byte contracts and reusable state; explicit runtime-cache port decision |
 | B6. Archive codec and publication integration | S6 artifact parity and S7 Bridge packaging | Preserve compressed input, validation, and publication; evaluate Ironwood inflate plus STORED native output before adding zlib |
 | B7. Compiler-local portability helpers | Each translated compiler slice | Explicit walkers, value types, bounded arithmetic, and text/format helpers |
@@ -751,6 +751,29 @@ redirect it to log files. No audited launch site requires a mutable child
 environment map. Generated Java code and test-only subprocess requirements
 should not enlarge the first native API.
 
+Keep executable discovery in compiler callers so the process facility can omit
+PATH search. The launch audit requires two preparatory changes:
+
+- [TlsDependency](../compiler/src/main/java/ironwood/compiler/backend/TlsDependency.java)
+  launches bare `xcrun` when `SDKROOT` is unset or blank. Use `/usr/bin/xcrun`,
+  matching [MacNativeTools](../compiler/src/main/java/ironwood/compiler/backend/MacNativeTools.java),
+  while preserving TLS discovery's existing arguments and `SDKROOT` handling.
+  Record that PATH-selected `xcrun` substitutes are no longer selected.
+- [LlvmToolchain](../compiler/src/main/java/ironwood/compiler/backend/LlvmToolchain.java)
+  already searches PATH for LLVM installations and constructs absolute tool
+  paths, but `discoverHomebrewPrefix()` also launches bare `brew`. Resolve that
+  executable to an absolute path in compiler-owned discovery before invoking
+  the process facility. Preserve formula/candidate precedence and optional
+  discovery failure when Homebrew is absent. The current `locateOnPath` returns
+  an LLVM installation home, not an executable path, so it cannot be reused
+  unchanged for this purpose.
+
+Define and test PATH candidate selection, empty/relative entries, and resolution
+failures in that discovery helper. Resolve relative discovery results against
+the parent's working directory before launch; child chdir must not change the
+selected executable. LLVM/JDK selection and fixed Apple tool paths remain caller
+policy. Inheriting PATH for the child does not require searching it in the runner.
+
 Prefer a distinctly named helper, provisionally
 `ironwood.process.ProcessRunner.runToFile(String[] command, Path directory,
 Path output)`, returning a small `ProcessResult`. This avoids importing the
@@ -760,8 +783,9 @@ status fields and own no live process or stream handle.
 
 Proposed conventions to approve and record before implementation:
 
-- Execute the argument vector directly. Support PATH lookup for bare command
-  names and direct execution for paths. Never construct a shell command.
+- Execute the argument vector directly, requiring an absolute executable path
+  in `command[0]`. Reject bare names and relative executable paths; do not search
+  PATH or construct a shell command.
 - Inherit the environment. A null directory means inherit the current working
   directory. Do not change the parent process's working directory.
 - Use noninteractive stdin and merge stdout/stderr into the supplied output
@@ -776,9 +800,10 @@ Proposed conventions to approve and record before implementation:
   handle and retain no managed input after completion.
 
 Missing executables, output-open failures, and failed chdir are launch/IO errors;
-nonzero child status is a completed process result. Define executable lookup and
-ENOEXEC behavior without an implicit shell fallback. Tests must include an
-argument containing spaces, quotes, `$`, and shell metacharacters as literal data.
+nonzero child status is a completed process result. Report invalid executable
+format (`ENOEXEC`) as a launch failure without an implicit shell fallback.
+Tests must include an argument containing spaces, quotes, `$`, and shell
+metacharacters as literal data.
 
 File redirection avoids pipe-capacity deadlocks and unbounded managed buffering.
 Discovery code can read a bounded log and strip text as its existing contract
@@ -794,7 +819,8 @@ or expose pointers to source programs. Extend allocation-result facts only for
 actual fresh managed results.
 
 Compare a portable fork/exec/wait implementation with available spawn facilities
-against the pinned target baselines. Do not assume newer spawn-with-chdir
+against the pinned target baselines, using direct-path execution rather than
+PATH-searching variants. Do not assume newer spawn-with-chdir
 extensions are available. A fork implementation must prepare native argument
 storage before forking, keep the child path restricted to suitable host calls,
 redirect descriptors, and communicate pre-exec errors through a close-on-exec
@@ -816,6 +842,13 @@ Test missing/not-executable tools, output errors, launch failure after setup,
 interrupted waits, and repeated calls with no accumulating descriptors or
 unreaped children. Include output exceeding pipe capacity even though the new
 implementation uses files.
+
+Verify the runner rejects bare/relative executable names and launches the chosen
+absolute executable even with an empty or conflicting PATH and a different
+child directory. Separately test LLVM/Homebrew discovery and TLS SDK discovery,
+including missing `brew`, PATH candidate order, and the fixed `/usr/bin/xcrun`
+choice. These caller adaptations must pass before removing launch-time PATH
+lookup from the port.
 
 Then run selected real LLVM discovery and compile/link workflows, preserving
 the `llvm-as` -> `opt` -> `llc` plus Clang/runtime pipeline. Qualify each supported
@@ -1134,7 +1167,7 @@ manifest design.
 | 5 | SHA-256 and B7 reflection/value/text/numeric helpers for selected slices | 1 | Exact ByteView declaration authority by S3; Java baseline remains equivalent; native lexer/parser and analysis pilots pass |
 | 6 | MD5/trace GUID integration and S4 runtime-cache port decision | 1, 5 | Exact GUIDs, native-link hash consumers, and explicit cache omission or verified invalidation |
 | 7 | B3 traversal rewrites, temporary paths, cleanup, discovery, and publication primitives | 1; B2 for sorted inventories | Equivalent inventories and traversal behavior; native failure/resource/publication cases pass on qualified hosts |
-| 8 | B4 process service and driver adapter | 7 | Controlled process cases plus real LLVM pipeline pass |
+| 8 | B4 process service, executable-discovery adaptations, and driver adapter | 7 | Absolute-path launches, LLVM/Homebrew/TLS discovery, controlled process cases, and real LLVM pipeline pass |
 | 9 | CRC32 and artifact identity serialization using SHA-256 from increment 5 | 1, 5; B2 for sorted inventories | Known vectors and exact existing artifact identities |
 | 10 | B6 legacy inflate reader, selected native writer profiles, and artifact integration | 7, 9; STORED-versus-DEFLATED writer decision and codec selection | Cross-reader compatibility, malformed-input rejection, deterministic output; verified dependency-free codec path or pinned codec home |
 
