@@ -416,3 +416,38 @@ unchanged. Surviving discovery IDs stay unchanged with deliberate gaps, avoiding
 unrelated proof-ledger churn. All other versioned TSVs remain intact and all
 eleven manifest entries verify. This corrects source discovery, not ordering
 proofs or compiler behavior; the complete global traversal review remains open.
+
+## Original effect analyzer dependency and ordering review
+
+[EFFECT_CONTRACTS.md](EFFECT_CONTRACTS.md) covers all 63 external member
+patterns and 244 attributed uses in ClosedWorldEffectAnalyzer, two hash origins
+and nine propagated traversal records. H0441 is a lookup-only identity cache
+of ordered target lists; H0442 is an extensional observer fact snapshot. Other
+propagated sites consume immutable argument/interface lists or scalar names,
+not unordered hash views. Target effects combine Boolean and parameter-bit
+unions, with rendered-string exclusions applied to separate argument clones.
+The source proof preserves source-order fixed-point rounds, diagnostics and
+first-target deduplication. Other summary analyzers and FunctionAnalyzer's
+first-witness/budget choices remain outside this review.
+
+The field-stored SemanticAnalysisObserver is a real retained compiler-defined
+service in the selected effect slice. It is included for the M0.3 observed
+workload, separately from the default null performance baseline. The probe
+returns an analyzer from its construction helper before invoking analyze, then
+checks the same observer's constructor and later round notifications and the
+unobserved analyzer's identical facts. The functional-member ledger alone does
+not inventory this interface. Native allocation/lifetime proof remains M1/M2
+work, and resource measurement remains M0.3 work.
+
+Reproduce `python3 scripts/self-hosting/review-effects.py` and
+`python3 scripts/self-hosting/qualify-evidence.py --probe effect --output PATH`,
+using a fresh output directory. [effects-reviewed.json.gz](effects-reviewed.json.gz)
+joins exact source positions/declarations to review rows and original consumer
+hashes. [effect-probe/qualification.json](effect-probe/qualification.json)
+retains source bytes, profile, exact commands and stdout/stderr for four fresh
+J0 processes. All four match: 289 checks cover 8/65/257 parameter vectors,
+colliding linkage and target permutations, direct/transitive return/reclaim,
+foreign conservative effects, independent returned vectors, exact/converted
+rendered-result exclusions, unknown calls, admitted/unreachable unwind cleanup
+and cyclic interface initialization closure. These are internal typed-IR probes;
+they do not replace source-level safe/unsafe fixture or diagnostic-order coverage.

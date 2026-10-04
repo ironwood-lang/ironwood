@@ -162,7 +162,12 @@ contracts still block the full inventory gate.
 The [hash-origin correction](self-hosting/m0/hash-origin-correction.json) removes
 17 bound mutation references from the construction catalog, leaving 849 origins.
 All 2,957 traversal records and surviving discovery IDs are preserved; their
-global source proofs remain open.
+global source proofs remain open. The
+[effect contracts](self-hosting/m0/EFFECT_CONTRACTS.md) review all exact external
+uses and propagated hash sites in ClosedWorldEffectAnalyzer, including its
+field-stored compiler-defined observer. Original target unions, cross-word
+parameter bits, rendered-result exclusion and unwind reachability have focused
+Java qualification; global summary/ownership ordering and resources remain open.
 Next action: finish reviewed call and transitive ordering contracts, extend
 the corpus, and derive resource budgets before native pilot evaluation.
 
