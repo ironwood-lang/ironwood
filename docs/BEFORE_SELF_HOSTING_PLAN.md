@@ -31,7 +31,7 @@ Section 8 records the proposed omission of that cache from the one-shot driver.
 | B3. Filesystem completion | Native driver and artifact publication | Incremental; temporary paths, real paths, access checks, explicit publication operations |
 | B4. Synchronous process execution | Replacing shell orchestration | Small native service; inherited environment and file-based output |
 | B5. CRC32, MD5, and SHA-256 | SHA-256 by S3 for ByteView analysis; SHA-256/MD5 by S4 native linking; CRC32 by archive consumers | Named algorithms with exact byte contracts and reusable state; explicit runtime-cache port decision |
-| B6. Archive codec and publication integration | S6 artifact parity and S7 Bridge packaging | Preserve current formats, compressed input, validation, and publication guarantees |
+| B6. Archive codec and publication integration | S6 artifact parity and S7 Bridge packaging | Preserve compressed input, validation, and publication; evaluate Ironwood inflate plus STORED native output before adding zlib |
 | B7. Compiler-local portability helpers | Each translated compiler slice | Explicit walkers, value types, bounded arithmetic, and text/format helpers |
 
 No evidence from this audit makes reflection, records, sealed classes, streams,
@@ -885,7 +885,7 @@ existing trace, ByteView, and Bridge identity fixtures as integration consumers.
 
 ## 9. B6: archive codec and artifact compatibility
 
-### 9.1 Existing formats require more than a STORED ZIP writer
+### 9.1 Separate legacy input support from native writer policy
 
 | Profile | Existing writer | Reader/publishing requirements |
 | --- | --- | --- |
@@ -897,6 +897,14 @@ A STORED-only reader cannot read ordinary artifacts produced by the current
 compiler. Even the outer `.ironjar` reader should not be narrowed merely because
 its current writer chooses STORED. Record the accepted-input matrix separately
 from the canonical writer profile.
+
+Reading legacy DEFLATED entries requires only inflate. A deflate encoder is
+needed only if native writers continue producing DEFLATED entries. Choosing
+STORED for native-written `.ironclass` and Bridge JARs, alongside the already
+STORED `.ironjar` writer, could eliminate the need for a new archive-codec zlib
+dependency. Changing `.ironclass` alone is insufficient if Bridge output still
+requires a native deflater. All readers must continue accepting legacy compressed
+inputs, including compressed `.ironclass` payloads inside STORED `.ironjar` entries.
 
 There are also intentional profile differences. `IronClass.read` skips directory
 entries and uses String decoding that replaces malformed UTF-8 in relevant
@@ -915,19 +923,57 @@ IronClass/IronJar/Bridge profile logic. Promote reusable pieces into
 Do not publish a partial `ZipFile` or `ZipInputStream` pretending to implement
 all Java-valid calls.
 
-Recommended first implementation to evaluate: original Ironwood ZIP structure
-handling plus a pinned, reviewed zlib dependency for raw DEFLATE through a small
-typed runtime boundary. Compare that with a pure Ironwood codec before accepting
-the dependency. The latter avoids native packaging but brings a substantial
-compression/decompression implementation and validation burden. A general
-archive framework is unnecessary.
+Evaluate the reader and writer choices separately:
+
+| Option | Native implementation and output | Tradeoff and decision gate |
+| --- | --- | --- |
+| Ironwood inflate plus STORED writers | Original ZIP handling and raw DEFLATE decoder; STORED `.ironclass`, `.ironjar`, and Bridge JAR output | Avoids an archive-codec C dependency and any compressor implementation; review writer-profile changes and measure IO, memory, and artifact size |
+| Pinned zlib codec | Original ZIP handling plus a small typed runtime boundary for inflate/deflate; retain DEFLATED `.ironclass` and Bridge output | Reuses a mature codec but adds dependency preparation, native build/link, provenance, and distribution work |
+| Ironwood inflate and deflate | Original ZIP handling and both codec directions; retain compressed output | Avoids a codec C dependency but adds the compressor's match search, block selection, and encoding work; do not make this the initial prerequisite |
+
+Recommended first evaluation: prototype the inflate-only option against the
+legacy artifact corpus, then review STORED output for both `.ironclass` and
+Bridge JARs. Decoding is a substantially smaller implementation scope than a
+complete compressor/decompressor, but it must handle all admitted raw DEFLATE
+blocks, not merely streams observed in a few fixtures. Keep bounded, reusable
+decoder state and validate malformed streams before claiming compatibility.
+
+The STORED choice is a proposed writer-profile change, not an accepted format
+decision. Record it in `DECISIONS.md` and the artifact specifications before
+changing canonical output fixtures. Specify method, sizes, CRC32, headers/extra
+fields, entry order, and zero-time encoding; preserve source payloads, manifests,
+indexes, and publication behavior. Verify existing Java readers and JAR consumers
+accept the result. Account explicitly for changed archive bytes and identities;
+larger artifacts are a measurement input, not an automatic reason to reject this
+option. A general archive framework is unnecessary.
 
 The [ZIP format reference](https://pkware.cachefly.net/webdocs/casestudies/APPNOTE.TXT),
 [DEFLATE specification](https://www.rfc-editor.org/rfc/rfc1951.html), and
 [zlib manual](https://www.zlib.net/manual.html) are the contract references for
 this decision. ZIP entry DEFLATE needs the raw stream mode, not a zlib/gzip wrapper.
-Pin a concrete dependency release, source digest, build flags, license, and
-notices before importing any code. No dependency version is selected by this plan.
+If zlib is selected, build on existing dependency precedents:
+
+- [BridgeNativeSupport](../compiler/src/main/java/ironwood/compiler/backend/BridgeNativeSupport.java)
+  already requires `sources/zlib-1.3.1.tar.gz` and verifies it against
+  `zlib.source.sha256` in
+  [the Bridge support pins](../packaging/java-bridge-support.properties).
+  [Its preparation script](../scripts/prepare-java-bridge-support.py) delivers
+  that source archive with Linux support binaries and recipes. This is a pinned
+  source/distribution precedent, not an existing general-purpose codec library
+  for the native compiler. The inflate-only choice does not remove those separate
+  Bridge support source-delivery requirements.
+- [TlsDependency](../compiler/src/main/java/ironwood/compiler/backend/TlsDependency.java)
+  already implements a distribution-relative dependency home, `IRONWOOD_TLS_HOME`
+  override, matching `dependencies.properties`/`build.properties`, platform/LLVM
+  and configuration checks, SHA-256 file manifests, and failure without a system
+  fallback. Reuse that pattern for an independently named codec home and override,
+  with B5 hashing; archive use must not require installing the TLS SDK.
+
+Review the existing zlib source pin as a candidate rather than inventing a second
+unrelated dependency mechanism. Pin the selected codec release, source digest,
+build flags, license, and notices before importing or linking it. No B6 codec
+release is selected by this plan; the existing 1.3.1 source pin is a precedent,
+not an automatic approval of a new codec build.
 
 Keep dependency reachability explicit: programs that do not use compression
 must not acquire its runtime requirements. Validate packaging on the pinned
@@ -974,12 +1020,24 @@ Include payloads that use compressed blocks and descriptors, ZIP64 count cases,
 boundary lengths, duplicate names, invalid indexes, malformed text, checksum
 failure, and failures during finalization or publication.
 
+For an Ironwood inflater, cover uncompressed, fixed-Huffman, and dynamic-Huffman
+DEFLATE blocks, overlapping back-references, window/block boundaries, incremental
+input, invalid code trees/distances, truncation, and decoded-length overflow.
+Exercise compressed legacy entries through all three artifact profiles. Under
+the STORED writer option, verify each new entry's method/size/CRC, Java reader
+and Bridge JAR interoperability, and absence of an archive-codec zlib build/link
+requirement. Under the zlib option, test missing/mismatched dependency homes,
+manifest checksums, explicit overrides, and absence of a system-library fallback.
+
 For canonical `.ironjar` output, preserve the existing exact-byte reproducibility
-checks. Compression output may differ between implementations while decoded
-contents agree; such a difference needs an explicit recorded compatibility and
-reproducibility decision, not an unnoticed relaxation of tests. Native writer
-output must itself be deterministic under pinned inputs/tools. Never normalize
-away changed source, manifests, identities, or validation outcomes.
+checks for identical input payload bytes. Replacing an embedded `.ironclass`
+with its new STORED encoding changes those input bytes and therefore the outer
+archive; record that change in the reviewed writer-profile fixtures. Compression
+output may also differ between codec implementations while decoded contents
+agree. Both changes need an explicit compatibility and reproducibility decision,
+not an unnoticed relaxation of tests. Native writer output must itself be
+deterministic under pinned inputs/tools. Never normalize away changed source,
+manifests, identities, or validation outcomes.
 
 Verify staged publication leaves no published partial artifact on failure and
 preserves earlier outputs according to each caller's policy. `IronClass.write`
@@ -1034,7 +1092,7 @@ manifest design.
 | 7 | B3 traversal rewrites, temporary paths, cleanup, discovery, and publication primitives | 1; B2 for sorted inventories | Equivalent inventories and traversal behavior; native failure/resource/publication cases pass on qualified hosts |
 | 8 | B4 process service and driver adapter | 7 | Controlled process cases plus real LLVM pipeline pass |
 | 9 | CRC32 and artifact identity serialization using SHA-256 from increment 5 | 1, 5; B2 for sorted inventories | Known vectors and exact existing artifact identities |
-| 10 | B6 compressed archive readers, writers, and profile integration | 7, 9; codec dependency decision | Cross-reader compatibility, malformed-input rejection, deterministic output |
+| 10 | B6 legacy inflate reader, selected native writer profiles, and artifact integration | 7, 9; STORED-versus-DEFLATED writer decision and codec selection | Cross-reader compatibility, malformed-input rejection, deterministic output; verified dependency-free codec path or pinned codec home |
 
 These increments can overlap when independent. Do not delay S1 for increments
 7 through 10, and do not start broad translation merely because all library
