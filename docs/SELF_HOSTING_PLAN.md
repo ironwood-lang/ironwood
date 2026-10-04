@@ -343,9 +343,12 @@ ASCII letters, `_`, and `$`; continuations also accept `Character.isDigit(char)`
 including non-ASCII digits. Ironwood's existing `Character` supplies the Java 21
 whitespace set and Unicode 15.0 digit predicates, so no new lexer Unicode
 classification feature is needed. Reuse these operations and preserve the
-current `char`-based grammar with differential tests. Bridge exported-name
-validation has broader Java identifier rules and remains separate work in
-[B7](BEFORE_SELF_HOSTING_PLAN.md#10-b7-compiler-local-portability-helpers).
+current `char`-based grammar with differential tests. Java identifier predicates
+remain separate work in
+[B7](BEFORE_SELF_HOSTING_PLAN.md#10-b7-compiler-local-portability-helpers):
+`DocComment` needs `Character.isJavaIdentifierPart(char)` for tag-name scanning
+by S6, before S7's Bridge qualified-name validation. Share the character
+properties while preserving the documentation scanner's UTF-16 `char` traversal.
 
 Replace regex uses with small purpose-specific scanners where practical:
 qualified names, command-line path lists, documentation tags, and LLVM symbol
@@ -731,7 +734,9 @@ source-bearing artifacts and reconstruction-time validation. Implement verified
 ZIP/CRC and publication behavior. Complete native host services or retain an
 explicitly accepted shell-driver boundary; do not make a full process library a
 prerequisite if the smaller convention suffices. Port `irondoc` using the same
-parser/model and purpose-specific text helpers.
+parser/model and purpose-specific text helpers, including B7's shared Java 21
+identifier-part predicate. Require equivalent tag boundaries and diagnostics
+before S6 exits; this predicate cannot wait for the S7 Bridge validators.
 
 Exercise Java-written artifacts read by native tools, native-written artifacts
 read by Java tools, both compilers' class/archive round trips, and invalid

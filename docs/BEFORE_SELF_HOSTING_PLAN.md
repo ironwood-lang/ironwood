@@ -1267,7 +1267,7 @@ These belong in compiler preparation, not in a general language expansion.
 | `String.stripIndent` and lexer text helpers | Compiler-local exact text-block normalization | Raw/cooked blocks, closing delimiter, tabs/blank lines, CR/LF, escapes, UTF-16 spans |
 | Small binary/text APIs: unsigned byte comparison, range copies, unsigned widening, UTF-16 conversion, `String.split`, and `String.lines` | Compiler-local helpers and direct scans inventoried in [10.1](#101-small-binary-and-text-helpers) | Caller-specific ordering, bounds, separators, result ownership, and Java differential fixtures before each native slice |
 | Varargs and convenience factories, including `Parser.contiguousKinds(TokenKind...)` | Fixed-arity helpers or explicit arrays/builders with clear ownership | Same argument order and empty/nonempty behavior; token adjacency and parser diagnostics preserved |
-| `SourceVersion.isName(name, RELEASE_21)` in `BridgePackageInputs` and `BridgeExportSurface` | Shared compiler-local Java 21 qualified-name validator | Empty/dotted components, keywords/literals/contextual keywords, Unicode identifiers, and unchanged export diagnostics |
+| `Character.isJavaIdentifierPart(char)` in `DocComment`; `SourceVersion.isName(name, RELEASE_21)` in `BridgePackageInputs` and `BridgeExportSurface` | Shared compiler-local Java 21 identifier predicates: tag-name scanning by S6, qualified-name validation by S7 | Tag boundaries and existing IronDocs diagnostics; empty/dotted components, keywords/literals/contextual keywords, Unicode identifiers, and unchanged export diagnostics |
 | Streams, method-reference pipelines, collectors | Direct loops and small named helpers using B1/B2 | Encounter order, short-circuiting, duplicate behavior, exception timing, and allocation measurements |
 | Regex and locale formatting | Purpose-specific scanners and deterministic numeric/string formatting | Existing grammar and malformed inputs; floating raw bits, signed zero, NaN, and rounding |
 | Java resources/code-source discovery | Launcher-provided installation root and generated build identity | Checkout and installed layouts, overrides, missing inputs, reproducible identity |
@@ -1275,7 +1275,19 @@ These belong in compiler preparation, not in a general language expansion.
 | Properties/JAR manifest parsing | Helpers for the actual admitted formats | Escaping, continuation, duplicate/ordering rules, and existing generated artifacts |
 | `javax.tools` in Bridge compilation | Selected external JDK tools through B4, or shell during transition | Release flags, argument files, diagnostics, failure output, and version selection |
 
-Replace the exported-package checks in
+Supply the shared Java-identifier-part predicate before S6's `irondoc` port.
+[`DocComment.parse`](../compiler/src/main/java/ironwood/compiler/doc/DocComment.java)
+uses `Character.isJavaIdentifierPart(trimmed.charAt(end))` to find the tag name
+after `@`, then checks `BLOCK_TAGS`. Preserve this UTF-16 `char` scan, including
+its use of the part predicate at the first position; do not add identifier-start
+or keyword checks, or combine surrogate pairs during this scan. Share the Java
+21 character properties with the later Bridge validator while keeping each
+caller's traversal and validation rules. Before S6 exits, compare tag boundaries,
+parsed tag/value pairs, and unsupported-tag diagnostics against Java for ordinary
+tags, BMP letters/digits/combining marks, identifier-ignorable characters,
+supplementary pairs, and isolated surrogates.
+
+Complete the qualified-name validator and replace the exported-package checks in
 [`BridgePackageInputs`](../compiler/src/main/java/ironwood/compiler/BridgePackageInputs.java)
 and [`BridgeExportSurface`](../compiler/src/main/java/ironwood/compiler/bridge/BridgeExportSurface.java)
 before S7 export selection. Match the
