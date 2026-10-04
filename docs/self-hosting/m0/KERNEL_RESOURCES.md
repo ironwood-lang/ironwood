@@ -84,6 +84,7 @@ not a speed benefit. Maximum sampling gaps are 1.919 ms and 2.124 ms respectivel
 These are observations, not budgets or upper bounds. Sampled heap is used heap,
 not live-object accounting; sampled frames are neither stack bytes nor guaranteed
 depth maxima and remain subject to the pinned trace cap. Completing under the
-8 MiB worker stack is required. LLVM/Clang child costs, canonical corpus expansion,
-numerical budget selection and the full dependency/ordering inventory remain
-open before M0/S0 can pass. No native pilot has been evaluated.
+8 MiB worker stack is required. [Native child/pipeline costs](NATIVE_RESOURCES.md)
+now have separate qualified evidence. Canonical corpus expansion, numerical
+budget selection and the full dependency/ordering inventory remain open before
+M0/S0 can pass. No native pilot has been evaluated.

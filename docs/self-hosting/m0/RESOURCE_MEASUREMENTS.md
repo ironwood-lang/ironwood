@@ -140,5 +140,6 @@ truncated; no frame budget or stack-byte claim may be derived from it. Completio
 of the deep inputs is still required. The [direct kernel measurements](KERNEL_RESOURCES.md)
 now qualify original and ordered explanation-store/effect results separately
 from these compiler workloads. The [repaired ordering baseline](ordered/DELTA.md)
-also passes its selected comparisons. LLVM/Clang subprocess accounting and
-expanded canonical corpus captures remain required before budgets are selected.
+also passes its selected comparisons. [LLVM/Clang and total pipeline accounting](NATIVE_RESOURCES.md)
+now qualify separately. Expanded canonical corpus captures and explicit pilot
+closure remain required before budgets are selected.

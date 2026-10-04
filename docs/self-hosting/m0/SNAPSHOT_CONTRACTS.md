@@ -77,7 +77,10 @@ blocked nodes/events, and incoming array slots can establish the first selected
 store for one allocation. Map.copyOf erases the linked slot producer's order.
 Incoming paths are semantically ordered; iterating an unordered map inside a
 path does not establish source order. These paths still require an explicit
-Java ordering contract before updated references are frozen.
+Java ordering contract before updated references are frozen. This paragraph
+describes original J0. The [D247 delta](ordered/DELTA.md) now qualifies the
+array-slot producer/current-store copy and first witness contract; joined
+allocation-event, pool-owner and retained-child paths remain separately open.
 
 Retained child unions, recursive cancellation/exposure, one-of identities and
 generic substitution maps require their own downstream classifications. It is

@@ -575,3 +575,20 @@ result byte and a missing repeat. All 451 raw/tooling/identity/control files hav
 an exact-byte archive manifest. These are selected Java kernel measurements,
 not native pilot or ownership-lifetime results. Expanded canonical references,
 native child accounting, budgets and global M0.2 contracts remain open.
+
+## Native child and total pipeline measurements
+
+[NATIVE_RESOURCES.md](NATIVE_RESOURCES.md) records thirty-two qualified original
+and ordered compile/link pipelines. Each has two fresh JVM commands with the
+pinned profile, exact original sources and actual NativeBackend flow. All plain,
+profiled and paired cross-seed LLVM hashes agree; every executable exits zero.
+Sixteen profiled pipelines record eleven LLVM/Clang stages each. Separate timing
+files preserve tool stderr even when it resembles timing or lacks a final newline;
+zero/seven controlled child exits retain exact output/status. Three rejected
+qualifier controls cover changed LLVM, missing child and missing repeat. The
+archive retains preliminary/setup evidence separately from the final cost records.
+Total wall, process rusage and sampled concurrent RSS sums have distinct limits;
+none is native live-object accounting or a compiler-port result. Expanded corpus,
+pilot closure, reviewed inventory and numerical budgets still precede M0/S0.
+The original snapshot contract now links the scoped D247 qualification without
+claiming that other ownership hash paths were repaired.

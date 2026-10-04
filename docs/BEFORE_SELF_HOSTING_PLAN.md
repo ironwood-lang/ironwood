@@ -195,8 +195,13 @@ fresh original/ordered runs of the actual explanation snapshot store and effect
 fixed-point analyzer. Exact results match across seeds, observation and sampling;
 store close retires every budget unit. Setup/projection costs are separate from
 the measured kernels, and these measurements do not replace ownership-proof
-snapshot workloads or native lifetime verification. Native-tool accounting and
-expanded canonical references remain before numerical budget selection.
+snapshot workloads or native lifetime verification.
+The [native pipeline evidence](self-hosting/m0/NATIVE_RESOURCES.md) qualifies 32
+original/ordered compile-then-link pipelines, including separate LLVM/Clang
+records and total wall/RSS observations. Wrappers preserve tool output bytes and
+exit codes; plain/profiled LLVM and executable results agree. Concurrent RSS
+sums remain distinct from physical memory and isolated JVM heap. Expanded
+canonical references and explicit pilot closure remain before budget selection.
 Next action: finish reviewed call and transitive ordering contracts, extend
 the corpus, and derive resource budgets before native pilot evaluation.
 
