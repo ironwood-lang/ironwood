@@ -17,9 +17,11 @@ a real slice of analysis before translating the compiler broadly.
 Complete the host and artifact facilities before the corresponding migration
 milestones, rather than making all of them prerequisites for the first parser
 port. A source-only compiler with a shell driver can demonstrate self-hosting
-before native process launching and ZIP support are complete. MD5 is an earlier
-dependency than the archive work because optimized trace metadata already uses
-it during native code generation.
+before native process launching and ZIP support are complete. SHA-256 and MD5
+are earlier dependencies than the archive work: SHA-256 authenticates the bundled
+ByteView declaration during S3 semantic analysis and hashes runtime headers for
+the current native-link cache at S4; MD5 supplies optimized trace GUIDs at S4.
+Section 8 records the proposed omission of that cache from the one-shot driver.
 
 | Preparation | Needed before | Priority and recommended scope |
 | --- | --- | --- |
@@ -28,7 +30,7 @@ it during native code generation.
 | B2. Stable comparator sorting | Large analysis/emission workloads | Early; arbitrary reference objects and predictable scaling |
 | B3. Filesystem completion | Native driver and artifact publication | Incremental; temporary paths, real paths, access checks, explicit publication operations |
 | B4. Synchronous process execution | Replacing shell orchestration | Small native service; inherited environment and file-based output |
-| B5. CRC32, MD5, and SHA-256 | MD5 by S4; the others by their artifact/TLS consumers | Named algorithms with exact byte contracts and reusable state |
+| B5. CRC32, MD5, and SHA-256 | SHA-256 by S3 for ByteView analysis; SHA-256/MD5 by S4 native linking; CRC32 by archive consumers | Named algorithms with exact byte contracts and reusable state; explicit runtime-cache port decision |
 | B6. Archive codec and publication integration | S6 artifact parity and S7 Bridge packaging | Preserve current formats, compressed input, validation, and publication guarantees |
 | B7. Compiler-local portability helpers | Each translated compiler slice | Explicit walkers, value types, bounded arithmetic, and text/format helpers |
 
@@ -64,7 +66,7 @@ equivalents.
 | Native tools | `NativeBackend`, `LlvmToolchain`, `MacNativeTools`, `TlsDependency`, and `BridgeBuildTools` | No corresponding process facility; actual launch sites inherit the environment |
 | Filesystem | Driver staging, discovery, archive replacement, Bridge distribution | Core IO, directory traversal, attributes, copy, and move exist; missing operations and publication guarantees remain |
 | Archives | `IronClass`, `IronJar`, and Bridge JAR consumers/producers | No ZIP or CRC32 implementation; existing artifacts include DEFLATE data |
-| Digests | LLVM trace GUIDs, TLS input identity, Bridge content/generation identity | No matching named digest implementations; serialization rules differ by consumer |
+| Digests | ByteView declaration authority, native runtime-header cache keys, LLVM trace GUIDs, TLS input identity, Bridge content/generation identity | No matching named digest implementations; serialization rules and required milestones differ by consumer |
 
 Primary source anchors for this audit:
 
@@ -508,11 +510,37 @@ kill APIs are deferred until a concrete consumer requires them.
 | --- | --- | --- |
 | CRC32 | ZIP entries, especially `IronJar` STORED output | ZIP checksum of the uncompressed bytes; unsigned 32-bit value exposed in a `long` |
 | MD5 | `OptimizedTraceMetadata` and `LlvmEmitter` trace GUIDs | Hash UTF-8 linkage-name bytes; interpret the first eight digest bytes as a little-endian 64-bit value; preserve unsigned sort order |
-| SHA-256 | `TlsDependency.sha256`, Bridge byte/content/generation identities | Preserve each consumer's byte serialization and lowercase hexadecimal output |
+| SHA-256 | `ByteViewIntrinsic.trusted` during semantic analysis | Hash the UTF-8 encoding of `SourceFile.content()` and compare lowercase hex with `SOURCE_SHA256`; preserve exact declaration authority by S3 |
+| SHA-256 | `NativeBackend.prepareRuntimeObject` via `TlsDependency.sha256` | Hash each runtime header's bytes for the in-process cache key during native linking at S4; explicitly omit this work only when omitting the cache |
+| SHA-256 | TLS dependency identity and Bridge byte/content/generation identities | Preserve each consumer's byte serialization and lowercase hexadecimal output |
 
 MD5 here is an established LLVM identity calculation, not a proposed security
 primitive. Do not substitute SHA-256 or another hash for it. Conversely, do not
 replace SHA-256 artifact integrity checks with the cheaper checksum.
+
+[ByteViewIntrinsic.trusted](../compiler/src/main/java/ironwood/compiler/semantic/ByteViewIntrinsic.java)
+is called during function analysis and by Bridge admission checks. Its digest
+comparison authorizes the exact bundled declaration, so SHA-256 must be bit-exact
+before the S3 port handles ByteView programs, even though full Bridge production
+waits until S7. Hash the source content as the current compiler does, without
+new whitespace or line-ending normalization. Do not replace the digest check
+with a package/type-name check or bypass it to defer hashing until packaging.
+
+[NativeBackend.prepareRuntimeObject](../compiler/src/main/java/ironwood/compiler/backend/NativeBackend.java)
+walks the runtime tree and hashes each `.h` file whenever it prepares a runtime
+object, including ordinary native links without TLS. These hashes are part of
+`RuntimeObjectKey`; the static `RUNTIME_OBJECTS` map stores compiled object bytes
+for reuse across links in the same process. This is not a persistent disk cache.
+
+Recommended port decision: omit `RUNTIME_OBJECTS` and its cache-key construction
+from the initial one-native-link-per-process driver, and compile the required
+runtime objects directly. Different runtime source files have different keys,
+so that driver gains no reuse from retaining their object bytes. This explicitly
+removes the cache-only header hashing, not SHA-256's ByteView, TLS, or artifact
+consumers. Keep SHA-256 available by S4; retain the current hash behavior if the
+cache is ported instead. Revisit caching for batch/multiple-link or resident
+drivers using measured reuse, bounded storage, and complete input invalidation.
+The proposed omission applies to the native port, not to the Java bootstrap.
 
 Bridge generation identity is particularly easy to change accidentally.
 `BridgeGeneration.digest` starts with its domain string, sorts map keys using
@@ -557,7 +585,12 @@ unsigned order, raw file hashes, sorted inventory ordering, empty strings,
 supplementary characters, and distinct unpaired-surrogate values. Verify both
 trace GUID implementations agree. Test source/class/archive paths, allocation
 failure, private-buffer cleanup, and no managed allocation per processed block.
-Preserve existing trace and Bridge identity fixtures as integration consumers.
+Add ByteView authority cases for the exact bundled source and a changed
+declaration, through source/class/archive reconstruction, retaining the same
+intrinsic eligibility and admission outcome. For S4, verify direct runtime
+compilation after the proposed cache omission; if caching is retained, verify
+unchanged inputs reuse objects and header changes invalidate them. Preserve
+existing trace, ByteView, and Bridge identity fixtures as integration consumers.
 
 ## 9. B6: archive codec and artifact compatibility
 
@@ -705,11 +738,11 @@ manifest design.
 | 2 | ArrayList/BitSet copy slice and private compiler snapshots | 1 | Independent snapshots; safe/unsafe cleanup pairs; allocation-failure cleanup |
 | 3 | Required map/set copies and nested traversal solution | 2 | Identity/value/order preserved; ownership pilot fits its budget |
 | 4 | B2 arbitrary-object stable sorting | 1; B1 where snapshot keys are used | Stable deterministic output and measured scaling |
-| 5 | B7 reflection/value/text/numeric helpers for selected slices | 1 | Java baseline remains equivalent; native lexer/parser and analysis pilots pass |
-| 6 | MD5 and trace GUID integration | 1 | Exact GUIDs and trace-order behavior for S4 |
+| 5 | SHA-256 and B7 reflection/value/text/numeric helpers for selected slices | 1 | Exact ByteView declaration authority by S3; Java baseline remains equivalent; native lexer/parser and analysis pilots pass |
+| 6 | MD5/trace GUID integration and S4 runtime-cache port decision | 1, 5 | Exact GUIDs, native-link hash consumers, and explicit cache omission or verified invalidation |
 | 7 | B3 temporary paths, cleanup, discovery, and publication primitives | 1 | Native failure/resource/publication cases pass on qualified hosts |
 | 8 | B4 process service and driver adapter | 7 | Controlled process cases plus real LLVM pipeline pass |
-| 9 | CRC32/SHA-256 and identity serialization | 1; B2 for sorted inventories | Known vectors and exact existing artifact identities |
+| 9 | CRC32 and artifact identity serialization using SHA-256 from increment 5 | 1, 5; B2 for sorted inventories | Known vectors and exact existing artifact identities |
 | 10 | B6 compressed archive readers, writers, and profile integration | 7, 9; codec dependency decision | Cross-reader compatibility, malformed-input rejection, deterministic output |
 
 These increments can overlap when independent. Do not delay S1 for increments
@@ -736,7 +769,7 @@ the scope changes:
 | Comparator dispatch/effects | Generic/interface calls, captured objects, temporary reclamation | Known safe scratch cleanup; retaining/throwing comparator remains conservative |
 | File/process result allocation and errors | Existing IO intrinsics, partial construction, finally/defer | Successful cleanup and failure rollback; no surviving pointer to freed input |
 | New typed IR operations | Dependency scanning, closed-world effects, optimization, emission, artifact reconstruction | Live effects survive transformations; unreachable facilities remain removable |
-| Checksums/codecs | Trace metadata, TLS inventory, Bridge identity, class/archive loading | Exact known output; malformed or mismatched input fails without false success |
+| Checksums/codecs | ByteView declaration authority, native runtime-cache keys, trace metadata, TLS inventory, Bridge identity, class/archive loading | Exact known output; changed declarations lose authority; retained caches invalidate on header changes; malformed or mismatched input fails without false success |
 
 Preserve D132/D133 and mandatory memory safety in every mode. New host services
 may perform required IO and maintain actual resource state, but must not add
@@ -764,6 +797,7 @@ at implementation time. Relevant existing names include:
 - `Clang version reporting preserves vendor identity and diagnoses query failures`
 - `Ironwood archives create list and reproduce exact bytes`
 - `Ironwood archives reject malformed paths indexes and payloads`
+- `Java Bridge byte-view proofs preserve typed bounds confinement and artifact parity`
 - `Java Bridge jar publication verifies bytes and preserves earlier output on failure`
 - `Java Bridge shared traces preserve records under deterministic root ordering`
 
