@@ -293,8 +293,14 @@ library operations, not the locale/format-string subsystem Ironwood excludes.
 decoding. `stripIndent` is not supplied by the current Ironwood `String`.
 Implement the exact required normalization helper and test its blank lines,
 closing delimiter, indentation, and newline behavior. Keep source spans and
-UTF-16 indexing stable while reading UTF-8. Do not broaden the source identifier
-grammar accidentally by substituting a different Unicode predicate.
+UTF-16 indexing stable while reading UTF-8. Identifier starts are limited to
+ASCII letters, `_`, and `$`; continuations also accept `Character.isDigit(char)`,
+including non-ASCII digits. Ironwood's existing `Character` supplies the Java 21
+whitespace set and Unicode 15.0 digit predicates, so no new lexer Unicode
+classification feature is needed. Reuse these operations and preserve the
+current `char`-based grammar with differential tests. Bridge exported-name
+validation has broader Java identifier rules and remains separate work in
+[B7](BEFORE_SELF_HOSTING_PLAN.md#10-b7-compiler-local-portability-helpers).
 
 Replace regex uses with small purpose-specific scanners where practical:
 qualified names, command-line path lists, documentation tags, and LLVM symbol

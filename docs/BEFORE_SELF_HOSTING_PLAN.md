@@ -32,7 +32,7 @@ Section 8 records the proposed omission of that cache from the one-shot driver.
 | B4. Synchronous process execution | Replacing shell orchestration | Small native service; resolved executable paths, inherited environment, and file-based output |
 | B5. CRC32, MD5, and SHA-256 | SHA-256 by S3 for ByteView analysis; SHA-256/MD5 by S4 native linking; CRC32 by archive consumers | Public `ironwood.util.zip.CRC32`; compiler-private `Md5`/`Sha256`; exact byte contracts and explicit runtime-cache port decision |
 | B6. Archive codec and publication integration | S6 artifact parity and S7 Bridge packaging | Preserve compressed input, validation, and publication; evaluate Ironwood inflate plus STORED native output before adding zlib |
-| B7. Compiler-local portability helpers | Each translated compiler slice | Explicit walkers, value types, bounded arithmetic, and text/format helpers |
+| B7. Compiler-local portability helpers | Each translated compiler slice | Explicit walkers, value types, bounded arithmetic, text/format helpers, and Bridge export-name validation |
 
 No evidence from this audit makes reflection, records, sealed classes, streams,
 GC, a general FFI, a regex engine, or the Java Collections Framework prerequisites.
@@ -1233,12 +1233,41 @@ These belong in compiler preparation, not in a general language expansion.
 | Records and sealed hierarchies | Ordinary final classes/interfaces; explicit value operations where needed | Equality/hash/identity distinctions and exhaustive dispatch coverage |
 | `BigInteger` literal validation and folding | Bounded checked magnitude scanner plus width-aware primitive arithmetic | Huge invalid literals, minimum signed values, nondecimal bit patterns, wrapping, shifts, casts, and division diagnostics |
 | `String.stripIndent` and lexer text helpers | Compiler-local exact text-block normalization | Raw/cooked blocks, closing delimiter, tabs/blank lines, CR/LF, escapes, UTF-16 spans |
+| `SourceVersion.isName(name, RELEASE_21)` in `BridgePackageInputs` and `BridgeExportSurface` | Shared compiler-local Java 21 qualified-name validator | Empty/dotted components, keywords/literals/contextual keywords, Unicode identifiers, and unchanged export diagnostics |
 | Streams, method-reference pipelines, collectors | Direct loops and small named helpers using B1/B2 | Encounter order, short-circuiting, duplicate behavior, exception timing, and allocation measurements |
 | Regex and locale formatting | Purpose-specific scanners and deterministic numeric/string formatting | Existing grammar and malformed inputs; floating raw bits, signed zero, NaN, and rounding |
 | Java resources/code-source discovery | Launcher-provided installation root and generated build identity | Checkout and installed layouts, overrides, missing inputs, reproducible identity |
 | Weak-reference diagnostic caches | Explicit bounded invocation-owned evidence storage | Same mandatory safety verdicts with explanations on/off; truthful storage-limit fallback |
 | Properties/JAR manifest parsing | Helpers for the actual admitted formats | Escaping, continuation, duplicate/ordering rules, and existing generated artifacts |
 | `javax.tools` in Bridge compilation | Selected external JDK tools through B4, or shell during transition | Release flags, argument files, diagnostics, failure output, and version selection |
+
+Replace the exported-package checks in
+[`BridgePackageInputs`](../compiler/src/main/java/ironwood/compiler/BridgePackageInputs.java)
+and [`BridgeExportSurface`](../compiler/src/main/java/ironwood/compiler/bridge/BridgeExportSurface.java)
+before S7 export selection. Match the
+[Java 21 `SourceVersion.isName` contract](https://docs.oracle.com/en/java/javase/21/docs/api/java.compiler/javax/lang/model/SourceVersion.html#isName(java.lang.CharSequence,javax.lang.model.SourceVersion)):
+each dot-separated component must be a Java identifier, excluding reserved
+keywords (including `_`), `true`, `false`, and `null`, but allowing contextual
+keywords such as `record`. Preserve both callers' null checks and diagnostics,
+and the separate `ironwood.bridge` restriction in `BridgeExportSurface`.
+Do not reuse the narrower Ironwood lexer grammar for this check. The current
+`Character` API lacks `isJavaIdentifierStart`/`isJavaIdentifierPart`; supply the
+required code-point predicates/tables privately in the compiler. Freeze
+differential fixtures against JDK 21, including non-ASCII letters, supplementary
+characters, identifier-ignorable characters, malformed surrogates, and empty,
+leading/trailing-dot, or repeated-dot components. This needs no `javax.lang.model`
+API or runtime JDK in the native compiler.
+
+The lexer's existing character classification is already available:
+[`Lexer`](../compiler/src/main/java/ironwood/compiler/lexer/Lexer.java) allows ASCII
+letters, `_`, and `$` at identifier start, then also `Character.isDigit(char)`
+for continuation, including non-ASCII digits. Ironwood's
+[`Character`](../stdlib/src/main/ironwood/ironwood/lang/Character.iron) already
+provides the Java 21 whitespace set and Unicode 15.0 digit predicates. Reuse
+these with UTF-16 `char` indexing; no new lexer Unicode-predicate feature is
+needed. Keep differential cases for whitespace, non-ASCII digit continuations,
+rejected non-ASCII identifier starts, and source spans so translation neither
+narrows continuations to ASCII nor broadens identifier starts.
 
 Reflection removal can start in the Java compiler: replace reflective traversal
 with typed walkers while the current test harness can compare behavior. No
