@@ -24,13 +24,19 @@ def write(name, rows):
 
 def main():
     seeds = []
+    candidate_id = 0
     for row in read('calls'):
         owner, signature = row['declaring_owner'], row['resolved_signature']
         unordered = owner in ('java.util.HashMap', 'java.util.HashSet', 'java.util.IdentityHashMap') and row['kind'] in ('CONSTRUCTOR', 'REFERENCE')
         factory = owner in ('java.util.Map', 'java.util.Set') and any(x in signature for x in ('of(', 'ofEntries(', 'copyOf('))
         collector = owner == 'java.util.stream.Collectors' and 'java.util.function.Supplier' not in signature and any(x in signature for x in ('toMap(', 'toSet(', 'toUnmodifiableMap(', 'toUnmodifiableSet('))
         if unordered or factory or collector:
-            seeds.append(dict(id=f'H{len(seeds)+1:04}', node=f"E:{row['file']}:{row['start_utf16']}:{row['end_utf16']}",
+            # Keep existing discovery IDs stable while excluding bound add/remove references.
+            candidate_id += 1
+            constructor_reference = row['kind'] == 'REFERENCE' and signature.startswith(owner.rsplit('.', 1)[-1] + '(')
+            if unordered and row['kind'] != 'CONSTRUCTOR' and not constructor_reference:
+                continue
+            seeds.append(dict(id=f'H{candidate_id:04}', node=f"E:{row['file']}:{row['start_utf16']}:{row['end_utf16']}",
                 file=row['file'], line=row['line'], owner=owner, signature=signature,
                 consumer=row['consumer'], expression=row['expression'],
                 origin_kind='constructor/reference' if unordered else 'factory' if factory else 'collector'))

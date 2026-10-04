@@ -159,6 +159,10 @@ The [callback contracts](self-hosting/m0/CALLBACK_CONTRACTS.md) review all exact
 functional-member calls, every captured constructor callback and a traced
 method-to-field observer. Remaining method-argument capture and stream/comparator
 contracts still block the full inventory gate.
+The [hash-origin correction](self-hosting/m0/hash-origin-correction.json) removes
+17 bound mutation references from the construction catalog, leaving 849 origins.
+All 2,957 traversal records and surviving discovery IDs are preserved; their
+global source proofs remain open.
 Next action: finish reviewed call and transitive ordering contracts, extend
 the corpus, and derive resource budgets before native pilot evaluation.
 

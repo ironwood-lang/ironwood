@@ -54,8 +54,12 @@ final class InventorySample {
 
     List<String> exercise(int captured) {
         Set<String> original = new HashSet<>();
+        java.util.function.Consumer<String> insert = original::add;
         original.add("Aa");
-        original.add("BB");
+        insert.accept("BB");
+        Set<String> supplied = original.stream().collect(Collectors.toCollection(HashSet::new));
+        List<String> suppliedCopy = new ArrayList<>(supplied);
+        suppliedCopy.forEach(String::length);
         Set<String> alias = original;
         Snapshot frozen = snapshot(alias);
         Map<String, String> map = frozen.items().stream().collect(Collectors.toMap(s -> s, s -> s));

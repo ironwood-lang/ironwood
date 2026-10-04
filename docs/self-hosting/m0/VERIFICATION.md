@@ -396,3 +396,23 @@ diff and license checks pass. The remaining
 comparator factories can retain callbacks after returning, so parent syntax does
 not prove immediate execution or non-retention. Full global dependency/order
 and syntax/capture review remains open before the M0.3 corpus/resource gate.
+
+## Hash-origin constructor-reference correction
+
+The hash scanner originally treated any HashMap/HashSet/IdentityHashMap member
+reference as a construction source. Seventeen bound add/remove references only
+mutate existing storage and were false origins. Actual constructor references
+remain included. The focused fixture now pairs HashSet::new with original::add,
+requiring the former to flow through Collectors.toCollection into the collected
+set, an independent result copy and its forEach traversal, while the bound add
+reference is excluded as an origin. Its existing aggregate/copy/record/view/alias
+checks still pass.
+
+[hash-origin-correction.json](hash-origin-correction.json) retains every removed
+candidate and the exact before/after hashes. There are now 849 real construction,
+factory and collector origins. None of the seventeen false sources reached a
+traversal, so all 2,957 traversal records in 233 files remain byte-for-byte
+unchanged. Surviving discovery IDs stay unchanged with deliberate gaps, avoiding
+unrelated proof-ledger churn. All other versioned TSVs remain intact and all
+eleven manifest entries verify. This corrects source discovery, not ordering
+proofs or compiler behavior; the complete global traversal review remains open.

@@ -20,8 +20,8 @@
     "uncompressed_sha256": "64b71fe0ab5ab5aec82de0b9c862e105f714856d11819f5ef59ad09130e779fc"
   },
   "hash-sources-discovery.tsv": {
-    "rows": 866,
-    "uncompressed_sha256": "ba427bca5d98734f1d63c891f3e96b8a82e8989a81068b7bd4b2504412c3afa1"
+    "rows": 849,
+    "uncompressed_sha256": "7769db79bfd79b860e1c505e0e59c822ef2a81c909948cc53fe2382a6474b64c"
   },
   "hash-traversals-discovery.tsv": {
     "rows": 2957,

@@ -3,11 +3,14 @@
 """Check discovery coverage against a deliberate multi-hop Java source fixture."""
 import argparse
 import csv
+import gzip
+import importlib.util
 import os
 from collections import defaultdict
 from pathlib import Path
 import shutil
 import subprocess
+import sys
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -81,6 +84,19 @@ def main():
     assert all(r['context'].startswith('excluded') for r in syntax if r['kind'] in ('VAR', 'UNINITIALIZED'))
     assert all(r['context'].startswith('supported iteration binding:') for r in syntax if r['kind'] == 'ENHANCED_FOR_VARIABLE')
     assert sum(r['kind'] == 'UNINITIALIZED' for r in syntax) == 1, 'iteration binding is not an optional initializer'
+    for name in ('calls', 'flow', 'traversals'):
+        (output / (name + '.tsv.gz')).write_bytes(gzip.compress((output / (name + '.tsv')).read_bytes(), mtime=0))
+    specification = importlib.util.spec_from_file_location('hash_trace', ROOT / 'scripts/self-hosting/trace-hash-flows.py')
+    trace = importlib.util.module_from_spec(specification)
+    sys.dont_write_bytecode = True
+    specification.loader.exec_module(trace)
+    trace.OUT = output
+    trace.main()
+    hash_sources = read('hash-sources-discovery.tsv')
+    constructor_reference = next(r for r in hash_sources if r['expression'] == 'HashSet::new' and r['signature'].startswith('HashSet('))
+    assert any(constructor_reference['id'] in r['hash_origins'].split(';') and 'suppliedCopy.forEach' in r['expression']
+               for r in read('hash-traversals-discovery.tsv')), 'lost constructor supplier through collector/result copy/traversal'
+    assert not any(r['expression'] == 'original::add' or r['signature'] == 'add(E)' for r in hash_sources), 'bound mutation reference is not a new hash origin'
     print('PASS: overloads, inherited members, arrays, captures, syntax, helper/record/factory/view/copy flow')
 
 
