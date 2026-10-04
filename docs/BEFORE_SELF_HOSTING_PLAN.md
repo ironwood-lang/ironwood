@@ -199,6 +199,23 @@ Preserve which nested values are immutable shared nodes and which are mutable
 state requiring another copy. Translating a Java record to a class also requires
 the corresponding value equality where convergence or map lookup depends on it.
 
+Include immediate and field-retained callback cases, measuring their allocation
+counts separately, including captured-state helper allocations. Pair accepted
+safe capture cleanup with nearby rejected unsafe cleanup cases. Preserve capture
+aliases in lifetime proofs; freeing a callback does not free its captured objects
+or automatically restore permission to reclaim them.
+
+Compile and native-link the Ironwood pilot with explicit `--unfreed=warn`,
+initially using J0, under the [port build policy](SELF_HOSTING_PLAN.md#4-memory-management-is-the-primary-design-gate).
+This scoped exception leaves the standard-library/project `error` builds intact.
+Retain full compile/link logs and report missing-free counts per command plus
+unique source sites, keeping repeated reports visible without double-counting
+sites. Classify findings as intentional invocation-lifetime retention, temporary
+cleanup work, or diagnostic/proof limits; inventory justified local suppressions
+separately. Compare counts across input scales and revisions alongside measured
+memory use. Warning counts do not measure retained bytes, and zero missing-free
+warnings is not an exit requirement.
+
 Start with invocation lifetime for shared graphs. Reclaim only demonstrably
 independent temporary arrays, buffers, and containers. Measure phase allocations,
 peak RSS, wall time, maximum practical input size, and outstanding temporary
@@ -218,8 +235,14 @@ process-lifetime allocation will be affordable.
   the ordering variations above before broad translation.
 - Snapshots remain independent under subsequent mutation; value/identity and
   deterministic ordering match the baseline's actual requirements.
-- Nearby unsafe frees remain rejected in every `--unfreed` mode. Using
-  `--unfreed=off` may suppress missing-free diagnostics, never safety failures.
+- Immediate and field-retained callback allocation counts are recorded separately,
+  including captured-state helpers; paired safe/unsafe capture-cleanup cases
+  demonstrate accepted reclamation and mandatory rejection.
+- Pilot compile/link commands explicitly use `--unfreed=warn`; full logs,
+  per-command counts, unique source sites, classifications, and justified local
+  suppressions are recorded as above. Zero warnings is not an exit requirement.
+- Nearby unsafe frees remain rejected in every `--unfreed` mode. The pilot's
+  `warn` policy permits missing-free findings, never mandatory safety failures.
 - Measured scale fits the recorded resource budgets. If it does not, identify
   the dominant lifetime or allocation pattern and make a focused improvement.
 - A safe reclamation form can be expressed without runtime lifetime tracking,
