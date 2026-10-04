@@ -22,8 +22,8 @@ snapshot workload before committing to the entire compiler.
 
 The language already has the essential expressive machinery: objects,
 interfaces, generics, primitive specialization, enums, arrays, exceptions,
-pattern `instanceof`, switch expressions, and explicit resource cleanup. The
-library has text, binary and file I/O, paths, directory traversal, useful
+pattern `instanceof`, non-pattern switch expressions, and explicit resource
+cleanup. The library has text, binary and file I/O, paths, directory traversal, useful
 collections, and bit sets. The backend already compiles these constructs to
 native code. A new language feature is not inherently necessary to express a
 compiler.
@@ -154,6 +154,7 @@ plugin can remain Java without making the native compiler Java-hosted.
 | Current Java dependency | Concrete evidence | Porting approach |
 | --- | --- | --- |
 | Records and sealed hierarchies | AST `Expression`, `TypeName`; IR `IrFunction`, `IrType`; nested semantic result/snapshot records | Use final classes with constructors/accessors and explicit equality/hash behavior where needed; use ordinary interfaces. Preserve constructor validation and traversal completeness. |
+| Type-pattern `switch` | 536 arms in 19 production files; [`IrCfgRenamer`](../compiler/src/main/java/ironwood/compiler/ir/IrCfgRenamer.java) has 92 and [`BorrowDispatchAnalysis`](../compiler/src/main/java/ironwood/compiler/semantic/BorrowDispatchAnalysis.java) has 91; several Bridge analyzers have 20-41 each | Rewrite as ordered `instanceof`-pattern `if`/`else` chains. Preserve dispatch behavior and replace sealed-switch exhaustiveness with the per-consumer [variant coverage check](#reflection-really-occurs-in-the-compiler) below. |
 | Streams, lambdas, method references | Dependency discovery, almost every semantic pass, emitter joins and filtering | Use explicit loops, direct helpers, and named callback/comparator classes where a callback is necessary. Preserve encounter order, short circuiting, duplicate handling, and exception timing. |
 | `var`, uninitialized locals, multiple declarators | `Main`, Bridge code, backend; Feature 88 remains unsupported | Spell types and one initialized variable per declaration. Restructure branches where choosing a dummy initial value would obscure state. |
 | Varargs and convenience factories | `Parser.contiguousKinds(TokenKind...)`, `List.of`, `Set.of`, `Map.ofEntries` | Fixed-arity helpers or explicit arrays/builders with clear ownership. Do not add varargs to the language. |
@@ -166,10 +167,25 @@ plugin can remain Java without making the native compiler Java-hosted.
 
 Ironwood already supports many constructs that should be retained: nominal
 `instanceof` patterns, generic bounds/wildcards and inference, inner/local and
-anonymous classes, enum switches, ordinary switch expressions, and text blocks.
+anonymous classes, enum switches, non-pattern switch expressions, and text blocks.
 There is no reason to wait for records, sealed types, lambdas, reflection, GC,
 or the Java Collections Framework. Several are permanent non-goals in
 [`LANGUAGE_SPECS.md`](LANGUAGE_SPECS.md#permanent-non-goals).
+
+Reference type patterns in `switch` are Feature 106, within the deliberately
+excluded Features 106-108. Their heavy use in compiler dispatch is migration
+work, not a reason to add them to Ironwood. The counts above include qualified
+type names and exclude comments and literals; the audited production source has
+no executable `when` guard. Evaluate each rewritten selector once, preserve arm
+order and null behavior, and retain result values, binding scopes, and abrupt
+exits. If a later inventory finds guarded arms, evaluate the guard only after its
+type matches and continue to subsequent arms when it is false.
+
+An `instanceof` chain loses Java's compile-time exhaustiveness checking over
+sealed hierarchies. Tie every rewritten dispatch to the same finite variant
+inventory used for explicit traversal below. Compare each consumer's treatment
+of every relevant variant, including intentional no-ops and phase-order
+rejections; a catch-all `else` must not silently admit a newly added IR variant.
 
 Record replacement is semantically significant. For example,
 [`IrType`](../compiler/src/main/java/ironwood/compiler/ir/IrType.java) is a
@@ -259,9 +275,15 @@ including nested lists, optionals, operands, and type arguments. A shared,
 narrow traversal may remove duplicate coverage work, but do not change each
 consumer's semantic rules. Missing an edge can remove required code or metadata,
 so this is a correctness blocker, not cosmetic cleanup. Establish a coverage
-check that fails when a new IR variant has no traversal treatment. Development
-generation from a finite schema is possible, but checked-in generated Ironwood
-and its reproduction procedure must not hide a Java dependency in self-rebuilds.
+check that fails when a new IR variant has no traversal treatment. Extend that
+check to each rewritten type-pattern dispatch: derive the variant inventory from
+compiler model declarations or a checked finite schema independently of the dispatch
+arms, and require an explicit treatment for every variant relevant to that
+consumer. Record intentional no-ops and rejections individually; a generic
+fallback is not coverage. Demonstrate that adding an untreated variant or
+removing a treatment fails the build-time check. Development generation from a
+finite schema is possible, but checked-in generated Ironwood and its reproduction
+procedure must not hide a Java dependency in self-rebuilds.
 
 The Bridge source generators contain Java class-loader, reflection, and
 synchronization code inside generated text. That Java still runs in the Java
@@ -488,7 +510,7 @@ prerequisites require a newer seed, record its reviewed revision and complete
 input manifest explicitly. Freeze that buildable seed again before S5. The
 compiler being bootstrapped must not depend on a feature only it can compile.
 
-Exit: every AST/IR variant needed by the port has explicit data/traversal
+Exit: every AST/IR variant needed by the port has explicit data/dispatch/traversal
 coverage; copied state cannot change through its mutable builder; value keys
 and identity keys remain distinct; integer/float edge cases and deterministic
 ordering pass focused comparisons. Required library extensions have behavioral,
@@ -655,6 +677,7 @@ native structural outputs for assertions previously made on Java objects.
 | --- | --- | --- |
 | AST/IR value and identity rules; type resolver, inference, all proof maps | Equal type keys versus distinct equal-looking allocation nodes; immutable snapshot versus later builder mutation | Structural comparisons, correct deduplication/convergence, identity-key tests |
 | Explicit IR traversal; array descriptors, pruning, Bridge roots | Reachable nested array/constant/field retained; unrelated unreachable code removed | Variant coverage, typed IR, LLVM, native array/cast and reachability fixtures |
+| Type-pattern dispatch rewrites; CFG renaming, borrow dispatch, Bridge analyzers | Every relevant variant, including no-op/rejected cases; selector evaluation, null behavior, and true/false guards where present | Per-consumer Java/native behavior and IR agreement; adding an untreated variant or removing a treatment fails the shared coverage check |
 | Effects, borrowing, owned fields, pools and containers | Same-pool release versus wrong-pool release; independent return versus input publication; clear versus escaped iterator/item | Safe acceptance and unsafe rejection under every unfreed mode, source/class/archive parity |
 | Cleanup and exceptions; streams, constructors, deferred operations | Normal and exceptional exits, partial construction, nested `finally`/`defer`, multiple cleanup failures | Ordered effects, primary/secondary diagnostics, native allocation/resource checks |
 | Constants/text; lexer, folding, emitter, diagnostics | Min/max/out-of-range literals, shifts/casts, NaN/signed zero, valid/malformed UTF-8 and text blocks | Exact tokens/spans/constants and compiled behavior; Java oracle only for Java-compatible behavior |
