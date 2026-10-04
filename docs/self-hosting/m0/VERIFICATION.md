@@ -69,3 +69,58 @@ later pilot phases rather than this measurement tooling.
 
 M0.1 outcome: identity/profile freeze passed. M0.2 inventory and M0.3
 comparison/resource qualification remain required before S0 exits.
+
+## M0.2 discovery tooling increment, not the inventory exit gate
+
+The attributed discovery scans all 460 frozen production Java files. It records
+resolved overloads (including inherited declarations), source UTF-16 ranges,
+field uses, excluded-syntax candidates, container declarations/references,
+callback captures, and a conservative interprocedural flow graph. Record
+accessors and constructor components have explicit edges. Local symbols carry
+the declaration file and UTF-16 position so disjoint same-named locals remain
+distinct. Views, factories/collectors, copies, helper parameters, returned values
+and retained elements are discovery flows. They require source review; alias
+edges do not establish ordering independence or reclamation safety.
+
+Reproduction, with the same JVM profile and cleared Java option variables:
+
+```sh
+/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home/bin/javac \
+  --release 21 -Xlint:all -Werror -d target/self-hosting-m0/tooling \
+  scripts/self-hosting/Inventory.java
+/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home/bin/java \
+  -Xms256m -Xmx4096m -Xss8m -XX:+UseG1GC \
+  -cp target/self-hosting-m0/tooling Inventory \
+  target/self-hosting-m0/J0 docs/self-hosting/m0/inventory
+python3 scripts/self-hosting/classify-inventory.py --archive
+python3 scripts/self-hosting/test-inventory.py \
+  --jdk /Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home
+```
+
+Discovery TSVs use backslash escapes for tabs/newlines/backslashes, retain
+original encounter order, and are versioned as deterministic gzip files.
+The manifest records uncompressed SHA-256 and row counts. Decompress with
+`gzip -dc`. Candidate dependency/ordering tables are explicitly unreviewed;
+their counts cannot satisfy M0.2. Exact overload contracts, caller admission,
+transitive traversal classifications, and first-consuming fixtures remain the
+next work. The graph overapproximates copies and aggregate-return flows, merges
+instances through shared fields, and does not prove virtual callback targets or
+semantic ordering; review source rather than treating reachability as a proof.
+
+Focused discovery qualification passed: distinct overloads, inherited members,
+array length/construction distinctions, actual local/enclosing captures,
+same-named sibling locals, and a hash source flowing through a helper, immutable
+record, accessor, stream collector, view and list copy. Javac uses
+`-Xlint:all -Werror`; no production analysis changes or native pilot are included.
+
+M0.1 reconstruction correction: preserve Git executable modes for every copied
+entrypoint, including `ironjar` and `irondoc`. An independent `J0-rebuild` made
+with the corrected script reproduces seed SHA-256
+`2a8b10ab5575f84d3660b3824a4b80cba7f6f9110023e7e30db3b41103893ad7`
+and every source hash; all three launchers are executable. The original identity
+report stays intact. [seed-build.txt](seed-build.txt) retains the successful
+diagnostic-free build result.
+
+The heap/frame sampler's own allocations and frame-snapshot work can affect
+measurements. M0.3 must report sampling-on/off wall/RSS comparisons and sampled
+versus unsampled limitations, rather than claiming instrumentation is free.

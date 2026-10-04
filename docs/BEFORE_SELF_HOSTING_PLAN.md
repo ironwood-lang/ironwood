@@ -137,6 +137,8 @@ This is S0's baseline checkpoint, not a second definition of S0.
 Evidence: [M0 qualification record](self-hosting/m0/VERIFICATION.md), including
 the original J0 input manifest, effective numeric JVM profile and measurement
 procedure. M0.1 passed on macOS arm64; M0.2/M0.3 and S0 remain in progress.
+Attributed discovery and its focused qualification are retained in that record;
+candidate labels remain separate from the required reviewed use-site contracts.
 Next action: complete attributed call and transitive ordering inventories, then
 freeze comparison/resource fixtures and derive budgets before native evaluation.
 

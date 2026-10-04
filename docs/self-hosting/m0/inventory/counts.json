@@ -1,0 +1,22 @@
+{
+  "calls": 72975,
+  "classifications": {
+    "candidate lookup/membership only, review required": 348,
+    "unresolved discovery, review required": 1911
+  },
+  "container_references": 17636,
+  "container_variables": 4338,
+  "external_patterns": 712,
+  "map_set_variables": 2259,
+  "syntax": {
+    "INTERFACE": 13,
+    "LAMBDA": 2020,
+    "METHOD_REFERENCE": 958,
+    "NULL": 3848,
+    "RECORD": 527,
+    "RESOURCE_TRY": 40,
+    "TYPE_PATTERN": 1941,
+    "UNINITIALIZED": 1259,
+    "VARARGS": 7
+  }
+}

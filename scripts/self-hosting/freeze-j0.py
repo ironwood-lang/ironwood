@@ -37,7 +37,9 @@ def main():
     if args.output.exists():
         raise SystemExit('output already exists; choose an empty installation path')
     args.output.mkdir(parents=True)
-    paths = run(['git', 'ls-tree', '-r', '--name-only', args.revision], cwd=ROOT).splitlines()
+    tree = run(['git', 'ls-tree', '-r', args.revision], cwd=ROOT).splitlines()
+    modes = {line.split('\t', 1)[1]: line.split()[0] for line in tree}
+    paths = list(modes)
     selected = [p for p in paths if p.startswith(('compiler/src/main/java/', 'stdlib/src/',
                'runtime/', 'bin/', 'conf/', 'scripts/')) or p == 'VERSION']
     inputs = {}
@@ -46,7 +48,7 @@ def main():
         target = args.output / name
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_bytes(data)
-        if name.startswith(('bin/', 'scripts/')) and name.endswith('.sh') or name == 'bin/ironwoodc':
+        if modes[name] == '100755':
             target.chmod(0o755)
         inputs[name] = hashlib.sha256(data).hexdigest()
     classes = args.output / 'classes'
@@ -84,7 +86,7 @@ def main():
     args.report.parent.mkdir(parents=True, exist_ok=True)
     args.report.write_text(json.dumps(identity, indent=2, sort_keys=True) + '\n')
     args.report.with_name('jvm-effective.txt').write_text(settings)
-    args.report.with_name('seed-build.log').write_text(build_log or 'javac and jar exited 0, no diagnostics\n')
+    args.report.with_name('seed-build.txt').write_text(build_log or 'javac and jar exited 0, no diagnostics\n')
     print(version, end='')
     print('seed SHA-256:', identity['seed_jar_sha256'])
 
