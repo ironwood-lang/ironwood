@@ -1265,6 +1265,7 @@ These belong in compiler preparation, not in a general language expansion.
 | Records and sealed hierarchies | Ordinary final classes/interfaces; explicit value operations where needed | Equality/hash/identity distinctions and exhaustive dispatch coverage |
 | `BigInteger` literal validation and folding | Bounded checked magnitude scanner plus width-aware primitive arithmetic | Huge invalid literals, minimum signed values, nondecimal bit patterns, wrapping, shifts, casts, and division diagnostics |
 | `String.stripIndent` and lexer text helpers | Compiler-local exact text-block normalization | Raw/cooked blocks, closing delimiter, tabs/blank lines, CR/LF, escapes, UTF-16 spans |
+| Small binary/text APIs: unsigned byte comparison, range copies, unsigned widening, UTF-16 conversion, `String.split`, and `String.lines` | Compiler-local helpers and direct scans inventoried in [10.1](#101-small-binary-and-text-helpers) | Caller-specific ordering, bounds, separators, result ownership, and Java differential fixtures before each native slice |
 | Varargs and convenience factories, including `Parser.contiguousKinds(TokenKind...)` | Fixed-arity helpers or explicit arrays/builders with clear ownership | Same argument order and empty/nonempty behavior; token adjacency and parser diagnostics preserved |
 | `SourceVersion.isName(name, RELEASE_21)` in `BridgePackageInputs` and `BridgeExportSurface` | Shared compiler-local Java 21 qualified-name validator | Empty/dotted components, keywords/literals/contextual keywords, Unicode identifiers, and unchanged export diagnostics |
 | Streams, method-reference pipelines, collectors | Direct loops and small named helpers using B1/B2 | Encounter order, short-circuiting, duplicate behavior, exception timing, and allocation measurements |
@@ -1319,6 +1320,61 @@ compiler identity cannot be fabricated by keeping an expected `Main.class`
 inventory entry after that class no longer represents the compiler. The hashing
 helpers here preserve existing algorithms; they do not settle the new producer
 manifest design.
+
+### 10.1. Small binary and text helpers
+
+The following methods are absent from the current Ironwood library. Assign their
+replacements to B7 in increment 5, using private, purpose-specific names for
+reduced contracts. This inventory does not propose new public `Arrays`, wrapper,
+`Character`, regex, or stream APIs. B0a must record the exact overload, admitted
+inputs, result ownership, and first consuming slice for each call.
+
+| Missing Java helper | Compiler consumers | Replacement and required evidence |
+| --- | --- | --- |
+| `Arrays.compareUnsigned(byte[], byte[])` | [`SharedTraceOrder`](../compiler/src/main/java/ironwood/compiler/backend/SharedTraceOrder.java), when root GUIDs tie | Allocation-free unsigned lexicographic comparison of group payload bytes; retain the existing `Long.compareUnsigned` primary GUID ordering. Test equal GUIDs with equal/prefix payloads, differing lengths, and bytes crossing `0x7f`/`0x80`. |
+| `Arrays.copyOfRange(byte[], int, int)` | Two probe-section/group copies in `SharedTraceOrder`; UTF-8 round-trip validation in [`BridgeMacPayload`](../compiler/src/main/java/ironwood/compiler/bridge/BridgeMacPayload.java) | Private byte-slice copy using a fresh array and `System.arraycopy`. All three callers validate in-bounds extents; preserve those checks and malformed-object diagnostics. Test empty/full/interior copies and independent result storage. Do not present this bounded helper as the full Java API, which also permits zero-padding beyond the source end. |
+| `Integer.toUnsignedLong`, `Byte.toUnsignedInt`, `Short.toUnsignedInt` | `SharedTraceOrder`, `BridgeMacPayload`, [`LlvmEmitter`](../compiler/src/main/java/ironwood/compiler/backend/LlvmEmitter.java), and [`OptimizedTraceMetadata`](../compiler/src/main/java/ironwood/compiler/backend/OptimizedTraceMetadata.java) | Primitive widening and masking with `0xffffffffL`, `0xff`, or `0xffff`, respectively. Widen before the 32-bit mask; prevent sign extension in offsets, UTF-8 bytes, and GUID assembly. Test zero, signed extrema, and all-one bit patterns; no wrapper allocation. |
+| `Character.toCodePoint(char, char)` | [`StringPool.utf8Length`](../compiler/src/main/java/ironwood/compiler/semantic/StringPool.java) | Combine the already-validated surrogate pair with primitive arithmetic. Preserve the caller's U+FFFD treatment of unpaired surrogates. Test BMP and supplementary UTF-8 lengths, pair boundaries, and isolated high/low surrogates. |
+| `Character.toChars(int)` | [`DocComment.entities`](../compiler/src/main/java/ironwood/compiler/doc/DocComment.java) | Emit the same one or two UTF-16 units into the entity result, preferably without a temporary `char[]`. Test BMP values including surrogate code points, supplementary boundaries, and invalid code points with the existing entity diagnostic. |
+| `String.split` | Names in `TypeName`/`TypeResolver`, CLI path lists, artifact indexes and paths, documentation parsing, and Bridge validation | Fixed-delimiter scans plus separate documentation whitespace/line-break scans, preserving each call's limit and empty-field policy; inventory below. |
+| `String.lines` | `IronClass` index iteration; two `LlvmToolchain.clangVersion` branches; `MacNativeTools.validate` | Direct line iteration for the index and a first-line scan for probes. Preserve empty-output fallbacks or failure at each caller; avoid allocating every line for a first-line query. |
+
+Match the Java 21 [range-copy](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/Arrays.html#copyOfRange(byte%5B%5D,int,int))
+and [code-point conversion](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Character.html#toChars(int))
+behavior used by these callers; narrowing a private helper requires proving all
+its call sites satisfy the narrower contract.
+
+There are 20 compiler-executed `split` calls: 17 with regex literals and three
+using the host path separator. The three additional calls inside generated Java
+in `BridgeLoaderSources` stay Java. The compiler-side inventory is:
+
+| Separator or pattern | Call sites | Required behavior |
+| --- | --- | --- |
+| Literal `.`, `/`, `:`, LF, or tab | `TypeName` (1), `TypeResolver` (3), `IronJar` (4), `IronClass` (1), `IronDocOptions` (2), `BridgeLinuxPayload` (1), `BridgeLoaderSources.Payload` (1), `BridgeJarArchive` (1) | Decode the fixed regex literals into delimiter scans. Preserve leading/interior empty fields; negative limits retain trailing empties, while the one-argument calls discard them. Keep empty/no-match behavior and existing validation. |
+| Host path separator | `Main.parsePathList`, `BridgeProducerCommand.paths`, `LlvmToolchain.locateOnPath` | The first two retain empty fields and map them to `.`; tool discovery discards trailing empties and skips blank entries. Preserve these different caller policies. |
+| `\R` with limit -1; `\s+` with limit 2 | `DocComment.parse`, `head`, and `tail` | Keep Unicode line-break splitting separate from ASCII whitespace-run splitting; limit 2 leaves the remaining tail unsplit, and leading whitespace can produce an empty head. |
+
+Freeze [Java 21 split semantics](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html#split(java.lang.String,int))
+in fixtures for empty input, no delimiter, repeated/leading/trailing delimiters,
+and limits -1, 0, and 2. For the documentation
+[regex patterns](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/regex/Pattern.html),
+`\R` recognizes CRLF as one separator and also LF, VT, FF, CR, U+0085, U+2028,
+and U+2029; unflagged `\s` recognizes only space, HT, LF, VT, FF, and CR.
+`Character.isWhitespace` is not a substitute for that set. The four
+[`String.lines` calls](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html#lines())
+recognize only LF, CR, and CRLF, give no lines for empty input, and omit a final
+empty line after a terminator. Include those distinctions and consecutive
+terminators in the differential corpus.
+
+Complete any `TypeName` splitting reached by the S1 pilot before G1;
+`TypeResolver` splitting and `StringPool` conversion are needed by S3, and the
+trace/binary helpers by S4. Discovery scans accompany the native driver; archive
+and documentation consumers follow at S6 and Bridge consumers at S7. Bring a
+helper forward whenever an earlier slice includes its caller. Check allocations
+and lifetime proofs for copied arrays, split-result containers/strings, and any
+temporary character storage; borrow inputs only for the duration proved by the
+implementation, and record any result that aliases an input instead of assuming
+every split element is independently owned.
 
 ## 11. Sequence, review boundaries, and completion evidence
 

@@ -354,6 +354,22 @@ require adding a general regex engine. Ironwood's `Files.readString` already
 rejects malformed UTF-8, whereas byte-array String construction replaces it;
 archive text validation must choose the appropriate behavior deliberately.
 
+Small missing APIs also need explicit replacements: `Arrays.compareUnsigned`
+orders probe payload bytes when GUIDs tie in `SharedTraceOrder`;
+`Arrays.copyOfRange`, `Integer.toUnsignedLong`, `Byte.toUnsignedInt`, and
+`Short.toUnsignedInt` support binary validation and emission;
+`Character.toCodePoint` supports `StringPool`, and `Character.toChars` supports
+documentation entities. Assign these to compiler-local B7 helpers with exact
+bit, range, UTF-16, and ownership contracts. The
+[B7 helper inventory](BEFORE_SELF_HOSTING_PLAN.md#101-small-binary-and-text-helpers)
+also covers 20 compiler-executed `String.split` calls (17 regex literals and
+three host-path separators) and four `String.lines` calls, excluding split calls
+inside generated Java. Preserve each split limit and empty-field policy, and
+distinguish documentation Unicode line breaks from `lines()` terminators.
+Complete helpers before their consuming slice, including name splitting reached
+by S1, semantic string handling at S3, and trace ordering at S4; artifact,
+documentation, and Bridge helpers follow their respective stages.
+
 ### Host services and artifacts
 
 | Service | Evidence and current gap | Recommended treatment |
