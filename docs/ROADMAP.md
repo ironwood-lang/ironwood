@@ -6,6 +6,11 @@ retains milestone history and the active design checkpoints. The proposed
 usefulness-driven library sequence is in
 [`STDLIB_ROADMAP.md`](STDLIB_ROADMAP.md).
 
+The proposed [self-hosting assessment and migration plan](SELF_HOSTING_PLAN.md)
+defines stages S0-S8; its [preparation plan](BEFORE_SELF_HOSTING_PLAN.md) details
+the required library and compiler work. Both remain proposals; the Java bootstrap
+policy in D008 remains in effect.
+
 The [block-scoped defer plan](DEFER_PLAN.md) was reviewed on 2026-09-19.
 Milestone 1's [call checkpoint](DEFER_CALLS_VERIFICATION.md) was accepted, and
 Stage 2 completed [deferred free and combined verification](DEFER_FREE_VERIFICATION.md).

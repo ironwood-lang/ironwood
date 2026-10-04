@@ -1,10 +1,14 @@
+<!-- SPDX-License-Identifier: MIT OR Apache-2.0 -->
+
 # Additions Before Self-Hosting
 
 Status: proposed implementation plan, not an accepted language decision or an
 implementation claim. Audited on 2026-10-04 at repository commit
-`10b44d88fb182f67961bad58d0226921effef8df`, following
-[SELF_HOSTING_PLAN.md](SELF_HOSTING_PLAN.md). That document defines migration
-stages S0 through S8; this document defines preparation work B0 through B7.
+`10b44d88fb182f67961bad58d0226921effef8df`. The source baseline is
+`37e2dda14a1de7088bd0a079492a6fbec6c156a7` (`0.6.1-beta`), shared with
+[SELF_HOSTING_PLAN.md](SELF_HOSTING_PLAN.md): the intervening commit added only
+that document. It defines migration stages S0 through S8; this document defines
+preparation work B0 through B7.
 
 ## 1. Recommendation and scope
 
@@ -227,7 +231,7 @@ or proof, not automatic justification for a new memory-management subsystem.
 
 Extend the concrete `ironwood.ds` containers used by the port. Prefer explicit
 `copy()` methods returning the same concrete type, initially `ArrayList<E>`,
-`HashMap<K,V>`, `IdentityHashMap<K,V>`, `LinkedHashMap<K,V>`, and the required
+`HashMap<K,E>`, `IdentityHashMap<K,E>`, `LinkedHashMap<K,E>`, and the required
 set families. Add primitive-container equivalents only when selected compiler
 code needs them. These names are proposed Ironwood APIs, not implementations of
 Java `clone()` or the Java collection interfaces.
