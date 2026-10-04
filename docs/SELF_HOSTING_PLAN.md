@@ -284,6 +284,9 @@ The important differences are documented in
   suffice for output-only ordering; ordered lookup/worklists may need a focused
   implementation. Use existing list ends or a measured deque extension for
   stacks/queues. Avoid replacing a fast worklist with repeated front-shifting.
+  See [B1 section 4.5](BEFORE_SELF_HOSTING_PLAN.md#45-stack-and-fifo-worklists)
+  for stack/FIFO worklists and [B2](BEFORE_SELF_HOSTING_PLAN.md#5-b2-stable-list-level-sorting-for-compiler-objects)
+  for sorted-map/set rewrites.
 - `Optional` has basic presence/value methods, but no Java functional
   `map`/`flatMap`/`ifPresent` family. Its factories allocate wrappers, including
   empty results. Preserve explicit optional semantics where useful and remove
@@ -299,6 +302,8 @@ Comparator use also needs member-level review: the current reference-array sort
 overloads require `T extends Comparable<T>`, even with a comparator. Arbitrary
 IR nodes sorted by Java comparators need an adapted representation or a focused
 contract-reviewed library extension.
+See [B2](BEFORE_SELF_HOSTING_PLAN.md#5-b2-stable-list-level-sorting-for-compiler-objects)
+for the proposed list-level comparator sort.
 
 ### Reflection really occurs in the compiler
 
@@ -922,8 +927,10 @@ The plan recommends these defaults, subject to the indicated evidence gates:
    initially, then optimize measured hotspots with proved lifetimes. S1 must
    establish that this is practical before broad translation.
 3. Use a small shell driver for the first bootstrap. Decide the later native
-   process/filesystem API from concrete call requirements, including whether a
-   focused native dependency is smaller and safer than a public subsystem.
+   [filesystem API (B3)](BEFORE_SELF_HOSTING_PLAN.md#6-b3-filesystem-operations-and-publication-guarantees)
+   and [process API (B4)](BEFORE_SELF_HOSTING_PLAN.md#7-b4-a-synchronous-process-facility)
+   from concrete call requirements, including whether a focused native
+   dependency is smaller and safer than a public subsystem.
 4. Preserve `.ironclass`/`.ironjar` reader compatibility in both directions.
    Select an archive implementation only after reviewing compressed-input
    requirements, licensing, and validation. Record any writer-profile change,
