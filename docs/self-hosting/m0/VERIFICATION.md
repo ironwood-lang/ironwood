@@ -305,3 +305,37 @@ This increment completes that package's external-use review, not the full M0.2
 gate. AST variant selection/coverage, global excluded syntax/captures/worklists,
 remaining overload and ordering proofs, full corpus/resources/budgets remain
 open. M1 and native pilot work have not begun.
+
+## Reviewed worklist and lexical-stack storage
+
+[WORKLIST_CONTRACTS.md](WORKLIST_CONTRACTS.md) covers all 44 ArrayDeque origins,
+FunctionAnalyzer's borrowed restoreDeque parameter, 325 attributed references,
+and 19 exact deque declarations used at 256 sites. The joined
+[worklists-reviewed.json.gz](worklists-reviewed.json.gz) preserves source hashes,
+origin declarations, every reference, exact member uses and reviewed contract
+rows. `review-worklists.py` rejects uncovered/stale origins, changed source hashes
+and new exact deque dependencies.
+
+The review distinguishes FIFO append/take from scope-stack push/pop and
+innermost-first traversal. It records coupled queue priorities, stateful first
+visits, bounded candidate prefixes, first proof failures and stack copy/restore
+ordering. A tail-backed stack must reverse its traversal and saved-list restore
+relative to storage; a FIFO must not shift an ArrayList on each dequeue. The
+private native representation and its allocation/cleanup qualification remain
+M1/M3 work, with one selected ClosedWorldEffectAnalyzer FIFO needed by the M2
+workload. No general Deque API or worklist implementation is added here.
+
+Inherited collection operations and passed/snapshotted stacks are included as
+source references; the exact declaration count above is restricted to members
+declared by ArrayDeque/Deque. Global hash-origin order entering a queue or scope
+map is a separate still-open proof obligation. Removing queued membership never
+permits freeing a potentially shared record, state or context without its own
+reclamation proof. Required per-consumer fixtures are specified, not claimed
+passing by this documentation increment.
+
+Reproduce with `python3 scripts/self-hosting/review-worklists.py`. Focused
+consistency checks pass, including rejection after omitting Q20, omitting the
+Deque.removeFirst member review or changing the reviewed origin line. Diff and
+license checks pass; no compiler behavior
+changes require a compiler suite. M0.2 remains open for global syntax/captures,
+other overloads and transitive ordering, followed by the full M0.3 resource gate.

@@ -148,7 +148,9 @@ lexer/parser/source use sites, and the [snapshot contracts](self-hosting/m0/SNAP
 include a complete private explanation-store traversal review with adversarial
 Java qualification. The [AST contracts](self-hosting/m0/AST_CONTRACTS.md) cover
 all exact external member uses in that package, with qualified original helper
-probes. Selected variant coverage and upstream semantic ordering remain open.
+probes. The [worklist contracts](self-hosting/m0/WORKLIST_CONTRACTS.md) map all
+44 deque origins to FIFO or scope-stack semantics and their actual references.
+Selected variant coverage, captures and upstream semantic ordering remain open.
 Next action: finish reviewed call and transitive ordering contracts, extend
 the corpus, and derive resource budgets before native pilot evaluation.
 
