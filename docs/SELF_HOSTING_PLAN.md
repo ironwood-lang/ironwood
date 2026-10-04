@@ -407,10 +407,36 @@ Recommended lifetime classification for the pilot:
 
 For the first one-shot compiler, retaining shared semantic graphs until process
 termination is a defensible temporary implementation choice. Record it
-explicitly and measure it. `--unfreed=off` changes missing-free reporting only;
-it cannot disable unsafe-free errors. Prefer documented invocation-lifetime
-allocations and intentional suppressions where appropriate, rather than
-pretending the graph is already reclaimable. Resource closure is still required.
+explicitly and measure it. Resource closure is still required.
+
+**Port build policy:** pass `--unfreed=warn` explicitly to every source compile
+and native link that builds the Ironwood compiler port, from S1 pilots through
+S5 self-builds and the initial one-shot CLI. This is a scoped exception to the
+`--unfreed=error` convention used by [`scripts/build.sh`](../scripts/build.sh)
+for the standard library and by the project compile/link scripts. Keep those
+strict builds unchanged. If a source-only self-build includes the standard
+library in the same `warn` invocation, retain a separate strict standard-library
+check. Capture the warnings; `off` is not the port's build policy. The mode is
+per invocation, so pass it at both compile and link rather than expecting an
+artifact to retain it. Preserve the native compiler's public CLI mode behavior
+and test user-program safety under all three modes.
+
+This exception permits reported missing-free findings; every mandatory
+memory-safety error still fails the build. Do not weaken a reclamation proof to
+reduce warning counts. Revisit strict-mode readiness using the S1 measurements
+and later self-build evidence; a resident compiler needs S7's separate lifetime
+gate rather than inheriting the one-shot retention strategy.
+
+[`@SuppressUnfreed`](MEMORY.md#per-allocation-suppression) exempts the initializer's
+tracked allocation at one reference local declaration, including aliases and
+fresh factory results. It does not exempt unrelated allocations in factories,
+fields, nested graphs, or container contents. Use it only for individually
+justified sites, recording them with the diagnostic baseline; it is not the
+mechanism for making the whole port pass `--unfreed=error`. As
+[MEMORY_MANAGEMENT.md](MEMORY_MANAGEMENT.md#allocations-that-are-not-freed)
+explains, returned/stored objects and uncertain control flow can fall outside
+the check. The practical warning volume is unknown until S1; even zero warnings
+would not prove that the shared graphs are reclaimed or fit the memory budget.
 
 Do not propose an unimplemented arena as if it solved ownership. Current ordinary
 array free is shallow, containers borrow elements, and a list of allocations does
@@ -487,11 +513,22 @@ results, numeric boundaries, and source failures. Scale input up to representati
 compiler source volume and difficult control-flow/generic shapes; ordinary
 source length alone is not enough.
 
+Measure missing-free diagnostics emitted while compiling and linking the
+Ironwood pilot under the section 4 `warn` policy, initially with the Java
+bootstrap. Retain full logs and report counts per command, plus unique source
+sites so repeated compile/link reports are visible without double-counting sites.
+Classify findings by intentional invocation-lifetime retention, temporary cleanup
+work, or diagnostic/proof limits; inventory justified local suppressions
+separately. Compare counts across input scales and revisions alongside measured
+memory use, since warning counts do not measure retained bytes.
+
 Exit: Java/native tokens, AST structures, and diagnostics agree on the selected
 positive and malformed inputs; snapshot operations agree; valid reclamation is
 accepted and nearby invalid reclamation rejected; memory/stack/time measurements
-meet the agreed pilot budgets. If the snapshot model needs new ownership
-semantics, stop the broad port and resolve that design first.
+meet the agreed pilot budgets, with missing-free counts and their classifications
+recorded. Zero missing-free warnings is not an exit requirement. If the snapshot
+model needs new ownership semantics, stop the broad port and resolve that design
+first.
 
 ### S2. Prepare the shared representations and narrow dependencies
 
@@ -568,6 +605,10 @@ Ironwood compiler source closure plus its pinned library/runtime inputs:
 4. `I1`, `I2`, and `I3` compile the same focused acceptance/rejection corpus;
    compare outcomes, diagnostics, typed/LLVM output, and native executions.
 5. Compare `I2` and `I3` build artifacts under identical inputs and paths.
+
+All three self-builds use the section 4 `--unfreed=warn` policy explicitly at
+compile and link. Save and compare their missing-free diagnostics as part of
+the bootstrap evidence, separately from the acceptance/rejection corpus's modes.
 
 Start on the local supported host. Pin source ordering, flags, target/data
 layout, tool versions, standard-library resolution, and all generated inputs.
@@ -683,7 +724,7 @@ native structural outputs for assertions previously made on Java objects.
 | Constants/text; lexer, folding, emitter, diagnostics | Min/max/out-of-range literals, shifts/casts, NaN/signed zero, valid/malformed UTF-8 and text blocks | Exact tokens/spans/constants and compiled behavior; Java oracle only for Java-compatible behavior |
 | Explanation evidence | Explain on/off, exhausted budgets, retired/restored/joined snapshots | Same primary safety verdicts and program output; bounded optional storage and truthful fallback |
 | Host/artifact services | Missing/nonzero tool, large output, paths with spaces, malformed/duplicate/compressed archive entries, write failure | Correct exit status, preserved previous outputs, cleanup, cross-reader compatibility |
-| Bootstrap and scale | Real compiler/library closure plus control-flow/generic stress; repeated worker processes | Generation comparison, wall time/RSS/stack measurements, no hidden Java compiler dependency |
+| Bootstrap and scale | Real compiler/library closure plus control-flow/generic stress; repeated worker processes | Generation and missing-free diagnostic comparison under the port's `warn` policy, classified S1 warning counts, wall time/RSS/stack measurements, no hidden Java compiler dependency |
 
 Useful existing exact test names include:
 
