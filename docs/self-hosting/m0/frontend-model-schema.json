@@ -1096,6 +1096,14 @@
     },
     {
       "kind": "record",
+      "name": "ironwood.compiler.lexer.DocumentationComment",
+      "fields_or_variants": [
+        "text:java.lang.String",
+        "span:ironwood.compiler.source.SourceSpan"
+      ]
+    },
+    {
+      "kind": "record",
       "name": "ironwood.compiler.lexer.LexResult",
       "fields_or_variants": [
         "tokens:java.util.List<ironwood.compiler.lexer.Token>",
@@ -1446,6 +1454,7 @@
     "ironwood.compiler.parser.Parser$ParsedSwitchLabels": "M1.3/M2.1 private parser/lexer/source construction state; ordered record fields or explicit owned builders and borrowed source/tokens; internal helper storage retires after output construction; no structural wire fallback for mutable classes",
     "ironwood.compiler.parser.Parser$ParsedTypeArguments": "M1.3/M2.1 private parser/lexer/source construction state; ordered record fields or explicit owned builders and borrowed source/tokens; internal helper storage retires after output construction; no structural wire fallback for mutable classes",
     "ironwood.compiler.parser.Parser$QualifiedName": "M1.3/M2.1 private parser/lexer/source construction state; ordered record fields or explicit owned builders and borrowed source/tokens; internal helper storage retires after output construction; no structural wire fallback for mutable classes",
-    "ironwood.compiler.parser.Parser$VariableModifiers": "M1.3/M2.1 private parser/lexer/source construction state; ordered record fields or explicit owned builders and borrowed source/tokens; internal helper storage retires after output construction; no structural wire fallback for mutable classes"
+    "ironwood.compiler.parser.Parser$VariableModifiers": "M1.3/M2.1 private parser/lexer/source construction state; ordered record fields or explicit owned builders and borrowed source/tokens; internal helper storage retires after output construction; no structural wire fallback for mutable classes",
+    "ironwood.compiler.lexer.DocumentationComment": "M1.3/M2.1 explicit text/span value and field traversal; constructor remains in conservative Lexer closure even with selected documentation retention false; text is borrowed by retained trivia until lexer retirement"
   }
 }

@@ -665,3 +665,11 @@ Model discovery is not constructor execution coverage or native dispatch proof.
 Java 21 release/Xlint/Werror, license audit and diff check pass. No production
 source or native compiler port is changed; M0/S0 remain open for ownership
 closure, remaining classifications and numerical budgets.
+
+The subsequent leaf review found DocumentationComment's generated constructor
+in that closure although its source contains no attributed calls. The corrected
+finite model now includes 103 source files/119 declarations, with 98 records.
+Every reached production method owner must have a treatment; an explicit missing
+DocumentationComment control is rejected. Two corrected fresh model JVMs match.
+The preceding 118-declaration capture is retained in ignored scratch storage;
+current public qualification and the source closure use the corrected schema.

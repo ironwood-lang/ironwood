@@ -35,10 +35,12 @@ def main():
                    if '/ast/' in path or path.endswith(('/lexer/Token.java', '/lexer/TokenKind.java',
                       '/lexer/LexResult.java', '/parser/ParseResult.java', '/source/SourcePosition.java',
                       '/source/SourceSpan.java', '/diagnostic/Diagnostic.java', '/diagnostic/DiagnosticNote.java',
-                      '/lexer/Lexer.java', '/parser/Parser.java', '/source/SourceFile.java')))
+                      '/lexer/Lexer.java', '/parser/Parser.java', '/source/SourceFile.java',
+                      '/lexer/DocumentationComment.java')))
     for path in files:
-        if hashlib.sha256((install / path).read_bytes()).hexdigest() != identity['input_sha256'][path]:
-            raise ValueError('model source hash changed')
+        for base in (ROOT, install):
+            if hashlib.sha256((base / path).read_bytes()).hexdigest() != identity['input_sha256'][path]:
+                raise ValueError('model source hash changed')
     names = [path.removeprefix('compiler/src/main/java/').removesuffix('.java').replace('/', '.') for path in files]
     (args.output / 'class-names.txt').write_text('\n'.join(names) + '\n')
     source = ROOT / 'scripts/self-hosting/ModelCapture.java'

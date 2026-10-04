@@ -47,9 +47,13 @@ declarations and nullable literals retain the finite data/constructor contracts.
 
 frontend-model-schema.json is a checked finite declaration/field schema. It is
 independent of the corpus and ReferenceCapture's reflective wire dispatch.
-ModelCapture discovers declarations from 102 pinned source files and their
-compiled classes: 97 records, 10 enums, six sealed interfaces and five ordinary
-classes, 118 declarations total. Each record lists ordered fields with complete
+ModelCapture discovers declarations from 103 pinned source files and their
+compiled classes: 98 records, 10 enums, six sealed interfaces and five ordinary
+classes, 119 declarations total. DocumentationComment is included even though
+the selected Lexer entry point disables documentation retention: its construction
+appears in the conservative call closure. Every reached production method owner,
+including generated leaves, must have an independent model treatment. Each
+record lists ordered fields with complete
 generic types; each enum lists all constants; each sealed interface lists its
 permitted variants; each ordinary class lists its declared storage. These lists
 come from model declarations, not serializer arms or observed output.

@@ -26,6 +26,12 @@ def read(name):
         return list(csv.DictReader(stream, delimiter='\t'))
 
 
+def check_owners(methods, model):
+    owners = {name.replace('$', '.') for name in model['consumers']}
+    if any(method.split('::')[0] not in owners for method in methods if not method.startswith('@field:')):
+        raise ValueError('reached production method owner has no independent model treatment')
+
+
 def main():
     by = collections.defaultdict(list)
     calls = read('calls')
@@ -75,6 +81,12 @@ def main():
     identity = json.loads((OUT / 'qualified/identity.json').read_text())
     install = Path(identity['launcher']).parent.parent
     model = json.loads((OUT / 'frontend-model-schema.json').read_text())
+    check_owners(seen, model)
+    missing_leaf = {'consumers': dict(model['consumers'])}
+    del missing_leaf['consumers']['ironwood.compiler.lexer.DocumentationComment']
+    try: check_owners(seen, missing_leaf)
+    except ValueError as error: leaf_control = str(error)
+    else: raise ValueError('missing generated leaf was accepted')
     for path in files:
         for base in (ROOT, install):
             if hashlib.sha256((base / path).read_bytes()).hexdigest() != identity['input_sha256'][path]:
@@ -88,6 +100,7 @@ def main():
               'external_pattern_count': len({row['pattern'] for row in external}),
               'no_attributed_calls': sorted(method for method in seen if not by[method]),
               'leaf_boundary': 'generated record accessors/constructors and pure primitive/enum leaf bodies remain explicit named methods; no attribution row does not mean omitted implementation',
+              'missing_generated_leaf_control': leaf_control,
               'model_schema_sha256': hashlib.sha256((OUT / 'frontend-model-schema.json').read_bytes()).hexdigest(),
               'model_names': sorted(model['consumers']), 'captures': captures,
               'capture_contract': 'three immediate lazy Optional.orElseGet supplier sites borrow six locals; explicit presence branches preserve lazy fallback, evaluation order and no retained supplier',

@@ -219,7 +219,8 @@ registration/finding order stays separate from snapshot membership order.
 Upstream caller event ordering and mandatory free proofs retain their own gates.
 The [selected frontend closure](self-hosting/m0/FRONTEND_PILOT.md) now joins
 376 explicit methods/3,154 calls to 68 reviewed external patterns. An independent
-118-declaration model includes parser-private records and rejects missing
+119-declaration model includes parser-private records and DocumentationComment,
+checks every reached method owner, and rejects missing
 variant/field treatments. Six later-only AST helper declarations and source
 acquisition/rendering remain explicitly outside M2.1 construction. This fixes
 the frontend prerequisite boundary; the ownership pilot and global inventory

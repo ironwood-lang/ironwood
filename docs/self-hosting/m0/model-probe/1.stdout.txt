@@ -95,6 +95,7 @@ record	ironwood.compiler.ast.WhileStatement	condition:ironwood.compiler.ast.Expr
 record	ironwood.compiler.ast.YieldStatement	value:ironwood.compiler.ast.Expression;span:ironwood.compiler.source.SourceSpan
 record	ironwood.compiler.diagnostic.Diagnostic	message:java.lang.String;source:ironwood.compiler.source.SourceFile;span:ironwood.compiler.source.SourceSpan;severity:ironwood.compiler.diagnostic.Diagnostic$Severity;notes:java.util.List<ironwood.compiler.diagnostic.DiagnosticNote>
 record	ironwood.compiler.diagnostic.DiagnosticNote	message:java.lang.String;source:ironwood.compiler.source.SourceFile;span:ironwood.compiler.source.SourceSpan
+record	ironwood.compiler.lexer.DocumentationComment	text:java.lang.String;span:ironwood.compiler.source.SourceSpan
 record	ironwood.compiler.lexer.LexResult	tokens:java.util.List<ironwood.compiler.lexer.Token>;diagnostics:java.util.List<ironwood.compiler.diagnostic.Diagnostic>
 record	ironwood.compiler.lexer.Token	kind:ironwood.compiler.lexer.TokenKind;lexeme:java.lang.String;span:ironwood.compiler.source.SourceSpan
 record	ironwood.compiler.parser.ParseResult	unit:java.util.Optional<ironwood.compiler.ast.CompilationUnit>;diagnostics:java.util.List<ironwood.compiler.diagnostic.Diagnostic>

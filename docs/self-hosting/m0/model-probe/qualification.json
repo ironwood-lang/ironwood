@@ -96,6 +96,7 @@
     "compiler/src/main/java/ironwood/compiler/ast/YieldStatement.java": "8531baa6d4c4ad709c1d2b896e6e58cb52515ecff70ea337ce16e43c171611b5",
     "compiler/src/main/java/ironwood/compiler/diagnostic/Diagnostic.java": "34c9c1ed3d4ae085821611599d222d1a99d18ac61176c3a8def8a370dd2db39a",
     "compiler/src/main/java/ironwood/compiler/diagnostic/DiagnosticNote.java": "e236cfdb7bdde61d576c9d102ebeb19cdae73fffa00b7bbc6bd4136af4c5e8a8",
+    "compiler/src/main/java/ironwood/compiler/lexer/DocumentationComment.java": "f3f0bb6de8f7c123b1859e462854ae4934a14e8ce981c96e0e6d46be3717c2a6",
     "compiler/src/main/java/ironwood/compiler/lexer/LexResult.java": "a61cff46aa66b30f1af19894c30c6317e838a2d917205409ba44403aa93b7e72",
     "compiler/src/main/java/ironwood/compiler/lexer/Lexer.java": "dcbe3f2da8e4a43905d07c6a70d63e8603616ecef5cd4aaf59d47d8268a93008",
     "compiler/src/main/java/ironwood/compiler/lexer/Token.java": "2cdddd30586d5ec739275ccb60a796c298f25b9e58cb1091fcd14947879227f2",
@@ -107,10 +108,10 @@
     "compiler/src/main/java/ironwood/compiler/source/SourceSpan.java": "e82d15d89ed28a410732a1e30ba2573a2985514217cf894925929b6c7a45cd81"
   },
   "capture_sha256": "496bcc4ba9efcc103dbda973eb2010128bd9978f00015725bd00d732e8eeefe3",
-  "treatment_sha256": "2ab719d09426457d4ac394170f8c474b61acfcc74577a038b6e21662aefcea42",
-  "model_count": 118,
+  "treatment_sha256": "bdedf61e1fcb1d8a640a779573fe97bf16bce2730c816d7ab54257189df1805c",
+  "model_count": 119,
   "kind_counts": {
-    "record": 97,
+    "record": 98,
     "enum": 10,
     "sealed": 6,
     "class": 5

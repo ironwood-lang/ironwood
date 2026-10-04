@@ -91,6 +91,7 @@ ironwood.compiler.ast.WhileStatement
 ironwood.compiler.ast.YieldStatement
 ironwood.compiler.diagnostic.Diagnostic
 ironwood.compiler.diagnostic.DiagnosticNote
+ironwood.compiler.lexer.DocumentationComment
 ironwood.compiler.lexer.LexResult
 ironwood.compiler.lexer.Lexer
 ironwood.compiler.lexer.Token
