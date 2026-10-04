@@ -25,7 +25,7 @@ Section 8 records the proposed omission of that cache from the one-shot driver.
 
 | Preparation | Needed before | Priority and recommended scope |
 | --- | --- | --- |
-| B0. Contract inventory and ownership pilot | Broad translation after S1 | First gate; establish practical memory use and semantic equivalence |
+| B0. Contract inventory and ownership pilot | Broad translation after S1 | First gate; audit hash iteration order and establish practical memory use and semantic equivalence |
 | B1. Copies, snapshots, and traversal | Ownership pilot and S3 semantic analysis | First library work; extend the required `ironwood.ds` types only |
 | B2. Stable list-level comparator sorting | Large analysis/emission workloads | Early; sort compiler lists directly, including non-Comparable objects, without an array round trip |
 | B3. Filesystem completion | Native driver and artifact publication | Incremental; temporary paths, real paths, access checks, explicit publication operations |
@@ -98,6 +98,56 @@ exception behavior, allocation owner, retained references, and cleanup boundary.
 Record the replacement and its evidence. This is more useful than a count of
 unsupported Java imports.
 
+### Hash iteration and comparison baselines
+
+Inventory every plain `HashMap`/`HashSet` allocation and classify each traversal,
+including views, streams, `forEach`, and indirect traversal through copies or
+helper calls. Include factory/collector results with unspecified encounter order;
+counting constructor sites alone misses these paths. For each container, record
+its source location, key/element equality and hashing, insertion source, traversal
+consumers, first order-sensitive operation, classification below, proposed
+replacement, and verification fixture. Explicitly mark containers used only for
+lookup or membership, with evidence that no traversal escapes that role.
+
+Java-compatible String hashing does not imply Java-compatible iteration order.
+Ironwood's [HashMap](../stdlib/src/main/ironwood/ironwood/ds/HashMap.iron) defaults
+to capacity 128 and load factor 0.80, uses masked/modulo bucket indexing, and its
+[iterator](../stdlib/src/main/ironwood/ironwood/ds/HashMapIterator.iron) walks
+buckets and their chains; [HashSet](../stdlib/src/main/ironwood/ironwood/ds/HashSet.iron)
+uses that map. Java's [HashMap contract](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/HashMap.html)
+specifies defaults of 16 and 0.75 and gives no iteration-order guarantee.
+The compiler's dozens of plain hash containers therefore need a use-site audit
+before their order becomes an accidental Java-versus-native test requirement.
+
+| Classification | Required evidence or migration action |
+| --- | --- |
+| Lookup/membership only | No iteration reaches observable behavior; retain a plain hash container. |
+| Order-independent traversal | Prove the result is independent of visit order, including worklist convergence, first-match choices, and diagnostic/explanation selection; retain hashing only when that proof holds. |
+| Explicitly ordered before use | Identify the sorting boundary and deterministic tie-breakers; verify that no IDs, IR order, diagnostics, or other observable decisions are assigned before it. |
+| Observable or otherwise order-sensitive traversal | Specify the required order and implement it in both compilers: preserve deterministic source/insertion order with a linked container, or sort by stable semantic keys using B2 before the first order-sensitive operation. Preserve language-defined precedence. |
+| Unresolved | Trace downstream consumers until classified; block the affected slice's equivalence gate. |
+
+Follow order transitively into lists, immutable snapshots, work queues, emitted
+text/artifacts, IR numbering/layout, and diagnostic order. Copying an unordered
+source into a linked container only preserves that source's incidental order.
+A stable sort also preserves incidental order among equal keys; add deterministic
+tie-breakers wherever those ties can affect observations. Do not derive them from
+object addresses, identity hashes, or IDs already assigned by unordered traversal.
+Keep lookup-only containers hashed rather than replacing every map/set globally;
+measure the allocation and runtime cost of the ordered paths selected by the audit.
+
+Make required ordering explicit in preparatory Java refactorings before freezing
+the affected comparison fixtures, then port that contract. If this changes
+previous output, review and record the change and retain the original baseline
+evidence before updating goldens. Do not emulate a particular JDK bucket layout
+or hide unexplained differences by sorting diagnostics or IR in the comparison
+harness. Verify the chosen contract with colliding keys, resize boundaries,
+different capacities/load factors, and equal sort keys; vary insertion order
+where the result is required to be independent of it. Repeat comparisons across
+fresh processes to catch unstable ordering that one Java/native run can miss.
+
+### Ownership and resource pilot
+
 Build two representative native slices alongside the frozen Java baseline:
 
 1. Lexer/parser construction, including independent child-list snapshots and
@@ -125,6 +175,10 @@ will be faster or that process-lifetime allocation will be affordable.
 
 ### Exit gate
 
+- Every inventoried hash-container traversal has an ordering classification;
+  unresolved dependencies in a slice block its differential comparison gate.
+  Observable order follows the recorded contract in both compilers and passes
+  the ordering variations above before broad translation.
 - Snapshots remain independent under subsequent mutation; value/identity and
   deterministic ordering match the baseline's actual requirements.
 - Nearby unsafe frees remain rejected in every `--unfreed` mode. Using
@@ -890,7 +944,7 @@ manifest design.
 
 | Increment | Concrete deliverable | Depends on | Completion evidence |
 | --- | --- | --- | --- |
-| 1 | B0 inventory and frozen Java/native comparison fixtures | Current compiler | Required contracts and resource measurements can be reproduced |
+| 1 | B0 inventory, per-traversal ordering audit, and frozen Java/native comparison fixtures | Current compiler | No unresolved ordering dependencies in compared outputs; required contracts and resource measurements can be reproduced |
 | 2 | ArrayList/BitSet copy slice and private compiler snapshots | 1 | Independent snapshots; safe/unsafe cleanup pairs; allocation-failure cleanup |
 | 3 | Required map/set copies and nested traversal solution | 2 | Identity/value/order preserved; ownership pilot fits its budget |
 | 4 | B2 stable comparator sorting directly on `ArrayList` | 1; B1 where snapshots are used | Non-Comparable compiler lists sort stably with measured scaling and no array round trip |
