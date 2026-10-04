@@ -27,7 +27,7 @@ Section 8 records the proposed omission of that cache from the one-shot driver.
 | --- | --- | --- |
 | B0. Contract inventory and ownership pilot | Broad translation after S1 | First gate; establish practical memory use and semantic equivalence |
 | B1. Copies, snapshots, and traversal | Ownership pilot and S3 semantic analysis | First library work; extend the required `ironwood.ds` types only |
-| B2. Stable comparator sorting | Large analysis/emission workloads | Early; arbitrary reference objects and predictable scaling |
+| B2. Stable list-level comparator sorting | Large analysis/emission workloads | Early; sort compiler lists directly, including non-Comparable objects, without an array round trip |
 | B3. Filesystem completion | Native driver and artifact publication | Incremental; temporary paths, real paths, access checks, explicit publication operations |
 | B4. Synchronous process execution | Replacing shell orchestration | Small native service; inherited environment and file-based output |
 | B5. CRC32, MD5, and SHA-256 | SHA-256 by S3 for ByteView analysis; SHA-256/MD5 by S4 native linking; CRC32 by archive consumers | Named algorithms with exact byte contracts and reusable state; explicit runtime-cache port decision |
@@ -62,7 +62,7 @@ equivalents.
 | Effect bit vectors | `ClosedWorldEffectAnalyzer` clones `BitSet` values, including summary values | `BitSet.or`, range `get`, and array conversion exist; a direct copy convenience is missing, not the ability to copy bits |
 | Identity and ordering | Allocation/IR identities coexist with structural type keys and deterministic insertion/sorted ordering | Identity, value, and linked containers exist; replacing all maps with one family is incorrect |
 | Traversal | Nested scans, key/value iteration, and collection callbacks | Many `ironwood.ds` iterators are reused; map iteration yields values with a container-level current-key accessor |
-| Sorting | `IronDoc`, `SharedTraceOrder`, `OptimizedTraceMetadata`, archive indexes, and Bridge inventories | Reference sorts use insertion sort; even comparator overloads require `T extends Comparable<T>` |
+| Sorting | `List.sort` and stream `sorted()` in documentation, trace ordering, semantic analysis, archive indexes, and Bridge inventories; no production `Arrays.sort` calls | `ArrayList` has neither sorting nor `toArray`; existing `Arrays` reference sorts use insertion sort and require `T extends Comparable<T>` even with a comparator |
 | Native tools | `NativeBackend`, `LlvmToolchain`, `MacNativeTools`, `TlsDependency`, and `BridgeBuildTools` | No corresponding process facility; actual launch sites inherit the environment |
 | Filesystem | Driver staging, discovery, archive replacement, Bridge distribution | Core IO, directory traversal, attributes, copy, and move exist; missing operations and publication guarantees remain |
 | Archives | `IronClass`, `IronJar`, and Bridge JAR consumers/producers | No ZIP or CRC32 implementation; existing artifacts include DEFLATE data |
@@ -147,6 +147,12 @@ Extend the concrete `ironwood.ds` containers used by the port. Prefer explicit
 set families. Add primitive-container equivalents only when selected compiler
 code needs them. These names are proposed Ironwood APIs, not implementations of
 Java `clone()` or the Java collection interfaces.
+
+[D129](DECISIONS.md#d129---complete-basic-indexed-array-list-operations) deferred
+collection copy constructors, `toArray`, and list sorting as demand-driven
+conveniences. Compiler snapshots and sorting supply that concrete demand. B1
+proposes same-type `copy()` methods; it does not require collection interfaces or
+a general collection constructor merely to match Java call-site spelling.
 
 For each copy, specify:
 
@@ -264,54 +270,84 @@ when their analysis paths change. Repeat affected cases through source, class,
 and archive reconstruction. Completion requires measured pilot-scale copying
 without source-iterator corruption and without weakened reclamation proofs.
 
-## 5. B2: stable sorting for arbitrary compiler objects
+## 5. B2: stable list-level sorting for compiler objects
 
 ### Contract and APIs
 
-The existing reference sorts in `ironwood.util.Arrays` are stable insertion
-sorts. They can be quadratic on compiler-sized symbol/index arrays. Their
-comparator overloads also require `Comparable<T>`, preventing direct use with
-ordinary compiler objects that only have an external comparator.
+The compiler sorts lists and materialized streams, not arrays. Direct examples
+include `IronDoc`'s types, `DocModel`'s members, `SharedTraceOrder`'s groups, and
+`OptimizedTraceMetadata`'s functions. Many semantic and packaging paths use
+`stream().sorted()`. There are no production `Arrays.sort` calls in the audited
+compiler source. An array-only addition would force manual list-to-array and
+array-to-list loops because `ironwood.ds.ArrayList` has neither `sort` nor
+`toArray`, adding storage and element transfers to the port.
 
-Add proposed helpers `Arrays.sortWithComparator(T[], Comparator<? super T>)`
-and its range variant with `T extends Object`. Require an explicit non-null
-comparator. This distinct name gives the helper a clear contract without
-pretending to support every Java natural-order fallback for arbitrary objects.
+Make the primary proposal a method on `ArrayList<E>`:
+`void sortWithComparator(Comparator<? super E> comparator)`. Retain the existing
+`E extends Object` boundary so ordinary compiler objects need not implement
+`Comparable`. Require an explicit non-null comparator, with its failure behavior
+specified even for an empty list. Natural-order stream operations become calls
+with an explicit comparator for the selected element type. Add range sorting or
+a public array helper only when a separate consumer needs that surface.
 
-Preserve existing `Arrays.sort` overloads and their null-comparator behavior.
-Java's reference sorting contract includes stability and natural ordering when
-the comparator is null. Removing the generic bound while silently rejecting
-that case would violate the behavioral contract review. A future fully
-compatible general overload needs a demonstrated type-safe implementation of
-the fallback. See the [Java 21 Arrays contract](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/Arrays.html).
+[D122](DECISIONS.md#d122---practical-java-shaped-standard-library-compatibility-expansion)
+deliberately bounds existing reference comparator sorting to Comparable elements
+so a null comparator can retain natural ordering. Preserve that contract and
+its compile-time boundary. The distinctly named list helper avoids claiming
+Java `sort(null)` behavior for arbitrary `E`. A Java-shaped `sort` with broader
+element support would need a demonstrated type-safe natural-order fallback and
+an explicit decision about D122. See the
+[Java 21 Arrays contract](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/Arrays.html).
+[D129](DECISIONS.md#d129---complete-basic-indexed-array-list-operations) explicitly
+deferred list sorting pending demand; this proposal selects that convenience for
+the compiler without making `toArray` a prerequisite.
 
-For the proposed helper, specify stable order among equal comparator keys,
-half-open ranges, unchanged elements outside the range, exact range exceptions,
-and propagation of comparator exceptions. A throwing comparator need not leave
-the range sorted or restore its original order; private workspace must still
-be reclaimed. Whether null elements are sortable depends on the comparator.
+The list operation sorts only `[0, currentSize)`, stably preserving encounter
+order among equal comparator keys. Successful sorting preserves size, capacity,
+growth settings, and the same borrowed elements; it neither frees elements nor
+exposes the backing array. Inactive slots must remain unobserved, including old
+references left after clear/removal. Specify iterator behavior without silently
+resetting the reusable iterator. Comparator exceptions propagate; partial
+reordering is allowed, but private workspace must still be reclaimed.
 
 ### Implementation
 
-Use a stable O(n log n) comparison algorithm, initially a conventional merge
-sort with small-range insertion sorting and bounded workspace. Compare a simple
-original implementation against a verified Classpath-covered upstream helper
-before choosing provenance. Do not copy a large sorting subsystem merely to
-support these two entry points.
-Share the algorithm with existing reference-sort overloads where their natural
-order and null-comparator contracts can be preserved. Avoid maintaining two
-independent large-array sorting implementations.
+Sort the list's private live backing range directly using a stable O(n log n)
+comparison algorithm, initially conventional merge sort with small-range
+insertion sorting and O(n) bounded workspace for n live elements. Keep the kernel
+inside the list or an encapsulated implementation helper; do not add a public
+backing-array accessor. Existing array overloads may share the algorithm when
+their natural-order, range, and null-comparator contracts remain intact, but
+array API expansion is not the compiler-facing deliverable.
 
-Allocate scratch storage at most once per nontrivial call, never once per merge
-or comparison. Preserve fast small-array paths. Only add reusable workspace as
-a second API if the compiler profile demonstrates a benefit and its aliasing
-contract can be proved. Do not expose raw scratch arrays that invite unproved
-input/workspace aliasing or require runtime tracking.
+Allocate scratch storage at most once per nontrivial call, sized from live
+elements rather than capacity, never once per merge or comparison. Preserve
+small-list paths without scratch allocation. The scratch buffer is algorithmic
+workspace, not an additional full copy-out/copy-back adapter. Compare a simple
+original implementation against a verified Classpath-covered upstream helper
+before choosing provenance. Only add reusable workspace if profiling establishes
+a benefit and its lifetime/aliasing contract can be proved.
+
+If direct backing-range access cannot yet be proved safe, record the temporary
+fallback explicitly: allocate one n-element array, copy out with indexed `get`,
+sort it, write back with indexed `set`, and reclaim the array on every exit.
+Account for its n references, two n-element transfer passes, and any separate
+sort workspace. That fallback is an interim port path; it does not satisfy the
+direct-list allocation gate below.
 
 Comparator calls remain ordinary closed-world calls with their actual effects.
 They may throw, access captured state, or retain references. Do not grant a
-purity or non-retention exemption to enable freeing elements or the input.
-Scratch storage remains a separate implementation-owned object.
+purity or non-retention exemption to enable freeing elements, the list, or its
+backing storage. Audit callbacks that capture the list and may grow or mutate it;
+document mutation restrictions without adding runtime misuse tracking, and
+preserve mandatory rejection of unsafe reclamation. Scratch storage remains a
+separate implementation-owned object.
+
+Port in-place list sorts to the list method. For `stream().sorted().toList()`,
+materialize the selected elements once into a destination list, sort that list,
+and apply B1's snapshot/read-only boundary where required. Preserve the original
+source collection and encounter order before sorting. The destination allocation
+required by a non-mutating operation is distinct from an avoidable array adapter.
 
 Replace `TreeMap`/`TreeSet` only where a hash/linked collection followed by a
 sorted key snapshot matches the actual algorithm. Queries requiring ordered
@@ -322,16 +358,25 @@ tie-breakers used for deterministic compiler output.
 ### Verification and exit gate
 
 Cover non-Comparable objects, comparator supertypes, duplicate-key stability,
-empty/singleton arrays, subranges, reverse/random/already-sorted inputs, null
-handling, and comparator exceptions. Keep existing natural-order overload tests.
-Use differential tests against Java for admitted Java-compatible operations.
+empty/singleton lists, reverse/random/already-sorted inputs, explicit
+null-comparator failure, and comparator exceptions. Verify size/capacity,
+iterator position, and no-null element contracts. Include lists with excess
+capacity and clear/remove/reuse histories to prove inactive slots are never
+compared or made live. Keep existing array-sort contract tests if its shared
+kernel changes. Use Java differential checks for the non-null comparator cases
+that match Java list sorting; test the distinctly named helper's extra contract
+directly.
 
-Measure comparison counts and time over geometrically increasing sizes, plus
-allocation counts and actual compiler inventories. Demonstrate non-quadratic
-growth on adversarial orderings. Compare generated O3 code for callback dispatch
-and hot loops; use the relevant deterministic benchmark. Primitive sort
-optimization is separate unless profiling identifies it as necessary. Any later
-floating-point sort change must preserve NaN and signed-zero ordering.
+Measure comparison counts, time, scratch allocation, and peak temporary storage
+over geometrically increasing list sizes and actual compiler inventories. The
+completion gate requires non-quadratic growth, at most one bounded scratch
+allocation per nontrivial direct sort, and no list-to-array round trip or
+per-element helper allocation. Exercise representative documentation, trace, and
+semantic ordering consumers, including non-mutating stream replacements.
+Compare generated O3 code for callback dispatch and hot loops; use the relevant
+deterministic benchmark. Primitive list/array sort optimization is separate
+unless profiling identifies a need. Any later floating-point sort change must
+preserve NaN and signed-zero ordering.
 
 ## 6. B3: filesystem operations and publication guarantees
 
@@ -737,7 +782,7 @@ manifest design.
 | 1 | B0 inventory and frozen Java/native comparison fixtures | Current compiler | Required contracts and resource measurements can be reproduced |
 | 2 | ArrayList/BitSet copy slice and private compiler snapshots | 1 | Independent snapshots; safe/unsafe cleanup pairs; allocation-failure cleanup |
 | 3 | Required map/set copies and nested traversal solution | 2 | Identity/value/order preserved; ownership pilot fits its budget |
-| 4 | B2 arbitrary-object stable sorting | 1; B1 where snapshot keys are used | Stable deterministic output and measured scaling |
+| 4 | B2 stable comparator sorting directly on `ArrayList` | 1; B1 where snapshots are used | Non-Comparable compiler lists sort stably with measured scaling and no array round trip |
 | 5 | SHA-256 and B7 reflection/value/text/numeric helpers for selected slices | 1 | Exact ByteView declaration authority by S3; Java baseline remains equivalent; native lexer/parser and analysis pilots pass |
 | 6 | MD5/trace GUID integration and S4 runtime-cache port decision | 1, 5 | Exact GUIDs, native-link hash consumers, and explicit cache omission or verified invalidation |
 | 7 | B3 temporary paths, cleanup, discovery, and publication primitives | 1 | Native failure/resource/publication cases pass on qualified hosts |
@@ -766,7 +811,7 @@ the scope changes:
 | Changed machinery | Existing consumers to protect | Paired evidence |
 | --- | --- | --- |
 | Borrowing/copy/return-origin proofs | Lists/maps, pool release helpers, array detachment, returned library objects | Fresh private storage can be freed; borrowed/published inputs cannot |
-| Comparator dispatch/effects | Generic/interface calls, captured objects, temporary reclamation | Known safe scratch cleanup; retaining/throwing comparator remains conservative |
+| List sorting and comparator dispatch/effects | ArrayList live-slot boundary and loans, reusable iteration, generic/interface calls, captured objects, backing-array reclamation | Inactive slots stay unobserved; safe scratch cleanup; retaining/throwing or list-mutating callbacks do not weaken reclamation proofs |
 | File/process result allocation and errors | Existing IO intrinsics, partial construction, finally/defer | Successful cleanup and failure rollback; no surviving pointer to freed input |
 | New typed IR operations | Dependency scanning, closed-world effects, optimization, emission, artifact reconstruction | Live effects survive transformations; unreachable facilities remain removable |
 | Checksums/codecs | ByteView declaration authority, native runtime-cache keys, trace metadata, TLS inventory, Bridge identity, class/archive loading | Exact known output; changed declarations lose authority; retained caches invalidate on header changes; malformed or mismatched input fails without false success |
