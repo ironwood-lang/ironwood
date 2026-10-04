@@ -633,6 +633,29 @@ no-replace helper must use a supported host operation or fail explicitly when
 the required guarantee cannot be supplied. Treat any existing race fix as its
 own behavior change with focused regression coverage.
 
+Resolve the host primitive before implementing that helper. The glibc 2.17
+baseline excludes a direct call to the `renameat2` libc wrapper, introduced in
+glibc 2.28; the kernel operation dates to Linux 3.15 and its `RENAME_NOREPLACE`
+flag also requires filesystem support. A compatible libc ABI alone does not
+establish kernel/filesystem capability. See the
+[Linux rename contract](https://man7.org/linux/man-pages/man2/rename.2.html).
+
+| Host/path | Candidate and required boundary |
+| --- | --- |
+| Linux atomic no-replace move | Use the raw `renameat2` syscall with `RENAME_NOREPLACE` behind the isolated C runtime boundary, with guarded syscall-number/flag availability for each supported architecture. Distinguish an existing target from unsupported kernel/filesystem behavior and other errors; never fall back to check-then-rename. |
+| Linux file-publication alternative | For a completed regular file on the same filesystem, `link` followed by `unlink` can publish without replacing the target. This is a narrower publication contract, not an atomic move of both names; see the [link contract](https://man7.org/linux/man-pages/man2/link.2.html). |
+| macOS no-replace move | Use `renamex_np` with `RENAME_EXCL`, qualifying the SDK/deployment target and filesystem behavior on the macOS 11.0 baseline. Apple documents [exclusive-renaming support](https://developer.apple.com/documentation/foundation/urlresourcevalues/volumesupportsexclusiverenaming) as a volume capability. |
+
+The link/unlink alternative cannot move directories, so it cannot implement
+Bridge distribution/support directory publication. Those callers need the
+exclusive rename operation or an explicit unsupported-operation failure. For
+file publication, linking commits the destination before source cleanup; if
+unlink then fails, report successful publication with failed source cleanup.
+Do not claim that the move failed without effects or delete the published target
+as an automatic rollback. Review this partial-success contract before exposing
+the fallback through an existing move API. Unsupported hosts must not silently
+weaken no-replace semantics or raise the declared platform baseline.
+
 Keep replacement helpers distinctly named. Java's `ATOMIC_MOVE` does not itself
 promise portable replacement of an existing target on every provider; the
 Ironwood helper must state its supported-host guarantee explicitly. Specify
@@ -709,6 +732,13 @@ parents, cross-filesystem behavior where available, and allocation failure after
 native creation. Verify prior output survives failed Bridge publication. Check
 runtime ABI availability against the glibc 2.17 and macOS 11.0 packaging targets
 in [IDK.md](IDK.md), not only the developer machine's newer OS.
+
+For no-replace publication, test competing file and empty-directory creators,
+existing symlink targets, and unsupported syscall/filesystem paths. If the
+file-only link/unlink path is selected, inject source-unlink failure and verify
+the reported publication state. Inspect Linux symbol versions to ensure no
+`renameat2@GLIBC_2.28` dependency or other baseline violation was introduced;
+qualify runtime capability failures separately from successful baseline linking.
 
 ## 7. B4: a synchronous process facility
 
