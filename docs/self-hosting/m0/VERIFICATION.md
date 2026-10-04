@@ -35,7 +35,7 @@ automatic rebuilds in measured launcher runs. The qualification installation's
 `conf/jvm.options` contains `-Xms256m -Xmx4096m -Xss8m -XX:+UseG1GC`, one option
 per line. The shipped defaults remain untouched. Clear `JAVA_TOOL_OPTIONS`,
 `JDK_JAVA_OPTIONS`, and `_JAVA_OPTIONS` for every qualification command.
-[jvm-effective.txt](jvm-effective.txt) retains settings and final flags; effective
+[jvm-effective.txt.gz](jvm-effective.txt.gz) retains exact raw settings and final flags; effective
 heap and thread stack match 4 GiB and 8192 KiB. OS main-thread stack is 8176 KiB.
 
 Measurement contract, fixed before measurements and native evaluation:
@@ -124,3 +124,9 @@ diagnostic-free build result.
 The heap/frame sampler's own allocations and frame-snapshot work can affect
 measurements. M0.3 must report sampling-on/off wall/RSS comparisons and sampled
 versus unsampled limitations, rather than claiming instrumentation is free.
+
+Raw JVM settings contain trailing spaces. Preserve the original bytes in
+deterministic gzip rather than trimming the baseline; [jvm-effective.json](jvm-effective.json)
+records their uncompressed SHA-256 and command. Read with
+`gzip -dc docs/self-hosting/m0/jvm-effective.txt.gz`. Diff verification includes
+the working tree, staged additions and the complete task diff from `6bde84df`.

@@ -3,6 +3,7 @@
 """Build a source-only, immutable-input J0 installation, outside measured runs."""
 import argparse
 import hashlib
+import gzip
 import json
 import os
 from pathlib import Path
@@ -85,7 +86,12 @@ def main():
                 'limits': run(['/bin/zsh', '-c', 'ulimit -a'])}
     args.report.parent.mkdir(parents=True, exist_ok=True)
     args.report.write_text(json.dumps(identity, indent=2, sort_keys=True) + '\n')
-    args.report.with_name('jvm-effective.txt').write_text(settings)
+    settings_bytes = settings.encode()
+    args.report.with_name('jvm-effective.txt.gz').write_bytes(gzip.compress(settings_bytes, mtime=0))
+    args.report.with_name('jvm-effective.json').write_text(json.dumps({
+        'uncompressed_sha256': hashlib.sha256(settings_bytes).hexdigest(),
+        'command': [str(args.jdk / 'bin/java'), *PROFILE, '-XshowSettings:all', '-XX:+PrintFlagsFinal', '-version']
+    }, indent=2) + '\n')
     args.report.with_name('seed-build.txt').write_text(build_log or 'javac and jar exited 0, no diagnostics\n')
     print(version, end='')
     print('seed SHA-256:', identity['seed_jar_sha256'])
