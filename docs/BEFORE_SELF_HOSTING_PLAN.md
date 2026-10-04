@@ -225,6 +225,8 @@ variant/field treatments. Six later-only AST helper declarations and source
 acquisition/rendering remain explicitly outside M2.1 construction. This fixes
 the frontend prerequisite boundary; the ownership pilot and global inventory
 still precede S0 closure.
+Model raw TSV outputs are retained in gzip with exact-byte hashes, including
+empty trailing fields; the complete task diff passes whitespace verification.
 Next action: finish reviewed call and transitive ordering contracts, name the
 closed native pilot dependencies/workloads, and derive resource budgets before
 native pilot evaluation.

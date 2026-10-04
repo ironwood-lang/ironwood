@@ -56,9 +56,11 @@ def main():
     records, outputs = [], []
     for index, command in enumerate(commands):
         process = subprocess.run(command, cwd=ROOT, env=env, capture_output=True)
-        (args.output / (str(index) + '.stdout.txt')).write_bytes(process.stdout)
+        (args.output / (str(index) + '.stdout.txt.gz')).write_bytes(gzip.compress(process.stdout, mtime=0))
         (args.output / (str(index) + '.stderr.txt')).write_bytes(process.stderr)
-        records.append({'argv': command, 'returncode': process.returncode})
+        records.append({'argv': command, 'returncode': process.returncode,
+                        'stdout_bytes': len(process.stdout), 'stdout_sha256': hashlib.sha256(process.stdout).hexdigest(),
+                        'stderr_bytes': len(process.stderr), 'stderr_sha256': hashlib.sha256(process.stderr).hexdigest()})
         if process.returncode: raise ValueError('model discovery failed')
         if index: outputs.append(process.stdout)
     if len(set(outputs)) != 1: raise ValueError('model discovery differs across JVMs')

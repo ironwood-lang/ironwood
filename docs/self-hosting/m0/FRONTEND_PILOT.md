@@ -78,7 +78,9 @@ structural fallback. Native record hashing/equality is required where lookup or
 convergence observes it, rather than equating objects by rendered output.
 
 The [model qualification](model-probe/qualification.json) preserves two matching
-fresh original-J0 discoveries and raw commands/logs. The verifier rejects an
+fresh original-J0 discoveries and raw commands/logs. Raw TSV stdout is gzip
+retained with byte counts and SHA-256, preserving empty final fields exactly
+without introducing trailing whitespace in tracked text. The verifier rejects an
 added untreated variant, a removed treatment, and omitted record fields. The
 same model must gate native handlers before M2 equivalence; this Java check does
 not establish native dispatch or exercise every constructor. The expanded

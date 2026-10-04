@@ -673,3 +673,10 @@ Every reached production method owner must have a treatment; an explicit missing
 DocumentationComment control is rejected. Two corrected fresh model JVMs match.
 The preceding 118-declaration capture is retained in ignored scratch storage;
 current public qualification and the source closure use the corrected schema.
+
+Raw model stdout now uses exact-byte gzip storage with byte counts/SHA-256 in
+qualification.json, including the empty final TSV field of helper classes.
+Decompression matches every byte of the preceding capture. A fresh two-process
+requalification passes; no output field was stripped or rewritten. Complete
+`git diff 6bde84df320e9dbc32977a2b665d214ac09bc2d4 --check` and staged diff check
+pass, preventing newly retained raw evidence from bypassing whitespace checks.
