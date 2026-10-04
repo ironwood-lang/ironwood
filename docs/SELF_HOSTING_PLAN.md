@@ -180,7 +180,7 @@ counts exclude comments, literals, and generated Java text:
 | `yield` | 19 statements in semantic, IR, documentation, and Bridge code | Retain in non-pattern switch expressions, preserving result and cleanup behavior; move the result logic when an enclosing pattern switch is rewritten. |
 | `case null` | No executable arms in the audited compiler; occurrences are diagnostic text | Supported for enum and String selectors, including `case null, default`; no feature addition is needed. |
 | Labeled statements and transfers | None used in the audited compiler | Already supported; no migration work is required for this construct. |
-| String `switch` | `DocComment` rendering/entities and Bridge exception-source generators | Retain constant labels, arrow rules, and switch expressions. |
+| String `switch` | `DocComment` rendering/entities, Bridge exception-source generators, and name-based switches throughout semantic analysis and the CLI | Retain constant labels, arrow rules, and switch expressions. |
 
 These are implemented [object-model](LANGUAGE_SPECS.md#classes-interfaces-objects-and-references),
 [control-flow](LANGUAGE_SPECS.md#statements-and-control-flow), and
