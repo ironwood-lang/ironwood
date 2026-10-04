@@ -235,6 +235,18 @@ captured rows. Ninety-six fresh ordered-seed resource runs and a 47-check
 original value/branch probe pass; general event prefixes, competing pool
 conflicts and later retained-child consumers remain explicitly gated. Numerical
 budgets, complete classifications and final pilot model checks still precede S0.
+Independent scoped review of `729b726e` confirmed the four 47-check probe outputs,
+all 2,964 archive members, 96 final resource runs and every projected proof field
+across explanation modes. License and complete-task whitespace checks passed;
+that acceptance does not close M0.
+The [loop/cycle reference](self-hosting/m0/LOOP_CYCLE_REFERENCE.md) adds source
+loops at depths 16/64/128, all four loop forms, and mandatory unsafe array-loop
+rejection in every unfreed mode. Forty final canonical captures and eighty final
+cyclic-effect processes agree across original and ordered seeds. Four focused
+native loop programs exit zero. Deliberate changed-effect/missing-repeat controls
+fail qualification. Isolated resource replays replace provisional overlapped
+timings for budget selection, retaining every predecessor. Native pilot input
+model treatment and global dependency classifications remain open.
 Next action: finish reviewed call and transitive ordering contracts, name the
 closed native pilot dependencies/workloads, and derive resource budgets before
 native pilot evaluation.

@@ -76,6 +76,31 @@ def corpus(revision):
     result['CapturedAliasesUnsafe'] = {'data': data.replace(b'// free captured;', b'free captured;'),
                                       'family': 'paired unsafe retained source capture', 'size': 1, 'accepted': False,
                                       'derived_from': 'CapturedAliases', 'change': 'activate the documented rejected free'}
+    for size in (16, 64, 128):
+        name = 'Loops' + str(size)
+        lines = [HEADER.rstrip(), '', '// Geometric source-loop depth; every loop executes once. Exit zero.',
+                 'class ' + name + ' {', '    public static int main(String[] args) {', '        int result = 0;']
+        lines += ['        ' + '    ' * i + 'for (int index' + str(i) + ' = 0; index' + str(i)
+                  + ' < 1; index' + str(i) + '++) {' for i in range(size)]
+        lines += ['        ' + '    ' * size + 'result++;']
+        lines += ['        ' + '    ' * i + '}' for i in reversed(range(size))]
+        lines += ['        return result == 1 ? 0 : 1;', '    }', '}']
+        result[name] = {'data': ('\n'.join(lines) + '\n').encode(), 'family': 'source loop-control depth', 'size': size, 'accepted': True}
+    result['LoopForms'] = {'data': (HEADER + '''// All four source loop forms; the primitive array is reclaimed after iteration. Exit zero.
+class LoopForms {
+    public static int main(String[] args) {
+        int total = 0;
+        for (int index = 0; index < 2; index++) { total += index; }
+        int remaining = 2;
+        while (remaining > 0) { total += remaining; remaining--; }
+        do { total++; } while (false);
+        int[] values = new int[] {1, 2};
+        for (int value : values) { total += value; }
+        free values;
+        return total == 8 ? 0 : 1;
+    }
+}
+''').encode(), 'family': 'four source loop forms and safe array cleanup', 'size': 1, 'accepted': True}
     return result
 
 
@@ -95,7 +120,7 @@ def main():
     parser.add_argument('--identity', type=Path, default=ROOT / 'docs/self-hosting/m0/qualified/identity.json')
     parser.add_argument('--baseline-label', default='original-J0')
     parser.add_argument('--workload', action='append', help='exact workload name; may repeat')
-    parser.add_argument('--all', action='store_true', help='all 17 focused resource workloads, not the compiler test suite')
+    parser.add_argument('--all', action='store_true', help='all explicitly enumerated focused resource workloads, not the compiler test suite')
     parser.add_argument('--repeat', type=int, default=2)
     args = parser.parse_args()
     if (not args.workload and not args.all) or (args.workload and args.all) or args.repeat < 1:
@@ -159,7 +184,7 @@ def main():
     configurations += [('complete', sample, False, False) for sample in (False, True)]
     for name in selected:
         configs = list(configurations)
-        if name in ('BranchJoin', 'SlotOrder', 'Ownership128', 'CapturedAliasesUnsafe'):
+        if name in ('BranchJoin', 'SlotOrder', 'Ownership128', 'CapturedAliasesUnsafe', 'Loops128'):
             configs += [('complete', sample, True, True) for sample in (False, True)]
         for stage, sample, observe, explain in configs:
             for repetition in range(args.repeat):

@@ -39,7 +39,7 @@ def qualify(out):
     expected = {(kernel, size, width, sampled, observed, repeat)
                 for kernel, size, width in report['cases']
                 for sampled in (False, True)
-                for observed in ((False, True) if kernel in ('effect', 'ownership') else (False,))
+                for observed in ((False, True) if kernel in ('effect', 'effect-cycle', 'ownership') else (False,))
                 for repeat in range(report['repeat'])}
     actual = set()
     results = {}
@@ -65,7 +65,7 @@ def qualify(out):
                 raise ValueError('sampling missed measured operation')
         elif any(metrics[name] != 0 for name in sampled_names):
             raise ValueError('unsampled values must be unmeasured sentinels')
-        expected_rounds = run['size'] + 1 if run['kernel'] == 'effect' and run['observed'] else 0
+        expected_rounds = run['size'] + 1 if run['kernel'] in ('effect', 'effect-cycle') and run['observed'] else 0
         if metrics['observerRounds'] != expected_rounds:
             raise ValueError('retained observer round mismatch')
         group = key[:3] + ((run['observed'],) if run['kernel'] == 'ownership' else ())
@@ -116,7 +116,7 @@ def main():
     parser.add_argument('--baseline-label', default='J0-D247')
     parser.add_argument('--repeat', type=int, default=2)
     parser.add_argument('--qualify-only', action='store_true')
-    parser.add_argument('--kernel-set', choices=('evidence-effect', 'ownership'), default='evidence-effect')
+    parser.add_argument('--kernel-set', choices=('evidence-effect', 'effect-cycle', 'ownership'), default='evidence-effect')
     args = parser.parse_args()
     out = args.output.resolve()
     if args.qualify_only:
@@ -157,6 +157,9 @@ def main():
     cases += [('effect', 16, width) for width in (8, 257)]
     if args.kernel_set == 'ownership':
         cases = [('ownership', size, shape) for size in (8, 32, 128) for shape in (1, 2, 3, 4)]
+    elif args.kernel_set == 'effect-cycle':
+        cases = [('effect-cycle', size, 65) for size in (8, 32, 128)]
+        cases += [('effect-cycle', 16, width) for width in (8, 257)]
     report = {'schema': 1, 'baseline_label': args.baseline_label, 'revision': identity['revision'],
               'seed_sha256': identity['seed_jar_sha256'], 'identity_sha256': sha(raw_identity),
               'profile': identity['profile'], 'hardware': identity['hardware'], 'platform': identity['platform'],
@@ -170,7 +173,7 @@ def main():
     if process.returncode:
         raise ValueError('adapter compilation failed; diagnostics retained')
     for kernel, size, width in cases:
-        for observed in ((False, True) if kernel in ('effect', 'ownership') else (False,)):
+        for observed in ((False, True) if kernel in ('effect', 'effect-cycle', 'ownership') else (False,)):
             for sampled in (False, True):
                 for repeat in range(args.repeat):
                     label = f'{kernel}-{size}-{width}-observer{int(observed)}-sample{int(sampled)}-r{repeat}'

@@ -33,6 +33,15 @@ def load(path, name):
 def cases(revision):
     module = load(ROOT / 'scripts/self-hosting/measure-resources.py', 'resource_corpus')
     result = module.corpus(revision)
+    loop = result['LoopForms']['data']
+    assert loop.count(b'for (int value : values) { total += value; }') == 1
+    unsafe_loop = loop.replace(b'for (int value : values) { total += value; }',
+            b'for (int value : values) { free values; total += value; }')
+    unsafe_loop = unsafe_loop.replace(b'// All four source loop forms; the primitive array is reclaimed after iteration. Exit zero.',
+            b'// Reclamation during enhanced array iteration must be rejected before native execution.')
+    result['LoopFormsUnsafe'] = {'data': unsafe_loop,
+        'family': 'nearby unsafe reclamation during enhanced array iteration', 'accepted': False,
+        'derived_from': 'LoopForms', 'change': 'free the array before the enhanced loop has finished reading it'}
     examples = {'TextBlocks': 'textblocks', 'ClassicSwitch': 'classicswitch',
                 'ModernSwitch': 'modernswitch', 'InstanceOfPatterns': 'instanceofpatterns',
                 'MultidimensionalArrays': 'multidimensionalarrays', 'DeterministicResources': 'resources'}
@@ -135,7 +144,7 @@ def main():
     parser.add_argument('--identity', type=Path, default=ROOT / 'docs/self-hosting/m0/ordered/qualified-identity.json')
     parser.add_argument('--baseline-label', default='J0-D247')
     parser.add_argument('--repeat', type=int, default=2)
-    parser.add_argument('--all', action='store_true', help='all 31 explicitly enumerated canonical workloads, not a compiler suite')
+    parser.add_argument('--all', action='store_true', help='all explicitly enumerated canonical workloads, not a compiler suite')
     parser.add_argument('--workload', action='append')
     parser.add_argument('--qualify-only', action='store_true')
     parser.add_argument('--materialize', nargs=2, metavar=('LABEL', 'DESTINATION'))

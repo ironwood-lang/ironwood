@@ -91,7 +91,7 @@ public final class KernelCapture {
         private final int width;
         private final Counter observer;
         private ClosedWorldEffectAnalyzer analyzer;
-        EffectWork(int count, int width, boolean observed) {
+        EffectWork(int count, int width, boolean observed, boolean cyclic) {
             this.width = width;
             observer = observed ? new Counter() : null;
             List<IrParameter> parameters = new ArrayList<>();
@@ -106,8 +106,12 @@ public final class KernelCapture {
                 IrInstruction call = i + 1 == count
                         ? new IrForeignCallInstruction(Optional.of(result), "ironwood_bridge_callback_effect", REF, arguments, SPAN)
                         : new IrCallInstruction(Optional.of(result), "F" + (i + 1), REF, arguments, SPAN);
+                // The foreign seed feeds a real call cycle; every parameter escapes around it.
+                List<IrInstruction> calls = cyclic && i + 1 == count
+                        ? List.of(call, new IrCallInstruction(Optional.empty(), "F0", REF, arguments, SPAN))
+                        : List.of(call);
                 functions.add(new IrFunction("Node", "F" + i, "F" + i, REF, parameters,
-                        List.of(new IrBasicBlock("entry", List.of(call),
+                        List.of(new IrBasicBlock("entry", calls,
                                 new IrReturnTerminator(Optional.of(result), SPAN), SPAN)), SPAN));
             }
         }
@@ -165,8 +169,8 @@ public final class KernelCapture {
         private long heapAtStart;
     }
     public static void main(String[] args) throws Exception {
-        if (args.length != 6) throw new IllegalArgumentException("evidence|effect|ownership size width-or-shape sample-on|sample-off observer-on|observer-off|explain-on|explain-off output");
-        require(List.of("evidence", "effect", "ownership").contains(args[0]));
+        if (args.length != 6) throw new IllegalArgumentException("evidence|effect|effect-cycle|ownership size width-or-shape sample-on|sample-off observer-on|observer-off|explain-on|explain-off output");
+        require(List.of("evidence", "effect", "effect-cycle", "ownership").contains(args[0]));
         require(List.of("sample-on", "sample-off").contains(args[3]));
         require((args[0].equals("ownership") ? List.of("explain-on", "explain-off") : List.of("observer-on", "observer-off")).contains(args[4]));
         int size = Integer.parseInt(args[1]);
@@ -179,7 +183,7 @@ public final class KernelCapture {
         Files.createDirectories(output);
         long constructionStart = System.nanoTime();
         Work work = args[0].equals("evidence") ? new EvidenceWork(size)
-                : args[0].equals("effect") ? new EffectWork(size, width, observed)
+                : args[0].startsWith("effect") ? new EffectWork(size, width, observed, args[0].equals("effect-cycle"))
                 : new OwnershipWork(size, width, observed);
         long constructionNanos = System.nanoTime() - constructionStart;
         State state = new State();

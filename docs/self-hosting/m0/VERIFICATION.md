@@ -711,3 +711,41 @@ verification passes. Java 21 release/Xlint/Werror, licenses, staged and complete
 task diff checks pass. No native pilot or production source is changed in this
 increment. M0/S0 remain open for global classifications, final selected model
 coverage and numerical budgets.
+
+## Source-loop and cyclic-effect reference
+
+[LOOP_CYCLE_REFERENCE.md](LOOP_CYCLE_REFERENCE.md) records nested source loops,
+all four loop forms and the specific rejected enhanced-array alias. Four native
+programs compile/link at O3 with unfreed error and exit zero. The final unsafe
+source rejects under off/warn/error. Each seed freezes twenty final canonical
+captures with exact repeat/configuration bytes, and all cross-seed pairs agree.
+Forty preceding captures retain the earlier inaccurate unsafe-program comment;
+the final source explicitly describes expected rejection.
+
+The actual effect analyzer also qualifies call cycles at 8/32/128 functions and
+cross-word parameter widths. Forty fresh processes per seed agree on every
+effect field across repeats, observation and sampling. Observer round counts
+equal function count plus one. Controls update a changed result's byte hash to
+prove exact semantic parity rejection, and separately remove a repeat. Two
+development checker key errors are described with reconstructed source, clearly
+distinguished from retained raw process logs.
+
+The initial timing sets overlapped capture/review activity and remain provisional.
+Final loop and cyclic resource references replay serially in isolation. Raw
+timings, commands, source versions and qualification outputs remain separate.
+No native compiler implementation or numerical budget is evaluated here.
+M0.2/M0.3/S0 remain open for the finite operation model, global classifications
+and budgets. The independent scoped ownership review of 729b726e accepted its
+47-check probe, 2,964 archive members, 96 final runs and full proof-field parity,
+along with licenses and complete-task whitespace checks.
+
+The final 2,393-file loop-cycle archive passes independent member byte/hash
+verification. Isolated loop frontend/complete maxima are 0.428837/2.913859 seconds,
+268238848/714063872 RSS bytes and 49131664/338988192 sampled used-heap bytes.
+Complete source-loop frames hit the 1,024 cap. Original/ordered cyclic maxima
+are 0.176272/0.223643 seconds and 258473984/261570560 RSS bytes. Gap and
+sampling-ratio limits remain recorded in the linked reference and raw reports.
+All three final unsafe CLI checks require the intended still-observable enhanced
+source alias, rather than accepting an unrelated compilation rejection.
+Java 21 release/Xlint/Werror compilation, focused native execution, license
+audit, current/staged/complete-task whitespace and written-text rules pass.

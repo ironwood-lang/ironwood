@@ -54,7 +54,7 @@ def main():
         groups[key].append(run)
     expected_groups = {(name, stage, False, False) for name in report['selected'] for stage in ('frontend', 'complete')}
     expected_groups |= {(name, 'complete', True, True) for name in report['selected']
-                        if name in ('BranchJoin', 'SlotOrder', 'Ownership128', 'CapturedAliasesUnsafe')}
+                        if name in ('BranchJoin', 'SlotOrder', 'Ownership128', 'CapturedAliasesUnsafe', 'Loops128')}
     assert set(groups) == expected_groups
     qualifications = []
     for key, runs in groups.items():
