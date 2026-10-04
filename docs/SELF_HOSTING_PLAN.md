@@ -169,6 +169,23 @@ plugin can remain Java without making the native compiler Java-hosted.
 Ironwood already supports many constructs that should be retained: nominal
 `instanceof` patterns, generic bounds/wildcards and inference, inner/local and
 anonymous classes, enum switches, non-pattern switch expressions, and text blocks.
+
+The production-source audit also identifies the following supported idioms;
+counts exclude comments, literals, and generated Java text:
+
+| Supported construct | Compiler evidence | Porting treatment |
+| --- | --- | --- |
+| Multi-catch | 10 clauses, including driver errors and reflective traversal failures | Retain the syntax and catch ordering for surviving exception types; reflection removal changes those consumers separately. |
+| Interface default methods | Seven methods in `InvocationPlanningContext` and `AnonymousParentBinder.PrimaryPlanningContext` | Retain default implementations and normal interface resolution. |
+| `yield` | 19 statements in semantic, IR, documentation, and Bridge code | Retain in non-pattern switch expressions, preserving result and cleanup behavior; move the result logic when an enclosing pattern switch is rewritten. |
+| `case null` | No executable arms in the audited compiler; occurrences are diagnostic text | Supported for enum and String selectors, including `case null, default`; no feature addition is needed. |
+| Labeled statements and transfers | None used in the audited compiler | Already supported; no migration work is required for this construct. |
+| String `switch` | `DocComment` rendering/entities and Bridge exception-source generators | Retain constant labels, arrow rules, and switch expressions. |
+
+These are implemented [object-model](LANGUAGE_SPECS.md#classes-interfaces-objects-and-references),
+[control-flow](LANGUAGE_SPECS.md#statements-and-control-flow), and
+[exception](LANGUAGE_SPECS.md#exceptions-cleanup-and-allocation-failure) features. Among the switch forms used
+by this compiler, only pattern dispatch requires a syntax rewrite.
 There is no reason to wait for records, sealed types, lambdas, reflection, GC,
 or the Java Collections Framework. Several are permanent non-goals in
 [`LANGUAGE_SPECS.md`](LANGUAGE_SPECS.md#permanent-non-goals).
