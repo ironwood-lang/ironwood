@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parents[2]
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', type=Path, required=True)
-    parser.add_argument('--probe', choices=('evidence', 'ast', 'effect', 'diagnostic', 'unfreed'), default='evidence')
+    parser.add_argument('--probe', choices=('evidence', 'ast', 'effect', 'diagnostic', 'unfreed', 'ownership'), default='evidence')
     args = parser.parse_args()
     if args.output.exists():
         raise ValueError('qualification destination already exists')
@@ -49,17 +49,25 @@ def main():
         main_class = 'ironwood.compiler.diagnostic.' + probe
         cases = 'independent immutable notes; source identity and span value; global-note discard after validation; constructor exception order; sequential first-error short circuit'
         limits = 'no formatter, resource measurement, complete source-diagnostic corpus or native implementation'
-    else:
+    elif args.probe == 'unfreed':
         probe = 'UnfreedContractProbe'
         main_class = 'ironwood.compiler.semantic.' + probe
         cases = '8/32/128 collision keys; reversed registration, predecessor and snapshot membership; immutable copies, intersection, ordered immediate predicate calls, mode severities, first registration/name and suppression before span deduplication'
         limits = 'no mandatory free-proof analysis, upstream caller event ordering, resource or native retirement qualification; OFF tracker behavior is direct helper behavior, production omits the tracker in OFF'
+    else:
+        probe = 'OwnershipContractProbe'
+        main_class = 'ironwood.compiler.semantic.' + probe
+        cases = 'all seven private snapshot copies; null source/key/value/member rejection; immutable independent membership; identity allocation keys, structural state and composite slot equality; shared immutable retained child sets; equal distinct unchanged state values from real before/changed branch snapshots, and distinct equal reason Strings'
+        limits = 'original private record and bounded actual branch operation contracts; array-slot encounter order has a separate D247 ordered seed qualification; no complete source free-proof analysis, resource or native lifetime result'
     classes = ROOT / ('target/self-hosting-m0/' + args.probe + '-probe-classes')
     classes.mkdir(parents=True, exist_ok=True)
     source = ROOT / ('scripts/self-hosting/' + probe + '.java')
     (args.output / 'probe-source.java.gz').write_bytes(gzip.compress(source.read_bytes(), mtime=0))
+    helper_sources = [ROOT / ('scripts/self-hosting/' + name) for name in ('KernelCapture.java', 'OwnershipWork.java')] if args.probe == 'ownership' else []
+    for helper in helper_sources:
+        (args.output / (helper.name + '.gz')).write_bytes(gzip.compress(helper.read_bytes(), mtime=0))
     commands = [[str(jdk / 'bin/javac'), '--release', '21', '-Xlint:all', '-Werror', '-cp', str(jar),
-                 '-d', str(classes), str(source)]]
+                 '-d', str(classes), str(source), *map(str, helper_sources)]]
     commands += [[str(jdk / 'bin/java'), *identity['profile'], '-cp', str(classes) + ':' + str(jar),
                   main_class] for _ in range(4)]
     records, outputs = [], []
@@ -74,6 +82,7 @@ def main():
             break
     report = {'schema': 1, 'J0_revision': identity['revision'], 'J0_seed_sha256': identity['seed_jar_sha256'],
               'profile': identity['profile'], 'probe_sha256': hashlib.sha256(source.read_bytes()).hexdigest(),
+              'helper_source_sha256': {path.name: hashlib.sha256(path.read_bytes()).hexdigest() for path in helper_sources},
               'cases': cases, 'limits': limits,
               'commands': records}
     (args.output / 'qualification.json').write_text(json.dumps(report, indent=2) + '\n')

@@ -39,7 +39,7 @@ def qualify(out):
     expected = {(kernel, size, width, sampled, observed, repeat)
                 for kernel, size, width in report['cases']
                 for sampled in (False, True)
-                for observed in ((False, True) if kernel == 'effect' else (False,))
+                for observed in ((False, True) if kernel in ('effect', 'ownership') else (False,))
                 for repeat in range(report['repeat'])}
     actual = set()
     results = {}
@@ -65,10 +65,10 @@ def qualify(out):
                 raise ValueError('sampling missed measured operation')
         elif any(metrics[name] != 0 for name in sampled_names):
             raise ValueError('unsampled values must be unmeasured sentinels')
-        expected_rounds = run['size'] + 1 if run['observed'] else 0
+        expected_rounds = run['size'] + 1 if run['kernel'] == 'effect' and run['observed'] else 0
         if metrics['observerRounds'] != expected_rounds:
             raise ValueError('retained observer round mismatch')
-        group = key[:3]
+        group = key[:3] + ((run['observed'],) if run['kernel'] == 'ownership' else ())
         digest = run['artifact_sha256']['result.txt']
         if results.setdefault(group, digest) != digest:
             raise ValueError('exact result changed with repetition, sampling or observer')
@@ -77,6 +77,12 @@ def qualify(out):
             if result['finalBudgetLive'] != 0 or result['exactIntersections'] != 64 \
                     or result['associations'] != 64 * 2 * run['size'] * 6:
                 raise ValueError('snapshot result/retirement mismatch')
+        if run['kernel'] == 'ownership':
+            result = dict(line.split('=', 1) for line in (directory / 'result.txt').read_text().splitlines())
+            if int(result['finalBudgetLive']) != 0 or int(result['iterations']) != 64 or int(result['versions']) != 128 \
+                    or int(result['retainedVersionEntries']) != 64 * (8 * run['size'] + 3) \
+                    or (result['explain'] == 'true') != run['observed']:
+                raise ValueError('real proof snapshot result/retirement mismatch')
         times.setdefault(key[:5], []).append(run['fresh_process_wall_seconds'])
     if actual != expected:
         raise ValueError('missing selected configurations or repeats')
@@ -95,7 +101,8 @@ def qualify(out):
               'maximum_sample_gap_nanos': max(run['metrics']['maximumSampleGapNanos'] for run in report['runs']),
               'limits': ['fresh-process cost includes setup, checks and serialization',
                          'phase includes the adapter control/check calls, not only seed instructions',
-                         'evidence kernel is optional explanation storage, not ownership proof snapshots',
+                         'evidence kernel is optional explanation storage; ownership kernel calls actual proof snapshot/restore/merge with bounded input roles',
+                         'ownership observed flag means explanation storage enabled, not a retained SemanticAnalysisObserver; counted entries are retained snapshot associations, not allocation events',
                          'heap sampling is used heap, not live-object accounting; stack frames are sampled/capped',
                          'no forced GC, native pilot measurement or budget decision']}
     (out / 'qualification.json').write_text(json.dumps(result, indent=2) + '\n')
@@ -109,6 +116,7 @@ def main():
     parser.add_argument('--baseline-label', default='J0-D247')
     parser.add_argument('--repeat', type=int, default=2)
     parser.add_argument('--qualify-only', action='store_true')
+    parser.add_argument('--kernel-set', choices=('evidence-effect', 'ownership'), default='evidence-effect')
     args = parser.parse_args()
     out = args.output.resolve()
     if args.qualify_only:
@@ -130,6 +138,8 @@ def main():
     tooling = out / 'tooling'; tooling.mkdir()
     source = tooling / 'KernelCapture.java'
     source.write_bytes((ROOT / 'scripts/self-hosting/KernelCapture.java').read_bytes())
+    ownership_source = tooling / 'OwnershipWork.java'
+    ownership_source.write_bytes((ROOT / 'scripts/self-hosting/OwnershipWork.java').read_bytes())
     runner = tooling / 'measure-kernels.py'
     runner.write_bytes(Path(__file__).read_bytes())
     env = dict(os.environ)
@@ -138,18 +148,20 @@ def main():
         env.pop(name, None)
     env['IRONWOOD_STDLIB_HOME'] = str(install)
     javac = [identity['jdk'] + '/bin/javac', '--release', '21', '-encoding', 'UTF-8',
-             '-Xlint:all', '-Werror', '-cp', str(jar), '-d', str(tooling), str(source)]
+             '-Xlint:all', '-Werror', '-cp', str(jar), '-d', str(tooling), str(source), str(ownership_source)]
     process = subprocess.run(javac, cwd=ROOT, env=env, capture_output=True)
     (tooling / 'javac.stdout.txt').write_bytes(process.stdout)
     (tooling / 'javac.stderr.txt').write_bytes(process.stderr)
     cases = [('evidence', size, 1) for size in (8, 32, 128)]
     cases += [('effect', size, 65) for size in (8, 32, 128)]
     cases += [('effect', 16, width) for width in (8, 257)]
+    if args.kernel_set == 'ownership':
+        cases = [('ownership', size, shape) for size in (8, 32, 128) for shape in (1, 2, 3, 4)]
     report = {'schema': 1, 'baseline_label': args.baseline_label, 'revision': identity['revision'],
               'seed_sha256': identity['seed_jar_sha256'], 'identity_sha256': sha(raw_identity),
               'profile': identity['profile'], 'hardware': identity['hardware'], 'platform': identity['platform'],
               'cleared_environment': list(cleared), 'library_home': str(install),
-              'tool_sha256': {path.name: sha(path.read_bytes()) for path in (source, runner)},
+              'tool_sha256': {path.name: sha(path.read_bytes()) for path in (source, ownership_source, runner)},
               'javac': {'argv': javac, 'returncode': process.returncode}, 'cases': cases,
               'repeat': args.repeat, 'runs': []}
     def checkpoint():
@@ -158,7 +170,7 @@ def main():
     if process.returncode:
         raise ValueError('adapter compilation failed; diagnostics retained')
     for kernel, size, width in cases:
-        for observed in ((False, True) if kernel == 'effect' else (False,)):
+        for observed in ((False, True) if kernel in ('effect', 'ownership') else (False,)):
             for sampled in (False, True):
                 for repeat in range(args.repeat):
                     label = f'{kernel}-{size}-{width}-observer{int(observed)}-sample{int(sampled)}-r{repeat}'
@@ -167,7 +179,8 @@ def main():
                             '-cp', str(tooling) + os.pathsep + str(jar),
                             'ironwood.compiler.semantic.KernelCapture', kernel, str(size), str(width),
                             'sample-on' if sampled else 'sample-off',
-                            'observer-on' if observed else 'observer-off', str(destination)]
+                            ('explain-on' if observed else 'explain-off') if kernel == 'ownership'
+                            else ('observer-on' if observed else 'observer-off'), str(destination)]
                     began = time.monotonic()
                     process = subprocess.run(argv, cwd=ROOT, env=env, capture_output=True)
                     wall = time.monotonic() - began

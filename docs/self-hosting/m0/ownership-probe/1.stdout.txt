@@ -1,0 +1,1 @@
+PASS: 47 original ownership snapshot value checks

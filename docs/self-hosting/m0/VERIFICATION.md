@@ -680,3 +680,34 @@ Decompression matches every byte of the preceding capture. A fresh two-process
 requalification passes; no output field was stripped or rewritten. Complete
 `git diff 6bde84df320e9dbc32977a2b665d214ac09bc2d4 --check` and staged diff check
 pass, preventing newly retained raw evidence from bypassing whitespace checks.
+
+## Real ownership snapshot operation boundary and resource reference
+
+[OWNERSHIP_PILOT.md](OWNERSHIP_PILOT.md) fixes the selected actual
+FunctionAnalyzer snapshot/restore/merge roles and all seven populated fields.
+Its source ledger joins 97 conservative methods/528 calls to 67 exact external
+patterns/310 calls, 115 bounded hash-traversal sites and 46 immediate captured
+rows. Selected LOCAL_NEW roles, one pool conflict, empty explicit JoinPaths and
+ample-or-already-stopped invocation budgets avoid unresolved general event-prefix
+and retained-child consumers; their B1/B7 M3.1 before S3 gates remain explicit.
+The source closure includes nonempty-path branches so dependencies stay visible.
+D247 remains a distinct original/ordered source delta, not a relabeled baseline.
+
+The original value/branch probe passes 47 checks in each of four fresh JVMs,
+including all seven copies/null domains, immutable child identity, composite slots,
+reason value equality and distinct unchanged state records from real branches.
+All helper sources/commands/raw logs are retained. The 96 final ordered resource
+runs retain complete per-node before/changed/merged state, reason, detached and
+membership projections, with two repeats across sizes 8/32/128, shapes, explanation
+modes and sampling. Actual operations and reflective/assertion overhead are in
+phase timing; setup and full output projection are separate. Snapshot associations
+and optional units are distinct from physical allocations/bytes. Close ends at
+zero optional units while proof snapshots remain held for comparison.
+
+The 2,964-file raw archive preserves final captures, the earlier local-limit
+setup error and aggregate-only version, negative changed-reason/missing-repeat
+controls and both legacy 52-run qualifier checks. Exact byte/hash archive
+verification passes. Java 21 release/Xlint/Werror, licenses, staged and complete
+task diff checks pass. No native pilot or production source is changed in this
+increment. M0/S0 remain open for global classifications, final selected model
+coverage and numerical budgets.

@@ -30,7 +30,7 @@ public final class KernelCapture {
         @Override public int hashCode() { return 0; }
     }
     private record Slot(Node node, int index) {}
-    private interface Work {
+    interface Work {
         void run();
         String verify();
     }
@@ -165,20 +165,22 @@ public final class KernelCapture {
         private long heapAtStart;
     }
     public static void main(String[] args) throws Exception {
-        if (args.length != 6) throw new IllegalArgumentException("evidence|effect size width sample-on|sample-off observer-on|observer-off output");
-        require(List.of("evidence", "effect").contains(args[0]));
+        if (args.length != 6) throw new IllegalArgumentException("evidence|effect|ownership size width-or-shape sample-on|sample-off observer-on|observer-off|explain-on|explain-off output");
+        require(List.of("evidence", "effect", "ownership").contains(args[0]));
         require(List.of("sample-on", "sample-off").contains(args[3]));
-        require(List.of("observer-on", "observer-off").contains(args[4]));
+        require((args[0].equals("ownership") ? List.of("explain-on", "explain-off") : List.of("observer-on", "observer-off")).contains(args[4]));
         int size = Integer.parseInt(args[1]);
         int width = Integer.parseInt(args[2]);
         require(size >= 2 && size <= 128 && width >= 1 && width <= 257);
         boolean sample = args[3].equals("sample-on");
-        boolean observed = args[4].equals("observer-on");
+        boolean observed = args[4].equals("observer-on") || args[4].equals("explain-on");
         require(!args[0].equals("evidence") || !observed);
         Path output = Path.of(args[5]);
         Files.createDirectories(output);
         long constructionStart = System.nanoTime();
-        Work work = args[0].equals("evidence") ? new EvidenceWork(size) : new EffectWork(size, width, observed);
+        Work work = args[0].equals("evidence") ? new EvidenceWork(size)
+                : args[0].equals("effect") ? new EffectWork(size, width, observed)
+                : new OwnershipWork(size, width, observed);
         long constructionNanos = System.nanoTime() - constructionStart;
         State state = new State();
         CountDownLatch ready = new CountDownLatch(1);

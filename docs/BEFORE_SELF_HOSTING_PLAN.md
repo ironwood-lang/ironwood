@@ -227,6 +227,14 @@ the frontend prerequisite boundary; the ownership pilot and global inventory
 still precede S0 closure.
 Model raw TSV outputs are retained in gzip with exact-byte hashes, including
 empty trailing fields; the complete task diff passes whitespace verification.
+The [bounded ownership pilot](self-hosting/m0/OWNERSHIP_PILOT.md) now invokes
+actual snapshot/restore/merge over all seven fields and records full keyed
+before/changed/merged facts. Its conservative closure maps 97 methods/528 calls
+to 67 exact external contracts, with 115 bounded traversal sites and 46 immediate
+captured rows. Ninety-six fresh ordered-seed resource runs and a 47-check
+original value/branch probe pass; general event prefixes, competing pool
+conflicts and later retained-child consumers remain explicitly gated. Numerical
+budgets, complete classifications and final pilot model checks still precede S0.
 Next action: finish reviewed call and transitive ordering contracts, name the
 closed native pilot dependencies/workloads, and derive resource budgets before
 native pilot evaluation.
