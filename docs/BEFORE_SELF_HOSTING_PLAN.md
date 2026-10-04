@@ -16,8 +16,8 @@ M0-M6 are implementation milestones; their numbered phases are schedulable work
 units. B0-B7 remain stable technical workstreams, and S0-S8 remain the migration
 stages defined by the self-hosting plan. The existing increment numbers and G1
 are retained in the [implementation map](#suggested-implementation-increments).
-All milestones and phases below are **not started**; checklists describe future
-evidence, not completed implementation.
+The execution status below is maintained separately from the original audit
+baseline. Checked phases link to durable evidence; unchecked phases remain work.
 
 ## 1. Recommendation and scope
 
@@ -79,7 +79,7 @@ roadmap schedules them without replacing their detailed exit criteria.
 
 | Milestone | Purpose and workstreams | Entry dependency | Checkpoint and migration handoff | Status |
 | --- | --- | --- | --- | --- |
-| [M0](#m0-baseline-and-contract-inventory) | Freeze the baseline and evidence contract: B0a | Current Java compiler and source audit | S0 baseline, ordering inventory, fixtures, budgets, and selected pilot scope recorded | Not started |
+| [M0](#m0-baseline-and-contract-inventory) | Freeze the baseline and evidence contract: B0a | Current Java compiler and source audit | S0 baseline, ordering inventory, fixtures, budgets, and selected pilot scope recorded | In progress: M0.1 passed; inventory and comparison/resource gate next |
 | [M1](#m1-minimum-pilot-prerequisites) | Build the minimum pilot dependencies: selected B1/B2/B7 slices | M0 | Required copies, traversal, ordering, and syntax/helpers have focused evidence | Not started |
 | [M2](#m2-portability-and-ownership-pilot) | Run B0b's frontend and ownership pilots | Required M1 phases | G1, the existing S1 gate, passes before broad translation | Not started |
 | [M3](#m3-semantic-and-backend-preparation) | Complete core B1/B2/B7 helpers and early B5 digests | M2 for broad port work; reuse M1 outputs | Staged readiness for S2, S3 with ByteView SHA-256, and S4 with MD5/native-link policy | Not started |
@@ -114,7 +114,7 @@ or displace the feasibility pilot.
 [B0a](#b0a-inventory-and-java-baseline) and
 [S0](SELF_HOSTING_PLAN.md#s0-establish-the-baseline-and-comparison-harness).
 
-- [ ] **M0.1: Freeze reproducibility.** Record J0/JDK, library/runtime and LLVM
+- [x] **M0.1: Freeze reproducibility.** Record J0/JDK, library/runtime and LLVM
   identities, launcher `-Xmx`/`-Xss`, effective environment/settings, hosts,
   source hashes, and exact commands. Define the memory, stack, and time
   measurement procedure and supported development-machine profiles.
@@ -133,6 +133,12 @@ or displace the feasibility pilot.
 enumerated, and relevant ordering decisions and budgets are recorded. Unresolved
 contracts block their dependent phase; a count of Java imports is insufficient.
 This is S0's baseline checkpoint, not a second definition of S0.
+
+Evidence: [M0 qualification record](self-hosting/m0/VERIFICATION.md), including
+the original J0 input manifest, effective numeric JVM profile and measurement
+procedure. M0.1 passed on macOS arm64; M0.2/M0.3 and S0 remain in progress.
+Next action: complete attributed call and transitive ordering inventories, then
+freeze comparison/resource fixtures and derive budgets before native evaluation.
 
 ### M1. Minimum pilot prerequisites
 

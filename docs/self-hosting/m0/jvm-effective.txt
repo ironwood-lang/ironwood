@@ -1,0 +1,722 @@
+[Global flags]
+      int ActiveProcessorCount                     = -1                                        {product} {default}
+    uintx AdaptiveSizeDecrementScaleFactor         = 4                                         {product} {default}
+    uintx AdaptiveSizeMajorGCDecayTimeScale        = 10                                        {product} {default}
+    uintx AdaptiveSizePolicyCollectionCostMargin   = 50                                        {product} {default}
+    uintx AdaptiveSizePolicyInitializingSteps      = 20                                        {product} {default}
+    uintx AdaptiveSizePolicyOutputInterval         = 0                                         {product} {default}
+    uintx AdaptiveSizePolicyWeight                 = 10                                        {product} {default}
+    uintx AdaptiveSizeThroughPutPolicy             = 0                                         {product} {default}
+    uintx AdaptiveTimeWeight                       = 25                                        {product} {default}
+     bool AggressiveHeap                           = false                                     {product} {default}
+     bool AlignVector                              = false                                  {C2 product} {default}
+    ccstr AllocateHeapAt                           =                                           {product} {default}
+     intx AllocateInstancePrefetchLines            = 1                                         {product} {default}
+     intx AllocatePrefetchDistance                 = 384                                       {product} {default}
+     intx AllocatePrefetchInstr                    = 0                                         {product} {default}
+     intx AllocatePrefetchLines                    = 3                                         {product} {default}
+     intx AllocatePrefetchStepSize                 = 128                                       {product} {default}
+     intx AllocatePrefetchStyle                    = 1                                         {product} {default}
+     bool AllowParallelDefineClass                 = false                                     {product} {default}
+     bool AllowRedefinitionToAddDeleteMethods      = false                                     {product} {default}
+     bool AllowUserSignalHandlers                  = false                                     {product} {default}
+     bool AllowVectorizeOnDemand                   = true                                   {C2 product} {default}
+     bool AlwaysActAsServerClassMachine            = false                                     {product} {default}
+     bool AlwaysCompileLoopMethods                 = false                                     {product} {default}
+     bool AlwaysPreTouch                           = false                                     {product} {default}
+     bool AlwaysRestoreFPU                         = false                                     {product} {default}
+     bool AlwaysTenure                             = false                                     {product} {default}
+    ccstr ArchiveClassesAtExit                     =                                     {JVMCI product} {default}
+     intx ArrayCopyLoadStoreMaxElem                = 8                                         {product} {default}
+   size_t AsyncLogBufferSize                       = 2097152                                   {product} {default}
+     intx AutoBoxCacheMax                          = 128                                    {C2 product} {default}
+     bool AutoCreateSharedArchive                  = false                               {JVMCI product} {default}
+     bool AvoidUnalignedAccesses                   = false                                {ARCH product} {default}
+     intx BCEATraceLevel                           = 0                                         {product} {default}
+     bool BackgroundCompilation                    = true                                   {pd product} {default}
+   size_t BaseFootPrintEstimate                    = 268435456                                 {product} {default}
+     bool BlockLayoutByFrequency                   = true                                   {C2 product} {default}
+     intx BlockLayoutMinDiamondPercentage          = 20                                     {C2 product} {default}
+     bool BlockLayoutRotateLoops                   = true                                   {C2 product} {default}
+     intx BlockZeroingLowLimit                     = 256                                  {ARCH product} {default}
+     intx C1InlineStackLimit                       = 5                                      {C1 product} {default}
+     intx C1MaxInlineLevel                         = 9                                      {C1 product} {default}
+     intx C1MaxInlineSize                          = 35                                     {C1 product} {default}
+     intx C1MaxRecursiveInlineLevel                = 1                                      {C1 product} {default}
+     intx C1MaxTrivialSize                         = 6                                      {C1 product} {default}
+     bool C1OptimizeVirtualCallProfiling           = true                                   {C2 product} {default}
+     bool C1ProfileBranches                        = true                                   {C2 product} {default}
+     bool C1ProfileCalls                           = true                                   {C2 product} {default}
+     bool C1ProfileCheckcasts                      = true                                   {C2 product} {default}
+     bool C1ProfileInlinedCalls                    = true                                   {C2 product} {default}
+     bool C1ProfileVirtualCalls                    = true                                   {C2 product} {default}
+     bool C1UpdateMethodData                       = true                                   {C2 product} {default}
+     intx CICompilerCount                          = 4                                         {product} {ergonomic}
+     bool CICompilerCountPerCPU                    = true                                      {product} {default}
+     bool CITime                                   = false                                     {product} {default}
+     bool CheckJNICalls                            = false                                     {product} {default}
+     bool ClassUnloading                           = true                                      {product} {default}
+     bool ClassUnloadingWithConcurrentMark         = true                                      {product} {default}
+     bool ClipInlining                             = true                                      {product} {default}
+    uintx CodeCacheExpansionSize                   = 65536                                  {pd product} {default}
+     bool CompactStrings                           = true                                   {pd product} {default}
+    ccstr CompilationMode                          = default                                   {product} {default}
+ccstrlist CompileCommand                           =                                           {product} {default}
+    ccstr CompileCommandFile                       =                                           {product} {default}
+ccstrlist CompileOnly                              =                                           {product} {default}
+     intx CompileThreshold                         = 10000                                  {pd product} {default}
+   double CompileThresholdScaling                  = 1.000000                                  {product} {default}
+      int CompilerThreadPriority                   = -1                                        {product} {default}
+     intx CompilerThreadStackSize                  = 2048                                   {pd product} {default}
+   size_t CompressedClassSpaceSize                 = 1073741824                                {product} {default}
+     uint ConcGCThreads                            = 2                                         {product} {ergonomic}
+     intx ConditionalMoveLimit                     = 3                                   {C2 pd product} {default}
+     intx ContendedPaddingWidth                    = 128                                       {product} {default}
+     bool CrashOnOutOfMemoryError                  = false                                     {product} {default}
+     bool CreateCoredumpOnCrash                    = true                                      {product} {default}
+     bool DTraceAllocProbes                        = false                                     {product} {default}
+     bool DTraceMethodProbes                       = false                                     {product} {default}
+     bool DTraceMonitorProbes                      = false                                     {product} {default}
+     bool DisableAttachMechanism                   = false                                     {product} {default}
+     bool DisableExplicitGC                        = false                                     {product} {default}
+     bool DisplayVMOutputToStderr                  = false                                     {product} {default}
+     bool DisplayVMOutputToStdout                  = false                                     {product} {default}
+     bool DoEscapeAnalysis                         = true                                   {C2 product} {default}
+     bool DoReserveCopyInSuperWord                 = true                                   {C2 product} {default}
+     bool DontCompileHugeMethods                   = true                                      {product} {default}
+     bool DontYieldALot                            = false                                  {pd product} {default}
+    ccstr DumpLoadedClassList                      =                                     {JVMCI product} {default}
+     bool DumpReplayDataOnError                    = true                                      {product} {default}
+     bool EagerXrunInit                            = false                                     {product} {default}
+     intx EliminateAllocationArraySizeLimit        = 64                                     {C2 product} {default}
+     bool EliminateAllocations                     = true                                   {C2 product} {default}
+     bool EliminateAutoBox                         = true                                   {C2 product} {default}
+     bool EliminateLocks                           = true                                   {C2 product} {default}
+     bool EliminateNestedLocks                     = true                                   {C2 product} {default}
+     bool EnableContended                          = true                                      {product} {default}
+     bool EnableDynamicAgentLoading                = true                                      {product} {default}
+   size_t ErgoHeapSizeLimit                        = 0                                         {product} {default}
+    ccstr ErrorFile                                =                                           {product} {default}
+     bool ErrorFileToStderr                        = false                                     {product} {default}
+     bool ErrorFileToStdout                        = false                                     {product} {default}
+ uint64_t ErrorLogTimeout                          = 120                                       {product} {default}
+   double EscapeAnalysisTimeout                    = 20.000000                              {C2 product} {default}
+     bool EstimateArgEscape                        = true                                      {product} {default}
+     bool ExecutingUnitTests                       = false                                     {product} {default}
+     bool ExitOnOutOfMemoryError                   = false                                     {product} {default}
+     bool ExplicitGCInvokesConcurrent              = false                                     {product} {default}
+     bool ExtensiveErrorReports                    = false                                     {product} {default}
+    ccstr ExtraSharedClassListFile                 =                                     {JVMCI product} {default}
+     bool FlightRecorder                           = false                                     {product} {default}
+    ccstr FlightRecorderOptions                    =                                           {product} {default}
+     bool ForceTimeHighResolution                  = false                                     {product} {default}
+     intx FreqInlineSize                           = 325                                 {C2 pd product} {default}
+   double G1ConcMarkStepDurationMillis             = 10.000000                                 {product} {default}
+     uint G1ConcRefinementThreads                  = 9                                         {product} {ergonomic}
+    uintx G1ConfidencePercent                      = 50                                        {product} {default}
+   size_t G1HeapRegionSize                         = 2097152                                   {product} {ergonomic}
+    uintx G1HeapWastePercent                       = 5                                         {product} {default}
+    uintx G1MixedGCCountTarget                     = 8                                         {product} {default}
+    uintx G1PeriodicGCInterval                     = 0                                      {manageable} {default}
+     bool G1PeriodicGCInvokesConcurrent            = true                                      {product} {default}
+   double G1PeriodicGCSystemLoadThreshold          = 0.000000                               {manageable} {default}
+     intx G1RSetUpdatingPauseTimePercent           = 10                                        {product} {default}
+     uint G1RefProcDrainInterval                   = 1000                                      {product} {default}
+    uintx G1ReservePercent                         = 10                                        {product} {default}
+    uintx G1SATBBufferEnqueueingThresholdPercent   = 60                                        {product} {default}
+   size_t G1SATBBufferSize                         = 1024                                      {product} {default}
+   size_t G1UpdateBufferSize                       = 256                                       {product} {default}
+     bool G1UseAdaptiveIHOP                        = true                                      {product} {default}
+     uint GCCardSizeInBytes                        = 512                                       {product} {default}
+    uintx GCDrainStackTargetSize                   = 64                                        {product} {ergonomic}
+    uintx GCHeapFreeLimit                          = 2                                         {product} {default}
+    uintx GCLockerEdenExpansionPercent             = 5                                         {product} {default}
+    uintx GCPauseIntervalMillis                    = 201                                       {product} {default}
+    uintx GCTimeLimit                              = 98                                        {product} {default}
+    uintx GCTimeRatio                              = 12                                        {product} {default}
+   size_t HeapBaseMinAddress                       = 2147483648                             {pd product} {default}
+     bool HeapDumpAfterFullGC                      = false                                  {manageable} {default}
+     bool HeapDumpBeforeFullGC                     = false                                  {manageable} {default}
+     intx HeapDumpGzipLevel                        = 0                                      {manageable} {default}
+     bool HeapDumpOnOutOfMemoryError               = false                                  {manageable} {default}
+    ccstr HeapDumpPath                             =                                        {manageable} {default}
+    uintx HeapFirstMaximumCompactionCount          = 3                                         {product} {default}
+    uintx HeapMaximumCompactionInterval            = 20                                        {product} {default}
+    uintx HeapSearchSteps                          = 3                                         {product} {default}
+   size_t HeapSizePerGCThread                      = 43620760                                  {product} {default}
+     bool IgnoreEmptyClassPaths                    = false                                     {product} {default}
+     bool IgnoreUnrecognizedVMOptions              = false                                     {product} {default}
+    uintx IncreaseFirstTierCompileThresholdAt      = 50                                        {product} {default}
+     bool IncrementalInline                        = true                                   {C2 product} {default}
+    uintx InitialCodeCacheSize                     = 2555904                                {pd product} {default}
+   size_t InitialHeapSize                          = 268435456                                 {product} {command line}
+    uintx InitialRAMFraction                       = 64                                        {product} {default}
+   double InitialRAMPercentage                     = 1.562500                                  {product} {default}
+    uintx InitialSurvivorRatio                     = 8                                         {product} {default}
+    uintx InitialTenuringThreshold                 = 7                                         {product} {default}
+    uintx InitiatingHeapOccupancyPercent           = 45                                        {product} {default}
+     bool Inline                                   = true                                      {product} {default}
+    ccstr InlineDataFile                           =                                           {product} {default}
+     intx InlineSmallCode                          = 2500                                {C2 pd product} {default}
+     bool InlineSynchronizedMethods                = true                                   {C1 product} {default}
+     intx InteriorEntryAlignment                   = 16                                  {C2 pd product} {default}
+     intx InterpreterProfilePercentage             = 33                                        {product} {default}
+     bool JavaMonitorsInStackTrace                 = true                                      {product} {default}
+      int JavaPriority10_To_OSPriority             = -1                                        {product} {default}
+      int JavaPriority1_To_OSPriority              = -1                                        {product} {default}
+      int JavaPriority2_To_OSPriority              = -1                                        {product} {default}
+      int JavaPriority3_To_OSPriority              = -1                                        {product} {default}
+      int JavaPriority4_To_OSPriority              = -1                                        {product} {default}
+      int JavaPriority5_To_OSPriority              = -1                                        {product} {default}
+      int JavaPriority6_To_OSPriority              = -1                                        {product} {default}
+      int JavaPriority7_To_OSPriority              = -1                                        {product} {default}
+      int JavaPriority8_To_OSPriority              = -1                                        {product} {default}
+      int JavaPriority9_To_OSPriority              = -1                                        {product} {default}
+   size_t LargePageHeapSizeThreshold               = 134217728                                 {product} {default}
+   size_t LargePageSizeInBytes                     = 0                                         {product} {default}
+     intx LiveNodeCountInliningCutoff              = 40000                                  {C2 product} {default}
+     intx LoopMaxUnroll                            = 16                                     {C2 product} {default}
+     intx LoopOptsCount                            = 43                                     {C2 product} {default}
+     intx LoopPercentProfileLimit                  = 10                                  {C2 pd product} {default}
+    uintx LoopStripMiningIter                      = 1000                                      {product} {default}
+    uintx LoopStripMiningIterShortLoop             = 100                                       {product} {default}
+     intx LoopUnrollLimit                          = 60                                  {C2 pd product} {default}
+     intx LoopUnrollMin                            = 4                                      {C2 product} {default}
+     bool LoopUnswitching                          = true                                   {C2 product} {default}
+     bool ManagementServer                         = false                                     {product} {default}
+   size_t MarkStackSize                            = 4194304                                   {product} {ergonomic}
+   size_t MarkStackSizeMax                         = 536870912                                 {product} {default}
+     uint MarkSweepAlwaysCompactCount              = 4                                         {product} {default}
+    uintx MarkSweepDeadRatio                       = 5                                         {product} {default}
+     intx MaxBCEAEstimateLevel                     = 5                                         {product} {default}
+     intx MaxBCEAEstimateSize                      = 150                                       {product} {default}
+ uint64_t MaxDirectMemorySize                      = 0                                         {product} {default}
+     bool MaxFDLimit                               = true                                      {product} {default}
+    uintx MaxGCMinorPauseMillis                    = 18446744073709551615                      {product} {default}
+    uintx MaxGCPauseMillis                         = 200                                       {product} {default}
+    uintx MaxHeapFreeRatio                         = 70                                     {manageable} {default}
+   size_t MaxHeapSize                              = 4294967296                                {product} {command line}
+     intx MaxInlineLevel                           = 15                                     {C2 product} {default}
+     intx MaxInlineSize                            = 35                                     {C2 product} {default}
+     intx MaxJNILocalCapacity                      = 65536                                     {product} {default}
+     intx MaxJavaStackTraceDepth                   = 1024                                      {product} {default}
+     intx MaxJumpTableSize                         = 65000                                  {C2 product} {default}
+     intx MaxJumpTableSparseness                   = 5                                      {C2 product} {default}
+     intx MaxLabelRootDepth                        = 1100                                   {C2 product} {default}
+     intx MaxLoopPad                               = 15                                     {C2 product} {default}
+   size_t MaxMetaspaceExpansion                    = 5439488                                   {product} {default}
+    uintx MaxMetaspaceFreeRatio                    = 70                                        {product} {default}
+   size_t MaxMetaspaceSize                         = 18446744073709551615                      {product} {default}
+   size_t MaxNewSize                               = 2575302656                                {product} {ergonomic}
+     intx MaxNodeLimit                             = 80000                                  {C2 product} {default}
+ uint64_t MaxRAM                                   = 137438953472                           {pd product} {default}
+    uintx MaxRAMFraction                           = 4                                         {product} {default}
+   double MaxRAMPercentage                         = 25.000000                                 {product} {default}
+     intx MaxRecursiveInlineLevel                  = 1                                      {C2 product} {default}
+    uintx MaxTenuringThreshold                     = 15                                        {product} {default}
+     intx MaxTrivialSize                           = 6                                      {C2 product} {default}
+     intx MaxVectorSize                            = 16                                     {C2 product} {default}
+   size_t MetaspaceSize                            = 22020096                                  {product} {default}
+     bool MethodFlushing                           = true                                      {product} {default}
+   size_t MinHeapDeltaBytes                        = 2097152                                   {product} {ergonomic}
+    uintx MinHeapFreeRatio                         = 40                                     {manageable} {default}
+   size_t MinHeapSize                              = 268435456                                 {product} {command line}
+     intx MinJumpTableSize                         = 10                                  {C2 pd product} {default}
+   size_t MinMetaspaceExpansion                    = 327680                                    {product} {default}
+    uintx MinMetaspaceFreeRatio                    = 40                                        {product} {default}
+    uintx MinRAMFraction                           = 2                                         {product} {default}
+   double MinRAMPercentage                         = 50.000000                                 {product} {default}
+    uintx MinSurvivorRatio                         = 3                                         {product} {default}
+   size_t MinTLABSize                              = 2048                                      {product} {default}
+     intx MultiArrayExpandLimit                    = 6                                      {C2 product} {default}
+    uintx NUMAChunkResizeWeight                    = 20                                        {product} {default}
+   size_t NUMAInterleaveGranularity                = 2097152                                   {product} {default}
+    uintx NUMAPageScanRate                         = 256                                       {product} {default}
+   size_t NUMASpaceResizeRate                      = 1073741824                                {product} {default}
+     bool NUMAStats                                = false                                     {product} {default}
+    ccstr NativeMemoryTracking                     = off                                       {product} {default}
+     bool NearCpool                                = true                                 {ARCH product} {default}
+     bool NeverActAsServerClassMachine             = false                                  {pd product} {default}
+     bool NeverTenure                              = false                                     {product} {default}
+    uintx NewRatio                                 = 2                                         {product} {default}
+   size_t NewSize                                  = 1363144                                   {product} {default}
+   size_t NewSizeThreadIncrease                    = 5320                                   {pd product} {default}
+     intx NmethodSweepActivity                     = 4                                         {product} {default}
+     intx NodeLimitFudgeFactor                     = 2000                                   {C2 product} {default}
+    uintx NonNMethodCodeHeapSize                   = 5839564                                {pd product} {ergonomic}
+    uintx NonProfiledCodeHeapSize                  = 122909338                              {pd product} {ergonomic}
+     intx NumberOfLoopInstrToAlign                 = 4                                      {C2 product} {default}
+      int ObjectAlignmentInBytes                   = 8                              {product lp64_product} {default}
+   size_t OldPLABSize                              = 1024                                      {product} {default}
+   size_t OldSize                                  = 5452592                                   {product} {default}
+     bool OmitStackTraceInFastThrow                = true                                      {product} {default}
+ccstrlist OnError                                  =                                           {product} {default}
+ccstrlist OnOutOfMemoryError                       =                                           {product} {default}
+     intx OnStackReplacePercentage                 = 140                                    {pd product} {default}
+     bool OptimizeFill                             = true                                   {C2 product} {default}
+     bool OptimizePtrCompare                       = true                                   {C2 product} {default}
+     bool OptimizeStringConcat                     = true                                   {C2 product} {default}
+     bool OptoBundling                             = false                               {C2 pd product} {default}
+     intx OptoLoopAlignment                        = 16                                     {pd product} {default}
+     bool OptoRegScheduling                        = false                               {C2 pd product} {default}
+     bool OptoScheduling                           = true                                {C2 pd product} {default}
+    uintx PLABWeight                               = 75                                        {product} {default}
+     bool PSChunkLargeArrays                       = true                                      {product} {default}
+      int ParGCArrayScanChunk                      = 50                                        {product} {default}
+    uintx ParallelGCBufferWastePct                 = 10                                        {product} {default}
+     uint ParallelGCThreads                        = 9                                         {product} {default}
+   size_t ParallelOldDeadWoodLimiterMean           = 50                                        {product} {default}
+   size_t ParallelOldDeadWoodLimiterStdDev         = 80                                        {product} {default}
+     bool ParallelRefProcBalancingEnabled          = true                                      {product} {default}
+     bool ParallelRefProcEnabled                   = true                                      {product} {default}
+     bool PartialPeelAtUnsignedTests               = true                                   {C2 product} {default}
+     bool PartialPeelLoop                          = true                                   {C2 product} {default}
+     intx PartialPeelNewPhiDelta                   = 0                                      {C2 product} {default}
+    uintx PausePadding                             = 1                                         {product} {default}
+     intx PerBytecodeRecompilationCutoff           = 200                                       {product} {default}
+     intx PerBytecodeTrapLimit                     = 4                                         {product} {default}
+     intx PerMethodRecompilationCutoff             = 400                                       {product} {default}
+     intx PerMethodTrapLimit                       = 100                                       {product} {default}
+     bool PerfAllowAtExitRegistration              = false                                     {product} {default}
+     bool PerfBypassFileSystemCheck                = false                                     {product} {default}
+      int PerfDataMemorySize                       = 32768                                     {product} {default}
+     intx PerfDataSamplingInterval                 = 50                                        {product} {default}
+    ccstr PerfDataSaveFile                         =                                           {product} {default}
+     bool PerfDataSaveToFile                       = false                                     {product} {default}
+     bool PerfDisableSharedMem                     = false                                     {product} {default}
+      int PerfMaxStringConstLength                 = 1024                                      {product} {default}
+   size_t PreTouchParallelChunkSize                = 1073741824                             {pd product} {default}
+     bool PreferInterpreterNativeStubs             = false                                  {pd product} {default}
+     intx PrefetchCopyIntervalInBytes              = 384                                       {product} {default}
+     intx PrefetchScanIntervalInBytes              = 384                                       {product} {default}
+     bool PreserveAllAnnotations                   = false                                     {product} {default}
+     bool PreserveFramePointer                     = false                                  {pd product} {default}
+   size_t PretenureSizeThreshold                   = 0                                         {product} {default}
+     bool PrintClassHistogram                      = false                                  {manageable} {default}
+     bool PrintCodeCache                           = false                                     {product} {default}
+     bool PrintCodeCacheOnCompilation              = false                                     {product} {default}
+     bool PrintCommandLineFlags                    = false                                     {product} {default}
+     bool PrintCompilation                         = false                                     {product} {default}
+     bool PrintConcurrentLocks                     = false                                  {manageable} {default}
+     bool PrintExtendedThreadInfo                  = false                                     {product} {default}
+     bool PrintFlagsFinal                          = true                                      {product} {command line}
+     bool PrintFlagsInitial                        = false                                     {product} {default}
+     bool PrintFlagsRanges                         = false                                     {product} {default}
+     bool PrintGC                                  = false                                     {product} {default}
+     bool PrintGCDetails                           = false                                     {product} {default}
+     bool PrintHeapAtSIGBREAK                      = true                                      {product} {default}
+     bool PrintSharedArchiveAndExit                = false                               {JVMCI product} {default}
+     bool PrintStringTableStatistics               = false                                     {product} {default}
+     bool PrintTieredEvents                        = false                                     {product} {default}
+     bool PrintVMOptions                           = false                                     {product} {default}
+     bool PrintWarnings                            = true                                      {product} {default}
+    uintx ProcessDistributionStride                = 4                                         {product} {default}
+     bool ProfileInterpreter                       = true                                   {pd product} {default}
+     intx ProfileMaturityPercentage                = 20                                        {product} {default}
+    uintx ProfiledCodeHeapSize                     = 122909338                              {pd product} {ergonomic}
+    uintx PromotedPadding                          = 3                                         {product} {default}
+    uintx QueuedAllocationWarningCount             = 0                                         {product} {default}
+     bool RangeCheckElimination                    = true                                      {product} {default}
+     bool ReassociateInvariants                    = true                                   {C2 product} {default}
+     bool RecordDynamicDumpInfo                    = false                               {JVMCI product} {default}
+     bool ReduceBulkZeroing                        = true                                   {C2 product} {default}
+     bool ReduceFieldZeroing                       = true                                   {C2 product} {default}
+     bool ReduceInitialCardMarks                   = true                                   {C2 product} {default}
+     bool ReduceSignalUsage                        = false                                     {product} {default}
+     bool RegisterFinalizersAtInit                 = true                                      {product} {default}
+     bool RelaxAccessControlCheck                  = false                                     {product} {default}
+    ccstr ReplayDataFile                           =                                           {product} {default}
+    uintx ReservedCodeCacheSize                    = 251658240                              {pd product} {ergonomic}
+     bool ResizePLAB                               = true                                      {product} {default}
+     bool ResizeTLAB                               = true                                      {product} {default}
+     bool RestoreMXCSROnJNICalls                   = false                                     {product} {default}
+     bool RestrictContended                        = true                                      {product} {default}
+     bool RestrictReservedStack                    = true                                      {product} {default}
+     bool RewriteBytecodes                         = true                                   {pd product} {default}
+     bool RewriteFrequentPairs                     = true                                   {pd product} {default}
+     bool SafepointTimeout                         = false                                     {product} {default}
+     intx SafepointTimeoutDelay                    = 10000                                     {product} {default}
+     bool ScavengeBeforeFullGC                     = false                                     {product} {default}
+     bool SegmentedCodeCache                       = true                                      {product} {ergonomic}
+   double SelfDestructTimer                        = 0.000000                                  {product} {default}
+    ccstr SharedArchiveConfigFile                  =                                     {JVMCI product} {default}
+    ccstr SharedArchiveFile                        =                                     {JVMCI product} {default}
+   size_t SharedBaseAddress                        = 515396075520                        {JVMCI product} {default}
+    ccstr SharedClassListFile                      =                                     {JVMCI product} {default}
+     uint SharedSymbolTableBucketSize              = 4                                   {JVMCI product} {default}
+     bool ShowCodeDetailsInExceptionMessages       = true                                   {manageable} {default}
+     bool ShowMessageBoxOnError                    = false                                     {product} {default}
+     bool ShrinkHeapInSteps                        = true                                      {product} {default}
+   size_t SoftMaxHeapSize                          = 4294967296                             {manageable} {ergonomic}
+     intx SoftRefLRUPolicyMSPerMB                  = 1000                                      {product} {default}
+      int SoftwarePrefetchHintDistance             = 384                                  {ARCH product} {default}
+     bool SplitIfBlocks                            = true                                   {C2 product} {default}
+     intx StackRedPages                            = 1                                      {pd product} {default}
+     intx StackReservedPages                       = 1                                      {pd product} {default}
+     intx StackShadowPages                         = 20                                     {pd product} {default}
+     bool StackTraceInThrowable                    = true                                      {product} {default}
+     intx StackYellowPages                         = 2                                      {pd product} {default}
+    uintx StartAggressiveSweepingAt                = 10                                        {product} {default}
+     bool StartAttachListener                      = false                                     {product} {default}
+    ccstr StartFlightRecording                     =                                           {product} {default}
+     uint StringDeduplicationAgeThreshold          = 3                                         {product} {default}
+    uintx StringTableSize                          = 65536                                     {product} {default}
+     bool SuperWordLoopUnrollAnalysis              = true                                {C2 pd product} {default}
+     bool SuperWordReductions                      = true                                   {C2 product} {default}
+     bool SuppressFatalErrorMessage                = false                                     {product} {default}
+    uintx SurvivorPadding                          = 3                                         {product} {default}
+    uintx SurvivorRatio                            = 8                                         {product} {default}
+   double SweeperThreshold                         = 15.000000                                 {product} {default}
+    uintx TLABAllocationWeight                     = 35                                        {product} {default}
+    uintx TLABRefillWasteFraction                  = 64                                        {product} {default}
+   size_t TLABSize                                 = 0                                         {product} {default}
+     bool TLABStats                                = true                                      {product} {default}
+    uintx TLABWasteIncrement                       = 4                                         {product} {default}
+    uintx TLABWasteTargetPercent                   = 1                                         {product} {default}
+    uintx TargetPLABWastePct                       = 10                                        {product} {default}
+    uintx TargetSurvivorRatio                      = 50                                        {product} {default}
+    uintx TenuredGenerationSizeIncrement           = 20                                        {product} {default}
+    uintx TenuredGenerationSizeSupplement          = 80                                        {product} {default}
+    uintx TenuredGenerationSizeSupplementDecay     = 2                                         {product} {default}
+      int ThreadPriorityPolicy                     = 0                                         {product} {default}
+     bool ThreadPriorityVerbose                    = false                                     {product} {default}
+     intx ThreadStackSize                          = 8192                                   {pd product} {command line}
+    uintx ThresholdTolerance                       = 10                                        {product} {default}
+     intx Tier0BackedgeNotifyFreqLog               = 10                                        {product} {default}
+     intx Tier0InvokeNotifyFreqLog                 = 7                                         {product} {default}
+     intx Tier0ProfilingStartPercentage            = 200                                       {product} {default}
+     intx Tier23InlineeNotifyFreqLog               = 20                                        {product} {default}
+     intx Tier2BackEdgeThreshold                   = 0                                         {product} {default}
+     intx Tier2BackedgeNotifyFreqLog               = 14                                        {product} {default}
+     intx Tier2CompileThreshold                    = 0                                         {product} {default}
+     intx Tier2InvokeNotifyFreqLog                 = 11                                        {product} {default}
+     intx Tier3BackEdgeThreshold                   = 60000                                     {product} {default}
+     intx Tier3BackedgeNotifyFreqLog               = 13                                        {product} {default}
+     intx Tier3CompileThreshold                    = 2000                                      {product} {default}
+     intx Tier3DelayOff                            = 2                                         {product} {default}
+     intx Tier3DelayOn                             = 5                                         {product} {default}
+     intx Tier3InvocationThreshold                 = 200                                       {product} {default}
+     intx Tier3InvokeNotifyFreqLog                 = 10                                        {product} {default}
+     intx Tier3LoadFeedback                        = 5                                         {product} {default}
+     intx Tier3MinInvocationThreshold              = 100                                       {product} {default}
+     intx Tier4BackEdgeThreshold                   = 40000                                     {product} {default}
+     intx Tier4CompileThreshold                    = 15000                                     {product} {default}
+     intx Tier4InvocationThreshold                 = 5000                                      {product} {default}
+     intx Tier4LoadFeedback                        = 3                                         {product} {default}
+     intx Tier4MinInvocationThreshold              = 600                                       {product} {default}
+     bool TieredCompilation                        = true                                   {pd product} {default}
+     intx TieredCompileTaskTimeout                 = 50                                        {product} {default}
+     intx TieredRateUpdateMaxTime                  = 25                                        {product} {default}
+     intx TieredRateUpdateMinTime                  = 1                                         {product} {default}
+     intx TieredStopAtLevel                        = 4                                         {product} {default}
+     bool TimeLinearScan                           = false                                  {C1 product} {default}
+    ccstr TraceJVMTI                               =                                           {product} {default}
+     bool TraceTraps                               = false                                {ARCH product} {default}
+     intx TrackedInitializationLimit               = 50                                     {C2 product} {default}
+     bool TrapBasedNullChecks                      = false                                  {pd product} {default}
+     bool TrapBasedRangeChecks                     = false                                  {pd product} {default}
+     intx TypeProfileArgsLimit                     = 2                                         {product} {default}
+     uint TypeProfileLevel                         = 111                                    {pd product} {default}
+     intx TypeProfileMajorReceiverPercent          = 90                                     {C2 product} {default}
+     intx TypeProfileParmsLimit                    = 2                                         {product} {default}
+     intx TypeProfileWidth                         = 2                                         {product} {default}
+      int UnguardOnExecutionViolation              = 0                                         {product} {default}
+     bool UseAES                                   = true                                      {product} {default}
+     bool UseAdaptiveGenerationSizePolicyAtMajorCollection  = true                             {product} {default}
+     bool UseAdaptiveGenerationSizePolicyAtMinorCollection  = true                             {product} {default}
+     bool UseAdaptiveNUMAChunkSizing               = true                                      {product} {default}
+     bool UseAdaptiveSizeDecayMajorGCCost          = true                                      {product} {default}
+     bool UseAdaptiveSizePolicy                    = true                                      {product} {default}
+     bool UseAdaptiveSizePolicyFootprintGoal       = true                                      {product} {default}
+     bool UseAdaptiveSizePolicyWithSystemGC        = false                                     {product} {default}
+     bool UseBASE64Intrinsics                      = true                                      {product} {default}
+     bool UseBimorphicInlining                     = true                                   {C2 product} {default}
+     bool UseBlockZeroing                          = true                                 {ARCH product} {default}
+    ccstr UseBranchProtection                      = none                                 {ARCH product} {default}
+     bool UseCMoveUnconditionally                  = false                                  {C2 product} {default}
+     bool UseCRC32                                 = true                                 {ARCH product} {default}
+     bool UseCodeCacheFlushing                     = true                                      {product} {default}
+     bool UseCompiler                              = true                                      {product} {default}
+     bool UseCompressedClassPointers               = true                           {product lp64_product} {default}
+     bool UseCompressedOops                        = true                           {product lp64_product} {ergonomic}
+     bool UseCondCardMark                          = false                                     {product} {default}
+     bool UseCountedLoopSafepoints                 = true                                   {C2 product} {default}
+     bool UseCounterDecay                          = true                                      {product} {default}
+     bool UseCryptoPmullForCRC32                   = false                                {ARCH product} {default}
+     bool UseDivMod                                = true                                   {C2 product} {default}
+     bool UseDynamicNumberOfCompilerThreads        = true                                      {product} {default}
+     bool UseDynamicNumberOfGCThreads              = true                                      {product} {default}
+     bool UseEmptySlotsInSupers                    = true                                      {product} {default}
+     bool UseFMA                                   = true                                      {product} {default}
+     bool UseFPUForSpilling                        = false                                  {C2 product} {default}
+     bool UseFastJNIAccessors                      = true                                      {product} {default}
+     bool UseG1GC                                  = true                                      {product} {command line}
+     bool UseGCOverheadLimit                       = true                                      {product} {default}
+     bool UseInlineCaches                          = true                                      {product} {default}
+     bool UseInterpreter                           = true                                      {product} {default}
+     bool UseJumpTables                            = true                                   {C2 product} {default}
+     bool UseLSE                                   = true                                 {ARCH product} {default}
+     bool UseLargePages                            = false                                  {pd product} {default}
+     bool UseLargePagesIndividualAllocation        = false                                  {pd product} {default}
+     bool UseLoopCounter                           = true                                      {product} {default}
+     bool UseLoopInvariantCodeMotion               = true                                   {C1 product} {default}
+     bool UseLoopPredicate                         = true                                   {C2 product} {default}
+     bool UseMaximumCompactionOnSystemGC           = true                                      {product} {default}
+     bool UseNUMA                                  = false                                     {product} {ergonomic}
+     bool UseNUMAInterleaving                      = false                                     {product} {ergonomic}
+     bool UseNeon                                  = false                                {ARCH product} {default}
+     bool UseNotificationThread                    = true                                      {product} {default}
+     bool UseOnStackReplacement                    = true                                   {pd product} {default}
+     bool UseOnlyInlinedBimorphic                  = true                                   {C2 product} {default}
+     bool UsePSAdaptiveSurvivorSizePolicy          = true                                      {product} {default}
+     bool UseParallelGC                            = false                                     {product} {default}
+     bool UsePerfData                              = true                                      {product} {default}
+     bool UsePopCountInstruction                   = true                                      {product} {default}
+     bool UseProfiledLoopPredicate                 = true                                      {product} {default}
+     bool UseSHA                                   = true                                      {product} {default}
+     bool UseSIMDForArrayEquals                    = true                                 {ARCH product} {default}
+     bool UseSIMDForBigIntegerShiftIntrinsics      = true                                 {ARCH product} {default}
+     bool UseSIMDForMemoryOps                      = false                                {ARCH product} {default}
+     uint UseSVE                                   = 0                                    {ARCH product} {default}
+     bool UseSerialGC                              = false                                     {product} {default}
+     bool UseShenandoahGC                          = false                                     {product} {default}
+     bool UseSignalChaining                        = true                                      {product} {default}
+     bool UseSimpleArrayEquals                     = false                                {ARCH product} {default}
+     bool UseStringDeduplication                   = false                                     {product} {default}
+     bool UseSubwordForMaxVector                   = true                                   {C2 product} {default}
+     bool UseSuperWord                             = true                                   {C2 product} {default}
+     bool UseSystemMemoryBarrier                   = false                                     {product} {default}
+     bool UseTLAB                                  = true                                      {product} {default}
+     bool UseThreadPriorities                      = true                                   {pd product} {default}
+     bool UseTypeProfile                           = true                                      {product} {default}
+     bool UseTypeSpeculation                       = true                                      {product} {default}
+     bool UseVectorCmov                            = false                                  {C2 product} {default}
+     bool UseXMMForArrayCopy                       = false                                     {product} {default}
+     bool UseZGC                                   = false                                     {product} {default}
+      int VMThreadPriority                         = -1                                        {product} {default}
+     intx VMThreadStackSize                        = 2048                                   {pd product} {default}
+     intx ValueMapInitialSize                      = 11                                     {C1 product} {default}
+     intx ValueMapMaxLoopSize                      = 8                                      {C1 product} {default}
+     intx ValueSearchLimit                         = 1000                                   {C2 product} {default}
+     bool VerifySharedSpaces                       = false                               {JVMCI product} {default}
+    uintx YoungGenerationSizeIncrement             = 20                                        {product} {default}
+    uintx YoungGenerationSizeSupplement            = 80                                        {product} {default}
+    uintx YoungGenerationSizeSupplementDecay       = 8                                         {product} {default}
+   size_t YoungPLABSize                            = 4096                                      {product} {default}
+   double ZAllocationSpikeTolerance                = 2.000000                                  {product} {default}
+   double ZCollectionInterval                      = 0.000000                                  {product} {default}
+   double ZCollectionIntervalMajor                 = -1.000000                                 {product} {default}
+   double ZCollectionIntervalMinor                 = -1.000000                                 {product} {default}
+     bool ZCollectionIntervalOnly                  = false                                     {product} {default}
+   double ZFragmentationLimit                      = 0.000000                                  {product} {default}
+     bool ZGenerational                            = false                                     {product} {default}
+   size_t ZMarkStackSpaceLimit                     = 8589934592                                {product} {default}
+     bool ZProactive                               = true                                      {product} {default}
+     bool ZUncommit                                = true                                      {product} {default}
+    uintx ZUncommitDelay                           = 300                                       {product} {default}
+   double ZYoungCompactionLimit                    = 25.000000                                 {product} {default}
+     bool ZeroTLAB                                 = false                                     {product} {default}
+VM settings:
+    Stack Size: 8.00M
+    Min. Heap Size: 256.00M
+    Max. Heap Size: 4.00G
+    Using VM: Java HotSpot(TM) 64-Bit Server VM
+
+Property settings:
+    file.encoding = UTF-8
+    file.separator = /
+    ftp.nonProxyHosts = local|*.local|169.254/16|*.169.254/16
+    http.nonProxyHosts = local|*.local|169.254/16|*.169.254/16
+    java.class.path = 
+    java.class.version = 65.0
+    java.home = /Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home
+    java.io.tmpdir = /var/folders/1w/2s1ghghj21z7hbvrll476k5m0000gn/T/
+    java.library.path = /Users/developer/Library/Java/Extensions
+        /Library/Java/Extensions
+        /Network/Library/Java/Extensions
+        /System/Library/Java/Extensions
+        /usr/lib/java
+        .
+    java.runtime.name = Java(TM) SE Runtime Environment
+    java.runtime.version = 21.0.1+12-LTS-29
+    java.specification.name = Java Platform API Specification
+    java.specification.vendor = Oracle Corporation
+    java.specification.version = 21
+    java.vendor = Oracle Corporation
+    java.vendor.url = https://java.oracle.com/
+    java.vendor.url.bug = https://bugreport.java.com/bugreport/
+    java.version = 21.0.1
+    java.version.date = 2023-10-17
+    java.vm.compressedOopsMode = Non-zero disjoint base
+    java.vm.info = mixed mode, sharing
+    java.vm.name = Java HotSpot(TM) 64-Bit Server VM
+    java.vm.specification.name = Java Virtual Machine Specification
+    java.vm.specification.vendor = Oracle Corporation
+    java.vm.specification.version = 21
+    java.vm.vendor = Oracle Corporation
+    java.vm.version = 21.0.1+12-LTS-29
+    jdk.debug = release
+    line.separator = \n 
+    native.encoding = UTF-8
+    os.arch = aarch64
+    os.name = Mac OS X
+    os.version = 27.0.1
+    path.separator = :
+    socksNonProxyHosts = local|*.local|169.254/16|*.169.254/16
+    stderr.encoding = UTF-8
+    stdout.encoding = UTF-8
+    sun.arch.data.model = 64
+    sun.boot.library.path = /Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home/lib
+    sun.cpu.endian = little
+    sun.io.unicode.encoding = UnicodeBig
+    sun.java.launcher = SUN_STANDARD
+    sun.jnu.encoding = UTF-8
+    sun.management.compiler = HotSpot 64-Bit Tiered Compilers
+    user.country = US
+    user.dir = /Users/developer/workspace-mba-m2/Ironwood
+    user.home = /Users/developer
+    user.language = en
+    user.name = developer
+
+Locale settings:
+    default locale = English (United States)
+    default display locale = English (United States)
+    default format locale = English (United States)
+    tzdata version = 2023c
+    available locales = , af, af_NA, af_ZA, af_ZA_#Latn, agq, agq_CM, agq_CM_#Latn, 
+        ak, ak_GH, ak_GH_#Latn, am, am_ET, am_ET_#Ethi, ann, ann_NG, 
+        ann_NG_#Latn, ar, ar_001, ar_AE, ar_BH, ar_DJ, ar_DZ, ar_EG, 
+        ar_EG_#Arab, ar_EH, ar_ER, ar_IL, ar_IQ, ar_JO, ar_KM, ar_KW, 
+        ar_LB, ar_LY, ar_MA, ar_MR, ar_OM, ar_PS, ar_QA, ar_SA, 
+        ar_SD, ar_SO, ar_SS, ar_SY, ar_TD, ar_TN, ar_YE, as, 
+        as_IN, as_IN_#Beng, asa, asa_TZ, asa_TZ_#Latn, ast, ast_ES, ast_ES_#Latn, 
+        az, az_AZ, az_AZ_#Cyrl, az_AZ_#Latn, az__#Cyrl, az__#Latn, bas, bas_CM, 
+        bas_CM_#Latn, be, be_BY, be_BY_#Cyrl, be__TARASK, bem, bem_ZM, bem_ZM_#Latn, 
+        bez, bez_TZ, bez_TZ_#Latn, bg, bg_BG, bg_BG_#Cyrl, bgc, bgc_IN, 
+        bgc_IN_#Deva, bho, bho_IN, bho_IN_#Deva, bm, bm_ML, bm_ML_#Latn, bn, 
+        bn_BD, bn_BD_#Beng, bn_IN, bo, bo_CN, bo_CN_#Tibt, bo_IN, br, 
+        br_FR, br_FR_#Latn, brx, brx_IN, brx_IN_#Deva, bs, bs_BA, bs_BA_#Cyrl, 
+        bs_BA_#Latn, bs__#Cyrl, bs__#Latn, ca, ca_AD, ca_ES, ca_ES_#Latn, ca_ES_VALENCIA, 
+        ca_FR, ca_IT, ccp, ccp_BD, ccp_BD_#Cakm, ccp_IN, ce, ce_RU, 
+        ce_RU_#Cyrl, ceb, ceb_PH, ceb_PH_#Latn, cgg, cgg_UG, cgg_UG_#Latn, chr, 
+        chr_US, chr_US_#Cher, ckb, ckb_IQ, ckb_IQ_#Arab, ckb_IR, cs, cs_CZ, 
+        cs_CZ_#Latn, cv, cv_RU, cv_RU_#Cyrl, cy, cy_GB, cy_GB_#Latn, da, 
+        da_DK, da_DK_#Latn, da_GL, dav, dav_KE, dav_KE_#Latn, de, de_AT, 
+        de_BE, de_CH, de_DE, de_DE_#Latn, de_IT, de_LI, de_LU, dje, 
+        dje_NE, dje_NE_#Latn, doi, doi_IN, doi_IN_#Deva, dsb, dsb_DE, dsb_DE_#Latn, 
+        dua, dua_CM, dua_CM_#Latn, dyo, dyo_SN, dyo_SN_#Latn, dz, dz_BT, 
+        dz_BT_#Tibt, ebu, ebu_KE, ebu_KE_#Latn, ee, ee_GH, ee_GH_#Latn, ee_TG, 
+        el, el_CY, el_GR, el_GR_#Grek, el__POLYTON, en, en_001, en_150, 
+        en_AE, en_AG, en_AI, en_AS, en_AT, en_AU, en_BB, en_BE, 
+        en_BI, en_BM, en_BS, en_BW, en_BZ, en_CA, en_CC, en_CH, 
+        en_CK, en_CM, en_CX, en_CY, en_DE, en_DG, en_DK, en_DM, 
+        en_ER, en_FI, en_FJ, en_FK, en_FM, en_GB, en_GD, en_GG, 
+        en_GH, en_GI, en_GM, en_GU, en_GY, en_HK, en_IE, en_IL, 
+        en_IM, en_IN, en_IO, en_JE, en_JM, en_KE, en_KI, en_KN, 
+        en_KY, en_LC, en_LR, en_LS, en_MG, en_MH, en_MO, en_MP, 
+        en_MS, en_MT, en_MU, en_MV, en_MW, en_MY, en_NA, en_NF, 
+        en_NG, en_NL, en_NR, en_NU, en_NZ, en_PG, en_PH, en_PK, 
+        en_PN, en_PR, en_PW, en_RW, en_SB, en_SC, en_SD, en_SE, 
+        en_SG, en_SH, en_SI, en_SL, en_SS, en_SX, en_SZ, en_TC, 
+        en_TK, en_TO, en_TT, en_TV, en_TZ, en_UG, en_UM, en_US, 
+        en_US_#Latn, en_US_POSIX, en_VC, en_VG, en_VI, en_VU, en_WS, en_ZA, 
+        en_ZM, en_ZW, eo, eo_001, eo_001_#Latn, es, es_419, es_AR, 
+        es_BO, es_BR, es_BZ, es_CL, es_CO, es_CR, es_CU, es_DO, 
+        es_EA, es_EC, es_ES, es_ES_#Latn, es_GQ, es_GT, es_HN, es_IC, 
+        es_MX, es_NI, es_PA, es_PE, es_PH, es_PR, es_PY, es_SV, 
+        es_US, es_UY, es_VE, et, et_EE, et_EE_#Latn, eu, eu_ES, 
+        eu_ES_#Latn, ewo, ewo_CM, ewo_CM_#Latn, fa, fa_AF, fa_IR, fa_IR_#Arab, 
+        ff, ff_BF_#Adlm, ff_BF_#Latn, ff_CM_#Adlm, ff_CM_#Latn, ff_GH_#Adlm, ff_GH_#Latn, ff_GM_#Adlm, 
+        ff_GM_#Latn, ff_GN, ff_GN_#Adlm, ff_GN_#Latn, ff_GW_#Adlm, ff_GW_#Latn, ff_LR_#Adlm, ff_LR_#Latn, 
+        ff_MR_#Adlm, ff_MR_#Latn, ff_NE_#Adlm, ff_NE_#Latn, ff_NG_#Adlm, ff_NG_#Latn, ff_SL_#Adlm, ff_SL_#Latn, 
+        ff_SN, ff_SN_#Adlm, ff_SN_#Latn, ff__#Adlm, ff__#Latn, fi, fi_FI, fi_FI_#Latn, 
+        fil, fil_PH, fil_PH_#Latn, fo, fo_DK, fo_FO, fo_FO_#Latn, fr, 
+        fr_BE, fr_BF, fr_BI, fr_BJ, fr_BL, fr_CA, fr_CD, fr_CF, 
+        fr_CG, fr_CH, fr_CI, fr_CM, fr_DJ, fr_DZ, fr_FR, fr_FR_#Latn, 
+        fr_GA, fr_GF, fr_GN, fr_GP, fr_GQ, fr_HT, fr_KM, fr_LU, 
+        fr_MA, fr_MC, fr_MF, fr_MG, fr_ML, fr_MQ, fr_MR, fr_MU, 
+        fr_NC, fr_NE, fr_PF, fr_PM, fr_RE, fr_RW, fr_SC, fr_SN, 
+        fr_SY, fr_TD, fr_TG, fr_TN, fr_VU, fr_WF, fr_YT, frr, 
+        frr_DE, frr_DE_#Latn, fur, fur_IT, fur_IT_#Latn, fy, fy_NL, fy_NL_#Latn, 
+        ga, ga_GB, ga_IE, ga_IE_#Latn, gd, gd_GB, gd_GB_#Latn, gl, 
+        gl_ES, gl_ES_#Latn, gsw, gsw_CH, gsw_CH_#Latn, gsw_FR, gsw_LI, gu, 
+        gu_IN, gu_IN_#Gujr, guz, guz_KE, guz_KE_#Latn, gv, gv_IM, gv_IM_#Latn, 
+        ha, ha_GH, ha_NE, ha_NG, ha_NG_#Latn, haw, haw_US, haw_US_#Latn, 
+        he, he_IL, he_IL_#Hebr, hi, hi_IN, hi_IN_#Deva, hi_IN_#Latn, hi__#Latn, 
+        hr, hr_BA, hr_HR, hr_HR_#Latn, hsb, hsb_DE, hsb_DE_#Latn, hu, 
+        hu_HU, hu_HU_#Latn, hy, hy_AM, hy_AM_#Armn, ia, ia_001, ia_001_#Latn, 
+        id, id_ID, id_ID_#Latn, ig, ig_NG, ig_NG_#Latn, ii, ii_CN, 
+        ii_CN_#Yiii, is, is_IS, is_IS_#Latn, it, it_CH, it_IT, it_IT_#Latn, 
+        it_SM, it_VA, ja, ja_JP, ja_JP_#Jpan, ja_JP_JP_#u-ca-japanese, jgo, jgo_CM, 
+        jgo_CM_#Latn, jmc, jmc_TZ, jmc_TZ_#Latn, jv, jv_ID, jv_ID_#Latn, ka, 
+        ka_GE, ka_GE_#Geor, kab, kab_DZ, kab_DZ_#Latn, kam, kam_KE, kam_KE_#Latn, 
+        kde, kde_TZ, kde_TZ_#Latn, kea, kea_CV, kea_CV_#Latn, kgp, kgp_BR, 
+        kgp_BR_#Latn, khq, khq_ML, khq_ML_#Latn, ki, ki_KE, ki_KE_#Latn, kk, 
+        kk_KZ, kk_KZ_#Cyrl, kkj, kkj_CM, kkj_CM_#Latn, kl, kl_GL, kl_GL_#Latn, 
+        kln, kln_KE, kln_KE_#Latn, km, km_KH, km_KH_#Khmr, kn, kn_IN, 
+        kn_IN_#Knda, ko, ko_KP, ko_KR, ko_KR_#Kore, kok, kok_IN, kok_IN_#Deva, 
+        ks, ks_IN, ks_IN_#Arab, ks_IN_#Deva, ks__#Arab, ks__#Deva, ksb, ksb_TZ, 
+        ksb_TZ_#Latn, ksf, ksf_CM, ksf_CM_#Latn, ksh, ksh_DE, ksh_DE_#Latn, ku, 
+        ku_TR, ku_TR_#Latn, kw, kw_GB, kw_GB_#Latn, ky, ky_KG, ky_KG_#Cyrl, 
+        lag, lag_TZ, lag_TZ_#Latn, lb, lb_LU, lb_LU_#Latn, lg, lg_UG, 
+        lg_UG_#Latn, lkt, lkt_US, lkt_US_#Latn, ln, ln_AO, ln_CD, ln_CD_#Latn, 
+        ln_CF, ln_CG, lo, lo_LA, lo_LA_#Laoo, lrc, lrc_IQ, lrc_IR, 
+        lrc_IR_#Arab, lt, lt_LT, lt_LT_#Latn, lu, lu_CD, lu_CD_#Latn, luo, 
+        luo_KE, luo_KE_#Latn, luy, luy_KE, luy_KE_#Latn, lv, lv_LV, lv_LV_#Latn, 
+        mai, mai_IN, mai_IN_#Deva, mas, mas_KE, mas_KE_#Latn, mas_TZ, mdf, 
+        mdf_RU, mdf_RU_#Cyrl, mer, mer_KE, mer_KE_#Latn, mfe, mfe_MU, mfe_MU_#Latn, 
+        mg, mg_MG, mg_MG_#Latn, mgh, mgh_MZ, mgh_MZ_#Latn, mgo, mgo_CM, 
+        mgo_CM_#Latn, mi, mi_NZ, mi_NZ_#Latn, mk, mk_MK, mk_MK_#Cyrl, ml, 
+        ml_IN, ml_IN_#Mlym, mn, mn_MN, mn_MN_#Cyrl, mni, mni_IN, mni_IN_#Beng, 
+        mni__#Beng, mr, mr_IN, mr_IN_#Deva, ms, ms_BN, ms_ID, ms_MY, 
+        ms_MY_#Latn, ms_SG, mt, mt_MT, mt_MT_#Latn, mua, mua_CM, mua_CM_#Latn, 
+        my, my_MM, my_MM_#Mymr, mzn, mzn_IR, mzn_IR_#Arab, naq, naq_NA, 
+        naq_NA_#Latn, nb, nb_NO, nb_NO_#Latn, nb_SJ, nd, nd_ZW, nd_ZW_#Latn, 
+        nds, nds_DE, nds_DE_#Latn, nds_NL, ne, ne_IN, ne_NP, ne_NP_#Deva, 
+        nl, nl_AW, nl_BE, nl_BQ, nl_CW, nl_NL, nl_NL_#Latn, nl_SR, 
+        nl_SX, nmg, nmg_CM, nmg_CM_#Latn, nn, nn_NO, nn_NO_#Latn, nnh, 
+        nnh_CM, nnh_CM_#Latn, no, no_NO, no_NO_#Latn, no_NO_NY, nus, nus_SS, 
+        nus_SS_#Latn, nyn, nyn_UG, nyn_UG_#Latn, oc, oc_ES, oc_FR, oc_FR_#Latn, 
+        om, om_ET, om_ET_#Latn, om_KE, or, or_IN, or_IN_#Orya, os, 
+        os_GE, os_GE_#Cyrl, os_RU, pa, pa_IN, pa_IN_#Guru, pa_PK, pa_PK_#Arab, 
+        pa__#Arab, pa__#Guru, pcm, pcm_NG, pcm_NG_#Latn, pis, pis_SB, pis_SB_#Latn, 
+        pl, pl_PL, pl_PL_#Latn, ps, ps_AF, ps_AF_#Arab, ps_PK, pt, 
+        pt_AO, pt_BR, pt_BR_#Latn, pt_CH, pt_CV, pt_GQ, pt_GW, pt_LU, 
+        pt_MO, pt_MZ, pt_PT, pt_ST, pt_TL, qu, qu_BO, qu_EC, 
+        qu_PE, qu_PE_#Latn, raj, raj_IN, raj_IN_#Deva, rm, rm_CH, rm_CH_#Latn, 
+        rn, rn_BI, rn_BI_#Latn, ro, ro_MD, ro_RO, ro_RO_#Latn, rof, 
+        rof_TZ, rof_TZ_#Latn, ru, ru_BY, ru_KG, ru_KZ, ru_MD, ru_RU, 
+        ru_RU_#Cyrl, ru_UA, rw, rw_RW, rw_RW_#Latn, rwk, rwk_TZ, rwk_TZ_#Latn, 
+        sa, sa_IN, sa_IN_#Deva, sah, sah_RU, sah_RU_#Cyrl, saq, saq_KE, 
+        saq_KE_#Latn, sat, sat_IN, sat_IN_#Olck, sat__#Olck, sbp, sbp_TZ, sbp_TZ_#Latn, 
+        sc, sc_IT, sc_IT_#Latn, sd, sd_IN, sd_IN_#Deva, sd_PK, sd_PK_#Arab, 
+        sd__#Arab, sd__#Deva, se, se_FI, se_NO, se_NO_#Latn, se_SE, seh, 
+        seh_MZ, seh_MZ_#Latn, ses, ses_ML, ses_ML_#Latn, sg, sg_CF, sg_CF_#Latn, 
+        shi, shi_MA, shi_MA_#Latn, shi_MA_#Tfng, shi__#Latn, shi__#Tfng, si, si_LK, 
+        si_LK_#Sinh, sk, sk_SK, sk_SK_#Latn, sl, sl_SI, sl_SI_#Latn, smn, 
+        smn_FI, smn_FI_#Latn, sms, sms_FI, sms_FI_#Latn, sn, sn_ZW, sn_ZW_#Latn, 
+        so, so_DJ, so_ET, so_KE, so_SO, so_SO_#Latn, sq, sq_AL, 
+        sq_AL_#Latn, sq_MK, sq_XK, sr, sr_BA, sr_BA_#Cyrl, sr_BA_#Latn, sr_CS, 
+        sr_ME, sr_ME_#Cyrl, sr_ME_#Latn, sr_RS, sr_RS_#Cyrl, sr_RS_#Latn, sr_XK_#Cyrl, sr_XK_#Latn, 
+        sr__#Cyrl, sr__#Latn, su, su_ID, su_ID_#Latn, su__#Latn, sv, sv_AX, 
+        sv_FI, sv_SE, sv_SE_#Latn, sw, sw_CD, sw_KE, sw_TZ, sw_TZ_#Latn, 
+        sw_UG, ta, ta_IN, ta_IN_#Taml, ta_LK, ta_MY, ta_SG, te, 
+        te_IN, te_IN_#Telu, teo, teo_KE, teo_UG, teo_UG_#Latn, tg, tg_TJ, 
+        tg_TJ_#Cyrl, th, th_TH, th_TH_#Thai, th_TH_TH_#u-nu-thai, ti, ti_ER, ti_ET, 
+        ti_ET_#Ethi, tk, tk_TM, tk_TM_#Latn, to, to_TO, to_TO_#Latn, tok, 
+        tok_001, tok_001_#Latn, tr, tr_CY, tr_TR, tr_TR_#Latn, tt, tt_RU, 
+        tt_RU_#Cyrl, twq, twq_NE, twq_NE_#Latn, tzm, tzm_MA, tzm_MA_#Latn, ug, 
+        ug_CN, ug_CN_#Arab, uk, uk_UA, uk_UA_#Cyrl, ur, ur_IN, ur_PK, 
+        ur_PK_#Arab, uz, uz_AF, uz_AF_#Arab, uz_UZ, uz_UZ_#Cyrl, uz_UZ_#Latn, uz__#Arab, 
+        uz__#Cyrl, uz__#Latn, vai, vai_LR, vai_LR_#Latn, vai_LR_#Vaii, vai__#Latn, vai__#Vaii, 
+        vi, vi_VN, vi_VN_#Latn, vun, vun_TZ, vun_TZ_#Latn, wae, wae_CH, 
+        wae_CH_#Latn, wo, wo_SN, wo_SN_#Latn, xh, xh_ZA, xh_ZA_#Latn, xog, 
+        xog_UG, xog_UG_#Latn, yav, yav_CM, yav_CM_#Latn, yi, yi_001, yi_001_#Hebr, 
+        yo, yo_BJ, yo_NG, yo_NG_#Latn, yrl, yrl_BR, yrl_BR_#Latn, yrl_CO, 
+        yrl_VE, yue, yue_CN, yue_CN_#Hans, yue_HK, yue_HK_#Hant, yue__#Hans, yue__#Hant, 
+        zgh, zgh_MA, zgh_MA_#Tfng, zh, zh_CN, zh_CN_#Hans, zh_HK, zh_HK_#Hans, 
+        zh_HK_#Hant, zh_MO, zh_MO_#Hans, zh_MO_#Hant, zh_SG, zh_SG_#Hans, zh_TW, zh_TW_#Hant, 
+        zh__#Hans, zh__#Hant, zu, zu_ZA, zu_ZA_#Latn
+java version "21.0.1" 2023-10-17 LTS
+Java(TM) SE Runtime Environment (build 21.0.1+12-LTS-29)
+Java HotSpot(TM) 64-Bit Server VM (build 21.0.1+12-LTS-29, mixed mode, sharing)
