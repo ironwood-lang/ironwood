@@ -395,7 +395,7 @@ Java-shaped names must pass the behavioral contract review before implementation
 | --- | --- | --- |
 | `Files.deleteIfExists(Path)` | False only for absence; preserve errors such as permission denial and nonempty directory | Driver and staging cleanup |
 | `Files.createTempFile(Path, String, String)` and `createTempDirectory(Path, String)` | Exclusively create the object before returning its fresh path; deterministic cleanup on partial failure | Native output staging and logs |
-| Corresponding default-directory overloads | Use a documented native temporary-directory convention; no Java property/resource dependency | Existing driver paths without an output parent |
+| Corresponding default-directory overloads | Reuse Ironwood's `System.getProperty("java.io.tmpdir")`: nonempty `TMPDIR`, otherwise `/tmp` | Existing driver paths without an output parent |
 | `Path.toRealPath()` | Resolve existing paths through the host filesystem, including symlinks; propagate lookup failures | Tool discovery, source deduplication, output identity |
 | `Files.isReadable(Path)` and `isExecutable(Path)` | Advisory access checks; actual IO/launch still handles failure | LLVM, SDK, and Bridge tool selection |
 | `Files.readAttributesNoFollow(Path)` | Explicit Ironwood helper for final-component link inspection; fresh attribute result | Bridge destination validation |
@@ -406,9 +406,19 @@ The temporary-file contract must include nullable prefix/suffix behavior admitte
 by the selected overloads, invalid path components, permissions, and failure if
 the parent does not exist. In Java's contract, null suffix selects `.tmp`; do not
 accidentally replace that behavior with a narrower runtime trap. Omit unsupported
-attribute-option overloads from the API. The native default temporary directory
-and permissions are proposed platform conventions to record before coding.
+attribute-option overloads from the API. Temporary-file/directory permissions
+remain a platform convention to record before coding.
 See the [Java 21 Files contract](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/nio/file/Files.html).
+
+The default directory already has a native convention:
+[System.getProperty](../stdlib/src/main/ironwood/ironwood/lang/System.iron) exposes
+`java.io.tmpdir`, and the [runtime](../runtime/src/ironwood_runtime.c) returns
+`TMPDIR` when nonempty, falling back to `/tmp` only when it is unset or empty.
+Default-directory overloads should obtain that property and delegate to the
+explicit-directory implementation, preserving cleanup of temporary String/Path
+objects. This property is implemented by Ironwood's runtime and requires no JVM.
+Do not add a second environment lookup policy or silently fall back to `/tmp`
+when a nonempty configured directory is unusable; propagate the creation error.
 
 Use exclusive host creation, not an `exists`/create sequence. A failure to build
 the returned managed Path after native creation must remove the new file or
@@ -457,6 +467,9 @@ permission failure, and unsupported atomic operation. Do not guess the reason
 from an error string. Cleanup must retain the primary failure and report
 secondary failures according to the existing exception policy.
 
+Test default-directory selection with `TMPDIR` unset, empty, and nonempty;
+confirm explicit-directory overloads ignore it and an unusable nonempty value
+fails without another fallback. Compare selection with `java.io.tmpdir`.
 Test temporary-name collisions, spaces/Unicode, symlink/dangling-link cases,
 same-file and competing-destination cases, nonempty directories, inaccessible
 parents, cross-filesystem behavior where available, and allocation failure after
