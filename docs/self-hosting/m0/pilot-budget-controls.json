@@ -1,0 +1,62 @@
+{
+  "synthetic_only": true,
+  "no_native_evaluation": true,
+  "positive_groups": [
+    "frontend",
+    "ownership",
+    "evidence",
+    "effect"
+  ],
+  "negative_controls": [
+    {
+      "name": "wall",
+      "error": "budget exceeded: fresh_wall_seconds"
+    },
+    {
+      "name": "RSS",
+      "error": "budget exceeded: rss_bytes"
+    },
+    {
+      "name": "phase",
+      "error": "budget exceeded: phase_seconds"
+    },
+    {
+      "name": "NaN",
+      "error": "missing/nonfinite/nonpositive metric: fresh_wall_seconds"
+    },
+    {
+      "name": "missing-RSS",
+      "error": "missing/nonfinite/nonpositive metric: rss_bytes"
+    },
+    {
+      "name": "boolean-RSS",
+      "error": "missing/nonfinite/nonpositive metric: rss_bytes"
+    },
+    {
+      "name": "stack",
+      "error": "stack capacity must match the fixed external limit"
+    },
+    {
+      "name": "retirement",
+      "error": "missing retirement/safety measurement or nonzero result"
+    },
+    {
+      "name": "safety",
+      "error": "missing retirement/safety measurement or nonzero result"
+    },
+    {
+      "name": "sampled-RSS",
+      "error": "RSS must be process rusage peak bytes"
+    },
+    {
+      "name": "logical-units",
+      "error": "association units cannot replace allocator observation"
+    },
+    {
+      "name": "failed-process",
+      "error": "profile mismatch or unsuccessful process"
+    }
+  ],
+  "policy_sha256": "18834a8dfc34d1c6a35d922f247e2e8ad74023c44f8bebf8b3032520171b2be5",
+  "tool_sha256": "d39ce133fdba1799460ebf12779d93634fa10c151e80f1d1693f7aa6b685b928"
+}

@@ -1,0 +1,224 @@
+{
+  "schema": 1,
+  "fixed_before_native_evaluation": true,
+  "tool_sha256": "1371a71ab3f39c20fa3e844f2a85f0948616fee922c93cbe25bebcc4877fbc60",
+  "profile": "macOS arm64 Apple M5, 32 GiB, qualified pinned JDK/LLVM identities",
+  "budget_decision": {
+    "frontend": {
+      "budget": {
+        "fresh_wall_seconds": 2.0,
+        "rss_bytes": 1073741824
+      },
+      "reference_runs": 88,
+      "measured_java_maxima": {
+        "fresh_wall_seconds": 0.45956808398477733,
+        "rss_bytes": 301858816
+      },
+      "budget_over_java_maximum": {
+        "fresh_wall_seconds": 4.351912305699296,
+        "rss_bytes": 3.5570994355188885
+      },
+      "maximum_labels": {
+        "fresh_wall_seconds": {
+          "fresh_wall_seconds": 0.45956808398477733,
+          "rss_bytes": 283852800,
+          "phase_seconds": 0.016275041,
+          "reference": "resources-original/initial/measurement.json",
+          "label": "Volume256-frontend-000-0"
+        },
+        "rss_bytes": {
+          "fresh_wall_seconds": 0.45826720900367945,
+          "rss_bytes": 301858816,
+          "phase_seconds": 0.018242833,
+          "reference": "resources-original/initial/measurement.json",
+          "label": "Ownership128-frontend-100-1"
+        }
+      }
+    },
+    "ownership": {
+      "budget": {
+        "fresh_wall_seconds": 1.0,
+        "rss_bytes": 536870912,
+        "phase_seconds": 0.25
+      },
+      "reference_runs": 96,
+      "measured_java_maxima": {
+        "fresh_wall_seconds": 0.16445504099829122,
+        "rss_bytes": 97845248,
+        "phase_seconds": 0.061747292
+      },
+      "budget_over_java_maximum": {
+        "fresh_wall_seconds": 6.080689250567823,
+        "rss_bytes": 5.486939048894842,
+        "phase_seconds": 4.048760551312922
+      },
+      "maximum_labels": {
+        "fresh_wall_seconds": {
+          "fresh_wall_seconds": 0.16445504099829122,
+          "rss_bytes": 90406912,
+          "phase_seconds": 0.060888917,
+          "reference": "ownership-resources/ordered/measurement.json",
+          "label": "ownership-128-2-observer1-sample0-r0"
+        },
+        "rss_bytes": {
+          "fresh_wall_seconds": 0.14946004195371643,
+          "rss_bytes": 97845248,
+          "phase_seconds": 0.04803775,
+          "reference": "ownership-resources/ordered/measurement.json",
+          "label": "ownership-128-1-observer0-sample0-r1"
+        },
+        "phase_seconds": {
+          "fresh_wall_seconds": 0.16330045799259096,
+          "rss_bytes": 88260608,
+          "phase_seconds": 0.061747292,
+          "reference": "ownership-resources/ordered/measurement.json",
+          "label": "ownership-128-1-observer1-sample0-r1"
+        }
+      }
+    },
+    "evidence": {
+      "budget": {
+        "fresh_wall_seconds": 1.0,
+        "rss_bytes": 536870912,
+        "phase_seconds": 0.25
+      },
+      "reference_runs": 24,
+      "measured_java_maxima": {
+        "fresh_wall_seconds": 0.13198970799567178,
+        "rss_bytes": 84328448,
+        "phase_seconds": 0.056778959
+      },
+      "budget_over_java_maximum": {
+        "fresh_wall_seconds": 7.576348301587212,
+        "rss_bytes": 6.366427044880513,
+        "phase_seconds": 4.403039513281672
+      },
+      "maximum_labels": {
+        "fresh_wall_seconds": {
+          "fresh_wall_seconds": 0.13198970799567178,
+          "rss_bytes": 82608128,
+          "phase_seconds": 0.054708875,
+          "reference": "kernel-resources/ordered/measurement.json",
+          "label": "evidence-128-1-observer0-sample0-r0"
+        },
+        "rss_bytes": {
+          "fresh_wall_seconds": 0.10671670798910782,
+          "rss_bytes": 84328448,
+          "phase_seconds": 0.048645959,
+          "reference": "kernel-resources/original/measurement.json",
+          "label": "evidence-128-1-observer0-sample1-r0"
+        },
+        "phase_seconds": {
+          "fresh_wall_seconds": 0.12215008301427588,
+          "rss_bytes": 80478208,
+          "phase_seconds": 0.056778959,
+          "reference": "kernel-resources/ordered/measurement.json",
+          "label": "evidence-128-1-observer0-sample0-r1"
+        }
+      }
+    },
+    "effect": {
+      "budget": {
+        "fresh_wall_seconds": 1.0,
+        "rss_bytes": 536870912,
+        "phase_seconds": 0.5
+      },
+      "reference_runs": 160,
+      "measured_java_maxima": {
+        "fresh_wall_seconds": 0.22364212502725422,
+        "rss_bytes": 261570560,
+        "phase_seconds": 0.130464292
+      },
+      "budget_over_java_maximum": {
+        "fresh_wall_seconds": 4.471429521062433,
+        "rss_bytes": 2.0524898214844973,
+        "phase_seconds": 3.832466281271813
+      },
+      "maximum_labels": {
+        "fresh_wall_seconds": {
+          "fresh_wall_seconds": 0.22364212502725422,
+          "rss_bytes": 258490368,
+          "phase_seconds": 0.130464292,
+          "reference": "loop-cycle-reference/cycle-ordered/measurement.json",
+          "label": "effect-cycle-128-65-observer0-sample0-r1"
+        },
+        "rss_bytes": {
+          "fresh_wall_seconds": 0.17557029204908758,
+          "rss_bytes": 261570560,
+          "phase_seconds": 0.096815667,
+          "reference": "loop-cycle-reference/cycle-ordered/measurement.json",
+          "label": "effect-cycle-128-65-observer0-sample1-r1"
+        },
+        "phase_seconds": {
+          "fresh_wall_seconds": 0.22364212502725422,
+          "rss_bytes": 258490368,
+          "phase_seconds": 0.130464292,
+          "reference": "loop-cycle-reference/cycle-ordered/measurement.json",
+          "label": "effect-cycle-128-65-observer0-sample0-r1"
+        }
+      }
+    }
+  },
+  "references": [
+    {
+      "archive": "resources-original.tar.gz",
+      "archive_sha256": "d326614a1c0584ed23d4279263e821a9fba9b43eba9b04ebb405a8a4db490407",
+      "member": "initial/measurement.json",
+      "member_sha256": "4a6608366b5b36db6adb0afa684fd7f1fa44fa1a21e4918a59a014097f20c408"
+    },
+    {
+      "archive": "resources-original.tar.gz",
+      "archive_sha256": "d326614a1c0584ed23d4279263e821a9fba9b43eba9b04ebb405a8a4db490407",
+      "member": "strict/measurement.json",
+      "member_sha256": "2324c3eb27c42352783238f11fa710379cf737475d5652235637d13e3846a49b"
+    },
+    {
+      "archive": "kernel-resources.tar.gz",
+      "archive_sha256": "1e1d6b13cf8ad590f8c9951de6fdefc9660eed690aaedff0beefb94af5f7d59f",
+      "member": "original/measurement.json",
+      "member_sha256": "217bdc6132d9c9cf22fcb7901d2431b2ed529ea385b40541bdaace73448876f8"
+    },
+    {
+      "archive": "kernel-resources.tar.gz",
+      "archive_sha256": "1e1d6b13cf8ad590f8c9951de6fdefc9660eed690aaedff0beefb94af5f7d59f",
+      "member": "ordered/measurement.json",
+      "member_sha256": "ecc17760719873832b9af861999fd4e0523e5b9cf74d122650e6c193e1612833"
+    },
+    {
+      "archive": "ownership-resources.tar.gz",
+      "archive_sha256": "d077a35bb47c9ece52691caeab4a6cf36a7a960194e21c82c4f768d9c90a50a8",
+      "member": "ordered/measurement.json",
+      "member_sha256": "a1c629dd9c5fb3284990def849a3c0c51d3df7fa458fb521290582e6a3bd563c"
+    },
+    {
+      "archive": "loop-cycle-reference.tar.gz",
+      "archive_sha256": "54eccdecc1414b393f2be893dd8686d956abed44443c217f9ee119355b1bdcc1",
+      "member": "resources/measurement.json",
+      "member_sha256": "5f6a06d2ee23e4f29564e873d02b87801f1cb3c8bfddd49cd0d45f52cbdba028"
+    },
+    {
+      "archive": "loop-cycle-reference.tar.gz",
+      "archive_sha256": "54eccdecc1414b393f2be893dd8686d956abed44443c217f9ee119355b1bdcc1",
+      "member": "cycle-original/measurement.json",
+      "member_sha256": "f5f401308fb1c6b520b90103fcaacaa5568ec8672a26dddf509771499ff6f03d"
+    },
+    {
+      "archive": "loop-cycle-reference.tar.gz",
+      "archive_sha256": "54eccdecc1414b393f2be893dd8686d956abed44443c217f9ee119355b1bdcc1",
+      "member": "cycle-ordered/measurement.json",
+      "member_sha256": "b75f115cd27407c623edb18df1f80d21ddbe66c90741929e78cdaa5e38b9594e"
+    }
+  ],
+  "native_main_stack_limit_kib": 8176,
+  "temporary_outstanding_after_retirement": 0,
+  "mandatory_safety_errors_allowed": 0,
+  "fresh_repeats_minimum": 2,
+  "excluded_complete_compiler_runs": 112,
+  "scope": "M2 finite frontend/operation pilots only; no native run evaluated, no S3/S4 self-build capacity or resident budget",
+  "limits": [
+    "RSS is process rusage, not sampled heap/live objects; sampled frame counts are not stack bytes",
+    "main stack capacity must be externally limited; native high-water/depth remains separate evidence",
+    "source/AST/diagnostic outputs can survive an invocation; backing temporaries retire at their proved boundary",
+    "allocation-event and retained-byte measurements must distinguish actual bytes from association accounting units"
+  ]
+}

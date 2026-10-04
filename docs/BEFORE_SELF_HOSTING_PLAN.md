@@ -258,9 +258,24 @@ Independent scoped review of `2448e344` confirmed all 2,393 archive members,
 twenty final loop cross-seed pairs, four actual loop kinds, both forty-run cyclic
 groups and observer rounds, forty cycle pairs and all 36 isolated loop statuses.
 The complete-task whitespace check passed. Global inventory/budgets remain open.
-Next action: finish reviewed call and transitive ordering contracts, name the
-closed native pilot dependencies/workloads, and derive resource budgets before
-native pilot evaluation.
+The [fixed pilot budgets](self-hosting/m0/PILOT_BUDGETS.md) now derive numerical
+limits from 88 frontend, 96 ownership, 24 explanation and 160 effect Java runs,
+with exact maximizing labels and archive/member hashes. Frontend allows 2 seconds/
+1 GiB RSS; direct kernels allow 1 second/512 MiB with explicit phase caps. Native
+main stack is limited to 8,176 KiB and temporary retirement must end at zero,
+without treating unmeasured bytes or association counts as physical accounting.
+Only the qualified M5 macOS profile is covered; no native result is evaluated.
+Global classifications and final S0 reconciliation still precede M0 completion.
+The fixed frontend budget also gates the actual translated frontend/helper
+source bundle before G1: M1.1/M1.3 retain its source/closure manifest and fresh
+J0 reference, then M2.1 compares and measures the combined retained bundle.
+Twelve synthetic resource/method controls exercise strict numeric enforcement;
+they are not native results. Stack rationale and external enforcement are explicit.
+Independent scoped review of `6a4dd09f` confirmed all source hashes, six logs,
+four identical 233-model outputs, finite roles and negative controls. Native
+consumer implementation remains in M1/M2. Next action: finish global reviewed
+API/capture/syntax and transitive ordering classifications, then reconcile the
+selected pilot dependencies, fixed budgets and S0 evidence before M0 completion.
 
 ### M1. Minimum pilot prerequisites
 

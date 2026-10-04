@@ -778,3 +778,39 @@ both forty-run cyclic groups with eight configurations per case and N+1 rounds,
 forty cycle cross-seed pairs, and all 36 isolated loop statuses. Source cycle and
 mandatory unsafe alias were reviewed; complete-task whitespace passed. This is
 scoped evidence acceptance and does not close the M0 checkpoint.
+
+## Fixed pilot budgets before native evaluation
+
+[PILOT_BUDGETS.md](PILOT_BUDGETS.md) and pilot-budgets.json fix bounded M2 limits
+for the qualified M5 macOS profile. record-pilot-budgets.py verifies exact archive/
+member hashes and derives maxima/headroom from 88 frontend, 96 ownership, 24
+explanation and 160 effect Java runs. It excludes complete-compiler runs and
+provisional overlapped/failed/corrupted captures. No native result is evaluated.
+The source/hash/phase/repeat, stack capacity and physical-accounting limits are
+explicit; unavailable byte/depth measurements remain missing evidence, never zero.
+
+Frontend has a 2-second/1-GiB fresh-process cap. Direct kernels have 1-second/
+512-MiB caps plus ownership/explanation 250-ms and effect 500-ms operation caps.
+The native main-stack limit is 8,176 KiB; zero outstanding retired temporaries
+and mandatory safety rejection remain independent gates. Later S3/S4 self-build
+capacity and S7 repeated requests need separate qualification. This completes
+numerical pilot-budget selection while global source classifications and final
+S0 reconciliation remain open.
+
+Independent scoped review of 6a4dd09f confirmed all 132 original/ordered/current
+source hashes, six command logs and gzip byte hashes, four identical 233-model
+outputs, all finite roles and five negative controls. Concrete source restrictions
+and complete-task whitespace were accepted; native consumers remain M1/M2 work.
+
+The numerical rationale records approximately fourfold wall/phase and at least
+twofold RSS headroom in the tightest categories, and uses the actual 8,176-KiB
+macOS main-stack cap. Exact corpus/kernel scale sets and external soft/hard stack,
+time/rusage/timeout enforcement are documented. M1.1/M1.3 must hash the actual
+translated frontend/helper bundle and gather its Java reference; M2.1 must compare
+and measure the whole retained bundle under these fixed caps before G1. This
+real-source obligation cannot be substituted by example-only/generated inputs.
+Four synthetic category controls and twelve intentional wall/RSS/phase/nonfinite,
+stack/retirement/safety/method failures qualify check-pilot-budget.py without any
+native evaluation. The budget derivation repeats byte-for-byte; its added tool
+identity preserves the original numeric decision. Licenses, written-text and
+current/staged/complete-task whitespace checks pass.
