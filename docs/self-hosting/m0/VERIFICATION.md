@@ -451,3 +451,11 @@ foreign conservative effects, independent returned vectors, exact/converted
 rendered-result exclusions, unknown calls, admitted/unreachable unwind cleanup
 and cyclic interface initialization closure. These are internal typed-IR probes;
 they do not replace source-level safe/unsafe fixture or diagnostic-order coverage.
+
+The corrected owner/phase mapping reuses existing ironwood.util.BitSet
+operations under B1 and starts independent logical copies with new BitSet plus
+or(source), following section 4.2 of the living plan. Capacity is not observed
+by these private callers; this is not a claim about a public clone capacity
+contract. Q20 belongs to B1/M1.2; OptionalInt primitive presence belongs to
+B7/M1.3. No B2 comparator sort or new bit-vector implementation is selected.
+The exact use-site ledger has been regenerated with these corrected mappings.

@@ -59,7 +59,7 @@ def main():
         row.pop('review_status')
         row.update(proof=PROOFS[int(row['line'])],
                    classification='ordered list traversal; extensional union/existential result',
-                   B='B1/B2/B7', phase='M1.1/M1.2/M1.3', first_consumer='M2 effect/snapshot workload',
+                   B='B1/B7', phase='M1.1/M1.2/M1.3', first_consumer='M2 effect/snapshot workload',
                    required_fixture='word-boundary parameters; target permutation; foreign effects; unwind reachability')
         traversals.append(row)
     if len(traversals) != 9:

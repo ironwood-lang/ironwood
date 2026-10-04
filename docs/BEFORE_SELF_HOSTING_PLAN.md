@@ -168,6 +168,9 @@ uses and propagated hash sites in ClosedWorldEffectAnalyzer, including its
 field-stored compiler-defined observer. Original target unions, cross-word
 parameter bits, rendered-result exclusion and unwind reachability have focused
 Java qualification; global summary/ownership ordering and resources remain open.
+The effect slice reuses existing BitSet operations under B1 and starts copies
+with new BitSet plus or(source); its FIFO is M1.2, and primitive presence is B7.
+It introduces no B2 sorting dependency or replacement vector implementation.
 Next action: finish reviewed call and transitive ordering contracts, extend
 the corpus, and derive resource budgets before native pilot evaluation.
 
