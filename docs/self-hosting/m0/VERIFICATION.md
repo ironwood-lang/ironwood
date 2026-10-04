@@ -592,3 +592,18 @@ none is native live-object accounting or a compiler-port result. Expanded corpus
 pilot closure, reviewed inventory and numerical budgets still precede M0/S0.
 The original snapshot contract now links the scoped D247 qualification without
 claiming that other ownership hash paths were repaired.
+
+## Frontend diagnostic value closure
+
+[DIAGNOSTIC_CONTRACTS.md](DIAGNOSTIC_CONTRACTS.md) covers all seven external
+patterns/twelve calls in Diagnostic and DiagnosticNote. Exact original/current
+source hashes, attributed calls and absence of hash origins/captured local state
+are checked; the immediate static error predicate is reviewed independently of
+the capture ledger. The original-seed probe passes 27 constructor/value/copy and
+short-circuit checks in four fresh JVMs, retaining source, commands and raw logs.
+Named NullPointerException messages distinguish severity-before-notes validation
+even when both fields are null.
+Global note discard occurs after validation; notes require paired source/span
+while primary diagnostics permit one missing location field. Source identity and
+span value remain separate. These contracts join the frontend helper boundary;
+formatter rendering, native retirement and full corpus coverage remain separate.

@@ -151,6 +151,10 @@ all exact external member uses in that package, with qualified original helper
 probes. The [worklist contracts](self-hosting/m0/WORKLIST_CONTRACTS.md) map all
 44 deque origins to FIFO or scope-stack semantics and their actual references.
 Selected variant coverage, captures and upstream semantic ordering remain open.
+The [diagnostic value closure](self-hosting/m0/DIAGNOSTIC_CONTRACTS.md) adds
+source identity/span value, immutable note membership, constructor failure order
+and immediate first-error traversal contracts reached by the frontend. Formatter
+rendering remains a separate later consumer.
 The [syntax discovery correction](self-hosting/m0/syntax-discovery-correction.json)
 separates 118 excluded uninitialized locals from 1,141 enhanced-for bindings and
 marks all 1,753 Java var declarations excluded. Original non-syntax tables are

@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parents[2]
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', type=Path, required=True)
-    parser.add_argument('--probe', choices=('evidence', 'ast', 'effect'), default='evidence')
+    parser.add_argument('--probe', choices=('evidence', 'ast', 'effect', 'diagnostic'), default='evidence')
     args = parser.parse_args()
     if args.output.exists():
         raise ValueError('qualification destination already exists')
@@ -39,11 +39,16 @@ def main():
         main_class = 'ironwood.compiler.ast.' + probe
         cases = 'AST snapshot/null/value/identity contracts, constructor failures, primitive count wrapping, literal dot rendering, locale distinction, ordered first-binding conflicts and control-flow completion'
         limits = 'no resource or full AST variant qualification; no native implementation'
-    else:
+    elif args.probe == 'effect':
         probe = 'EffectContractProbe'
         main_class = 'ironwood.compiler.semantic.' + probe
         cases = '8/65/257 parameters; colliding linkage/function and target permutations; retained observer rounds; foreign unions; rendered-result exclusion; unwind reachability and cyclic initialization closure'
         limits = 'no resource measurement or native implementation; invalid internal IR and diagnostic ordering not qualified by this probe'
+    else:
+        probe = 'DiagnosticContractProbe'
+        main_class = 'ironwood.compiler.diagnostic.' + probe
+        cases = 'independent immutable notes; source identity and span value; global-note discard after validation; constructor exception order; sequential first-error short circuit'
+        limits = 'no formatter, resource measurement, complete source-diagnostic corpus or native implementation'
     classes = ROOT / ('target/self-hosting-m0/' + args.probe + '-probe-classes')
     classes.mkdir(parents=True, exist_ok=True)
     source = ROOT / ('scripts/self-hosting/' + probe + '.java')
