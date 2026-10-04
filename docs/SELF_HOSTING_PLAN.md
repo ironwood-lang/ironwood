@@ -466,6 +466,12 @@ snapshot high-water marks, and native stack depth. Also measure Java/LLVM's cost
 of building the port: self-hosting stresses both the compiler being built and
 the compiler doing the building.
 
+Existing [collector-cost measurements](EXPLAIN_REJECTED_FREE_VERIFICATION.md#m1d-initial-collector-cost-and-completion)
+record Java wall time and sampled heap for smaller workloads and standard-library
+analysis. They exclude JVM startup and native linking and do not qualify a full
+compiler build. S3 and S4 must establish that capacity separately from the
+native port's own memory budget.
+
 ## 5. Migration milestones and exit gates
 
 All new paths and commands in this section are proposals, not existing tooling.
@@ -476,11 +482,32 @@ repository's prescribed branch workflow.
 
 ### S0. Establish the baseline and comparison harness
 
-Freeze a known Java compiler revision, the standard library/runtime revision,
+Freeze a known Java compiler revision as `J0`, the standard library/runtime revision,
 LLVM 23 toolchain identity, flags, platform, and fixtures. Inventory Java member
 uses by module and classify each as directly supported, local rewrite, library
 extension, or host service. Complete the call-level inventory before declaring
 any large module portable; the counts above are only a starting map.
+
+Pin J0's exact JDK vendor/build and seed JAR hash, launcher command, and numeric
+JVM limits: maximum heap (`-Xmx`) and thread stack (`-Xss`), with initial heap and
+collector settings recorded. The current [launcher](../bin/ironwoodc) reads
+[`conf/jvm.options`](../conf/jvm.options), whose shipped contents leave JVM
+defaults active; use that existing mechanism for the qualification installation
+and save its exact contents with the evidence. Apply the same profile to direct
+Java harness invocations. Clear inherited Java option variables or record their
+values, and verify the effective JVM settings so environment overrides cannot
+silently change the limits. Use a prebuilt frozen J0 rather than including an
+automatic seed rebuild in the measured command.
+
+Choose numeric wall-time, heap, and stack budgets for supported development
+machines before evaluating the growing port. Record fresh-process compile/link
+wall time, peak used Java heap and peak process RSS separately, and maximum
+observed Java frame depth under the pinned `-Xss` and OS limits. Record stack-byte
+high-water use where measurable. State the measurement method and sampling
+interval; sampled heap peaks are lower bounds, and observed Java frame depth is
+not a byte high-water measurement. Include deep control-flow/type/ownership
+inputs to test completion within the stack limit. Separate J0 measurements from
+LLVM/Clang child costs while also recording total pipeline time and memory.
 
 Add focused differential entry points for tokens/spans, AST shape, diagnostics,
 typed IR, and final LLVM. Define stable structural output rather than relying on
@@ -496,7 +523,9 @@ Bridge is not a general compiler-object interop mechanism.
 Exit: a selected corpus has captured reference outcomes and repeatable resource
 measurements; the harness detects an intentionally changed diagnostic, missing
 IR edge, and generated-output mismatch. Select numerical performance/memory
-budgets from these measurements before evaluating the port against them.
+budgets from these measurements before evaluating the port against them. The
+J0 launcher profile, numeric limits/budgets, and measurement procedure must be
+recorded before S0 exits; unspecified JVM defaults do not satisfy this gate.
 
 ### S1. Prove portability and memory feasibility
 
@@ -574,6 +603,15 @@ analyzes the chosen compiler source subset with mandatory safety enabled.
 No compiler-only exemption, unknown-effect assumption, or diagnostic downgrade
 is permitted to clear this gate.
 
+J0 must also compile and link the accumulated Ironwood port plus its required
+library closure, using representative pilot entry points, the section 4 `warn`
+policy, and S0's pinned JVM profile. Track wall time, Java heap, and stack evidence
+at each substantial increase in the port and at S3 exit, including deep-input
+cases. The current accumulated closure must fit the recorded budgets without
+heap/stack exhaustion. A capacity failure blocks progression until the seed or
+workload is fixed, or a revised supported-machine budget is explicitly recorded
+and the gate rerun; do not defer it to S5.
+
 ### S4. Complete native code generation and a source-only compiler
 
 Port primitive specialization, initialized-type/enum specialization, field
@@ -594,12 +632,22 @@ Compare generated program machine code and deterministic benchmarks where hot
 lowering differs. All compiler-specific work on this route is native, even if
 the outer driver is shell.
 
+Before S4 exits, J0 must compile and native-link the complete source closure
+planned for S5, including the pinned standard-library/runtime inputs and the
+same entry point, target, and optimization profile. Record J0 wall time, peak
+Java heap, and stack evidence against S0's budgets, alongside LLVM/Clang costs.
+The complete build must succeed within those limits and its native compiler must
+run the selected corpus. A successful subset or front-end-only analysis is not
+this gate. Requalify if the seed, closure, JVM profile, or build settings change.
+
 ### S5. Demonstrate the bootstrap fixed point
 
 Let `J0` be the frozen Java bootstrap, and `S` the same complete, immutable
 Ironwood compiler source closure plus its pinned library/runtime inputs:
 
-1. `J0(S)` builds native compiler `I1` through the pinned native pipeline.
+1. Reproduce the S4-qualified `J0(S)` build of native compiler `I1` through the
+   pinned native pipeline and JVM profile; its capacity is already an S4 exit
+   requirement.
 2. `I1(S)` builds `I2`, without invoking the Java compiler implementation.
 3. `I2(S)` builds `I3`, again without Java compiler implementation code.
 4. `I1`, `I2`, and `I3` compile the same focused acceptance/rejection corpus;
@@ -724,6 +772,7 @@ native structural outputs for assertions previously made on Java objects.
 | Constants/text; lexer, folding, emitter, diagnostics | Min/max/out-of-range literals, shifts/casts, NaN/signed zero, valid/malformed UTF-8 and text blocks | Exact tokens/spans/constants and compiled behavior; Java oracle only for Java-compatible behavior |
 | Explanation evidence | Explain on/off, exhausted budgets, retired/restored/joined snapshots | Same primary safety verdicts and program output; bounded optional storage and truthful fallback |
 | Host/artifact services | Missing/nonzero tool, large output, paths with spaces, malformed/duplicate/compressed archive entries, write failure | Correct exit status, preserved previous outputs, cleanup, cross-reader compatibility |
+| J0 build capacity | Growing S3 port and deep-shape inputs; complete S4 compiler/library closure through native linking | Pinned JDK/JVM profile; J0 wall time, heap, and stack evidence within recorded budgets; separate LLVM/Clang costs; full closure qualified before S5 |
 | Bootstrap and scale | Real compiler/library closure plus control-flow/generic stress; repeated worker processes | Generation and missing-free diagnostic comparison under the port's `warn` policy, classified S1 warning counts, wall time/RSS/stack measurements, no hidden Java compiler dependency |
 
 Useful existing exact test names include:
