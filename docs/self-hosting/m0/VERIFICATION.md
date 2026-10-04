@@ -206,9 +206,9 @@ python3 scripts/self-hosting/compare.py selftest \
   target/self-hosting-m0/new-comparison-qualification
 ```
 
-The attributed inventory now includes compact record-constructor reassignment
+At the original-reference increment, the attributed inventory included compact record-constructor reassignment
 flows and supported `var`/text-block sites separately from the synchronized
-method. The hash-origin graph discovers 866 sources and 1,093 transitive
+method. That hash-origin graph discovered 866 sources and 1,093 transitive
 traversals in 127 files. These are review obligations, not completed proofs.
 The archive manifest now includes previously compressed TSVs as well as newly
 generated tables, preventing partial regeneration from dropping hash records.
@@ -217,3 +217,57 @@ Focused adapter, mismatch, native fixture, inventory and license checks pass.
 M0.2 remains open for complete reviewed contracts and transitive ordering proofs;
 M0.3 remains open for the full corpus, measured resource baselines/budgets and
 the exact M1/M2 selection. No native pilot or M1 implementation has begun.
+
+## Reviewed contracts and mutation-order discovery correction
+
+[FRONTEND_CONTRACTS.md](FRONTEND_CONTRACTS.md) reviews every resolved external
+member pattern in the lexer/parser/source packages, including exact overloads,
+actual caller admission, equality/null/failure rules, owned versus borrowed
+storage, selected replacements, B owner, phase, first consumer and required
+fixtures. `review-frontend.py` joins all 60 patterns to their 689 actual use
+sites in [frontend-reviewed.json.gz](frontend-reviewed.json.gz), checks frozen
+source hashes and rejects missing/stale pattern reviews. The reached AST closure
+and other packages remain separate obligations; a shared API id does not confer
+this review on unrelated consumers.
+
+[SNAPSHOT_CONTRACTS.md](SNAPSHOT_CONTRACTS.md) records the real ownership/effect
+representation and retirement/equality distinctions selected for the M2 work.
+Its E1-E7 proofs cover all 24 hash origins and 62 traversal occurrences in the
+private RejectedFreeEvidence store. `review-evidence-order.py` requires the exact
+original source hash and maps every selected traversal to its reviewed proof in
+[evidence-order-reviewed.json.gz](evidence-order-reviewed.json.gz). It fails when
+an unmatched site or changed selection requires re-review. No source proof here
+claims that FunctionAnalyzer's upstream witness selection is order-independent.
+
+`EvidenceOrderProbe` exercises the original frozen Java implementation, rather
+than reproducing its algorithms in a toy map. It checks independent copies,
+equal independent Site/span values, distinct equal-looking source/event/join
+identities, value slot keys, common intersections, complete membership deletion,
+shared payload cleanup, atomic snapshot-budget failure and idempotent close.
+Adversarial keys force bucket collisions and resize thresholds at 8/32/128
+entries; insertion and incoming path order are reversed. Four fresh processes
+match. [evidence-probe-value-copies/qualification.json](evidence-probe-value-copies/qualification.json)
+pins the original seed and qualification profile, probe hash, commands and raw
+logs. This is focused ordering/contract evidence, not resource qualification;
+GC/queue retirement timing is not forced or claimed. The earlier probe logs
+remain under `evidence-probe`.
+
+Discovery formerly treated bulk destination writes only as retained elements.
+This missed encounter-order propagation into linked destinations and mutations
+through aliases. The scanner now has explicit bulk order edges and conservative
+bidirectional aggregate aliases for reads, initializers, assignments, choices,
+casts, helper parameters/returns and record accessors. A focused fixture requires
+hash order to reach linked putAll destinations, a returned parameter alias,
+assigned fields and subsequent copied/view traversals. Its javac/graph checks
+pass. This deliberately overapproximates independent copies and merged helper
+instances; source proofs must identify actual consumers, rather than assuming
+every graph edge is a runtime alias.
+
+The corrected discovery graph has 866 origins and 2,957 traversal occurrences
+in 233 files, replacing the earlier incomplete discovery selection. Full TSV
+hashes/counts match the archive manifest. The earlier graph/tool versions remain
+in the preceding local commit. Reviewed classifications remain separate from
+the global unreviewed candidates. M0.2 stays open until the remaining exact
+dependency and ordering consumers are reviewed; M0.3 resource/corpus/budget work
+follows that gate. There are still no production compiler/library edits or M1
+implementations in these increments.

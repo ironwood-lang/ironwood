@@ -12,6 +12,7 @@ final class InventorySample {
     }
     private final Supplier<Integer> retained;
     private final String label;
+    private Map<String, String> carried;
 
     InventorySample(String label) {
         this.label = label;
@@ -20,6 +21,14 @@ final class InventorySample {
 
     private static Snapshot snapshot(Set<String> source) {
         return new Snapshot(Set.copyOf(source));
+    }
+
+    private static Map<String, String> alias(Map<String, String> value) {
+        return value;
+    }
+
+    private static void fill(Map<String, String> destination, Map<String, String> input) {
+        destination.putAll(input);
     }
 
     void distinctScopes(boolean choice) {
@@ -46,6 +55,16 @@ final class InventorySample {
         Set<String> alias = original;
         Snapshot frozen = snapshot(alias);
         Map<String, String> map = frozen.items().stream().collect(Collectors.toMap(s -> s, s -> s));
+        Map<String, String> ordered = new LinkedHashMap<>();
+        ordered.putAll(map);
+        List<String> bulkCopy = new ArrayList<>(ordered.keySet());
+        bulkCopy.forEach(String::length);
+        Map<String, String> destination = new LinkedHashMap<>();
+        Map<String, String> destinationAlias = destination;
+        fill(alias(destinationAlias), map);
+        carried = destination;
+        List<String> viaField = new ArrayList<>(carried.keySet());
+        viaField.forEach(String::length);
         List<String> result = new ArrayList<>(map.keySet());
         result.addAll(List.of(label));
         result.addAll(List.of(label, label));

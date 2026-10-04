@@ -118,9 +118,13 @@ public final class Inventory {
                                 boolean internal = e.getEnclosingElement().toString().startsWith("ironwood.");
                                 if (internal) {
                                     edge("R:" + target, node(tree), "RETURNED", tree);
+                                    if (aggregate(getCurrentPath()))
+                                        edge(node(tree), "R:" + target, "RETURNED_ALIAS", tree);
                                     List<? extends VariableElement> params = ((ExecutableElement)e).getParameters();
                                     for (int i = 0; i < Math.min(params.size(), arguments.size()); i++) {
                                         edge(node(arguments.get(i)), "V:" + symbol(params.get(i)), "ARGUMENT", tree);
+                                        if (aggregate(new TreePath(getCurrentPath(), arguments.get(i))))
+                                            edge("V:" + symbol(params.get(i)), node(arguments.get(i)), "ARGUMENT_ALIAS", tree);
                                         if (tree instanceof NewClassTree && e.getEnclosingElement().getKind() == ElementKind.RECORD) {
                                             VariableElement param = params.get(i);
                                             String argument = node(arguments.get(i));
@@ -145,6 +149,9 @@ public final class Inventory {
                                     if (Set.of("put", "putIfAbsent", "add", "addAll", "putAll", "merge", "compute", "computeIfAbsent").contains(name))
                                         for (ExpressionTree argument : arguments)
                                             edge(node(argument), "C:" + node(member.getExpression()), "RETAINED", tree);
+                                    if (Set.of("addAll", "putAll").contains(name))
+                                        for (ExpressionTree argument : arguments)
+                                            edge(node(argument), node(member.getExpression()), "BULK_ENCOUNTER_ORDER", tree);
                                     if (Set.of("iterator", "stream", "forEach", "removeIf", "replaceAll", "putAll", "addAll", "equals", "containsAll", "removeAll", "retainAll").contains(name))
                                         traversal(tree, "CALL:" + name, member.getExpression());
                                     if (tree instanceof MethodInvocationTree && aggregate(getCurrentPath()) &&
@@ -167,7 +174,11 @@ public final class Inventory {
                                                         "\tRECORD_ACCESSOR\t" + cell(tree)));
                                     e.getEnclosingElement().getEnclosedElements().stream()
                                             .filter(f -> f.getKind().isField() && f.getSimpleName().equals(e.getSimpleName()))
-                                            .forEach(f -> edge("V:" + symbol(f), node(tree), "RECORD_ACCESSOR", tree));
+                                            .forEach(f -> {
+                                                edge("V:" + symbol(f), node(tree), "RECORD_ACCESSOR", tree);
+                                                if (aggregate(getCurrentPath()))
+                                                    edge(node(tree), "V:" + symbol(f), "RECORD_ACCESSOR_ALIAS", tree);
+                                            });
                                 }
                             }
                         }
@@ -281,8 +292,11 @@ public final class Inventory {
                             if (start >= 0 && end >= start && sourceText.substring((int) start, (int) end)
                                     .matches("(?s)(?:final\\s+)?var\\s+.*"))
                                 construct(tree, "VAR", "supported inferred declaration");
-                            if (e != null && tree.getInitializer() != null)
+                            if (e != null && tree.getInitializer() != null) {
                                 edge(node(tree.getInitializer()), "V:" + symbol(e), "INITIALIZER", tree);
+                                if (aggregate(getCurrentPath()))
+                                    edge("V:" + symbol(e), node(tree.getInitializer()), "INITIALIZER_ALIAS", tree);
+                            }
                             if (e != null && e.getEnclosingElement() instanceof ExecutableElement method &&
                                     method.getEnclosingElement().getKind() == ElementKind.RECORD && e.getKind() == ElementKind.PARAMETER)
                                 method.getEnclosingElement().getEnclosedElements().stream()
@@ -297,8 +311,11 @@ public final class Inventory {
                         }
                         void reference(Tree tree) {
                             Element e = trees.getElement(getCurrentPath());
-                            if (e instanceof VariableElement)
+                            if (e instanceof VariableElement) {
                                 edge("V:" + symbol(e), node(tree), "READ", tree);
+                                if (aggregate(getCurrentPath()))
+                                    edge(node(tree), "V:" + symbol(e), "READ_ALIAS", tree);
+                            }
                             if (e != null && e.getKind().isField() &&
                                     !e.getEnclosingElement().toString().startsWith("ironwood."))
                                 calls.println(location(tree) + "\tFIELD\t" + cell(e.getEnclosingElement()) +
@@ -324,25 +341,35 @@ public final class Inventory {
                                 String result = context != null && context.getLeaf() instanceof LambdaExpressionTree ?
                                         node(context.getLeaf()) : "R:" + consumer;
                                 edge(node(tree.getExpression()), result, "RETURN", tree);
+                                if (aggregate(new TreePath(getCurrentPath(), tree.getExpression())))
+                                    edge(result, node(tree.getExpression()), "RETURN_ALIAS", tree);
                             }
                             return super.visitReturn(tree, ignored);
                         }
                         @Override public Void visitAssignment(AssignmentTree tree, Void ignored) {
                             Element e = trees.getElement(new TreePath(getCurrentPath(), tree.getVariable()));
                             if (e != null) edge(node(tree.getExpression()), "V:" + symbol(e), "ASSIGNMENT", tree);
+                            if (e != null && aggregate(new TreePath(getCurrentPath(), tree.getExpression())))
+                                edge("V:" + symbol(e), node(tree.getExpression()), "ASSIGNMENT_ALIAS", tree);
                             return super.visitAssignment(tree, ignored);
                         }
                         @Override public Void visitConditionalExpression(ConditionalExpressionTree tree, Void ignored) {
                             edge(node(tree.getTrueExpression()), node(tree), "CHOICE", tree);
                             edge(node(tree.getFalseExpression()), node(tree), "CHOICE", tree);
+                            if (aggregate(getCurrentPath())) {
+                                edge(node(tree), node(tree.getTrueExpression()), "CHOICE_ALIAS", tree);
+                                edge(node(tree), node(tree.getFalseExpression()), "CHOICE_ALIAS", tree);
+                            }
                             return super.visitConditionalExpression(tree, ignored);
                         }
                         @Override public Void visitTypeCast(TypeCastTree tree, Void ignored) {
                             edge(node(tree.getExpression()), node(tree), "CAST", tree);
+                            if (aggregate(getCurrentPath())) edge(node(tree), node(tree.getExpression()), "CAST_ALIAS", tree);
                             return super.visitTypeCast(tree, ignored);
                         }
                         @Override public Void visitParenthesized(ParenthesizedTree tree, Void ignored) {
                             edge(node(tree.getExpression()), node(tree), "PARENTHESIS", tree);
+                            if (aggregate(getCurrentPath())) edge(node(tree), node(tree.getExpression()), "PARENTHESIS_ALIAS", tree);
                             return super.visitParenthesized(tree, ignored);
                         }
                         @Override public Void visitEnhancedForLoop(EnhancedForLoopTree tree, Void ignored) {

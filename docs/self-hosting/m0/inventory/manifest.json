@@ -16,16 +16,16 @@
     "uncompressed_sha256": "86417a1d763222da877f7d1511babe15fb85bfa4185a88412977212b4ee08428"
   },
   "flow.tsv": {
-    "rows": 235414,
-    "uncompressed_sha256": "0dbc03b00214dc1d2144b04784d73138de76f525682fe9231e53d217c953b75b"
+    "rows": 270129,
+    "uncompressed_sha256": "64b71fe0ab5ab5aec82de0b9c862e105f714856d11819f5ef59ad09130e779fc"
   },
   "hash-sources-discovery.tsv": {
     "rows": 866,
     "uncompressed_sha256": "ba427bca5d98734f1d63c891f3e96b8a82e8989a81068b7bd4b2504412c3afa1"
   },
   "hash-traversals-discovery.tsv": {
-    "rows": 1093,
-    "uncompressed_sha256": "893a155fee38f2b1bbcbe18332f661c7bc39a21d67583a956245ae56f62665a1"
+    "rows": 2957,
+    "uncompressed_sha256": "3c198d408ee23c9a97f77877d3d6d88bd3948a845d0af100f55aadf76a2fcb1a"
   },
   "ordering-discovery.tsv": {
     "rows": 2259,

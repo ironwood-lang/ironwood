@@ -3,6 +3,7 @@
 """Check discovery coverage against a deliberate multi-hop Java source fixture."""
 import argparse
 import csv
+import os
 from collections import defaultdict
 from pathlib import Path
 import shutil
@@ -15,6 +16,9 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--jdk', type=Path, required=True)
     args = parser.parse_args()
+    env = dict(os.environ)
+    for key in ('JAVA_TOOL_OPTIONS', 'JDK_JAVA_OPTIONS', '_JAVA_OPTIONS'):
+        env.pop(key, None)
     scratch = ROOT / 'target/self-hosting-m0/inventory-qualification'
     source = scratch / 'compiler/src/main/java/ironwood/audit/InventorySample.java'
     source.parent.mkdir(parents=True, exist_ok=True)
@@ -22,10 +26,10 @@ def main():
     classes = scratch / 'tooling'
     classes.mkdir(exist_ok=True)
     subprocess.run([str(args.jdk / 'bin/javac'), '--release', '21', '-Xlint:all', '-Werror',
-                    '-d', str(classes), str(ROOT / 'scripts/self-hosting/Inventory.java')], check=True)
+                    '-d', str(classes), str(ROOT / 'scripts/self-hosting/Inventory.java')], check=True, env=env)
     output = scratch / 'inventory'
     subprocess.run([str(args.jdk / 'bin/java'), '-Xms256m', '-Xmx4096m', '-Xss8m', '-XX:+UseG1GC',
-                    '-cp', str(classes), 'Inventory', str(scratch), str(output)], check=True)
+                    '-cp', str(classes), 'Inventory', str(scratch), str(output)], check=True, env=env)
 
     def read(name):
         with (output / name).open() as stream:
@@ -65,6 +69,11 @@ def main():
     assert any('Snapshot::items' in n for n in compact_visited), 'lost compact constructor copy flow'
     assert any(n.startswith('V:') and n.endswith('::map') for n in visited), 'lost collector flow'
     assert any(n.startswith('V:') and n.endswith('::result') for n in visited), 'lost copy/view flow'
+    assert any(n.startswith('V:') and n.endswith('::ordered') for n in visited), 'lost bulk-copy order flow'
+    assert any(n.startswith('V:') and n.endswith('::bulkCopy') for n in visited), 'lost linked destination traversal'
+    assert any(n.startswith('V:') and n.endswith('::destinationAlias') for n in visited), 'lost returned/parameter mutation alias'
+    assert any(n.startswith('V:') and n.endswith('InventorySample::carried') for n in visited), 'lost assigned field alias'
+    assert any(n.startswith('V:') and n.endswith('::viaField') for n in visited), 'lost alias mutation traversal'
     traversals = read('traversals.tsv')
     assert any(r['node'] in visited and 'map.keySet' in r['expression'] for r in traversals)
     assert {'VAR', 'TEXT_BLOCK', 'SYNCHRONIZED_METHOD'} <= {r['kind'] for r in read('syntax.tsv')}

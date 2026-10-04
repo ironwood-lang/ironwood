@@ -143,7 +143,11 @@ The neutral process comparison now detects deliberately changed diagnostics,
 removed typed-IR branch edges and changed LLVM output. Original safe/unsafe
 branch-snapshot captures are retained with fresh-process repeats and native
 execution evidence. These are partial M0.3 evidence while the inventory remains
-open. Next action: finish reviewed call and transitive ordering contracts, extend
+open. The [frontend contracts](self-hosting/m0/FRONTEND_CONTRACTS.md) cover the
+lexer/parser/source use sites, and the [snapshot contracts](self-hosting/m0/SNAPSHOT_CONTRACTS.md)
+include a complete private explanation-store traversal review with adversarial
+Java qualification. Reached AST and upstream semantic ordering remain open.
+Next action: finish reviewed call and transitive ordering contracts, extend
 the corpus, and derive resource budgets before native pilot evaluation.
 
 ### M1. Minimum pilot prerequisites
