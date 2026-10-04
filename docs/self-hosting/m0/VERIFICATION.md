@@ -643,3 +643,25 @@ Set.copyOf result with null was a probe error, not a tracker regression. Final
 qualification checks existing membership after ignored null registration. This
 increment has no resource or native lifetime claim. License and diff checks pass.
 M0.2/M0.3/S0 remain open for the selected closure, global contracts and budgets.
+
+## Selected frontend method and model closure
+
+[FRONTEND_PILOT.md](FRONTEND_PILOT.md) records the in-memory construction roots,
+exact transitive source calls, six immediately borrowed Parser captures and
+later-only helpers. `python3 scripts/self-hosting/review-pilot-frontend.py` joins
+3,154 calls/376 named methods to 868 external calls/68 reviewed declarations.
+Every external site must have a scoped proof. All reached source hashes match
+original J0; no source acquisition, PatternFlow or type-display helper enters.
+The ledger retains explicit generated/pure leaf methods rather than silently
+omitting them when they contain no external call.
+
+`python3 scripts/self-hosting/qualify-model.py --output NEW_PATH` independently
+loads declarations/fields from the pinned model classes. Two fresh JVMs agree
+on 118 declarations, including all parser-private records. The finite schema
+rejects an added untreated variant, removed treatment and omitted record fields.
+The schema explicitly assigns later-only helper declarations; native consumer
+handlers must pass the same finite coverage boundary before M2 equivalence.
+Model discovery is not constructor execution coverage or native dispatch proof.
+Java 21 release/Xlint/Werror, license audit and diff check pass. No production
+source or native compiler port is changed; M0/S0 remain open for ownership
+closure, remaining classifications and numerical budgets.
