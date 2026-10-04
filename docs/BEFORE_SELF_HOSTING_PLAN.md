@@ -10,6 +10,15 @@ implementation claim. Audited on 2026-10-04 at repository commit
 that document. It defines migration stages S0 through S8; this document defines
 preparation work B0 through B7.
 
+Use the [execution roadmap](#execution-roadmap) to select and track work, then
+read the referenced B section for its contracts and verification requirements.
+M0-M6 are implementation milestones; their numbered phases are schedulable work
+units. B0-B7 remain stable technical workstreams, and S0-S8 remain the migration
+stages defined by the self-hosting plan. The existing increment numbers and G1
+are retained in the [implementation map](#suggested-implementation-increments).
+All milestones and phases below are **not started**; checklists describe future
+evidence, not completed implementation.
+
 ## 1. Recommendation and scope
 
 Ironwood has enough language machinery to begin a self-hosting feasibility
@@ -58,6 +67,240 @@ It does not propose replacing the reduced `ProcessBuilder`/`Process` target or
 the CRC and ZIP/GZIP target. B4 adds a narrower public utility; B6 builds private
 archive mechanisms that later public APIs may reuse. B5's public CRC32 is one
 slice of item 5. Track self-hosting readiness and roadmap completion separately.
+
+## Execution roadmap
+
+Each milestone has prerequisites, phases, and a completion checkpoint. Complete
+only the contracts needed by the selected phase; a B workstream can span several
+milestones. In particular, B5 and B7 cannot be implemented as single late tasks.
+Their early semantic/backend consumers determine their deadlines. Technical
+requirements in sections 3-10 remain authoritative for each deliverable; the
+roadmap schedules them without replacing their detailed exit criteria.
+
+| Milestone | Purpose and workstreams | Entry dependency | Checkpoint and migration handoff | Status |
+| --- | --- | --- | --- | --- |
+| [M0](#m0-baseline-and-contract-inventory) | Freeze the baseline and evidence contract: B0a | Current Java compiler and source audit | S0 baseline, ordering inventory, fixtures, budgets, and selected pilot scope recorded | Not started |
+| [M1](#m1-minimum-pilot-prerequisites) | Build the minimum pilot dependencies: selected B1/B2/B7 slices | M0 | Required copies, traversal, ordering, and syntax/helpers have focused evidence | Not started |
+| [M2](#m2-portability-and-ownership-pilot) | Run B0b's frontend and ownership pilots | Required M1 phases | G1, the existing S1 gate, passes before broad translation | Not started |
+| [M3](#m3-semantic-and-backend-preparation) | Complete core B1/B2/B7 helpers and early B5 digests | M2 for broad port work; reuse M1 outputs | Staged readiness for S2, S3 with ByteView SHA-256, and S4 with MD5/native-link policy | Not started |
+| [M4](#m4-native-filesystem-and-process-services) | Deliver B3 filesystem and B4 process services | M2; audited helper dependencies | Filesystem checkpoint first, native process/driver checkpoint second | Not started |
+| [M5](#m5-artifacts-and-command-line-helpers) | Deliver public CRC32, B6 archives, and S6 B7 helpers | M2; required M3 helpers; M4 filesystem checkpoint for publication | Artifact and documentation/CLI prerequisites ready for S6 | Not started |
+| [M6](#m6-bridge-preparation-and-final-handoff) | Qualify remaining Bridge consumers of B3-B7 | Required M3 helpers, M4 process checkpoint, and M5 artifact facilities | Preparation evidence and remaining S7/S8 integration obligations handed off | Not started |
+
+### Dependency and scheduling rules
+
+The first path is **M0 -> required M1 slices -> M2/G1**. After G1, M3 supplies
+helpers as S2-S4 consume them; the actual compiler port and the S3/S4 J0 capacity
+checks remain in `SELF_HOSTING_PLAN.md`. A qualified source-only S4 compiler can
+proceed to S5 with the shell driver. M4-M6 are not prerequisites for that route.
+
+M4 can proceed alongside M3 after its own helper dependencies are ready. M5
+checksum/codec work can overlap M4, but publication integration needs M4.2's
+filesystem evidence. M5 does not require M4.3's native process runner if an
+explicit shell boundary still supplies the driver. M6 consumes the host and
+archive facilities for Bridge. No overlap relaxes the entry conditions or
+verification of a shared ownership, IR, or runtime change.
+
+Finish a helper before its first actual consumer, even if that brings part of
+a later phase forward. Record that move and its dependency in the milestone
+status; do not silently move SHA-256 to archive work or Java identifier-part
+support from S6 to S7. Before G1, independent Java refactoring and bounded
+prototypes may gather evidence, but must not turn into the broad compiler port
+or displace the feasibility pilot.
+
+### M0. Baseline and contract inventory
+
+**Entry:** the Java source baseline and existing tests are available. Use
+[B0a](#b0a-inventory-and-java-baseline) and
+[S0](SELF_HOSTING_PLAN.md#s0-establish-the-baseline-and-comparison-harness).
+
+- [ ] **M0.1: Freeze reproducibility.** Record J0/JDK, library/runtime and LLVM
+  identities, launcher `-Xmx`/`-Xss`, effective environment/settings, hosts,
+  source hashes, and exact commands. Define the memory, stack, and time
+  measurement procedure and supported development-machine profiles.
+- [ ] **M0.2: Classify dependencies and ordering.** Inventory API overloads,
+  excluded syntax, callbacks/captures, snapshots, null handling, deque uses,
+  and every hash-container traversal. Assign each required replacement to a B
+  owner, phase, first consumer, and fixture. Preserve the original evidence
+  when reviewed Java ordering refactors change a comparison baseline.
+- [ ] **M0.3: Freeze fixtures and pilot scope.** Capture tokens/spans, AST,
+  diagnostics, IR, LLVM, and resource baselines. Prove the comparison harness
+  detects deliberate mismatches. Choose numerical budgets from these
+  measurements before evaluating native results. Name the exact B1/B2/B7
+  slices needed by M1 and the frontend/snapshot workloads used by M2.
+
+**Checkpoint:** the S0 exit evidence is reproducible, pilot dependencies are
+enumerated, and relevant ordering decisions and budgets are recorded. Unresolved
+contracts block their dependent phase; a count of Java imports is insufficient.
+This is S0's baseline checkpoint, not a second definition of S0.
+
+### M1. Minimum pilot prerequisites
+
+**Entry:** M0 evidence and the bounded pilot inventory. Use
+[B1](#4-b1-independent-copies-snapshots-and-traversal),
+[B2](#5-b2-stable-list-level-sorting-for-compiler-objects), and
+[B7](#10-b7-compiler-local-portability-helpers).
+
+- [ ] **M1.1: Independent snapshot storage.** Implement the required ArrayList
+  and private compiler snapshot copies. Start BitSet copying with the existing
+  `or` operation; add a convenience only when justified. Establish independent
+  backing storage, borrowed elements, failure rollback, and safe destruction.
+- [ ] **M1.2: Pilot maps, traversal, and order.** Add the selected map/set copies,
+  use local/indexed traversal or copied keys, and preserve identity/value/order
+  distinctions. Rewrite pilot stack/FIFO consumers. Bring in B2's list sort or
+  sorted-container rewrites only where M0 identified a pilot dependency.
+- [ ] **M1.3: Pilot language and text helpers.** Prepare record value operations,
+  text-block normalization, varargs/factory rewrites, numeric/nullable results,
+  reached name splitting, and required callback interfaces. Rewrite any pattern
+  dispatch reached by the pilot and establish its variant coverage check.
+
+**Checkpoint:** each selected helper has Java-equivalence evidence, allocation
+measurements, and applicable safe/unsafe and failure-cleanup pairs. List the
+remaining B1/B2/B7 work explicitly. New cursors, a general deque, reusable sort
+workspace, or more precise ownership rules remain conditional on demonstrated
+need. Passing this checkpoint makes M2 runnable; it does not establish S1.
+
+### M2. Portability and ownership pilot
+
+**Entry:** the required M1 deliverables have passed their focused checks. Use
+[B0b](#b0b-execute-the-s1-pilot); [S1](SELF_HOSTING_PLAN.md#s1-prove-portability-and-memory-feasibility)
+remains the gate definition, and **G1** remains its stable checkpoint name.
+
+- [ ] **M2.1: Frontend slice.** Port spans, diagnostics, lexer, and parser with
+  the selected AST subset. Compare positive/malformed inputs, cooked text,
+  Unicode digit continuation, and exact UTF-16 source spans against J0.
+- [ ] **M2.2: Ownership slice.** Exercise real snapshot construction, copy,
+  mutation, joins, restoration, and retirement, including explanation evidence.
+  Measure immediate and field-retained callbacks and captured-state allocations;
+  pair accepted cleanup with rejected frees of still-observable state.
+- [ ] **M2.3: Scale and qualify.** Compile and link with `--unfreed=warn`, retain
+  logs, and classify per-command and unique-site missing-free counts and local
+  suppressions. Compare geometrically increasing workloads, memory/stack/time,
+  and outstanding temporaries against M0 budgets. Mandatory safety failures
+  remain errors, and zero missing-free warnings is not a requirement.
+
+**Checkpoint G1:** all [S1 evidence](#evidence-for-the-s1-exit-gate) passes and
+has an evidence record. On failure, name the limiting representation/proof or
+resource cost, return to the affected M1 phase, and rerun the affected checks.
+Do not expand translation to hide an unresolved pilot failure or weaken a free
+proof to make the checkpoint pass.
+
+### M3. Semantic and backend preparation
+
+**Entry:** G1 passed. Finish the remaining B1/B2/B7 work in consumer order and
+the early [B5 digest work](#8-b5-exact-checksums-and-digests). These phases support
+the S2-S4 port; they do not replace its integration exits.
+
+- [ ] **M3.1: S2 representation and traversal helpers.** Complete the selected
+  snapshot/value APIs, reference generic bounds, compiler-local callbacks, and
+  explicit walkers/pattern-switch rewrites. Share the independent variant
+  inventory; prove a missing treatment fails coverage. Finish the collection,
+  sorted-map/set, and worklist slices needed by the next consumers, preserving
+  the B1/B2 allocation and ownership contracts.
+- [ ] **M3.2: S3 semantic prerequisites.** Complete bounded numeric folding,
+  StringPool/UTF-16 and name helpers, and exact SHA-256 before ByteView analysis.
+  Test original versus changed declarations and preserve declaration authority.
+  Extend semantic/snapshot differential fixtures as the port grows, using S3's
+  pinned J0 time, heap, and stack capacity evidence.
+- [ ] **M3.3: S4 backend prerequisites.** Complete MD5 GUID generation, unsigned
+  comparison/widening, binary slices, and remaining emission/text helpers.
+  Prepare explicit installation/build identity inputs for the source-only route.
+  Record the runtime-object cache omission or prove retained invalidation;
+  preserve all other SHA-256 consumers. Cover native output and trace ordering,
+  and use the existing hot-lowering checks for changed paths, including
+  `SelectiveInlining` consumers.
+
+**Checkpoints:** M3.1's helpers must be ready for their S2 consumers; M3.2 must
+pass before its S3 consumers, especially ByteView; M3.3 must pass before the
+source-only S4 exit. Record those three handoffs separately. The complete S4
+J0 build-capacity qualification remains mandatory before S5, even when all
+isolated helpers pass. No archive or native process API is added to that path.
+
+### M4. Native filesystem and process services
+
+**Entry:** G1 and the helper contracts required by the selected host-service
+slice. Follow [B3](#6-b3-filesystem-operations-and-publication-guarantees) and
+[B4](#7-b4-a-synchronous-process-facility); this milestone can overlap M3.
+
+- [ ] **M4.1: Traversal, scratch paths, and discovery.** Rewrite `walk`/`list`
+  consumers with existing visitors/directory streams. Add audited temporary,
+  cleanup, real-path, and access APIs using the existing temporary-directory
+  convention. Update every affected Files borrowing/IR consumer and pair normal
+  results with allocation, IO, aliasing, and resource-failure cases.
+- [ ] **M4.2: Publication guarantees.** Implement and qualify separate atomic
+  replacement, permitted fallback, and no-replace policies. Resolve host
+  primitives against the macOS/glibc baseline before coding; verify failure
+  preserves earlier outputs and that unsupported capabilities fail explicitly.
+- [ ] **M4.3: Synchronous launch and discovery adapters.** After M4.1, implement
+  B4's absolute executable, inherited environment, optional child cwd, and
+  merged-file output contract. Normalize bare launch sites in compiler callers.
+  Test temp-log read/delete behavior, invocation-scoped discovery reuse, failure
+  cleanup, and the actual LLVM pipeline.
+
+**Checkpoints:** M4.1 plus M4.2 establish filesystem readiness for M5 publication;
+M4.3 separately establishes native driver/process readiness. Record qualified
+hosts, ABI/capability evidence, and unresolved platform boundaries. Keep the
+shell-driver route available until the replacement's applicable checks pass.
+
+### M5. Artifacts and command-line helpers
+
+**Entry:** G1 and required sorting/text/digest helpers from M3. M5.3 needs the
+M4 filesystem checkpoint; M5.1/M5.2 can proceed earlier. Use
+[B5](#8-b5-exact-checksums-and-digests),
+[B6](#9-b6-archive-codec-and-artifact-compatibility), and the S6 portions of B7.
+
+- [ ] **M5.1: CRC32 and archive contracts.** Implement the public CRC32 slice
+  with its full admitted overload/ownership behavior. Freeze the legacy-input
+  matrix, metadata rules, serialization fixtures, and publication expectations;
+  reuse M3 SHA-256 rather than creating another digest facility.
+- [ ] **M5.2: Codec and writer decision.** Prototype inflate against admitted
+  legacy blocks and malformed streams. Evaluate STORED native `.ironclass` and
+  Bridge JAR output versus a pinned codec. Record the selected reader/writer
+  profiles, provenance, byte/identity effects, and dependency/package boundary
+  before changing canonical writer fixtures. A STORED writer never permits a
+  STORED-only legacy reader.
+- [ ] **M5.3: Artifact integration.** With M4.1/M4.2 ready, qualify class/jar
+  reading, writing, nested payloads, validation, staging, and publication.
+  Run both Java/native reader directions, native round trips, malformed inputs,
+  and repeat/reordered-input determinism. Keep cross-writer byte equality a
+  separate recorded requirement.
+- [ ] **M5.4: CLI and documentation helpers.** Complete the S6 split/line scans,
+  entity conversion, Java identifier-part tag predicate, and remaining discovery
+  or installation helpers. Compare diagnostics, tag boundaries, text, and
+  resource cleanup with the Java tools; preserve the `char` tag scan.
+
+**Checkpoint:** S6's helper and artifact prerequisites have evidence for the
+selected profiles and supported hosts. Public CRC32, private archive services,
+and the remaining public ZIP/GZIP roadmap work have separate status. Passing
+this milestone does not itself claim the full native CLI has passed S6.
+
+### M6. Bridge preparation and final handoff
+
+**Entry:** required M3 helpers, M4's host/process services, and M5's archive
+facilities. This completes preparation for S7 consumers, not the S7 Bridge/IDE
+port or S8 release qualification.
+
+- [ ] **M6.1: Remaining compiler-local contracts.** Complete Java 21 qualified
+  export-name validation using the shared predicates delivered for S6, remaining
+  properties/manifest helpers, and exact Bridge/TLS inventory serialization.
+  Preserve UTF-16 identity encoding and caller-specific validation/diagnostics.
+  Extend traversal coverage for each Bridge consumer brought into the port.
+- [ ] **M6.2: Bridge consumer qualification.** Exercise the selected JDK-tool
+  process path, Bridge JAR writer profile, verified atomic publication, and
+  dependency manifests with focused fixtures. Preserve generated Java/C and
+  external JDK boundaries. Track S7's native producer-identity design explicitly;
+  a synthetic `Main.class` inventory cannot stand in for that decision.
+- [ ] **M6.3: Close preparation evidence.** Reconcile every B0-B7 inventory item
+  with its implemented contract, focused evidence, or named later-stage owner.
+  Record remaining S7 producer/IDE integration and S8 qualification work without
+  treating it as completed. Update affected API, ownership, packaging, provenance,
+  and roadmap documents with the actual delivered scope.
+
+**Checkpoint:** every in-scope preparation obligation has an evidence record;
+any deferred item states its reason, first affected stage, and blocking effect.
+No prerequisite of a claimed stage can be deferred while that stage is marked
+ready. The native bootstrap and production cutover still require the separate
+S5-S8 exits in `SELF_HOSTING_PLAN.md`.
 
 ## 2. Source findings that drive the plan
 
@@ -1427,21 +1670,100 @@ every split element is independently owned.
 
 ## 11. Sequence, review boundaries, and completion evidence
 
+### Phase workflow and completion records
+
+Use the same workflow for each numbered M phase:
+
+1. **Scope and prerequisites.** Identify its B contracts, first S consumer,
+   required earlier phase evidence, and the exact source slice. Split a phase
+   into smaller commits when needed; do not enlarge the task implicitly.
+2. **Contract and baseline checkpoint.** Record affected invariants/consumers,
+   provenance, material API or format choices, expected Java behavior, and
+   focused safe/unsafe and failure cases before implementation. Use the
+   [pre-change review](#pre-change-review-of-shared-machinery) below. Resolve
+   contract choices before publishing an API or changing canonical fixtures.
+3. **Implementation.** Keep public API, compiler analysis, runtime, caller
+   rewrites, and packaging changes separately reviewable. Preserve the working
+   Java baseline and existing native behavior while adding the selected slice.
+   Implement new intrinsic/compiler support in the Java seed before the port
+   depends on it. Retain the original reference baseline, record any newer seed
+   revision and input manifest, and qualify it as required by S2-S4.
+4. **Verification checkpoint.** Run the focused checks for the changed machinery
+   and its affected consumers, including allocation/optimized-code measurements
+   where required. Add source/class/archive reconstruction cases when relevant.
+   A milestone boundary does not authorize an unfiltered suite.
+5. **Record and hand off.** Inspect the diff, update authoritative docs, commit
+   the scoped change, and synchronize `main` under the repository Git workflow.
+   Link the evidence and mark only the verified phase complete; begin dependent
+   work only after its actual prerequisites pass.
+
+During implementation, update the roadmap's status and phase checkboxes using
+`Not started`, `In progress`, `Blocked`, or `Complete`. A phase checkbox is
+checked only after its scoped contract and evidence pass. A milestone is complete
+only when all required phases and its checkpoint pass; a partial implementation
+or an unqualified required host/profile cannot be called complete. Keep a short
+blocker and the next concrete action beside an incomplete milestone. Independent
+work may continue where it does not rely on the failed contract.
+
+Retain a durable verification note per phase or cohesive group of phases and
+link it from that milestone. Reuse the same evidence for S0/S1 and later stage
+handoffs rather than running a duplicate gate under a new name.
+
+| Evidence field | Required contents |
+| --- | --- |
+| Identity and scope | Phase/increment/B/S identifiers, source commits, exact changed contracts, and completed prerequisite references |
+| Decisions and boundaries | Accepted API/format/provenance choices, deliberate omissions, remaining platform/profile limits, and links to recorded decisions |
+| Reproduction | Exact commands, source/fixture hashes, J0/JDK/LLVM/runtime identity, host, flags, effective environment, and JVM limits where used |
+| Correctness and safety | Selected test names, expected/observed results, Java/native differences, safe acceptance and unsafe rejection pairs, failure rollback, and artifact reconstruction where applicable |
+| Resource and diagnostic evidence | Allocation counts, memory/stack/time with method and budgets, callback/capture costs, and classified missing-free logs for pilot/port builds |
+| Hot paths and native boundary | Relevant O3 output and deterministic benchmark comparisons; ABI, dependency, publication, and packaging evidence when changed |
+| Outcome and next consumer | Pass/fail, durable report and retained artifact locations, open blockers, docs/commit references, and the next phase/stage permitted by that evidence |
+
+A safety failure, unexplained observable difference, missing dispatch treatment,
+budget overrun, or unproved publication guarantee blocks the dependent checkpoint.
+Fix or narrow the affected implementation, then rerun the relevant checks. A
+material contract or budget change needs a recorded rationale and requalification;
+do not silently widen limits, suppress evidence, or weaken ownership rules.
+
+### Decisions with implementation deadlines
+
+The technical sections contain recommendations and remaining choices. This
+table assigns their decision points; it does not accept a new contract merely
+by scheduling it. Record adopted conventions in the appropriate authoritative
+docs and `DECISIONS.md` when required by the existing contribution rules.
+
+| Boundary | Decision needed before | Default or evidence to use |
+| --- | --- | --- |
+| Copy/snapshot and null contracts | M1.1/M1.2 API implementation | B1 independent storage and borrowed elements; preserve each caller's equality/null semantics; use existing BitSet copying first |
+| Traversal, worklists, and comparator sort | First affected M1 or M3 consumer | B1 local/indexed traversal and two-index FIFO; B2's explicitly named list comparator helper; add cursor/deque/workspace scope only for demonstrated demand |
+| Additional reclamation precision | Any shared analysis change in M1 or later | B1 section 4.4 and paired proofs; a failed M2 pilot supplies evidence, not permission for an unsound exemption or automatic region feature |
+| Native runtime-object cache | M3.3 native-link integration | B5 proposes omission for one link per process; retain the other SHA-256 consumers and record retained-cache invalidation if chosen instead |
+| Temporary paths and publication primitives | M4.1/M4.2 runtime implementation | Existing `java.io.tmpdir`, recorded permissions, distinct replacement/no-replace guarantees, macOS and glibc 2.17 constraints |
+| Process public surface and launch convention | M4.3 implementation | B4's narrower synchronous service: absolute executable, inherited environment, optional child cwd, file output; caller-owned discovery |
+| Codec, archive writer profiles, and byte equality | M5.2, before canonical fixture changes | B6 inflate-first evaluation, explicit STORED-versus-DEFLATED choice for both `.ironclass` and Bridge JARs, retained legacy input, provenance/dependency review |
+| Native producer identity | S7 identity integration, tracked in M6.2 | Separate producer-manifest decision from SELF_HOSTING_PLAN.md; hashing helpers do not authorize fabricated Java compiler inventory entries |
+
 ### Suggested implementation increments
 
-| Increment or gate | Concrete deliverable | Depends on | Completion evidence |
-| --- | --- | --- | --- |
-| 1 | B0a inventory, per-traversal ordering audit, frozen Java comparison fixtures, and S1 resource budgets | Current compiler | Required contracts, Java reference outcomes, and resource measurements can be reproduced; pilot dependencies identified |
-| 2 | ArrayList/BitSet copy slice and private compiler snapshots | 1 | Independent snapshots; safe/unsafe cleanup pairs; allocation-failure cleanup |
-| 3 | B1 map/set copies, nested traversal, and stack/FIFO worklist rewrites | 2 | Identity/value/order preserved; amortized O(1) worklist end operations; copy/worklist allocation and storage costs measured |
-| 4 | B2 stable comparator sorting directly on `ArrayList` and sorted-map/set consumer rewrites | 1; B1 for snapshots | Non-Comparable lists sort without an array round trip; tree consumers preserve ordering/deduplication with measured scaling |
-| 5 | B7 helpers for S1 (text-block, varargs, value, and numeric rewrites), followed by remaining B7 helpers; B5 SHA-256 by S3 | 1; required B1/B2 slices for helpers that use them | Focused helper equivalence and ownership checks pass; Java baseline remains equivalent; exact ByteView declaration authority by S3 |
-| G1 (S1 gate) | B0b lexer/parser and ownership-snapshot pilots; the S1 gate from SELF_HOSTING_PLAN.md | 1; required copy/traversal slices of 2 and 3; S1 helpers from 5; 4 where the inventory requires ordering work | S1 exit criteria pass: Java/native equivalence, accepted/rejected reclamation cases, and memory/stack/time within agreed budgets |
-| 6 | MD5/trace GUID integration and S4 runtime-cache port decision | 1, 5 | Exact GUIDs, native-link hash consumers, and explicit cache omission or verified invalidation |
-| 7 | B3 traversal rewrites, temporary paths, cleanup, discovery, and publication primitives | 1; B2 for sorted inventories | Equivalent inventories and traversal behavior; native failure/resource/publication cases pass on qualified hosts |
-| 8 | B4 process service, executable-discovery adaptations, and driver adapter | 7 | Absolute-path launches; measured probe IO, cleanup, and invocation reuse; LLVM/Homebrew/TLS discovery, controlled process cases, and real LLVM pipeline pass |
-| 9 | Public `ironwood.util.zip.CRC32` and artifact identity serialization using B5 SHA-256 from increment 5 | 1, 5; B2 for sorted inventories | CRC32 public-contract/ownership review, known vectors, and exact existing artifact identities |
-| 10 | B6 legacy inflate reader, selected native writer profiles, and artifact integration | 7, 9; STORED-versus-DEFLATED writer decision and codec selection | Cross-reader compatibility, malformed-input rejection, deterministic output; verified dependency-free codec path or pinned codec home |
+These existing identifiers remain the reviewable implementation packages used
+by B0-B7. The milestone/phase column supplies their schedule; numbers are not a
+requirement to finish an entire package before starting the next. In particular,
+increment 5 has separate S1, S3/S4, S6, and S7 slices. The listed technical
+dependencies apply together with the milestone entry/checkpoint requirements.
+
+| Increment or gate | Milestone phases | Concrete deliverable | Depends on | Completion evidence |
+| --- | --- | --- | --- | --- |
+| 1 | M0.1-M0.3 | B0a inventory, per-traversal ordering audit, frozen Java comparison fixtures, and S1 resource budgets | Current compiler | Required contracts, Java reference outcomes, and resource measurements can be reproduced; pilot dependencies identified |
+| 2 | M1.1 | ArrayList/BitSet copy slice and private compiler snapshots | 1 | Independent snapshots; safe/unsafe cleanup pairs; allocation-failure cleanup |
+| 3 | M1.2; remaining consumers in M3.1 | B1 map/set copies, nested traversal, and stack/FIFO worklist rewrites | 2 | Identity/value/order preserved; amortized O(1) worklist end operations; copy/worklist allocation and storage costs measured |
+| 4 | M1.2 if needed by the pilot; otherwise M3.1 | B2 stable comparator sorting directly on `ArrayList` and sorted-map/set consumer rewrites | 1; B1 for snapshots | Non-Comparable lists sort without an array round trip; tree consumers preserve ordering/deduplication with measured scaling |
+| 5 | M1.3; M3.1-M3.3; M5.4; M6.1 | B7 helpers for S1 (text-block, varargs, value, and numeric rewrites), followed by remaining B7 helpers; B5 SHA-256 by S3 | 1; required B1/B2 slices for helpers that use them | Focused helper equivalence and ownership checks pass; Java baseline remains equivalent; exact ByteView declaration authority by S3 |
+| G1 (S1 gate) | M2.1-M2.3 | B0b lexer/parser and ownership-snapshot pilots; the S1 gate from SELF_HOSTING_PLAN.md | 1; required copy/traversal slices of 2 and 3; S1 helpers from 5; 4 where the inventory requires ordering work | S1 exit criteria pass: Java/native equivalence, callback allocation/cleanup pairs, classified missing-free counts under `warn`, accepted/rejected reclamation, and memory/stack/time within budgets |
+| 6 | M3.3 | MD5/trace GUID integration and S4 runtime-cache port decision | 1; required S4 slices of 5 | Exact GUIDs, native-link hash consumers, and explicit cache omission or verified invalidation |
+| 7 | M4.1-M4.2 | B3 traversal rewrites, temporary paths, cleanup, discovery, and publication primitives | 1; B2 for sorted inventories | Equivalent inventories and traversal behavior; native failure/resource/publication cases pass on qualified hosts |
+| 8 | M4.3 | B4 process service, executable-discovery adaptations, and driver adapter | Required scratch/discovery slice of 7 | Absolute-path launches; measured probe IO, cleanup, and invocation reuse; LLVM/Homebrew/TLS discovery, controlled process cases, and real LLVM pipeline pass |
+| 9 | M5.1; remaining identity consumers in M6.1 | Public `ironwood.util.zip.CRC32` and artifact identity serialization using B5 SHA-256 from increment 5 | 1; required digest/text slices of 5; B2 for sorted inventories | CRC32 public-contract/ownership review, known vectors, and exact existing artifact identities |
+| 10 | M5.2-M5.3; Bridge qualification in M6.2 | B6 legacy inflate reader, selected native writer profiles, and artifact integration | Required CRC32/identity slices of 9; 7 for publication; STORED-versus-DEFLATED writer decision and codec selection | Cross-reader compatibility, malformed-input rejection, deterministic output; verified dependency-free codec path or pinned codec home |
 
 G1 is the stable reference for S1's pilot gate in this sequence. These increments
 can overlap when independent. Increment 1 comes first; G1 follows its required
@@ -1535,10 +1857,11 @@ from the remaining public API work in `STDLIB_ROADMAP.md`. Run license checks fo
 source or distribution changes and `git diff --check` for every increment. Do not
 mark these features implemented merely because this plan exists.
 
-Each increment should end with the chosen contract, measured results, focused
-verification, remaining platform/format boundaries, and its effect on S0-S8.
-Begin with **B0a's inventory**, then the required B1 copies and B7 pilot rewrites,
-using B2 where the ordering audit requires it. Complete B0b's S1 evidence before
-broad translation. That establishes whether the existing language and its
-explicit reclamation model can support the compiler at useful scale before the
-larger host-service and archive work is undertaken.
+Each increment ends with the chosen contract, measured results, focused
+verification, remaining platform/format boundaries, and its effect on S0-S8,
+using the [phase evidence record](#phase-workflow-and-completion-records).
+The first implementation task is **M0.1**, followed by M0's inventory/fixtures,
+the selected M1 prerequisites, and **M2/G1**. Record that feasibility evidence
+before broad translation; then consume the remaining milestones by their actual
+dependencies. Keep the milestone status, phase checkboxes, implementation map,
+and linked evidence synchronized as work proceeds.
