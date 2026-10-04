@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MIT OR Apache-2.0
-"""Run adversarial evidence-store contracts against the hash-pinned original J0."""
+"""Run focused contract probes against the hash-pinned original J0."""
 import argparse
+import gzip
 import hashlib
 import json
 import os
@@ -14,6 +15,7 @@ ROOT = Path(__file__).resolve().parents[2]
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', type=Path, required=True)
+    parser.add_argument('--probe', choices=('evidence', 'ast'), default='evidence')
     args = parser.parse_args()
     if args.output.exists():
         raise ValueError('qualification destination already exists')
@@ -27,13 +29,24 @@ def main():
     env = dict(os.environ)
     for name in ('JAVA_TOOL_OPTIONS', 'JDK_JAVA_OPTIONS', '_JAVA_OPTIONS'):
         env.pop(name, None)
-    classes = ROOT / 'target/self-hosting-m0/evidence-probe-classes'
+    if args.probe == 'evidence':
+        probe = 'EvidenceOrderProbe'
+        main_class = 'ironwood.compiler.semantic.' + probe
+        cases = '8/32/128 adversarial keys, forward/reverse insertion and path order; independent copies; identity/value intersection; atomic budget failure; close cleanup'
+        limits = 'no resource measurement; queue/GC retirement timing not forced or qualified'
+    else:
+        probe = 'AstContractProbe'
+        main_class = 'ironwood.compiler.ast.' + probe
+        cases = 'AST snapshot/null/value/identity contracts, constructor failures, primitive count wrapping, literal dot rendering, locale distinction, ordered first-binding conflicts and control-flow completion'
+        limits = 'no resource or full AST variant qualification; no native implementation'
+    classes = ROOT / ('target/self-hosting-m0/' + args.probe + '-probe-classes')
     classes.mkdir(parents=True, exist_ok=True)
-    source = ROOT / 'scripts/self-hosting/EvidenceOrderProbe.java'
+    source = ROOT / ('scripts/self-hosting/' + probe + '.java')
+    (args.output / 'probe-source.java.gz').write_bytes(gzip.compress(source.read_bytes(), mtime=0))
     commands = [[str(jdk / 'bin/javac'), '--release', '21', '-Xlint:all', '-Werror', '-cp', str(jar),
                  '-d', str(classes), str(source)]]
     commands += [[str(jdk / 'bin/java'), *identity['profile'], '-cp', str(classes) + ':' + str(jar),
-                  'ironwood.compiler.semantic.EvidenceOrderProbe'] for _ in range(4)]
+                  main_class] for _ in range(4)]
     records, outputs = [], []
     for index, command in enumerate(commands):
         process = subprocess.run(command, cwd=ROOT, env=env, capture_output=True)
@@ -46,8 +59,7 @@ def main():
             break
     report = {'schema': 1, 'J0_revision': identity['revision'], 'J0_seed_sha256': identity['seed_jar_sha256'],
               'profile': identity['profile'], 'probe_sha256': hashlib.sha256(source.read_bytes()).hexdigest(),
-              'cases': '8/32/128 adversarial keys, forward/reverse insertion and path order; independent copies; identity/value intersection; atomic budget failure; close cleanup',
-              'limits': 'no resource measurement; queue/GC retirement timing not forced or qualified',
+              'cases': cases, 'limits': limits,
               'commands': records}
     (args.output / 'qualification.json').write_text(json.dumps(report, indent=2) + '\n')
     if len(records) != 5 or any(r['returncode'] for r in records) or len(set(outputs)) != 1:

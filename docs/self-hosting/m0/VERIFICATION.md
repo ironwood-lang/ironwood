@@ -271,3 +271,37 @@ the global unreviewed candidates. M0.2 stays open until the remaining exact
 dependency and ordering consumers are reviewed; M0.3 resource/corpus/budget work
 follows that gate. There are still no production compiler/library edits or M1
 implementations in these increments.
+
+## Reached AST dependency and helper qualification
+
+[AST_CONTRACTS.md](AST_CONTRACTS.md) reviews all 60 exact external dependency
+patterns and 386 attributed uses across the 91 frozen AST files. The joined
+[ast-reviewed.json.gz](ast-reviewed.json.gz) includes each caller, exact
+declaration, proof row and every source hash. `review-ast.py` rejects missing or
+stale reviews, source hash changes and a newly discovered AST hash dependency.
+The private PatternFlow map is lookup-only; first input binding and second input
+conflict order are properties of list traversal, not map traversal.
+
+The original helper probe passes 84 checks in four fresh qualified JVMs, with
+`-Xlint:all -Werror` compilation and retained exact probe source/commands/logs in
+[ast-probe-expanded](ast-probe-expanded/qualification.json). The 74-check initial
+probe remains separately preserved. It exercises child snapshot independence,
+null and constructor failures, value/identity distinctions, UTF-16 bounds,
+primitive sum wrapping, qualified/dot-edge name rendering, locale differences,
+first-binding conflicts, label/completion rules, field projections and declared
+pre-order identities. It calls the actual frozen AST helpers, not a replacement
+implementation. The English original profile and deliberate Turkish difference
+remain explicit; no Java/native output normalization is introduced.
+
+Reproduce the exact dependency join and a fresh helper qualification:
+
+```sh
+python3 scripts/self-hosting/review-ast.py
+python3 scripts/self-hosting/qualify-evidence.py --probe ast \
+  --output target/self-hosting-m0/new-ast-qualification
+```
+
+This increment completes that package's external-use review, not the full M0.2
+gate. AST variant selection/coverage, global excluded syntax/captures/worklists,
+remaining overload and ordering proofs, full corpus/resources/budgets remain
+open. M1 and native pilot work have not begun.

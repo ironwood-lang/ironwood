@@ -146,7 +146,9 @@ execution evidence. These are partial M0.3 evidence while the inventory remains
 open. The [frontend contracts](self-hosting/m0/FRONTEND_CONTRACTS.md) cover the
 lexer/parser/source use sites, and the [snapshot contracts](self-hosting/m0/SNAPSHOT_CONTRACTS.md)
 include a complete private explanation-store traversal review with adversarial
-Java qualification. Reached AST and upstream semantic ordering remain open.
+Java qualification. The [AST contracts](self-hosting/m0/AST_CONTRACTS.md) cover
+all exact external member uses in that package, with qualified original helper
+probes. Selected variant coverage and upstream semantic ordering remain open.
 Next action: finish reviewed call and transitive ordering contracts, extend
 the corpus, and derive resource budgets before native pilot evaluation.
 
