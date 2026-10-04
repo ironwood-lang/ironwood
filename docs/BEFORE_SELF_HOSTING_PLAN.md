@@ -338,6 +338,13 @@ the required callback and lifetime proofs; arbitrary subclasses or same-named
 methods receive no exemption. Derive any reusable proof from verified structure
 and preserve conservative handling of unknown effects.
 
+D107 also supplies the nearest existing proof shape for a container copy:
+"Copied-key map inputs are observed only during copying when their key-reading
+callbacks prove non-retaining." Use that precedent to distinguish temporary
+observation of the source during copying from the destination's retained element
+loans. It does not by itself prove arbitrary container copies source-independent
+or discharge the destination's loans.
+
 This does not prohibit explicit classifications for audited library methods.
 For example, `EscapeSummaryAnalyzer.isBorrowingFilesFacade` checks the exact
 static owner `ironwood.nio.file.Files` and then switches on method names. Such
