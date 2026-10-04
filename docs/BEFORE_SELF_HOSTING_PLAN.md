@@ -247,6 +247,17 @@ native loop programs exit zero. Deliberate changed-effect/missing-repeat control
 fail qualification. Isolated resource replays replace provisional overlapped
 timings for budget selection, retaining every predecessor. Native pilot input
 model treatment and global dependency classifications remain open.
+The [finite operation model](self-hosting/m0/OPERATION_MODEL.md) now inventories
+233 declarations from 132 pinned sources independently of fixture serialization.
+Four fresh original/ordered JVMs agree; all fields and permitted variants have
+selected, restricted or later-only treatments. Five missing-treatment controls
+fail. The private call/foreign-call/return and ownership role boundaries must be
+enforced before M2.2; general model roles retain explicit M3.1 consumer gates.
+This closes the selected model inventory without implementing native consumers.
+Independent scoped review of `2448e344` confirmed all 2,393 archive members,
+twenty final loop cross-seed pairs, four actual loop kinds, both forty-run cyclic
+groups and observer rounds, forty cycle pairs and all 36 isolated loop statuses.
+The complete-task whitespace check passed. Global inventory/budgets remain open.
 Next action: finish reviewed call and transitive ordering contracts, name the
 closed native pilot dependencies/workloads, and derive resource budgets before
 native pilot evaluation.

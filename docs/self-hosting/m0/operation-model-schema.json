@@ -1,0 +1,3734 @@
+{
+  "schema": 1,
+  "declarations": [
+    {
+      "kind": "class",
+      "name": "ironwood.compiler.ir.IrCfgRenamer",
+      "fields_or_variants": [
+        "values:java.util.function.Function<ironwood.compiler.ir.IrValueReference, ironwood.compiler.ir.IrValueReference>:private final",
+        "labels:java.util.function.Function<java.lang.String, java.lang.String>:private final"
+      ]
+    },
+    {
+      "kind": "class",
+      "name": "ironwood.compiler.semantic.ClosedWorldEffectAnalyzer",
+      "fields_or_variants": [
+        "functions:java.util.Map<java.lang.String, ironwood.compiler.ir.IrFunction>:private final",
+        "classes:java.util.List<ironwood.compiler.ir.IrClass>:private final",
+        "summaries:java.util.Map<java.lang.String, ironwood.compiler.semantic.ClosedWorldEffectAnalyzer$Summary>:private final",
+        "analyzed:boolean:private",
+        "observer:ironwood.compiler.semantic.SemanticAnalysisObserver:private final",
+        "observerToken:long:private final",
+        "targetCache:java.util.Map<ironwood.compiler.ir.IrInstruction, java.util.List<ironwood.compiler.ir.IrFunction>>:private final"
+      ]
+    },
+    {
+      "kind": "class",
+      "name": "ironwood.compiler.semantic.FunctionAnalyzer",
+      "fields_or_variants": [
+        "STRING_TYPE:ironwood.compiler.ir.IrType:private static final",
+        "source:ironwood.compiler.source.SourceFile:private final",
+        "function:ironwood.compiler.semantic.CallableSymbol:private final",
+        "hierarchy:ironwood.compiler.semantic.ClassHierarchy:private final",
+        "escapeSummaries:ironwood.compiler.semantic.EscapeSummaryAnalyzer:private final",
+        "ownedArrayFields:ironwood.compiler.semantic.OwnedArrayFieldAnalyzer:private final",
+        "stringPool:ironwood.compiler.semantic.StringPool:private final",
+        "currentClass:ironwood.compiler.semantic.TypeSymbol:private final",
+        "staticImports:ironwood.compiler.semantic.StaticImportResolver:private final",
+        "planningContext:ironwood.compiler.semantic.FunctionAnalyzer$FunctionPlanningContext:private final",
+        "invocationPlanner:ironwood.compiler.semantic.InvocationPlanner:private final",
+        "diagnostics:java.util.List<ironwood.compiler.diagnostic.Diagnostic>:private final",
+        "constructorDelegations:java.util.Map<java.lang.String, java.lang.String>:private final",
+        "parameters:java.util.List<ironwood.compiler.ir.IrParameter>:private final",
+        "blocks:java.util.Map<java.lang.String, ironwood.compiler.semantic.FunctionAnalyzer$MutableBlock>:private final",
+        "scopes:java.util.Deque<java.util.Map<java.lang.String, ironwood.compiler.semantic.FunctionAnalyzer$LocalSymbol>>:private final",
+        "exceptionRegions:java.util.Deque<ironwood.compiler.semantic.FunctionAnalyzer$ExceptionRegion>:private final",
+        "checkedCatchScopes:java.util.Deque<java.util.List<ironwood.compiler.ir.IrType>>:private final",
+        "observedTryBodyExceptions:java.util.Deque<java.util.Set<ironwood.compiler.ir.IrType>>:private final",
+        "finallyContexts:java.util.Deque<ironwood.compiler.semantic.FunctionAnalyzer$FinallyContext>:private final",
+        "loopContexts:java.util.Deque<ironwood.compiler.semantic.FunctionAnalyzer$LoopContext>:private final",
+        "breakContexts:java.util.Deque<ironwood.compiler.semantic.FunctionAnalyzer$BreakContext>:private final",
+        "labeledContexts:java.util.Deque<ironwood.compiler.semantic.FunctionAnalyzer$LabeledContext>:private final",
+        "switchExpressionContexts:java.util.Deque<ironwood.compiler.semantic.FunctionAnalyzer$SwitchExpressionContext>:private final",
+        "environment:java.util.LinkedHashMap<ironwood.compiler.semantic.FunctionAnalyzer$LocalSymbol, ironwood.compiler.ir.IrOperand>:private",
+        "localConstants:java.util.Map<ironwood.compiler.semantic.FunctionAnalyzer$LocalSymbol, ironwood.compiler.semantic.FunctionAnalyzer$CaseConstant>:private final",
+        "currentBlock:ironwood.compiler.semantic.FunctionAnalyzer$MutableBlock:private",
+        "thisOperand:ironwood.compiler.ir.IrOperand:private",
+        "enclosingInstanceOperand:ironwood.compiler.ir.IrOperand:private",
+        "forwardedSuperEnclosingOperand:ironwood.compiler.ir.IrOperand:private",
+        "provenNonNullOperands:java.util.Set<ironwood.compiler.ir.IrOperand>:private final",
+        "captureParameterOperands:java.util.Map<java.lang.String, ironwood.compiler.ir.IrOperand>:private final",
+        "nextValueId:int:private",
+        "nextSymbolId:int:private",
+        "nextBlockId:int:private",
+        "nextCaptureId:int:private",
+        "nextSyntheticLocalId:int:private",
+        "evaluatingConstructorArguments:boolean:private",
+        "loweringInstanceInitializer:boolean:private",
+        "pendingYieldAllocations:java.util.List<ironwood.compiler.semantic.FunctionAnalyzer$AllocationInfo>:private final",
+        "pendingYieldEvidence:java.util.List<ironwood.compiler.semantic.FunctionAnalyzer$PendingYieldEvidence>:private",
+        "checkedCatchOrigin:ironwood.compiler.source.SourceSpan:private",
+        "activeCleanupExit:ironwood.compiler.semantic.FunctionAnalyzer$CleanupExit:private",
+        "reclamations:java.util.List<ironwood.compiler.semantic.FunctionAnalyzer$Reclamation>:private final",
+        "allocationsByOperand:java.util.Map<ironwood.compiler.ir.IrOperand, ironwood.compiler.semantic.FunctionAnalyzer$AllocationInfo>:private final",
+        "ownedHelperBorrows:java.util.Set<ironwood.compiler.ir.IrOperand>:private final",
+        "ownedHelperBorrowTypes:java.util.Map<ironwood.compiler.ir.IrOperand, java.lang.String>:private final",
+        "allocations:java.util.List<ironwood.compiler.semantic.FunctionAnalyzer$AllocationInfo>:private final",
+        "knownArraySlots:java.util.Map<ironwood.compiler.semantic.FunctionAnalyzer$ArraySlot, ironwood.compiler.semantic.FunctionAnalyzer$AllocationInfo>:private final",
+        "retainedBorrows:java.util.Map<ironwood.compiler.semantic.FunctionAnalyzer$AllocationInfo, java.util.Set<ironwood.compiler.semantic.FunctionAnalyzer$AllocationInfo>>:private final",
+        "exposedContainerContents:java.util.Set<ironwood.compiler.semantic.FunctionAnalyzer$AllocationInfo>:private final",
+        "pendingContainerClear:ironwood.compiler.semantic.FunctionAnalyzer$AllocationInfo:private",
+        "pendingWrapperBorrow:ironwood.compiler.semantic.FunctionAnalyzer$WrapperBorrow:private",
+        "pendingFactoryBorrows:java.util.List<ironwood.compiler.semantic.FunctionAnalyzer$WrapperBorrow>:private",
+        "pendingFreshResult:ironwood.compiler.semantic.FunctionAnalyzer$AllocationInfo:private",
+        "discardedCallSpan:ironwood.compiler.source.SourceSpan:private",
+        "unfreed:ironwood.compiler.semantic.UnfreedAllocationTracker<ironwood.compiler.semantic.FunctionAnalyzer$AllocationInfo>:private",
+        "reclamationEffects:ironwood.compiler.semantic.ClosedWorldEffectAnalyzer:private",
+        "explainRejectedFree:boolean:private",
+        "explanationReady:boolean:private",
+        "rejectedFreeEvidence:ironwood.compiler.semantic.RejectedFreeEvidence:private",
+        "observer:ironwood.compiler.semantic.SemanticAnalysisObserver:private",
+        "unfreedFreshResults:java.util.Set<ironwood.compiler.ir.IrOperand>:private final",
+        "temporaryFreshResults:java.util.Set<ironwood.compiler.ir.IrOperand>:private final",
+        "temporaryScopes:java.util.Deque<ironwood.compiler.semantic.FunctionAnalyzer$TemporaryScope>:private final",
+        "reclaimedTemporaries:java.util.Map<ironwood.compiler.semantic.FunctionAnalyzer$AllocationInfo, ironwood.compiler.source.SourceSpan>:private final",
+        "renderingToString:boolean:private",
+        "expressionBranchDepth:int:private",
+        "expressionDepth:int:private",
+        "borrowedOwnedFields:java.util.Map<java.lang.String, ironwood.compiler.semantic.FunctionAnalyzer$AllocationInfo>:private final",
+        "poolOwners:java.util.Map<ironwood.compiler.semantic.FunctionAnalyzer$AllocationInfo, ironwood.compiler.semantic.FunctionAnalyzer$AllocationInfo>:private final",
+        "poolValueOwners:java.util.Map<ironwood.compiler.ir.IrOperand, ironwood.compiler.semantic.FunctionAnalyzer$AllocationInfo>:private final",
+        "pendingPoolTransfer:ironwood.compiler.semantic.FunctionAnalyzer$PoolTransfer:private",
+        "preciseRethrowTypes:java.util.Map<ironwood.compiler.semantic.FunctionAnalyzer$LocalSymbol, java.util.List<ironwood.compiler.ir.IrType>>:private final",
+        "constructorParameterSymbols:java.util.Set<ironwood.compiler.semantic.FunctionAnalyzer$LocalSymbol>:private final",
+        "declaredInstanceInitializerFields:java.util.Set<java.lang.String>:private final",
+        "patternLocals:java.util.IdentityHashMap<ironwood.compiler.ast.InstanceOfExpression, ironwood.compiler.semantic.FunctionAnalyzer$PatternLocal>:private final",
+        "reportedPatternConflicts:java.util.Set<java.lang.String>:private final",
+        "controlFlowDepth:int:private"
+      ]
+    },
+    {
+      "kind": "class",
+      "name": "ironwood.compiler.semantic.FunctionAnalyzer$AllocationInfo",
+      "fields_or_variants": [
+        "creationControlFlowDepth:int:private final",
+        "origin:ironwood.compiler.semantic.FunctionAnalyzer$AllocationOrigin:private final",
+        "ownedFieldName:java.lang.String:private final",
+        "finalBorrowedFields:java.util.Map<java.lang.String, ironwood.compiler.semantic.FunctionAnalyzer$AllocationInfo>:private final",
+        "constructedType:ironwood.compiler.ir.IrType:private",
+        "mayBe:java.util.Set<ironwood.compiler.semantic.FunctionAnalyzer$AllocationInfo>:private",
+        "detached:boolean:private",
+        "present:boolean:private",
+        "state:ironwood.compiler.semantic.FunctionAnalyzer$AllocationState:private",
+        "blockingReason:java.lang.String:private"
+      ]
+    },
+    {
+      "kind": "class",
+      "name": "ironwood.compiler.semantic.FunctionAnalyzer$BreakContext",
+      "fields_or_variants": [
+        "breakTarget:java.lang.String:protected final",
+        "targetFinallyContexts:java.util.List<ironwood.compiler.semantic.FunctionAnalyzer$FinallyContext>:protected final",
+        "breakFlows:java.util.List<ironwood.compiler.semantic.FunctionAnalyzer$BranchFlow>:protected final"
+      ]
+    },
+    {
+      "kind": "class",
+      "name": "ironwood.compiler.semantic.FunctionAnalyzer$ExceptionRegion",
+      "fields_or_variants": [
+        "landingPad:ironwood.compiler.semantic.FunctionAnalyzer$MutableBlock:private final",
+        "edges:java.util.List<ironwood.compiler.semantic.FunctionAnalyzer$ExceptionEdge>:private final"
+      ]
+    },
+    {
+      "kind": "class",
+      "name": "ironwood.compiler.semantic.FunctionAnalyzer$FunctionPlanningContext",
+      "fields_or_variants": [
+        "ROOT_OBJECT:ironwood.compiler.ir.IrType:private static final",
+        "planningCaptures:java.util.Map<java.lang.String, ironwood.compiler.semantic.TypeVariableSymbol>:private final",
+        "this$0:ironwood.compiler.semantic.FunctionAnalyzer:final"
+      ]
+    },
+    {
+      "kind": "class",
+      "name": "ironwood.compiler.semantic.FunctionAnalyzer$LValueWriter",
+      "fields_or_variants": [
+        ""
+      ]
+    },
+    {
+      "kind": "class",
+      "name": "ironwood.compiler.semantic.FunctionAnalyzer$LoopContext",
+      "fields_or_variants": [
+        "continueTarget:java.lang.String:private final",
+        "continueFlows:java.util.List<ironwood.compiler.semantic.FunctionAnalyzer$BranchFlow>:private final"
+      ]
+    },
+    {
+      "kind": "class",
+      "name": "ironwood.compiler.semantic.FunctionAnalyzer$MutableBlock",
+      "fields_or_variants": [
+        "label:java.lang.String:private final",
+        "span:ironwood.compiler.source.SourceSpan:private final",
+        "phis:java.util.List<ironwood.compiler.semantic.FunctionAnalyzer$MutablePhi>:private final",
+        "instructions:java.util.List<ironwood.compiler.ir.IrInstruction>:private final",
+        "terminator:ironwood.compiler.ir.IrTerminator:private"
+      ]
+    },
+    {
+      "kind": "class",
+      "name": "ironwood.compiler.semantic.FunctionAnalyzer$MutablePhi",
+      "fields_or_variants": [
+        "result:ironwood.compiler.ir.IrValueReference:private final",
+        "incoming:java.util.List<ironwood.compiler.ir.IrPhiIncoming>:private final",
+        "span:ironwood.compiler.source.SourceSpan:private final"
+      ]
+    },
+    {
+      "kind": "class",
+      "name": "ironwood.compiler.semantic.FunctionAnalyzer$PatternLocal",
+      "fields_or_variants": [
+        "symbol:ironwood.compiler.semantic.FunctionAnalyzer$LocalSymbol:private final",
+        "operand:ironwood.compiler.ir.IrOperand:private"
+      ]
+    },
+    {
+      "kind": "class",
+      "name": "ironwood.compiler.semantic.FunctionAnalyzer$SwitchExpressionContext",
+      "fields_or_variants": [
+        "merge:ironwood.compiler.semantic.FunctionAnalyzer$MutableBlock:private final",
+        "targetFinallyContexts:java.util.List<ironwood.compiler.semantic.FunctionAnalyzer$FinallyContext>:private final",
+        "expectedType:java.util.Optional<ironwood.compiler.ir.IrType>:private final",
+        "before:java.util.LinkedHashMap<ironwood.compiler.semantic.FunctionAnalyzer$LocalSymbol, ironwood.compiler.ir.IrOperand>:private final",
+        "yields:java.util.List<ironwood.compiler.semantic.FunctionAnalyzer$YieldFlow>:private final"
+      ]
+    },
+    {
+      "kind": "class",
+      "name": "ironwood.compiler.semantic.FunctionAnalyzer$TemporaryScope",
+      "fields_or_variants": [
+        "candidates:java.util.List<ironwood.compiler.semantic.FunctionAnalyzer$TemporaryCandidate>:private final",
+        "cancelled:java.util.Set<ironwood.compiler.semantic.FunctionAnalyzer$AllocationInfo>:private final",
+        "named:java.util.Set<ironwood.compiler.semantic.FunctionAnalyzer$AllocationInfo>:private final",
+        "environmentBefore:java.util.LinkedHashMap<ironwood.compiler.semantic.FunctionAnalyzer$LocalSymbol, ironwood.compiler.ir.IrOperand>:private final",
+        "regionsBefore:java.util.List<ironwood.compiler.semantic.FunctionAnalyzer$ExceptionRegion>:private final",
+        "branchDepth:int:private final"
+      ]
+    },
+    {
+      "kind": "class",
+      "name": "ironwood.compiler.semantic.RejectedFreeEvidence",
+      "fields_or_variants": [
+        "DEFAULT_LOCAL_LIMIT:int:static final",
+        "DEFAULT_SNAPSHOT_LIMIT:int:static final",
+        "DEFAULT_INVOCATION_LIMIT:int:static final",
+        "invocation:ironwood.compiler.semantic.RejectedFreeEvidence$Budget:private final",
+        "localLimit:int:private final",
+        "snapshotLimit:int:private final",
+        "origins:java.util.IdentityHashMap<java.lang.Object, ironwood.compiler.semantic.RejectedFreeEvidence$Site>:private final",
+        "siteReferences:java.util.IdentityHashMap<ironwood.compiler.semantic.RejectedFreeEvidence$Site, java.lang.Integer>:private final",
+        "bindings:java.util.IdentityHashMap<java.lang.Object, ironwood.compiler.semantic.RejectedFreeEvidence$Binding>:private final",
+        "bindingReferences:java.util.IdentityHashMap<ironwood.compiler.semantic.RejectedFreeEvidence$Binding, java.lang.Integer>:private final",
+        "fieldLoads:java.util.IdentityHashMap<java.lang.Object, ironwood.compiler.semantic.RejectedFreeEvidence$FieldLoad>:private final",
+        "events:java.util.IdentityHashMap<java.lang.Object, ironwood.compiler.semantic.RejectedFreeEvidence$Event>:private final",
+        "eventReferences:java.util.IdentityHashMap<ironwood.compiler.semantic.RejectedFreeEvidence$Event, java.lang.Integer>:private final",
+        "arrayStores:java.util.Map<java.lang.Object, ironwood.compiler.semantic.RejectedFreeEvidence$Site>:private final",
+        "retentions:java.util.Map<ironwood.compiler.semantic.RejectedFreeEvidence$Retention, ironwood.compiler.semantic.RejectedFreeEvidence$Site>:private final",
+        "joins:java.util.IdentityHashMap<java.lang.Object, ironwood.compiler.semantic.RejectedFreeEvidence$Join>:private final",
+        "joinReferences:java.util.IdentityHashMap<ironwood.compiler.semantic.RejectedFreeEvidence$Join, java.lang.Integer>:private final",
+        "retired:java.lang.ref.ReferenceQueue<java.lang.Object>:private final",
+        "snapshots:java.util.Map<ironwood.compiler.semantic.RejectedFreeEvidence$SnapshotKey, ironwood.compiler.semantic.RejectedFreeEvidence$Saved>:private final",
+        "liveUnits:int:private",
+        "highWater:int:private",
+        "snapshotUnits:int:private",
+        "snapshotHighWater:int:private",
+        "functionTruncated:boolean:private",
+        "snapshotTruncated:boolean:private",
+        "closed:boolean:private"
+      ]
+    },
+    {
+      "kind": "class",
+      "name": "ironwood.compiler.semantic.RejectedFreeEvidence$Budget",
+      "fields_or_variants": [
+        "limit:int:private final",
+        "live:int:private",
+        "highWater:int:private",
+        "stopped:boolean:private"
+      ]
+    },
+    {
+      "kind": "class",
+      "name": "ironwood.compiler.semantic.RejectedFreeEvidence$SnapshotKey",
+      "fields_or_variants": [
+        "identityHash:int:private final"
+      ]
+    },
+    {
+      "kind": "class",
+      "name": "ironwood.compiler.semantic.SemanticAnalysisObserver",
+      "fields_or_variants": [
+        ""
+      ]
+    },
+    {
+      "kind": "class",
+      "name": "ironwood.compiler.semantic.UnfreedAllocationTracker",
+      "fields_or_variants": [
+        "source:ironwood.compiler.source.SourceFile:private final",
+        "mode:ironwood.compiler.UnfreedMode:private final",
+        "origins:java.util.Map<A, ironwood.compiler.semantic.UnfreedAllocationTracker$Origin>:private final",
+        "live:java.util.Set<A>:private final",
+        "suppressed:java.util.Set<A>:private final",
+        "findings:java.util.Map<A, ironwood.compiler.diagnostic.Diagnostic>:private final"
+      ]
+    },
+    {
+      "kind": "class",
+      "name": "ironwood.compiler.source.SourceFile",
+      "fields_or_variants": [
+        "path:java.nio.file.Path:private final",
+        "content:java.lang.String:private final",
+        "lines:java.util.List<java.lang.String>:private final"
+      ]
+    },
+    {
+      "kind": "enum",
+      "name": "ironwood.compiler.UnfreedMode",
+      "fields_or_variants": [
+        "OFF",
+        "WARN",
+        "ERROR"
+      ]
+    },
+    {
+      "kind": "enum",
+      "name": "ironwood.compiler.ir.IrBinaryOperator",
+      "fields_or_variants": [
+        "ADD",
+        "SUBTRACT",
+        "MULTIPLY",
+        "DIVIDE",
+        "REMAINDER",
+        "SHIFT_LEFT",
+        "SHIFT_RIGHT",
+        "UNSIGNED_SHIFT_RIGHT",
+        "BITWISE_AND",
+        "BITWISE_XOR",
+        "BITWISE_OR",
+        "EQUAL",
+        "NOT_EQUAL",
+        "SIGNED_LESS",
+        "SIGNED_LESS_EQUAL",
+        "SIGNED_GREATER",
+        "SIGNED_GREATER_EQUAL"
+      ]
+    },
+    {
+      "kind": "enum",
+      "name": "ironwood.compiler.ir.IrBridgeResultStoreInstruction$Slot",
+      "fields_or_variants": [
+        "VALUE",
+        "EXCEPTION"
+      ]
+    },
+    {
+      "kind": "enum",
+      "name": "ironwood.compiler.ir.IrByteViewInstruction$Operation",
+      "fields_or_variants": [
+        "LENGTH",
+        "READ_ONLY",
+        "READ",
+        "WRITE"
+      ]
+    },
+    {
+      "kind": "enum",
+      "name": "ironwood.compiler.ir.IrCallKind",
+      "fields_or_variants": [
+        "DIRECT",
+        "DEVIRTUALIZED_VIRTUAL",
+        "DEVIRTUALIZED_INTERFACE"
+      ]
+    },
+    {
+      "kind": "enum",
+      "name": "ironwood.compiler.ir.IrCallableKind",
+      "fields_or_variants": [
+        "METHOD",
+        "CONSTRUCTOR",
+        "DESTRUCTOR",
+        "CLASS_INITIALIZER",
+        "CONSTRUCTOR_ROLLBACK"
+      ]
+    },
+    {
+      "kind": "enum",
+      "name": "ironwood.compiler.ir.IrCharacterInstruction$Operation",
+      "fields_or_variants": [
+        "DIGIT",
+        "LETTER",
+        "UPPER",
+        "LOWER",
+        "TO_UPPER",
+        "TO_LOWER",
+        "DIGIT_VALUE",
+        "NUMERIC_VALUE"
+      ]
+    },
+    {
+      "kind": "enum",
+      "name": "ironwood.compiler.ir.IrFileInstruction$Operation",
+      "fields_or_variants": [
+        "READ_ALL_BYTES",
+        "READ_STRING",
+        "WRITE_BYTES",
+        "WRITE_STRING",
+        "WRITE_CHARS",
+        "DELETE",
+        "CREATE_DIRECTORIES",
+        "COPY",
+        "MOVE",
+        "OPEN_DIRECTORY",
+        "DIRECTORY_HAS_NEXT",
+        "NEXT_DIRECTORY_ENTRY",
+        "CLOSE_DIRECTORY",
+        "READ_ATTRIBUTES",
+        "FILE_KIND",
+        "FILE_KIND_NOFOLLOW",
+        "FILE_SIZE",
+        "SAME_FILE",
+        "LAST_ERROR",
+        "CURRENT_DIRECTORY",
+        "NORMALIZE_SYNTAX",
+        "NORMALIZE_PATH",
+        "FILE_NAME",
+        "PARENT",
+        "RESOLVE",
+        "RESOLVE_SIBLING",
+        "ABSOLUTE_PATH"
+      ]
+    },
+    {
+      "kind": "enum",
+      "name": "ironwood.compiler.ir.IrFloatingBitsInstruction$Operation",
+      "fields_or_variants": [
+        "FLOAT_TO_RAW_INT",
+        "INT_TO_FLOAT",
+        "DOUBLE_TO_RAW_LONG",
+        "LONG_TO_DOUBLE"
+      ]
+    },
+    {
+      "kind": "enum",
+      "name": "ironwood.compiler.ir.IrMathBinaryInstruction$Operation",
+      "fields_or_variants": [
+        "ATAN2",
+        "POW",
+        "HYPOT"
+      ]
+    },
+    {
+      "kind": "enum",
+      "name": "ironwood.compiler.ir.IrMathUnaryInstruction$Operation",
+      "fields_or_variants": [
+        "SIN",
+        "COS",
+        "TAN",
+        "EXP",
+        "LOG",
+        "LOG10",
+        "SQRT",
+        "CBRT",
+        "RINT"
+      ]
+    },
+    {
+      "kind": "enum",
+      "name": "ironwood.compiler.ir.IrStreamInstruction$Operation",
+      "fields_or_variants": [
+        "OPEN",
+        "READ_BYTE",
+        "READ_BYTES",
+        "WRITE_BYTE",
+        "WRITE_BYTES",
+        "AVAILABLE",
+        "POSITION",
+        "SEEK",
+        "LENGTH",
+        "SET_LENGTH",
+        "CLOSE",
+        "PRINT_BYTE",
+        "PRINT_BYTES"
+      ]
+    },
+    {
+      "kind": "enum",
+      "name": "ironwood.compiler.ir.IrStringConcatPartKind",
+      "fields_or_variants": [
+        "STRING",
+        "BOOLEAN",
+        "CHARACTER",
+        "INTEGER",
+        "FLOAT",
+        "DOUBLE"
+      ]
+    },
+    {
+      "kind": "enum",
+      "name": "ironwood.compiler.ir.IrSystemClockInstruction$Clock",
+      "fields_or_variants": [
+        "CURRENT_TIME_MILLIS",
+        "NANO_TIME"
+      ]
+    },
+    {
+      "kind": "enum",
+      "name": "ironwood.compiler.ir.IrTcpInstruction$Operation",
+      "fields_or_variants": [
+        "CREATE",
+        "BIND",
+        "CONNECT",
+        "LISTEN",
+        "ACCEPT",
+        "COMPLETE_CONNECT",
+        "READ_BYTE",
+        "TRY_READ_BYTE",
+        "READ_BYTES",
+        "TRY_READ_BYTES",
+        "PEEK_BYTES",
+        "WRITE_BYTE",
+        "WRITE_BYTES",
+        "URGENT",
+        "GET_TRAFFIC_CLASS",
+        "SET_TRAFFIC_CLASS",
+        "REUSE_PORT_SUPPORTED",
+        "AVAILABLE",
+        "SHUTDOWN",
+        "CLOSE",
+        "WAIT",
+        "BLOCKING",
+        "RESTORE_FLAGS",
+        "GET_BOOLEAN",
+        "SET_BOOLEAN",
+        "GET_INTEGER",
+        "SET_INTEGER",
+        "ENDPOINT",
+        "RESOLVE_START",
+        "RESOLVE_ADDRESS",
+        "RESOLVE_RELEASE",
+        "REVERSE_NAME",
+        "LOCAL_NAME",
+        "SCOPE_ID",
+        "PREFERRED_FAMILY",
+        "INTERFACES_START",
+        "INTERFACE_NEXT",
+        "INTERFACE_ADDRESS",
+        "INTERFACES_RELEASE",
+        "INTERFACE_FLAGS",
+        "INTERFACE_MTU",
+        "INTERFACE_HARDWARE",
+        "REACHABLE",
+        "ERROR_KIND"
+      ]
+    },
+    {
+      "kind": "enum",
+      "name": "ironwood.compiler.ir.IrThrowableTraceInstruction$Operation",
+      "fields_or_variants": [
+        "CAPTURE",
+        "RELEASE",
+        "COMMON",
+        "PRINT",
+        "EMERGENCY",
+        "ARRAY"
+      ]
+    },
+    {
+      "kind": "enum",
+      "name": "ironwood.compiler.ir.IrTlsInstruction$Operation",
+      "fields_or_variants": [
+        "CREATE",
+        "CONFIGURE",
+        "ATTACH",
+        "HANDSHAKE",
+        "READ_BYTE",
+        "READ_BYTES",
+        "WRITE_BYTE",
+        "WRITE_BYTES",
+        "AVAILABLE",
+        "WAIT",
+        "CLOSE"
+      ]
+    },
+    {
+      "kind": "enum",
+      "name": "ironwood.compiler.ir.IrType$Kind",
+      "fields_or_variants": [
+        "I1",
+        "I8",
+        "I16",
+        "U16",
+        "I32",
+        "I64",
+        "F32",
+        "F64",
+        "VOID",
+        "NULL",
+        "EXCEPTION",
+        "REFERENCE",
+        "TYPE_PARAMETER",
+        "WILDCARD",
+        "ARRAY"
+      ]
+    },
+    {
+      "kind": "enum",
+      "name": "ironwood.compiler.ir.IrType$WildcardKind",
+      "fields_or_variants": [
+        "UNBOUNDED",
+        "EXTENDS",
+        "SUPER"
+      ]
+    },
+    {
+      "kind": "enum",
+      "name": "ironwood.compiler.ir.IrTypeKind",
+      "fields_or_variants": [
+        "CLASS",
+        "INTERFACE"
+      ]
+    },
+    {
+      "kind": "enum",
+      "name": "ironwood.compiler.ir.IrUnaryOperator",
+      "fields_or_variants": [
+        "NEGATE",
+        "NOT",
+        "BITWISE_COMPLEMENT"
+      ]
+    },
+    {
+      "kind": "enum",
+      "name": "ironwood.compiler.semantic.FunctionAnalyzer$AllocationOrigin",
+      "fields_or_variants": [
+        "LOCAL_NEW",
+        "FRESH_CALL",
+        "OWNED_FIELD",
+        "ONE_OF"
+      ]
+    },
+    {
+      "kind": "enum",
+      "name": "ironwood.compiler.semantic.FunctionAnalyzer$AllocationState",
+      "fields_or_variants": [
+        "ACTIVE",
+        "UNCERTAIN",
+        "ESCAPED",
+        "FREED",
+        "MAYBE_FREED"
+      ]
+    },
+    {
+      "kind": "enum",
+      "name": "ironwood.compiler.semantic.FunctionAnalyzer$SwitchSelectorKind",
+      "fields_or_variants": [
+        "INTEGRAL",
+        "ENUM",
+        "STRING"
+      ]
+    },
+    {
+      "kind": "enum",
+      "name": "ironwood.compiler.semantic.RejectedFreeEvidence$EventKind",
+      "fields_or_variants": [
+        "REASON",
+        "FREE"
+      ]
+    },
+    {
+      "kind": "enum",
+      "name": "ironwood.compiler.semantic.SemanticAnalysisObserver$AnalyzerKind",
+      "fields_or_variants": [
+        "ESCAPE",
+        "SYMBOLIC_RETURN",
+        "OWNED_FIELD",
+        "EFFECT"
+      ]
+    },
+    {
+      "kind": "enum",
+      "name": "ironwood.compiler.semantic.SemanticAnalysisObserver$AnalyzerPhase",
+      "fields_or_variants": [
+        "INITIAL",
+        "REBOUND",
+        "REFINEMENT",
+        "FINAL_VALIDATION"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.ir.IrAddSecondaryExceptionInstruction",
+      "fields_or_variants": [
+        "primary:ironwood.compiler.ir.IrOperand",
+        "secondary:ironwood.compiler.ir.IrOperand",
+        "sourceSpan:ironwood.compiler.source.SourceSpan"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.ir.IrAllocateInstruction",
+      "fields_or_variants": [
+        "result:ironwood.compiler.ir.IrValueReference",
+        "className:java.lang.String",
+        "sourceSpan:ironwood.compiler.source.SourceSpan"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.ir.IrAllocationCountInstruction",
+      "fields_or_variants": [
+        "result:ironwood.compiler.ir.IrValueReference",
+        "sourceSpan:ironwood.compiler.source.SourceSpan"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.ir.IrArrayAllocateInstruction",
+      "fields_or_variants": [
+        "result:ironwood.compiler.ir.IrValueReference",
+        "elementType:ironwood.compiler.ir.IrType",
+        "length:ironwood.compiler.ir.IrOperand",
+        "sourceSpan:ironwood.compiler.source.SourceSpan"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.ir.IrArrayBoundsCheckInstruction",
+      "fields_or_variants": [
+        "result:ironwood.compiler.ir.IrValueReference",
+        "array:ironwood.compiler.ir.IrOperand",
+        "index:ironwood.compiler.ir.IrOperand",
+        "sourceSpan:ironwood.compiler.source.SourceSpan"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.ir.IrArrayLengthCheckInstruction",
+      "fields_or_variants": [
+        "result:ironwood.compiler.ir.IrValueReference",
+        "length:ironwood.compiler.ir.IrOperand",
+        "sourceSpan:ironwood.compiler.source.SourceSpan"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.ir.IrArrayLengthInstruction",
+      "fields_or_variants": [
+        "result:ironwood.compiler.ir.IrValueReference",
+        "array:ironwood.compiler.ir.IrOperand",
+        "sourceSpan:ironwood.compiler.source.SourceSpan"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.ir.IrArrayLoadInstruction",
+      "fields_or_variants": [
+        "result:ironwood.compiler.ir.IrValueReference",
+        "array:ironwood.compiler.ir.IrOperand",
+        "index:ironwood.compiler.ir.IrOperand",
+        "sourceSpan:ironwood.compiler.source.SourceSpan"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.ir.IrArrayStoreInstruction",
+      "fields_or_variants": [
+        "array:ironwood.compiler.ir.IrOperand",
+        "index:ironwood.compiler.ir.IrOperand",
+        "value:ironwood.compiler.ir.IrOperand",
+        "sourceSpan:ironwood.compiler.source.SourceSpan"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.ir.IrArrayType",
+      "fields_or_variants": [
+        "type:ironwood.compiler.ir.IrType",
+        "typeId:int",
+        "typeMembership:java.util.List<java.lang.Integer>",
+        "dispatchEntries:java.util.List<ironwood.compiler.ir.IrDispatchEntry>",
+        "toStringReturnsOwnedFresh:boolean"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.ir.IrArrayTypeTestInstruction",
+      "fields_or_variants": [
+        "result:ironwood.compiler.ir.IrValueReference",
+        "value:ironwood.compiler.ir.IrOperand",
+        "targetType:ironwood.compiler.ir.IrType",
+        "sourceSpan:ironwood.compiler.source.SourceSpan"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.ir.IrBasicBlock",
+      "fields_or_variants": [
+        "label:java.lang.String",
+        "instructions:java.util.List<ironwood.compiler.ir.IrInstruction>",
+        "terminator:ironwood.compiler.ir.IrTerminator",
+        "sourceSpan:ironwood.compiler.source.SourceSpan"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.ir.IrBinaryInstruction",
+      "fields_or_variants": [
+        "result:ironwood.compiler.ir.IrValueReference",
+        "operator:ironwood.compiler.ir.IrBinaryOperator",
+        "left:ironwood.compiler.ir.IrOperand",
+        "right:ironwood.compiler.ir.IrOperand",
+        "sourceSpan:ironwood.compiler.source.SourceSpan"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.ir.IrBranch",
+      "fields_or_variants": [
+        "condition:ironwood.compiler.ir.IrOperand",
+        "trueTarget:java.lang.String",
+        "falseTarget:java.lang.String",
+        "sourceSpan:ironwood.compiler.source.SourceSpan"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.ir.IrBridgeArrayCopyInstruction",
+      "fields_or_variants": [
+        "result:ironwood.compiler.ir.IrValueReference",
+        "stateAddress:ironwood.compiler.ir.IrOperand",
+        "sourceSpan:ironwood.compiler.source.SourceSpan"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.ir.IrBridgeBatchAppendInstruction",
+      "fields_or_variants": [
+        "result:ironwood.compiler.ir.IrValueReference",
+        "context:ironwood.compiler.ir.IrOperand",
+        "index:ironwood.compiler.ir.IrOperand",
+        "count:ironwood.compiler.ir.IrOperand",
+        "arguments:java.util.List<ironwood.compiler.ir.IrOperand>",
+        "sourceSpan:ironwood.compiler.source.SourceSpan"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.ir.IrBridgeFailureSnapshotInstruction",
+      "fields_or_variants": [
+        "exception:ironwood.compiler.ir.IrOperand",
+        "frameAddress:ironwood.compiler.ir.IrOperand",
+        "sourceSpan:ironwood.compiler.source.SourceSpan"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.ir.IrBridgeResultStoreInstruction",
+      "fields_or_variants": [
+        "frameAddress:ironwood.compiler.ir.IrOperand",
+        "slot:ironwood.compiler.ir.IrBridgeResultStoreInstruction$Slot",
+        "value:ironwood.compiler.ir.IrOperand",
+        "sourceSpan:ironwood.compiler.source.SourceSpan"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.ir.IrBridgeSlotStoreInstruction",
+      "fields_or_variants": [
+        "frameAddress:ironwood.compiler.ir.IrOperand",
+        "index:int",
+        "holder:ironwood.compiler.ir.IrOperand",
+        "value:ironwood.compiler.ir.IrOperand",
+        "sourceSpan:ironwood.compiler.source.SourceSpan"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.ir.IrBridgeStringCopyInstruction",
+      "fields_or_variants": [
+        "result:ironwood.compiler.ir.IrValueReference",
+        "address:ironwood.compiler.ir.IrOperand",
+        "length:ironwood.compiler.ir.IrOperand",
+        "sourceSpan:ironwood.compiler.source.SourceSpan"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.ir.IrByteViewInstruction",
+      "fields_or_variants": [
+        "result:java.util.Optional<ironwood.compiler.ir.IrValueReference>",
+        "operation:ironwood.compiler.ir.IrByteViewInstruction$Operation",
+        "view:ironwood.compiler.ir.IrOperand",
+        "arguments:java.util.List<ironwood.compiler.ir.IrOperand>",
+        "sourceSpan:ironwood.compiler.source.SourceSpan"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.ir.IrCallInstruction",
+      "fields_or_variants": [
+        "result:java.util.Optional<ironwood.compiler.ir.IrValueReference>",
+        "targetLinkageName:java.lang.String",
+        "returnType:ironwood.compiler.ir.IrType",
+        "arguments:java.util.List<ironwood.compiler.ir.IrOperand>",
+        "callKind:ironwood.compiler.ir.IrCallKind",
+        "devirtualizedFrom:java.util.Optional<java.lang.String>",
+        "specializationArguments:java.util.Map<java.lang.String, ironwood.compiler.ir.IrType>",
+        "sourceSpan:ironwood.compiler.source.SourceSpan"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.ir.IrCharacterInstruction",
+      "fields_or_variants": [
+        "result:ironwood.compiler.ir.IrValueReference",
+        "operation:ironwood.compiler.ir.IrCharacterInstruction$Operation",
+        "codePoint:ironwood.compiler.ir.IrOperand",
+        "sourceSpan:ironwood.compiler.source.SourceSpan"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.ir.IrClass",
+      "fields_or_variants": [
+        "name:java.lang.String",
+        "kind:ironwood.compiler.ir.IrTypeKind",
+        "superclass:java.util.Optional<java.lang.String>",
+        "interfaces:java.util.List<java.lang.String>",
+        "fields:java.util.List<ironwood.compiler.ir.IrField>",
+        "typeId:int",
+        "typeMembership:java.util.List<java.lang.Integer>",
+        "dispatchEntries:java.util.List<ironwood.compiler.ir.IrDispatchEntry>",
+        "destructorChain:java.util.Optional<java.lang.String>",
+        "constructorRollback:java.util.Optional<java.lang.String>",
+        "toStringReturnsOwnedFresh:boolean",
+        "localizedMessageReturnsOwnedFresh:boolean",
+        "sourceSpan:ironwood.compiler.source.SourceSpan"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.ir.IrConstant",
+      "fields_or_variants": [
+        "type:ironwood.compiler.ir.IrType",
+        "value:java.lang.Number",
+        "sourceSpan:ironwood.compiler.source.SourceSpan"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.ir.IrDestroyArrayElementsInstruction",
+      "fields_or_variants": [
+        "array:ironwood.compiler.ir.IrOperand",
+        "sourceSpan:ironwood.compiler.source.SourceSpan"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.ir.IrDispatchEntry",
+      "fields_or_variants": [
+        "slot:ironwood.compiler.ir.IrDispatchSlot",
+        "targetLinkageName:java.lang.String"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.ir.IrDispatchSlot",
+      "fields_or_variants": [
+        "index:int",
+        "key:java.lang.String",
+        "methodName:java.lang.String",
+        "returnType:ironwood.compiler.ir.IrType",
+        "parameterTypes:java.util.List<ironwood.compiler.ir.IrType>",
+        "sourceSpan:ironwood.compiler.source.SourceSpan"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.ir.IrEnsureTypeInitializedInstruction",
+      "fields_or_variants": [
+        "typeName:java.lang.String",
+        "sourceSpan:ironwood.compiler.source.SourceSpan"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.ir.IrEnumConstant",
+      "fields_or_variants": [
+        "symbol:java.lang.String",
+        "type:ironwood.compiler.ir.IrType",
+        "storageType:ironwood.compiler.ir.IrType",
+        "constantName:java.lang.String",
+        "ordinal:int",
+        "nameValue:ironwood.compiler.ir.IrStringConstant",
+        "sourceSpan:ironwood.compiler.source.SourceSpan"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.ir.IrExceptionCaughtInstruction",
+      "fields_or_variants": [
+        "exception:ironwood.compiler.ir.IrOperand",
+        "sourceSpan:ironwood.compiler.source.SourceSpan"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.ir.IrExceptionLandingPadInstruction",
+      "fields_or_variants": [
+        "exceptionHandle:ironwood.compiler.ir.IrValueReference",
+        "exceptionObject:ironwood.compiler.ir.IrValueReference",
+        "sourceSpan:ironwood.compiler.source.SourceSpan"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.ir.IrField",
+      "fields_or_variants": [
+        "ownerClass:java.lang.String",
+        "name:java.lang.String",
+        "type:ironwood.compiler.ir.IrType",
+        "layoutIndex:int",
+        "isFinal:boolean",
+        "sourceSpan:ironwood.compiler.source.SourceSpan"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.ir.IrFieldLoadInstruction",
+      "fields_or_variants": [
+        "result:ironwood.compiler.ir.IrValueReference",
+        "receiver:ironwood.compiler.ir.IrOperand",
+        "field:ironwood.compiler.ir.IrField",
+        "sourceSpan:ironwood.compiler.source.SourceSpan"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.ir.IrFieldStoreInstruction",
+      "fields_or_variants": [
+        "receiver:ironwood.compiler.ir.IrOperand",
+        "field:ironwood.compiler.ir.IrField",
+        "value:ironwood.compiler.ir.IrOperand",
+        "sourceSpan:ironwood.compiler.source.SourceSpan"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.ir.IrFileInstruction",
+      "fields_or_variants": [
+        "result:ironwood.compiler.ir.IrValueReference",
+        "operation:ironwood.compiler.ir.IrFileInstruction$Operation",
+        "path:java.util.Optional<ironwood.compiler.ir.IrOperand>",
+        "value:java.util.Optional<ironwood.compiler.ir.IrOperand>",
+        "sourceSpan:ironwood.compiler.source.SourceSpan"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.ir.IrFloatingBitsInstruction",
+      "fields_or_variants": [
+        "result:ironwood.compiler.ir.IrValueReference",
+        "operation:ironwood.compiler.ir.IrFloatingBitsInstruction$Operation",
+        "value:ironwood.compiler.ir.IrOperand",
+        "sourceSpan:ironwood.compiler.source.SourceSpan"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.ir.IrFloatingParseInstruction",
+      "fields_or_variants": [
+        "result:ironwood.compiler.ir.IrValueReference",
+        "text:ironwood.compiler.ir.IrOperand",
+        "sourceSpan:ironwood.compiler.source.SourceSpan"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.ir.IrForeignCallInstruction",
+      "fields_or_variants": [
+        "result:java.util.Optional<ironwood.compiler.ir.IrValueReference>",
+        "targetLinkageName:java.lang.String",
+        "returnType:ironwood.compiler.ir.IrType",
+        "arguments:java.util.List<ironwood.compiler.ir.IrOperand>",
+        "invocationContext:java.util.Optional<ironwood.compiler.ir.IrOperand>",
+        "sourceSpan:ironwood.compiler.source.SourceSpan"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.ir.IrFreeInstruction",
+      "fields_or_variants": [
+        "allocation:ironwood.compiler.ir.IrOperand",
+        "sourceSpan:ironwood.compiler.source.SourceSpan"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.ir.IrFunction",
+      "fields_or_variants": [
+        "ownerClass:java.lang.String",
+        "sourceName:java.lang.String",
+        "linkageName:java.lang.String",
+        "returnType:ironwood.compiler.ir.IrType",
+        "parameters:java.util.List<ironwood.compiler.ir.IrParameter>",
+        "blocks:java.util.List<ironwood.compiler.ir.IrBasicBlock>",
+        "sourceSpan:ironwood.compiler.source.SourceSpan",
+        "sourceFileName:java.lang.String",
+        "kind:ironwood.compiler.ir.IrCallableKind"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.ir.IrIdentityHashCodeInstruction",
+      "fields_or_variants": [
+        "result:ironwood.compiler.ir.IrValueReference",
+        "object:ironwood.compiler.ir.IrOperand",
+        "sourceSpan:ironwood.compiler.source.SourceSpan"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.ir.IrImmortalObject",
+      "fields_or_variants": [
+        "symbol:java.lang.String",
+        "type:ironwood.compiler.ir.IrType",
+        "storageType:ironwood.compiler.ir.IrType",
+        "fieldValues:java.util.Map<java.lang.String, ironwood.compiler.ir.IrConstant>",
+        "sourceSpan:ironwood.compiler.source.SourceSpan"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.ir.IrInstanceOfInstruction",
+      "fields_or_variants": [
+        "result:ironwood.compiler.ir.IrValueReference",
+        "value:ironwood.compiler.ir.IrOperand",
+        "targetTypeName:java.lang.String",
+        "targetTypeId:int",
+        "exactTargetType:java.util.Optional<ironwood.compiler.ir.IrType>",
+        "sourceSpan:ironwood.compiler.source.SourceSpan"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.ir.IrInterfaceCallInstruction",
+      "fields_or_variants": [
+        "result:java.util.Optional<ironwood.compiler.ir.IrValueReference>",
+        "interfaceName:java.lang.String",
+        "slot:ironwood.compiler.ir.IrDispatchSlot",
+        "returnType:ironwood.compiler.ir.IrType",
+        "arguments:java.util.List<ironwood.compiler.ir.IrOperand>",
+        "specializationArguments:java.util.Map<java.lang.String, ironwood.compiler.ir.IrType>",
+        "sourceSpan:ironwood.compiler.source.SourceSpan"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.ir.IrInvokeTerminator",
+      "fields_or_variants": [
+        "call:ironwood.compiler.ir.IrInstruction",
+        "normalTarget:java.lang.String",
+        "unwindTarget:java.lang.String",
+        "sourceSpan:ironwood.compiler.source.SourceSpan"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.ir.IrJump",
+      "fields_or_variants": [
+        "target:java.lang.String",
+        "sourceSpan:ironwood.compiler.source.SourceSpan"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.ir.IrLiveAllocationCountInstruction",
+      "fields_or_variants": [
+        "result:ironwood.compiler.ir.IrValueReference",
+        "sourceSpan:ironwood.compiler.source.SourceSpan"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.ir.IrMathBinaryInstruction",
+      "fields_or_variants": [
+        "result:ironwood.compiler.ir.IrValueReference",
+        "operation:ironwood.compiler.ir.IrMathBinaryInstruction$Operation",
+        "left:ironwood.compiler.ir.IrOperand",
+        "right:ironwood.compiler.ir.IrOperand",
+        "sourceSpan:ironwood.compiler.source.SourceSpan"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.ir.IrMathUnaryInstruction",
+      "fields_or_variants": [
+        "result:ironwood.compiler.ir.IrValueReference",
+        "operation:ironwood.compiler.ir.IrMathUnaryInstruction$Operation",
+        "value:ironwood.compiler.ir.IrOperand",
+        "sourceSpan:ironwood.compiler.source.SourceSpan"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.ir.IrNull",
+      "fields_or_variants": [
+        "type:ironwood.compiler.ir.IrType",
+        "sourceSpan:ironwood.compiler.source.SourceSpan"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.ir.IrNullCheckInstruction",
+      "fields_or_variants": [
+        "result:ironwood.compiler.ir.IrValueReference",
+        "receiver:ironwood.compiler.ir.IrOperand",
+        "sourceSpan:ironwood.compiler.source.SourceSpan"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.ir.IrNumericConversionInstruction",
+      "fields_or_variants": [
+        "result:ironwood.compiler.ir.IrValueReference",
+        "value:ironwood.compiler.ir.IrOperand",
+        "sourceSpan:ironwood.compiler.source.SourceSpan"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.ir.IrObjectHashCodeInstruction",
+      "fields_or_variants": [
+        "result:ironwood.compiler.ir.IrValueReference",
+        "object:ironwood.compiler.ir.IrOperand",
+        "sourceSpan:ironwood.compiler.source.SourceSpan"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.ir.IrObjectToStringInstruction",
+      "fields_or_variants": [
+        "result:ironwood.compiler.ir.IrValueReference",
+        "object:ironwood.compiler.ir.IrOperand",
+        "sourceSpan:ironwood.compiler.source.SourceSpan"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.ir.IrParameter",
+      "fields_or_variants": [
+        "name:java.lang.String",
+        "value:ironwood.compiler.ir.IrValueReference",
+        "sourceSpan:ironwood.compiler.source.SourceSpan"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.ir.IrPhiIncoming",
+      "fields_or_variants": [
+        "predecessor:java.lang.String",
+        "value:ironwood.compiler.ir.IrOperand"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.ir.IrPhiInstruction",
+      "fields_or_variants": [
+        "result:ironwood.compiler.ir.IrValueReference",
+        "incoming:java.util.List<ironwood.compiler.ir.IrPhiIncoming>",
+        "sourceSpan:ironwood.compiler.source.SourceSpan"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.ir.IrPrintStreamCheckErrorInstruction",
+      "fields_or_variants": [
+        "result:ironwood.compiler.ir.IrValueReference",
+        "stream:ironwood.compiler.ir.IrOperand",
+        "sourceSpan:ironwood.compiler.source.SourceSpan"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.ir.IrPrintStreamFlushInstruction",
+      "fields_or_variants": [
+        "stream:ironwood.compiler.ir.IrOperand",
+        "sourceSpan:ironwood.compiler.source.SourceSpan"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.ir.IrPrintStreamPrintlnInstruction",
+      "fields_or_variants": [
+        "value:ironwood.compiler.ir.IrOperand",
+        "sourceSpan:ironwood.compiler.source.SourceSpan"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.ir.IrPrintStreamWriteInstruction",
+      "fields_or_variants": [
+        "stream:ironwood.compiler.ir.IrOperand",
+        "value:java.util.Optional<ironwood.compiler.ir.IrStringConcatPart>",
+        "newline:boolean",
+        "sourceSpan:ironwood.compiler.source.SourceSpan"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.ir.IrProgram",
+      "fields_or_variants": [
+        "moduleName:java.lang.String",
+        "classes:java.util.List<ironwood.compiler.ir.IrClass>",
+        "staticFields:java.util.List<ironwood.compiler.ir.IrStaticField>",
+        "typeInitializations:java.util.List<ironwood.compiler.ir.IrTypeInitialization>",
+        "arrayTypes:java.util.List<ironwood.compiler.ir.IrArrayType>",
+        "stringConstants:java.util.List<ironwood.compiler.ir.IrStringConstant>",
+        "dispatchSlots:java.util.List<ironwood.compiler.ir.IrDispatchSlot>",
+        "functions:java.util.List<ironwood.compiler.ir.IrFunction>",
+        "entryPoint:java.util.Optional<ironwood.compiler.ir.IrFunction>",
+        "allocationFailure:java.util.Optional<ironwood.compiler.ir.IrImmortalObject>",
+        "exportRoots:java.util.Set<java.lang.String>"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.ir.IrRawDeallocateInstruction",
+      "fields_or_variants": [
+        "allocation:ironwood.compiler.ir.IrOperand",
+        "sourceSpan:ironwood.compiler.source.SourceSpan"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.ir.IrReferenceConversionInstruction",
+      "fields_or_variants": [
+        "result:ironwood.compiler.ir.IrValueReference",
+        "value:ironwood.compiler.ir.IrOperand",
+        "sourceSpan:ironwood.compiler.source.SourceSpan"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.ir.IrReleaseOwnedThrowableMessageInstruction",
+      "fields_or_variants": [
+        "throwable:ironwood.compiler.ir.IrOperand",
+        "message:ironwood.compiler.ir.IrOperand",
+        "sourceSpan:ironwood.compiler.source.SourceSpan"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.ir.IrReleaseOwnedToStringResultInstruction",
+      "fields_or_variants": [
+        "object:ironwood.compiler.ir.IrOperand",
+        "result:ironwood.compiler.ir.IrOperand",
+        "sourceSpan:ironwood.compiler.source.SourceSpan"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.ir.IrReturnTerminator",
+      "fields_or_variants": [
+        "value:java.util.Optional<ironwood.compiler.ir.IrOperand>",
+        "sourceSpan:ironwood.compiler.source.SourceSpan"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.ir.IrRollbackInstruction",
+      "fields_or_variants": [
+        "allocation:ironwood.compiler.ir.IrOperand",
+        "sourceSpan:ironwood.compiler.source.SourceSpan"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.ir.IrSecondaryExceptionAtInstruction",
+      "fields_or_variants": [
+        "result:ironwood.compiler.ir.IrValueReference",
+        "primary:ironwood.compiler.ir.IrOperand",
+        "index:ironwood.compiler.ir.IrOperand",
+        "sourceSpan:ironwood.compiler.source.SourceSpan"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.ir.IrSecondaryExceptionCountInstruction",
+      "fields_or_variants": [
+        "result:ironwood.compiler.ir.IrValueReference",
+        "primary:ironwood.compiler.ir.IrOperand",
+        "sourceSpan:ironwood.compiler.source.SourceSpan"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.ir.IrStaticField",
+      "fields_or_variants": [
+        "ownerClass:java.lang.String",
+        "name:java.lang.String",
+        "type:ironwood.compiler.ir.IrType",
+        "isFinal:boolean",
+        "compileTimeConstant:boolean",
+        "preinitializedIntrinsic:boolean",
+        "initialValue:ironwood.compiler.ir.IrOperand",
+        "sourceSpan:ironwood.compiler.source.SourceSpan"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.ir.IrStaticFieldLoadInstruction",
+      "fields_or_variants": [
+        "result:ironwood.compiler.ir.IrValueReference",
+        "field:ironwood.compiler.ir.IrStaticField",
+        "sourceSpan:ironwood.compiler.source.SourceSpan"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.ir.IrStaticFieldStoreInstruction",
+      "fields_or_variants": [
+        "field:ironwood.compiler.ir.IrStaticField",
+        "value:ironwood.compiler.ir.IrOperand",
+        "sourceSpan:ironwood.compiler.source.SourceSpan"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.ir.IrStreamInstruction",
+      "fields_or_variants": [
+        "result:ironwood.compiler.ir.IrValueReference",
+        "operation:ironwood.compiler.ir.IrStreamInstruction$Operation",
+        "arguments:java.util.List<ironwood.compiler.ir.IrOperand>",
+        "sourceSpan:ironwood.compiler.source.SourceSpan"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.ir.IrStringCaseInstruction",
+      "fields_or_variants": [
+        "result:ironwood.compiler.ir.IrValueReference",
+        "source:ironwood.compiler.ir.IrOperand",
+        "upper:ironwood.compiler.ir.IrOperand",
+        "sourceSpan:ironwood.compiler.source.SourceSpan"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.ir.IrStringCharAtInstruction",
+      "fields_or_variants": [
+        "result:ironwood.compiler.ir.IrValueReference",
+        "string:ironwood.compiler.ir.IrOperand",
+        "index:ironwood.compiler.ir.IrOperand",
+        "sourceSpan:ironwood.compiler.source.SourceSpan"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.ir.IrStringConcatInstruction",
+      "fields_or_variants": [
+        "result:ironwood.compiler.ir.IrValueReference",
+        "parts:java.util.List<ironwood.compiler.ir.IrStringConcatPart>",
+        "sourceSpan:ironwood.compiler.source.SourceSpan"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.ir.IrStringConcatPart",
+      "fields_or_variants": [
+        "kind:ironwood.compiler.ir.IrStringConcatPartKind",
+        "value:ironwood.compiler.ir.IrOperand"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.ir.IrStringConstant",
+      "fields_or_variants": [
+        "id:int",
+        "value:java.lang.String",
+        "utf16Length:int",
+        "utf8Length:int",
+        "sourceSpan:ironwood.compiler.source.SourceSpan"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.ir.IrStringCopyInstruction",
+      "fields_or_variants": [
+        "result:ironwood.compiler.ir.IrValueReference",
+        "source:ironwood.compiler.ir.IrOperand",
+        "sourceSpan:ironwood.compiler.source.SourceSpan"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.ir.IrStringEqualsIgnoreCaseInstruction",
+      "fields_or_variants": [
+        "result:ironwood.compiler.ir.IrValueReference",
+        "source:ironwood.compiler.ir.IrOperand",
+        "other:ironwood.compiler.ir.IrOperand",
+        "sourceSpan:ironwood.compiler.source.SourceSpan"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.ir.IrStringEqualsInstruction",
+      "fields_or_variants": [
+        "result:ironwood.compiler.ir.IrValueReference",
+        "string:ironwood.compiler.ir.IrOperand",
+        "other:ironwood.compiler.ir.IrOperand",
+        "sourceSpan:ironwood.compiler.source.SourceSpan"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.ir.IrStringFromCharRangeInstruction",
+      "fields_or_variants": [
+        "result:ironwood.compiler.ir.IrValueReference",
+        "characters:ironwood.compiler.ir.IrOperand",
+        "offset:ironwood.compiler.ir.IrOperand",
+        "length:ironwood.compiler.ir.IrOperand",
+        "sourceSpan:ironwood.compiler.source.SourceSpan"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.ir.IrStringFromCharacterInstruction",
+      "fields_or_variants": [
+        "result:ironwood.compiler.ir.IrValueReference",
+        "value:ironwood.compiler.ir.IrOperand",
+        "sourceSpan:ironwood.compiler.source.SourceSpan"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.ir.IrStringFromCharsInstruction",
+      "fields_or_variants": [
+        "result:ironwood.compiler.ir.IrValueReference",
+        "characters:ironwood.compiler.ir.IrOperand",
+        "length:ironwood.compiler.ir.IrOperand",
+        "sourceSpan:ironwood.compiler.source.SourceSpan"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.ir.IrStringFromIntegerInstruction",
+      "fields_or_variants": [
+        "result:ironwood.compiler.ir.IrValueReference",
+        "value:ironwood.compiler.ir.IrOperand",
+        "radix:ironwood.compiler.ir.IrOperand",
+        "sourceSpan:ironwood.compiler.source.SourceSpan"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.ir.IrStringFromRangeInstruction",
+      "fields_or_variants": [
+        "result:ironwood.compiler.ir.IrValueReference",
+        "source:ironwood.compiler.ir.IrOperand",
+        "beginIndex:ironwood.compiler.ir.IrOperand",
+        "length:ironwood.compiler.ir.IrOperand",
+        "sourceSpan:ironwood.compiler.source.SourceSpan"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.ir.IrStringFromUtf8Instruction",
+      "fields_or_variants": [
+        "result:ironwood.compiler.ir.IrValueReference",
+        "bytes:ironwood.compiler.ir.IrOperand",
+        "length:ironwood.compiler.ir.IrOperand",
+        "sourceSpan:ironwood.compiler.source.SourceSpan"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.ir.IrStringHashCodeInstruction",
+      "fields_or_variants": [
+        "result:ironwood.compiler.ir.IrValueReference",
+        "string:ironwood.compiler.ir.IrOperand",
+        "sourceSpan:ironwood.compiler.source.SourceSpan"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.ir.IrStringJoinInstruction",
+      "fields_or_variants": [
+        "result:ironwood.compiler.ir.IrValueReference",
+        "delimiter:ironwood.compiler.ir.IrOperand",
+        "elements:ironwood.compiler.ir.IrOperand",
+        "sourceSpan:ironwood.compiler.source.SourceSpan"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.ir.IrStringRepeatInstruction",
+      "fields_or_variants": [
+        "result:ironwood.compiler.ir.IrValueReference",
+        "source:ironwood.compiler.ir.IrOperand",
+        "count:ironwood.compiler.ir.IrOperand",
+        "sourceSpan:ironwood.compiler.source.SourceSpan"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.ir.IrStringReplaceCharInstruction",
+      "fields_or_variants": [
+        "result:ironwood.compiler.ir.IrValueReference",
+        "source:ironwood.compiler.ir.IrOperand",
+        "oldChar:ironwood.compiler.ir.IrOperand",
+        "newChar:ironwood.compiler.ir.IrOperand",
+        "sourceSpan:ironwood.compiler.source.SourceSpan"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.ir.IrStringReplaceTextInstruction",
+      "fields_or_variants": [
+        "result:ironwood.compiler.ir.IrValueReference",
+        "source:ironwood.compiler.ir.IrOperand",
+        "target:ironwood.compiler.ir.IrOperand",
+        "replacement:ironwood.compiler.ir.IrOperand",
+        "sourceSpan:ironwood.compiler.source.SourceSpan"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.ir.IrSwitchCase",
+      "fields_or_variants": [
+        "value:ironwood.compiler.ir.IrConstant",
+        "target:java.lang.String",
+        "sourceSpan:ironwood.compiler.source.SourceSpan"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.ir.IrSwitchTerminator",
+      "fields_or_variants": [
+        "selector:ironwood.compiler.ir.IrOperand",
+        "cases:java.util.List<ironwood.compiler.ir.IrSwitchCase>",
+        "defaultTarget:java.lang.String",
+        "sourceSpan:ironwood.compiler.source.SourceSpan"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.ir.IrSystemArrayCopyInstruction",
+      "fields_or_variants": [
+        "source:ironwood.compiler.ir.IrOperand",
+        "sourcePosition:ironwood.compiler.ir.IrOperand",
+        "destination:ironwood.compiler.ir.IrOperand",
+        "destinationPosition:ironwood.compiler.ir.IrOperand",
+        "length:ironwood.compiler.ir.IrOperand",
+        "sourceSpan:ironwood.compiler.source.SourceSpan"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.ir.IrSystemClockInstruction",
+      "fields_or_variants": [
+        "result:ironwood.compiler.ir.IrValueReference",
+        "clock:ironwood.compiler.ir.IrSystemClockInstruction$Clock",
+        "sourceSpan:ironwood.compiler.source.SourceSpan"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.ir.IrSystemExitInstruction",
+      "fields_or_variants": [
+        "status:ironwood.compiler.ir.IrOperand",
+        "sourceSpan:ironwood.compiler.source.SourceSpan"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.ir.IrSystemGetenvInstruction",
+      "fields_or_variants": [
+        "result:ironwood.compiler.ir.IrValueReference",
+        "name:ironwood.compiler.ir.IrOperand",
+        "sourceSpan:ironwood.compiler.source.SourceSpan"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.ir.IrSystemPropertyInstruction",
+      "fields_or_variants": [
+        "result:ironwood.compiler.ir.IrValueReference",
+        "name:ironwood.compiler.ir.IrOperand",
+        "sourceSpan:ironwood.compiler.source.SourceSpan"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.ir.IrTcpInstruction",
+      "fields_or_variants": [
+        "result:ironwood.compiler.ir.IrValueReference",
+        "operation:ironwood.compiler.ir.IrTcpInstruction$Operation",
+        "arguments:java.util.List<ironwood.compiler.ir.IrOperand>",
+        "outputFields:java.util.List<ironwood.compiler.ir.IrField>",
+        "sourceSpan:ironwood.compiler.source.SourceSpan"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.ir.IrThrowTerminator",
+      "fields_or_variants": [
+        "exception:ironwood.compiler.ir.IrOperand",
+        "normalTarget:java.lang.String",
+        "unwindTarget:java.util.Optional<java.lang.String>",
+        "sourceSpan:ironwood.compiler.source.SourceSpan"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.ir.IrThrowableDescriptionInstruction",
+      "fields_or_variants": [
+        "result:ironwood.compiler.ir.IrValueReference",
+        "throwable:ironwood.compiler.ir.IrOperand",
+        "message:ironwood.compiler.ir.IrOperand",
+        "sourceSpan:ironwood.compiler.source.SourceSpan"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.ir.IrThrowableTraceInstruction",
+      "fields_or_variants": [
+        "result:java.util.Optional<ironwood.compiler.ir.IrValueReference>",
+        "operation:ironwood.compiler.ir.IrThrowableTraceInstruction$Operation",
+        "arguments:java.util.List<ironwood.compiler.ir.IrOperand>",
+        "sourceSpan:ironwood.compiler.source.SourceSpan"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.ir.IrTlsInstruction",
+      "fields_or_variants": [
+        "result:ironwood.compiler.ir.IrValueReference",
+        "operation:ironwood.compiler.ir.IrTlsInstruction$Operation",
+        "arguments:java.util.List<ironwood.compiler.ir.IrOperand>",
+        "sourceSpan:ironwood.compiler.source.SourceSpan"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.ir.IrType",
+      "fields_or_variants": [
+        "kind:ironwood.compiler.ir.IrType$Kind",
+        "referenceName:java.lang.String",
+        "typeArguments:java.util.List<ironwood.compiler.ir.IrType>",
+        "elementType:ironwood.compiler.ir.IrType",
+        "typeParameterErasure:ironwood.compiler.ir.IrType",
+        "wildcardKind:ironwood.compiler.ir.IrType$WildcardKind",
+        "wildcardBound:ironwood.compiler.ir.IrType"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.ir.IrTypeInitialization",
+      "fields_or_variants": [
+        "typeName:java.lang.String",
+        "prerequisiteTypes:java.util.List<java.lang.String>",
+        "initializerLinkageName:java.util.Optional<java.lang.String>",
+        "sourceSpan:ironwood.compiler.source.SourceSpan"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.ir.IrTypeInitializedInstruction",
+      "fields_or_variants": [
+        "result:ironwood.compiler.ir.IrValueReference",
+        "typeName:java.lang.String",
+        "sourceSpan:ironwood.compiler.source.SourceSpan"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.ir.IrUnaryInstruction",
+      "fields_or_variants": [
+        "result:ironwood.compiler.ir.IrValueReference",
+        "operator:ironwood.compiler.ir.IrUnaryOperator",
+        "operand:ironwood.compiler.ir.IrOperand",
+        "sourceSpan:ironwood.compiler.source.SourceSpan"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.ir.IrUnreachable",
+      "fields_or_variants": [
+        "sourceSpan:ironwood.compiler.source.SourceSpan"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.ir.IrValueReference",
+      "fields_or_variants": [
+        "id:int",
+        "type:ironwood.compiler.ir.IrType",
+        "sourceSpan:ironwood.compiler.source.SourceSpan"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.ir.IrVirtualCallInstruction",
+      "fields_or_variants": [
+        "result:java.util.Optional<ironwood.compiler.ir.IrValueReference>",
+        "slot:ironwood.compiler.ir.IrDispatchSlot",
+        "returnType:ironwood.compiler.ir.IrType",
+        "arguments:java.util.List<ironwood.compiler.ir.IrOperand>",
+        "specializationArguments:java.util.Map<java.lang.String, ironwood.compiler.ir.IrType>",
+        "sourceSpan:ironwood.compiler.source.SourceSpan"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.semantic.ClosedWorldEffectAnalyzer$Effect",
+      "fields_or_variants": [
+        "allocates:boolean",
+        "throwsOutward:boolean",
+        "published:java.util.BitSet",
+        "reclaimed:java.util.BitSet"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.semantic.ClosedWorldEffectAnalyzer$Summary",
+      "fields_or_variants": [
+        "allocates:boolean",
+        "throwsOutward:boolean",
+        "publishedParameters:java.util.BitSet",
+        "returnedParameters:java.util.BitSet",
+        "reclaimedParameters:java.util.BitSet"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.semantic.FunctionAnalyzer$AllocationStateSnapshot",
+      "fields_or_variants": [
+        "state:ironwood.compiler.semantic.FunctionAnalyzer$AllocationState",
+        "blockingReason:java.lang.String",
+        "detached:boolean"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.semantic.FunctionAnalyzer$ArraySlot",
+      "fields_or_variants": [
+        "container:ironwood.compiler.semantic.FunctionAnalyzer$AllocationInfo",
+        "index:int"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.semantic.FunctionAnalyzer$ArrayTarget",
+      "fields_or_variants": [
+        "array:ironwood.compiler.ir.IrOperand",
+        "index:ironwood.compiler.ir.IrOperand"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.semantic.FunctionAnalyzer$BranchFlow",
+      "fields_or_variants": [
+        "reachable:boolean",
+        "block:ironwood.compiler.semantic.FunctionAnalyzer$MutableBlock",
+        "environment:java.util.LinkedHashMap<ironwood.compiler.semantic.FunctionAnalyzer$LocalSymbol, ironwood.compiler.ir.IrOperand>",
+        "ownership:ironwood.compiler.semantic.FunctionAnalyzer$OwnershipSnapshot"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.semantic.FunctionAnalyzer$CallSites",
+      "fields_or_variants": [
+        "receiver:ironwood.compiler.source.SourceSpan",
+        "arguments:java.util.List<ironwood.compiler.source.SourceSpan>"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.semantic.FunctionAnalyzer$CaseConstant",
+      "fields_or_variants": [
+        "type:ironwood.compiler.ir.IrType",
+        "value:java.math.BigInteger"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.semantic.FunctionAnalyzer$CatchAlternative",
+      "fields_or_variants": [
+        "typeName:java.lang.String",
+        "typeId:int",
+        "type:ironwood.compiler.ir.IrType",
+        "span:ironwood.compiler.source.SourceSpan",
+        "valid:boolean"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.semantic.FunctionAnalyzer$CatchTarget",
+      "fields_or_variants": [
+        "alternatives:java.util.List<ironwood.compiler.semantic.FunctionAnalyzer$CatchAlternative>",
+        "bindingType:ironwood.compiler.ir.IrType"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.semantic.FunctionAnalyzer$ClassFieldResolution",
+      "fields_or_variants": [
+        "classQualifier:boolean",
+        "qualifier:ironwood.compiler.semantic.TypeSymbol",
+        "field:ironwood.compiler.semantic.FieldSymbol"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.semantic.FunctionAnalyzer$CleanupExit",
+      "fields_or_variants": [
+        "description:java.lang.String",
+        "span:ironwood.compiler.source.SourceSpan",
+        "accounted:boolean"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.semantic.FunctionAnalyzer$CompileTimeValue",
+      "fields_or_variants": [
+        "type:ironwood.compiler.ir.IrType",
+        "value:java.lang.Object"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.semantic.FunctionAnalyzer$DeferredCallAction",
+      "fields_or_variants": [
+        "invocation:ironwood.compiler.semantic.FunctionAnalyzer$PreparedInvocation",
+        "captures:java.util.List<ironwood.compiler.semantic.FunctionAnalyzer$DeferredCapture>"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.semantic.FunctionAnalyzer$DeferredCapture",
+      "fields_or_variants": [
+        "operand:ironwood.compiler.ir.IrOperand",
+        "role:java.lang.String",
+        "span:ironwood.compiler.source.SourceSpan",
+        "bindingName:java.lang.String"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.semantic.FunctionAnalyzer$DeferredFreeAction",
+      "fields_or_variants": [
+        "target:ironwood.compiler.semantic.FunctionAnalyzer$LocalSymbol",
+        "targetSpan:ironwood.compiler.source.SourceSpan",
+        "span:ironwood.compiler.source.SourceSpan",
+        "liveAfter:java.util.Set<ironwood.compiler.semantic.FunctionAnalyzer$LocalSymbol>"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.semantic.FunctionAnalyzer$DispatchEdges",
+      "fields_or_variants": [
+        "predecessors:java.util.Map<java.lang.String, java.util.List<ironwood.compiler.semantic.FunctionAnalyzer$MutableBlock>>",
+        "ownership:ironwood.compiler.semantic.FunctionAnalyzer$OwnershipSnapshot"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.semantic.FunctionAnalyzer$ExceptionEdge",
+      "fields_or_variants": [
+        "block:ironwood.compiler.semantic.FunctionAnalyzer$MutableBlock",
+        "environment:java.util.LinkedHashMap<ironwood.compiler.semantic.FunctionAnalyzer$LocalSymbol, ironwood.compiler.ir.IrOperand>",
+        "ownership:ironwood.compiler.semantic.FunctionAnalyzer$OwnershipSnapshot"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.semantic.FunctionAnalyzer$FieldTarget",
+      "fields_or_variants": [
+        "receiver:ironwood.compiler.ir.IrOperand",
+        "field:ironwood.compiler.semantic.FieldSymbol"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.semantic.FunctionAnalyzer$FinallyContext",
+      "fields_or_variants": [
+        "action:ironwood.compiler.semantic.FunctionAnalyzer$CleanupAction",
+        "outerExceptionRegions:java.util.List<ironwood.compiler.semantic.FunctionAnalyzer$ExceptionRegion>",
+        "outerFinallyContexts:java.util.List<ironwood.compiler.semantic.FunctionAnalyzer$FinallyContext>",
+        "checkedCatchScopes:java.util.List<java.util.List<ironwood.compiler.ir.IrType>>",
+        "observedExceptions:java.util.List<java.util.Set<ironwood.compiler.ir.IrType>>"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.semantic.FunctionAnalyzer$FreeProof$Accepted",
+      "fields_or_variants": [
+        "allocation:ironwood.compiler.semantic.FunctionAnalyzer$AllocationInfo"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.semantic.FunctionAnalyzer$FreeProof$AlreadyFreed",
+      "fields_or_variants": [
+        "allocation:ironwood.compiler.semantic.FunctionAnalyzer$AllocationInfo"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.semantic.FunctionAnalyzer$FreeProof$ArraySlotAlias",
+      "fields_or_variants": [
+        "allocation:ironwood.compiler.semantic.FunctionAnalyzer$AllocationInfo",
+        "slot:ironwood.compiler.semantic.FunctionAnalyzer$ArraySlot"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.semantic.FunctionAnalyzer$FreeProof$AttachedField",
+      "fields_or_variants": [
+        "allocation:ironwood.compiler.semantic.FunctionAnalyzer$AllocationInfo"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.semantic.FunctionAnalyzer$FreeProof$Blocked",
+      "fields_or_variants": [
+        "allocation:ironwood.compiler.semantic.FunctionAnalyzer$AllocationInfo"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.semantic.FunctionAnalyzer$FreeProof$DependentBorrow",
+      "fields_or_variants": [
+        ""
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.semantic.FunctionAnalyzer$FreeProof$LocalAlias",
+      "fields_or_variants": [
+        "allocation:ironwood.compiler.semantic.FunctionAnalyzer$AllocationInfo",
+        "alias:ironwood.compiler.semantic.FunctionAnalyzer$LocalSymbol"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.semantic.FunctionAnalyzer$FreeProof$NoIdentity",
+      "fields_or_variants": [
+        ""
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.semantic.FunctionAnalyzer$FreeProof$NotReference",
+      "fields_or_variants": [
+        ""
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.semantic.FunctionAnalyzer$FreeProof$PendingDeferredCall",
+      "fields_or_variants": [
+        "allocation:ironwood.compiler.semantic.FunctionAnalyzer$AllocationInfo",
+        "action:ironwood.compiler.semantic.FunctionAnalyzer$DeferredCallAction"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.semantic.FunctionAnalyzer$FreeProof$PendingDeferredFree",
+      "fields_or_variants": [
+        "allocation:ironwood.compiler.semantic.FunctionAnalyzer$AllocationInfo",
+        "action:ironwood.compiler.semantic.FunctionAnalyzer$DeferredFreeAction"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.semantic.FunctionAnalyzer$FreeProof$PendingYield",
+      "fields_or_variants": [
+        "allocation:ironwood.compiler.semantic.FunctionAnalyzer$AllocationInfo"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.semantic.FunctionAnalyzer$FreeProof$RetainingOwner",
+      "fields_or_variants": [
+        "allocation:ironwood.compiler.semantic.FunctionAnalyzer$AllocationInfo",
+        "owner:ironwood.compiler.semantic.FunctionAnalyzer$AllocationInfo"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.semantic.FunctionAnalyzer$JoinPath",
+      "fields_or_variants": [
+        "snapshot:ironwood.compiler.semantic.FunctionAnalyzer$OwnershipSnapshot",
+        "label:java.lang.String",
+        "anchorSource:ironwood.compiler.source.SourceFile",
+        "anchorSpan:ironwood.compiler.source.SourceSpan"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.semantic.FunctionAnalyzer$LValue",
+      "fields_or_variants": [
+        "type:ironwood.compiler.ir.IrType",
+        "read:java.util.function.Supplier<ironwood.compiler.ir.IrOperand>",
+        "write:ironwood.compiler.semantic.FunctionAnalyzer$LValueWriter",
+        "description:java.lang.String"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.semantic.FunctionAnalyzer$LabeledContext",
+      "fields_or_variants": [
+        "label:java.lang.String",
+        "breakContext:ironwood.compiler.semantic.FunctionAnalyzer$BreakContext",
+        "continueContext:ironwood.compiler.semantic.FunctionAnalyzer$LoopContext"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.semantic.FunctionAnalyzer$LabeledSwitchTarget",
+      "fields_or_variants": [
+        "labels:java.util.List<ironwood.compiler.ast.SwitchLabel>",
+        "block:ironwood.compiler.semantic.FunctionAnalyzer$MutableBlock"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.semantic.FunctionAnalyzer$LocalSymbol",
+      "fields_or_variants": [
+        "id:int",
+        "name:java.lang.String",
+        "type:ironwood.compiler.ir.IrType",
+        "isFinal:boolean",
+        "declarationControlFlowDepth:int",
+        "variableIdentity:ironwood.compiler.semantic.LocalClassSemantics$VariableIdentity"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.semantic.FunctionAnalyzer$LoweredInvocationArguments",
+      "fields_or_variants": [
+        "values:java.util.List<ironwood.compiler.semantic.FunctionAnalyzer$TypedValue>",
+        "operands:java.util.List<ironwood.compiler.ir.IrOperand>",
+        "spans:java.util.List<ironwood.compiler.source.SourceSpan>"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.semantic.FunctionAnalyzer$OwnershipSnapshot",
+      "fields_or_variants": [
+        "states:java.util.Map<ironwood.compiler.semantic.FunctionAnalyzer$AllocationInfo, ironwood.compiler.semantic.FunctionAnalyzer$AllocationStateSnapshot>",
+        "knownArraySlots:java.util.Map<ironwood.compiler.semantic.FunctionAnalyzer$ArraySlot, ironwood.compiler.semantic.FunctionAnalyzer$AllocationInfo>",
+        "borrowedOwnedFields:java.util.Map<java.lang.String, ironwood.compiler.semantic.FunctionAnalyzer$AllocationInfo>",
+        "retainedBorrows:java.util.Map<ironwood.compiler.semantic.FunctionAnalyzer$AllocationInfo, java.util.Set<ironwood.compiler.semantic.FunctionAnalyzer$AllocationInfo>>",
+        "poolOwners:java.util.Map<ironwood.compiler.semantic.FunctionAnalyzer$AllocationInfo, ironwood.compiler.semantic.FunctionAnalyzer$AllocationInfo>",
+        "exposedContainerContents:java.util.Set<ironwood.compiler.semantic.FunctionAnalyzer$AllocationInfo>",
+        "unfreedLive:java.util.Set<ironwood.compiler.semantic.FunctionAnalyzer$AllocationInfo>"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.semantic.FunctionAnalyzer$PendingYieldEvidence",
+      "fields_or_variants": [
+        "allocation:ironwood.compiler.semantic.FunctionAnalyzer$AllocationInfo",
+        "span:ironwood.compiler.source.SourceSpan"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.semantic.FunctionAnalyzer$PoolTransfer",
+      "fields_or_variants": [
+        "owner:ironwood.compiler.ir.IrOperand",
+        "value:ironwood.compiler.ir.IrOperand",
+        "span:ironwood.compiler.source.SourceSpan"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.semantic.FunctionAnalyzer$PreparedInvocation",
+      "fields_or_variants": [
+        "target:ironwood.compiler.semantic.CallableSymbol",
+        "resultType:ironwood.compiler.ir.IrType",
+        "receiver:ironwood.compiler.ir.IrOperand",
+        "arguments:java.util.List<ironwood.compiler.semantic.FunctionAnalyzer$TypedValue>",
+        "operands:java.util.List<ironwood.compiler.ir.IrOperand>",
+        "dispatchType:ironwood.compiler.ir.IrType",
+        "dispatchOwner:ironwood.compiler.semantic.TypeSymbol",
+        "directSpecial:boolean",
+        "arrayReceiver:boolean",
+        "substitutions:java.util.Map<java.lang.String, ironwood.compiler.ir.IrType>",
+        "nullCheckSpan:ironwood.compiler.source.SourceSpan",
+        "span:ironwood.compiler.source.SourceSpan",
+        "specializedEffects:boolean",
+        "argumentSpans:java.util.List<ironwood.compiler.source.SourceSpan>"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.semantic.FunctionAnalyzer$Reclamation",
+      "fields_or_variants": [
+        "allocation:ironwood.compiler.semantic.FunctionAnalyzer$AllocationInfo",
+        "span:ironwood.compiler.source.SourceSpan",
+        "exit:ironwood.compiler.semantic.FunctionAnalyzer$CleanupExit",
+        "cleanupExitOmitted:boolean"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.semantic.FunctionAnalyzer$RenderedStringCleanup",
+      "fields_or_variants": [
+        "object:ironwood.compiler.ir.IrOperand",
+        "result:ironwood.compiler.ir.IrOperand"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.semantic.FunctionAnalyzer$RenderedStringConversion",
+      "fields_or_variants": [
+        "object:ironwood.compiler.ir.IrOperand",
+        "result:ironwood.compiler.ir.IrOperand"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.semantic.FunctionAnalyzer$SourceFinallyAction",
+      "fields_or_variants": [
+        "body:ironwood.compiler.ast.Block"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.semantic.FunctionAnalyzer$SuperTarget",
+      "fields_or_variants": [
+        "symbol:ironwood.compiler.semantic.TypeSymbol",
+        "type:ironwood.compiler.ir.IrType",
+        "receiver:ironwood.compiler.ir.IrOperand"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.semantic.FunctionAnalyzer$SwitchSelection",
+      "fields_or_variants": [
+        "kind:ironwood.compiler.semantic.FunctionAnalyzer$SwitchSelectorKind",
+        "selectorType:ironwood.compiler.ir.IrType",
+        "operand:ironwood.compiler.ir.IrOperand",
+        "enumType:ironwood.compiler.semantic.TypeSymbol",
+        "dispatchBlock:ironwood.compiler.semantic.FunctionAnalyzer$MutableBlock"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.semantic.FunctionAnalyzer$TemporaryCandidate",
+      "fields_or_variants": [
+        "allocation:ironwood.compiler.semantic.FunctionAnalyzer$AllocationInfo",
+        "operand:ironwood.compiler.ir.IrOperand",
+        "span:ironwood.compiler.source.SourceSpan",
+        "region:ironwood.compiler.semantic.FunctionAnalyzer$ExceptionRegion",
+        "outerRegions:java.util.List<ironwood.compiler.semantic.FunctionAnalyzer$ExceptionRegion>"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.semantic.FunctionAnalyzer$TypedValue",
+      "fields_or_variants": [
+        "type:ironwood.compiler.ir.IrType",
+        "operand:ironwood.compiler.ir.IrOperand",
+        "integralConstant:java.math.BigInteger"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.semantic.FunctionAnalyzer$ValidatedSwitchCase",
+      "fields_or_variants": [
+        "integralValue:java.math.BigInteger",
+        "stringValue:java.lang.String",
+        "target:java.lang.String",
+        "span:ironwood.compiler.source.SourceSpan"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.semantic.FunctionAnalyzer$ValidatedSwitchLabels",
+      "fields_or_variants": [
+        "cases:java.util.List<ironwood.compiler.semantic.FunctionAnalyzer$ValidatedSwitchCase>",
+        "defaultTarget:java.lang.String",
+        "nullTarget:java.lang.String",
+        "enumOrdinals:java.util.Set<java.lang.Integer>"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.semantic.FunctionAnalyzer$WrapperBorrow",
+      "fields_or_variants": [
+        "owner:ironwood.compiler.semantic.FunctionAnalyzer$AllocationInfo",
+        "child:ironwood.compiler.semantic.FunctionAnalyzer$AllocationInfo",
+        "site:ironwood.compiler.source.SourceSpan"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.semantic.FunctionAnalyzer$YieldFlow",
+      "fields_or_variants": [
+        "block:ironwood.compiler.semantic.FunctionAnalyzer$MutableBlock",
+        "environment:java.util.LinkedHashMap<ironwood.compiler.semantic.FunctionAnalyzer$LocalSymbol, ironwood.compiler.ir.IrOperand>",
+        "value:ironwood.compiler.semantic.FunctionAnalyzer$TypedValue",
+        "span:ironwood.compiler.source.SourceSpan",
+        "ownership:ironwood.compiler.semantic.FunctionAnalyzer$OwnershipSnapshot"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.semantic.RejectedFreeEvidence$Binding",
+      "fields_or_variants": [
+        "allocation:java.lang.Object",
+        "source:ironwood.compiler.source.SourceFile",
+        "span:ironwood.compiler.source.SourceSpan"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.semantic.RejectedFreeEvidence$Call",
+      "fields_or_variants": [
+        "method:java.lang.String",
+        "fact:ironwood.compiler.semantic.SummaryWitnessEvidence$Fact",
+        "witness:ironwood.compiler.semantic.SummaryWitnessEvidence$Witness",
+        "possibleTarget:boolean",
+        "noEntryPoint:boolean"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.semantic.RejectedFreeEvidence$Event",
+      "fields_or_variants": [
+        "kind:ironwood.compiler.semantic.RejectedFreeEvidence$EventKind",
+        "reason:java.lang.String",
+        "source:ironwood.compiler.source.SourceFile",
+        "span:ironwood.compiler.source.SourceSpan",
+        "call:ironwood.compiler.semantic.RejectedFreeEvidence$Call"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.semantic.RejectedFreeEvidence$FieldLoad",
+      "fields_or_variants": [
+        "field:ironwood.compiler.semantic.FieldSymbol",
+        "source:ironwood.compiler.source.SourceFile",
+        "span:ironwood.compiler.source.SourceSpan"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.semantic.RejectedFreeEvidence$Join",
+      "fields_or_variants": [
+        "state:java.lang.String",
+        "reason:java.lang.String",
+        "alternatives:java.util.List<ironwood.compiler.semantic.RejectedFreeEvidence$JoinAlternative>",
+        "omitted:int",
+        "classification:java.lang.String",
+        "complete:boolean"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.semantic.RejectedFreeEvidence$JoinAlternative",
+      "fields_or_variants": [
+        "label:java.lang.String",
+        "anchorSource:ironwood.compiler.source.SourceFile",
+        "anchorSpan:ironwood.compiler.source.SourceSpan",
+        "state:java.lang.String",
+        "reason:java.lang.String",
+        "event:ironwood.compiler.semantic.RejectedFreeEvidence$Event"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.semantic.RejectedFreeEvidence$Limits",
+      "fields_or_variants": [
+        "local:int",
+        "snapshots:int",
+        "invocation:int",
+        "summaryMethod:int",
+        "summaryFact:int"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.semantic.RejectedFreeEvidence$Retention",
+      "fields_or_variants": [
+        "owner:java.lang.Object",
+        "child:java.lang.Object"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.semantic.RejectedFreeEvidence$Saved",
+      "fields_or_variants": [
+        "origins:java.util.Map<java.lang.Object, ironwood.compiler.semantic.RejectedFreeEvidence$Site>",
+        "bindings:java.util.Map<java.lang.Object, ironwood.compiler.semantic.RejectedFreeEvidence$Binding>",
+        "events:java.util.Map<java.lang.Object, ironwood.compiler.semantic.RejectedFreeEvidence$Event>",
+        "arrayStores:java.util.Map<java.lang.Object, ironwood.compiler.semantic.RejectedFreeEvidence$Site>",
+        "retentions:java.util.Map<ironwood.compiler.semantic.RejectedFreeEvidence$Retention, ironwood.compiler.semantic.RejectedFreeEvidence$Site>",
+        "joins:java.util.Map<java.lang.Object, ironwood.compiler.semantic.RejectedFreeEvidence$Join>",
+        "units:int",
+        "associations:int"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.semantic.RejectedFreeEvidence$Site",
+      "fields_or_variants": [
+        "source:ironwood.compiler.source.SourceFile",
+        "span:ironwood.compiler.source.SourceSpan"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.semantic.UnfreedAllocationTracker$Origin",
+      "fields_or_variants": [
+        "span:ironwood.compiler.source.SourceSpan",
+        "description:java.lang.String"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.source.SourcePosition",
+      "fields_or_variants": [
+        "offset:int",
+        "line:int",
+        "column:int"
+      ]
+    },
+    {
+      "kind": "record",
+      "name": "ironwood.compiler.source.SourceSpan",
+      "fields_or_variants": [
+        "start:ironwood.compiler.source.SourcePosition",
+        "end:ironwood.compiler.source.SourcePosition"
+      ]
+    },
+    {
+      "kind": "sealed",
+      "name": "ironwood.compiler.ir.IrInstruction",
+      "fields_or_variants": [
+        "ironwood.compiler.ir.IrAddSecondaryExceptionInstruction",
+        "ironwood.compiler.ir.IrAllocateInstruction",
+        "ironwood.compiler.ir.IrAllocationCountInstruction",
+        "ironwood.compiler.ir.IrArrayAllocateInstruction",
+        "ironwood.compiler.ir.IrArrayBoundsCheckInstruction",
+        "ironwood.compiler.ir.IrArrayLengthCheckInstruction",
+        "ironwood.compiler.ir.IrArrayLengthInstruction",
+        "ironwood.compiler.ir.IrArrayLoadInstruction",
+        "ironwood.compiler.ir.IrArrayStoreInstruction",
+        "ironwood.compiler.ir.IrArrayTypeTestInstruction",
+        "ironwood.compiler.ir.IrBinaryInstruction",
+        "ironwood.compiler.ir.IrBridgeArrayCopyInstruction",
+        "ironwood.compiler.ir.IrBridgeBatchAppendInstruction",
+        "ironwood.compiler.ir.IrBridgeFailureSnapshotInstruction",
+        "ironwood.compiler.ir.IrBridgeResultStoreInstruction",
+        "ironwood.compiler.ir.IrBridgeSlotStoreInstruction",
+        "ironwood.compiler.ir.IrBridgeStringCopyInstruction",
+        "ironwood.compiler.ir.IrByteViewInstruction",
+        "ironwood.compiler.ir.IrCallInstruction",
+        "ironwood.compiler.ir.IrCharacterInstruction",
+        "ironwood.compiler.ir.IrDestroyArrayElementsInstruction",
+        "ironwood.compiler.ir.IrEnsureTypeInitializedInstruction",
+        "ironwood.compiler.ir.IrExceptionCaughtInstruction",
+        "ironwood.compiler.ir.IrExceptionLandingPadInstruction",
+        "ironwood.compiler.ir.IrFieldLoadInstruction",
+        "ironwood.compiler.ir.IrFieldStoreInstruction",
+        "ironwood.compiler.ir.IrFileInstruction",
+        "ironwood.compiler.ir.IrFloatingBitsInstruction",
+        "ironwood.compiler.ir.IrFloatingParseInstruction",
+        "ironwood.compiler.ir.IrForeignCallInstruction",
+        "ironwood.compiler.ir.IrFreeInstruction",
+        "ironwood.compiler.ir.IrIdentityHashCodeInstruction",
+        "ironwood.compiler.ir.IrInstanceOfInstruction",
+        "ironwood.compiler.ir.IrInterfaceCallInstruction",
+        "ironwood.compiler.ir.IrLiveAllocationCountInstruction",
+        "ironwood.compiler.ir.IrMathBinaryInstruction",
+        "ironwood.compiler.ir.IrMathUnaryInstruction",
+        "ironwood.compiler.ir.IrNullCheckInstruction",
+        "ironwood.compiler.ir.IrNumericConversionInstruction",
+        "ironwood.compiler.ir.IrObjectHashCodeInstruction",
+        "ironwood.compiler.ir.IrObjectToStringInstruction",
+        "ironwood.compiler.ir.IrPhiInstruction",
+        "ironwood.compiler.ir.IrPrintStreamCheckErrorInstruction",
+        "ironwood.compiler.ir.IrPrintStreamFlushInstruction",
+        "ironwood.compiler.ir.IrPrintStreamPrintlnInstruction",
+        "ironwood.compiler.ir.IrPrintStreamWriteInstruction",
+        "ironwood.compiler.ir.IrRawDeallocateInstruction",
+        "ironwood.compiler.ir.IrReferenceConversionInstruction",
+        "ironwood.compiler.ir.IrReleaseOwnedThrowableMessageInstruction",
+        "ironwood.compiler.ir.IrReleaseOwnedToStringResultInstruction",
+        "ironwood.compiler.ir.IrRollbackInstruction",
+        "ironwood.compiler.ir.IrSecondaryExceptionAtInstruction",
+        "ironwood.compiler.ir.IrSecondaryExceptionCountInstruction",
+        "ironwood.compiler.ir.IrStaticFieldLoadInstruction",
+        "ironwood.compiler.ir.IrStaticFieldStoreInstruction",
+        "ironwood.compiler.ir.IrStreamInstruction",
+        "ironwood.compiler.ir.IrStringCaseInstruction",
+        "ironwood.compiler.ir.IrStringCharAtInstruction",
+        "ironwood.compiler.ir.IrStringConcatInstruction",
+        "ironwood.compiler.ir.IrStringCopyInstruction",
+        "ironwood.compiler.ir.IrStringEqualsIgnoreCaseInstruction",
+        "ironwood.compiler.ir.IrStringEqualsInstruction",
+        "ironwood.compiler.ir.IrStringFromCharRangeInstruction",
+        "ironwood.compiler.ir.IrStringFromCharacterInstruction",
+        "ironwood.compiler.ir.IrStringFromCharsInstruction",
+        "ironwood.compiler.ir.IrStringFromIntegerInstruction",
+        "ironwood.compiler.ir.IrStringFromRangeInstruction",
+        "ironwood.compiler.ir.IrStringFromUtf8Instruction",
+        "ironwood.compiler.ir.IrStringHashCodeInstruction",
+        "ironwood.compiler.ir.IrStringJoinInstruction",
+        "ironwood.compiler.ir.IrStringRepeatInstruction",
+        "ironwood.compiler.ir.IrStringReplaceCharInstruction",
+        "ironwood.compiler.ir.IrStringReplaceTextInstruction",
+        "ironwood.compiler.ir.IrSystemArrayCopyInstruction",
+        "ironwood.compiler.ir.IrSystemClockInstruction",
+        "ironwood.compiler.ir.IrSystemExitInstruction",
+        "ironwood.compiler.ir.IrSystemGetenvInstruction",
+        "ironwood.compiler.ir.IrSystemPropertyInstruction",
+        "ironwood.compiler.ir.IrTcpInstruction",
+        "ironwood.compiler.ir.IrThrowableDescriptionInstruction",
+        "ironwood.compiler.ir.IrThrowableTraceInstruction",
+        "ironwood.compiler.ir.IrTlsInstruction",
+        "ironwood.compiler.ir.IrTypeInitializedInstruction",
+        "ironwood.compiler.ir.IrUnaryInstruction",
+        "ironwood.compiler.ir.IrVirtualCallInstruction"
+      ]
+    },
+    {
+      "kind": "sealed",
+      "name": "ironwood.compiler.ir.IrOperand",
+      "fields_or_variants": [
+        "ironwood.compiler.ir.IrConstant",
+        "ironwood.compiler.ir.IrEnumConstant",
+        "ironwood.compiler.ir.IrImmortalObject",
+        "ironwood.compiler.ir.IrNull",
+        "ironwood.compiler.ir.IrStringConstant",
+        "ironwood.compiler.ir.IrValueReference"
+      ]
+    },
+    {
+      "kind": "sealed",
+      "name": "ironwood.compiler.ir.IrTerminator",
+      "fields_or_variants": [
+        "ironwood.compiler.ir.IrBranch",
+        "ironwood.compiler.ir.IrInvokeTerminator",
+        "ironwood.compiler.ir.IrJump",
+        "ironwood.compiler.ir.IrReturnTerminator",
+        "ironwood.compiler.ir.IrSwitchTerminator",
+        "ironwood.compiler.ir.IrThrowTerminator",
+        "ironwood.compiler.ir.IrUnreachable"
+      ]
+    },
+    {
+      "kind": "sealed",
+      "name": "ironwood.compiler.semantic.FunctionAnalyzer$CleanupAction",
+      "fields_or_variants": [
+        "ironwood.compiler.semantic.FunctionAnalyzer$DeferredCallAction",
+        "ironwood.compiler.semantic.FunctionAnalyzer$DeferredFreeAction",
+        "ironwood.compiler.semantic.FunctionAnalyzer$SourceFinallyAction"
+      ]
+    },
+    {
+      "kind": "sealed",
+      "name": "ironwood.compiler.semantic.FunctionAnalyzer$FreeProof",
+      "fields_or_variants": [
+        "ironwood.compiler.semantic.FunctionAnalyzer$FreeProof$Accepted",
+        "ironwood.compiler.semantic.FunctionAnalyzer$FreeProof$AlreadyFreed",
+        "ironwood.compiler.semantic.FunctionAnalyzer$FreeProof$ArraySlotAlias",
+        "ironwood.compiler.semantic.FunctionAnalyzer$FreeProof$AttachedField",
+        "ironwood.compiler.semantic.FunctionAnalyzer$FreeProof$Blocked",
+        "ironwood.compiler.semantic.FunctionAnalyzer$FreeProof$DependentBorrow",
+        "ironwood.compiler.semantic.FunctionAnalyzer$FreeProof$LocalAlias",
+        "ironwood.compiler.semantic.FunctionAnalyzer$FreeProof$NoIdentity",
+        "ironwood.compiler.semantic.FunctionAnalyzer$FreeProof$NotReference",
+        "ironwood.compiler.semantic.FunctionAnalyzer$FreeProof$PendingDeferredCall",
+        "ironwood.compiler.semantic.FunctionAnalyzer$FreeProof$PendingDeferredFree",
+        "ironwood.compiler.semantic.FunctionAnalyzer$FreeProof$PendingYield",
+        "ironwood.compiler.semantic.FunctionAnalyzer$FreeProof$RetainingOwner"
+      ]
+    }
+  ],
+  "consumers": {
+    "ironwood.compiler.ir.IrCfgRenamer": {
+      "role": "later-only",
+      "boundary": "IrCfgRenamer is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.semantic.ClosedWorldEffectAnalyzer": {
+      "role": "restricted",
+      "boundary": "classes empty, unique ordered function names and direct/foreign calls only; fresh caches/summaries and optional retained EFFECT observer; reject class/virtual dispatch",
+      "gate": "B1/B7 M1.1/M1.3 enforce private input factory before M2.2; rejected roles B1/B7 M3.1 before S3"
+    },
+    "ironwood.compiler.semantic.FunctionAnalyzer": {
+      "role": "later-only",
+      "boundary": "FunctionAnalyzer is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.semantic.FunctionAnalyzer$AllocationInfo": {
+      "role": "restricted",
+      "boundary": "identity nodes only; LOCAL_NEW, ownedFieldName/constructedType null, mayBe and finalBorrowedFields empty, present true; mutable state/reason/detached and creation depth as exact fixture; reject other roles",
+      "gate": "B1/B7 M1.1/M1.3 enforce private input factory before M2.2; rejected roles B1/B7 M3.1 before S3"
+    },
+    "ironwood.compiler.semantic.FunctionAnalyzer$BreakContext": {
+      "role": "later-only",
+      "boundary": "FunctionAnalyzer$BreakContext is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.semantic.FunctionAnalyzer$ExceptionRegion": {
+      "role": "later-only",
+      "boundary": "FunctionAnalyzer$ExceptionRegion is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.semantic.FunctionAnalyzer$FunctionPlanningContext": {
+      "role": "later-only",
+      "boundary": "FunctionAnalyzer$FunctionPlanningContext is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.semantic.FunctionAnalyzer$LValueWriter": {
+      "role": "later-only",
+      "boundary": "FunctionAnalyzer$LValueWriter is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.semantic.FunctionAnalyzer$LoopContext": {
+      "role": "later-only",
+      "boundary": "FunctionAnalyzer$LoopContext is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.semantic.FunctionAnalyzer$MutableBlock": {
+      "role": "later-only",
+      "boundary": "FunctionAnalyzer$MutableBlock is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.semantic.FunctionAnalyzer$MutablePhi": {
+      "role": "later-only",
+      "boundary": "FunctionAnalyzer$MutablePhi is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.semantic.FunctionAnalyzer$PatternLocal": {
+      "role": "later-only",
+      "boundary": "FunctionAnalyzer$PatternLocal is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.semantic.FunctionAnalyzer$SwitchExpressionContext": {
+      "role": "later-only",
+      "boundary": "FunctionAnalyzer$SwitchExpressionContext is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.semantic.FunctionAnalyzer$TemporaryScope": {
+      "role": "later-only",
+      "boundary": "FunctionAnalyzer$TemporaryScope is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.semantic.RejectedFreeEvidence": {
+      "role": "restricted",
+      "boundary": "selected six association maps, independent saved versions; fieldLoads empty, all keys strongly held; configured positive budgets; optional truncation never changes primary proof",
+      "gate": "B1/B7 M1.1/M1.3 enforce private input factory before M2.2; rejected roles B1/B7 M3.1 before S3"
+    },
+    "ironwood.compiler.semantic.RejectedFreeEvidence$Budget": {
+      "role": "selected",
+      "boundary": "primitive limit/live/highWater/stopped; balanced retirement ends live zero",
+      "gate": "B1/B7 M1.1/M1.3 before M2.2 operation equivalence"
+    },
+    "ironwood.compiler.semantic.RejectedFreeEvidence$SnapshotKey": {
+      "role": "restricted",
+      "boundary": "replace WeakReference/ReferenceQueue with explicit held version identity and deterministic retirement; no GC/native ownership exemption",
+      "gate": "B1/B7 M1.1/M1.3 enforce private input factory before M2.2; rejected roles B1/B7 M3.1 before S3"
+    },
+    "ironwood.compiler.semantic.SemanticAnalysisObserver": {
+      "role": "restricted",
+      "boundary": "nullable retained fixture Counter only; no callback changes semantic facts; no-op other methods",
+      "gate": "B1/B7 M1.1/M1.3 enforce private input factory before M2.2; rejected roles B1/B7 M3.1 before S3"
+    },
+    "ironwood.compiler.semantic.UnfreedAllocationTracker": {
+      "role": "restricted",
+      "boundary": "WARN with identity allocation keys, registration order and live intersection; suppression/findings empty in branch resources; diagnostics separately reviewed",
+      "gate": "B1/B7 M1.1/M1.3 enforce private input factory before M2.2; rejected roles B1/B7 M3.1 before S3"
+    },
+    "ironwood.compiler.source.SourceFile": {
+      "role": "restricted",
+      "boundary": "in-memory SourceFile.of and original source identity only; file IO outside pilot",
+      "gate": "B1/B7 M1.1/M1.3 enforce private input factory before M2.2; rejected roles B1/B7 M3.1 before S3"
+    },
+    "ironwood.compiler.UnfreedMode": {
+      "role": "restricted",
+      "boundary": "WARN in snapshot fixture; off/warn/error mandatory free outcomes are checked in source corpus independently",
+      "gate": "B1/B7 M1.1/M1.3 enforce private input factory before M2.2; rejected roles B1/B7 M3.1 before S3"
+    },
+    "ironwood.compiler.ir.IrBinaryOperator": {
+      "role": "later-only",
+      "boundary": "IrBinaryOperator is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.ir.IrBridgeResultStoreInstruction$Slot": {
+      "role": "later-only",
+      "boundary": "IrBridgeResultStoreInstruction$Slot is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.ir.IrByteViewInstruction$Operation": {
+      "role": "later-only",
+      "boundary": "IrByteViewInstruction$Operation is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.ir.IrCallKind": {
+      "role": "restricted",
+      "boundary": "DIRECT only; every other explicit enum case rejected",
+      "gate": "B1/B7 M1.1/M1.3 enforce private input factory before M2.2; rejected roles B1/B7 M3.1 before S3"
+    },
+    "ironwood.compiler.ir.IrCallableKind": {
+      "role": "restricted",
+      "boundary": "METHOD only; every other explicit enum case rejected",
+      "gate": "B1/B7 M1.1/M1.3 enforce private input factory before M2.2; rejected roles B1/B7 M3.1 before S3"
+    },
+    "ironwood.compiler.ir.IrCharacterInstruction$Operation": {
+      "role": "later-only",
+      "boundary": "IrCharacterInstruction$Operation is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.ir.IrFileInstruction$Operation": {
+      "role": "later-only",
+      "boundary": "IrFileInstruction$Operation is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.ir.IrFloatingBitsInstruction$Operation": {
+      "role": "later-only",
+      "boundary": "IrFloatingBitsInstruction$Operation is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.ir.IrMathBinaryInstruction$Operation": {
+      "role": "later-only",
+      "boundary": "IrMathBinaryInstruction$Operation is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.ir.IrMathUnaryInstruction$Operation": {
+      "role": "later-only",
+      "boundary": "IrMathUnaryInstruction$Operation is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.ir.IrStreamInstruction$Operation": {
+      "role": "later-only",
+      "boundary": "IrStreamInstruction$Operation is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.ir.IrStringConcatPartKind": {
+      "role": "later-only",
+      "boundary": "IrStringConcatPartKind is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.ir.IrSystemClockInstruction$Clock": {
+      "role": "later-only",
+      "boundary": "IrSystemClockInstruction$Clock is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.ir.IrTcpInstruction$Operation": {
+      "role": "later-only",
+      "boundary": "IrTcpInstruction$Operation is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.ir.IrThrowableTraceInstruction$Operation": {
+      "role": "later-only",
+      "boundary": "IrThrowableTraceInstruction$Operation is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.ir.IrTlsInstruction$Operation": {
+      "role": "later-only",
+      "boundary": "IrTlsInstruction$Operation is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.ir.IrType$Kind": {
+      "role": "restricted",
+      "boundary": "REFERENCE only; every other explicit enum case rejected by operation input factory",
+      "gate": "B1/B7 M1.1/M1.3 enforce private input factory before M2.2; rejected roles B1/B7 M3.1 before S3"
+    },
+    "ironwood.compiler.ir.IrType$WildcardKind": {
+      "role": "restricted",
+      "boundary": "no wildcard value admitted; every case later-only",
+      "gate": "B1/B7 M1.1/M1.3 enforce private input factory before M2.2; rejected roles B1/B7 M3.1 before S3"
+    },
+    "ironwood.compiler.ir.IrTypeKind": {
+      "role": "later-only",
+      "boundary": "IrTypeKind is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.ir.IrUnaryOperator": {
+      "role": "later-only",
+      "boundary": "IrUnaryOperator is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.semantic.FunctionAnalyzer$AllocationOrigin": {
+      "role": "restricted",
+      "boundary": "only LOCAL_NEW; other named origins explicitly rejected by private fixture builder",
+      "gate": "B1/B7 M1.1/M1.3 enforce private input factory before M2.2; rejected roles B1/B7 M3.1 before S3"
+    },
+    "ironwood.compiler.semantic.FunctionAnalyzer$AllocationState": {
+      "role": "restricted",
+      "boundary": "ACTIVE/ESCAPED input states and UNCERTAIN merged result; FREED/MAYBE_FREED explicitly excluded from this branch fixture, mandatory reclamation cases remain separate M2 obligation",
+      "gate": "B1/B7 M1.1/M1.3 enforce private input factory before M2.2; rejected roles B1/B7 M3.1 before S3"
+    },
+    "ironwood.compiler.semantic.FunctionAnalyzer$SwitchSelectorKind": {
+      "role": "later-only",
+      "boundary": "FunctionAnalyzer$SwitchSelectorKind is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.semantic.RejectedFreeEvidence$EventKind": {
+      "role": "restricted",
+      "boundary": "REASON only in selected store workload; FREE later-only",
+      "gate": "B1/B7 M1.1/M1.3 enforce private input factory before M2.2; rejected roles B1/B7 M3.1 before S3"
+    },
+    "ironwood.compiler.semantic.SemanticAnalysisObserver$AnalyzerKind": {
+      "role": "restricted",
+      "boundary": "EFFECT only in direct effect fixture",
+      "gate": "B1/B7 M1.1/M1.3 enforce private input factory before M2.2; rejected roles B1/B7 M3.1 before S3"
+    },
+    "ironwood.compiler.semantic.SemanticAnalysisObserver$AnalyzerPhase": {
+      "role": "restricted",
+      "boundary": "INITIAL only in direct effect fixture",
+      "gate": "B1/B7 M1.1/M1.3 enforce private input factory before M2.2; rejected roles B1/B7 M3.1 before S3"
+    },
+    "ironwood.compiler.ir.IrAddSecondaryExceptionInstruction": {
+      "role": "later-only",
+      "boundary": "IrAddSecondaryExceptionInstruction is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.ir.IrAllocateInstruction": {
+      "role": "later-only",
+      "boundary": "IrAllocateInstruction is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.ir.IrAllocationCountInstruction": {
+      "role": "later-only",
+      "boundary": "IrAllocationCountInstruction is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.ir.IrArrayAllocateInstruction": {
+      "role": "later-only",
+      "boundary": "IrArrayAllocateInstruction is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.ir.IrArrayBoundsCheckInstruction": {
+      "role": "later-only",
+      "boundary": "IrArrayBoundsCheckInstruction is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.ir.IrArrayLengthCheckInstruction": {
+      "role": "later-only",
+      "boundary": "IrArrayLengthCheckInstruction is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.ir.IrArrayLengthInstruction": {
+      "role": "later-only",
+      "boundary": "IrArrayLengthInstruction is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.ir.IrArrayLoadInstruction": {
+      "role": "later-only",
+      "boundary": "IrArrayLoadInstruction is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.ir.IrArrayStoreInstruction": {
+      "role": "later-only",
+      "boundary": "IrArrayStoreInstruction is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.ir.IrArrayType": {
+      "role": "later-only",
+      "boundary": "IrArrayType is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.ir.IrArrayTypeTestInstruction": {
+      "role": "later-only",
+      "boundary": "IrArrayTypeTestInstruction is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.ir.IrBasicBlock": {
+      "role": "restricted",
+      "boundary": "one entry block with ordered direct or foreign instructions and return; no successor CFG variants",
+      "gate": "B1/B7 M1.1/M1.3 enforce private input factory before M2.2; rejected roles B1/B7 M3.1 before S3"
+    },
+    "ironwood.compiler.ir.IrBinaryInstruction": {
+      "role": "later-only",
+      "boundary": "IrBinaryInstruction is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.ir.IrBranch": {
+      "role": "later-only",
+      "boundary": "IrBranch is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.ir.IrBridgeArrayCopyInstruction": {
+      "role": "later-only",
+      "boundary": "IrBridgeArrayCopyInstruction is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.ir.IrBridgeBatchAppendInstruction": {
+      "role": "later-only",
+      "boundary": "IrBridgeBatchAppendInstruction is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.ir.IrBridgeFailureSnapshotInstruction": {
+      "role": "later-only",
+      "boundary": "IrBridgeFailureSnapshotInstruction is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.ir.IrBridgeResultStoreInstruction": {
+      "role": "later-only",
+      "boundary": "IrBridgeResultStoreInstruction is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.ir.IrBridgeSlotStoreInstruction": {
+      "role": "later-only",
+      "boundary": "IrBridgeSlotStoreInstruction is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.ir.IrBridgeStringCopyInstruction": {
+      "role": "later-only",
+      "boundary": "IrBridgeStringCopyInstruction is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.ir.IrByteViewInstruction": {
+      "role": "later-only",
+      "boundary": "IrByteViewInstruction is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.ir.IrCallInstruction": {
+      "role": "restricted",
+      "boundary": "DIRECT target Findex, matching Node reference result or empty cycle backedge, ordered arguments; empty devirtualizedFrom and specializationArguments",
+      "gate": "B1/B7 M1.1/M1.3 enforce private input factory before M2.2; rejected roles B1/B7 M3.1 before S3"
+    },
+    "ironwood.compiler.ir.IrCharacterInstruction": {
+      "role": "later-only",
+      "boundary": "IrCharacterInstruction is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.ir.IrClass": {
+      "role": "later-only",
+      "boundary": "IrClass is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.ir.IrConstant": {
+      "role": "later-only",
+      "boundary": "IrConstant is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.ir.IrDestroyArrayElementsInstruction": {
+      "role": "later-only",
+      "boundary": "IrDestroyArrayElementsInstruction is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.ir.IrDispatchEntry": {
+      "role": "later-only",
+      "boundary": "IrDispatchEntry is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.ir.IrDispatchSlot": {
+      "role": "later-only",
+      "boundary": "IrDispatchSlot is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.ir.IrEnsureTypeInitializedInstruction": {
+      "role": "later-only",
+      "boundary": "IrEnsureTypeInitializedInstruction is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.ir.IrEnumConstant": {
+      "role": "later-only",
+      "boundary": "IrEnumConstant is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.ir.IrExceptionCaughtInstruction": {
+      "role": "later-only",
+      "boundary": "IrExceptionCaughtInstruction is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.ir.IrExceptionLandingPadInstruction": {
+      "role": "later-only",
+      "boundary": "IrExceptionLandingPadInstruction is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.ir.IrField": {
+      "role": "later-only",
+      "boundary": "IrField is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.ir.IrFieldLoadInstruction": {
+      "role": "later-only",
+      "boundary": "IrFieldLoadInstruction is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.ir.IrFieldStoreInstruction": {
+      "role": "later-only",
+      "boundary": "IrFieldStoreInstruction is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.ir.IrFileInstruction": {
+      "role": "later-only",
+      "boundary": "IrFileInstruction is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.ir.IrFloatingBitsInstruction": {
+      "role": "later-only",
+      "boundary": "IrFloatingBitsInstruction is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.ir.IrFloatingParseInstruction": {
+      "role": "later-only",
+      "boundary": "IrFloatingParseInstruction is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.ir.IrForeignCallInstruction": {
+      "role": "restricted",
+      "boundary": "fixed compiler-owned target ironwood_bridge_callback_effect, Node reference result/type, non-null ordered Node arguments, absent invocationContext; no regex engine needed by fixed-name private factory",
+      "gate": "B1/B7 M1.1/M1.3 enforce private input factory before M2.2; rejected roles B1/B7 M3.1 before S3"
+    },
+    "ironwood.compiler.ir.IrFreeInstruction": {
+      "role": "later-only",
+      "boundary": "IrFreeInstruction is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.ir.IrFunction": {
+      "role": "restricted",
+      "boundary": "Node/Findex names, REFERENCE Node return, non-null ordered parameters, one entry block, sourceFileName <unknown>.iron, METHOD kind; other roles rejected",
+      "gate": "B1/B7 M1.1/M1.3 enforce private input factory before M2.2; rejected roles B1/B7 M3.1 before S3"
+    },
+    "ironwood.compiler.ir.IrIdentityHashCodeInstruction": {
+      "role": "later-only",
+      "boundary": "IrIdentityHashCodeInstruction is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.ir.IrImmortalObject": {
+      "role": "later-only",
+      "boundary": "IrImmortalObject is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.ir.IrInstanceOfInstruction": {
+      "role": "later-only",
+      "boundary": "IrInstanceOfInstruction is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.ir.IrInterfaceCallInstruction": {
+      "role": "later-only",
+      "boundary": "IrInterfaceCallInstruction is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.ir.IrInvokeTerminator": {
+      "role": "later-only",
+      "boundary": "IrInvokeTerminator is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.ir.IrJump": {
+      "role": "later-only",
+      "boundary": "IrJump is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.ir.IrLiveAllocationCountInstruction": {
+      "role": "later-only",
+      "boundary": "IrLiveAllocationCountInstruction is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.ir.IrMathBinaryInstruction": {
+      "role": "later-only",
+      "boundary": "IrMathBinaryInstruction is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.ir.IrMathUnaryInstruction": {
+      "role": "later-only",
+      "boundary": "IrMathUnaryInstruction is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.ir.IrNull": {
+      "role": "later-only",
+      "boundary": "IrNull is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.ir.IrNullCheckInstruction": {
+      "role": "later-only",
+      "boundary": "IrNullCheckInstruction is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.ir.IrNumericConversionInstruction": {
+      "role": "later-only",
+      "boundary": "IrNumericConversionInstruction is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.ir.IrObjectHashCodeInstruction": {
+      "role": "later-only",
+      "boundary": "IrObjectHashCodeInstruction is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.ir.IrObjectToStringInstruction": {
+      "role": "later-only",
+      "boundary": "IrObjectToStringInstruction is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.ir.IrParameter": {
+      "role": "restricted",
+      "boundary": "pindex names, matching reference value id/type and fixed span; primitive/reference-generic signatures outside fixture",
+      "gate": "B1/B7 M1.1/M1.3 enforce private input factory before M2.2; rejected roles B1/B7 M3.1 before S3"
+    },
+    "ironwood.compiler.ir.IrPhiIncoming": {
+      "role": "later-only",
+      "boundary": "IrPhiIncoming is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.ir.IrPhiInstruction": {
+      "role": "later-only",
+      "boundary": "IrPhiInstruction is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.ir.IrPrintStreamCheckErrorInstruction": {
+      "role": "later-only",
+      "boundary": "IrPrintStreamCheckErrorInstruction is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.ir.IrPrintStreamFlushInstruction": {
+      "role": "later-only",
+      "boundary": "IrPrintStreamFlushInstruction is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.ir.IrPrintStreamPrintlnInstruction": {
+      "role": "later-only",
+      "boundary": "IrPrintStreamPrintlnInstruction is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.ir.IrPrintStreamWriteInstruction": {
+      "role": "later-only",
+      "boundary": "IrPrintStreamWriteInstruction is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.ir.IrProgram": {
+      "role": "later-only",
+      "boundary": "IrProgram is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.ir.IrRawDeallocateInstruction": {
+      "role": "later-only",
+      "boundary": "IrRawDeallocateInstruction is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.ir.IrReferenceConversionInstruction": {
+      "role": "later-only",
+      "boundary": "IrReferenceConversionInstruction is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.ir.IrReleaseOwnedThrowableMessageInstruction": {
+      "role": "later-only",
+      "boundary": "IrReleaseOwnedThrowableMessageInstruction is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.ir.IrReleaseOwnedToStringResultInstruction": {
+      "role": "later-only",
+      "boundary": "IrReleaseOwnedToStringResultInstruction is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.ir.IrReturnTerminator": {
+      "role": "restricted",
+      "boundary": "present reference result value with matching fixed span; other return roles rejected",
+      "gate": "B1/B7 M1.1/M1.3 enforce private input factory before M2.2; rejected roles B1/B7 M3.1 before S3"
+    },
+    "ironwood.compiler.ir.IrRollbackInstruction": {
+      "role": "later-only",
+      "boundary": "IrRollbackInstruction is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.ir.IrSecondaryExceptionAtInstruction": {
+      "role": "later-only",
+      "boundary": "IrSecondaryExceptionAtInstruction is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.ir.IrSecondaryExceptionCountInstruction": {
+      "role": "later-only",
+      "boundary": "IrSecondaryExceptionCountInstruction is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.ir.IrStaticField": {
+      "role": "later-only",
+      "boundary": "IrStaticField is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.ir.IrStaticFieldLoadInstruction": {
+      "role": "later-only",
+      "boundary": "IrStaticFieldLoadInstruction is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.ir.IrStaticFieldStoreInstruction": {
+      "role": "later-only",
+      "boundary": "IrStaticFieldStoreInstruction is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.ir.IrStreamInstruction": {
+      "role": "later-only",
+      "boundary": "IrStreamInstruction is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.ir.IrStringCaseInstruction": {
+      "role": "later-only",
+      "boundary": "IrStringCaseInstruction is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.ir.IrStringCharAtInstruction": {
+      "role": "later-only",
+      "boundary": "IrStringCharAtInstruction is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.ir.IrStringConcatInstruction": {
+      "role": "later-only",
+      "boundary": "IrStringConcatInstruction is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.ir.IrStringConcatPart": {
+      "role": "later-only",
+      "boundary": "IrStringConcatPart is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.ir.IrStringConstant": {
+      "role": "later-only",
+      "boundary": "IrStringConstant is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.ir.IrStringCopyInstruction": {
+      "role": "later-only",
+      "boundary": "IrStringCopyInstruction is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.ir.IrStringEqualsIgnoreCaseInstruction": {
+      "role": "later-only",
+      "boundary": "IrStringEqualsIgnoreCaseInstruction is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.ir.IrStringEqualsInstruction": {
+      "role": "later-only",
+      "boundary": "IrStringEqualsInstruction is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.ir.IrStringFromCharRangeInstruction": {
+      "role": "later-only",
+      "boundary": "IrStringFromCharRangeInstruction is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.ir.IrStringFromCharacterInstruction": {
+      "role": "later-only",
+      "boundary": "IrStringFromCharacterInstruction is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.ir.IrStringFromCharsInstruction": {
+      "role": "later-only",
+      "boundary": "IrStringFromCharsInstruction is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.ir.IrStringFromIntegerInstruction": {
+      "role": "later-only",
+      "boundary": "IrStringFromIntegerInstruction is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.ir.IrStringFromRangeInstruction": {
+      "role": "later-only",
+      "boundary": "IrStringFromRangeInstruction is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.ir.IrStringFromUtf8Instruction": {
+      "role": "later-only",
+      "boundary": "IrStringFromUtf8Instruction is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.ir.IrStringHashCodeInstruction": {
+      "role": "later-only",
+      "boundary": "IrStringHashCodeInstruction is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.ir.IrStringJoinInstruction": {
+      "role": "later-only",
+      "boundary": "IrStringJoinInstruction is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.ir.IrStringRepeatInstruction": {
+      "role": "later-only",
+      "boundary": "IrStringRepeatInstruction is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.ir.IrStringReplaceCharInstruction": {
+      "role": "later-only",
+      "boundary": "IrStringReplaceCharInstruction is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.ir.IrStringReplaceTextInstruction": {
+      "role": "later-only",
+      "boundary": "IrStringReplaceTextInstruction is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.ir.IrSwitchCase": {
+      "role": "later-only",
+      "boundary": "IrSwitchCase is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.ir.IrSwitchTerminator": {
+      "role": "later-only",
+      "boundary": "IrSwitchTerminator is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.ir.IrSystemArrayCopyInstruction": {
+      "role": "later-only",
+      "boundary": "IrSystemArrayCopyInstruction is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.ir.IrSystemClockInstruction": {
+      "role": "later-only",
+      "boundary": "IrSystemClockInstruction is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.ir.IrSystemExitInstruction": {
+      "role": "later-only",
+      "boundary": "IrSystemExitInstruction is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.ir.IrSystemGetenvInstruction": {
+      "role": "later-only",
+      "boundary": "IrSystemGetenvInstruction is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.ir.IrSystemPropertyInstruction": {
+      "role": "later-only",
+      "boundary": "IrSystemPropertyInstruction is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.ir.IrTcpInstruction": {
+      "role": "later-only",
+      "boundary": "IrTcpInstruction is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.ir.IrThrowTerminator": {
+      "role": "later-only",
+      "boundary": "IrThrowTerminator is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.ir.IrThrowableDescriptionInstruction": {
+      "role": "later-only",
+      "boundary": "IrThrowableDescriptionInstruction is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.ir.IrThrowableTraceInstruction": {
+      "role": "later-only",
+      "boundary": "IrThrowableTraceInstruction is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.ir.IrTlsInstruction": {
+      "role": "later-only",
+      "boundary": "IrTlsInstruction is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.ir.IrType": {
+      "role": "restricted",
+      "boundary": "REFERENCE Node only; typeArguments empty, elementType/erasure/wildcardKind/wildcardBound absent",
+      "gate": "B1/B7 M1.1/M1.3 enforce private input factory before M2.2; rejected roles B1/B7 M3.1 before S3"
+    },
+    "ironwood.compiler.ir.IrTypeInitialization": {
+      "role": "later-only",
+      "boundary": "IrTypeInitialization is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.ir.IrTypeInitializedInstruction": {
+      "role": "later-only",
+      "boundary": "IrTypeInitializedInstruction is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.ir.IrUnaryInstruction": {
+      "role": "later-only",
+      "boundary": "IrUnaryInstruction is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.ir.IrUnreachable": {
+      "role": "later-only",
+      "boundary": "IrUnreachable is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.ir.IrValueReference": {
+      "role": "restricted",
+      "boundary": "parameter ids 0..width-1 and result width; all REFERENCE Node and fixed span",
+      "gate": "B1/B7 M1.1/M1.3 enforce private input factory before M2.2; rejected roles B1/B7 M3.1 before S3"
+    },
+    "ironwood.compiler.ir.IrVirtualCallInstruction": {
+      "role": "later-only",
+      "boundary": "IrVirtualCallInstruction is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.semantic.ClosedWorldEffectAnalyzer$Effect": {
+      "role": "selected",
+      "boundary": "two flags and two BitSets; NONE is immutable shared empty, returned effects borrow until summary copy",
+      "gate": "B1/B7 M1.1/M1.3 before M2.2 operation equivalence"
+    },
+    "ironwood.compiler.semantic.ClosedWorldEffectAnalyzer$Summary": {
+      "role": "selected",
+      "boundary": "two flags and three independent BitSets; clone by fresh vector plus or, clear/or/value comparison",
+      "gate": "B1/B7 M1.1/M1.3 before M2.2 operation equivalence"
+    },
+    "ironwood.compiler.semantic.FunctionAnalyzer$AllocationStateSnapshot": {
+      "role": "selected",
+      "boundary": "state/reason/detached by value; equal reason text has equal value/hash",
+      "gate": "B1/B7 M1.1/M1.3 before M2.2 operation equivalence"
+    },
+    "ironwood.compiler.semantic.FunctionAnalyzer$ArraySlot": {
+      "role": "selected",
+      "boundary": "container reference identity plus signed integer index; equal composite keys select the same stored value",
+      "gate": "B1/B7 M1.1/M1.3 before M2.2 operation equivalence"
+    },
+    "ironwood.compiler.semantic.FunctionAnalyzer$ArrayTarget": {
+      "role": "later-only",
+      "boundary": "FunctionAnalyzer$ArrayTarget is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.semantic.FunctionAnalyzer$BranchFlow": {
+      "role": "later-only",
+      "boundary": "FunctionAnalyzer$BranchFlow is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.semantic.FunctionAnalyzer$CallSites": {
+      "role": "later-only",
+      "boundary": "FunctionAnalyzer$CallSites is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.semantic.FunctionAnalyzer$CaseConstant": {
+      "role": "later-only",
+      "boundary": "FunctionAnalyzer$CaseConstant is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.semantic.FunctionAnalyzer$CatchAlternative": {
+      "role": "later-only",
+      "boundary": "FunctionAnalyzer$CatchAlternative is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.semantic.FunctionAnalyzer$CatchTarget": {
+      "role": "later-only",
+      "boundary": "FunctionAnalyzer$CatchTarget is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.semantic.FunctionAnalyzer$ClassFieldResolution": {
+      "role": "later-only",
+      "boundary": "FunctionAnalyzer$ClassFieldResolution is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.semantic.FunctionAnalyzer$CleanupExit": {
+      "role": "later-only",
+      "boundary": "FunctionAnalyzer$CleanupExit is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.semantic.FunctionAnalyzer$CompileTimeValue": {
+      "role": "later-only",
+      "boundary": "FunctionAnalyzer$CompileTimeValue is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.semantic.FunctionAnalyzer$DeferredCallAction": {
+      "role": "later-only",
+      "boundary": "FunctionAnalyzer$DeferredCallAction is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.semantic.FunctionAnalyzer$DeferredCapture": {
+      "role": "later-only",
+      "boundary": "FunctionAnalyzer$DeferredCapture is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.semantic.FunctionAnalyzer$DeferredFreeAction": {
+      "role": "later-only",
+      "boundary": "FunctionAnalyzer$DeferredFreeAction is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.semantic.FunctionAnalyzer$DispatchEdges": {
+      "role": "later-only",
+      "boundary": "FunctionAnalyzer$DispatchEdges is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.semantic.FunctionAnalyzer$ExceptionEdge": {
+      "role": "later-only",
+      "boundary": "FunctionAnalyzer$ExceptionEdge is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.semantic.FunctionAnalyzer$FieldTarget": {
+      "role": "later-only",
+      "boundary": "FunctionAnalyzer$FieldTarget is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.semantic.FunctionAnalyzer$FinallyContext": {
+      "role": "later-only",
+      "boundary": "FunctionAnalyzer$FinallyContext is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.semantic.FunctionAnalyzer$FreeProof$Accepted": {
+      "role": "later-only",
+      "boundary": "FunctionAnalyzer$FreeProof$Accepted is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.semantic.FunctionAnalyzer$FreeProof$AlreadyFreed": {
+      "role": "later-only",
+      "boundary": "FunctionAnalyzer$FreeProof$AlreadyFreed is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.semantic.FunctionAnalyzer$FreeProof$ArraySlotAlias": {
+      "role": "later-only",
+      "boundary": "FunctionAnalyzer$FreeProof$ArraySlotAlias is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.semantic.FunctionAnalyzer$FreeProof$AttachedField": {
+      "role": "later-only",
+      "boundary": "FunctionAnalyzer$FreeProof$AttachedField is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.semantic.FunctionAnalyzer$FreeProof$Blocked": {
+      "role": "later-only",
+      "boundary": "FunctionAnalyzer$FreeProof$Blocked is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.semantic.FunctionAnalyzer$FreeProof$DependentBorrow": {
+      "role": "later-only",
+      "boundary": "FunctionAnalyzer$FreeProof$DependentBorrow is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.semantic.FunctionAnalyzer$FreeProof$LocalAlias": {
+      "role": "later-only",
+      "boundary": "FunctionAnalyzer$FreeProof$LocalAlias is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.semantic.FunctionAnalyzer$FreeProof$NoIdentity": {
+      "role": "later-only",
+      "boundary": "FunctionAnalyzer$FreeProof$NoIdentity is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.semantic.FunctionAnalyzer$FreeProof$NotReference": {
+      "role": "later-only",
+      "boundary": "FunctionAnalyzer$FreeProof$NotReference is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.semantic.FunctionAnalyzer$FreeProof$PendingDeferredCall": {
+      "role": "later-only",
+      "boundary": "FunctionAnalyzer$FreeProof$PendingDeferredCall is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.semantic.FunctionAnalyzer$FreeProof$PendingDeferredFree": {
+      "role": "later-only",
+      "boundary": "FunctionAnalyzer$FreeProof$PendingDeferredFree is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.semantic.FunctionAnalyzer$FreeProof$PendingYield": {
+      "role": "later-only",
+      "boundary": "FunctionAnalyzer$FreeProof$PendingYield is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.semantic.FunctionAnalyzer$FreeProof$RetainingOwner": {
+      "role": "later-only",
+      "boundary": "FunctionAnalyzer$FreeProof$RetainingOwner is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.semantic.FunctionAnalyzer$JoinPath": {
+      "role": "later-only",
+      "boundary": "FunctionAnalyzer$JoinPath is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.semantic.FunctionAnalyzer$LValue": {
+      "role": "later-only",
+      "boundary": "FunctionAnalyzer$LValue is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.semantic.FunctionAnalyzer$LabeledContext": {
+      "role": "later-only",
+      "boundary": "FunctionAnalyzer$LabeledContext is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.semantic.FunctionAnalyzer$LabeledSwitchTarget": {
+      "role": "later-only",
+      "boundary": "FunctionAnalyzer$LabeledSwitchTarget is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.semantic.FunctionAnalyzer$LocalSymbol": {
+      "role": "later-only",
+      "boundary": "FunctionAnalyzer$LocalSymbol is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.semantic.FunctionAnalyzer$LoweredInvocationArguments": {
+      "role": "later-only",
+      "boundary": "FunctionAnalyzer$LoweredInvocationArguments is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.semantic.FunctionAnalyzer$OwnershipSnapshot": {
+      "role": "selected",
+      "boundary": "all seven independent immutable maps/sets; identity allocation keys, slot value keys, text value keys; shared immutable child versions",
+      "gate": "B1/B7 M1.1/M1.3 before M2.2 operation equivalence"
+    },
+    "ironwood.compiler.semantic.FunctionAnalyzer$PendingYieldEvidence": {
+      "role": "later-only",
+      "boundary": "FunctionAnalyzer$PendingYieldEvidence is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.semantic.FunctionAnalyzer$PoolTransfer": {
+      "role": "later-only",
+      "boundary": "FunctionAnalyzer$PoolTransfer is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.semantic.FunctionAnalyzer$PreparedInvocation": {
+      "role": "later-only",
+      "boundary": "FunctionAnalyzer$PreparedInvocation is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.semantic.FunctionAnalyzer$Reclamation": {
+      "role": "later-only",
+      "boundary": "FunctionAnalyzer$Reclamation is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.semantic.FunctionAnalyzer$RenderedStringCleanup": {
+      "role": "later-only",
+      "boundary": "FunctionAnalyzer$RenderedStringCleanup is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.semantic.FunctionAnalyzer$RenderedStringConversion": {
+      "role": "later-only",
+      "boundary": "FunctionAnalyzer$RenderedStringConversion is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.semantic.FunctionAnalyzer$SourceFinallyAction": {
+      "role": "later-only",
+      "boundary": "FunctionAnalyzer$SourceFinallyAction is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.semantic.FunctionAnalyzer$SuperTarget": {
+      "role": "later-only",
+      "boundary": "FunctionAnalyzer$SuperTarget is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.semantic.FunctionAnalyzer$SwitchSelection": {
+      "role": "later-only",
+      "boundary": "FunctionAnalyzer$SwitchSelection is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.semantic.FunctionAnalyzer$TemporaryCandidate": {
+      "role": "later-only",
+      "boundary": "FunctionAnalyzer$TemporaryCandidate is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.semantic.FunctionAnalyzer$TypedValue": {
+      "role": "later-only",
+      "boundary": "FunctionAnalyzer$TypedValue is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.semantic.FunctionAnalyzer$ValidatedSwitchCase": {
+      "role": "later-only",
+      "boundary": "FunctionAnalyzer$ValidatedSwitchCase is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.semantic.FunctionAnalyzer$ValidatedSwitchLabels": {
+      "role": "later-only",
+      "boundary": "FunctionAnalyzer$ValidatedSwitchLabels is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.semantic.FunctionAnalyzer$WrapperBorrow": {
+      "role": "later-only",
+      "boundary": "FunctionAnalyzer$WrapperBorrow is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.semantic.FunctionAnalyzer$YieldFlow": {
+      "role": "later-only",
+      "boundary": "FunctionAnalyzer$YieldFlow is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.semantic.RejectedFreeEvidence$Binding": {
+      "role": "selected",
+      "boundary": "allocation identity and borrowed source/span; distinct payload identity controls intersection",
+      "gate": "B1/B7 M1.1/M1.3 before M2.2 operation equivalence"
+    },
+    "ironwood.compiler.semantic.RejectedFreeEvidence$Call": {
+      "role": "later-only",
+      "boundary": "RejectedFreeEvidence$Call is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.semantic.RejectedFreeEvidence$Event": {
+      "role": "restricted",
+      "boundary": "REASON only, owned reason text, borrowed source/span, call absent; preserve distinct event identity even when fields equal",
+      "gate": "B1/B7 M1.1/M1.3 enforce private input factory before M2.2; rejected roles B1/B7 M3.1 before S3"
+    },
+    "ironwood.compiler.semantic.RejectedFreeEvidence$FieldLoad": {
+      "role": "later-only",
+      "boundary": "RejectedFreeEvidence$FieldLoad is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.semantic.RejectedFreeEvidence$Join": {
+      "role": "restricted",
+      "boundary": "empty alternatives, omitted zero, fixed classification/complete; distinct join identity, never choose arbitrary general evidence prefix",
+      "gate": "B1/B7 M1.1/M1.3 enforce private input factory before M2.2; rejected roles B1/B7 M3.1 before S3"
+    },
+    "ironwood.compiler.semantic.RejectedFreeEvidence$JoinAlternative": {
+      "role": "later-only",
+      "boundary": "RejectedFreeEvidence$JoinAlternative is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.semantic.RejectedFreeEvidence$Limits": {
+      "role": "restricted",
+      "boundary": "three selected budget limits only; summary-method/fact roles not evaluated in operation fixture",
+      "gate": "B1/B7 M1.1/M1.3 enforce private input factory before M2.2; rejected roles B1/B7 M3.1 before S3"
+    },
+    "ironwood.compiler.semantic.RejectedFreeEvidence$Retention": {
+      "role": "selected",
+      "boundary": "owner/child reference identity; value pair key, borrowed nodes",
+      "gate": "B1/B7 M1.1/M1.3 before M2.2 operation equivalence"
+    },
+    "ironwood.compiler.semantic.RejectedFreeEvidence$Saved": {
+      "role": "selected",
+      "boundary": "six independent shallow map versions plus primitive units/associations; shared payload lifetime through retirement",
+      "gate": "B1/B7 M1.1/M1.3 before M2.2 operation equivalence"
+    },
+    "ironwood.compiler.semantic.RejectedFreeEvidence$Site": {
+      "role": "selected",
+      "boundary": "source identity and SourceSpan value; lifetime borrowed through last saved version",
+      "gate": "B1/B7 M1.1/M1.3 before M2.2 operation equivalence"
+    },
+    "ironwood.compiler.semantic.UnfreedAllocationTracker$Origin": {
+      "role": "selected",
+      "boundary": "borrowed source span and owned description text; first registration wins",
+      "gate": "B1/B7 M1.1/M1.3 before M2.2 operation equivalence"
+    },
+    "ironwood.compiler.source.SourcePosition": {
+      "role": "selected",
+      "boundary": "offset/line/column primitive values; reuse the reviewed frontend source contract",
+      "gate": "B1/B7 M1.1/M1.3 before M2.2 operation equivalence"
+    },
+    "ironwood.compiler.source.SourceSpan": {
+      "role": "selected",
+      "boundary": "start/end SourcePosition value; reuse the reviewed frontend source contract",
+      "gate": "B1/B7 M1.1/M1.3 before M2.2 operation equivalence"
+    },
+    "ironwood.compiler.ir.IrInstruction": {
+      "role": "restricted",
+      "boundary": "IrCallInstruction/IrForeignCallInstruction only; every other permitted variant explicitly rejected before analyzer entry",
+      "gate": "B1/B7 M1.1/M1.3 enforce private input factory before M2.2; rejected roles B1/B7 M3.1 before S3"
+    },
+    "ironwood.compiler.ir.IrOperand": {
+      "role": "restricted",
+      "boundary": "IrValueReference only; every other permitted variant explicitly rejected before analyzer entry",
+      "gate": "B1/B7 M1.1/M1.3 enforce private input factory before M2.2; rejected roles B1/B7 M3.1 before S3"
+    },
+    "ironwood.compiler.ir.IrTerminator": {
+      "role": "restricted",
+      "boundary": "IrReturnTerminator only; every other permitted variant explicitly rejected before analyzer entry",
+      "gate": "B1/B7 M1.1/M1.3 enforce private input factory before M2.2; rejected roles B1/B7 M3.1 before S3"
+    },
+    "ironwood.compiler.semantic.FunctionAnalyzer$CleanupAction": {
+      "role": "later-only",
+      "boundary": "FunctionAnalyzer$CleanupAction is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    },
+    "ironwood.compiler.semantic.FunctionAnalyzer$FreeProof": {
+      "role": "later-only",
+      "boundary": "FunctionAnalyzer$FreeProof is not admitted by the selected operation input factory; no permissive dispatch fallback",
+      "gate": "B1/B7 M3.1 before S2/S3 consumer; reconcile final preparation M6.3"
+    }
+  }
+}

@@ -749,3 +749,32 @@ All three final unsafe CLI checks require the intended still-observable enhanced
 source alias, rather than accepting an unrelated compilation rejection.
 Java 21 release/Xlint/Werror compilation, focused native execution, license
 audit, current/staged/complete-task whitespace and written-text rules pass.
+
+## Finite operation model
+
+[OPERATION_MODEL.md](OPERATION_MODEL.md) and operation-model-schema.json enumerate
+233 declarations from 132 pinned original sources: 181 records, 27 enums, five
+sealed roots and twenty ordinary classes/interfaces. Every field and permitted
+variant has a selected/restricted/later-only role and named blocking gate. All
+IR variants remain visible even when the private operation factory rejects them.
+Native M1/M2 consumers must enforce these exact input roles and cannot use a
+permissive fallback. Full semantic analysis and native reclamation proof remain
+separate obligations.
+
+`python3 scripts/self-hosting/qualify-operation-model.py --output NEW_PATH`
+compiles the independent model discovery with Java 21 release/Xlint/Werror for
+each pinned seed and runs two fresh JVMs per seed. All four raw stdout byte
+streams agree, with gzip byte counts/SHA-256 and exact commands/logs retained in
+operation-model-probe. Source hashes match each frozen seed and current ordered
+source. The removed-declaration, consumer, field, unknown-declaration and removed
+instruction-variant controls fail. Earlier discover-only/tooling outputs remain
+in ignored scratch paths; no frozen frontend model is rewritten.
+Licenses, current/staged/complete-task whitespace and written-text checks pass.
+M0.2/M0.3/S0 remain open for global source classifications and numerical budgets.
+
+Independent scoped review of loop/cycle commit 2448e344 accepted all 2,393 member
+byte counts/hashes, twenty final loop cross-seed pairs and four actual loop kinds,
+both forty-run cyclic groups with eight configurations per case and N+1 rounds,
+forty cycle cross-seed pairs, and all 36 isolated loop statuses. Source cycle and
+mandatory unsafe alias were reviewed; complete-task whitespace passed. This is
+scoped evidence acceptance and does not close the M0 checkpoint.
