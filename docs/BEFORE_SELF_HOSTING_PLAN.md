@@ -1302,6 +1302,11 @@ needed. Keep differential cases for whitespace, non-ASCII digit continuations,
 rejected non-ASCII identifier starts, and source spans so translation neither
 narrows continuations to ASCII nor broadens identifier starts.
 
+For S1, include `a` followed by U+0661 (ARABIC-INDIC DIGIT ONE) as a declared
+identifier in the Java-bootstrap/native comparison corpus. Require one identifier
+token with the same spelling and a two-code-unit UTF-16 span; compare rejection
+diagnostics when that digit instead starts the declared name.
+
 Reflection removal can start in the Java compiler: replace reflective traversal
 with typed walkers while the current test harness can compare behavior. No
 runtime introspection API is necessary for these fixed compiler-owned data types.
@@ -1319,22 +1324,23 @@ manifest design.
 
 ### Suggested implementation increments
 
-| Increment | Concrete deliverable | Depends on | Completion evidence |
+| Increment or gate | Concrete deliverable | Depends on | Completion evidence |
 | --- | --- | --- | --- |
 | 1 | B0a inventory, per-traversal ordering audit, frozen Java comparison fixtures, and S1 resource budgets | Current compiler | Required contracts, Java reference outcomes, and resource measurements can be reproduced; pilot dependencies identified |
 | 2 | ArrayList/BitSet copy slice and private compiler snapshots | 1 | Independent snapshots; safe/unsafe cleanup pairs; allocation-failure cleanup |
 | 3 | B1 map/set copies, nested traversal, and stack/FIFO worklist rewrites | 2 | Identity/value/order preserved; amortized O(1) worklist end operations; copy/worklist allocation and storage costs measured |
 | 4 | B2 stable comparator sorting directly on `ArrayList` and sorted-map/set consumer rewrites | 1; B1 for snapshots | Non-Comparable lists sort without an array round trip; tree consumers preserve ordering/deduplication with measured scaling |
-| 5 | B7 helpers in stage order: S1 text-block, varargs, value, and numeric rewrites first; later reflection helpers and SHA-256 for S3 | 1; required B1/B2 slices for helpers that use them | Focused helper equivalence and ownership checks pass; Java baseline remains equivalent; exact ByteView declaration authority by S3 |
-| S1 gate | B0b lexer/parser and ownership-snapshot pilots; the S1 gate from SELF_HOSTING_PLAN.md | 1; required copy/traversal slices of 2 and 3; S1 helpers from 5; 4 where the inventory requires ordering work | S1 exit criteria pass: Java/native equivalence, accepted/rejected reclamation cases, and memory/stack/time within agreed budgets |
+| 5 | B7 helpers for S1 (text-block, varargs, value, and numeric rewrites), followed by remaining B7 helpers; B5 SHA-256 by S3 | 1; required B1/B2 slices for helpers that use them | Focused helper equivalence and ownership checks pass; Java baseline remains equivalent; exact ByteView declaration authority by S3 |
+| G1 (S1 gate) | B0b lexer/parser and ownership-snapshot pilots; the S1 gate from SELF_HOSTING_PLAN.md | 1; required copy/traversal slices of 2 and 3; S1 helpers from 5; 4 where the inventory requires ordering work | S1 exit criteria pass: Java/native equivalence, accepted/rejected reclamation cases, and memory/stack/time within agreed budgets |
 | 6 | MD5/trace GUID integration and S4 runtime-cache port decision | 1, 5 | Exact GUIDs, native-link hash consumers, and explicit cache omission or verified invalidation |
 | 7 | B3 traversal rewrites, temporary paths, cleanup, discovery, and publication primitives | 1; B2 for sorted inventories | Equivalent inventories and traversal behavior; native failure/resource/publication cases pass on qualified hosts |
 | 8 | B4 process service, executable-discovery adaptations, and driver adapter | 7 | Absolute-path launches; measured probe IO, cleanup, and invocation reuse; LLVM/Homebrew/TLS discovery, controlled process cases, and real LLVM pipeline pass |
-| 9 | Public `ironwood.util.zip.CRC32` and artifact identity serialization using SHA-256 from increment 5 | 1, 5; B2 for sorted inventories | CRC32 public-contract/ownership review, known vectors, and exact existing artifact identities |
+| 9 | Public `ironwood.util.zip.CRC32` and artifact identity serialization using B5 SHA-256 from increment 5 | 1, 5; B2 for sorted inventories | CRC32 public-contract/ownership review, known vectors, and exact existing artifact identities |
 | 10 | B6 legacy inflate reader, selected native writer profiles, and artifact integration | 7, 9; STORED-versus-DEFLATED writer decision and codec selection | Cross-reader compatibility, malformed-input rejection, deterministic output; verified dependency-free codec path or pinned codec home |
 
-These increments can overlap when independent. Increment 1 comes first; the
-S1 gate follows its required slices of increments 2, 3, and 5, plus 4 where
+G1 is the stable reference for S1's pilot gate in this sequence. These increments
+can overlap when independent. Increment 1 comes first; G1 follows its required
+slices of increments 2, 3, and 5, plus 4 where
 needed. Do not delay S1 for later-stage work in increment 5 or increments 6
 through 10. Do not start broad translation merely because all library methods
 now compile: the decisive early gate is S1, with B0b recording its evidence.
