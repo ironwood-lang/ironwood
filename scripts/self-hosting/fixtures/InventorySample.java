@@ -7,7 +7,9 @@ import java.util.stream.Collectors;
 
 /** Discovery qualification: factories, copies, views, captures and overloads. */
 final class InventorySample {
-    record Snapshot(Set<String> items) {}
+    record Snapshot(Set<String> items) {
+        Snapshot { items = Set.copyOf(items); }
+    }
     private final Supplier<Integer> retained;
     private final String label;
 
@@ -28,6 +30,13 @@ final class InventorySample {
             Map<String, String> sibling = new HashMap<>();
             sibling.put("second", label);
         }
+    }
+
+    synchronized String syntax() {
+        var text = """
+                qualification
+                """;
+        return text;
     }
 
     List<String> exercise(int captured) {

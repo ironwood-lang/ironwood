@@ -139,8 +139,12 @@ the original J0 input manifest, effective numeric JVM profile and measurement
 procedure. M0.1 passed on macOS arm64; M0.2/M0.3 and S0 remain in progress.
 Attributed discovery and its focused qualification are retained in that record;
 candidate labels remain separate from the required reviewed use-site contracts.
-Next action: complete attributed call and transitive ordering inventories, then
-freeze comparison/resource fixtures and derive budgets before native evaluation.
+The neutral process comparison now detects deliberately changed diagnostics,
+removed typed-IR branch edges and changed LLVM output. Original safe/unsafe
+branch-snapshot captures are retained with fresh-process repeats and native
+execution evidence. These are partial M0.3 evidence while the inventory remains
+open. Next action: finish reviewed call and transitive ordering contracts, extend
+the corpus, and derive resource budgets before native pilot evaluation.
 
 ### M1. Minimum pilot prerequisites
 

@@ -55,6 +55,7 @@ public final class Inventory {
                 flow.println("from\tto\tkind\tfile\tline");
                 traversal.println("file\tline\tstart_utf16\tend_utf16\tconsumer\tnode\tkind\texpression");
                 for (CompilationUnitTree unit : units) {
+                    String sourceText = unit.getSourceFile().getCharContent(true).toString();
                     new TreePathScanner<Void, Void>() {
                         String consumer = "<class>";
                         @Override public Void scan(Tree tree, Void ignored) {
@@ -129,17 +130,21 @@ public final class Inventory {
                                         }
                                     }
                                 }
-                                if (tree instanceof NewClassTree || aggregate(getCurrentPath())) {
-                                    if (select instanceof MemberSelectTree member)
-                                        edge(node(member.getExpression()), node(tree), "VIEW_OR_RESULT", tree);
-                                    for (ExpressionTree argument : arguments)
+                                if ((!internal && tree instanceof NewClassTree) || aggregate(getCurrentPath())) {
+                                    if (select instanceof MemberSelectTree member) {
+                                        String name = e.getSimpleName().toString();
+                                        if (!internal && Set.of("get", "getOrDefault").contains(name))
+                                            edge("C:" + node(member.getExpression()), node(tree), "RETRIEVED_ELEMENT", tree);
+                                        else edge(node(member.getExpression()), node(tree), "VIEW_OR_RESULT", tree);
+                                    }
+                                    if (!internal) for (ExpressionTree argument : arguments)
                                         edge(node(argument), node(tree), "COPY_OR_FACTORY", tree);
                                 }
                                 if (tree instanceof MethodInvocationTree && select instanceof MemberSelectTree member) {
                                     String name = e.getSimpleName().toString();
                                     if (Set.of("put", "putIfAbsent", "add", "addAll", "putAll", "merge", "compute", "computeIfAbsent").contains(name))
                                         for (ExpressionTree argument : arguments)
-                                            edge(node(argument), node(member.getExpression()), "RETAINED", tree);
+                                            edge(node(argument), "C:" + node(member.getExpression()), "RETAINED", tree);
                                     if (Set.of("iterator", "stream", "forEach", "removeIf", "replaceAll", "putAll", "addAll", "equals", "containsAll", "removeAll", "retainAll").contains(name))
                                         traversal(tree, "CALL:" + name, member.getExpression());
                                     if (tree instanceof MethodInvocationTree && aggregate(getCurrentPath()) &&
@@ -206,9 +211,19 @@ public final class Inventory {
                         }
                         @Override public Void visitMethod(MethodTree tree, Void ignored) {
                             String old = consumer;
-                            consumer = symbol(trees.getElement(getCurrentPath()));
+                            Element method = trees.getElement(getCurrentPath());
+                            consumer = symbol(method);
+                            if (method instanceof ExecutableElement executable && method.getKind() == ElementKind.CONSTRUCTOR &&
+                                    method.getEnclosingElement().getKind() == ElementKind.RECORD) {
+                                for (VariableElement parameter : executable.getParameters())
+                                    method.getEnclosingElement().getEnclosedElements().stream()
+                                            .filter(f -> f.getKind().isField() && f.getSimpleName().equals(parameter.getSimpleName()))
+                                            .forEach(f -> edge("V:" + symbol(parameter), "V:" + symbol(f), "COMPACT_RECORD_COMPONENT", tree));
+                            }
                             if (tree.getParameters().stream().anyMatch(p -> p.toString().contains("...")))
                                 construct(tree, "VARARGS", consumer);
+                            if (tree.getModifiers().getFlags().contains(Modifier.SYNCHRONIZED))
+                                construct(tree, "SYNCHRONIZED_METHOD", consumer);
                             Void result = super.visitMethod(tree, ignored);
                             consumer = old;
                             return result;
@@ -250,6 +265,9 @@ public final class Inventory {
                         }
                         @Override public Void visitLiteral(LiteralTree tree, Void ignored) {
                             if (tree.getKind() == Tree.Kind.NULL_LITERAL) construct(tree, "NULL", "null contract");
+                            int start = (int) trees.getSourcePositions().getStartPosition(unit, tree);
+                            if (tree.getKind() == Tree.Kind.STRING_LITERAL && sourceText.startsWith("\"\"\"", start))
+                                construct(tree, "TEXT_BLOCK", "supported literal; caller normalization API separately audited");
                             return super.visitLiteral(tree, ignored);
                         }
                         @Override public Void visitSynchronized(SynchronizedTree tree, Void ignored) {
@@ -258,6 +276,11 @@ public final class Inventory {
                         }
                         @Override public Void visitVariable(VariableTree tree, Void ignored) {
                             Element e = trees.getElement(getCurrentPath());
+                            long start = trees.getSourcePositions().getStartPosition(unit, tree);
+                            long end = trees.getSourcePositions().getEndPosition(unit, tree);
+                            if (start >= 0 && end >= start && sourceText.substring((int) start, (int) end)
+                                    .matches("(?s)(?:final\\s+)?var\\s+.*"))
+                                construct(tree, "VAR", "supported inferred declaration");
                             if (e != null && tree.getInitializer() != null)
                                 edge(node(tree.getInitializer()), "V:" + symbol(e), "INITIALIZER", tree);
                             if (e != null && e.getEnclosingElement() instanceof ExecutableElement method &&
@@ -325,7 +348,7 @@ public final class Inventory {
                         @Override public Void visitEnhancedForLoop(EnhancedForLoopTree tree, Void ignored) {
                             traversal(tree, "ENHANCED_FOR", tree.getExpression());
                             Element e = trees.getElement(new TreePath(getCurrentPath(), tree.getVariable()));
-                            if (e != null) edge(node(tree.getExpression()), "V:" + symbol(e), "ITERATED_ELEMENT", tree);
+                            if (e != null) edge("C:" + node(tree.getExpression()), "V:" + symbol(e), "ITERATED_ELEMENT", tree);
                             return super.visitEnhancedForLoop(tree, ignored);
                         }
                     }.scan(unit, null);

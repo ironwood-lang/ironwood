@@ -130,3 +130,90 @@ deterministic gzip rather than trimming the baseline; [jvm-effective.json](jvm-e
 records their uncompressed SHA-256 and command. Read with
 `gzip -dc docs/self-hosting/m0/jvm-effective.txt.gz`. Diff verification includes
 the working tree, staged additions and the complete task diff from `6bde84df`.
+
+## Original reference preservation and neutral process comparison
+
+[qualified/identity.json](qualified/identity.json) adds a reconstructed frozen
+standard-library archive, JDK native-library and LLVM shared-library hashes, SDK
+identity and the explicit library environment. It preserves the earlier identity
+report. The new installation reproduces the same seed and strict-built library
+archive as the preceding independent reconstruction. All copied library sources
+are compiled with `--unfreed=error`; the qualification does not change the
+production policy. Relative output/report arguments now resolve before changing
+the build working directory.
+
+The original library discovery searches parent directories and prefers archives
+to sources. A source-only copy inside the checkout could therefore consume a
+mutable parent build. The qualification installation has its own first-priority
+archive. The test adapter additionally resolves every discovered library type,
+requires its bytes to match a copied source hash and its origin to be that
+archive. The fourteen `package-info.iron` documentation files have no class
+payload and must resolve from the frozen source directory instead. Each capture
+retains the resolved type/content-hash metadata separately from semantic output.
+No production discovery behavior is changed.
+
+The original captures are in [original-captures.tar.gz](original-captures.tar.gz)
+with an exact-byte [manifest](original-captures-manifest.json) and
+[classification](original-captures.json). The two initial fixtures used an
+invalid entrypoint. Their source bytes and failed outputs are retained under
+`*-debug` and excluded from accepted references. The maintained fixtures now use
+`public static int main(String[] args)`. Their hashes are reconciled with every
+diagnostic source identity and process record.
+
+`BranchJoin` analyzes/compiles successfully without diagnostics, compiles and
+links with explicit `--unfreed=warn --explain-rejected-free`, and its `-O3`
+native executable exits zero. Compile/link/run argv and raw output are retained.
+`SlotOrder` has exactly the intended mandatory array-alias safety error and
+its selected ownership note, with zero missing-free warnings. Its invalid status
+is a required negative outcome. Four fresh corrected processes per fixture,
+including the independent final installation, match tokens, AST, diagnostics,
+typed IR and LLVM. These original outputs precede any production ordering edit;
+this fixture pair does not prove the complete ordering inventory.
+
+The test-only `ReferenceCapture` adapter serializes typed records as explicit
+node/field structures, numeric kinds with exact payloads (raw floating bits),
+enum type/name, UTF-16 strings, optional presence, source basename/content hash,
+and ordered arrays/maps. Records are reflected only inside this Java test
+producer; a native producer can emit the same wire structures without sharing
+Java objects. Maps retain encounter order as entry arrays. Semantic IDs,
+diagnostic order and IR edges are never normalized or sorted. Unknown object
+types fail capture. The selected single-source fixtures use basename plus
+content hash; multi-source fixtures must establish distinct logical source
+identities before admission to this protocol.
+
+`compare.py run` invokes any producer using a JSON argv/environment specification
+with `{input}`, `{output}` and `{explain}` placeholders, and retains its status,
+source hash and raw process streams. It requires all nine structural outputs and
+LLVM on a successful compile. `compare.py compare` compares those structures in
+order and LLVM bytes. [qualified/producer.json](qualified/producer.json) is the
+current frozen Java producer specification. It requires the test adapter compiled
+against the frozen JAR; it is separate from the production launcher.
+
+[comparison-qualification.json](comparison-qualification.json) records the
+successful deliberate mismatch checks. `compare.py selftest` changes a real
+negative diagnostic message, removes `falseTarget` from a real `IrBranch` in the
+positive typed IR, and changes generated LLVM bytes. Each is detected in the
+expected artifact, with its structural path. Reproduce after extracting the
+reference archive into an ignored scratch directory:
+
+```sh
+python3 scripts/self-hosting/archive-evidence.py \
+  docs/self-hosting/m0/original-captures.tar.gz \
+  docs/self-hosting/m0/original-captures-manifest.json --verify
+python3 scripts/self-hosting/compare.py selftest \
+  target/self-hosting-m0/extracted/BranchJoin-final \
+  target/self-hosting-m0/extracted/SlotOrder-final \
+  target/self-hosting-m0/new-comparison-qualification
+```
+
+The attributed inventory now includes compact record-constructor reassignment
+flows and supported `var`/text-block sites separately from the synchronized
+method. The hash-origin graph discovers 866 sources and 1,093 transitive
+traversals in 127 files. These are review obligations, not completed proofs.
+The archive manifest now includes previously compressed TSVs as well as newly
+generated tables, preventing partial regeneration from dropping hash records.
+
+Focused adapter, mismatch, native fixture, inventory and license checks pass.
+M0.2 remains open for complete reviewed contracts and transitive ordering proofs;
+M0.3 remains open for the full corpus, measured resource baselines/budgets and
+the exact M1/M2 selection. No native pilot or M1 implementation has begun.

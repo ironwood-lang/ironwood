@@ -180,9 +180,11 @@ def main():
             data = path.read_bytes()
             archived = path.with_suffix('.tsv.gz')
             archived.write_bytes(gzip.compress(data, mtime=0))
-            manifest[path.name] = {'uncompressed_sha256': hashlib.sha256(data).hexdigest(),
-                                   'rows': data.count(b'\n') - 1}
             path.unlink()
+        for archived in sorted(OUT.glob('*.tsv.gz')):
+            data = gzip.decompress(archived.read_bytes())
+            manifest[archived.name[:-3]] = {'uncompressed_sha256': hashlib.sha256(data).hexdigest(),
+                                          'rows': data.count(b'\n') - 1}
         (OUT / 'manifest.json').write_text(json.dumps(manifest, indent=2, sort_keys=True) + '\n')
 
 

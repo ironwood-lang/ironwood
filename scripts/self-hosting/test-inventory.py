@@ -54,11 +54,21 @@ def main():
             visited.add(node)
             work.extend(graph[node])
     assert any('Snapshot::items' in n for n in visited), 'lost record field flow'
+    compact = next(r for r in calls if 'Snapshot' in r['consumer'] and r['declaring_owner'] == 'java.util.Set' and 'copyOf' in r['resolved_signature'])
+    compact_node = f"E:{compact['file']}:{compact['start_utf16']}:{compact['end_utf16']}"
+    compact_visited, compact_work = set(), [compact_node]
+    while compact_work:
+        node = compact_work.pop()
+        if node not in compact_visited:
+            compact_visited.add(node)
+            compact_work.extend(graph[node])
+    assert any('Snapshot::items' in n for n in compact_visited), 'lost compact constructor copy flow'
     assert any(n.startswith('V:') and n.endswith('::map') for n in visited), 'lost collector flow'
     assert any(n.startswith('V:') and n.endswith('::result') for n in visited), 'lost copy/view flow'
     traversals = read('traversals.tsv')
     assert any(r['node'] in visited and 'map.keySet' in r['expression'] for r in traversals)
-    print('PASS: overloads, inherited members, arrays, captures, helper/record/factory/view/copy flow')
+    assert {'VAR', 'TEXT_BLOCK', 'SYNCHRONIZED_METHOD'} <= {r['kind'] for r in read('syntax.tsv')}
+    print('PASS: overloads, inherited members, arrays, captures, syntax, helper/record/factory/view/copy flow')
 
 
 if __name__ == '__main__':

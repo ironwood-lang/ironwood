@@ -1,0 +1,27 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// Original ordering reference: independent branch snapshots join the same array
+// alias. Detaching the slot permits node reclamation; the program returns zero.
+class JoinNode {
+    int value = 1;
+}
+
+class BranchJoin {
+    static boolean branch(int value) {
+        return value == 1;
+    }
+
+    public static int main(String[] args) {
+        JoinNode node = new JoinNode();
+        JoinNode[] slots = new JoinNode[1];
+        if (branch(1)) {
+            slots[0] = node;
+        } else {
+            slots[0] = node;
+        }
+        slots[0] = null;
+        free node;
+        free slots;
+        return 0;
+    }
+}

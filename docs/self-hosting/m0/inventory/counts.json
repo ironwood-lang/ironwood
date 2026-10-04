@@ -15,8 +15,11 @@
     "NULL": 3848,
     "RECORD": 527,
     "RESOURCE_TRY": 40,
+    "SYNCHRONIZED_METHOD": 1,
+    "TEXT_BLOCK": 46,
     "TYPE_PATTERN": 1941,
     "UNINITIALIZED": 1259,
+    "VAR": 1753,
     "VARARGS": 7
   }
 }

@@ -16,8 +16,16 @@
     "uncompressed_sha256": "86417a1d763222da877f7d1511babe15fb85bfa4185a88412977212b4ee08428"
   },
   "flow.tsv": {
-    "rows": 245948,
-    "uncompressed_sha256": "6e548add79d33b0635eee63abdf8db6101465e6e9e0caa4038ca234aa8aa195c"
+    "rows": 235414,
+    "uncompressed_sha256": "0dbc03b00214dc1d2144b04784d73138de76f525682fe9231e53d217c953b75b"
+  },
+  "hash-sources-discovery.tsv": {
+    "rows": 866,
+    "uncompressed_sha256": "ba427bca5d98734f1d63c891f3e96b8a82e8989a81068b7bd4b2504412c3afa1"
+  },
+  "hash-traversals-discovery.tsv": {
+    "rows": 1093,
+    "uncompressed_sha256": "893a155fee38f2b1bbcbe18332f661c7bc39a21d67583a956245ae56f62665a1"
   },
   "ordering-discovery.tsv": {
     "rows": 2259,
@@ -28,8 +36,8 @@
     "uncompressed_sha256": "5a24349aa1a9cc8ede59cdbe8f939ef1c6dd2867e34ab76acda2df3cae00af49"
   },
   "syntax.tsv": {
-    "rows": 10613,
-    "uncompressed_sha256": "f33875ae077d4ccc834810836d6c59ac28468f26c13dee112c693e71f27241c2"
+    "rows": 12413,
+    "uncompressed_sha256": "74eaa18875c82f9bcd72fac29012388bdd48a79146c45c83d568a26be72b1bae"
   },
   "traversals.tsv": {
     "rows": 12113,
