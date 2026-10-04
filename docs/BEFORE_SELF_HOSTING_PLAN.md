@@ -47,6 +47,13 @@ needs the separate repeated-request memory gate in S7. Per-element removal loan
 discharge, general arenas, and arbitrary cyclic graph reclamation are not part
 of this preparation unless the pilot demonstrates a concrete need.
 
+This plan stages work ahead of the public API targets in
+[STDLIB_ROADMAP.md, items 4 and 5](STDLIB_ROADMAP.md#later-useful-library-tranches).
+It does not propose replacing the reduced `ProcessBuilder`/`Process` target or
+the CRC and ZIP/GZIP target. B4 adds a narrower public utility; B6 builds private
+archive mechanisms that later public APIs may reuse. B5's public CRC32 is one
+slice of item 5. Track self-hosting readiness and roadmap completion separately.
+
 ## 2. Source findings that drive the plan
 
 The following are implementation observations, not an inventory of every Java
@@ -781,6 +788,15 @@ larger mutable contract of Java `ProcessBuilder`, `Process`, stream piping,
 threads, and asynchronous lifecycle control. The result should contain primitive
 status fields and own no live process or stream handle.
 
+`ProcessRunner` is a proposed additional public API ahead of roadmap item 4,
+with its own supported contract once published. It is not the roadmap's reduced
+`ProcessBuilder`/`Process` implementation or a proposal to cancel that work.
+A later design may reuse B4's native launch, redirection, wait, and cleanup
+mechanisms, but still needs its own pipe/environment/handle-ownership review;
+it cannot simply rename this synchronous, file-output helper. Completing B4
+records a narrower delivered capability while item 4's public design remains
+pending. Those broader APIs are not prerequisites for self-hosting.
+
 Proposed conventions to approve and record before implementation:
 
 - Execute the argument vector directly, requiring an absolute executable path
@@ -1058,6 +1074,17 @@ IronClass/IronJar/Bridge profile logic. Promote reusable pieces into
 Do not publish a partial `ZipFile` or `ZipInputStream` pretending to implement
 all Java-valid calls.
 
+B6 is an interim implementation layer below roadmap item 5's later public
+ZIP/GZIP APIs. Its helper signatures remain private while existing artifact
+compatibility obligations still apply. Extract reusable mechanisms only when a
+separately selected public surface passes the behavioral contract review.
+B6 completion establishes compiler artifact support, not public ZIP/GZIP support.
+In particular, the inflate-only reader and STORED writer option does not complete
+public compression or GZIP APIs. B5's public CRC32 advances only the checksum
+slice; record the remaining item 5 work explicitly rather than marking the whole
+item complete. Replacing either roadmap target would require a separate accepted
+decision and roadmap edit, neither of which this plan proposes.
+
 Evaluate the reader and writer choices separately:
 
 | Option | Native implementation and output | Tradeoff and decision gate |
@@ -1327,9 +1354,10 @@ project's default source license. A zlib choice requires its own pinned source,
 build, license, and distribution review.
 
 Update `STDLIB.md`, relevant compatibility/ownership/compiler docs, `IDK.md`, and
-accepted decisions when behavior changes. Run license checks for source or
-distribution changes and `git diff --check` for every increment. Do not mark these
-features implemented merely because this plan exists.
+accepted decisions when behavior changes. Record B4/B5/B6 delivery separately
+from the remaining public API work in `STDLIB_ROADMAP.md`. Run license checks for
+source or distribution changes and `git diff --check` for every increment. Do not
+mark these features implemented merely because this plan exists.
 
 Each increment should end with the chosen contract, measured results, focused
 verification, remaining platform/format boundaries, and its effect on S0-S8.
