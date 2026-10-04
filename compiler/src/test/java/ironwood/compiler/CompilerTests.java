@@ -532,6 +532,7 @@ public final class CompilerTests {
         test("rejected free preserves branch reclamation and field proof boundaries",
                 FreeEvidenceBaselineTests::evidenceBoundaries);
         test("array snapshot joins preserve current store witness order", ArraySnapshotOrderTests::joins);
+        test("array snapshot joins preserve overwritten store witness order", ArraySnapshotOrderTests::overwrittenStore);
         test("rejected free retains unproved private field load provenance",
                 FreeEvidenceBaselineTests::fieldLoadProvenance);
         test("field ownership notes identify publication and return predicates",

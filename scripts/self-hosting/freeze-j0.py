@@ -30,6 +30,7 @@ def main():
     parser.add_argument('--output', type=Path, default=ROOT / 'target/self-hosting-m0/J0')
     parser.add_argument('--report', type=Path, default=ROOT / 'docs/self-hosting/m0/identity.json')
     args = parser.parse_args()
+    args.revision = run(['git', 'rev-parse', '--verify', args.revision + '^{commit}'], cwd=ROOT).strip()
     args.output = args.output.resolve()
     args.report = args.report.resolve()
     args.jdk = args.jdk.resolve()

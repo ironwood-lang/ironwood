@@ -543,3 +543,22 @@ passing. The new test exercises 72 real analyze calls plus private snapshot
 independence/order/null checks. These script tests use explicit Java 21 with
 the script's default JVM options and are not resource measurements. The distinct
 ordered seed/fresh-process comparison and resource qualification remain next.
+
+Additional D247 selection: the exact test
+`array snapshot joins preserve overwritten store witness order` writes slot 0,
+then slot 1, then overwrites slot 0. Its current first store must be slot 1,
+distinguishing remove/reinsert order from earliest-ever insertion or the ordinary
+free probe's minimum-index priority. This small additional case uses OFF with
+explanation on; the existing matrix already covers all missing-free modes.
+
+The [additional focused test](array-overwrite-focused-test.json) passes, with
+its [raw log](array-overwrite-focused-test.txt.gz) retained. The
+[ordered baseline delta](ordered/DELTA.md) records full immutable source/seed
+identity, the reached private helper/wrapper dependency and original H0613's
+25 propagated candidates. Two independent reconstructions match the ordered
+seed and original standard-library archive. Four canonical fresh captures per
+fixture match; only the selected SlotOrder note differs from original J0.
+All 36 selected ordered resource follow-ups pass exact artifact/primary parity
+and cleanup-accounting checks. Their raw evidence and manifests remain separate
+from the original failed measurements. D247 closes this array-slot first-store
+path; it does not close other ownership ordering or M0.3/S0.

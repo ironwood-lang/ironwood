@@ -58,6 +58,33 @@ final class ArraySnapshotOrderTests {
         }
     }
 
+    static void overwrittenStore() {
+        String text = """
+                class OverwrittenArrayStore {
+                    static void check(boolean flag) {
+                        byte[] data = new byte[1];
+                        Object[] holder = new Object[2];
+                        if (flag) {
+                            holder[0] = data;
+                            holder[1] = data;
+                            holder[0] = data;
+                        }
+                        free data;
+                        free holder;
+                    }
+                }
+                """;
+        SourceFile source = SourceFile.of("OverwrittenArrayStore.iron", text);
+        CompilationArtifact result = new CompilerPipeline(UnfreedMode.OFF, true, null).analyze(List.of(source));
+        var error = result.diagnostics().stream().filter(d -> d.isError()
+                && d.message().startsWith("cannot free 'data':")).findFirst().orElseThrow();
+        int currentFirst = text.indexOf("holder[1] = data;") + "holder[1] = ".length();
+        require(!result.valid() && error.message().contains("incoming control-flow path")
+                        && error.notes().size() == 1
+                        && error.notes().getFirst().span().start().offset() == currentFirst,
+                "overwritten slot kept its earliest-ever position or chose minimum index: " + error);
+    }
+
     private static String stores(int size, boolean reverse, String value) {
         StringBuilder text = new StringBuilder();
         for (int index = 0; index < size; index++) {

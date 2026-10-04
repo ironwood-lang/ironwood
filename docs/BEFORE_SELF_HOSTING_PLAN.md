@@ -183,6 +183,12 @@ other snapshot hash paths remain outside that focused repair.
 The D247 repair and its four selected behavior tests now pass, including all
 unfreed modes and paired safe/unsafe array controls. The original J0 archive
 stays intact; the distinct ordered seed and fresh comparison are next.
+An additional focused overwrite case distinguishes current-store order from
+earliest-ever store order and the ordinary probe's minimum-index precedence.
+The [ordered baseline delta](self-hosting/m0/ordered/DELTA.md) now qualifies
+two matching seed reconstructions, four canonical captures per fixture and 36
+selected resource follow-ups. Original J0 evidence remains separate. D247's
+array-slot path passes; global ownership ordering and M0.3 budgets remain open.
 Next action: finish reviewed call and transitive ordering contracts, extend
 the corpus, and derive resource budgets before native pilot evaluation.
 

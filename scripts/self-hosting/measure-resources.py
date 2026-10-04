@@ -92,6 +92,8 @@ def unwrap(value):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', type=Path, required=True)
+    parser.add_argument('--identity', type=Path, default=ROOT / 'docs/self-hosting/m0/qualified/identity.json')
+    parser.add_argument('--baseline-label', default='original-J0')
     parser.add_argument('--workload', action='append', help='exact workload name; may repeat')
     parser.add_argument('--all', action='store_true', help='all 17 focused resource workloads, not the compiler test suite')
     parser.add_argument('--repeat', type=int, default=2)
@@ -101,7 +103,9 @@ def main():
     out = args.output.resolve()
     if out.exists():
         raise ValueError('measurement destination exists; preserve prior evidence')
-    identity = json.loads((ROOT / 'docs/self-hosting/m0/qualified/identity.json').read_text())
+    identity = json.loads(args.identity.read_text())
+    if identity['revision'] != '6bde84df320e9dbc32977a2b665d214ac09bc2d4' and args.baseline_label == 'original-J0':
+        raise ValueError('a changed seed requires an explicit distinct baseline label')
     cases = corpus(identity['revision'])
     selected = list(cases) if args.all else args.workload
     if len(selected) != len(set(selected)) or any(name not in cases for name in selected):
@@ -141,7 +145,7 @@ def main():
     (tooling / 'javac.stdout.txt').write_bytes(process.stdout)
     (tooling / 'javac.stderr.txt').write_bytes(process.stderr)
     report = {'schema': 1, 'J0_revision': identity['revision'], 'J0_seed_sha256': identity['seed_jar_sha256'],
-              'identity_sha256': sha((ROOT / 'docs/self-hosting/m0/qualified/identity.json').read_bytes()),
+              'identity_sha256': sha(args.identity.read_bytes()), 'baseline_label': args.baseline_label,
               'profile': identity['profile'], 'library_home': str(install), 'cleared_environment': list(cleared),
               'hardware': identity['hardware'], 'platform': identity['platform'],
               'repeat': args.repeat, 'selected': selected,
