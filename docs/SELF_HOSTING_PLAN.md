@@ -318,10 +318,19 @@ archive text validation must choose the appropriate behavior deliberately.
 | Filesystem details | Files/path basics exist, but compiler code uses temporary files/directories, executable/readable checks, real paths, no-follow options, and atomic replacement | Inventory exact calls. Reuse `walkFileTree`/directory streams; fill narrowly scoped gaps or let the initial driver perform them. `Files.move` currently has no-replace semantics and is not an atomic-replace substitute. |
 | Installation discovery | `StandardLibrary`, `RuntimeLibrary`, `CompilerVersion` use Java code-source/resource locations | Use an explicit installation root passed by the launcher and a build-generated version/identity resource. Preserve supported environment overrides and source-checkout operation. |
 | ZIP and CRC | `IronClass`, `IronJar`, Bridge archives use ZIP readers/writers and CRC32; no current ZIP library | Preserve current formats. A focused archive facility needs bounds/duplicate/path validation, checksum handling, and compatibility with existing compressed payloads. |
-| Hashes | `OptimizedTraceMetadata` uses MD5 for LLVM GUIDs; runtime/TLS and Bridge inventories use SHA-256 | Supply exact algorithms through reviewed portable helpers or a narrowly justified native dependency. Do not replace established identity algorithms with an ad hoc hash. |
+| Hashes | `OptimizedTraceMetadata` and `LlvmEmitter` use MD5 for LLVM GUIDs at S4; `ByteViewIntrinsic.trusted` uses SHA-256 for exact source authority at S3; `NativeBackend.prepareRuntimeObject` hashes runtime headers for its in-process cache at S4; TLS and Bridge inventories also use SHA-256 | Supply exact algorithms through reviewed portable helpers or a narrowly justified native dependency. SHA-256 must be bit-exact before S3 handles ByteView programs, even though full Bridge production waits until S7. Do not replace established identity algorithms with an ad hoc hash. |
 | Binary object inspection | `SharedTraceOrder` reads Mach-O/ELF, byte order, unsigned fields, and probe groups | Reuse supported `ByteBuffer` members or explicit byte access; port exact extent validation and ordering. |
 | Properties/manifests | Bridge distribution and dependency inventories use `Properties`, JAR manifests, hex formatting | Specify and implement the accepted data formats, including required escaping, continuation, and duplicate rules. Do not assume a naive key/value split is equivalent. |
 | Java tool APIs | `BridgeBuildTools` and `BridgeAssembler` use `javax.tools`; export validation uses `SourceVersion` | Invoke selected external `javac`/`javadoc` for Java artifacts and implement the required Java-name checks. Preserve supported JDK selection and existing generation flags. |
+
+The proposed S4 port decision in
+[B5](BEFORE_SELF_HOSTING_PLAN.md#8-b5-exact-checksums-and-digests) is to omit
+`RUNTIME_OBJECTS` and its cache-key construction from the initial
+one-native-link-per-process driver, compiling runtime objects directly. This
+removes only cache-related header hashing; ByteView, TLS, and artifact SHA-256
+consumers remain. If the cache is retained, preserve header hashing and verify
+invalidation. The proposed omission applies to the native port, leaving the
+Java bootstrap's cache in place.
 
 The native boundary is a real design gate. General FFI is not currently
 available. A future process facility needs ordinary typed frontend/IR support
