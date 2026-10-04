@@ -155,7 +155,8 @@ plugin can remain Java without making the native compiler Java-hosted.
 | --- | --- | --- |
 | Records and sealed hierarchies | AST `Expression`, `TypeName`; IR `IrFunction`, `IrType`; nested semantic result/snapshot records | Use final classes with constructors/accessors and explicit equality/hash behavior where needed; use ordinary interfaces. Preserve constructor validation and traversal completeness. |
 | Type-pattern `switch` | 536 arms in 19 production files; [`IrCfgRenamer`](../compiler/src/main/java/ironwood/compiler/ir/IrCfgRenamer.java) has 92 and [`BorrowDispatchAnalysis`](../compiler/src/main/java/ironwood/compiler/semantic/BorrowDispatchAnalysis.java) has 91; several Bridge analyzers have 20-41 each | Rewrite as ordered `instanceof`-pattern `if`/`else` chains. Preserve dispatch behavior and replace sealed-switch exhaustiveness with the per-consumer [variant coverage check](#reflection-really-occurs-in-the-compiler) below. |
-| Streams, lambdas, method references | Dependency discovery, almost every semantic pass, emitter joins and filtering | Use explicit loops, direct helpers, and named callback/comparator classes where a callback is necessary. Preserve encounter order, short circuiting, duplicate handling, and exception timing. |
+| Streams, lambdas, method references | Dependency discovery, almost every semantic pass, emitter joins and filtering | Use explicit loops and direct helpers; implement the compiler-local callback interfaces below with named or anonymous classes where callbacks remain necessary. Preserve encounter order, short circuiting, duplicate handling, and exception timing. |
+| Functional callback types | 25 generic type references in 12 files, including `IrCfgRenamer` fields and `FunctionAnalyzer` parameters; two `BooleanSupplier` parameters and four compiler-defined `@FunctionalInterface` declarations | Replace retained `java.util.function` types with minimal compiler-local interfaces; retain the compiler-defined interfaces without the annotation. Inventory callback allocations, captures, and owners under section 4. |
 | `var`, uninitialized locals, multiple declarators | `Main`, Bridge code, backend; Feature 88 remains unsupported | Spell types and one initialized variable per declaration. Restructure branches where choosing a dummy initial value would obscure state. |
 | Varargs and convenience factories | `Parser.contiguousKinds(TokenKind...)`, `List.of`, `Set.of`, `Map.ofEntries` | Fixed-arity helpers or explicit arrays/builders with clear ownership. Do not add varargs to the language. |
 | Boxing and nullable wrappers | `TypeName` uses `List<Integer>`; lexer escape decoding returns nullable `Character`; backend uses nullable `Integer`/`Boolean` options | Primitive lists/arrays, explicit presence flags, or small typed results. `ironwood.ds` generics have reference bounds and cannot simply become `ArrayList<int>`. |
@@ -197,6 +198,27 @@ proofs. Replacing identity with value equality could merge distinct allocations.
 Document each key's equality, hash, mutability, and lifetime contract before
 translating its consumers. Array fields in records also require an explicit
 decision about preserving existing array identity versus content comparison.
+
+Anonymous classes still need declared target interfaces. For the surviving uses
+of `Function`, `BiConsumer`, `Supplier`, `Predicate`, `UnaryOperator`, `Consumer`,
+`BiFunction`, and `BooleanSupplier`, define ordinary single-method interfaces in
+the compiler's own packages, using domain-specific signatures where practical.
+Use existing `Runnable` or `Comparator` only where their contracts fit. Keep
+only the callback operations needed after stream rewrites; this is not a public
+`java.util.function` compatibility layer. Preserve reference generic bounds,
+argument/result types, and exception behavior; use primitive boolean signatures
+for `BooleanSupplier` and the boolean parameter of `DocComment.render`'s link
+callback instead of introducing boxed `Boolean` merely to copy its Java
+`BiFunction` type.
+
+The four existing compiler-defined interfaces are `SemanticAnalyzerFactory`,
+`FunctionAnalyzer.LValueWriter`, `AnonymousParentBinder.PlanningContextFactory`,
+and `InvocationPlanningContext.ExpressionProbe`. Port their method contracts as
+ordinary interfaces and remove `@FunctionalInterface`. Prefer direct helpers
+with explicit state for immediately invoked callbacks where that preserves
+evaluation and cleanup order. Where a callback is retained, as in `IrCfgRenamer`
+or a specialization pass, record that field relationship and its lifetime rather
+than treating the callback parameter as automatically non-retaining.
 
 Audit generic declarations as well as their call sites. An omitted Java bound
 still describes reference values; an omitted Ironwood bound also permits
@@ -401,9 +423,22 @@ Recommended lifetime classification for the pilot:
 | --- | --- | --- |
 | Source text, AST, symbols, final IR, diagnostic source spans | Retain through one compiler invocation initially | Complete self-sized workload fits an agreed peak-memory budget; no accidental persistent cache |
 | Per-function builders, traversal stacks, formatting buffers | Reuse or reclaim at a proved boundary | Results do not retain reclaimed storage; failure paths preserve ownership |
+| Callback objects and captured state | Prefer direct helpers; otherwise allocate with an explicit owner and reuse per pass where state, identity, and reentrancy permit; retain field-stored callbacks for the holder's required lifetime | Allocation counts per AST/IR operation; enclosing/captured-reference retention; safe cleanup on normal/exceptional exits and rejection of freeing still-observable callbacks or captures |
 | Branch snapshots and iterative analysis facts | Independent immutable snapshots, then explicit retirement/reuse where provable | Restore/join behavior, identity distinctions, convergence, and bounded high-water growth |
 | File/directory/process resources | Close at lexical/driver boundaries, including failures | No descriptor/child/temp-output leak across repeated invocations |
 | Cross-invocation caches | Disabled or explicitly bounded for the first native CLI | No unbounded retention; cache invalidation remains correct |
+
+Each named or anonymous callback instance is an ordinary allocation; do not
+assume Java lambda caching or allocation elimination carries over to the port.
+Measure immediate and field-retained cases separately in S1 and later slices,
+including `FunctionAnalyzer` callbacks created during expression lowering.
+Include captured-state helper allocations and references in the inventory, and
+avoid a new wrapper per node where a direct helper or safe reuse suffices. Apply the existing
+[capture ownership rules](MEMORY.md): hidden enclosing/capture fields are aliases
+and can mark referenced allocations escaped. Freeing a callback neither frees
+its captured objects nor automatically restores permission to free them. A
+borrowing consumer must not destroy a caller-owned callback; normal ownership
+and closed-world effect proofs must establish every proposed cleanup boundary.
 
 For the first one-shot compiler, retaining shared semantic graphs until process
 termination is a defensible temporary implementation choice. Record it
@@ -540,7 +575,8 @@ independent copies, bit-set copying, and explanation snapshot lifetimes.
 Include excluded-syntax rewrites, text-block indentation, nullable escape
 results, numeric boundaries, and source failures. Scale input up to representative
 compiler source volume and difficult control-flow/generic shapes; ordinary
-source length alone is not enough.
+source length alone is not enough. Include immediate and field-retained callback
+cases, with allocation counts and paired safe/unsafe capture-cleanup evidence.
 
 Measure missing-free diagnostics emitted while compiling and linking the
 Ironwood pilot under the section 4 `warn` policy, initially with the Java
@@ -768,6 +804,7 @@ native structural outputs for assertions previously made on Java objects.
 | AST/IR value and identity rules; type resolver, inference, all proof maps | Equal type keys versus distinct equal-looking allocation nodes; immutable snapshot versus later builder mutation | Structural comparisons, correct deduplication/convergence, identity-key tests |
 | Explicit IR traversal; array descriptors, pruning, Bridge roots | Reachable nested array/constant/field retained; unrelated unreachable code removed | Variant coverage, typed IR, LLVM, native array/cast and reachability fixtures |
 | Type-pattern dispatch rewrites; CFG renaming, borrow dispatch, Bridge analyzers | Every relevant variant, including no-op/rejected cases; selector evaluation, null behavior, and true/false guards where present | Per-consumer Java/native behavior and IR agreement; adding an untreated variant or removing a treatment fails the shared coverage check |
+| Compiler-local callback interfaces; lowering, CFG renaming, specialization, documentation | Immediate versus field-retained callbacks; noncapturing versus captured state; normal/exceptional exits and reentrant use | Same results and invocation order; measured callback allocations; accepted independent cleanup and rejected frees of observable callbacks/captures under every unfreed mode |
 | Effects, borrowing, owned fields, pools and containers | Same-pool release versus wrong-pool release; independent return versus input publication; clear versus escaped iterator/item | Safe acceptance and unsafe rejection under every unfreed mode, source/class/archive parity |
 | Cleanup and exceptions; streams, constructors, deferred operations | Normal and exceptional exits, partial construction, nested `finally`/`defer`, multiple cleanup failures | Ordered effects, primary/secondary diagnostics, native allocation/resource checks |
 | Constants/text; lexer, folding, emitter, diagnostics | Min/max/out-of-range literals, shifts/casts, NaN/signed zero, valid/malformed UTF-8 and text blocks | Exact tokens/spans/constants and compiled behavior; Java oracle only for Java-compatible behavior |
