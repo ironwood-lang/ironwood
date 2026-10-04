@@ -685,7 +685,8 @@ Exercise Java-written artifacts read by native tools, native-written artifacts
 read by Java tools, both compilers' class/archive round trips, and invalid
 artifacts. Check CLI exit codes, diagnostic streams, flags, source-path/classpath
 resolution, explicit main selection, `--unfreed`, rejected-free explanation,
-tool discovery, optimization reports, runtime caching, and output failures.
+tool discovery, optimization reports, runtime object compilation or the recorded
+cache omission, and output failures.
 
 Exit: ordinary installed compiler, archiver, and documentation workflows work
 without the Java compiler jar. Rebuilding the native compiler and its library
