@@ -803,6 +803,10 @@ public final class CompilerTests {
                 this::setCopiesPreserveLoans);
         test("independent set copy constructor and iterator proofs reject publication",
                 this::setCopyProofControls);
+        test("constructor helper arguments reject observable rollback owners",
+                this::constructorHelpersRejectObservableRollbackOwners);
+        test("confined constructor helpers reclaim normal and failed construction",
+                () -> runFixtureAtO3("constructor_confined_helper_rollback.iron", 42));
         test("independent set copies survive artifacts and allocation failures",
                 this::setCopiesAcrossArtifacts);
         test("independent map copy proofs reject changed traversal and publication",
@@ -7677,18 +7681,14 @@ public final class CompilerTests {
                 }
                 CompilationArtifact noFree = compileSources(SourceFile.of("test/" + family + "Iterator.iron", published),
                         SourceFile.of("test/Main.iron", main.replace("free source; free copied; free item;", "")));
-                if (body.equals("this.owner = owner;")) {
-                    assertTrue(noFree.successful(), family + " reset publication source: " + messages(noFree));
-                } else {
-                    assertTrue(!noFree.successful(), family + " iterator publication definition accepted");
-                    assertContains(messages(noFree), "constructor may publish in-progress 'this'",
-                            "publishing iterator constructor definition diagnostic");
-                }
+                assertTrue(!noFree.successful(), family + " iterator publication definition accepted");
+                assertContains(messages(noFree), "constructor may publish in-progress 'this'",
+                        "publishing iterator constructor definition diagnostic");
                 CompilationArtifact unsafe = compileSources(SourceFile.of("test/" + family + "Iterator.iron", published),
                         SourceFile.of("test/Main.iron", main));
                 assertTrue(!unsafe.successful(), family + " publishing iterator constructor received set-copy proof");
-                assertContains(messages(unsafe), body.equals("this.owner = owner;") ? "cannot free"
-                        : "constructor may publish in-progress 'this'", "publishing iterator diagnostic");
+                assertContains(messages(unsafe), "constructor may publish in-progress 'this'",
+                        "publishing iterator diagnostic");
             }
             String backend = family.replace("Set", "Map");
             String map = Files.readString(Path.of("stdlib/src/main/ironwood/ironwood/ds/" + backend + ".iron"));
@@ -7704,6 +7704,146 @@ public final class CompilerTests {
             assertContains(messages(badSource), "abstract", "bodyless copy source diagnostic");
             assertTrue(!messages(badSource).contains("internal compiler"), "bodyless copy caused an internal error");
             System.out.println(family + " abstract backend copy diagnostics: " + messages(badSource));
+        }
+    }
+
+    private void constructorHelpersRejectObservableRollbackOwners() throws Exception {
+        for (String family : List.of("HashSet", "IdentityHashSet", "LinkedHashSet")) {
+            String base = "stdlib/src/main/ironwood/ironwood/ds/";
+            String iterator = Files.readString(Path.of(base + family + "Iterator.iron"))
+                    .replace("private " + family + "<E> owner;",
+                            "private " + family + "<E> owner; static " + family + "<?> saved; static int calls;")
+                    .replace("void reset() {", "void reset() { if (++calls == 2) { saved = this.owner; throw new RuntimeException(); }");
+            String main = """
+                    package ironwood.ds;
+                    class Main { public static int main(String[] args) {
+                        try {
+                            %1$s<String> source = new %1$s<String>(1); source.add("entry");
+                            %1$s<String> copied = source.copy();
+                        } catch (RuntimeException failure) { return %1$sIterator.saved.size(); }
+                        return 0;
+                    }}
+                    """.formatted(family);
+            for (String form : List.of("source", "classes", "archive")) {
+                SourceFile set = switch (form) {
+                    case "classes" -> IronClass.read(Path.of("compiler/build/stdlib/ironwood/ds/" + family + ".ironclass"))
+                            .source("ironwood.ds." + family).orElseThrow();
+                    case "archive" -> IronJar.read(Path.of("compiler/build/ironwood-stdlib.ironjar"))
+                            .source("ironwood.ds." + family).orElseThrow();
+                    default -> SourceFile.of("test/" + family + ".iron", Files.readString(Path.of(base + family + ".iron")));
+                };
+                for (UnfreedMode mode : UnfreedMode.values()) {
+                    CompilationArtifact unsafe = new CompilerPipeline(mode).compile(List.of(set,
+                            SourceFile.of("test/" + family + "Iterator.iron", iterator), SourceFile.of("test/Main.iron", main)));
+                    assertTrue(!unsafe.successful(), family + " " + form + " rollback owner published under " + mode);
+                    assertContains(messages(unsafe), "constructor may publish in-progress 'this'",
+                            "mandatory rollback safety diagnostic");
+                    System.out.println(family + " " + form + " " + mode + ": " + messages(unsafe));
+                }
+            }
+        }
+        for (String body : List.of("helper = new Helper(this);",
+                "Object value = this; helper = new Helper(value);",
+                "Object value = null; if (flag) value = this; helper = new Helper(value);",
+                "Object value = null; int turn = 0; while (turn < 2) { helper = new Helper(value); value = this; turn++; }",
+                "helper = new Helper(identity(this));", "helper = new Helper(self());")) {
+            String source = """
+                    class Helper {
+                        static Object saved; private Object owner;
+                        Helper(Object value) { owner = value; reset(); }
+                        private void reset() { saved = owner; throw new RuntimeException(); }
+                    }
+                    class Parent {
+                        private Helper helper;
+                        Parent(boolean flag) { %s }
+                        private static Object identity(Object value) { return value; }
+                        private Object self() { return this; }
+                        destructor { free helper; }
+                    }
+                    class Main { public static int main(String[] args) { new Parent(true); return 0; } }
+                    """.formatted(body);
+            for (UnfreedMode mode : UnfreedMode.values()) {
+                CompilationArtifact unsafe = new CompilerPipeline(mode).compile(SourceFile.of("test/Main.iron", source));
+                assertTrue(!unsafe.successful(), "constructor alias publication admitted under " + mode + ": " + body);
+                assertContains(messages(unsafe), "constructor may publish in-progress 'this'", "constructor alias safety diagnostic");
+            }
+        }
+        for (boolean published : List.of(false, true)) {
+            String source = """
+                    interface Self { Object self(); }
+                    class Helper {
+                        static Object saved; private Object owner;
+                        Helper(Object value) { owner = value; reset(); }
+                        private void reset() { %s if (Main.fail) throw Main.failure; }
+                    }
+                    class Parent implements Self {
+                        private Helper helper;
+                        Parent() { helper = new Helper(self()); }
+                        @Override public Object self() { return null; }
+                        destructor { free helper; }
+                    }
+                    class Child extends Parent { @Override public Object self() { return this; } }
+                    class Main {
+                        static boolean fail = true;
+                        static RuntimeException failure = new RuntimeException();
+                        public static int main(String[] args) { new Child(); return 0; }
+                    }
+                    """.formatted(published ? "saved = owner;" : "");
+            for (String construction : List.of("self()", "((Self) this).self()")) {
+                for (UnfreedMode mode : UnfreedMode.values()) {
+                    CompilationArtifact artifact = new CompilerPipeline(mode).compile(SourceFile.of("test/Main.iron",
+                            source.replace("new Helper(self())", "new Helper(" + construction + ")")));
+                    if (published) {
+                        assertTrue(!artifact.successful(), "dispatch returned parent publication admitted under " + mode);
+                        assertContains(messages(artifact), "constructor may publish in-progress 'this'", "dispatch helper safety diagnostic");
+                    } else {
+                        assertTrue(artifact.successful(), "confined dispatch helper rejected under " + mode + ": " + messages(artifact));
+                    }
+                }
+            }
+        }
+        for (String creation : List.of("new Helper<Object>(this)", "new Helper<>(this)")) {
+            String source = """
+                    class Helper<T extends Object> {
+                        static Object saved; private T owner;
+                        Helper(T value) { owner = value; reset(); }
+                        private void reset() { saved = owner; throw new RuntimeException(); }
+                    }
+                    class Parent {
+                        private Helper<Object> helper;
+                        Parent() { helper = %s; }
+                        destructor { free helper; }
+                    }
+                    class Main { public static int main(String[] args) { new Parent(); return 0; } }
+                    """.formatted(creation);
+            for (UnfreedMode mode : UnfreedMode.values()) {
+                CompilationArtifact unsafe = new CompilerPipeline(mode).compile(SourceFile.of("test/Main.iron", source));
+                assertTrue(!unsafe.successful(), "generic constructor publication admitted under " + mode);
+                assertContains(messages(unsafe), "constructor may publish in-progress 'this'", "generic helper safety diagnostic");
+            }
+        }
+        for (UnfreedMode mode : UnfreedMode.values()) {
+            CompilationArtifact safe = new CompilerPipeline(mode).compile(SourceFile.of("test/Main.iron", """
+                    class Helper {
+                        private Object owner;
+                        Helper(Object value, boolean fail) { owner = value; reset(fail); }
+                        private void reset(boolean fail) { if (fail) throw Main.failure; }
+                    }
+                    class Parent {
+                        private Helper helper;
+                        Parent(boolean fail) { helper = new Helper(this, fail); }
+                        destructor { free helper; }
+                    }
+                    class Main {
+                        static RuntimeException failure = new RuntimeException();
+                        public static int main(String[] args) {
+                            Parent value = new Parent(false); free value;
+                            try { new Parent(true); } catch (RuntimeException expected) { return 0; }
+                            return 1;
+                        }
+                    }
+                    """));
+            assertTrue(safe.successful(), "confined throwing helper rejected under " + mode + ": " + messages(safe));
         }
     }
 

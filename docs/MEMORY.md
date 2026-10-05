@@ -692,7 +692,12 @@ safe-`free` restrictions as a qualified access through its declaring type.
 Calling an imported method likewise uses its ordinary escape summary. Static
 imports create no hidden reference, allocation, owner, borrow, or lifetime.
 
-A constructor may not publish in-progress `this`. If construction throws, the
+A constructor may not publish in-progress `this`. Passing that receiver or a
+proved alias to another constructor requires the argument to remain confined:
+retention in a helper is permitted only through a private encapsulated field.
+This check is mandatory even without an explicit `free` and in every unfreed
+mode. Converted, joined and returned aliases, including possible virtual and
+interface return targets, participate in the check. If construction throws, the
 `new` expression's exceptional edge invokes a compiler-generated rollback
 callable. It walks compiler-proven owned fields in reverse order, recursively
 destroys completed child allocations through their normal destructor entries,

@@ -1,0 +1,1023 @@
+{
+  "schema_version": 1,
+  "increment": "D252 mandatory helper confinement during automatic constructor rollback",
+  "base_commit": "fe9d31cd4594f8b7065307735ab4d6acd42abef2",
+  "producing_compiler": {
+    "path": "/Users/developer/workspace-mba-m2/Ironwood/workspace/m1/set-rollback-qualified/ironwoodc.jar",
+    "sha256": "ee7211ebf944e6bfadaaee48f574a45fe8304ff15f47b27c57b29686f2b667cc",
+    "role": "producing compiler, staged sources only"
+  },
+  "compiler_source_identity_file": {
+    "path": "docs/self-hosting/m1/set-rollback-evidence/compiler-sources.json",
+    "sha256": "9de6301b1049f9a0f3eb51a4352408e80e6bacbd65f776ad6c36e525587053c3"
+  },
+  "sources": [
+    {
+      "path": "compiler/src/main/java/ironwood/compiler/semantic/FunctionAnalyzer.java",
+      "sha256": "c28e6b4d07cef3ec5d61d50eb97f1db65c474966d020cdda68198179e132e6ab",
+      "authority": "focused index; paused keyed draft excluded"
+    },
+    {
+      "path": "compiler/src/main/java/ironwood/compiler/semantic/EscapeSummaryAnalyzer.java",
+      "sha256": "46c70a0a1b8d506b4a3d950a76306316a5280135409034457c36bff8a2462c38",
+      "authority": "focused index; paused keyed draft excluded"
+    },
+    {
+      "path": "compiler/src/main/java/ironwood/compiler/semantic/FreshBorrowingFactoryAnalysis.java",
+      "sha256": "607404d34b90fb413581a333e75d838f4e09fc6516766c8aec3ed7cd3113d412",
+      "authority": "focused index; paused keyed draft excluded"
+    },
+    {
+      "path": "compiler/src/test/java/ironwood/compiler/CompilerTests.java",
+      "sha256": "0316e2e3dd958a7af6df608d83db7ae5cfdafd917cf685a91a6d1a5d5bd71717",
+      "authority": "focused index; paused keyed draft excluded"
+    },
+    {
+      "path": "integration-tests/cases/constructor_confined_helper_rollback.iron",
+      "sha256": "f49c96e2630c76279cf48bd667da249d39cf4711a957420afc284a569c044c86",
+      "authority": "focused index; paused keyed draft excluded"
+    },
+    {
+      "path": "stdlib/src/main/ironwood/ironwood/ds/HashMap.iron",
+      "sha256": "c683c7d82f837adac0c5840c3a7192b53ed4c8c289d5d14792bcfde497d4f366",
+      "authority": "focused index; paused keyed draft excluded"
+    },
+    {
+      "path": "stdlib/src/main/ironwood/ironwood/ds/IdentityHashMap.iron",
+      "sha256": "05e138e97b5c86833b718faafb881a8b9f4b24f39c4f43bd1918b9937a877089",
+      "authority": "focused index; paused keyed draft excluded"
+    },
+    {
+      "path": "stdlib/src/main/ironwood/ironwood/ds/LinkedHashMap.iron",
+      "sha256": "401a5bb3c810254d765e5bc61ea57add29a0855f8e766109764882db29a23bb5",
+      "authority": "focused index; paused keyed draft excluded"
+    },
+    {
+      "path": "stdlib/src/main/ironwood/ironwood/ds/HashSet.iron",
+      "sha256": "e6c17f7f9688ef85d18854c6a4f1b30e07b4e00d67b20ecee16784ac69cbbbc6",
+      "authority": "focused index; paused keyed draft excluded"
+    },
+    {
+      "path": "stdlib/src/main/ironwood/ironwood/ds/IdentityHashSet.iron",
+      "sha256": "bc54da8093d0f0442d23eff51771bd6808b3b7ac2ddb6531611dd27932b145d8",
+      "authority": "focused index; paused keyed draft excluded"
+    },
+    {
+      "path": "stdlib/src/main/ironwood/ironwood/ds/LinkedHashSet.iron",
+      "sha256": "b0bf57d8dd05cac1dba31415e94614ced5bf174292f266cb2dc1a9608c9a2adf",
+      "authority": "focused index; paused keyed draft excluded"
+    },
+    {
+      "path": "stdlib/src/main/ironwood/ironwood/ds/HashSetIterator.iron",
+      "sha256": "bfa12a6b4812a1e6bccdf0acae90aa9e9088ceed0381ff934c13bbbbb42587c1",
+      "authority": "focused index; paused keyed draft excluded"
+    },
+    {
+      "path": "stdlib/src/main/ironwood/ironwood/ds/IdentityHashSetIterator.iron",
+      "sha256": "ab415ee872ef0a38bc152b146475c61bc86dc66956547afc410ce0342f4847b6",
+      "authority": "focused index; paused keyed draft excluded"
+    },
+    {
+      "path": "stdlib/src/main/ironwood/ironwood/ds/LinkedHashSetIterator.iron",
+      "sha256": "81a3d43948e05d0555cb07cf894c245cff919a4b40c59cd46221a3df8ff4b0da",
+      "authority": "focused index; paused keyed draft excluded"
+    },
+    {
+      "path": "docs/self-hosting/m1/set-rollback-evidence/SetRollbackProbe.java",
+      "sha256": "7c7f97062e8f5d7dbff860f18caf9efb2b8befd63797aaba53349512cc4f841e",
+      "authority": "exact historical compile-only admission probe"
+    }
+  ],
+  "artifacts": [
+    {
+      "path": "workspace/m1/set-rollback-qualified/helper/Helper.ironclass",
+      "sha256": "12b2ce73c3b1699d1c84c644ea39e819301b85af8d5c60b2a5d5a3bc48bb0f20",
+      "role": "corrected compiler native helper class input"
+    },
+    {
+      "path": "workspace/m1/set-rollback-qualified/helper/Main.ironclass",
+      "sha256": "3d70c0cd269564eaad99c8165e151023a6ae38d5ddb6cabe228f44d7419f889a",
+      "role": "corrected compiler native helper class input"
+    },
+    {
+      "path": "workspace/m1/set-rollback-qualified/helper/Parent.ironclass",
+      "sha256": "963f267557db461712479e424ebcb6643954f2790e1a55a62cd84a076c5703f2",
+      "role": "corrected compiler native helper class input"
+    },
+    {
+      "path": "workspace/m1/set-rollback-qualified/helper.ironjar",
+      "sha256": "954ff08ef1e1dd052368e6256cfee16caaa47887ecff617a1515dbd2271fbb52",
+      "role": "reconstructed input or verified native/LLVM output"
+    },
+    {
+      "path": "workspace/m1/set-rollback-qualified/helper-classes",
+      "sha256": "95552448d46299fba542884ccf2390985c68f70ea97f5906541f66545304bc93",
+      "role": "reconstructed input or verified native/LLVM output"
+    },
+    {
+      "path": "workspace/m1/set-rollback-qualified/helper-archive",
+      "sha256": "dc7f7a8c46a40986e83bc6d548d382aeb98fa9522ebeb53d55ea234a246a6486",
+      "role": "reconstructed input or verified native/LLVM output"
+    },
+    {
+      "path": "workspace/m1/set-rollback-qualified/helper-classes.ll",
+      "sha256": "73775fd07920d62e0e9ba06b291982c617f1fc0c589f3c20816f3330b5ebaca5",
+      "role": "reconstructed input or verified native/LLVM output"
+    },
+    {
+      "path": "workspace/m1/set-rollback-qualified/helper-archive.ll",
+      "sha256": "73775fd07920d62e0e9ba06b291982c617f1fc0c589f3c20816f3330b5ebaca5",
+      "role": "reconstructed input or verified native/LLVM output"
+    },
+    {
+      "path": "workspace/m1/set-rollback-qualified/helper-baseline.ll",
+      "sha256": "73775fd07920d62e0e9ba06b291982c617f1fc0c589f3c20816f3330b5ebaca5",
+      "role": "reconstructed input or verified native/LLVM output"
+    },
+    {
+      "path": "compiler/build/ironwood-stdlib.ironjar",
+      "sha256": "a1fdd6520ce1c0d09a036c204e8586117e8b509d598057d8bd780562ad081cc5",
+      "role": "reconstructed input or verified native/LLVM output"
+    },
+    {
+      "path": "compiler/build/stdlib/ironwood/ds/HashSet.ironclass",
+      "sha256": "21031106fb396090df1a599b30e427b5430799472627032e2b9c38814c4afb81",
+      "role": "reconstructed input or verified native/LLVM output"
+    },
+    {
+      "path": "compiler/build/stdlib/ironwood/ds/IdentityHashSet.ironclass",
+      "sha256": "5f80c00352b688aa8a482bc5211a941c25b5b772b57a89e7946ec036d525160d",
+      "role": "reconstructed input or verified native/LLVM output"
+    },
+    {
+      "path": "compiler/build/stdlib/ironwood/ds/LinkedHashSet.ironclass",
+      "sha256": "d7a3a6123b53ef20b33f33e160e4aeff623c74ca83c5f35789ab01e3485f34ae",
+      "role": "reconstructed input or verified native/LLVM output"
+    }
+  ],
+  "tools": [
+    {
+      "path": "/Users/developer/workspace-mba-m2/Ironwood/workspace/m1/set-rollback-qualified/ironwoodc.jar",
+      "sha256": "ee7211ebf944e6bfadaaee48f574a45fe8304ff15f47b27c57b29686f2b667cc",
+      "role": "producing compiler, staged sources only"
+    },
+    {
+      "path": "/Users/developer/workspace-mba-m2/Ironwood/workspace/m1/rollback-baseline/ironwoodc.jar",
+      "sha256": "ae192dfb0c308a302afe16958ecae5a5d12b8b3170d1f52662d998c70aa24c2a",
+      "role": "historical admission and safe fixture baseline"
+    },
+    {
+      "path": "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home/bin/java",
+      "sha256": "00e1f85b58fbb7b9e28c78740288028fc3d5146fc2810b78fe4f1a3ed7765d98",
+      "role": "Java 21.0.1"
+    },
+    {
+      "path": "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home/bin/javac",
+      "sha256": "7c23e4d156cf9787bc072ddb6c851aec909d0581638cef021d7771b37adf1ce8",
+      "role": "Java 21.0.1"
+    },
+    {
+      "path": "/opt/homebrew/opt/llvm@23/bin/opt",
+      "sha256": "bc0c3344c3ce3c5c9614d2f132836c9e590304e2021b104433992cbf75e6d71c",
+      "role": "LLVM 23.1.0"
+    },
+    {
+      "path": "/opt/homebrew/opt/llvm@23/bin/llc",
+      "sha256": "68ec93686ac68bb70b93fa413bf2a9696face192bb949043734fb1053094c793",
+      "role": "LLVM 23.1.0"
+    }
+  ],
+  "commands": [
+    {
+      "argv": [
+        "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home/bin/java",
+        "-jar",
+        "/Users/developer/workspace-mba-m2/Ironwood/workspace/m1/set-rollback-qualified/ironwoodc.jar",
+        "integration-tests/cases/constructor_confined_helper_rollback.iron",
+        "--unfreed=error",
+        "-d",
+        "/Users/developer/workspace-mba-m2/Ironwood/workspace/m1/set-rollback-qualified/helper"
+      ],
+      "log": "workspace/m1/set-rollback-qualified/helper-compile.log",
+      "exit": 0,
+      "expected_exit": 0
+    },
+    {
+      "argv": [
+        "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home/bin/java",
+        "-cp",
+        "/Users/developer/workspace-mba-m2/Ironwood/workspace/m1/set-rollback-qualified/ironwoodc.jar",
+        "ironwood.compiler.IronJarMain",
+        "--create",
+        "--file",
+        "/Users/developer/workspace-mba-m2/Ironwood/workspace/m1/set-rollback-qualified/helper.ironjar",
+        "/Users/developer/workspace-mba-m2/Ironwood/workspace/m1/set-rollback-qualified/helper"
+      ],
+      "log": "workspace/m1/set-rollback-qualified/helper-archive.log",
+      "exit": 0,
+      "expected_exit": 0
+    },
+    {
+      "argv": [
+        "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home/bin/java",
+        "-jar",
+        "/Users/developer/workspace-mba-m2/Ironwood/workspace/m1/set-rollback-qualified/ironwoodc.jar",
+        "--link",
+        "-cp",
+        "/Users/developer/workspace-mba-m2/Ironwood/workspace/m1/set-rollback-qualified/helper",
+        "--main-class",
+        "Main",
+        "--unfreed=error",
+        "-O3",
+        "--emit-llvm",
+        "/Users/developer/workspace-mba-m2/Ironwood/workspace/m1/set-rollback-qualified/helper-classes.ll",
+        "-o",
+        "/Users/developer/workspace-mba-m2/Ironwood/workspace/m1/set-rollback-qualified/helper-classes"
+      ],
+      "log": "workspace/m1/set-rollback-qualified/helper-classes-link.log",
+      "exit": 0,
+      "expected_exit": 0
+    },
+    {
+      "argv": [
+        "/Users/developer/workspace-mba-m2/Ironwood/workspace/m1/set-rollback-qualified/helper-classes"
+      ],
+      "log": "workspace/m1/set-rollback-qualified/helper-classes-run.log",
+      "exit": 42,
+      "expected_exit": 42
+    },
+    {
+      "argv": [
+        "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home/bin/java",
+        "-jar",
+        "/Users/developer/workspace-mba-m2/Ironwood/workspace/m1/set-rollback-qualified/ironwoodc.jar",
+        "--link",
+        "-cp",
+        "/Users/developer/workspace-mba-m2/Ironwood/workspace/m1/set-rollback-qualified/helper.ironjar",
+        "--main-class",
+        "Main",
+        "--unfreed=error",
+        "-O3",
+        "--emit-llvm",
+        "/Users/developer/workspace-mba-m2/Ironwood/workspace/m1/set-rollback-qualified/helper-archive.ll",
+        "-o",
+        "/Users/developer/workspace-mba-m2/Ironwood/workspace/m1/set-rollback-qualified/helper-archive"
+      ],
+      "log": "workspace/m1/set-rollback-qualified/helper-archive-link.log",
+      "exit": 0,
+      "expected_exit": 0
+    },
+    {
+      "argv": [
+        "/Users/developer/workspace-mba-m2/Ironwood/workspace/m1/set-rollback-qualified/helper-archive"
+      ],
+      "log": "workspace/m1/set-rollback-qualified/helper-archive-run.log",
+      "exit": 42,
+      "expected_exit": 42
+    },
+    {
+      "argv": [
+        "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home/bin/java",
+        "-jar",
+        "/Users/developer/workspace-mba-m2/Ironwood/workspace/m1/rollback-baseline/ironwoodc.jar",
+        "integration-tests/cases/constructor_confined_helper_rollback.iron",
+        "--unfreed=error",
+        "-d",
+        "/Users/developer/workspace-mba-m2/Ironwood/workspace/m1/set-rollback-qualified/helper-baseline"
+      ],
+      "log": "workspace/m1/set-rollback-qualified/baseline-compile.log",
+      "exit": 0,
+      "expected_exit": 0
+    },
+    {
+      "argv": [
+        "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home/bin/java",
+        "-jar",
+        "/Users/developer/workspace-mba-m2/Ironwood/workspace/m1/rollback-baseline/ironwoodc.jar",
+        "--link",
+        "-cp",
+        "/Users/developer/workspace-mba-m2/Ironwood/workspace/m1/set-rollback-qualified/helper-baseline",
+        "--main-class",
+        "Main",
+        "--unfreed=error",
+        "-O3",
+        "--emit-llvm",
+        "/Users/developer/workspace-mba-m2/Ironwood/workspace/m1/set-rollback-qualified/helper-baseline.ll",
+        "-o",
+        "/Users/developer/workspace-mba-m2/Ironwood/workspace/m1/set-rollback-qualified/helper-baseline-native"
+      ],
+      "log": "workspace/m1/set-rollback-qualified/baseline-link.log",
+      "exit": 0,
+      "expected_exit": 0
+    },
+    {
+      "argv": [
+        "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home/bin/java",
+        "-jar",
+        "workspace/m1/set-rollback-qualified/ironwoodc.jar",
+        "stdlib/src/main/ironwood/ironwood/pool/ObjectBuilder.iron",
+        "stdlib/src/main/ironwood/ironwood/pool/ArrayObjectPool.iron",
+        "stdlib/src/main/ironwood/ironwood/pool/ArraySizing.iron",
+        "stdlib/src/main/ironwood/ironwood/pool/MultiArrayObjectPool.iron",
+        "stdlib/src/main/ironwood/ironwood/pool/package-info.iron",
+        "stdlib/src/main/ironwood/ironwood/pool/ObjectPool.iron",
+        "stdlib/src/main/ironwood/ironwood/nio/ByteOrder.iron",
+        "stdlib/src/main/ironwood/ironwood/nio/InvalidMarkException.iron",
+        "stdlib/src/main/ironwood/ironwood/nio/ByteBuffer.iron",
+        "stdlib/src/main/ironwood/ironwood/nio/BufferUnderflowException.iron",
+        "stdlib/src/main/ironwood/ironwood/nio/file/InvalidPathException.iron",
+        "stdlib/src/main/ironwood/ironwood/nio/file/FileAlreadyExistsException.iron",
+        "stdlib/src/main/ironwood/ironwood/nio/file/FileSystemException.iron",
+        "stdlib/src/main/ironwood/ironwood/nio/file/ClosedDirectoryStreamException.iron",
+        "stdlib/src/main/ironwood/ironwood/nio/file/Files.iron",
+        "stdlib/src/main/ironwood/ironwood/nio/file/Paths.iron",
+        "stdlib/src/main/ironwood/ironwood/nio/file/FileVisitResult.iron",
+        "stdlib/src/main/ironwood/ironwood/nio/file/NoSuchFileException.iron",
+        "stdlib/src/main/ironwood/ironwood/nio/file/DirectoryNotEmptyException.iron",
+        "stdlib/src/main/ironwood/ironwood/nio/file/FileVisitor.iron",
+        "stdlib/src/main/ironwood/ironwood/nio/file/DirectoryStream.iron",
+        "stdlib/src/main/ironwood/ironwood/nio/file/UnixPath.iron",
+        "stdlib/src/main/ironwood/ironwood/nio/file/SimpleFileVisitor.iron",
+        "stdlib/src/main/ironwood/ironwood/nio/file/UnixFileAttributes.iron",
+        "stdlib/src/main/ironwood/ironwood/nio/file/attribute/FileTime.iron",
+        "stdlib/src/main/ironwood/ironwood/nio/file/attribute/package-info.iron",
+        "stdlib/src/main/ironwood/ironwood/nio/file/attribute/BasicFileAttributes.iron",
+        "stdlib/src/main/ironwood/ironwood/nio/file/package-info.iron",
+        "stdlib/src/main/ironwood/ironwood/nio/file/UnixDirectoryStream.iron",
+        "stdlib/src/main/ironwood/ironwood/nio/file/Path.iron",
+        "stdlib/src/main/ironwood/ironwood/nio/file/DirectoryIteratorException.iron",
+        "stdlib/src/main/ironwood/ironwood/nio/file/AccessDeniedException.iron",
+        "stdlib/src/main/ironwood/ironwood/nio/file/FileSystemLoopException.iron",
+        "stdlib/src/main/ironwood/ironwood/nio/BufferOverflowException.iron",
+        "stdlib/src/main/ironwood/ironwood/nio/package-info.iron",
+        "stdlib/src/main/ironwood/ironwood/lang/Iterable.iron",
+        "stdlib/src/main/ironwood/ironwood/lang/FloatingPointParser.iron",
+        "stdlib/src/main/ironwood/ironwood/lang/StackTraceElement.iron",
+        "stdlib/src/main/ironwood/ironwood/lang/Exception.iron",
+        "stdlib/src/main/ironwood/ironwood/lang/StringBuffer.iron",
+        "stdlib/src/main/ironwood/ironwood/lang/IllegalStateException.iron",
+        "stdlib/src/main/ironwood/ironwood/lang/System.iron",
+        "stdlib/src/main/ironwood/ironwood/lang/StringBuilder.iron",
+        "stdlib/src/main/ironwood/ironwood/lang/NullPointerException.iron",
+        "stdlib/src/main/ironwood/ironwood/lang/Integer.iron",
+        "stdlib/src/main/ironwood/ironwood/lang/AutoCloseable.iron",
+        "stdlib/src/main/ironwood/ironwood/lang/IllegalArgumentException.iron",
+        "stdlib/src/main/ironwood/ironwood/lang/Long.iron",
+        "stdlib/src/main/ironwood/ironwood/lang/Float.iron",
+        "stdlib/src/main/ironwood/ironwood/lang/Comparable.iron",
+        "stdlib/src/main/ironwood/ironwood/lang/Object.iron",
+        "stdlib/src/main/ironwood/ironwood/lang/RuntimeException.iron",
+        "stdlib/src/main/ironwood/ironwood/lang/ClassCastException.iron",
+        "stdlib/src/main/ironwood/ironwood/lang/String.iron",
+        "stdlib/src/main/ironwood/ironwood/lang/Throwable.iron",
+        "stdlib/src/main/ironwood/ironwood/lang/StringIndexOutOfBoundsException.iron",
+        "stdlib/src/main/ironwood/ironwood/lang/Byte.iron",
+        "stdlib/src/main/ironwood/ironwood/lang/Short.iron",
+        "stdlib/src/main/ironwood/ironwood/lang/OutOfMemoryError.iron",
+        "stdlib/src/main/ironwood/ironwood/lang/CharSequence.iron",
+        "stdlib/src/main/ironwood/ironwood/lang/NegativeArraySizeException.iron",
+        "stdlib/src/main/ironwood/ironwood/lang/Enum.iron",
+        "stdlib/src/main/ironwood/ironwood/lang/Runnable.iron",
+        "stdlib/src/main/ironwood/ironwood/lang/Number.iron",
+        "stdlib/src/main/ironwood/ironwood/lang/Character.iron",
+        "stdlib/src/main/ironwood/ironwood/lang/Double.iron",
+        "stdlib/src/main/ironwood/ironwood/lang/ArithmeticException.iron",
+        "stdlib/src/main/ironwood/ironwood/lang/Error.iron",
+        "stdlib/src/main/ironwood/ironwood/lang/UnsupportedOperationException.iron",
+        "stdlib/src/main/ironwood/ironwood/lang/IndexOutOfBoundsException.iron",
+        "stdlib/src/main/ironwood/ironwood/lang/package-info.iron",
+        "stdlib/src/main/ironwood/ironwood/lang/NumberFormatException.iron",
+        "stdlib/src/main/ironwood/ironwood/lang/ArrayIndexOutOfBoundsException.iron",
+        "stdlib/src/main/ironwood/ironwood/lang/Boolean.iron",
+        "stdlib/src/main/ironwood/ironwood/lang/Math.iron",
+        "stdlib/src/main/ironwood/ironwood/time/Instant.iron",
+        "stdlib/src/main/ironwood/ironwood/time/DateTimeException.iron",
+        "stdlib/src/main/ironwood/ironwood/time/InstantCalendar.iron",
+        "stdlib/src/main/ironwood/ironwood/time/format/DateTimeParseException.iron",
+        "stdlib/src/main/ironwood/ironwood/time/format/package-info.iron",
+        "stdlib/src/main/ironwood/ironwood/time/package-info.iron",
+        "stdlib/src/main/ironwood/ironwood/io/FileOutputStream.iron",
+        "stdlib/src/main/ironwood/ironwood/io/StreamSupport.iron",
+        "stdlib/src/main/ironwood/ironwood/io/OutputStreamWriter.iron",
+        "stdlib/src/main/ironwood/ironwood/io/DataOutputStream.iron",
+        "stdlib/src/main/ironwood/ironwood/io/FileInputStream.iron",
+        "stdlib/src/main/ironwood/ironwood/io/PrintStream.iron",
+        "stdlib/src/main/ironwood/ironwood/io/StandardInputStream.iron",
+        "stdlib/src/main/ironwood/ironwood/io/Flushable.iron",
+        "stdlib/src/main/ironwood/ironwood/io/Closeable.iron",
+        "stdlib/src/main/ironwood/ironwood/io/BufferedWriter.iron",
+        "stdlib/src/main/ironwood/ironwood/io/FileReader.iron",
+        "stdlib/src/main/ironwood/ironwood/io/Reader.iron",
+        "stdlib/src/main/ironwood/ironwood/io/OutputStream.iron",
+        "stdlib/src/main/ironwood/ironwood/io/BufferedInputStream.iron",
+        "stdlib/src/main/ironwood/ironwood/io/InputStream.iron",
+        "stdlib/src/main/ironwood/ironwood/io/InterruptedIOException.iron",
+        "stdlib/src/main/ironwood/ironwood/io/InputStreamReader.iron",
+        "stdlib/src/main/ironwood/ironwood/io/Writer.iron",
+        "stdlib/src/main/ironwood/ironwood/io/IOException.iron",
+        "stdlib/src/main/ironwood/ironwood/io/UTFDataFormatException.iron",
+        "stdlib/src/main/ironwood/ironwood/io/DataInputStream.iron",
+        "stdlib/src/main/ironwood/ironwood/io/UncheckedIOException.iron",
+        "stdlib/src/main/ironwood/ironwood/io/BufferedReader.iron",
+        "stdlib/src/main/ironwood/ironwood/io/FileWriter.iron",
+        "stdlib/src/main/ironwood/ironwood/io/FileNotFoundException.iron",
+        "stdlib/src/main/ironwood/ironwood/io/StringWriter.iron",
+        "stdlib/src/main/ironwood/ironwood/io/EOFException.iron",
+        "stdlib/src/main/ironwood/ironwood/io/RandomAccessFile.iron",
+        "stdlib/src/main/ironwood/ironwood/io/StringReader.iron",
+        "stdlib/src/main/ironwood/ironwood/io/BufferedOutputStream.iron",
+        "stdlib/src/main/ironwood/ironwood/io/package-info.iron",
+        "stdlib/src/main/ironwood/ironwood/io/PrintWriter.iron",
+        "stdlib/src/main/ironwood/ironwood/io/ByteArrayInputStream.iron",
+        "stdlib/src/main/ironwood/ironwood/io/ByteArrayOutputStream.iron",
+        "stdlib/src/main/ironwood/ironwood/bridge/ByteView.iron",
+        "stdlib/src/main/ironwood/ironwood/util/Objects.iron",
+        "stdlib/src/main/ironwood/ironwood/util/Optional.iron",
+        "stdlib/src/main/ironwood/ironwood/util/BitSet.iron",
+        "stdlib/src/main/ironwood/ironwood/util/EnumerationIterator.iron",
+        "stdlib/src/main/ironwood/ironwood/util/NoSuchElementException.iron",
+        "stdlib/src/main/ironwood/ironwood/util/Enumeration.iron",
+        "stdlib/src/main/ironwood/ironwood/util/Random.iron",
+        "stdlib/src/main/ironwood/ironwood/util/Iterator.iron",
+        "stdlib/src/main/ironwood/ironwood/util/package-info.iron",
+        "stdlib/src/main/ironwood/ironwood/util/StringJoiner.iron",
+        "stdlib/src/main/ironwood/ironwood/util/Comparator.iron",
+        "stdlib/src/main/ironwood/ironwood/util/Arrays.iron",
+        "stdlib/src/main/ironwood/ironwood/ds/ByteMapIterator.iron",
+        "stdlib/src/main/ironwood/ironwood/ds/LongSetIterator.iron",
+        "stdlib/src/main/ironwood/ironwood/ds/LinkedHashMap.iron",
+        "stdlib/src/main/ironwood/ironwood/ds/LongLinkedListHolder.iron",
+        "stdlib/src/main/ironwood/ironwood/ds/LongArrayList.iron",
+        "stdlib/src/main/ironwood/ironwood/ds/IdentityHashMapEntryBuilder.iron",
+        "stdlib/src/main/ironwood/ironwood/ds/IntMapIterator.iron",
+        "stdlib/src/main/ironwood/ironwood/ds/IdentityHashMap.iron",
+        "stdlib/src/main/ironwood/ironwood/ds/UnmodifiableList.iron",
+        "stdlib/src/main/ironwood/ironwood/ds/LinkedListEntry.iron",
+        "stdlib/src/main/ironwood/ironwood/ds/HashMap.iron",
+        "stdlib/src/main/ironwood/ironwood/ds/IntMapEntryBuilder.iron",
+        "stdlib/src/main/ironwood/ironwood/ds/ByteBufferMapIterator.iron",
+        "stdlib/src/main/ironwood/ironwood/ds/CharSequenceMapEntry.iron",
+        "stdlib/src/main/ironwood/ironwood/ds/LinkedListEntryBuilder.iron",
+        "stdlib/src/main/ironwood/ironwood/ds/LinkedHashMapEntryBuilder.iron",
+        "stdlib/src/main/ironwood/ironwood/ds/LinkedListIterator.iron",
+        "stdlib/src/main/ironwood/ironwood/ds/LinkedList.iron",
+        "stdlib/src/main/ironwood/ironwood/ds/IntLinkedListEntry.iron",
+        "stdlib/src/main/ironwood/ironwood/ds/LongMapEntry.iron",
+        "stdlib/src/main/ironwood/ironwood/ds/IdentityHashSetIterator.iron",
+        "stdlib/src/main/ironwood/ironwood/ds/CharSequenceMapIterator.iron",
+        "stdlib/src/main/ironwood/ironwood/ds/LongArrayListHolder.iron",
+        "stdlib/src/main/ironwood/ironwood/ds/LongArrayListIterator.iron",
+        "stdlib/src/main/ironwood/ironwood/ds/IntSetIterator.iron",
+        "stdlib/src/main/ironwood/ironwood/ds/MathUtils.iron",
+        "stdlib/src/main/ironwood/ironwood/ds/LongMapIterator.iron",
+        "stdlib/src/main/ironwood/ironwood/ds/IntLinkedListHolder.iron",
+        "stdlib/src/main/ironwood/ironwood/ds/LinkedHashMapEntry.iron",
+        "stdlib/src/main/ironwood/ironwood/ds/LongSetHolder.iron",
+        "stdlib/src/main/ironwood/ironwood/ds/IntSet.iron",
+        "stdlib/src/main/ironwood/ironwood/ds/ByteBufferMap.iron",
+        "stdlib/src/main/ironwood/ironwood/ds/IntArrayListIterator.iron",
+        "stdlib/src/main/ironwood/ironwood/ds/LongMap.iron",
+        "stdlib/src/main/ironwood/ironwood/ds/IdentityHashMapEntry.iron",
+        "stdlib/src/main/ironwood/ironwood/ds/HashMapEntryBuilder.iron",
+        "stdlib/src/main/ironwood/ironwood/ds/IdentityHashMapIterator.iron",
+        "stdlib/src/main/ironwood/ironwood/ds/CharSequenceMapEntryBuilder.iron",
+        "stdlib/src/main/ironwood/ironwood/ds/ArrayListIterator.iron",
+        "stdlib/src/main/ironwood/ironwood/ds/IntArrayList.iron",
+        "stdlib/src/main/ironwood/ironwood/ds/IntMapEntry.iron",
+        "stdlib/src/main/ironwood/ironwood/ds/LongLinkedList.iron",
+        "stdlib/src/main/ironwood/ironwood/ds/LongMapEntryBuilder.iron",
+        "stdlib/src/main/ironwood/ironwood/ds/IntMap.iron",
+        "stdlib/src/main/ironwood/ironwood/ds/HashSetIterator.iron",
+        "stdlib/src/main/ironwood/ironwood/ds/CharMap.iron",
+        "stdlib/src/main/ironwood/ironwood/ds/ByteBufferMapEntryBuilder.iron",
+        "stdlib/src/main/ironwood/ironwood/ds/LongSet.iron",
+        "stdlib/src/main/ironwood/ironwood/ds/HashMapEntry.iron",
+        "stdlib/src/main/ironwood/ironwood/ds/LongLinkedListEntry.iron",
+        "stdlib/src/main/ironwood/ironwood/ds/ArrayList.iron",
+        "stdlib/src/main/ironwood/ironwood/ds/ByteBufferMapEntry.iron",
+        "stdlib/src/main/ironwood/ironwood/ds/LongLinkedListEntryBuilder.iron",
+        "stdlib/src/main/ironwood/ironwood/ds/LinkedHashSetIterator.iron",
+        "stdlib/src/main/ironwood/ironwood/ds/LongHolder.iron",
+        "stdlib/src/main/ironwood/ironwood/ds/ArrayLinkedListIterator.iron",
+        "stdlib/src/main/ironwood/ironwood/ds/IntArrayListHolder.iron",
+        "stdlib/src/main/ironwood/ironwood/ds/CharSequenceMap.iron",
+        "stdlib/src/main/ironwood/ironwood/ds/package-info.iron",
+        "stdlib/src/main/ironwood/ironwood/ds/LongLinkedListIterator.iron",
+        "stdlib/src/main/ironwood/ironwood/ds/HashMapIterator.iron",
+        "stdlib/src/main/ironwood/ironwood/ds/ByteMap.iron",
+        "stdlib/src/main/ironwood/ironwood/ds/IntSetHolder.iron",
+        "stdlib/src/main/ironwood/ironwood/ds/IntHolder.iron",
+        "stdlib/src/main/ironwood/ironwood/ds/IntLinkedList.iron",
+        "stdlib/src/main/ironwood/ironwood/ds/HashSet.iron",
+        "stdlib/src/main/ironwood/ironwood/ds/CharMapIterator.iron",
+        "stdlib/src/main/ironwood/ironwood/ds/IntLinkedListIterator.iron",
+        "stdlib/src/main/ironwood/ironwood/ds/IntLinkedListEntryBuilder.iron",
+        "stdlib/src/main/ironwood/ironwood/ds/LinkedHashSet.iron",
+        "stdlib/src/main/ironwood/ironwood/ds/Collections.iron",
+        "stdlib/src/main/ironwood/ironwood/ds/ArrayLinkedList.iron",
+        "stdlib/src/main/ironwood/ironwood/ds/LinkedHashMapIterator.iron",
+        "stdlib/src/main/ironwood/ironwood/ds/IdentityHashSet.iron",
+        "stdlib/src/main/ironwood/ironwood/bench/package-info.iron",
+        "stdlib/src/main/ironwood/ironwood/bench/Bench.iron",
+        "stdlib/src/main/ironwood/ironwood/bench/NanoBench.iron",
+        "stdlib/src/main/ironwood/ironwood/net/NativeOption.iron",
+        "stdlib/src/main/ironwood/ironwood/net/NativeSocketFactory.iron",
+        "stdlib/src/main/ironwood/ironwood/net/InterfaceAddress.iron",
+        "stdlib/src/main/ironwood/ironwood/net/ProxyExchange.iron",
+        "stdlib/src/main/ironwood/ironwood/net/Inet4Address.iron",
+        "stdlib/src/main/ironwood/ironwood/net/IpLiteralParser.iron",
+        "stdlib/src/main/ironwood/ironwood/net/SocketAddress.iron",
+        "stdlib/src/main/ironwood/ironwood/net/InterfaceSnapshot.iron",
+        "stdlib/src/main/ironwood/ironwood/net/SocketImplFactory.iron",
+        "stdlib/src/main/ironwood/ironwood/net/SocketOption.iron",
+        "stdlib/src/main/ironwood/ironwood/net/InterfaceQuery.iron",
+        "stdlib/src/main/ironwood/ironwood/net/ProxySocketImpl.iron",
+        "stdlib/src/main/ironwood/ironwood/net/tls/TlsClient.iron",
+        "stdlib/src/main/ironwood/ironwood/net/tls/package-info.iron",
+        "stdlib/src/main/ironwood/ironwood/net/UnknownHostException.iron",
+        "stdlib/src/main/ironwood/ironwood/net/SocksProtocol.iron",
+        "stdlib/src/main/ironwood/ironwood/net/TcpNative.iron",
+        "stdlib/src/main/ironwood/ironwood/net/TcpInventories.iron",
+        "stdlib/src/main/ironwood/ironwood/net/Proxy.iron",
+        "stdlib/src/main/ironwood/ironwood/net/StandardSocketOptions.iron",
+        "stdlib/src/main/ironwood/ironwood/net/Socket.iron",
+        "stdlib/src/main/ironwood/ironwood/net/TcpSupport.iron",
+        "stdlib/src/main/ironwood/ironwood/net/InetSocketAddress.iron",
+        "stdlib/src/main/ironwood/ironwood/net/BindException.iron",
+        "stdlib/src/main/ironwood/ironwood/net/SocketOptionDescriptor.iron",
+        "stdlib/src/main/ironwood/ironwood/net/InterfaceEnumeration.iron",
+        "stdlib/src/main/ironwood/ironwood/net/ConnectException.iron",
+        "stdlib/src/main/ironwood/ironwood/net/ResolverQuery.iron",
+        "stdlib/src/main/ironwood/ironwood/net/NoRouteToHostException.iron",
+        "stdlib/src/main/ironwood/ironwood/net/NetworkInterface.iron",
+        "stdlib/src/main/ironwood/ironwood/net/SocketDescriptor.iron",
+        "stdlib/src/main/ironwood/ironwood/net/package-info.iron",
+        "stdlib/src/main/ironwood/ironwood/net/NativeSocketImpl.iron",
+        "stdlib/src/main/ironwood/ironwood/net/InetAddress.iron",
+        "stdlib/src/main/ironwood/ironwood/net/SocketImpl.iron",
+        "stdlib/src/main/ironwood/ironwood/net/Inet6Address.iron",
+        "stdlib/src/main/ironwood/ironwood/net/HttpConnectProtocol.iron",
+        "stdlib/src/main/ironwood/ironwood/net/SocketException.iron",
+        "stdlib/src/main/ironwood/ironwood/net/InterfaceAddressEnumeration.iron",
+        "stdlib/src/main/ironwood/ironwood/net/SocketImplOptions.iron",
+        "stdlib/src/main/ironwood/ironwood/net/SubInterfaceEnumeration.iron",
+        "stdlib/src/main/ironwood/ironwood/net/SocketTimeoutException.iron",
+        "stdlib/src/main/ironwood/ironwood/net/ServerSocket.iron",
+        "-d",
+        "workspace/m1/set-rollback-qualified/stdlib",
+        "--source-path",
+        "stdlib/src/main/ironwood",
+        "--unfreed=error"
+      ],
+      "log": "workspace/m1/set-rollback-qualified/strict-library.log",
+      "exit": 0,
+      "expected_exit": 0,
+      "label": "strict library"
+    },
+    {
+      "argv": [
+        "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home/bin/java",
+        "-ea",
+        "-cp",
+        "workspace/m1/set-rollback-qualified/classes:workspace/m1/set-rollback-qualified/test-classes",
+        "ironwood.compiler.CompilerTests",
+        "--test",
+        "constructor helper arguments reject observable rollback owners",
+        "--test",
+        "confined constructor helpers reclaim normal and failed construction",
+        "--test",
+        "independent set copy constructor and iterator proofs reject publication",
+        "--test",
+        "independent set copies preserve item loans and callback boundaries",
+        "--test",
+        "independent set copies survive artifacts and allocation failures",
+        "--test",
+        "independent map copies preserve keys values and callback loan safety",
+        "--test",
+        "independent list copies preserve destination and nested payload loans",
+        "--test",
+        "private compiler snapshots preserve copied payload loans",
+        "--test",
+        "pool release helper proofs preserve mandatory safety"
+      ],
+      "log": "workspace/m1/set-rollback-qualified/focused-tests.log",
+      "exit": 0,
+      "expected_exit": 0,
+      "label": "9 focused tests"
+    },
+    {
+      "argv": [
+        "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home/bin/javac",
+        "--release",
+        "21",
+        "-encoding",
+        "UTF-8",
+        "-Xlint:all",
+        "-Werror",
+        "-d",
+        "workspace/m1/set-rollback-qualified/classes",
+        "@workspace/m1/set-rollback-qualified/sources.txt"
+      ],
+      "exit": 0,
+      "expected_exit": 0
+    },
+    {
+      "argv": [
+        "./scripts/check-licenses.sh"
+      ],
+      "log": "workspace/m1/set-rollback-qualified/licenses.log",
+      "exit": 0,
+      "expected_exit": 0
+    },
+    {
+      "argv": [
+        "git",
+        "diff",
+        "--check"
+      ],
+      "log": "workspace/m1/set-rollback-qualified/diff-check.log",
+      "exit": 0,
+      "expected_exit": 0
+    },
+    {
+      "argv": [
+        "/usr/bin/otool",
+        "-tvV",
+        "workspace/m1/set-rollback-qualified/helper-classes"
+      ],
+      "log": "workspace/m1/set-rollback-qualified/helper-classes-O3-machine-code.log",
+      "exit": 0,
+      "expected_exit": 0
+    },
+    {
+      "argv": [
+        "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home/bin/jar",
+        "--create",
+        "--file",
+        "workspace/m1/set-rollback-qualified/ironwoodc.jar",
+        "--main-class",
+        "ironwood.compiler.Main",
+        "-C",
+        "workspace/m1/set-rollback-qualified/classes",
+        "."
+      ],
+      "exit": 0,
+      "expected_exit": 0
+    },
+    {
+      "argv": [
+        "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home/bin/javac",
+        "--release",
+        "21",
+        "-encoding",
+        "UTF-8",
+        "-Xlint:all",
+        "-Werror",
+        "-cp",
+        "workspace/m1/set-rollback-qualified/classes",
+        "-d",
+        "workspace/m1/set-rollback-qualified/test-classes",
+        "@compiler/build/test-sources.txt"
+      ],
+      "exit": 0,
+      "expected_exit": 0,
+      "log": "workspace/m1/set-rollback-qualified/test-javac.log"
+    }
+  ],
+  "logs": [
+    {
+      "source": "workspace/m1/set-rollback-qualified/baseline-compile.log",
+      "retained": "docs/self-hosting/m1/set-rollback-evidence/logs/baseline-compile.log.gz",
+      "sha256": "ef6ca049b7289c79b720efe12f45882220b68e1dd3dea1df52e8f24bcc90cf4a",
+      "gzip_sha256": "4f53f5f711334cc46c42515ebd3fbdebe93e21ee6b01fa6152780cbc90ef5f76",
+      "bytes": 732,
+      "classification": "qualified",
+      "warnings": {
+        "formal_warning_count": 0,
+        "suppressed": 0
+      }
+    },
+    {
+      "source": "workspace/m1/set-rollback-qualified/baseline-link.log",
+      "retained": "docs/self-hosting/m1/set-rollback-evidence/logs/baseline-link.log.gz",
+      "sha256": "4b46f552ccf750b5f153f20c384b5f73f70f0e5fca0612bc35cb753cf86404ec",
+      "gzip_sha256": "5e755de729f034508f24f48a919109a2e2a122e4d5813f8ab26f0b0e6bf63a86",
+      "bytes": 667,
+      "classification": "qualified",
+      "warnings": {
+        "formal_warning_count": 0,
+        "suppressed": 0
+      }
+    },
+    {
+      "source": "workspace/m1/set-rollback-qualified/diff-check.log",
+      "retained": "docs/self-hosting/m1/set-rollback-evidence/logs/diff-check.log.gz",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "gzip_sha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "bytes": 0,
+      "classification": "qualified",
+      "warnings": {
+        "formal_warning_count": 0,
+        "suppressed": 0
+      }
+    },
+    {
+      "source": "workspace/m1/set-rollback-qualified/focused-tests.log",
+      "retained": "docs/self-hosting/m1/set-rollback-evidence/logs/focused-tests.log.gz",
+      "sha256": "b5241b8487da74b6622bd6b9bba4b780e39012654f27bec7c2bbc64c1c6dfca6",
+      "gzip_sha256": "dc2d043b91e5f5e3c504d5f68ad96a3aeb850ab1b3343285e31baa338c4e4f8e",
+      "bytes": 10366,
+      "classification": "qualified",
+      "warnings": {
+        "formal_warning_count": 0,
+        "suppressed": 0
+      }
+    },
+    {
+      "source": "workspace/m1/set-rollback-qualified/helper-archive-link.log",
+      "retained": "docs/self-hosting/m1/set-rollback-evidence/logs/helper-archive-link.log.gz",
+      "sha256": "c55307bc95591d32a0dcd9cbf99101d324063e6c4df9f05cd24a05d44e4f405a",
+      "gzip_sha256": "d6fb20e85596a96ecb0ebcf0d8aa62e9c9d30c81322cdc270d7920c7d0efeef5",
+      "bytes": 654,
+      "classification": "qualified",
+      "warnings": {
+        "formal_warning_count": 0,
+        "suppressed": 0
+      }
+    },
+    {
+      "source": "workspace/m1/set-rollback-qualified/helper-archive-run.log",
+      "retained": "docs/self-hosting/m1/set-rollback-evidence/logs/helper-archive-run.log.gz",
+      "sha256": "df51a641ff753f50a4fdcdca66df8960f9634db50167e45ed5442991b9fc7b4f",
+      "gzip_sha256": "e656e335115f5ce340ced14ab2dcadf1d3b041e9f6cba6f0067d9934af839065",
+      "bytes": 130,
+      "classification": "qualified",
+      "warnings": {
+        "formal_warning_count": 0,
+        "suppressed": 0
+      }
+    },
+    {
+      "source": "workspace/m1/set-rollback-qualified/helper-archive.log",
+      "retained": "docs/self-hosting/m1/set-rollback-evidence/logs/helper-archive.log.gz",
+      "sha256": "61c3195e3fe49838f8e9c8b3bfe6cb9403f0187ee2425cc6d87038542a376d2e",
+      "gzip_sha256": "64173aa72619fdd34965f8b27acc6c7b60cb0cc95867640d19829623a852da8a",
+      "bytes": 530,
+      "classification": "qualified",
+      "warnings": {
+        "formal_warning_count": 0,
+        "suppressed": 0
+      }
+    },
+    {
+      "source": "workspace/m1/set-rollback-qualified/helper-classes-O3-machine-code.log",
+      "retained": "docs/self-hosting/m1/set-rollback-evidence/logs/helper-classes-O3-machine-code.log.gz",
+      "sha256": "a4726818925cca412ddde8c4399272121aade01c7060d2be436d9361410b6c47",
+      "gzip_sha256": "414e533d42870dcfb56fd19d63a06eb33c59c1ac967ccf3b85efdf4c35130ed6",
+      "bytes": 110631,
+      "classification": "qualified",
+      "warnings": {
+        "formal_warning_count": 0,
+        "suppressed": 0
+      }
+    },
+    {
+      "source": "workspace/m1/set-rollback-qualified/helper-classes-link.log",
+      "retained": "docs/self-hosting/m1/set-rollback-evidence/logs/helper-classes-link.log.gz",
+      "sha256": "6b2b523d30e08f36030fdb1559c84a90f6c03bc131e38d9cce3d1c12645e7f87",
+      "gzip_sha256": "3ae347de7e5abccaa5c9bc660f05a37ccf19295b045a61ad1c27130d50a24806",
+      "bytes": 646,
+      "classification": "qualified",
+      "warnings": {
+        "formal_warning_count": 0,
+        "suppressed": 0
+      }
+    },
+    {
+      "source": "workspace/m1/set-rollback-qualified/helper-classes-run.log",
+      "retained": "docs/self-hosting/m1/set-rollback-evidence/logs/helper-classes-run.log.gz",
+      "sha256": "78ad7f0073aed0ba68387830e7d62f732c47e90ffb79bbe05c3c623627949c48",
+      "gzip_sha256": "de53f794d92d2013ea68edbc87e4d8511f250cd0c62522c0df8f0a5c5c53dc11",
+      "bytes": 130,
+      "classification": "qualified",
+      "warnings": {
+        "formal_warning_count": 0,
+        "suppressed": 0
+      }
+    },
+    {
+      "source": "workspace/m1/set-rollback-qualified/helper-compile.log",
+      "retained": "docs/self-hosting/m1/set-rollback-evidence/logs/helper-compile.log.gz",
+      "sha256": "d0e2e655653182084a16313859e0a1b3fc8a329513904fb299e1119f698ffed1",
+      "gzip_sha256": "0af6ae43e05a7944f30deb6234437289ddf7208948191a85f52496092fa282b6",
+      "bytes": 701,
+      "classification": "qualified",
+      "warnings": {
+        "formal_warning_count": 0,
+        "suppressed": 0
+      }
+    },
+    {
+      "source": "workspace/m1/set-rollback-qualified/javac.log",
+      "retained": "docs/self-hosting/m1/set-rollback-evidence/logs/javac.log.gz",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "gzip_sha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "bytes": 0,
+      "classification": "qualified",
+      "warnings": {
+        "formal_warning_count": 0,
+        "suppressed": 0
+      }
+    },
+    {
+      "source": "workspace/m1/set-rollback-qualified/licenses.log",
+      "retained": "docs/self-hosting/m1/set-rollback-evidence/logs/licenses.log.gz",
+      "sha256": "baf5804aeb26498337c9c5223c199afeba5c3e2fc36ae219b9bf420e3775f673",
+      "gzip_sha256": "21fd3bcaf61e87e10822dd63176f2751a3282de06861c556f8ea5cb4d913c689",
+      "bytes": 54,
+      "classification": "qualified",
+      "warnings": {
+        "formal_warning_count": 0,
+        "suppressed": 0
+      }
+    },
+    {
+      "source": "workspace/m1/set-rollback-qualified/strict-library.log",
+      "retained": "docs/self-hosting/m1/set-rollback-evidence/logs/strict-library.log.gz",
+      "sha256": "40603ab5f053354c7edf38f86ac82852d9e44747a68321d3d74e80ac1acb51f7",
+      "gzip_sha256": "8bf689e662649af7733b65acfba1b0e3eea73c9602b5d12484637a356380154b",
+      "bytes": 32649,
+      "classification": "qualified",
+      "warnings": {
+        "formal_warning_count": 0,
+        "suppressed": 0
+      }
+    },
+    {
+      "source": "workspace/m1/set-rollback-qualified/test-javac.log",
+      "retained": "docs/self-hosting/m1/set-rollback-evidence/logs/test-javac.log.gz",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "gzip_sha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "bytes": 0,
+      "classification": "qualified",
+      "warnings": {
+        "formal_warning_count": 0,
+        "suppressed": 0
+      }
+    },
+    {
+      "source": "workspace/m1/set-copy-rollback-initial.log",
+      "retained": "docs/self-hosting/m1/set-rollback-evidence/logs/set-copy-rollback-initial.log.gz",
+      "sha256": "06183b461862e46244516201906ccb12afb55199518b5a890fae7d7551c1cf97",
+      "gzip_sha256": "bc946f5a3c50e4768b8a6527703d26a5116f5bc0b8555887e1cc9879d19af53b",
+      "bytes": 2295,
+      "classification": "historical development or admission witness",
+      "warnings": {
+        "formal_warning_count": 0,
+        "suppressed": 0
+      }
+    },
+    {
+      "source": "workspace/m1/set-copy-rollback-after.log",
+      "retained": "docs/self-hosting/m1/set-rollback-evidence/logs/set-copy-rollback-after.log.gz",
+      "sha256": "06183b461862e46244516201906ccb12afb55199518b5a890fae7d7551c1cf97",
+      "gzip_sha256": "bc946f5a3c50e4768b8a6527703d26a5116f5bc0b8555887e1cc9879d19af53b",
+      "bytes": 2295,
+      "classification": "historical development or admission witness",
+      "warnings": {
+        "formal_warning_count": 0,
+        "suppressed": 0
+      }
+    },
+    {
+      "source": "workspace/m1/set-copy-rollback-final.log",
+      "retained": "docs/self-hosting/m1/set-rollback-evidence/logs/set-copy-rollback-final.log.gz",
+      "sha256": "b95c9c1b1608c6eabc76f035109df5fd2edbf5a49c25b4be5374323db184b8cb",
+      "gzip_sha256": "aa37a197de6b5c96fe5e3a460237012756bcbc928d4b1068f04ec0604c948230",
+      "bytes": 8145,
+      "classification": "historical development or admission witness",
+      "warnings": {
+        "formal_warning_count": 0,
+        "suppressed": 0
+      }
+    },
+    {
+      "source": "workspace/m1/set-rollback-fix-build.log",
+      "retained": "docs/self-hosting/m1/set-rollback-evidence/logs/set-rollback-fix-build.log.gz",
+      "sha256": "d1a08f1fe0719e043af9226f4b6a084f0bd1596e305e2a34e8713d3b6a9af016",
+      "gzip_sha256": "e4cec8509c7729aff62abaf0640b60483f0ffbc760a6bd66e55c317a4e865546",
+      "bytes": 28358,
+      "classification": "historical development or admission witness",
+      "warnings": {
+        "formal_warning_count": 0,
+        "suppressed": 0
+      }
+    },
+    {
+      "source": "workspace/m1/set-rollback-fix-build-2.log",
+      "retained": "docs/self-hosting/m1/set-rollback-evidence/logs/set-rollback-fix-build-2.log.gz",
+      "sha256": "d1a08f1fe0719e043af9226f4b6a084f0bd1596e305e2a34e8713d3b6a9af016",
+      "gzip_sha256": "e4cec8509c7729aff62abaf0640b60483f0ffbc760a6bd66e55c317a4e865546",
+      "bytes": 28358,
+      "classification": "historical development or admission witness",
+      "warnings": {
+        "formal_warning_count": 0,
+        "suppressed": 0
+      }
+    },
+    {
+      "source": "workspace/m1/set-rollback-fix-build-3.log",
+      "retained": "docs/self-hosting/m1/set-rollback-evidence/logs/set-rollback-fix-build-3.log.gz",
+      "sha256": "ae8f17da97296a9b62ffdcc181be6ac8e16275d6c716e3b1771da597065a47d0",
+      "gzip_sha256": "c60a011dbcbc9471f23b027daced01935d1ded5d8f7d0b274c07664beb256312",
+      "bytes": 219,
+      "classification": "historical development or admission witness",
+      "warnings": {
+        "formal_warning_count": 0,
+        "suppressed": 0
+      }
+    },
+    {
+      "source": "workspace/m1/set-rollback-fix-build-4.log",
+      "retained": "docs/self-hosting/m1/set-rollback-evidence/logs/set-rollback-fix-build-4.log.gz",
+      "sha256": "d1a08f1fe0719e043af9226f4b6a084f0bd1596e305e2a34e8713d3b6a9af016",
+      "gzip_sha256": "e4cec8509c7729aff62abaf0640b60483f0ffbc760a6bd66e55c317a4e865546",
+      "bytes": 28358,
+      "classification": "historical development or admission witness",
+      "warnings": {
+        "formal_warning_count": 0,
+        "suppressed": 0
+      }
+    },
+    {
+      "source": "workspace/m1/set-rollback-focused.log",
+      "retained": "docs/self-hosting/m1/set-rollback-evidence/logs/set-rollback-focused.log.gz",
+      "sha256": "4d2ac03463b8247ebe0350e3dd7f1c76888a94362bd04d2b0a9b23e725bdbc9a",
+      "gzip_sha256": "fe183021fec6b8a0d1833497cd8e585ceb1ad61583c9cdf9026f17333e2d6c45",
+      "bytes": 8267,
+      "classification": "historical development or admission witness",
+      "warnings": {
+        "formal_warning_count": 0,
+        "suppressed": 0
+      }
+    },
+    {
+      "source": "workspace/m1/set-rollback-focused-2.log",
+      "retained": "docs/self-hosting/m1/set-rollback-evidence/logs/set-rollback-focused-2.log.gz",
+      "sha256": "e3fa41dff83162579c381a07c894904b5b61fc794d0c0906812bde50df13582b",
+      "gzip_sha256": "d49816ca78f0b779bd7403e4590ac2c9526a9927165ad8c752deaed37b315796",
+      "bytes": 7978,
+      "classification": "historical development or admission witness",
+      "warnings": {
+        "formal_warning_count": 0,
+        "suppressed": 0
+      }
+    },
+    {
+      "source": "workspace/m1/set-rollback-draft-tests.log",
+      "retained": "docs/self-hosting/m1/set-rollback-evidence/logs/set-rollback-draft-tests.log.gz",
+      "sha256": "d6716ffcb568e804e251b7c90268ccd808c79f5da69e34ade33d693b6042c300",
+      "gzip_sha256": "e298d26473e9cfdf830b4898404780dfc94bc428d4faf7408b80d3fdc0962add",
+      "bytes": 8542,
+      "classification": "historical development or admission witness",
+      "warnings": {
+        "formal_warning_count": 0,
+        "suppressed": 0
+      }
+    },
+    {
+      "source": "workspace/m1/set-rollback-draft-tests-2.log",
+      "retained": "docs/self-hosting/m1/set-rollback-evidence/logs/set-rollback-draft-tests-2.log.gz",
+      "sha256": "9f6a8beaa25f14ca5c76801c56a2baeeec2c3ba62148b703427d7e0571f9b4e4",
+      "gzip_sha256": "2ee8daf8c66feb383b2b6e0bfef337e632f6cd70e9767b2b594b75987c197d42",
+      "bytes": 7978,
+      "classification": "historical development or admission witness",
+      "warnings": {
+        "formal_warning_count": 0,
+        "suppressed": 0
+      }
+    }
+  ],
+  "results": {
+    "focused_tests": "PASS: 9 compiler tests",
+    "mandatory_rejection": "3 set families x source/classes/archive x off/warn/error; no explicit caller frees",
+    "alias_controls": "direct, conversion, branch, loop, static/private return, virtual/interface return, generic and diamond construction; confined counterparts accepted",
+    "native": "class and archive -O3, --unfreed=error; exit 42; empty stdout/stderr; 20 normal and failed attempts with four allocations each and zero private live delta",
+    "valid_path_llvm": {
+      "identical_llvm": true,
+      "baseline_sha256": "73775fd07920d62e0e9ba06b291982c617f1fc0c589f3c20816f3330b5ebaca5",
+      "corrected_sha256": "73775fd07920d62e0e9ba06b291982c617f1fc0c589f3c20816f3330b5ebaca5"
+    },
+    "strict_library": "--unfreed=error, exit 0",
+    "licensing": "passed, 5 OpenJDK-derived files",
+    "unsafe_native_execution": false
+  },
+  "boundaries": [
+    "full M1.1/M1.2/M1.3 remains open",
+    "paused keyed snapshot draft is preserved but excluded from the producing compiler",
+    "initial reserved-namespace CLI failures are not safety evidence",
+    "historical admission witness is compile-only",
+    "expected rejected-source diagnostics and missing-free diagnostics in off/warn/error comparisons remain complete; no warnings suppressed",
+    "allocation claims are qualified to measured scales; inherited very-large-capacity float threshold unchanged"
+  ]
+}

@@ -228,3 +228,33 @@ The conservative combined exposed-source cursor/lookup cleanup remains recorded.
 Native scaling, every OOM limit 0-80, ordinary callback exceptions, selected Java
 contracts, map/snapshot/pool consumers, IronDocs and licensing pass. Full M1
 remains open; the [set record](SETS.md) retains detailed commands and identities.
+
+## Set construction rollback correction
+
+The publishing-reset control without explicit caller frees is insufficient.
+On review, a reset that publishes its owner and then throws admits source,
+class and archive reconstruction under off/warn; error only reports a missing
+free. No accepted unsafe native program was executed. Automatic constructor
+rollback can retire the observable in-progress parent. This blocks acceptance
+of the set increment until corrected; keyed-read work is paused.
+
+Require confinement before passing an in-progress constructor receiver to a
+helper constructor. Preserve ordinary confined owner capture, and follow direct,
+converted, joined and returned receiver aliases rather than requiring a literal
+this expression. Pair the published-owner failure with confined throwing helper
+rollback and normal iterator construction. Reconstruct source/class/archive
+inputs under all unfreed modes, requiring a mandatory safety diagnostic. Recheck
+the strict library build, set/list/map copies, private snapshots and pool safety.
+No runtime bookkeeping, preserved dangling object or weakened free rule is
+permitted. The broader constructor API is not being redesigned.
+
+The focused follow-up qualifies the correction from staged compiler sources,
+preserving the paused keyed draft outside its producing compiler. Source/class/
+archive rejection passes for all three set families in all modes. Direct,
+converted, branch/loop, returned and virtual/interface aliases reject publication;
+confined counterparts remain accepted. Native confined helper attempts allocate
+four objects/arrays on both paths and restore their private-storage baseline.
+The valid fixture's LLVM module is byte-identical before and after the check.
+The strict library build and focused map/set/list/snapshot/pool consumers pass.
+The old admission log is retained and never used as native execution evidence.
+See D252 and [the correction ledger](set-rollback-evidence/manifest.json).

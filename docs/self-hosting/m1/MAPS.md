@@ -29,6 +29,10 @@ Every measured owned item, array and map is reclaimed in the scaling fixture.
 
 ## Compile-time proof and boundaries
 
+The inherited float-based constructor threshold can round down at very large
+capacities, including 16,777,217 at load factor 1.0, and trigger growth. Allocation
+counts describe the measured geometric cases, not every possible capacity.
+
 The structural factory proof checks the fresh constructor, primitive capacity
 expression, explicit failure cleanup, complete direct source traversal,
 key/value projection and existing audited destination insertion target. An

@@ -743,10 +743,12 @@ iterator state. Keys and values remain borrowed and non-null. Copies use load
 factor 1.0 and at least one bucket, sized to current membership. Value maps
 rerun key hash/equality callbacks, propagating exceptions after destination
 cleanup; identity copies invoke no key callbacks. Linked copies preserve
-insertion order. Copy traversal does not reset the source iterator. Each
-nonempty copy allocates one entry per member plus seven support objects; an
-empty copy uses eight allocations. Caller-owned inputs must remain alive while
-observable. Current proofs discharge membership loans on clear or destruction,
+insertion order. Copy traversal does not reset the source iterator. At measured
+sizes 8, 32, 128 and 512, copies allocate one entry per member plus seven support
+objects; an empty copy uses eight allocations. The inherited float-based capacity
+threshold can round down at very large sizes and trigger additional growth, so
+these counts are not a bound for every capacity. Caller-owned inputs must remain
+alive while observable. Current proofs discharge membership loans on clear or destruction,
 subject to retained aliases; individual removal does not discharge a loan.
 See [the map-copy qualification](self-hosting/m1/MAPS.md).
 Hash-map iterator removal unlinks the last returned entry from its own bucket
@@ -797,9 +799,11 @@ unused source pool capacity. Source iterator positions remain unchanged. Value
 copies rerun ordinary hash/equality callbacks and propagate exceptions after
 cleanup; callbacks must not mutate source membership. Identity copies invoke no
 item callbacks, and linked copies preserve insertion order. Empty copies use
-ten allocations; nonempty copies use one entry per item plus nine support
-objects. Clear/destruction can discharge membership loans subject to retained
-aliases; individual removal does not. See [the set-copy qualification](self-hosting/m1/SETS.md).
+ten allocations; measured sizes 8, 32, 128 and 512 use one entry per item plus
+nine support objects. The backing map's inherited float-based capacity threshold
+can trigger additional growth at very large sizes; these counts are not a bound
+for every capacity. Clear/destruction can discharge membership loans subject to
+retained aliases; individual removal does not. See [the set-copy qualification](self-hosting/m1/SETS.md).
 
 `HashSet`, `LinkedHashSet`, `IntSet`, and `LongSet` each use one private static
 `Object` as the non-null value stored in their backing map. The first active use

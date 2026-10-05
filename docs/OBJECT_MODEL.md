@@ -222,7 +222,10 @@ releases proven owned fields of the incomplete base-first object in reverse
 order, normally destroys completed owned child objects, and raw-deallocates the
 receiver without running that incomplete receiver's source destructor.
 Publishing in-progress `this` is rejected, and a `this(...)` chain shares one
-rollback obligation.
+rollback obligation. Passing that receiver or a proved alias to a helper
+constructor requires confinement; an observable retained owner could otherwise
+outlive automatic rollback. This is a mandatory construction check independent
+of explicit frees or missing-free diagnostic settings.
 
 An encapsulated reusable helper may remain owned by its containing object while
 a method returns a dependent borrow. This is how `ironwood.ds` collections lend

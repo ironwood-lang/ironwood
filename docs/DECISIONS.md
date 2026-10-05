@@ -9563,7 +9563,8 @@ occurrence order. If no
   on borrowing inputs through delegation and copied-wrapper construction, with
   actual value-item dispatch checked at each caller. Transfer local item loans;
   retain whole roots for unknown/exposed/dependent sources and preserve nested
-  key publication. General constructor observation is unchanged. Bodyless copy
+  key publication. The original general constructor boundary is superseded by
+  D252's mandatory helper-confinement correction. Bodyless copy
   targets receive no proof and bad-source diagnostics do not crash the compiler.
 - **Boundary:** Clear/destruction and retained aliases govern item lifetime;
   individual removal does not discharge loans. Combined lookup on an exposed
@@ -9574,3 +9575,29 @@ occurrence order. If no
   constructor/reset publication, Java logical contracts, source/class/archive
   reconstruction, geometric allocation counts, ordinary callback failures and
   every representative OOM boundary. See [the set-copy record](self-hosting/m1/SETS.md).
+
+## D252 - Confine helper captures of an in-progress constructor receiver
+
+- **Status:** Implemented during M1.2 on 2026-10-05.
+- **Problem:** A set iterator's reset can publish its retained parent and throw.
+  Previously, programs without explicit frees admitted this construction under
+  off/warn; error only diagnosed a missing free. Automatic rollback then reclaims
+  the observable incomplete parent. No unsafe admitted native program was run.
+- **Decision:** Require argument confinement when a constructor passes its
+  in-progress receiver or a proved alias to another constructor. A retained
+  argument must live only in a private encapsulated helper field. Reuse the
+  existing confinement proof; do not bypass ordinary ownership or publication
+  rules. Apply the check in every unfreed mode without requiring caller frees.
+- **Proof:** Validate after all branch and loop phis are complete. Follow
+  reference conversions and returned receiver/parameter origins, including all
+  possible virtual/interface implementations. Cover both ordinary and planned
+  generic constructor lowering. Confined captures and throwing helpers remain
+  valid. The check changes diagnostics only; valid typed IR and native lowering
+  gain no runtime bookkeeping.
+- **Supersedes:** D251's unchanged general-constructor boundary and its earlier
+  admitted publishing-reset control. Independent storage and item-loan contracts
+  remain. This correction establishes neither full M1 nor S1/G1.
+- **Verification:** All-mode source/class/archive publication-and-throw
+  rejection, direct/converted/joined/loop/returned/dispatch aliases, accepted
+  confined counterparts, native normal/failure cleanup and focused shared
+  consumers. See [the set-copy correction](self-hosting/m1/SETS.md).

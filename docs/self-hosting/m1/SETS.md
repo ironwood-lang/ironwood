@@ -22,7 +22,12 @@ Unused source pool capacity is not copied. Empty copies use ten allocations;
 8/32/128/512-item copies use 17/41/137/521, one entry per item plus nine support
 objects. The outer set and iterator add two allocations to the qualified map
 copy. Measured bucket and both pool-array capacities are `max(1, size())`.
-This is allocation/storage scaling evidence, not a timing or G1 claim.
+This is allocation/storage scaling evidence, not a timing or G1 claim. The
+inherited map constructor computes its threshold through float multiplication
+and rounding. For example, capacity 16,777,217 with load factor 1.0 rounds the
+threshold down and can trigger growth. Counts above describe the measured sizes,
+not a bound for every capacity. No constructor refactor or large-allocation
+experiment is included.
 
 HashSet and LinkedHashSet's existing lazy process-lived filler objects are
 initialized before private-storage baselines. The OOM fixture includes both
@@ -38,7 +43,8 @@ Object superclass, no capture/delegation/field initializer, two private owned
 fields, a final backend map, the proved map-copy assignment and one fresh owned
 iterator. The iterator constructor must confine its owner argument and publish
 neither owner nor receiver. A bodyless backend copy produces ordinary diagnostics
-and no proof. General constructor observation is unchanged.
+and no proof. The follow-up in D252 also requires confinement when an in-progress
+parent is passed to a helper constructor, independent of the fresh-copy proof.
 
 Callback requirements travel with borrowing inputs through factory delegation
 and copied-wrapper construction. Actual value-item hash/equality dispatch must
@@ -67,8 +73,14 @@ key publication; identity counterparts reclaim everything. Two constant-hash
 keys reach the publishing equality override. Changed source mutation/publication
 constructors receive no proof. Direct iterator-constructor publication is
 rejected by the existing in-progress-construction rule even without caller
-frees and is a definition control. Publishing reset bodies are admitted without
-caller frees; ordinary confinement/ownership checks reject later retirement.
+frees and is a definition control. Review found that admitting a publishing reset
+without caller frees was unsafe: a reset can save its parent globally and throw,
+after which automatic constructor rollback reclaims the observable parent.
+The earlier admitted boundary is superseded by D252. Such construction is now
+rejected in all unfreed modes, including source/class/archive reconstruction.
+No unsafe admitted native program was executed. Converted, joined, loop,
+delegated-return, virtual and interface aliases receive the same mandatory check;
+ordinary confined helpers, including throwing ones, remain accepted.
 
 Source/class/archive checks cover independence, collisions, equal-but-distinct
 dynamic identity keys, linked order, source cursor continuation, geometric
@@ -83,3 +95,8 @@ public IronDocs, license audit and diff check are recorded with exact commands,
 complete logs, warning classifications and source/artifact identities in
 [the set evidence ledger](set-evidence/manifest.json). Port source compilation and
 native linking explicitly use `--unfreed=warn`; the library build remains strict.
+
+The construction-safety correction has a separate [qualification ledger](set-rollback-evidence/manifest.json).
+Its compiler is built from the focused staged sources, preserving the paused
+keyed-snapshot draft outside this increment. The original set evidence and
+admission witness remain historical records.

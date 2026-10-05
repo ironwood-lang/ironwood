@@ -111,6 +111,7 @@ import ironwood.compiler.ir.IrExceptionLandingPadInstruction;
 import ironwood.compiler.ir.IrExceptionCaughtInstruction;
 import ironwood.compiler.ir.IrEnsureTypeInitializedInstruction;
 import ironwood.compiler.ir.IrFunction;
+import ironwood.compiler.ir.IrDispatchSlot;
 import ironwood.compiler.ir.IrInstanceOfInstruction;
 import ironwood.compiler.ir.IrInstruction;
 import ironwood.compiler.ir.IrInterfaceCallInstruction;
@@ -236,6 +237,7 @@ final class FunctionAnalyzer {
     private boolean evaluatingConstructorArguments;
     private boolean loweringInstanceInitializer;
     private final List<AllocationInfo> pendingYieldAllocations = new ArrayList<>();
+    private final List<ConstructorHelperArgument> constructorHelperArguments = new ArrayList<>();
     private List<PendingYieldEvidence> pendingYieldEvidence;
     private SourceSpan checkedCatchOrigin;
     private CleanupExit activeCleanupExit;
@@ -1044,6 +1046,7 @@ final class FunctionAnalyzer {
         }
         exitScope();
 
+        validateConstructorHelperArguments();
         if (unfreed != null && !Diagnostic.hasErrors(diagnostics.subList(diagnosticStart, diagnostics.size()))) {
             diagnostics.addAll(unfreed.diagnostics());
         }
@@ -5988,6 +5991,13 @@ final class FunctionAnalyzer {
         LoweredInvocationArguments arguments = lowerInvocationArguments(selected,
                 "constructor argument");
 
+        if (function.isConstructor()) {
+            for (int index = 0; index < arguments.values().size(); index++) {
+                constructorHelperArguments.add(new ConstructorHelperArgument(constructor, index,
+                        arguments.values().get(index).operand(), arguments.spans().get(index)));
+            }
+        }
+
         ensureTypeInitialized(targetClass.name(), expression.span());
         IrValueReference result = newValue(referenceType, expression.span());
         emitCall(new IrAllocateInstruction(result, targetClass.name(), expression.span()),
@@ -6078,6 +6088,81 @@ final class FunctionAnalyzer {
         recordConstructorBorrows(constructor, allocation, arguments.values(),
                 arguments.spans());
         return new TypedValue(referenceType, result);
+    }
+
+    private record ConstructorHelperArgument(CallableSymbol constructor, int index,
+                                             IrOperand value, SourceSpan span) { }
+
+    private void validateConstructorHelperArguments() {
+        // Defer until loop and branch phis contain all incoming values. A helper
+        // must not publish the parent that constructor unwind will reclaim.
+        for (ConstructorHelperArgument argument : constructorHelperArguments) {
+            if (isConstructingThisAlias(argument.value(), new LinkedHashSet<>())
+                    && !escapeSummaries.constructorArgumentIsConfined(argument.constructor(), argument.index())) {
+                diagnostics.add(error(argument.span(),
+                        "constructor may publish in-progress 'this' through an unconfined helper argument"));
+            }
+        }
+    }
+
+    private boolean isConstructingThisAlias(IrOperand value, Set<IrOperand> visited) {
+        if (value == null || thisOperand == null || !visited.add(value)) return false;
+        if (value.equals(thisOperand)) return true;
+        for (MutableBlock block : blocks.values()) {
+            for (MutablePhi phi : block.phis) {
+                if (phi.result.equals(value)) {
+                    return phi.incoming.stream().anyMatch(incoming -> isConstructingThisAlias(incoming.value(), visited));
+                }
+            }
+            for (IrInstruction instruction : block.instructions) {
+                if (instruction instanceof IrReferenceConversionInstruction conversion && conversion.result().equals(value)) {
+                    return isConstructingThisAlias(conversion.value(), visited);
+                }
+                if (instruction instanceof IrPhiInstruction phi && phi.result().equals(value)) {
+                    return phi.incoming().stream().anyMatch(incoming -> isConstructingThisAlias(incoming.value(), visited));
+                }
+                if (callReturnsConstructingThis(instruction, value, visited)) return true;
+            }
+            if (block.terminator instanceof IrInvokeTerminator invoke
+                    && callReturnsConstructingThis(invoke.call(), value, visited)) return true;
+        }
+        return false;
+    }
+
+    private boolean callReturnsConstructingThis(IrInstruction instruction, IrOperand result, Set<IrOperand> visited) {
+        if (instruction instanceof IrCallInstruction call && call.result().filter(result::equals).isPresent()) {
+            return targetReturnsConstructingThis(call.targetLinkageName(), call.arguments(), visited);
+        }
+        IrDispatchSlot slot;
+        List<IrOperand> arguments;
+        if (instruction instanceof IrVirtualCallInstruction call && call.result().filter(result::equals).isPresent()) {
+            slot = call.slot();
+            arguments = call.arguments();
+        } else if (instruction instanceof IrInterfaceCallInstruction call && call.result().filter(result::equals).isPresent()) {
+            slot = call.slot();
+            arguments = call.arguments();
+        } else {
+            return false;
+        }
+        if (arguments.isEmpty() || !arguments.getFirst().type().isNominalReference()) return false;
+        for (TypeSymbol concrete : hierarchy.concreteSubtypes(arguments.getFirst().type().referenceName())) {
+            CallableSymbol target = hierarchy.resolveDispatchImplementation(concrete, slot.key()).orElse(null);
+            if (target != null && targetReturnsConstructingThis(target.linkageName(), arguments, visited)) return true;
+        }
+        return false;
+    }
+
+    private boolean targetReturnsConstructingThis(String linkage, List<IrOperand> arguments, Set<IrOperand> visited) {
+        CallableSymbol target = escapeSummaries.callable(linkage);
+        EscapeSummaryAnalyzer.EscapeSummary effects = escapeSummaries.summary(linkage);
+        if (target == null || effects == null) return false;
+        for (ReturnOrigin origin : effects.returnedOrigins()) {
+            int index = origin.kind() == ReturnOrigin.Kind.THIS ? 0
+                    : origin.kind() == ReturnOrigin.Kind.PARAMETER ? origin.parameterIndex() + (target.isStatic() ? 0 : 1) : -1;
+            if (index >= 0 && index < arguments.size()
+                    && isConstructingThisAlias(arguments.get(index), visited)) return true;
+        }
+        return false;
     }
 
     private TypedValue lowerNew(NewExpression expression) {
@@ -6199,6 +6284,12 @@ final class FunctionAnalyzer {
         allocationsByOperand.put(result, allocation);
         if (constructor == null) {
             return new TypedValue(referenceType, result);
+        }
+        if (function.isConstructor()) {
+            for (int index = 0; index < arguments.size(); index++) {
+                constructorHelperArguments.add(new ConstructorHelperArgument(constructor, index,
+                        arguments.get(index).operand(), expression.arguments().get(index).span()));
+            }
         }
         checkCheckedExceptions(constructor, expression.span());
         if (!isAccessible(constructor.accessModifier(), targetClass.name(), targetClass.name(), false)) {
