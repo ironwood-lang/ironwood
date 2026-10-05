@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parents[2]
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', type=Path, required=True)
-    parser.add_argument('--probe', choices=('evidence', 'ast', 'effect', 'diagnostic', 'unfreed', 'ownership', 'b2'), default='evidence')
+    parser.add_argument('--probe', choices=('evidence', 'ast', 'effect', 'diagnostic', 'unfreed', 'ownership', 'b2', 'builder'), default='evidence')
     args = parser.parse_args()
     if args.output.exists():
         raise ValueError('qualification destination already exists')
@@ -59,6 +59,11 @@ def main():
         main_class = 'ironwood.compiler.' + probe
         cases = 'natural UTF-16 names; nullable sorted-map values and absent membership; independent copies and immutable first entry; comparator-zero deduplication/first representative; stable equal-key sorting and min/max selection; reverse extreme sign and unsigned keys; null comparator/extractor/item failures'
         limits = 'JDK contract facts only; compiler producer/tie ordering remains source-gated; no native B2 helper or resource measurement'
+    elif args.probe == 'builder':
+        probe = 'BuilderContractProbe'
+        main_class = 'ironwood.compiler.doc.' + probe
+        cases = 'ordered mutable UTF-16 builders; return-self and independent results; nullable String/Object/CharSequence; boxed int versus char conversion; self/ranged append; failure precedence; setLength/insert; general codepoint contract and original ASCII-guarded DocModel anchor including supplementary/unpaired input'
+        limits = 'Java API and original source helper facts; producer order, broad native object renderers, cleanup and unsupported general appendCodePoint remain source-gated; no native helper or resource result'
     else:
         probe = 'OwnershipContractProbe'
         main_class = 'ironwood.compiler.semantic.' + probe

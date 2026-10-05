@@ -1,0 +1,19 @@
+{
+  "schema": 1,
+  "source_files": 460,
+  "rows": 53644,
+  "external_calls": 30979,
+  "quote_operands": 11535,
+  "UTF16_constants": 5922,
+  "flat_quote_control": "passed",
+  "historical_expression_quote_changes": {
+    "calls": 56,
+    "syntax": 47,
+    "references": 6,
+    "traversals": 40
+  },
+  "raw_sha256": "0c8878b9b6e8e69446a8ff85c68b33b4eacf74fb9fe289609b63282740980aab",
+  "capture_qualification_sha256": "899e9a8a1763553770a17681dd4eaae0782c88e310ecc0347f2448a82f954a55",
+  "qualifier_sha256": "4ac1d012bc6ce280a0f1ab877e50e1022f21d7a2c44ebf38a86b0ce90e9d4d3c",
+  "limit": "formal declarations are not instantiated generic substitutions; dynamic null/alias/lifetime facts remain unresolved"
+}

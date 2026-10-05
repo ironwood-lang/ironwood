@@ -302,8 +302,14 @@ operation factory's 51 constructor calls/14 patterns have conditional data
 contracts; 98 general hash contributions are excluded from that fixed input,
 without a global order proof. Current D247 attribution is preserved separately.
 All selected call/capture/contribution joins and four rejection controls pass.
-Next: finish the remaining global contracts and precise consumer obligations,
-then reconcile the pilot handoff and S0 exit. M0 remains in progress.
+The mutable-text review adds 15 declarations/5,006 typed source calls and four
+37-check original JVM outputs. Argument qualification preserves all 30,979
+external keys and 53,644 operand ranges with flat quote grammar and canonical
+UTF-16 constants. Five failed parsing attempts remain archived; their raw calls
+were complete. Boxed int/char, borrowed builder, ASCII anchor and cleanup prepend
+contracts are source-specific. General producer order/native retirement remain
+later obligations. Next: finish precise deferred consumers and the pilot handoff,
+then reconcile S0. M0 remains in progress; M1/M2 have not started.
 
 ### M1. Minimum pilot prerequisites
 

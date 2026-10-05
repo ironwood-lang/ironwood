@@ -882,3 +882,22 @@ logs/tool source are retained; 14,464 unchanged calls map across source offsets.
 Five old/ten current changed enclosing calls include the comment-only comparator
 expressions and the new ordered helper. Original IDs and J0 remain immutable.
 This is source/model evidence, not native implementation or a resource rerun.
+
+## Typed operands and mutable text
+
+qualify-argument-facts.py checks 460 original source hashes, 53,644 exact operand
+ranges and 30,979 external call keys. The flat TSV quote control passes; canonical
+UTF-16 constants preserve unpaired units independently of advisory display text.
+Historical quote changes are 56 call, 47 syntax, six reference and 40 traversal
+expressions. Original bytes/IDs/historical fields remain intact. Five failed
+reader attempts are preserved as 35 checked archive members, all with complete
+raw receiver coverage. No javac traversal failure is claimed.
+
+BUILDER_CONTRACTS.md and review-builders.py join 15 exact declarations/5,006 calls
+in 46 files/127 consumers. Object operands are nine Integer, two Path and two
+Character; nine CharSequence operands are builders. The four fresh original
+profile JVM outputs each pass 37 checks after Java 21 release/Xlint/Werror
+compilation, including the original DocModel anchor. Typed source/null/ownership
+limits and later producer-order/retirement gates stay explicit. No native helper
+or pilot result is introduced. Focused evidence, licenses, written-text and
+current/staged/complete-task whitespace checks pass.
