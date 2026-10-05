@@ -16,8 +16,11 @@ import java.util.Set;
  * to the ordinary conservative escape summary.
  */
 final class FreshBorrowingFactoryAnalysis {
-    record Input(ReturnOrigin origin, List<FieldSymbol> fields, IrType type) {
+    record Input(ReturnOrigin origin, List<FieldSymbol> fields, IrType type, boolean containerElements) {
         Input { fields = List.copyOf(fields); }
+        Input(ReturnOrigin origin, List<FieldSymbol> fields, IrType type) {
+            this(origin, fields, type, false);
+        }
     }
     record Result(IrType type, Map<FieldSymbol, Input> borrows, List<Input> elements) {
         Result { borrows = Map.copyOf(borrows); elements = List.copyOf(elements); }
@@ -99,7 +102,8 @@ final class FreshBorrowingFactoryAnalysis {
         if (source == null) return null;
         List<FieldSymbol> fields = new ArrayList<>(source.fields());
         fields.addAll(input.fields());
-        return new Input(source.origin(), fields, input.type());
+        if (source.containerElements()) return null;
+        return new Input(source.origin(), fields, input.type(), input.containerElements());
     }
 
     /** A bounded list of borrowed inputs with explicit failure cleanup. Element
@@ -231,6 +235,22 @@ final class FreshBorrowingFactoryAnalysis {
             if (targets.size() != 1 || targets.getFirst().isStatic()) return null;
             CallableSymbol target = targets.getFirst();
             var summary = escapes.summary(target);
+            CallExpression guard = DataStructureSemantics.arrayListElementReadGuard(target);
+            if (guard != null && call.arguments().stream().allMatch(argument ->
+                    argument instanceof NameExpression || isLiteral(argument))) {
+                TypeSymbol list = types.get(target.ownerType());
+                FieldSymbol storage = list == null ? null : list.declaredFields().get("array");
+                List<CallableSymbol> guards = escapes.boundTargets(target, guard);
+                Input receiver = call.receiver().isPresent() ? input(method, call.receiver().orElseThrow())
+                        : input(method, new ThisExpression(call.span()));
+                if (storage != null && owned.isOwned(storage) && !guards.isEmpty()
+                        && guards.stream().allMatch(check -> DataStructureSemantics.isPureArrayListReadGuard(check)
+                            && !escapes.summary(check).thisEscapesWithoutReturn())
+                        && receiver != null && !receiver.containerElements()) {
+                    return new Input(receiver.origin(), receiver.fields(), target.returnType(), true);
+                }
+                return null;
+            }
             if (summary.mayReturnFresh() || !summary.returnedOrigins().isEmpty()
                     || summary.borrowedReturnedOrigins().isEmpty() || summary.thisEscapesWithoutReturn()
                     || summary.borrowedReturnedOrigins().stream().anyMatch(origin ->

@@ -9462,3 +9462,35 @@ occurrence order. If no
   8/32/128 slots, all missing-free modes, explain parity and accepted fully
   detached controls. Results and the focused existing-consumer checks are
   recorded in the M0 qualification record; this decision does not establish S0.
+
+
+## D248 - Derive list copy item loans from verified storage reads
+
+- **Status:** Implemented during M1.1 on 2026-10-04.
+- **Decision:** Add `ironwood.ds.ArrayList.copy()` with independent ordered
+  mutable membership and iterator storage, borrowed non-null items, default
+  growth factor and `max(1, size())` initial capacity. Use indexed traversal and
+  explicit failure cleanup; do not touch the source reusable iterator.
+- **Proof:** Extend the existing body-verified fresh borrowing factory proof
+  with a container-element input. It requires the exact audited bounds-checked
+  ArrayList read, owned private storage, the exact private read-only primitive
+  bounds guard and a single
+  resolved target. At the caller, an exact unexposed local ArrayList supplies
+  its actual item loans to the fresh result. Self-items and nested containers
+  remain loans. Unknown, dependent or exposed sources retain the conservative
+  source root. Temporary-list summaries do not treat element inputs as a
+  single source-root value. No method spelling receives a copy exemption.
+- **Reason:** The previous factory proof classified reads from owned list
+  storage as unknown results and exposed all caller items. The structural
+  distinction permits builder retirement while preserving destination loans.
+  Exact-sized storage avoids geometric growth allocations in snapshot copying.
+- **Boundary:** Existing removal, publication, subclass and callback restrictions
+  remain intact. This does not qualify arbitrary map copies, private snapshot
+  constructors or S1/G1. No runtime bookkeeping or lowering changes are added.
+  D129's copy deferral is fulfilled only for this method; its other deferred
+  operations remain absent. No other earlier decision is superseded.
+- **Verification:** Focused accepted/rejected lifetime checks in all unfreed
+  modes, nested/self/publishing-subclass controls, delegated factory acceptance,
+  source/class/archive reconstruction, native ordered membership and iterator
+  continuation, 8/32/128/512 allocation scaling, and every allocation-failure
+  boundary. See [the M1 list-copy record](self-hosting/m1/ARRAY_LIST.md).

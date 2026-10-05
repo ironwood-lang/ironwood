@@ -82,7 +82,7 @@ final class TemporaryListBorrowAnalysis {
                     if (proof == null || proof.elements().isEmpty()) continue;
                     boolean valid = true;
                     for (var element : proof.elements()) {
-                        ReturnOrigin origin = element.fields().stream().allMatch(fields::isOwned)
+                        ReturnOrigin origin = !element.containerElements() && element.fields().stream().allMatch(fields::isOwned)
                                 ? mapped(element.origin(), call, Map.of(), new HashSet<>()) : null;
                         if (origin == null || seed != null && !seed.equals(origin)) { valid = false; break; }
                         seed = origin;
@@ -204,7 +204,7 @@ final class TemporaryListBorrowAnalysis {
             FieldSymbol storage = type == null ? null : type.declaredFields().get("array");
             var targets = summaries.boundTargets(target, guard);
             return storage != null && fields.isOwned(storage) && !targets.isEmpty()
-                    && targets.stream().allMatch(method -> method.returnType().equals(IrType.VOID)
+                    && targets.stream().allMatch(method -> DataStructureSemantics.isPureArrayListReadGuard(method)
                         && !summaries.summary(method).thisEscapesWithoutReturn());
         }
 

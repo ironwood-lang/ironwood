@@ -795,6 +795,16 @@ public final class CompilerTests {
                 this::ownedBufferFieldsRequireFreshFactoryResults);
         test("private backing arrays are freed only after proven detachment",
                 this::privateBackingArraysRequireProvenDetachment);
+        test("independent list copies preserve membership iterator and allocation scaling",
+                this::listCopiesRunNatively);
+        test("independent list copies preserve destination and nested payload loans",
+                this::listCopiesPreserveLoans);
+        test("independent list copy failures reclaim partial construction",
+                this::listCopyFailuresRollBack);
+        test("independent list copy proofs survive source class and archive reconstruction",
+                this::listCopiesAcrossArtifacts);
+        test("independent list copy read proofs reject guard mutation and retention",
+                this::listCopyReadProofRejectsMutation);
         test("data structures retain inserted references for safe-free analysis",
                 this::dataStructuresBlockUnsafeFree);
         test("data structure generic bounds reject primitives at the use site",
@@ -7503,6 +7513,201 @@ public final class CompilerTests {
                 }
                 class Main { public static int main(String[] args) { return 0; } }
                 """, "or a proven detached private backing array");
+    }
+
+    private void listCopiesRunNatively() throws Exception {
+        NativeResult result = compileAndRunNative("Main.iron",
+                Files.readString(Path.of("integration-tests/cases/ds_list_copy.iron")), "Main", "-O3");
+        assertEquals(42, result.exit(), "list copy native exit: " + result.stderr());
+        assertEquals("8:3\n32:3\n128:3\n512:3\n", result.stdout(), "list copy allocation scaling");
+        assertEquals("", result.stderr(), "list copy native stderr");
+    }
+
+    private void listCopyReadProofRejectsMutation() throws Exception {
+        String list = Files.readString(Path.of("stdlib/src/main/ironwood/ironwood/ds/ArrayList.iron"));
+        String guard = "if (index < 0 || index >= this.currentSize) throw new IndexOutOfBoundsException();";
+        String main = """
+                import ironwood.ds.ArrayList;
+                class Item { }
+                class Main {
+                    public static int main(String[] args) {
+                        Item item = new Item();
+                        ArrayList<Item> source = new ArrayList<Item>();
+                        source.add(item);
+                        ArrayList<Item> copied = source.copy();
+                        free source;
+                        free copied;
+                        free item;
+                        return 0;
+                    }
+                }
+                """;
+        for (String replacement : List.of(
+                "this.currentSize = 0; " + guard,
+                "this.array[index] = (E) (Object) this; " + guard,
+                "saved = this; " + guard,
+                "observe(this); " + guard)) {
+            String mutated = list.replace(guard, replacement).replace("private E[] array;", """
+                    private E[] array;
+                        private static Object saved;
+                        private static void observe(Object value) { saved = value; }
+                    """.stripTrailing());
+            assertTrue(!mutated.equals(list), "read guard mutation unchanged");
+            CompilationArtifact artifact = compileSources(SourceFile.of("test/ArrayList.iron", mutated),
+                    SourceFile.of("test/Main.iron", main));
+            assertTrue(!artifact.successful(), "mutating/publishing guard obtained a copy loan proof");
+            assertContains(messages(artifact), "cannot free", "mutating/publishing guard diagnostic");
+        }
+        for (String replacement : List.of(
+                "this.currentSize = 0; return this.array[index];",
+                "return (E) (Object) this;")) {
+            CompilationArtifact artifact = compileSources(SourceFile.of("test/ArrayList.iron",
+                    list.replace("return this.array[index];", replacement)), SourceFile.of("test/Main.iron", main));
+            assertTrue(!artifact.successful(), "changed getter obtained the base storage read proof");
+            assertContains(messages(artifact), "cannot free", "changed getter diagnostic");
+        }
+        String virtual = main.replace("new ArrayList<Item>()", "new PublishingBounds()") + """
+                class PublishingBounds extends ArrayList<Item> {
+                    static Object saved;
+                    @Override protected void checkBounds(int index) { saved = this; }
+                }
+                """;
+        CompilationArtifact artifact = compileSources(SourceFile.of("test/ArrayList.iron",
+                list.replace("private void checkBounds(int index)", "protected void checkBounds(int index)")),
+                SourceFile.of("test/Main.iron", virtual));
+        assertTrue(!artifact.successful(), "virtual guard override obtained the base storage read proof");
+        assertContains(messages(artifact), "cannot free", "virtual guard diagnostic");
+    }
+
+    private void listCopiesAcrossArtifacts() throws Exception {
+        Path root = Files.createTempDirectory("ironwood-list-copy-artifacts-");
+        try {
+            String source = Files.readString(Path.of("integration-tests/cases/ds_list_copy.iron"));
+            CompilationArtifact artifact = compile(source);
+            assertTrue(artifact.successful(), messages(artifact));
+            Path fixture = writeSource(root, "Main.iron", source);
+            Path classes = root.resolve("classes");
+            assertMainRun(new String[]{fixture.toString(), "--unfreed=warn", "-d", classes.toString()},
+                    0, "copy source compile");
+            Path archive = root.resolve("copies.ironjar");
+            assertEquals(0, IronJarMain.run(new String[]{"--create", "--file", archive.toString(), classes.toString()},
+                    new PrintStream(new ByteArrayOutputStream()), new PrintStream(new ByteArrayOutputStream())),
+                    "copy archive creation");
+            for (Path input : List.of(classes, archive)) {
+                Path executable = root.resolve(input.getFileName() + "-program");
+                assertMainRun(new String[]{"--link", "-cp", input.toString(), "--main-class", "Main",
+                        "--unfreed=warn", "-O3", "-o", executable.toString()}, 0, "copy artifact link");
+                NativeResult result = runNative(executable, root, Map.of());
+                assertEquals(42, result.exit(), "copy artifact exit: " + result.stderr());
+                assertEquals("8:3\n32:3\n128:3\n512:3\n", result.stdout(), "copy artifact allocation counts");
+                assertEquals("", result.stderr(), "copy artifact stderr");
+            }
+        } finally { deleteTree(root); }
+    }
+
+    private void listCopyFailuresRollBack() throws Exception {
+        Path root = Files.createTempDirectory("ironwood-list-copy-failure-");
+        try {
+            Path classes = root.resolve("classes");
+            assertMainRun(new String[]{"integration-tests/cases/ds_list_copy_failure.iron",
+                    "--unfreed=warn", "-d", classes.toString()}, 0, "list copy failure compile");
+            Path executable = root.resolve("program");
+            assertMainRun(new String[]{"--link", "-cp", classes.toString(), "--main-class", "Main",
+                    "--unfreed=warn", "-O3", "-o", executable.toString()}, 0, "list copy failure link");
+            for (int limit = 0; limit <= 16; limit++) {
+                NativeResult result = runNative(executable, root,
+                        Map.of("IRONWOOD_ALLOCATION_LIMIT", Integer.toString(limit)));
+                assertEquals(limit < 16 ? 42 : 43, result.exit(),
+                        "list copy allocation limit " + limit + ": " + result.stderr());
+                assertEquals("", result.stdout(), "list copy OOM stdout");
+                assertEquals("", result.stderr(), "list copy OOM stderr");
+            }
+            assertEquals(43, runNative(executable, root, Map.of()).exit(), "list copy success");
+        } finally { deleteTree(root); }
+    }
+
+    private void listCopiesPreserveLoans() {
+        String prefix = """
+                import ironwood.ds.ArrayList;
+                class Item { }
+                class Main {
+                    public static int main(String[] args) {
+                        Item item = new Item();
+                        ArrayList<Item> source = new ArrayList<Item>();
+                        source.add(item);
+                        ArrayList<Item> copied = source.copy();
+                """;
+        for (String cleanup : List.of(
+                "free source; free copied; free item;",
+                "free source; copied.clear(); free item; free copied;",
+                "source.clear(); copied.clear(); free item; free copied; free source;")) {
+            CompilationArtifact artifact = compile(prefix + cleanup + "return 0; }}");
+            assertTrue(artifact.successful(), messages(artifact));
+        }
+        for (String cleanup : List.of(
+                "free source; free item; copied.size();",
+                "source.clear(); free item; copied.size();",
+                "free copied; free item; source.size();")) {
+            for (UnfreedMode mode : UnfreedMode.values()) {
+                CompilationArtifact artifact = new CompilerPipeline(mode).compile(
+                        SourceFile.of("test/Main.iron", prefix + cleanup + "return 0; }}"));
+                assertTrue(!artifact.successful(), "unsafe copy free accepted under " + mode);
+                assertContains(messages(artifact), "still borrowed by a live container", "copy loan under " + mode);
+            }
+        }
+        CompilationArtifact delegated = compile(prefix.replace("source.copy()", "duplicate(source)")
+                + "free source; free copied; free item; return 0; } "
+                + "static ArrayList<Item> duplicate(ArrayList<Item> value) { return value.copy(); }}");
+        assertTrue(delegated.successful(), messages(delegated));
+        assertDiagnostic("""
+                import ironwood.ds.ArrayList;
+                class Main {
+                    public static int main(String[] args) {
+                        ArrayList<Object> source = new ArrayList<Object>();
+                        source.add(source);
+                        ArrayList<Object> copied = source.copy();
+                        free source;
+                        return copied.size();
+                    }
+                }
+                """, "still borrowed by a live container");
+        assertDiagnostic("""
+                import ironwood.ds.ArrayList;
+                class Item { }
+                class Main {
+                    public static int main(String[] args) {
+                        Item item = new Item();
+                        ArrayList<Item> inner = new ArrayList<Item>();
+                        inner.add(item);
+                        ArrayList<ArrayList<Item>> outer = new ArrayList<ArrayList<Item>>();
+                        outer.add(inner);
+                        ArrayList<ArrayList<Item>> copied = outer.copy();
+                        free outer;
+                        free inner;
+                        return copied.size();
+                    }
+                }
+                """, "still borrowed by a live container");
+        assertDiagnostic("""
+                import ironwood.ds.ArrayList;
+                class Item { }
+                class PublishingList extends ArrayList<Item> {
+                    static Item saved;
+                    @Override public Item get(int index) { saved = super.get(index); return saved; }
+                }
+                class Main {
+                    public static int main(String[] args) {
+                        Item item = new Item();
+                        ArrayList<Item> source = new PublishingList();
+                        source.add(item);
+                        ArrayList<Item> copied = source.copy();
+                        free copied;
+                        free source;
+                        free item;
+                        return 0;
+                    }
+                }
+                """, "cannot free 'item'");
     }
 
     private void dataStructuresBlockUnsafeFree() throws Exception {

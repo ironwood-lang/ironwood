@@ -697,7 +697,7 @@ read its value before advancing the iterator again.
 
 | Type | Storage and behavior |
 | --- | --- |
-| `ArrayList<E>` | Resizable generic array list with configurable initial capacity/growth, front/back addition and removal, indexed insertion/access/replacement/removal, forward/reverse value lookup and removal, clearing, value equality/hash/text, and reusable iteration. |
+| `ArrayList<E>` | Resizable generic array list with configurable initial capacity/growth, front/back addition and removal, indexed insertion/access/replacement/removal, forward/reverse value lookup and removal, clearing, value equality/hash/text, and reusable iteration, plus independent ordered shallow `copy()`. |
 | `UnmodifiableList<E>` | Live read-only view of an `ArrayList<E>` with indexed access, forward/reverse lookup, containment, and reusable iteration. Every exposed mutation, including `set`, and iterator removal raises `UnsupportedOperationException`. |
 | `LinkedList<E>` | Generic doubly linked list with pooled nodes, front/back operations, value containment, clearing, value equality/hash/text, and reusable iteration/removal. |
 | `ArrayLinkedList<E>` | Fixed array plus pooled linked overflow, with tail addition/removal, value containment, `clear(boolean nullifyLiveArrayPrefix)`, value equality/hash/text, and composite reusable iteration. |
@@ -717,6 +717,15 @@ Collection-level `ensureCapacity`, `trimToSize`, `addAll`, `toArray`, and copy
 constructors are absent. Callers can select initial capacity and growth when
 constructing a list, use ordinary iteration for list-to-list copying, and use
 `System.arraycopy` or `Arrays.copyOf` for bulk array operations.
+
+`ArrayList.copy()` owns a separate backing array and reusable iterator, borrows
+all element references, preserves membership order, and leaves the source
+iterator position untouched. Its initial capacity is `max(1, size())`, with the
+default growth factor. An ordinary list copy uses three allocations regardless
+of size and reclaims partial storage on failure. Copies do not share source
+capacity or iterator state. Clearing or destroying one list does not discharge
+another list's item loans. Self-items, nested containers and published callbacks
+retain their real dependencies; see [D248](DECISIONS.md#d248---derive-list-copy-item-loans-from-verified-storage-reads).
 
 Resizable list implementations copy live values into a fresh backing array and
 explicitly free the detached old array. Linked implementations clear user

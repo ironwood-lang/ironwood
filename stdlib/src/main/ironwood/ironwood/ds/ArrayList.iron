@@ -232,6 +232,45 @@ public class ArrayList<E extends Object> implements Iterable<E> {
         }
         return false;
     }
+    /**
+     * Copies ordered membership into independent mutable storage.
+     *
+     * <p>The result owns its array and reusable iterator, with the default
+     * growth factor and initial capacity equal to the larger of one and this
+     * list's size. Unused source capacity is not copied.
+     * Elements are borrowed, retain their identity and are never destroyed by
+     * this operation or either list's destructor. Null elements cannot occur
+     * in a valid list. The source iterator's position is unchanged.
+     *
+     * <p>This operation takes linear time and allocates one list, one iterator,
+     * and one backing array for an ordinary list. On failure all result storage is
+     * reclaimed and source membership is unchanged. Free the result only after
+     * its last consumer; keep its borrowed elements alive until then.
+     *
+     * @return a fresh mutable list with the same ordered element references
+     */
+    public ArrayList<E> copy() {
+
+        ArrayList<E> result = new ArrayList<E>(this.copyCapacity());
+        try {
+            for (int index = 0; index < this.size(); index++) {
+                result.add(this.get(index));
+            }
+            return result;
+        } catch (RuntimeException failure) {
+            free result;
+            throw failure;
+        } catch (Error failure) {
+            free result;
+            throw failure;
+        }
+    }
+
+    private int copyCapacity() {
+
+        return Math.max(1, this.currentSize);
+    }
+
     /** Returns the number of stored values. */
 
     public int size() {

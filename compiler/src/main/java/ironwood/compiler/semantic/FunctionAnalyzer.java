@@ -9247,7 +9247,18 @@ final class FunctionAnalyzer {
                     backing = next;
                 }
             }
-            borrows.add(new WrapperBorrow(owner, backing, result.orElseThrow().sourceSpan()));
+            if (input.containerElements() && input.fields().isEmpty()
+                    && !isDependentBorrow(source) && !exposedContainerContents.contains(backing)
+                    && backing.constructedType != null && backing.constructedType.isNominalReference()
+                    && backing.constructedType.referenceName().equals("ironwood.ds.ArrayList")) {
+                // Copy the actual loans, including a self-item or a nested wrapper.
+                // Fresh storage does not erase any payload's lifetime dependency.
+                for (AllocationInfo child : retainedBorrows.getOrDefault(backing, Set.of())) {
+                    borrows.add(new WrapperBorrow(owner, child, result.orElseThrow().sourceSpan()));
+                }
+            } else {
+                borrows.add(new WrapperBorrow(owner, backing, result.orElseThrow().sourceSpan()));
+            }
             for (var entry : proof.borrows().entrySet()) {
                 if (entry.getValue().equals(input)) owner.finalBorrowedFields.put(ownedFieldKey(entry.getKey()), backing);
             }
@@ -9270,7 +9281,7 @@ final class FunctionAnalyzer {
         FieldSymbol storage = listType == null ? null : listType.declaredFields().get("array");
         if (storage == null || !ownedArrayFields.isOwned(storage)) return false;
         List<CallableSymbol> guards = escapeSummaries.boundTargets(method, guard);
-        if (guards.isEmpty() || guards.stream().anyMatch(target -> !target.returnType().equals(IrType.VOID)
+        if (guards.isEmpty() || guards.stream().anyMatch(target -> !DataStructureSemantics.isPureArrayListReadGuard(target)
                 || escapeSummaries.summary(target).thisEscapesWithoutReturn())) return false;
         AllocationInfo list = allocationOf(receiver);
         if (list == null || list.constructedType == null || !list.constructedType.isNominalReference()
