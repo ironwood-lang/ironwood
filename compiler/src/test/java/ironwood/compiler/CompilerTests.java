@@ -864,6 +864,9 @@ public final class CompilerTests {
         test("compiler value helpers leave no storage after allocation failure", ValueHelpersTests::failures);
         test("proof snapshots own saved evidence and keep its ownership safe", SavedEvidenceTests::controls);
         test("snapshot-owned evidence retires every unit across budgets and artifacts", SavedEvidenceTests::artifacts);
+        test("IR model inventory matches the Java model", IrModelInventoryTests::matchesJavaModel);
+        test("IR model inventory fails closed on untreated variants", IrModelInventoryTests::failsClosed);
+        test("IR model inventory matches the Java model across artifacts", IrModelInventoryTests::artifacts);
         test("pilot variant lists match the Java operation model", OperationVariantTests::matchesJavaModel);
         test("pilot variant admission fails closed on untreated variants", OperationVariantTests::failsClosed);
         test("pilot variant admission matches the model across artifacts", OperationVariantTests::artifacts);

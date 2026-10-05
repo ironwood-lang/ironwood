@@ -1,0 +1,27 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// Prints the shared IR variant inventory: one line per record (root,
+// components, walked components) and per enum (constants), in declaration
+// order. IrModelInventoryTests derives the same lines from the Java IR model
+// by reflection and requires byte equality from classes and archive. Exit 42.
+import ironwood.compiler.port.IrModel;
+
+class Main {
+
+    public static int main(String[] args) {
+
+        IrModel.Record[] records = IrModel.Record.values();
+        defer free records;
+        for (int index = 0; index < records.length; index++) {
+            IrModel.Record record = records[index];
+            System.out.println("record " + record.name() + " " + IrModel.root(record).name() + " "
+                    + IrModel.components(record) + " walked=" + IrModel.walked(record));
+        }
+        IrModel.Enumeration[] enums = IrModel.Enumeration.values();
+        defer free enums;
+        for (int index = 0; index < enums.length; index++) {
+            System.out.println("enum " + enums[index].name() + " " + IrModel.constants(enums[index]));
+        }
+        return 42;
+    }
+}
