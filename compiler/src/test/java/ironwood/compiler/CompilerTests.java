@@ -840,6 +840,8 @@ public final class CompilerTests {
         test("compiler work queue keeps queued items alive and its ring private", WorkQueueTests::ownership);
         test("compiler worklists preserve FIFO and retain-filter order across artifacts and failures",
                 WorkQueueTests::artifacts);
+        test("compiler text blocks own only their normalized result", TextBlocksTests::ownership);
+        test("compiler text blocks match Java stripIndent across artifacts", TextBlocksTests::differential);
         test("private compiler snapshot getter loans survive joins and delegation",
                 this::privateSnapshotGetterJoins);
         test("private compiler snapshot proofs reject publication and unrecognized construction",

@@ -371,6 +371,8 @@ complete, and M1/M2 and every later milestone remain not started.
   text-block normalization, varargs/factory rewrites, numeric/nullable results,
   reached name splitting, and required callback interfaces. Rewrite any pattern
   dispatch reached by the pilot and establish its variant coverage check.
+  In progress: [text-block normalization](self-hosting/m1/TEXT.md) (D256)
+  matches Java 21 `stripIndent` on 20,012 differential inputs.
 
 **Checkpoint:** each selected helper has Java-equivalence evidence, allocation
 measurements, and applicable safe/unsafe and failure-cleanup pairs. List the

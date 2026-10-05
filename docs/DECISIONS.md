@@ -9702,3 +9702,24 @@ occurrence order. If no
   adds/takes; ordinary null/empty failure lifetimes; every OOM limit; all-mode
   ownership controls; class/archive artifacts; retain-filter parity with the
   Java `retainArrayStores` loop. See [the worklist record](self-hosting/m1/WORKLIST.md).
+
+## D256 - Normalize text blocks with a private stripIndent helper
+
+- **Status:** Implemented during M1.3 on 2026-10-05.
+- **Decision:** Add compiler-private `TextBlocks.stripIndent(String)` with
+  Java 21 `String.stripIndent()` behavior, as the lexer's text-block step
+  requires (FRONTEND_CONTRACTS API0166). Lines end at `\n`, `\r` or `\r\n`;
+  incidental indentation is the minimum leading `Character.isWhitespace` count
+  over nonblank lines and a blank last line; a trailing terminator disables
+  outdent and is kept as one `\n`; trailing whitespace is removed and blank
+  lines become empty. Escapes are untouched, so cooked decoding still follows.
+  The implementation is original and is not a public `String` API.
+- **Proof:** No analysis change. The input is borrowed; the result is a fresh
+  owned String and the intermediate builder is freed before return.
+- **Boundary:** Cooked escape decoding, raw/cooked token construction and the
+  rest of the lexer remain M2.1 port work. This establishes neither full M1
+  nor S1/G1.
+- **Verification:** 20,012 inputs, including all terminator forms, tab, form
+  feed, vertical tab, em space and non-whitespace no-break space, match Java 21
+  exactly from classes and archive at `-O3`; each call leaves only its result
+  live. All-mode ownership controls pass. See [the text-block record](self-hosting/m1/TEXT.md).

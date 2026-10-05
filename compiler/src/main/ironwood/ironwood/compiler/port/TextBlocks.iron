@@ -1,0 +1,106 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.port;
+
+/**
+ * Compiler-private text-block normalization with the Java 21
+ * {@code String.stripIndent()} contract. Lines end at {@code \n}, {@code \r} or
+ * {@code \r\n}; a terminator at the very end does not start another line.
+ * Incidental indentation is the smallest leading-whitespace count over
+ * nonblank lines and a blank last line, where whitespace is
+ * {@code Character.isWhitespace}. If the text ends with a terminator, no
+ * indentation is removed. Each line loses that indentation and its trailing
+ * whitespace; a blank line becomes empty. Lines are joined with {@code \n}, and
+ * a final terminator becomes one {@code \n}. Escapes are not interpreted.
+ */
+public final class TextBlocks {
+
+    private TextBlocks() {
+    }
+
+    /**
+     * Returns newly allocated normalized text; the caller owns the result.
+     * The input is borrowed and only the result outlives the call.
+     *
+     * @param text the borrowed text-block content
+     * @return the normalized text
+     * @throws NullPointerException if the text is null
+     */
+    public static String stripIndent(String text) {
+
+        if (text == null) throw new NullPointerException();
+        int length = text.length();
+        boolean terminated = length > 0 && (text.charAt(length - 1) == '\n' || text.charAt(length - 1) == '\r');
+        int outdent = terminated ? 0 : outdent(text);
+        StringBuilder result = new StringBuilder(length);
+        int start = 0;
+        boolean first = true;
+        while (start < length) {
+            int end = lineEnd(text, start);
+            if (!first) result.append('\n');
+            first = false;
+            int leading = leadingWhitespace(text, start, end);
+            int trailing = trailingContent(text, start, end);
+            if (start + leading < trailing) {
+                int indentation = leading < outdent ? leading : outdent;
+                result.append(text, start + indentation, trailing);
+            }
+            start = nextLine(text, end);
+        }
+        if (terminated) result.append('\n');
+        String normalized = result.toString();
+        free result;
+        return normalized;
+    }
+
+    // Smallest leading whitespace over nonblank lines and a blank last line.
+    private static int outdent(String text) {
+
+        int length = text.length();
+        int outdent = Integer.MAX_VALUE;
+        int start = 0;
+        int lastStart = 0;
+        int lastEnd = 0;
+        while (start < length) {
+            int end = lineEnd(text, start);
+            int leading = leadingWhitespace(text, start, end);
+            if (start + leading < end && leading < outdent) outdent = leading;
+            lastStart = start;
+            lastEnd = end;
+            start = nextLine(text, end);
+        }
+        if (leadingWhitespace(text, lastStart, lastEnd) == lastEnd - lastStart && lastEnd - lastStart < outdent) {
+            outdent = lastEnd - lastStart;
+        }
+        return outdent;
+    }
+
+    private static int lineEnd(String text, int start) {
+
+        int index = start;
+        while (index < text.length() && text.charAt(index) != '\n' && text.charAt(index) != '\r') index++;
+        return index;
+    }
+
+    private static int nextLine(String text, int end) {
+
+        if (end >= text.length()) return end;
+        if (text.charAt(end) == '\r' && end + 1 < text.length() && text.charAt(end + 1) == '\n') return end + 2;
+        return end + 1;
+    }
+
+    private static int leadingWhitespace(String text, int start, int end) {
+
+        int index = start;
+        while (index < end && Character.isWhitespace(text.charAt(index))) index++;
+        return index - start;
+    }
+
+    // Index just past the last non-whitespace character, or start if blank.
+    private static int trailingContent(String text, int start, int end) {
+
+        int index = end;
+        while (index > start && Character.isWhitespace(text.charAt(index - 1))) index--;
+        return index;
+    }
+}
