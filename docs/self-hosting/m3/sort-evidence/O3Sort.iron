@@ -1,0 +1,58 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// O3 inspection program for ArrayList.sortWithComparator. As written, one
+// comparator implementation is reachable, so the merge loop's interface call
+// is devirtualized. run-evidence.sh also builds a variant with the "// POLY "
+// prefixes removed, which makes a second implementation reachable and shows
+// the guarded dispatch. Exit 0 when the list is sorted.
+import ironwood.ds.ArrayList;
+import ironwood.util.Comparator;
+
+final class Record {
+
+    final int key;
+
+    Record(int key) {
+
+        this.key = key;
+    }
+}
+
+final class ByKey implements Comparator<Record> {
+
+    @Override
+    public int compare(Record first, Record second) {
+
+        return Integer.compare(first.key, second.key);
+    }
+}
+
+final class ByKeyReversed implements Comparator<Record> {
+
+    @Override
+    public int compare(Record first, Record second) {
+
+        return Integer.compare(second.key, first.key);
+    }
+}
+
+class Main {
+
+    public static int main(String[] args) {
+
+        ArrayList<Record> list = new ArrayList<Record>();
+        defer free list;
+        long seed = 7;
+        for (int index = 0; index < 1000; index++) {
+            seed = seed * 6364136223846793005L + 1442695040888963407L;
+            list.add(new Record((int) (seed >>> 40)));
+        }
+        ByKey byKey = new ByKey();
+        defer free byKey;
+// POLY         ByKeyReversed reversed = new ByKeyReversed();
+// POLY         defer free reversed;
+// POLY         if (args.length > 5) list.sortWithComparator(reversed);
+        list.sortWithComparator(byKey);
+        return list.get(0).key > list.get(999).key ? 1 : 0;
+    }
+}

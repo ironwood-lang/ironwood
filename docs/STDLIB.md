@@ -697,7 +697,7 @@ read its value before advancing the iterator again.
 
 | Type | Storage and behavior |
 | --- | --- |
-| `ArrayList<E>` | Resizable generic array list with configurable initial capacity/growth, front/back addition and removal, indexed insertion/access/replacement/removal, forward/reverse value lookup and removal, clearing, value equality/hash/text, and reusable iteration, plus independent ordered shallow `copy()`. |
+| `ArrayList<E>` | Resizable generic array list with configurable initial capacity/growth, front/back addition and removal, indexed insertion/access/replacement/removal, forward/reverse value lookup and removal, clearing, value equality/hash/text, and reusable iteration, plus independent ordered shallow `copy()` and stable `sortWithComparator(Comparator<? super E>)`. |
 | `UnmodifiableList<E>` | Live read-only view of an `ArrayList<E>` with indexed access, forward/reverse lookup, containment, and reusable iteration. Every exposed mutation, including `set`, and iterator removal raises `UnsupportedOperationException`. |
 | `LinkedList<E>` | Generic doubly linked list with pooled nodes, front/back operations, value containment, clearing, value equality/hash/text, and reusable iteration/removal. |
 | `ArrayLinkedList<E>` | Fixed array plus pooled linked overflow, with tail addition/removal, value containment, `clear(boolean nullifyLiveArrayPrefix)`, value equality/hash/text, and composite reusable iteration. |
@@ -726,6 +726,19 @@ of size and reclaims partial storage on failure. Copies do not share source
 capacity or iterator state. Clearing or destroying one list does not discharge
 another list's item loans. Self-items, nested containers and published callbacks
 retain their real dependencies; see [D248](DECISIONS.md#d248---derive-list-copy-item-loans-from-verified-storage-reads).
+
+`ArrayList.sortWithComparator(Comparator<? super E>)` sorts `[0, size())`
+stably in place: equal elements keep their encounter order, and size, capacity,
+growth and the reusable iterator's index are unchanged. The comparator is
+required; `null` throws `NullPointerException`, even for an empty list, and
+there is no Java `List.sort(null)` natural-order fallback or `sort` name. It
+takes O(n log n) comparisons (n - 1 for sorted input), sorts at most sixteen
+elements without workspace and otherwise allocates one `size() / 2` reference
+array, freed on every exit. A comparator exception propagates and leaves the
+same elements in an unspecified order; a comparator must not mutate the list.
+The call is not an audited container operation, so it conservatively exposes
+the stored elements: they cannot be freed afterwards, while the list,
+comparator and workspace retire normally; see [D263](DECISIONS.md#d263---sort-array-lists-stably-with-an-explicit-comparator).
 
 Resizable list implementations copy live values into a fresh backing array and
 explicitly free the detached old array. Linked implementations clear user

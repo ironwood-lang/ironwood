@@ -1,0 +1,386 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// ArrayList.sortWithComparator sorts the live range stably with an explicit
+// comparator. The printed transcript must equal the Java 21 List.sort
+// reference in docs/self-hosting/m3/sort-evidence/ListSortReference.java:
+// seeded lists of keyed records with many equal keys, sorted by three
+// comparators, print a hash and prefix of their record ids. The contract
+// checks then cover null comparators, inactive slots, capacity, the reusable
+// iterator, comparator failure, workspace allocation, comparison counts, a
+// supertype comparator and a comparator that grows the list. Exit 42 when
+// every check passes. The sort call exposes the stored records, so records
+// stay alive until exit; every list, comparator and workspace array is freed.
+import ironwood.ds.ArrayList;
+import ironwood.util.Comparator;
+import ironwood.util.Iterator;
+
+class Shape {
+
+    final int weight;
+
+    Shape(int weight) {
+
+        this.weight = weight;
+    }
+}
+
+final class Record extends Shape {
+
+    final int key;
+    final int id;
+
+    Record(int key, int id) {
+
+        super(key % 7);
+        this.key = key;
+        this.id = id;
+    }
+}
+
+final class ByKey implements Comparator<Record> {
+
+    int calls;
+
+    @Override
+    public int compare(Record first, Record second) {
+
+        this.calls++;
+        return Integer.compare(first.key, second.key);
+    }
+}
+
+final class ByKeyDescending implements Comparator<Record> {
+
+    @Override
+    public int compare(Record first, Record second) {
+
+        return Integer.compare(second.key, first.key);
+    }
+}
+
+final class ByResidueThenKey implements Comparator<Record> {
+
+    @Override
+    public int compare(Record first, Record second) {
+
+        int order = Integer.compare(first.key % 3, second.key % 3);
+        return order != 0 ? order : Integer.compare(first.key, second.key);
+    }
+}
+
+// A comparator over the supertype sorts a list of the subtype.
+final class ByWeight implements Comparator<Shape> {
+
+    @Override
+    public int compare(Shape first, Shape second) {
+
+        return Integer.compare(first.weight, second.weight);
+    }
+}
+
+// Throws the preallocated failure on a chosen comparison.
+final class Failing implements Comparator<Record> {
+
+    int calls;
+    int failAt;
+
+    @Override
+    public int compare(Record first, Record second) {
+
+        this.calls++;
+        if (this.calls == this.failAt) throw Main.failure;
+        return Integer.compare(first.key, second.key);
+    }
+}
+
+// Rejects any record that was never live in the sorted range.
+final class Guarded implements Comparator<Record> {
+
+    @Override
+    public int compare(Record first, Record second) {
+
+        if (first.id < 0 || second.id < 0) throw new IllegalStateException("inactive slot compared");
+        return Integer.compare(first.key, second.key);
+    }
+}
+
+// Appends to the list it sorts on the first comparison, forcing its backing
+// array to grow and the old array to be freed mid-sort. The comparator reaches
+// the list through a static field, so that list is process-lived.
+final class Growing implements Comparator<Record> {
+
+    boolean grown;
+
+    @Override
+    public int compare(Record first, Record second) {
+
+        if (!this.grown) {
+            this.grown = true;
+            for (int index = 0; index < 200; index++) Main.growing.add(Main.records[index]);
+        }
+        return Integer.compare(first.key, second.key);
+    }
+}
+
+class Main {
+
+    static Record[] records = new Record[5000];
+    static Record[] inactive = new Record[64];
+    static RuntimeException failure = new RuntimeException("comparator failure");
+    static ArrayList<Record> growing = new ArrayList<Record>(100);
+    static long seed = 20261005L;
+
+    static int next(int bound) {
+
+        seed = seed * 6364136223846793005L + 1442695040888963407L;
+        int value = (int) (seed >>> 33);
+        return value % bound;
+    }
+
+    static void prepare() {
+
+        for (int index = 0; index < inactive.length; index++) inactive[index] = new Record(0, -1 - index);
+    }
+
+    // Shape 0 random keys, 1 ascending, 2 descending, 3 organ pipe.
+    static ArrayList<Record> build(int size, int range, int shape) {
+
+        ArrayList<Record> list = new ArrayList<Record>();
+        for (int index = 0; index < size; index++) {
+            int key = shape == 0 ? next(range)
+                    : shape == 1 ? index % range
+                    : shape == 2 ? (size - index) % range
+                    : (index < size / 2 ? index : size - index) % range;
+            Record record = new Record(key, index);
+            records[index] = record;
+            list.add(record);
+        }
+        return list;
+    }
+
+    static void print(String label, int size, int range, int shape, ArrayList<Record> list) {
+
+        StringBuilder line = new StringBuilder();
+        defer free line;
+        int hash = 1;
+        for (int index = 0; index < list.size(); index++) hash = 31 * hash + list.get(index).id;
+        line.append(label).append(" n=").append(size).append(" k=").append(range)
+                .append(" s=").append(shape).append(" h=").append(hash).append(" head=");
+        for (int index = 0; index < list.size() && index < 12; index++) {
+            if (index > 0) line.append(',');
+            line.append(list.get(index).id);
+        }
+        System.out.println(line.toString());
+    }
+
+    static void transcript() {
+
+        int[] sizes = {0, 1, 2, 3, 7, 16, 17, 31, 32, 33, 64, 100, 257, 1000, 4096};
+        defer free sizes;
+        int[] ranges = {1, 4, 50, 100000};
+        defer free ranges;
+        ByKey byKey = new ByKey();
+        defer free byKey;
+        ByKeyDescending descending = new ByKeyDescending();
+        defer free descending;
+        ByResidueThenKey residue = new ByResidueThenKey();
+        defer free residue;
+        for (int sizeIndex = 0; sizeIndex < sizes.length; sizeIndex++) {
+            for (int rangeIndex = 0; rangeIndex < ranges.length; rangeIndex++) {
+                for (int shape = 0; shape < 4; shape++) {
+                    int size = sizes[sizeIndex];
+                    int range = ranges[rangeIndex];
+                    ArrayList<Record> first = build(size, range, shape);
+                    first.sortWithComparator(byKey);
+                    print("key", size, range, shape, first);
+                    first.sortWithComparator(descending);
+                    print("desc", size, range, shape, first);
+                    free first;
+                    ArrayList<Record> second = build(size, range, shape);
+                    second.sortWithComparator(residue);
+                    print("mod3", size, range, shape, second);
+                    free second;
+                }
+            }
+        }
+    }
+
+    static boolean rejectsNull(int size) {
+
+        ArrayList<Record> list = build(size, 10, 0);
+        defer free list;
+        try {
+            list.sortWithComparator(null);
+        } catch (NullPointerException expected) {
+            return list.size() == size && (size == 0 || list.get(0).id == 0);
+        }
+        return false;
+    }
+
+    // Removed and cleared slots keep stale records; none may be compared.
+    static boolean ignoresInactiveSlots() {
+
+        ArrayList<Record> list = new ArrayList<Record>(64);
+        defer free list;
+        for (int index = 0; index < 64; index++) list.add(inactive[index]);
+        list.clear();
+        for (int index = 0; index < 40; index++) list.add(new Record(40 - index, index));
+        for (int index = 0; index < 10; index++) list.removeLast();
+        Guarded guarded = new Guarded();
+        defer free guarded;
+        list.sortWithComparator(guarded);
+        if (list.size() != 30) return false;
+        for (int index = 1; index < list.size(); index++) {
+            if (list.get(index - 1).key > list.get(index).key) return false;
+        }
+        return true;
+    }
+
+    // Sorting keeps the backing array: refilling to capacity allocates nothing.
+    static boolean keepsCapacityAndIterator() {
+
+        ArrayList<Record> list = new ArrayList<Record>(64);
+        defer free list;
+        for (int index = 0; index < 40; index++) list.add(new Record(40 - index, index));
+        Iterator<Record> cursor = list.iterator();
+        for (int step = 0; step < 3; step++) cursor.next();
+        ByKey byKey = new ByKey();
+        defer free byKey;
+        list.sortWithComparator(byKey);
+        // The traversal continues by index over the reordered elements.
+        if (cursor.next() != list.get(3)) return false;
+        if (list.getInitialCapacity() != 64 || list.size() != 40) return false;
+        Record extra = records[0];
+        long before = System.allocationCount();
+        for (int index = 40; index < 64; index++) list.add(extra);
+        return System.allocationCount() == before;
+    }
+
+    static boolean isPermutation(ArrayList<Record> list, int size) {
+
+        if (list.size() != size) return false;
+        boolean[] seen = new boolean[size];
+        defer free seen;
+        for (int index = 0; index < size; index++) {
+            int id = list.get(index).id;
+            if (id < 0 || id >= size || seen[id]) return false;
+            seen[id] = true;
+        }
+        return true;
+    }
+
+    // A failure on any comparison propagates, keeps every element exactly once
+    // and frees the workspace.
+    static boolean failureKeepsElements(int size) {
+
+        ArrayList<Record> list = build(size, 13, 0);
+        defer free list;
+        Failing failing = new Failing();
+        defer free failing;
+        ByKey counter = new ByKey();
+        defer free counter;
+        // A copy would stay lent to its source once sorted (the retained M1
+        // copy-lent limit), so the original order is kept by indexed adds and
+        // restored before each attempt.
+        ArrayList<Record> original = new ArrayList<Record>();
+        defer free original;
+        for (int index = 0; index < size; index++) original.add(list.get(index));
+        list.sortWithComparator(counter);
+        for (int failAt = 1; failAt <= counter.calls; failAt++) {
+            for (int index = 0; index < size; index++) list.set(index, original.get(index));
+            failing.calls = 0;
+            failing.failAt = failAt;
+            long live = System.liveAllocationCount();
+            boolean caught = false;
+            try {
+                list.sortWithComparator(failing);
+            } catch (RuntimeException expected) {
+                caught = expected == failure;
+            }
+            if (!caught || System.liveAllocationCount() != live || !isPermutation(list, size)) return false;
+        }
+        return true;
+    }
+
+    // At most sixteen elements need no workspace; longer lists allocate one
+    // array and free it. Runs of at most sixteen are insertion sorted (under
+    // eight comparisons per element), then each merge level compares each
+    // element at most once: n * (8 + ceil(log2 n)) bounds the work. Sorted
+    // input takes exactly n - 1 comparisons.
+    static boolean boundsWorkAndAllocation() {
+
+        int[] sizes = {2, 16, 17, 100, 1000, 4096};
+        defer free sizes;
+        for (int sizeIndex = 0; sizeIndex < sizes.length; sizeIndex++) {
+            int size = sizes[sizeIndex];
+            for (int shape = 0; shape < 4; shape++) {
+                ArrayList<Record> list = build(size, 100000, shape);
+                defer free list;
+                ByKey counter = new ByKey();
+                defer free counter;
+                long allocations = System.allocationCount();
+                long live = System.liveAllocationCount();
+                list.sortWithComparator(counter);
+                long used = System.allocationCount() - allocations;
+                if (used != (size <= 16 ? 0 : 1) || System.liveAllocationCount() != live) return false;
+                int levels = 0;
+                for (int width = 1; width < size; width = width * 2) levels++;
+                if (counter.calls > size * (8 + levels)) return false;
+                counter.calls = 0;
+                list.sortWithComparator(counter);
+                if (counter.calls != size - 1) return false;
+            }
+        }
+        return true;
+    }
+
+    static boolean sortsBySupertype() {
+
+        ArrayList<Record> list = build(100, 100, 0);
+        defer free list;
+        ByWeight byWeight = new ByWeight();
+        defer free byWeight;
+        list.sortWithComparator(byWeight);
+        for (int index = 1; index < list.size(); index++) {
+            Record previous = list.get(index - 1);
+            Record current = list.get(index);
+            if (previous.weight > current.weight) return false;
+            if (previous.weight == current.weight && previous.id > current.id) return false;
+        }
+        return true;
+    }
+
+    // Unspecified order, but memory-safe: the first 100 slots keep every
+    // original record once, followed by the 200 appended ones.
+    static boolean survivesGrowingComparator() {
+
+        ArrayList<Record> list = growing;
+        for (int index = 0; index < 100; index++) list.add(new Record(100 - index, index));
+        Growing comparator = new Growing();
+        defer free comparator;
+        list.sortWithComparator(comparator);
+        if (list.size() != 300) return false;
+        boolean[] seen = new boolean[100];
+        defer free seen;
+        for (int index = 0; index < 100; index++) {
+            int id = list.get(index).id;
+            if (seen[id]) return false;
+            seen[id] = true;
+        }
+        return true;
+    }
+
+    public static int main(String[] args) {
+
+        prepare();
+        transcript();
+        if (!rejectsNull(0) || !rejectsNull(1) || !rejectsNull(40)) return 1;
+        if (!ignoresInactiveSlots()) return 2;
+        if (!keepsCapacityAndIterator()) return 3;
+        if (!failureKeepsElements(12) || !failureKeepsElements(100)) return 4;
+        if (!boundsWorkAndAllocation()) return 5;
+        if (!sortsBySupertype()) return 6;
+        if (!survivesGrowingComparator()) return 7;
+        return 42;
+    }
+}

@@ -9988,3 +9988,42 @@ occurrence order. If no
   recorded separately, paired controls hold in every mode, every allocation
   failure unwinds cleanly, and all runs fit the fixed budgets within a 32-KiB
   stack. See [the ownership record](self-hosting/m2/OWNERSHIP.md).
+
+## D263 - Sort array lists stably with an explicit comparator
+
+- **Status:** Implemented during M3.1 on 2026-10-05.
+- **Decision:** Add `ironwood.ds.ArrayList.sortWithComparator(Comparator<?
+  super E>)`, B2's list-level sort. It sorts `[0, size())` stably in place,
+  never touches inactive slots, keeps size, capacity, growth and the reusable
+  iterator's index, and frees no element. A null comparator throws
+  `NullPointerException` even for an empty list. The distinct name keeps
+  D122's Comparable-bounded array sorts and their null-comparator natural
+  order unchanged and claims no Java `List.sort(null)` behavior; `sort` and
+  `toArray` stay absent (D129). The original implementation is a top-down
+  merge sort with insertion-sorted runs of at most sixteen and a skipped merge
+  when the halves are already ordered: O(n log n) comparisons, n - 1 for
+  sorted input, and one `size() / 2` workspace array for longer lists, freed
+  on every exit. Every access re-reads the backing field, because a
+  comparator that grows the list frees the old array; each helper restores a
+  permutation in `finally`, so a throwing comparator leaves the same elements
+  in an unspecified order.
+- **Proof:** No analysis change. The method is not an audited container
+  operation, so a call conservatively exposes the stored elements, as an
+  unaudited read does: they cannot be freed afterwards, and a retaining or
+  publishing comparator keeps its ordinary effects. The list, the comparator
+  and the workspace retire by ordinary proofs. Copying the left run uses an
+  element loop, because an `arraycopy` into a parameter array escapes it.
+- **Boundary:** An audited sort proof would only help lists whose elements
+  have a single lifetime root, since a multi-root `get` already exposes them;
+  no consumer needs it. The port keeps sorted elements invocation-lived.
+  Programs that do not call the method keep the same functions and bodies;
+  only the closed-world type IDs, dispatch slots and string-constant names
+  are renumbered. No runtime bookkeeping is added. Supersedes no decision.
+- **Verification:** A 720-line transcript of seeded lists with many equal
+  keys under three comparators equals Java 21 `ArrayList.sort` in four JVMs,
+  from classes and archive at `-O3`; native checks of null comparators,
+  inactive slots, capacity, the iterator, every comparator failure point,
+  workspace allocations, comparison bounds, a supertype comparator and a
+  list-growing comparator; every allocation failure unwinds; all-mode
+  ownership pairs; O3 code shows the devirtualized comparator inlined into
+  one compare. See [the sort record](self-hosting/m3/SORT.md).

@@ -9,6 +9,7 @@
  */
 package ironwood.ds;
 
+import ironwood.util.Comparator;
 import ironwood.util.Iterator;
 import ironwood.util.NoSuchElementException;
 /** Provides a resizable array-backed list. */
@@ -19,6 +20,8 @@ public class ArrayList<E extends Object> implements Iterable<E> {
     public static final int DEFAULT_INITIAL_CAPACITY = 64;
     /** The default growth factor. */
     public static final float DEFAULT_GROWTH_FACTOR = 1.75f;
+    // Ranges at most this long are insertion sorted; longer ranges merge.
+    private static final int INSERTION_SORT_LIMIT = 16;
 
     private E[] array;
     private int currentSize;
@@ -269,6 +272,102 @@ public class ArrayList<E extends Object> implements Iterable<E> {
     private int copyCapacity() {
 
         return this.currentSize > 0 ? this.currentSize : 1;
+    }
+
+    /**
+     * Sorts the live elements stably with an explicit comparator.
+     *
+     * <p>Only indexes {@code [0, size())} are compared and reordered. Elements
+     * the comparator considers equal keep their encounter order. Size,
+     * capacity, growth factor and the reusable iterator's position are
+     * unchanged, elements keep their identity and none is freed. The
+     * comparator is required even for an empty list; unlike Java's
+     * {@code List.sort}, there is no natural-order fallback.
+     *
+     * <p>The sort takes O(n log n) comparisons, or n - 1 for already sorted
+     * input. Lists of at most sixteen elements are sorted without workspace;
+     * a longer list allocates one private array of {@code size() / 2}
+     * references and frees it before returning, also on failure. If the
+     * comparator throws, the exception propagates and the list holds the same
+     * elements in an unspecified order. A comparator that mutates this list
+     * leaves its order unspecified; the comparator must not do so.
+     *
+     * @param comparator the ordering; it may retain or publish the elements it
+     *     compares, so its actual effects govern their lifetime
+     * @throws NullPointerException if {@code comparator} is null
+     */
+    public void sortWithComparator(Comparator<? super E> comparator) {
+
+        if (comparator == null) throw new NullPointerException("comparator");
+        int size = this.currentSize;
+        if (size <= INSERTION_SORT_LIMIT) {
+            insertionSort(0, size, comparator);
+            return;
+        }
+        E[] scratch = new E[size / 2];
+        defer free scratch;
+        mergeSort(scratch, 0, size, comparator);
+    }
+
+    /*
+     * The sort helpers re-read this.array on every access. A comparator that
+     * grows the list replaces and frees the old array, so no array reference is
+     * held across a comparator call. Each helper keeps the live range a
+     * permutation of its elements even when the comparator throws.
+     */
+    private void insertionSort(int from, int to, Comparator<? super E> comparator) {
+
+        for (int index = from + 1; index < to; index++) {
+            E value = this.array[index];
+            int position = index;
+            try {
+                while (position > from && comparator.compare(this.array[position - 1], value) > 0) {
+                    this.array[position] = this.array[position - 1];
+                    position--;
+                }
+            } finally {
+                this.array[position] = value;
+            }
+        }
+    }
+
+    private void mergeSort(E[] scratch, int from, int to, Comparator<? super E> comparator) {
+
+        if (to - from <= INSERTION_SORT_LIMIT) {
+            insertionSort(from, to, comparator);
+            return;
+        }
+        int middle = from + (to - from) / 2;
+        mergeSort(scratch, from, middle, comparator);
+        mergeSort(scratch, middle, to, comparator);
+        if (comparator.compare(this.array[middle - 1], this.array[middle]) > 0) {
+            merge(scratch, from, middle, to, comparator);
+        }
+    }
+
+    private void merge(E[] scratch, int from, int middle, int to, Comparator<? super E> comparator) {
+
+        int leftLength = middle - from;
+        // An element loop: an arraycopy into a parameter array escapes it.
+        for (int index = 0; index < leftLength; index++) scratch[index] = this.array[from + index];
+        int left = 0;
+        int right = middle;
+        int target = from;
+        try {
+            while (left < leftLength && right < to) {
+                if (comparator.compare(this.array[right], scratch[left]) < 0) {
+                    this.array[target] = this.array[right];
+                    right++;
+                } else {
+                    this.array[target] = scratch[left];
+                    left++;
+                }
+                target++;
+            }
+        } finally {
+            // The unmerged left elements fill exactly the free slots [target, right).
+            System.arraycopy(scratch, left, this.array, target, leftLength - left);
+        }
     }
 
     /** Returns the number of stored values. */

@@ -833,6 +833,11 @@ public final class CompilerTests {
                 this::listCopyCountQueriesPreserveMembership);
         test("independent list copies match Java ArrayList copies across artifacts",
                 ListCopyParityTests::differential);
+        test("list comparator sort keeps storage and exposes sorted items conservatively",
+                ListSortTests::ownership);
+        test("list comparator sort omits natural-order and array adapters", ListSortTests::omissions);
+        test("list comparator sort matches Java List.sort across artifacts", ListSortTests::artifacts);
+        test("list comparator sort unwinds every allocation failure", ListSortTests::failures);
         test("private compiler snapshots preserve copied payload loans",
                 this::privateSnapshotLoans);
         test("private keyed snapshots preserve payload aliases and shared child versions", KeyedSnapshotTests::loans);
