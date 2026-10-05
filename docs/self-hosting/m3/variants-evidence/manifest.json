@@ -1,0 +1,117 @@
+{
+ "schema_version": 1,
+ "increment": "M3.1 shared IR variant inventory (D265)",
+ "commit": "ecfabf83e32fa9b87a450b1fe237333812dee90d",
+ "host": "macOS arm64 Apple M5, 32 GiB",
+ "java": "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home",
+ "llvm": "/opt/homebrew/opt/llvm@23",
+ "reproduce": "docs/self-hosting/m3/variants-evidence/run-evidence.sh ecfabf83",
+ "status": [
+  "build exit=0",
+  "tests exit=0",
+  "generator-compile exit=0",
+  "generator exit=0",
+  "regeneration-equal exit=0",
+  "fixture-compile exit=0",
+  "fixture-link exit=0",
+  "fixture-run-42 exit=42",
+  "diff-check exit=0",
+  "licenses exit=0"
+ ],
+ "sources": [
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/port/IrModel.iron",
+   "sha256": "df36494e5de4e29d6f0bfb145ebca4e4cc8ff510d6da6409cb761508a5900a05"
+  },
+  {
+   "path": "compiler/src/test/java/ironwood/compiler/IrModelInventory.java",
+   "sha256": "46ac4ee9dad87f8b08b7a47d2262015db3554baae38ededd909544350d0a008c"
+  },
+  {
+   "path": "compiler/src/test/java/ironwood/compiler/IrModelInventoryTests.java",
+   "sha256": "2fcb5d858cd9e6c4b62cca1cb5cb776a3af4f0f8927850fa8973106abf4e325e"
+  },
+  {
+   "path": "integration-tests/cases/compiler_ir_model.iron",
+   "sha256": "af3b6f92588eb332e1b0ed0959f215d7d1ffb1f258d5416dc1f52e20708f16cb"
+  },
+  {
+   "path": "docs/self-hosting/m3/variants-evidence/run-evidence.sh",
+   "sha256": "7c59248b0bb5e36d735e29841cbe77db1e1c9c257abf2b09f8957713d2364f94"
+  }
+ ],
+ "logs": [
+  {
+   "log": "commit.txt",
+   "retained": "docs/self-hosting/m3/variants-evidence/logs/commit.txt.gz",
+   "sha256": "b56e030aa80fd02a9c34326448893ee1f6be8253498b06c25f23c67148d68c3d",
+   "gzip_sha256": "e23df6135632057f7ad0304b827fe0b19fe94564159470485c6564eae038cc32"
+  },
+  {
+   "log": "status.txt",
+   "retained": "docs/self-hosting/m3/variants-evidence/logs/status.txt.gz",
+   "sha256": "7a572d4a96db07c37f4b5a3f2a7b23340ffac30c91c3f43612e0c52af05f13ad",
+   "gzip_sha256": "b54172abb46d54ca7fcaddf5f5831a58bd804852cb7b83b2c349a95afc89fa97"
+  },
+  {
+   "log": "build.log",
+   "retained": "docs/self-hosting/m3/variants-evidence/logs/build.log.gz",
+   "sha256": "ef75e19945ce5a387929dae10a668ed1750126dfbda38cc2d1a3399836cc1fa5",
+   "gzip_sha256": "f82fe84eff47a4d5a258a30db5d7e2bdb032012f44fe108849231034f45bc812"
+  },
+  {
+   "log": "tests.log",
+   "retained": "docs/self-hosting/m3/variants-evidence/logs/tests.log.gz",
+   "sha256": "f3b59d27a1ffcc9edf708210ce213c696f203bb8a4d62b3ed2a64b17299ca824",
+   "gzip_sha256": "344f3cb92d848d8662e26f758b1abfa1c73344978625deab364dd3e4b8d98635"
+  },
+  {
+   "log": "generator-compile.log",
+   "retained": "docs/self-hosting/m3/variants-evidence/logs/generator-compile.log.gz",
+   "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "gzip_sha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64"
+  },
+  {
+   "log": "generator.log",
+   "retained": "docs/self-hosting/m3/variants-evidence/logs/generator.log.gz",
+   "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "gzip_sha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64"
+  },
+  {
+   "log": "regeneration-compare.log",
+   "retained": "docs/self-hosting/m3/variants-evidence/logs/regeneration-compare.log.gz",
+   "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "gzip_sha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64"
+  },
+  {
+   "log": "fixture-compile.log",
+   "retained": "docs/self-hosting/m3/variants-evidence/logs/fixture-compile.log.gz",
+   "sha256": "573a65ced650d65132adfa7da8af3afc700a0f45112ed05a15fff00633b8bd1d",
+   "gzip_sha256": "e2d70668a550f200a2a69957f4dffd9ea465b979325b3221d431998817e31af1"
+  },
+  {
+   "log": "fixture-link.log",
+   "retained": "docs/self-hosting/m3/variants-evidence/logs/fixture-link.log.gz",
+   "sha256": "e5aed24ad568795169d5d8f4e3432b78089bfbebe3e04eb2cb7e86a48092fa1b",
+   "gzip_sha256": "6864d2de4718ae02641010e85c0356854a7db9e2d2c29e02a250facd119a1d36"
+  },
+  {
+   "log": "native.txt",
+   "retained": "docs/self-hosting/m3/variants-evidence/logs/native.txt.gz",
+   "sha256": "3d396f2f996653d7436798516c6dc61f98130f97f11cd349383d48f554776a9e",
+   "gzip_sha256": "699df2b83595c71f0e1c72d51f5d0251e66531226bcd2269f4b0409d9f4e0fae"
+  },
+  {
+   "log": "diff-check.log",
+   "retained": "docs/self-hosting/m3/variants-evidence/logs/diff-check.log.gz",
+   "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "gzip_sha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64"
+  },
+  {
+   "log": "licenses.log",
+   "retained": "docs/self-hosting/m3/variants-evidence/logs/licenses.log.gz",
+   "sha256": "baf5804aeb26498337c9c5223c199afeba5c3e2fc36ae219b9bf420e3775f673",
+   "gzip_sha256": "21fd3bcaf61e87e10822dd63176f2751a3282de06861c556f8ea5cb4d913c689"
+  }
+ ]
+}

@@ -1,0 +1,16 @@
+{
+ "evidence": "docs/self-hosting/m3/variants-evidence",
+ "run": "workspace/m3/variants-evidence",
+ "increment": "M3.1 shared IR variant inventory (D265)",
+ "reproduce": "docs/self-hosting/m3/variants-evidence/run-evidence.sh ecfabf83",
+ "sources": [
+  "compiler/src/main/ironwood/ironwood/compiler/port/IrModel.iron",
+  "compiler/src/test/java/ironwood/compiler/IrModelInventory.java",
+  "compiler/src/test/java/ironwood/compiler/IrModelInventoryTests.java",
+  "integration-tests/cases/compiler_ir_model.iron",
+  "docs/self-hosting/m3/variants-evidence/run-evidence.sh"
+ ],
+ "logs": ["commit.txt", "status.txt", "build.log", "tests.log", "generator-compile.log", "generator.log",
+  "regeneration-compare.log", "fixture-compile.log", "fixture-link.log", "native.txt", "diff-check.log",
+  "licenses.log"]
+}
