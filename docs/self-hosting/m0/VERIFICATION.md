@@ -975,3 +975,13 @@ pilot handoff and S0 qualification retain all previous selected counts/budgets,
 archive checks and original identities. Source/negative-control/handoff/budget
 checks pass; licensing and complete-task whitespace are rechecked for this local
 correction. REPLAY.md remains the committed frozen-input reproduction procedure.
+
+The 55314265c4edd37bce28554d0bc8d49479256378 committed view was materialized
+at target/self-hosting-m0/replay-digest-checkpoint. All 460 D247 source hashes,
+five final admission controls and exact handoff pass there. Regenerated inventory
+qualification/handoff bytes match the retained commit. S0's references, archive
+facts, selected counts, limits/scope and each control stdout/stderr hash also
+match; its command argv differs only for fresh replay invocation paths. Replay
+adds no resource measurements, changes no live source/evidence and starts no
+native milestone. The active before-self-hosting checkout remains clean after
+local verification-record commits.

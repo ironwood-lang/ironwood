@@ -331,6 +331,9 @@ B5/B7 lowercase digest-text/factory elision: M3.2 before the ByteView/earlier Br
 S3 callers, M3.3 for TLS and reuse before later Bridge identity. A fifth admission
 control rejects the earlier collection/M3.1 classification. The selected pilot
 counts, fixed budgets and M1 scope are unchanged; no formatter API is introduced.
+The corrected 55314265 committed frozen view reproduces inventory/handoff bytes
+and S0 facts/control-output hashes; only fresh invocation paths differ. M0 is
+complete, and M1/M2 and every later milestone remain not started.
 
 ### M1. Minimum pilot prerequisites
 
