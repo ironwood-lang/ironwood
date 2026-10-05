@@ -92,20 +92,23 @@ verifies against the decoded text.
 All runs use the PILOT_BUDGETS procedure: 8,176-KiB soft and hard stack limits
 set before exec, `/usr/bin/time -l`, a 2-second runner timeout, two fresh
 repeats. Each run reads, lexes, parses, retains everything and writes every
-output file.
+output file. The reference measurements below come from M2.3's isolated run
+([QUALIFICATION.md](QUALIFICATION.md#measurement-isolation)); this record's own
+runs overlapped a stray helper process and are kept, in brackets and in the
+retained logs, as provisional.
 
 | Case | Runs | Maximum wall | Maximum RSS | Budget |
 | --- | --- | --- | --- | --- |
-| 36 workloads | 72 | 0.040 s | 17.5 MB | 2 s, 1 GiB |
-| whole bundle in one invocation | 2 | 0.297 s | 140.8 MB | 2 s, 1 GiB |
-| J0 on the bundle (reference, not budgeted) | 2 | 1.649 s | 417.9 MB | |
+| 36 workloads | 72 | 0.024 s [0.040 s] | 17.5 MB [17.5 MB] | 2 s, 1 GiB |
+| whole bundle in one invocation | 2 | 0.270 s [0.297 s] | 138.7 MB [140.8 MB] | 2 s, 1 GiB |
+| J0 on the bundle (reference, not budgeted) | 2 | 1.438 s [1.649 s] | 414.9 MB [417.9 MB] | |
 
-All 74 records pass `check-pilot-budget.py`. The lex-and-parse phase of the
-bundle takes 10.8-14.3 ms and retains 405,188 allocations. Doubling the bundle
-in one invocation scales linearly: 1, 2, 4 and 8 copies take 0.24, 0.52, 0.95
-and 1.88 seconds (0.010 to 0.097 s of phase) and 139, 188, 317 and 497 MB; 16
-copies (2,000 units) reach the 2-second cap, mostly writing 800 MB of
-comparison output.
+All 74 records pass `check-pilot-budget.py` in both runs. The lex-and-parse
+phase of the bundle takes 10.4-10.5 ms and retains 405,188 allocations.
+Doubling the bundle in one invocation scales linearly: 1, 2, 4 and 8 copies
+take 0.21-0.26, 0.44-0.45, 0.92-0.93 and 1.87-1.92 seconds (0.010 to 0.084 s of
+phase) and 139 to 498 MB; 16 copies (2,000 units) reach the 2-second cap,
+mostly writing 800 MB of comparison output.
 
 Stack: bisecting the external limit, every case completes at 128 KiB or less.
 Loops128 needs 128 KiB (fails at 112), Control128 112, Loops64 80, Control64 64,

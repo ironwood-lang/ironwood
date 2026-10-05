@@ -414,8 +414,8 @@ remains the gate definition, and **G1** remains its stable checkpoint name.
   and 119-declaration model. It compiles and links under `--unfreed=warn`
   with no findings, retires every builder (a census leaves no temporaries on
   accepted inputs), unwinds every allocation failure, and fits the frontend
-  budget: the whole bundle in one invocation takes 0.297 s and 140.8 MB, and
-  every case completes within a 128-KiB stack.
+  budget: measured in isolation in M2.3, the whole bundle in one invocation
+  takes 0.270 s and 138.7 MB, and every case completes within a 128-KiB stack.
 - [x] **M2.2: Ownership slice.** Exercise real snapshot construction, copy,
   mutation, joins, restoration, and retirement, including explanation evidence.
   Measure immediate and field-retained callbacks and captured-state allocations;
@@ -435,11 +435,13 @@ remains the gate definition, and **G1** remains its stable checkpoint name.
   and outstanding temporaries against M0 budgets. Mandatory safety failures
   remain errors, and zero missing-free warnings is not a requirement.
   Complete: the [qualification record](self-hosting/m2/QUALIFICATION.md)
-  classifies the ten pilot commands' eight reports as four test-adapter sites,
-  all intentional invocation-lifetime retention, with one justified local
-  suppression; the port reports nothing and no command has a mandatory error.
-  The unsafe corpus sources stay rejected in every mode. The selected kernels
-  rerun within budget, and doubling past the references leaves zero
+  shows the ten pilot commands with no missing-free finding and no mandatory
+  error; the test adapters declare their intentional process-lifetime
+  retention with five reviewed local suppressions.
+  The unsafe corpus sources stay rejected in every mode. Every pilot is
+  re-measured in one isolated run, because the earlier runs overlapped a
+  stray helper process: the 74 frontend and 94 kernel records stay within
+  budget, and doubling past the references leaves zero
   temporaries: ownership stays linear to 4,096 nodes, while forced-collision
   evidence and fixed-point effects grow faster and reach their phase caps at
   1,024 nodes and 512 functions; the frontend bundle matches M2.1 up to eight

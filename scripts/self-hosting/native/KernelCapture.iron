@@ -167,12 +167,13 @@ final class OwnershipKernel {
 
     static String run(int size, int shape, boolean explain) {
 
-        OwnershipKernel kernel = new OwnershipKernel(size, shape, explain);
-        kernel.setUp();
+        // Holds the analyzer's input nodes, invocation-lived under D262, to process exit.
+        @SuppressUnfreed OwnershipKernel ownership = new OwnershipKernel(size, shape, explain);
+        ownership.setUp();
         KernelCapture.startPhase();
-        kernel.iterate(0, null, null);
+        ownership.iterate(0, null, null);
         KernelCapture.liveAfterRetirement = System.liveAllocationCount();
-        return kernel.result;
+        return ownership.result;
     }
 
     private void setUp() {
@@ -573,10 +574,11 @@ final class EvidenceKernel {
 
     static String run(int size) {
 
-        EvidenceKernel kernel = new EvidenceKernel(size);
+        // Holds the store whose evidence payloads are invocation-lived under D262.
+        @SuppressUnfreed EvidenceKernel evidence = new EvidenceKernel(size);
         KernelCapture.startPhase();
-        kernel.iterate(0);
-        return kernel.verify();
+        evidence.iterate(0);
+        return evidence.verify();
     }
 
     // One iteration per frame: its keys stay live until the store closes, as
@@ -788,20 +790,22 @@ final class InputKernel {
 
     static String run() {
 
-        InputKernel kernel = new InputKernel();
-        for (int defect = 0; defect <= DEFECTS; defect++) kernel.check(defect);
-        AllocationInfo node = new AllocationInfo(0);
+        // Owns the span and type that the invocation-lived rejected inputs borrow.
+        @SuppressUnfreed InputKernel inputs = new InputKernel();
+        for (int defect = 0; defect <= DEFECTS; defect++) inputs.check(defect);
+        // An allocation node is an invocation-lived analyzer input (D262).
+        @SuppressUnfreed AllocationInfo node = new AllocationInfo(0);
         PilotInputs.admitAllocation(node);
-        kernel.out.append("admitted allocation\n");
+        inputs.out.append("admitted allocation\n");
         node.setState(OperationVariants.AllocationState.FREED);
         try {
             PilotInputs.admitAllocation(node);
-            kernel.out.append("admitted freed allocation\n");
+            inputs.out.append("admitted freed allocation\n");
         } catch (IllegalArgumentException rejected) {
-            kernel.out.append(rejected.getMessage());
-            kernel.out.append('\n');
+            inputs.out.append(rejected.getMessage());
+            inputs.out.append('\n');
         }
-        return kernel.out.toString();
+        return inputs.out.toString();
     }
 
     private void check(int defect) {

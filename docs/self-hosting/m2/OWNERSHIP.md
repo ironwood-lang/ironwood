@@ -134,18 +134,23 @@ a holder leaves the service it was given escaping (D253).
 
 All runs use the PILOT_BUDGETS procedure: 8,176-KiB soft and hard stack limits
 set before exec, `/usr/bin/time -l`, a 1-second runner timeout, two fresh
-repeats of all 47 configurations.
+repeats of all 47 configurations. The reference measurements below come from
+M2.3's isolated run of the final adapter
+([QUALIFICATION.md](QUALIFICATION.md#measurement-isolation)); this record's own
+runs overlapped a stray helper process and are kept, in brackets and in the
+retained logs, as provisional.
 
 | Group | Runs | Maximum wall | Maximum RSS | Maximum phase | Budget (wall, RSS, phase) | J0 maxima |
 | --- | --- | --- | --- | --- | --- | --- |
-| ownership | 48 | 0.243 s | 12.6 MB | 7.5 ms | 1 s, 512 MiB, 250 ms | 0.164 s, 97.8 MB, 61.7 ms |
-| evidence | 6 | 0.020 s | 10.6 MB | 10.0 ms | 1 s, 512 MiB, 250 ms | 0.132 s, 84.3 MB, 56.8 ms |
-| effect | 40 | 0.077 s | 3.2 MB | 33.3 ms | 1 s, 512 MiB, 500 ms | 0.224 s, 261.6 MB, 130.5 ms |
+| ownership | 48 | 0.210 s [0.243 s] | 12.6 MB [12.6 MB] | 7.4 ms [7.5 ms] | 1 s, 512 MiB, 250 ms | 0.164 s, 97.8 MB, 61.7 ms |
+| evidence | 6 | 0.024 s [0.020 s] | 10.7 MB [10.6 MB] | 10.0 ms [10.0 ms] | 1 s, 512 MiB, 250 ms | 0.132 s, 84.3 MB, 56.8 ms |
+| effect | 40 | 0.048 s [0.077 s] | 3.2 MB [3.2 MB] | 30.9 ms [33.3 ms] | 1 s, 512 MiB, 500 ms | 0.224 s, 261.6 MB, 130.5 ms |
 
-All 94 records pass `check-pilot-budget.py` with zero outstanding temporaries
-and zero mandatory build safety errors. The ownership wall maximum is the first,
-cold run; every other run takes 0.020 s or less. Stack: bisecting the external
-limit, every configuration completes at 32 KiB and fails at 16 KiB.
+All 94 records pass `check-pilot-budget.py` in both runs, with zero
+outstanding temporaries and zero mandatory build safety errors. The ownership
+wall maximum is the first, cold run; every other run takes 0.025 s or less.
+Stack: bisecting the external limit, every configuration completes at 32 KiB
+and fails at 16 KiB.
 
 ## Failure safety
 

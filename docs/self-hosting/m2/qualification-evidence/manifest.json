@@ -1,28 +1,28 @@
 {
  "schema_version": 1,
  "increment": "M2.3 scale and qualification",
- "base_commit": "4ef94e5d424ff7b9bc7b788a7d34cdccc2ad571f",
+ "base_commit": "90295bc157662bc06ee4e870198d5c782fa2e4ca",
  "evidence_tree": {
   "description": "fresh copy of the checkout's tracked and new non-ignored files at the run; documentation written afterward is outside this identity",
-  "files": 5543,
+  "files": 5555,
   "file_hashes": "logs/tree-sha256.txt.gz"
  },
  "host_profile": "macOS 27.0.1 arm64 Apple M5 32 GiB; JDK 21.0.1; LLVM 23.1.0 (/opt/homebrew/opt/llvm@23)",
  "build_identity": [
-  "f055f7de46f3497b23967819ece28ef9d0dec88f699c73936fcf2e620ca6773b  compiler/build/ironwoodc.jar",
+  "d57c53c73858e156c8f22cb0c38e88cebbf1609535737860bc7aa4841365e7ed  compiler/build/ironwoodc.jar",
   "a1fdd6520ce1c0d09a036c204e8586117e8b509d598057d8bd780562ad081cc5  compiler/build/ironwood-stdlib.ironjar"
  ],
  "native_binaries": [
-  "75dcd3647e2b0243054a825ab57ae2908b43558886880d241d8db7ef6189f1b2  /Users/developer/workspace-mba-m2/Ironwood/workspace/m2/m23-stage/workspace/m2-qualify/frontend",
-  "e5f7f9d17e8e803b53b15720ad0a14371b9dde9b6311cb7598dd2f2e10ee72b4  /Users/developer/workspace-mba-m2/Ironwood/workspace/m2/m23-stage/workspace/m2-qualify/kernels",
-  "5cf7b9bb00ef459aec8bdbd48f772602dcea1b9d85c3484240cb839db3798871  /Users/developer/workspace-mba-m2/Ironwood/workspace/m2/m23-stage/workspace/m2-qualify/frontend-failure",
-  "9af73d49ecda66232f6bfc4132a385cac3bdf68a8dac7e22b0a7f5d308fc8691  /Users/developer/workspace-mba-m2/Ironwood/workspace/m2/m23-stage/workspace/m2-qualify/ownership-callbacks",
-  "69e045b169701d42f38db5a5d890b206b6ddf75fab33df462f3c8e61c6bd7305  /Users/developer/workspace-mba-m2/Ironwood/workspace/m2/m23-stage/workspace/m2-qualify/ownership-failure"
+  "991fa0bac31f7d2b178615761b3b07d1c86dfb8c4357465c022f9b20d4f233d7  /Users/developer/workspace-mba-m2/Ironwood/workspace/m2.noindex/m23-stage/workspace/m2-qualify/frontend",
+  "424833f2468623f95d585af23efd6522a93f2632500cd744baaf35831d33d41a  /Users/developer/workspace-mba-m2/Ironwood/workspace/m2.noindex/m23-stage/workspace/m2-qualify/kernels",
+  "5e3e4d8e5c77916bd8601410ec00996623366e6287c154831fbde0f8af255ca4  /Users/developer/workspace-mba-m2/Ironwood/workspace/m2.noindex/m23-stage/workspace/m2-qualify/frontend-failure",
+  "80aae2927cb827062c2dabec23b7790d027b5b4964f4cb36e33a8639dd10b778  /Users/developer/workspace-mba-m2/Ironwood/workspace/m2.noindex/m23-stage/workspace/m2-qualify/ownership-callbacks",
+  "45984a7c1b28670472e4d5c37f6495e8b3d12132c12d3ea5bed99208429aed1c  /Users/developer/workspace-mba-m2/Ironwood/workspace/m2.noindex/m23-stage/workspace/m2-qualify/ownership-failure"
  ],
  "sources": [
   {
    "path": "scripts/self-hosting/classify-m2-unfreed.py",
-   "sha256": "30c4327f55fc36bacc7522f7fb07578b2245e827ae7e8a704b8423bff70abc91"
+   "sha256": "a338b628fc1a33a83642382439962ae1716743abe6f558cd47cf3a6c4cc751a2"
   },
   {
    "path": "scripts/self-hosting/measure-m2-kernels.py",
@@ -38,15 +38,15 @@
   },
   {
    "path": "scripts/self-hosting/native/KernelCapture.iron",
-   "sha256": "bf47cbb4ed82d16f7024964891228262d27d4050ead9c6d1c44cebd97828f09c"
+   "sha256": "7c48b576fb7b2e1d12ee0a0dfe294485c38eb326e23c5866e4521fee87962981"
   },
   {
    "path": "docs/self-hosting/m2/qualification-evidence/unfreed-review.json",
-   "sha256": "350a5eb5f52a195fed0311da2049c72c1bb5c1b33374fe2daaa87e96f254853f"
+   "sha256": "abebcd0e5dd0c9350f51b6ec360b721224899810c6c685e27d48ab1feb19ddd0"
   },
   {
    "path": "docs/self-hosting/m2/qualification-evidence/run-evidence.sh",
-   "sha256": "c71c33277fe1fde589b759f47d57850b00fc7124c635e9a63df27b0c80ff2fa2"
+   "sha256": "f32e44364bcc589654b37f663a086b7cca8db1f127b3d1430dc38fd6c63bdcb9"
   }
  ],
  "commands": [
@@ -72,17 +72,21 @@
    "resources exit=0",
    "budgets exit=0",
    "kernel-scale exit=0",
+   "diff-corpus exit=0",
    "bundle-hashes exit=0",
+   "frontend-j0 exit=0",
+   "frontend-resources exit=0",
+   "frontend-budgets exit=0",
    "frontend-scale exit=0",
    "diff-check exit=0",
-   "new-file-whitespace exit=0 (rerun after removing stale evidence logs packaged from an earlier run)",
+   "new-file-whitespace exit=0",
    "licenses exit=0"
   ],
   "tests": [
-   "16:07:52.113 - 1/4 - ok - frontend pilot retires builders and rejects frees of observed state",
-   "16:10:51.582 - 2/4 - ok - ownership pilot retires versions and rejects frees of observed state",
-   "16:12:34.421 - 3/4 - ok - ownership pilot counts callbacks and rejects frees of captured state",
-   "16:12:57.841 - 4/4 - ok - ownership pilot matches the Java kernels across artifacts"
+   "17:33:09.311 - 1/4 - ok - frontend pilot retires builders and rejects frees of observed state",
+   "17:36:09.074 - 2/4 - ok - ownership pilot retires versions and rejects frees of observed state",
+   "17:37:51.519 - 3/4 - ok - ownership pilot counts callbacks and rejects frees of captured state",
+   "17:38:14.881 - 4/4 - ok - ownership pilot matches the Java kernels across artifacts"
   ],
   "pilot_commands": [
    {
@@ -104,18 +108,18 @@
    {
     "command": "kernels-compile",
     "log": "/Users/developer/workspace-mba-m2/Ironwood/workspace/m2/m23-evidence/kernels-compile.log",
-    "missing_free_findings": 4,
+    "missing_free_findings": 0,
     "other_warnings": 0,
     "mandatory_errors": 0,
-    "unique_sites": 4
+    "unique_sites": 0
    },
    {
     "command": "kernels-link",
     "log": "/Users/developer/workspace-mba-m2/Ironwood/workspace/m2/m23-evidence/kernels-link.log",
-    "missing_free_findings": 4,
+    "missing_free_findings": 0,
     "other_warnings": 0,
     "mandatory_errors": 0,
-    "unique_sites": 4
+    "unique_sites": 0
    },
    {
     "command": "frontend-failure-compile",
@@ -166,58 +170,9 @@
     "unique_sites": 0
    }
   ],
-  "unique_sites": [
-   {
-    "path": "scripts/self-hosting/native/KernelCapture.iron",
-    "line": 170,
-    "column": 34,
-    "message": "allocation assigned to 'kernel' leaves scope without being freed",
-    "reported_by": [
-     "kernels-compile",
-     "kernels-link"
-    ],
-    "classification": "invocation-lifetime",
-    "justification": "OwnershipKernel holds the analyzer's input nodes and slots, the tracker and the evidence store; nodes and their versions are invocation-lived under D262 and the adapter exits after writing its result"
-   },
-   {
-    "path": "scripts/self-hosting/native/KernelCapture.iron",
-    "line": 576,
-    "column": 33,
-    "message": "allocation assigned to 'kernel' leaves scope without being freed",
-    "reported_by": [
-     "kernels-compile",
-     "kernels-link"
-    ],
-    "classification": "invocation-lifetime",
-    "justification": "EvidenceKernel holds the evidence store, its budget and the colliding nodes whose sites, events and joins are invocation-lived evidence payloads under D262"
-   },
-   {
-    "path": "scripts/self-hosting/native/KernelCapture.iron",
-    "line": 791,
-    "column": 30,
-    "message": "allocation assigned to 'kernel' leaves scope without being freed",
-    "reported_by": [
-     "kernels-compile",
-     "kernels-link"
-    ],
-    "classification": "invocation-lifetime",
-    "justification": "InputKernel owns the span and type that the rejected IR inputs borrow; admitted IR is invocation-lived under D262, and so are inputs rejected before analysis"
-   },
-   {
-    "path": "scripts/self-hosting/native/KernelCapture.iron",
-    "line": 793,
-    "column": 31,
-    "message": "allocation assigned to 'node' leaves scope without being freed",
-    "reported_by": [
-     "kernels-compile",
-     "kernels-link"
-    ],
-    "classification": "invocation-lifetime",
-    "justification": "an allocation node is an invocation-lived analyzer input under D262; this one carries the freed input state the factory rejects"
-   }
-  ],
+  "unique_sites": [],
   "classification_totals": {
-   "invocation-lifetime": 4,
+   "invocation-lifetime": 0,
    "temporary-cleanup": 0,
    "proof-limit": 0
   },
@@ -227,6 +182,30 @@
     "line": 88,
     "variable": "failed",
     "justification": "the shared sentinel for a parse that threw is stored in the retained result list and lives to process exit (D261 test adapter)"
+   },
+   {
+    "path": "scripts/self-hosting/native/KernelCapture.iron",
+    "line": 171,
+    "variable": "ownership",
+    "justification": "OwnershipKernel holds the analyzer's input nodes and slots, the tracker and the evidence store; nodes and their versions are invocation-lived under D262 and the adapter exits after writing its result"
+   },
+   {
+    "path": "scripts/self-hosting/native/KernelCapture.iron",
+    "line": 578,
+    "variable": "evidence",
+    "justification": "EvidenceKernel holds the evidence store, its budget and the colliding nodes whose sites, events and joins are invocation-lived evidence payloads under D262"
+   },
+   {
+    "path": "scripts/self-hosting/native/KernelCapture.iron",
+    "line": 794,
+    "variable": "inputs",
+    "justification": "InputKernel owns the span and type that the rejected IR inputs borrow; admitted IR is invocation-lived under D262, and so are inputs rejected before analysis"
+   },
+   {
+    "path": "scripts/self-hosting/native/KernelCapture.iron",
+    "line": 797,
+    "variable": "node",
+    "justification": "an allocation node is an invocation-lived analyzer input under D262; this one carries the freed input state the factory rejects"
    }
   ],
   "classification_problems": [],
@@ -238,7 +217,7 @@
    "LoopFormsUnsafe.iron --unfreed=warn exit=1 mandatory_errors=1",
    "LoopFormsUnsafe.iron --unfreed=error exit=1 mandatory_errors=1"
   ],
-  "selected_budget_records": {
+  "kernel_budget_records": {
    "records": 94,
    "passed": 94,
    "mismatches": 0
@@ -252,17 +231,17 @@
      {
       "exit": 0,
       "timed_out": false,
-      "wall": 0.020468208007514477,
-      "rss": 12615680,
-      "phase": 0.007447,
+      "wall": 0.023571375000756234,
+      "rss": 12632064,
+      "phase": 0.007177,
       "outstanding": 0
      },
      {
       "exit": 0,
       "timed_out": false,
-      "wall": 0.020340542017947882,
-      "rss": 12615680,
-      "phase": 0.007429,
+      "wall": 0.0239326250157319,
+      "rss": 12632064,
+      "phase": 0.007286,
       "outstanding": 0
      }
     ]
@@ -275,17 +254,17 @@
      {
       "exit": 0,
       "timed_out": false,
-      "wall": 0.020131084020249546,
-      "rss": 12615680,
-      "phase": 0.007409,
+      "wall": 0.023489416984375566,
+      "rss": 12632064,
+      "phase": 0.007256,
       "outstanding": 0
      },
      {
       "exit": 0,
       "timed_out": false,
-      "wall": 0.020090084057301283,
-      "rss": 12615680,
-      "phase": 0.007355,
+      "wall": 0.02367000002413988,
+      "rss": 12632064,
+      "phase": 0.007334,
       "outstanding": 0
      }
     ]
@@ -298,17 +277,17 @@
      {
       "exit": 0,
       "timed_out": false,
-      "wall": 0.019676583004184067,
+      "wall": 0.011546458001248538,
       "rss": 9453568,
-      "phase": 0.00516,
+      "phase": 0.00502,
       "outstanding": 0
      },
      {
       "exit": 0,
       "timed_out": false,
-      "wall": 0.020168457995168865,
-      "rss": 9469952,
-      "phase": 0.005066,
+      "wall": 0.011688333004713058,
+      "rss": 9453568,
+      "phase": 0.005021,
       "outstanding": 0
      }
     ]
@@ -321,17 +300,17 @@
      {
       "exit": 0,
       "timed_out": false,
-      "wall": 0.04001933295512572,
+      "wall": 0.02363933395827189,
       "rss": 21889024,
-      "phase": 0.014173,
+      "phase": 0.013851,
       "outstanding": 0
      },
      {
       "exit": 0,
       "timed_out": false,
-      "wall": 0.040031249984167516,
-      "rss": 21889024,
-      "phase": 0.013897,
+      "wall": 0.023404916981235147,
+      "rss": 21921792,
+      "phase": 0.013755,
       "outstanding": 0
      }
     ]
@@ -344,17 +323,17 @@
      {
       "exit": 0,
       "timed_out": false,
-      "wall": 0.04017037502489984,
-      "rss": 21872640,
-      "phase": 0.014142,
+      "wall": 0.02365570899564773,
+      "rss": 21905408,
+      "phase": 0.01376,
       "outstanding": 0
      },
      {
       "exit": 0,
       "timed_out": false,
-      "wall": 0.03902633395045996,
+      "wall": 0.023749457963276654,
       "rss": 21889024,
-      "phase": 0.014198,
+      "phase": 0.013936,
       "outstanding": 0
      }
     ]
@@ -367,17 +346,17 @@
      {
       "exit": 0,
       "timed_out": false,
-      "wall": 0.020069665974006057,
-      "rss": 15958016,
-      "phase": 0.009285,
+      "wall": 0.02365849999478087,
+      "rss": 15974400,
+      "phase": 0.009085,
       "outstanding": 0
      },
      {
       "exit": 0,
       "timed_out": false,
-      "wall": 0.020074040978215635,
+      "wall": 0.023594666039571166,
       "rss": 15958016,
-      "phase": 0.009558,
+      "phase": 0.009285,
       "outstanding": 0
      }
     ]
@@ -390,17 +369,17 @@
      {
       "exit": 0,
       "timed_out": false,
-      "wall": 0.03995812503853813,
-      "rss": 39731200,
-      "phase": 0.027359,
+      "wall": 0.04764533299021423,
+      "rss": 39714816,
+      "phase": 0.027302,
       "outstanding": 0
      },
      {
       "exit": 0,
       "timed_out": false,
-      "wall": 0.07727595901815221,
-      "rss": 39763968,
-      "phase": 0.027746,
+      "wall": 0.04777695797383785,
+      "rss": 39714816,
+      "phase": 0.02702,
       "outstanding": 0
      }
     ]
@@ -413,17 +392,17 @@
      {
       "exit": 0,
       "timed_out": false,
-      "wall": 0.04009725002106279,
-      "rss": 39731200,
-      "phase": 0.027774,
+      "wall": 0.04781420802464709,
+      "rss": 39763968,
+      "phase": 0.028748,
       "outstanding": 0
      },
      {
       "exit": 0,
       "timed_out": false,
-      "wall": 0.04013204202055931,
-      "rss": 39763968,
-      "phase": 0.027834,
+      "wall": 0.0476842499920167,
+      "rss": 39714816,
+      "phase": 0.027949,
       "outstanding": 0
      }
     ]
@@ -436,17 +415,17 @@
      {
       "exit": 0,
       "timed_out": false,
-      "wall": 0.040163083001971245,
-      "rss": 28475392,
-      "phase": 0.018514,
+      "wall": 0.04751866700826213,
+      "rss": 28459008,
+      "phase": 0.018286,
       "outstanding": 0
      },
      {
       "exit": 0,
       "timed_out": false,
-      "wall": 0.040128500026185066,
-      "rss": 28459008,
-      "phase": 0.017725,
+      "wall": 0.04772779101040214,
+      "rss": 28442624,
+      "phase": 0.018193,
       "outstanding": 0
      }
     ]
@@ -459,17 +438,17 @@
      {
       "exit": 0,
       "timed_out": false,
-      "wall": 0.07715229201130569,
-      "rss": 77283328,
-      "phase": 0.056274,
+      "wall": 0.08979470800841227,
+      "rss": 77266944,
+      "phase": 0.057365,
       "outstanding": 0
      },
      {
       "exit": 0,
       "timed_out": false,
-      "wall": 0.0765642499900423,
+      "wall": 0.08986129105323926,
       "rss": 77266944,
-      "phase": 0.056185,
+      "phase": 0.05582,
       "outstanding": 0
      }
     ]
@@ -482,17 +461,17 @@
      {
       "exit": 0,
       "timed_out": false,
-      "wall": 0.07724579202476889,
-      "rss": 77266944,
-      "phase": 0.057478,
+      "wall": 0.08995145797962323,
+      "rss": 77299712,
+      "phase": 0.055735,
       "outstanding": 0
      },
      {
       "exit": 0,
       "timed_out": false,
-      "wall": 0.07701900001848117,
+      "wall": 0.07988999999361113,
       "rss": 77283328,
-      "phase": 0.05764,
+      "phase": 0.056424,
       "outstanding": 0
      }
     ]
@@ -505,17 +484,17 @@
      {
       "exit": 0,
       "timed_out": false,
-      "wall": 0.07554995804093778,
-      "rss": 54689792,
-      "phase": 0.035694,
+      "wall": 0.08998754201456904,
+      "rss": 54706176,
+      "phase": 0.035362,
       "outstanding": 0
      },
      {
       "exit": 0,
       "timed_out": false,
-      "wall": 0.07719724997878075,
-      "rss": 54722560,
-      "phase": 0.035621,
+      "wall": 0.08189762500114739,
+      "rss": 54706176,
+      "phase": 0.034935,
       "outstanding": 0
      }
     ]
@@ -528,17 +507,17 @@
      {
       "exit": 0,
       "timed_out": false,
-      "wall": 0.18669895903440192,
-      "rss": 154402816,
-      "phase": 0.115028,
+      "wall": 0.20804762496845797,
+      "rss": 154435584,
+      "phase": 0.121198,
       "outstanding": 0
      },
      {
       "exit": 0,
       "timed_out": false,
-      "wall": 0.18684304202906787,
+      "wall": 0.14995558303780854,
       "rss": 154370048,
-      "phase": 0.11704,
+      "phase": 0.113739,
       "outstanding": 0
      }
     ]
@@ -551,17 +530,17 @@
      {
       "exit": 0,
       "timed_out": false,
-      "wall": 0.18323820899240673,
-      "rss": 154320896,
-      "phase": 0.1128,
+      "wall": 0.15003670804435387,
+      "rss": 154353664,
+      "phase": 0.115366,
       "outstanding": 0
      },
      {
       "exit": 0,
       "timed_out": false,
-      "wall": 0.18388908298220485,
-      "rss": 154370048,
-      "phase": 0.112939,
+      "wall": 0.1497422080137767,
+      "rss": 154353664,
+      "phase": 0.114416,
       "outstanding": 0
      }
     ]
@@ -574,17 +553,17 @@
      {
       "exit": 0,
       "timed_out": false,
-      "wall": 0.1323044589953497,
+      "wall": 0.14975662500364706,
       "rss": 109494272,
-      "phase": 0.072223,
+      "phase": 0.070406,
       "outstanding": 0
      },
      {
       "exit": 0,
       "timed_out": false,
-      "wall": 0.13217649998841807,
+      "wall": 0.1499464160297066,
       "rss": 109494272,
-      "phase": 0.070546,
+      "phase": 0.070717,
       "outstanding": 0
      }
     ]
@@ -597,17 +576,17 @@
      {
       "exit": 0,
       "timed_out": false,
-      "wall": 0.3518706670147367,
-      "rss": 317865984,
-      "phase": 0.236196,
+      "wall": 0.32796933298232034,
+      "rss": 317849600,
+      "phase": 0.236699,
       "outstanding": 0
      },
      {
       "exit": 0,
       "timed_out": false,
-      "wall": 0.3520209169946611,
+      "wall": 0.3273169160238467,
       "rss": 317849600,
-      "phase": 0.238056,
+      "phase": 0.236505,
       "outstanding": 0
      }
     ]
@@ -620,17 +599,17 @@
      {
       "exit": 0,
       "timed_out": false,
-      "wall": 0.3522769170231186,
-      "rss": 317702144,
-      "phase": 0.236792,
+      "wall": 0.3300058749737218,
+      "rss": 317669376,
+      "phase": 0.236367,
       "outstanding": 0
      },
      {
       "exit": 0,
       "timed_out": false,
-      "wall": 0.34385399997700006,
-      "rss": 317669376,
-      "phase": 0.235431,
+      "wall": 0.32468458299990743,
+      "rss": 317685760,
+      "phase": 0.237888,
       "outstanding": 0
      }
     ]
@@ -643,17 +622,17 @@
      {
       "exit": 0,
       "timed_out": false,
-      "wall": 0.2423062499728985,
-      "rss": 228343808,
-      "phase": 0.148825,
+      "wall": 0.20982170902425423,
+      "rss": 229425152,
+      "phase": 0.147847,
       "outstanding": 0
      },
      {
       "exit": 0,
       "timed_out": false,
-      "wall": 0.2386759170331061,
-      "rss": 228343808,
-      "phase": 0.148366,
+      "wall": 0.20999312499770895,
+      "rss": 229425152,
+      "phase": 0.14969,
       "outstanding": 0
      }
     ]
@@ -666,17 +645,17 @@
      {
       "exit": 0,
       "timed_out": false,
-      "wall": 0.020225707965437323,
-      "rss": 10665984,
-      "phase": 0.009883,
+      "wall": 0.02385187504114583,
+      "rss": 10682368,
+      "phase": 0.009821,
       "outstanding": 0
      },
      {
       "exit": 0,
       "timed_out": false,
-      "wall": 0.020026042009703815,
+      "wall": 0.023792541993316263,
       "rss": 10665984,
-      "phase": 0.009942,
+      "phase": 0.00995,
       "outstanding": 0
      }
     ]
@@ -689,17 +668,17 @@
      {
       "exit": 0,
       "timed_out": false,
-      "wall": 0.04004125000210479,
+      "wall": 0.04751595901325345,
       "rss": 18792448,
-      "phase": 0.028029,
+      "phase": 0.027467,
       "outstanding": 0
      },
      {
       "exit": 0,
       "timed_out": false,
-      "wall": 0.04011208296287805,
+      "wall": 0.047713875013869256,
       "rss": 18792448,
-      "phase": 0.028741,
+      "phase": 0.027841,
       "outstanding": 0
      }
     ]
@@ -712,17 +691,17 @@
      {
       "exit": 0,
       "timed_out": false,
-      "wall": 0.1321065830416046,
+      "wall": 0.1496357920113951,
       "rss": 34308096,
-      "phase": 0.088737,
+      "phase": 0.087335,
       "outstanding": 0
      },
      {
       "exit": 0,
       "timed_out": false,
-      "wall": 0.13214991602580994,
+      "wall": 0.1405715830042027,
       "rss": 34308096,
-      "phase": 0.089087,
+      "phase": 0.088226,
       "outstanding": 0
      }
     ]
@@ -735,17 +714,17 @@
      {
       "exit": 0,
       "timed_out": false,
-      "wall": 0.4623019159771502,
-      "rss": 67452928,
-      "phase": 0.407924,
+      "wall": 0.44401054101763293,
+      "rss": 67420160,
+      "phase": 0.389148,
       "outstanding": 0
      },
      {
       "exit": 0,
       "timed_out": false,
-      "wall": 0.46218116697855294,
-      "rss": 67403776,
-      "phase": 0.420173,
+      "wall": 0.45011783298105,
+      "rss": 67420160,
+      "phase": 0.404978,
       "outstanding": 0
      }
     ]
@@ -758,17 +737,17 @@
      {
       "exit": 0,
       "timed_out": false,
-      "wall": 0.07432337501086295,
-      "rss": 3162112,
-      "phase": 0.030948,
+      "wall": 0.047915916016791016,
+      "rss": 3145728,
+      "phase": 0.032253,
       "outstanding": 0
      },
      {
       "exit": 0,
       "timed_out": false,
-      "wall": 0.040200125018600374,
+      "wall": 0.04791100003058091,
       "rss": 3162112,
-      "phase": 0.031258,
+      "phase": 0.031918,
       "outstanding": 0
      }
     ]
@@ -781,17 +760,17 @@
      {
       "exit": 0,
       "timed_out": false,
-      "wall": 0.040178374969400465,
-      "rss": 3162112,
-      "phase": 0.031129,
+      "wall": 0.04765454097650945,
+      "rss": 3145728,
+      "phase": 0.030652,
       "outstanding": 0
      },
      {
       "exit": 0,
       "timed_out": false,
-      "wall": 0.07596991601167247,
-      "rss": 3162112,
-      "phase": 0.032278,
+      "wall": 0.04646370897535235,
+      "rss": 3145728,
+      "phase": 0.030622,
       "outstanding": 0
      }
     ]
@@ -804,17 +783,17 @@
      {
       "exit": 0,
       "timed_out": false,
-      "wall": 0.18647337495349348,
-      "rss": 3883008,
-      "phase": 0.125629,
+      "wall": 0.14964154100744054,
+      "rss": 3899392,
+      "phase": 0.123278,
       "outstanding": 0
      },
      {
       "exit": 0,
       "timed_out": false,
-      "wall": 0.19386025000130758,
-      "rss": 3883008,
-      "phase": 0.134169,
+      "wall": 0.1494575830292888,
+      "rss": 3915776,
+      "phase": 0.124593,
       "outstanding": 0
      }
     ]
@@ -827,17 +806,17 @@
      {
       "exit": 0,
       "timed_out": false,
-      "wall": 0.1840010829619132,
+      "wall": 0.14487341698259115,
       "rss": 3899392,
-      "phase": 0.125392,
+      "phase": 0.123334,
       "outstanding": 0
      },
      {
       "exit": 0,
       "timed_out": false,
-      "wall": 0.1871889170142822,
-      "rss": 3899392,
-      "phase": 0.124169,
+      "wall": 0.14975658303592354,
+      "rss": 3915776,
+      "phase": 0.126567,
       "outstanding": 0
      }
     ]
@@ -850,17 +829,17 @@
      {
       "exit": 0,
       "timed_out": false,
-      "wall": 0.5158086669980548,
-      "rss": 5505024,
-      "phase": 0.497744,
+      "wall": 0.5063816250185482,
+      "rss": 5521408,
+      "phase": 0.492145,
       "outstanding": 0
      },
      {
       "exit": 0,
       "timed_out": false,
-      "wall": 0.5696475409786217,
+      "wall": 0.5030152500257827,
       "rss": 5521408,
-      "phase": 0.504489,
+      "phase": 0.489465,
       "outstanding": 0
      }
     ]
@@ -873,17 +852,17 @@
      {
       "exit": 0,
       "timed_out": false,
-      "wall": 0.5154437909950502,
+      "wall": 0.5100199579610489,
       "rss": 5521408,
-      "phase": 0.502963,
+      "phase": 0.49635,
       "outstanding": 0
      },
      {
       "exit": 0,
       "timed_out": false,
-      "wall": 0.517104875005316,
-      "rss": 5521408,
-      "phase": 0.49769,
+      "wall": 0.5572909169713967,
+      "rss": 5505024,
+      "phase": 0.507014,
       "outstanding": 0
      }
     ]
@@ -896,17 +875,17 @@
      {
       "exit": 0,
       "timed_out": false,
-      "wall": 2.0548166669905186,
-      "rss": 8617984,
-      "phase": 1.989234,
+      "wall": 2.0317761250189506,
+      "rss": 8650752,
+      "phase": 1.977273,
       "outstanding": 0
      },
      {
       "exit": 0,
       "timed_out": false,
-      "wall": 2.050229959015269,
+      "wall": 2.0067496669944376,
       "rss": 8650752,
-      "phase": 1.996111,
+      "phase": 1.963329,
       "outstanding": 0
      }
     ]
@@ -919,22 +898,646 @@
      {
       "exit": 0,
       "timed_out": false,
-      "wall": 2.0491645829752088,
-      "rss": 8650752,
-      "phase": 1.992251,
+      "wall": 1.9857613749918528,
+      "rss": 8634368,
+      "phase": 1.961167,
       "outstanding": 0
      },
      {
       "exit": 0,
       "timed_out": false,
-      "wall": 2.096954584005289,
-      "rss": 8634368,
-      "phase": 2.043506,
+      "wall": 1.9893675839994103,
+      "rss": 8650752,
+      "phase": 1.962974,
       "outstanding": 0
      }
     ]
    }
   },
+  "load": [
+   "kernel-resources: load averages { 2.08 2.67 3.36 } after waiting 0 s",
+   "kernel-scale: load averages { 2.08 2.67 3.36 } after waiting 0 s",
+   "frontend-j0: load averages { 2.60 2.77 3.38 } after waiting 0 s",
+   "frontend-resources: load averages { 2.60 2.77 3.38 } after waiting 0 s",
+   "frontend-scale: load averages { 2.63 2.77 3.38 } after waiting 0 s"
+  ],
+  "frontend_corpus_parity": {
+   "workloads": 36,
+   "files": 144,
+   "mismatches": 0,
+   "native_exit": 0,
+   "native_stdout": "unit 26 outstanding 25\nunit 31 outstanding 29\nunits 36 phase_nanos 7975000 phase_allocations 143616 retained_allocations 126207 census_allocations 126153 outstanding_temporaries 54 calibration list 4 ints 2 string 1 object 1"
+  },
+  "frontend_budget_records": {
+   "records": 74,
+   "passed": 74
+  },
+  "frontend_resources": [
+   {
+    "case": "BadEscape",
+    "repeat": 0,
+    "wall": 0.011718041962012649,
+    "rss": 2850816,
+    "phase": 4.1e-05,
+    "outstanding": 0
+   },
+   {
+    "case": "BadRadix",
+    "repeat": 0,
+    "wall": 0.0056160829844884574,
+    "rss": 2834432,
+    "phase": 3.6e-05,
+    "outstanding": 0
+   },
+   {
+    "case": "BranchJoin",
+    "repeat": 0,
+    "wall": 0.005502082989551127,
+    "rss": 3194880,
+    "phase": 6.5e-05,
+    "outstanding": 0
+   },
+   {
+    "case": "Bundle",
+    "repeat": 0,
+    "wall": 0.2696476670098491,
+    "rss": 138657792,
+    "phase": 0.010469,
+    "outstanding": 0
+   },
+   {
+    "case": "CapturedAliases",
+    "repeat": 0,
+    "wall": 0.01199104095576331,
+    "rss": 3276800,
+    "phase": 0.000104,
+    "outstanding": 0
+   },
+   {
+    "case": "CapturedAliasesUnsafe",
+    "repeat": 0,
+    "wall": 0.01172379101626575,
+    "rss": 3244032,
+    "phase": 0.0001,
+    "outstanding": 0
+   },
+   {
+    "case": "ClassicSwitch",
+    "repeat": 0,
+    "wall": 0.011749167053494602,
+    "rss": 3391488,
+    "phase": 8.9e-05,
+    "outstanding": 0
+   },
+   {
+    "case": "Control128",
+    "repeat": 0,
+    "wall": 0.011686792015098035,
+    "rss": 7127040,
+    "phase": 0.000281,
+    "outstanding": 0
+   },
+   {
+    "case": "Control16",
+    "repeat": 0,
+    "wall": 0.011702958028763533,
+    "rss": 3506176,
+    "phase": 7.2e-05,
+    "outstanding": 0
+   },
+   {
+    "case": "Control64",
+    "repeat": 0,
+    "wall": 0.011796124977990985,
+    "rss": 4947968,
+    "phase": 0.000152,
+    "outstanding": 0
+   },
+   {
+    "case": "DeterministicResources",
+    "repeat": 0,
+    "wall": 0.011790291988290846,
+    "rss": 3866624,
+    "phase": 0.000132,
+    "outstanding": 0
+   },
+   {
+    "case": "GenericInference",
+    "repeat": 0,
+    "wall": 0.011195708008017391,
+    "rss": 3981312,
+    "phase": 0.000129,
+    "outstanding": 0
+   },
+   {
+    "case": "InstanceOfPatterns",
+    "repeat": 0,
+    "wall": 0.011809875024482608,
+    "rss": 4030464,
+    "phase": 0.000141,
+    "outstanding": 0
+   },
+   {
+    "case": "LoopForms",
+    "repeat": 0,
+    "wall": 0.011617209005635232,
+    "rss": 3227648,
+    "phase": 8e-05,
+    "outstanding": 0
+   },
+   {
+    "case": "LoopFormsUnsafe",
+    "repeat": 0,
+    "wall": 0.011790458986070007,
+    "rss": 3211264,
+    "phase": 7.8e-05,
+    "outstanding": 0
+   },
+   {
+    "case": "Loops128",
+    "repeat": 0,
+    "wall": 0.023158458003308624,
+    "rss": 9076736,
+    "phase": 0.000418,
+    "outstanding": 0
+   },
+   {
+    "case": "Loops16",
+    "repeat": 0,
+    "wall": 0.011325875006150454,
+    "rss": 3866624,
+    "phase": 9.5e-05,
+    "outstanding": 0
+   },
+   {
+    "case": "Loops64",
+    "repeat": 0,
+    "wall": 0.010260500013828278,
+    "rss": 6750208,
+    "phase": 0.000213,
+    "outstanding": 0
+   },
+   {
+    "case": "ModernSwitch",
+    "repeat": 0,
+    "wall": 0.011634792026598006,
+    "rss": 4276224,
+    "phase": 0.000131,
+    "outstanding": 0
+   },
+   {
+    "case": "MultidimensionalArrays",
+    "repeat": 0,
+    "wall": 0.012183082988485694,
+    "rss": 3768320,
+    "phase": 9.4e-05,
+    "outstanding": 0
+   },
+   {
+    "case": "NumericForms",
+    "repeat": 0,
+    "wall": 0.01152766594896093,
+    "rss": 2883584,
+    "phase": 4.5e-05,
+    "outstanding": 0
+   },
+   {
+    "case": "Ownership128",
+    "repeat": 0,
+    "wall": 0.02372795797418803,
+    "rss": 17448960,
+    "phase": 0.000669,
+    "outstanding": 0
+   },
+   {
+    "case": "Ownership32",
+    "repeat": 0,
+    "wall": 0.011875708005391061,
+    "rss": 6717440,
+    "phase": 0.000202,
+    "outstanding": 0
+   },
+   {
+    "case": "Ownership8",
+    "repeat": 0,
+    "wall": 0.011714874999597669,
+    "rss": 3932160,
+    "phase": 9.7e-05,
+    "outstanding": 0
+   },
+   {
+    "case": "ShiftGenerics",
+    "repeat": 0,
+    "wall": 0.005554083036258817,
+    "rss": 2949120,
+    "phase": 5.1e-05,
+    "outstanding": 0
+   },
+   {
+    "case": "SlotOrder",
+    "repeat": 0,
+    "wall": 0.005549166991841048,
+    "rss": 3227648,
+    "phase": 7e-05,
+    "outstanding": 0
+   },
+   {
+    "case": "TextBlocks",
+    "repeat": 0,
+    "wall": 0.011531999974977225,
+    "rss": 3768320,
+    "phase": 9.4e-05,
+    "outstanding": 0
+   },
+   {
+    "case": "TruncatedParse",
+    "repeat": 0,
+    "wall": 0.005566874984651804,
+    "rss": 2654208,
+    "phase": 3.3e-05,
+    "outstanding": 25
+   },
+   {
+    "case": "Types16",
+    "repeat": 0,
+    "wall": 0.021646750043146312,
+    "rss": 3129344,
+    "phase": 5.6e-05,
+    "outstanding": 0
+   },
+   {
+    "case": "Types32",
+    "repeat": 0,
+    "wall": 0.011702542018610984,
+    "rss": 3244032,
+    "phase": 7.3e-05,
+    "outstanding": 0
+   },
+   {
+    "case": "Types8",
+    "repeat": 0,
+    "wall": 0.005565958039369434,
+    "rss": 2998272,
+    "phase": 5.8e-05,
+    "outstanding": 0
+   },
+   {
+    "case": "UnicodeSource",
+    "repeat": 0,
+    "wall": 0.011589207977522165,
+    "rss": 2916352,
+    "phase": 4.7e-05,
+    "outstanding": 0
+   },
+   {
+    "case": "UnterminatedBlock",
+    "repeat": 0,
+    "wall": 0.005537541001103818,
+    "rss": 2637824,
+    "phase": 4.1e-05,
+    "outstanding": 29
+   },
+   {
+    "case": "UnterminatedComment",
+    "repeat": 0,
+    "wall": 0.005514541000593454,
+    "rss": 2359296,
+    "phase": 1.5e-05,
+    "outstanding": 0
+   },
+   {
+    "case": "Volume16",
+    "repeat": 0,
+    "wall": 0.011552290990948677,
+    "rss": 3801088,
+    "phase": 8.2e-05,
+    "outstanding": 0
+   },
+   {
+    "case": "Volume256",
+    "repeat": 0,
+    "wall": 0.02355266601080075,
+    "rss": 16957440,
+    "phase": 0.000556,
+    "outstanding": 0
+   },
+   {
+    "case": "Volume64",
+    "repeat": 0,
+    "wall": 0.011652166023850441,
+    "rss": 6373376,
+    "phase": 0.000168,
+    "outstanding": 0
+   },
+   {
+    "case": "BadEscape",
+    "repeat": 1,
+    "wall": 0.005552540998905897,
+    "rss": 2850816,
+    "phase": 3e-05,
+    "outstanding": 0
+   },
+   {
+    "case": "BadRadix",
+    "repeat": 1,
+    "wall": 0.005510916991624981,
+    "rss": 2834432,
+    "phase": 3e-05,
+    "outstanding": 0
+   },
+   {
+    "case": "BranchJoin",
+    "repeat": 1,
+    "wall": 0.005393332976382226,
+    "rss": 3178496,
+    "phase": 6.1e-05,
+    "outstanding": 0
+   },
+   {
+    "case": "Bundle",
+    "repeat": 1,
+    "wall": 0.26982450002105907,
+    "rss": 138657792,
+    "phase": 0.010427,
+    "outstanding": 0
+   },
+   {
+    "case": "CapturedAliases",
+    "repeat": 1,
+    "wall": 0.01189833297394216,
+    "rss": 3276800,
+    "phase": 0.000102,
+    "outstanding": 0
+   },
+   {
+    "case": "CapturedAliasesUnsafe",
+    "repeat": 1,
+    "wall": 0.011585749976802617,
+    "rss": 3276800,
+    "phase": 9e-05,
+    "outstanding": 0
+   },
+   {
+    "case": "ClassicSwitch",
+    "repeat": 1,
+    "wall": 0.011651542037725449,
+    "rss": 3391488,
+    "phase": 9.5e-05,
+    "outstanding": 0
+   },
+   {
+    "case": "Control128",
+    "repeat": 1,
+    "wall": 0.01147795800352469,
+    "rss": 7127040,
+    "phase": 0.000278,
+    "outstanding": 0
+   },
+   {
+    "case": "Control16",
+    "repeat": 1,
+    "wall": 0.011556415993254632,
+    "rss": 3506176,
+    "phase": 7.4e-05,
+    "outstanding": 0
+   },
+   {
+    "case": "Control64",
+    "repeat": 1,
+    "wall": 0.011486875009723008,
+    "rss": 4947968,
+    "phase": 0.000141,
+    "outstanding": 0
+   },
+   {
+    "case": "DeterministicResources",
+    "repeat": 1,
+    "wall": 0.011511499993503094,
+    "rss": 3850240,
+    "phase": 0.00012,
+    "outstanding": 0
+   },
+   {
+    "case": "GenericInference",
+    "repeat": 1,
+    "wall": 0.01158583298092708,
+    "rss": 3964928,
+    "phase": 0.000121,
+    "outstanding": 0
+   },
+   {
+    "case": "InstanceOfPatterns",
+    "repeat": 1,
+    "wall": 0.011677041999064386,
+    "rss": 4030464,
+    "phase": 0.000133,
+    "outstanding": 0
+   },
+   {
+    "case": "LoopForms",
+    "repeat": 1,
+    "wall": 0.00977549998788163,
+    "rss": 3211264,
+    "phase": 7.2e-05,
+    "outstanding": 0
+   },
+   {
+    "case": "LoopFormsUnsafe",
+    "repeat": 1,
+    "wall": 0.01150529197184369,
+    "rss": 3211264,
+    "phase": 6.3e-05,
+    "outstanding": 0
+   },
+   {
+    "case": "Loops128",
+    "repeat": 1,
+    "wall": 0.023518542002420872,
+    "rss": 9076736,
+    "phase": 0.000414,
+    "outstanding": 0
+   },
+   {
+    "case": "Loops16",
+    "repeat": 1,
+    "wall": 0.011708207952324301,
+    "rss": 3866624,
+    "phase": 8.7e-05,
+    "outstanding": 0
+   },
+   {
+    "case": "Loops64",
+    "repeat": 1,
+    "wall": 0.011568416026420891,
+    "rss": 6750208,
+    "phase": 0.000212,
+    "outstanding": 0
+   },
+   {
+    "case": "ModernSwitch",
+    "repeat": 1,
+    "wall": 0.01169375004246831,
+    "rss": 4030464,
+    "phase": 0.000123,
+    "outstanding": 0
+   },
+   {
+    "case": "MultidimensionalArrays",
+    "repeat": 1,
+    "wall": 0.011742917005904019,
+    "rss": 3768320,
+    "phase": 8.5e-05,
+    "outstanding": 0
+   },
+   {
+    "case": "NumericForms",
+    "repeat": 1,
+    "wall": 0.011576499964576215,
+    "rss": 2883584,
+    "phase": 4.9e-05,
+    "outstanding": 0
+   },
+   {
+    "case": "Ownership128",
+    "repeat": 1,
+    "wall": 0.023484707984607667,
+    "rss": 17481728,
+    "phase": 0.000631,
+    "outstanding": 0
+   },
+   {
+    "case": "Ownership32",
+    "repeat": 1,
+    "wall": 0.011699415976181626,
+    "rss": 6717440,
+    "phase": 0.000217,
+    "outstanding": 0
+   },
+   {
+    "case": "Ownership8",
+    "repeat": 1,
+    "wall": 0.011780083004850894,
+    "rss": 3932160,
+    "phase": 9.8e-05,
+    "outstanding": 0
+   },
+   {
+    "case": "ShiftGenerics",
+    "repeat": 1,
+    "wall": 0.0055532080004923046,
+    "rss": 2949120,
+    "phase": 5.6e-05,
+    "outstanding": 0
+   },
+   {
+    "case": "SlotOrder",
+    "repeat": 1,
+    "wall": 0.005644582968670875,
+    "rss": 3227648,
+    "phase": 6.3e-05,
+    "outstanding": 0
+   },
+   {
+    "case": "TextBlocks",
+    "repeat": 1,
+    "wall": 0.010780874988995492,
+    "rss": 3768320,
+    "phase": 8.2e-05,
+    "outstanding": 0
+   },
+   {
+    "case": "TruncatedParse",
+    "repeat": 1,
+    "wall": 0.005345290992408991,
+    "rss": 2654208,
+    "phase": 2.9e-05,
+    "outstanding": 25
+   },
+   {
+    "case": "Types16",
+    "repeat": 1,
+    "wall": 0.0055495830019935966,
+    "rss": 3129344,
+    "phase": 5.3e-05,
+    "outstanding": 0
+   },
+   {
+    "case": "Types32",
+    "repeat": 1,
+    "wall": 0.0055954999988898635,
+    "rss": 3260416,
+    "phase": 6.5e-05,
+    "outstanding": 0
+   },
+   {
+    "case": "Types8",
+    "repeat": 1,
+    "wall": 0.0053486250108107924,
+    "rss": 2998272,
+    "phase": 4.7e-05,
+    "outstanding": 0
+   },
+   {
+    "case": "UnicodeSource",
+    "repeat": 1,
+    "wall": 0.005486625013872981,
+    "rss": 2916352,
+    "phase": 4.7e-05,
+    "outstanding": 0
+   },
+   {
+    "case": "UnterminatedBlock",
+    "repeat": 1,
+    "wall": 0.0055675829644314945,
+    "rss": 2637824,
+    "phase": 2.9e-05,
+    "outstanding": 29
+   },
+   {
+    "case": "UnterminatedComment",
+    "repeat": 1,
+    "wall": 0.005672042025253177,
+    "rss": 2359296,
+    "phase": 1.2e-05,
+    "outstanding": 0
+   },
+   {
+    "case": "Volume16",
+    "repeat": 1,
+    "wall": 0.011575375043321401,
+    "rss": 3801088,
+    "phase": 7.8e-05,
+    "outstanding": 0
+   },
+   {
+    "case": "Volume256",
+    "repeat": 1,
+    "wall": 0.023456749971956015,
+    "rss": 16957440,
+    "phase": 0.000535,
+    "outstanding": 0
+   },
+   {
+    "case": "Volume64",
+    "repeat": 1,
+    "wall": 0.011635124974418432,
+    "rss": 6373376,
+    "phase": 0.000158,
+    "outstanding": 0
+   }
+  ],
+  "frontend_j0_bundle": [
+   {
+    "wall": 1.4377136249677278,
+    "rss": 411992064,
+    "phase": 0.093632708
+   },
+   {
+    "wall": 1.4379180000396445,
+    "rss": 414941184,
+    "phase": 0.090700416
+   }
+  ],
   "frontend_scale": [
    {
     "case": "Scale1",
@@ -942,9 +1545,9 @@
     "units": 125,
     "exit": 0,
     "timed_out": false,
-    "wall": 0.46140529203694314,
+    "wall": 0.20674891700036824,
     "rss": 138657792,
-    "phase": 0.010834,
+    "phase": 0.01052,
     "outstanding": 0
    },
    {
@@ -953,9 +1556,9 @@
     "units": 250,
     "exit": 0,
     "timed_out": false,
-    "wall": 0.46212895796634257,
+    "wall": 0.4407680829754099,
     "rss": 187482112,
-    "phase": 0.021168,
+    "phase": 0.020781,
     "outstanding": 0
    },
    {
@@ -964,9 +1567,9 @@
     "units": 500,
     "exit": 0,
     "timed_out": false,
-    "wall": 0.8963626670301892,
-    "rss": 316850176,
-    "phase": 0.041852,
+    "wall": 0.914534666982945,
+    "rss": 316866560,
+    "phase": 0.043598,
     "outstanding": 0
    },
    {
@@ -975,9 +1578,9 @@
     "units": 1000,
     "exit": 0,
     "timed_out": false,
-    "wall": 1.8866657920298167,
-    "rss": 497123328,
-    "phase": 0.083567,
+    "wall": 1.8712381669902243,
+    "rss": 496992256,
+    "phase": 0.082226,
     "outstanding": 0
    },
    {
@@ -986,7 +1589,7 @@
     "units": 2000,
     "exit": -9,
     "timed_out": true,
-    "wall": 2.003284958016593,
+    "wall": 2.007412792008836,
     "rss": null,
     "phase": null,
     "outstanding": null
@@ -997,9 +1600,9 @@
     "units": 125,
     "exit": 0,
     "timed_out": false,
-    "wall": 0.24238395795691758,
-    "rss": 138657792,
-    "phase": 0.01061,
+    "wall": 0.2577833330142312,
+    "rss": 142884864,
+    "phase": 0.010571,
     "outstanding": 0
    },
    {
@@ -1008,9 +1611,9 @@
     "units": 250,
     "exit": 0,
     "timed_out": false,
-    "wall": 0.46209345798706636,
+    "wall": 0.45010804099729285,
     "rss": 187482112,
-    "phase": 0.021493,
+    "phase": 0.021297,
     "outstanding": 0
    },
    {
@@ -1019,9 +1622,9 @@
     "units": 500,
     "exit": 0,
     "timed_out": false,
-    "wall": 0.9537728329887614,
+    "wall": 0.930165208003018,
     "rss": 316850176,
-    "phase": 0.045451,
+    "phase": 0.042325,
     "outstanding": 0
    },
    {
@@ -1030,9 +1633,9 @@
     "units": 1000,
     "exit": 0,
     "timed_out": false,
-    "wall": 1.9396985829807818,
-    "rss": 496959488,
-    "phase": 0.085472,
+    "wall": 1.9157403329736553,
+    "rss": 497762304,
+    "phase": 0.083681,
     "outstanding": 0
    },
    {
@@ -1041,7 +1644,7 @@
     "units": 2000,
     "exit": -9,
     "timed_out": true,
-    "wall": 2.0026463749818504,
+    "wall": 2.0034418330178596,
     "rss": null,
     "phase": null,
     "outstanding": null
@@ -1051,38 +1654,38 @@
  "logs": [
   {
    "retained": "docs/self-hosting/m2/qualification-evidence/logs/status.txt.gz",
-   "sha256": "5806c20813ad3a83307ecc72a4e7d23cc29aad99f7eeb8c9655af50df64a927e",
-   "gzip_sha256": "01ebb029106c28ca9550c92d6746dd6e0f67e77917f8cbd4b32da80664b98884",
-   "bytes": 606
+   "sha256": "9c617d1d422d673bb65f680db32ac250f6401216fd6c70692d5f73c290a64766",
+   "gzip_sha256": "f292e580c34c3f157f626eecc52f849f1ac55336ebafe5040f093ca173deaa3c",
+   "bytes": 622
   },
   {
    "retained": "docs/self-hosting/m2/qualification-evidence/logs/base-head.txt.gz",
-   "sha256": "ee5514d018e6b20bf810a784899a85091881d9b360e5129a280743875a21ac7f",
-   "gzip_sha256": "58226f34644a704e25b70dc8ad543fc2b69a2c2618b56adc2c8302b4e3d78c53",
+   "sha256": "8d6dfe1328184592152547b8301d0365415e7e1f4331b621366e891897939003",
+   "gzip_sha256": "42836bb65030478ca272b1a4b3a4b7ed639bc7838a01812f337da986c33fbe7c",
    "bytes": 41
   },
   {
    "retained": "docs/self-hosting/m2/qualification-evidence/logs/tree-files.txt.gz",
-   "sha256": "196a59f6f7e4c729f630259bc5a966adfb4b636fbd2dfb8249cb728dc0686aea",
-   "gzip_sha256": "2f5650a21225a64a3ec95d22697b0da4efe605a563707a417edae4542b9970aa",
-   "bytes": 300886
+   "sha256": "b526eab9efb9570991393e0a5904c86e861f0356db206c9b81008d3986c3008d",
+   "gzip_sha256": "878e299541f07c320aca626bb36248a70e0e3eb22f441fe68c17a3d0c0bd4732",
+   "bytes": 301562
   },
   {
    "retained": "docs/self-hosting/m2/qualification-evidence/logs/tree-sha256.txt.gz",
-   "sha256": "569311902855b4f8ed05c4ce242f5ffa1184e5119000b3eb17ac8484b06db33d",
-   "gzip_sha256": "800de52d1da58dd33dd2cb5ea89796e1a20561901344d4ab1611ac7918b20b76",
-   "bytes": 677810
+   "sha256": "7967776e9ebd248368aa340209bf3afd1cc3ccd199f3f316da49a307801a5dee",
+   "gzip_sha256": "c14c9a605684baab7a7c7aa50d6fecb182eca1f7bcc4f098b1931e67bdc1a67c",
+   "bytes": 679302
   },
   {
    "retained": "docs/self-hosting/m2/qualification-evidence/logs/build.log.gz",
-   "sha256": "a4f9621368777c35b8e64cbcf252f4f58ff1fad44ace75094874f9a4ed8723bb",
-   "gzip_sha256": "453abc6711b70d0df1ef27417b10c23a6f1e55fd6431cfa8b42b3ffd84d9e077",
-   "bytes": 34269
+   "sha256": "cf91ee379ca4e559851325403a881634b02f178f3fa93681444d9cec4026c351",
+   "gzip_sha256": "1e8093f2434caaac3350e5e62f9d9a30534885031c29fc7d5e0a333fa0a49ee7",
+   "bytes": 36325
   },
   {
    "retained": "docs/self-hosting/m2/qualification-evidence/logs/build-identity.txt.gz",
-   "sha256": "fa5e213c6e0cb68e6ca23ef6b4604b4a0732e65a78a6935d6c61717af83c982a",
-   "gzip_sha256": "8254fbef65b6ba1d490f0fb988ae9bdcd9f2bba38d40e28d58b7967f66803676",
+   "sha256": "ad1212a89434b6ba38bc957216bbb44f7e6975b4d35e189ff53183552bc65e13",
+   "gzip_sha256": "5600ac2104c900a305426d2112100160c7ed83673ad080dfecbd1bd3d1a541c1",
    "bytes": 200
   },
   {
@@ -1093,81 +1696,81 @@
   },
   {
    "retained": "docs/self-hosting/m2/qualification-evidence/logs/binaries.txt.gz",
-   "sha256": "879cdcf86a8442cf7e01cbbc7148786fb42ce156d7cf572d3ef10e567a9bd4d1",
-   "gzip_sha256": "5fcf110fe522c40fd819735cf08e29c4cc51ab419f3622e2f3371da9360eca07",
-   "bytes": 837
+   "sha256": "462cfdaad179260f4fdbfd1cc2772c8a076ae32d78b496b696aa334171b4a0b3",
+   "gzip_sha256": "4c67cb23b3bff463d37db49faa953e5ce0016bcc40af238211b3eccd01435fca",
+   "bytes": 877
   },
   {
    "retained": "docs/self-hosting/m2/qualification-evidence/logs/frontend-compile.log.gz",
-   "sha256": "7e85345e8107065364235ee6e1e6cc3748a5d7601a81c8d75e2d3dc6da398d9c",
-   "gzip_sha256": "e8c918e629e3e6a5d5e5ef2590eadecb0aea7ec9817f528d44549949ad1f963d",
-   "bytes": 29575
+   "sha256": "ce87df6202e28ec0f9aa2cce02926bf912cac5425bcfa33d2413991ab559eda5",
+   "gzip_sha256": "7191775535e46ff0a564b42c42ba08b47066ac2cfb1c7d4a3c9f9de4cb9b16c1",
+   "bytes": 31039
   },
   {
    "retained": "docs/self-hosting/m2/qualification-evidence/logs/frontend-link.log.gz",
-   "sha256": "21fc06398500f779f0adc123697292e363b4b9706f6080a61b59e123528a1dd7",
-   "gzip_sha256": "fa3d725608dda222945ef50e7a95966d290f0994e5185d7bef115aa5c3dd3100",
-   "bytes": 102
-  },
-  {
-   "retained": "docs/self-hosting/m2/qualification-evidence/logs/kernels-compile.log.gz",
-   "sha256": "c169459db807c5e2d6c64a38bdcf187f6724c7026c6dbf9c4e51b19b29189d85",
-   "gzip_sha256": "9d1b5f3e1f4dfe3e796d6a356a04921dbe36b8b96f301e8e7199665404b1df41",
-   "bytes": 31516
-  },
-  {
-   "retained": "docs/self-hosting/m2/qualification-evidence/logs/kernels-link.log.gz",
-   "sha256": "ae5df4154483e0143b337424d6b13062c505904b97325e37e51c3cfedd0f976c",
-   "gzip_sha256": "0c0b27c8e83bce49ee8666935f29c514fcd559e54214b50cf51d57c623905619",
-   "bytes": 1601
-  },
-  {
-   "retained": "docs/self-hosting/m2/qualification-evidence/logs/frontend-failure-compile.log.gz",
-   "sha256": "f49445b9909b9befc4a97116880c3c2de0e428bd5defe1402014bf7ebbaa1dbc",
-   "gzip_sha256": "345a0b0f292f74e125b4631014fc93f8e654da0c00ae8950ef0d240634c9972a",
-   "bytes": 30599
-  },
-  {
-   "retained": "docs/self-hosting/m2/qualification-evidence/logs/frontend-failure-link.log.gz",
-   "sha256": "9025c3876b65b1f7b7ebb5c9c6d52234fc4c4bebadeeda1919b2dd45a9610f8a",
-   "gzip_sha256": "aae2283d328e2ce3b20b1cf306b2b5afbf6a87633dc21838cfb128202697372a",
+   "sha256": "f0629b4fc75bf2cecae2d9789e68315333eb7b0fe423a063eb2c7fd919d8c573",
+   "gzip_sha256": "e518043276b44e2c556a21f3e8f5e2768b9346edb837f33b1725a9a41c66f474",
    "bytes": 110
   },
   {
+   "retained": "docs/self-hosting/m2/qualification-evidence/logs/kernels-compile.log.gz",
+   "sha256": "da4bc7aab84ed0d79a71d68fa53874838ae9fa36d0669be65ae8a2d0198d1b53",
+   "gzip_sha256": "8cc84ada08ad8b561652febb9478f2a0c0ff225d62663fa787184c73595e1a77",
+   "bytes": 31692
+  },
+  {
+   "retained": "docs/self-hosting/m2/qualification-evidence/logs/kernels-link.log.gz",
+   "sha256": "e1c2034b7682bca43c7d514b992916babe6bf36871472e4a1e232d80667a2202",
+   "gzip_sha256": "33086f34647d412571fc463cd90c0f2719dc3df4bf3c80c1fc063111b18d2db3",
+   "bytes": 109
+  },
+  {
+   "retained": "docs/self-hosting/m2/qualification-evidence/logs/frontend-failure-compile.log.gz",
+   "sha256": "4b7c7f4371fd6fd2fd1c97e56556d24c08514822b7170899fa33872d7c91c7e1",
+   "gzip_sha256": "bfacf953298f2eb3bc2b00a8152007ae5cc659891cbf58ff93252cb6dda02a3e",
+   "bytes": 32039
+  },
+  {
+   "retained": "docs/self-hosting/m2/qualification-evidence/logs/frontend-failure-link.log.gz",
+   "sha256": "aad09b19a39ca6032fd2e5fa36c9ee5234bed1cf2f976233ed3007bd3d79764c",
+   "gzip_sha256": "6429d2a9e47de4fc137db791614803792ddc951b8fac78d7c4b20b9015075a8d",
+   "bytes": 118
+  },
+  {
    "retained": "docs/self-hosting/m2/qualification-evidence/logs/ownership-callbacks-compile.log.gz",
-   "sha256": "55bbb278f31bafd52b81a873b5a532c9eb34a0ab892993e9398f118f5853fbe7",
-   "gzip_sha256": "827b55b94785778eef77c6da8127657b8bdb4f9b15061aee22c457f480e8c753",
-   "bytes": 31287
+   "sha256": "c69156ab72cd0aacc881c1bbb22bb409339f7c3d2ec8382c555ad5465cc4675a",
+   "gzip_sha256": "cddb194ded8e7a184ee01f806fdf59fc2540a683ee4ff53149f3c2271c77db99",
+   "bytes": 32735
   },
   {
    "retained": "docs/self-hosting/m2/qualification-evidence/logs/ownership-callbacks-link.log.gz",
-   "sha256": "9df61630d2c2c7f09a8ea744fd46a8fa54be22e3cf14ebcd621fac067f537b0e",
-   "gzip_sha256": "0ac1575b21a130e6a6452ade79bdece46f72bf56b20dac3208094b7506c819e5",
-   "bytes": 113
+   "sha256": "90ad3743eece68b3e07af744013cdc7d5b4b6513350546106522d4af6278dbdc",
+   "gzip_sha256": "35b6c11d2de72dd655b497180420bf7c6ee95ff575a93013ca5dff0467d1c576",
+   "bytes": 121
   },
   {
    "retained": "docs/self-hosting/m2/qualification-evidence/logs/ownership-failure-compile.log.gz",
-   "sha256": "718aef339d90ac0aea3ec7c14f54dcbae4d4af420574e1031a52ac152add9a97",
-   "gzip_sha256": "e2d5063cda655b49edcf0b26a3c17c864e46872c41b8b04a99f810825643835b",
-   "bytes": 30915
+   "sha256": "d6063cfc804a3256aa339f99b549f12a5ec23e84d04e4d291701adbff6056075",
+   "gzip_sha256": "9c978725912355d66f0aab2046c3809b5c9997054fe94ac536278d04d96e963e",
+   "bytes": 32363
   },
   {
    "retained": "docs/self-hosting/m2/qualification-evidence/logs/ownership-failure-link.log.gz",
-   "sha256": "071937bf5475a5901582e93f200db3d9ea993264eaf82f91c37ca1dcc5266fa3",
-   "gzip_sha256": "d882aea5eb01ab43c74e3337dc5fbcecfc3e6bb4d4cb6f95750e00d52aafd9d3",
-   "bytes": 111
+   "sha256": "7d9189519dfb38433fe9cd542d487918306db541059f2ba2e804ba741cc1c639",
+   "gzip_sha256": "41bea5e386ec882f455b950aca64ba597a7a3babb60b1f9690fce4a468d3a8f0",
+   "bytes": 119
   },
   {
    "retained": "docs/self-hosting/m2/qualification-evidence/logs/unfreed-classification.log.gz",
-   "sha256": "7be22783f2da0dcf5b861c0ed606871a48cfb59bfe7c7f7eb3e955e48f96cea4",
-   "gzip_sha256": "ba683dd54d1c4c7440362ab565fa6226655d164ea80337a88a71ad3771443441",
+   "sha256": "08a96efd9283e0c86e205dd134a601c096c7cfd740eb7a4bdb8c808f21f9484d",
+   "gzip_sha256": "be6c68bb7180558cbdcfabe3b6ad9df3d875524d61b6b00b3d0c42fc200effcd",
    "bytes": 1004
   },
   {
    "retained": "docs/self-hosting/m2/qualification-evidence/logs/unfreed-classification.json.gz",
-   "sha256": "ab18f66f1c0bdb52fdd27589fa4b441ed843b33f09ac43be1fad8dbbe595c790",
-   "gzip_sha256": "6673bc882daf5802423c0991ccc4ef84e2bba0edc67c4265c5f50bbfde1b150b",
-   "bytes": 4922
+   "sha256": "ac9451018ba3fe24a9a0f8ec7e0c9a887d91044a192b132f646a2dd1be0bd989",
+   "gzip_sha256": "ab9592da9fb52131e493d3c9c43e9de3b43efb838667b8ef773c914cd52c9785",
+   "bytes": 4182
   },
   {
    "retained": "docs/self-hosting/m2/qualification-evidence/logs/unsafe-modes.log.gz",
@@ -1177,57 +1780,111 @@
   },
   {
    "retained": "docs/self-hosting/m2/qualification-evidence/logs/tests.log.gz",
-   "sha256": "d8870ed91fc3ad108a1a3924aa5633fa0ec679d9aca5a6d7eb7bda088e4419ee",
-   "gzip_sha256": "f5606b889e87eefb6e22293c84101055170e365cf0c8990fc582105598581c22",
+   "sha256": "8c8eba018f3fc8b65668c1649dc38af63b414bf072462b3ade2bc4961f2f4054",
+   "gzip_sha256": "07a40b2e35b1a94a630683fa2b0c09046d02066ce344be0594fa469631300725",
    "bytes": 763
   },
   {
    "retained": "docs/self-hosting/m2/qualification-evidence/logs/resources.log.gz",
-   "sha256": "175c2b3b660c114e5668d721402c9add888e90cdfd8838e4143bf8361bdf81cf",
-   "gzip_sha256": "22600edea3df4448c38d7b56d0144f7814d90bc068b8a5abd8c84ab75a536ed0",
-   "bytes": 5781
+   "sha256": "97b912bde60e1830c187dfdd3a78ff1701b9d0eb6956b1f21b1b815547298aed",
+   "gzip_sha256": "794a9f835a63edc70a32dcb8867c2b74918ef04e75725bcd53fbf6611a848ba3",
+   "bytes": 5779
   },
   {
    "retained": "docs/self-hosting/m2/qualification-evidence/logs/resources.json.gz",
-   "sha256": "8c9b7b8bbdd70d1d5d11f3b8999da6461382c633b96759f3ab547fda92d9d42e",
-   "gzip_sha256": "2c58c30e907b7aae8dc09a163c4ac9fde3ec413b05d1bcf08462e3f85647f323",
-   "bytes": 139861
+   "sha256": "b84d793642b56a65efd4609840003708a1d706a69b5f58c21f48c8a265484074",
+   "gzip_sha256": "58aad62a2f9bf775d5ddd13f612419a316d8c13fdc08ea86dc3d0061d402f218",
+   "bytes": 142876
   },
   {
    "retained": "docs/self-hosting/m2/qualification-evidence/logs/budget-check.log.gz",
-   "sha256": "f7834713307d4cf3551282431088adb2ab375b8d94af20738913d6384e9cbf55",
-   "gzip_sha256": "672ad1b7e7e4195e684bb03115415b56e62e20d95c10c3b3f016efc958894c50",
-   "bytes": 273
+   "sha256": "d9aa54a158440c20574591bac25cac96282723fbbdbbc5b838e7150adc75bb97",
+   "gzip_sha256": "eace474600f35513a039cb8e522c8f688d09a01ed324518231a46cc54e9ed0e6",
+   "bytes": 271
   },
   {
    "retained": "docs/self-hosting/m2/qualification-evidence/logs/budget-records.json.gz",
-   "sha256": "220dd4447eaa34269c76bb08afc5c5adf5eda9e31fd483141b2eacd0dfca4041",
-   "gzip_sha256": "37c48ac17b6d75bb875f97420cacc3cd8c4f86a291a9d38661c1b0644b70821b",
-   "bytes": 61123
+   "sha256": "20f2447aac268101d1786cf36fc402959141a0732cf7e12ffe5cd3455b5d308a",
+   "gzip_sha256": "38c0d0fba792e212cc0d124fca482cda2b7b9e7dc8cebbcf7e1bab690c8dc37a",
+   "bytes": 61130
   },
   {
    "retained": "docs/self-hosting/m2/qualification-evidence/logs/kernel-scale.log.gz",
-   "sha256": "e13bb3d236106f3021f40baee0a50e3debb30ce5164012f7222fb41fe7dc8d9f",
-   "gzip_sha256": "ca5d724398a438d551d11d7f3d9a99bdcbff422b7dc7b2cf2876597da0fb8440",
-   "bytes": 3400
+   "sha256": "816142613d63f2ba3591218deeadbbbe61ed74be545fee5edf04664b5989d025",
+   "gzip_sha256": "19e71cb607da7d111a68bcf95a84813f7706a4fb37db70c5fb503fc769822674",
+   "bytes": 3399
   },
   {
    "retained": "docs/self-hosting/m2/qualification-evidence/logs/kernel-scale.json.gz",
-   "sha256": "d7dc657a824f2574761ac6a9eba0035f95a9252ccf2cbf3341ca09aa8ba715a9",
-   "gzip_sha256": "830959078685fccd1d758fac27e4afc6b9aed1f8175a91c76a07664884580cdd",
-   "bytes": 86502
+   "sha256": "37b999389cf5473eeb5c6774aa956dae512d03fb0835da7c8a761cbc088c3316",
+   "gzip_sha256": "23111ad7bc7ae7e13dea0a9055ee17bcaf5be6d7141a7aace76e8137e53ae80d",
+   "bytes": 88418
   },
   {
    "retained": "docs/self-hosting/m2/qualification-evidence/logs/frontend-scale.log.gz",
-   "sha256": "7c844b400f6a2df0405562fe3095b3b5d93cfb44a2fd71fa598e8df2d657da7e",
-   "gzip_sha256": "46f756a50303aa838c087d4f2799312eae20def58f3ea62e11748ab377b08cd8",
+   "sha256": "2267a0cd50a425c14c866d4078550dbdefeed2e07a208e215b7605af47ffe3ce",
+   "gzip_sha256": "2e22287e878e28aabafe7411ad2eb2766655ba7300e2edf741305d210e492743",
    "bytes": 310
   },
   {
    "retained": "docs/self-hosting/m2/qualification-evidence/logs/frontend-scale.json.gz",
-   "sha256": "b8eada7f80fda8b81b930b8b6ce849dc70795d199d345ea1b7aab98a3a249f4f",
-   "gzip_sha256": "9b0807f2836191e12ac091cee53ca511151d7e7b63e2a71ecff19662a979373e",
-   "bytes": 17606
+   "sha256": "17bf55f6475259462834fa33a8057e7583a7d0236c045ef10e88a0a13154ff77",
+   "gzip_sha256": "815786efe5b1af17b6c3a4d0381b4c942c1825993242f28dbc75f31680295683",
+   "bytes": 18082
+  },
+  {
+   "retained": "docs/self-hosting/m2/qualification-evidence/logs/load.log.gz",
+   "sha256": "01c1f0d861816d9a9f1c5d930b7f2fedb29ba268a744d90a66e701dc75fd9576",
+   "gzip_sha256": "ee93eabcef616f46bb43d912a43d614191437bca282d9244e8b89e68133ba2b7",
+   "bytes": 336
+  },
+  {
+   "retained": "docs/self-hosting/m2/qualification-evidence/logs/diff-corpus.log.gz",
+   "sha256": "7f5101558c8988c07285dcc2cbd7871a364b1808d33d6b9fbccbec98e9431232",
+   "gzip_sha256": "deef6c937553e57da748fdf8077e922a6fda8ecef61b599e2da9aed8d327a7d8",
+   "bytes": 314
+  },
+  {
+   "retained": "docs/self-hosting/m2/qualification-evidence/logs/diff-corpus.json.gz",
+   "sha256": "dc118369d897d3d37284a90ecc0d1ab4a8e35deb6e38def25f4d08f1757a807a",
+   "gzip_sha256": "fc9f4dbba2c3893db2e01a861d519eca715c687c670c83c4987be70ddd7867b0",
+   "bytes": 47401
+  },
+  {
+   "retained": "docs/self-hosting/m2/qualification-evidence/logs/frontend-j0.log.gz",
+   "sha256": "9cb332acce3395c04cfbb045c0bd7f0e648a8b5d54d782484c7cb556a5c0e39f",
+   "gzip_sha256": "3231b02cbefceb8a053d40d2c6de3efb9edfb0b81f3286d98894b8113d060313",
+   "bytes": 68
+  },
+  {
+   "retained": "docs/self-hosting/m2/qualification-evidence/logs/frontend-j0.json.gz",
+   "sha256": "6c87dea912d68905ed882ed5d89780cfdd547c4f5f61bf900c656add93cf24b1",
+   "gzip_sha256": "80c8190d7514fccbca034e5cc6d2221fcf01cc1c526c7d60beae7bc2158f5378",
+   "bytes": 3804
+  },
+  {
+   "retained": "docs/self-hosting/m2/qualification-evidence/logs/frontend-resources.log.gz",
+   "sha256": "89e930d75f1dac1273dc6531df277dc502bae9bbe43127bca4472e30598abb96",
+   "gzip_sha256": "e632e88dcf0c67f440d3180be48963de797fd40ded353f601a25db54e72d44c6",
+   "bytes": 2576
+  },
+  {
+   "retained": "docs/self-hosting/m2/qualification-evidence/logs/frontend-resources.json.gz",
+   "sha256": "522474498a72c0282b0590633873f9bded3d1aac97529334d86fef746dd7d696",
+   "gzip_sha256": "537038326f9a1c455d354971b54c8fce4160954135a34f386b141b53491139a5",
+   "bytes": 141145
+  },
+  {
+   "retained": "docs/self-hosting/m2/qualification-evidence/logs/frontend-budget-check.log.gz",
+   "sha256": "0aefa48780a000a7526b50a576ccd074e00f4d9b4411a022b264dcf47d9a16d4",
+   "gzip_sha256": "b9b219a727b311c00de47987f70f2cdc5fa5a77b30feca5bf7160196c86cecb2",
+   "bytes": 67
+  },
+  {
+   "retained": "docs/self-hosting/m2/qualification-evidence/logs/frontend-budget-records.json.gz",
+   "sha256": "ec9bef26da2b7a820d64ddd0ef9a07542be9e500d8b38c73070c7d5ec2c70bd4",
+   "gzip_sha256": "c60d249de7cf8a08bf36a067eb84dc2b3b26f9ec9a561cdbb5663a94a05530bf",
+   "bytes": 45733
   },
   {
    "retained": "docs/self-hosting/m2/qualification-evidence/logs/diff-check.log.gz",

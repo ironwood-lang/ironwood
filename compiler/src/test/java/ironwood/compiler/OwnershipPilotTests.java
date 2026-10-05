@@ -25,10 +25,6 @@ final class OwnershipPilotTests {
     private static final String CALLBACKS = "integration-tests/cases/compiler_ownership_callbacks.iron";
     private static final String FAILURE = "integration-tests/cases/compiler_ownership_failure.iron";
     private static final String M0 = "docs/self-hosting/m0/";
-    // The adapter's classified invocation-lived kernels and rejected input node.
-    private static final Map<String, Integer> ADAPTER_WARNINGS = Map.of(
-            "warning: allocation assigned to 'kernel' leaves scope without being freed", 3,
-            "warning: allocation assigned to 'node' leaves scope without being freed", 1);
     private static final String HEAD = """
             import ironwood.compiler.port.*;
             import ironwood.compiler.semantic.*;
@@ -214,7 +210,7 @@ final class OwnershipPilotTests {
             Path classes = root.resolve("classes");
             List<String> arguments = new ArrayList<>(portSourcePaths());
             arguments.addAll(List.of(ADAPTER, "--unfreed=warn", "-d", classes.toString()));
-            run(arguments, ADAPTER_WARNINGS);
+            run(arguments, Map.of());
             Path archive = root.resolve("kernels.ironjar");
             ByteArrayOutputStream ignored = new ByteArrayOutputStream();
             if (IronJarMain.run(new String[]{"--create", "--file", archive.toString(), classes.toString()},
@@ -224,7 +220,7 @@ final class OwnershipPilotTests {
             for (Path input : List.of(classes, archive)) {
                 Path executable = root.resolve(input.getFileName() + "-capture");
                 run(List.of("--link", "-cp", input.toString(), "--main-class", "KernelCapture", "--unfreed=warn",
-                        "-O3", "-o", executable.toString()), ADAPTER_WARNINGS);
+                        "-O3", "-o", executable.toString()), Map.of());
                 for (String[] configuration : configurations()) {
                     String label = configuration[5];
                     Path output = root.resolve(input.getFileName() + "-" + label);

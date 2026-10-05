@@ -100,6 +100,10 @@ def main():
             match = SUPPRESSION.search(line)
             if not match:
                 continue
+            # Each suppressed variable needs its own review, so names are unique per file.
+            if any((s['path'], s['variable']) == (source, match.group(1)) for s in suppressions):
+                problems.append('ambiguous suppression %s:%d %s' % (source, number, match.group(1)))
+                continue
             decision = known.get((source, match.group(1)))
             if decision is None or not decision.get('justification'):
                 problems.append('unreviewed suppression %s:%d %s' % (source, number, match.group(1)))

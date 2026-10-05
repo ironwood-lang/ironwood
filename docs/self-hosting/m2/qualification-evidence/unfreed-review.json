@@ -1,44 +1,31 @@
 {
  "description": "Reviewed classification of every unique --unfreed=warn missing-free site and every local suppression in the M2 pilots (M2.3). Classes: invocation-lifetime (intentional retention to process exit), temporary-cleanup (work left to retire), proof-limit (a diagnostic or proof limit).",
- "sites": [
-  {
-   "path": "scripts/self-hosting/native/KernelCapture.iron",
-   "line": 170,
-   "column": 34,
-   "message": "allocation assigned to 'kernel' leaves scope without being freed",
-   "classification": "invocation-lifetime",
-   "justification": "OwnershipKernel holds the analyzer's input nodes and slots, the tracker and the evidence store; nodes and their versions are invocation-lived under D262 and the adapter exits after writing its result"
-  },
-  {
-   "path": "scripts/self-hosting/native/KernelCapture.iron",
-   "line": 576,
-   "column": 33,
-   "message": "allocation assigned to 'kernel' leaves scope without being freed",
-   "classification": "invocation-lifetime",
-   "justification": "EvidenceKernel holds the evidence store, its budget and the colliding nodes whose sites, events and joins are invocation-lived evidence payloads under D262"
-  },
-  {
-   "path": "scripts/self-hosting/native/KernelCapture.iron",
-   "line": 791,
-   "column": 30,
-   "message": "allocation assigned to 'kernel' leaves scope without being freed",
-   "classification": "invocation-lifetime",
-   "justification": "InputKernel owns the span and type that the rejected IR inputs borrow; admitted IR is invocation-lived under D262, and so are inputs rejected before analysis"
-  },
-  {
-   "path": "scripts/self-hosting/native/KernelCapture.iron",
-   "line": 793,
-   "column": 31,
-   "message": "allocation assigned to 'node' leaves scope without being freed",
-   "classification": "invocation-lifetime",
-   "justification": "an allocation node is an invocation-lived analyzer input under D262; this one carries the freed input state the factory rejects"
-  }
- ],
+ "sites": [],
  "suppressions": [
   {
    "path": "scripts/self-hosting/native/FrontendCapture.iron",
    "variable": "failed",
    "justification": "the shared sentinel for a parse that threw is stored in the retained result list and lives to process exit (D261 test adapter)"
+  },
+  {
+   "path": "scripts/self-hosting/native/KernelCapture.iron",
+   "variable": "ownership",
+   "justification": "OwnershipKernel holds the analyzer's input nodes and slots, the tracker and the evidence store; nodes and their versions are invocation-lived under D262 and the adapter exits after writing its result"
+  },
+  {
+   "path": "scripts/self-hosting/native/KernelCapture.iron",
+   "variable": "evidence",
+   "justification": "EvidenceKernel holds the evidence store, its budget and the colliding nodes whose sites, events and joins are invocation-lived evidence payloads under D262"
+  },
+  {
+   "path": "scripts/self-hosting/native/KernelCapture.iron",
+   "variable": "inputs",
+   "justification": "InputKernel owns the span and type that the rejected IR inputs borrow; admitted IR is invocation-lived under D262, and so are inputs rejected before analysis"
+  },
+  {
+   "path": "scripts/self-hosting/native/KernelCapture.iron",
+   "variable": "node",
+   "justification": "an allocation node is an invocation-lived analyzer input under D262; this one carries the freed input state the factory rejects"
   }
  ]
 }
