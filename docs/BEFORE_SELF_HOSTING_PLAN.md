@@ -118,7 +118,7 @@ or displace the feasibility pilot.
   identities, launcher `-Xmx`/`-Xss`, effective environment/settings, hosts,
   source hashes, and exact commands. Define the memory, stack, and time
   measurement procedure and supported development-machine profiles.
-- [ ] **M0.2: Classify dependencies and ordering.** Inventory API overloads,
+- [x] **M0.2: Classify dependencies and ordering.** Inventory API overloads,
   excluded syntax, callbacks/captures, snapshots, null handling, deque uses,
   and every hash-container traversal. Assign each required replacement to a B
   owner, phase, first consumer, and fixture. Preserve the original evidence
@@ -136,7 +136,7 @@ This is S0's baseline checkpoint, not a second definition of S0.
 
 Evidence: [M0 qualification record](self-hosting/m0/VERIFICATION.md), including
 the original J0 input manifest, effective numeric JVM profile and measurement
-procedure. M0.1 passed on macOS arm64; M0.2/M0.3 and S0 remain in progress.
+procedure. M0.1/M0.2 passed on macOS arm64; final M0.3/S0 handoff is in progress.
 Attributed discovery and its focused qualification are retained in that record;
 candidate labels remain separate from the required reviewed use-site contracts.
 The neutral process comparison now detects deliberately changed diagnostics,
@@ -308,8 +308,15 @@ external keys and 53,644 operand ranges with flat quote grammar and canonical
 UTF-16 constants. Five failed parsing attempts remain archived; their raw calls
 were complete. Boxed int/char, borrowed builder, ASCII anchor and cleanup prepend
 contracts are source-specific. General producer order/native retirement remain
-later obligations. Next: finish precise deferred consumers and the pilot handoff,
-then reconcile S0. M0 remains in progress; M1/M2 have not started.
+later obligations. The final source-backed deferred ledger assigns every exact
+call/syntax/capture/hash contribution its typed source demand, B preparation,
+actual first consumer and blocking fixture. Main/facade Bridge dispatch, archive
+classpath and native process branches no longer become source-only S4 demands.
+Actual earlier semantic call routes remain visible. Four admission controls pass;
+later unresolved contracts stay blocked before their dependent consumer. REPLAY.md
+provides a read-only git/blob view for phase source checks after later edits.
+M0.2 is complete. Next: record the final pilot dependency handoff and S0 check.
+M0 remains in progress; M1/M2 have not started.
 
 ### M1. Minimum pilot prerequisites
 

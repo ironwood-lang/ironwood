@@ -1,0 +1,56 @@
+{
+  "schema": 1,
+  "scope": "complete exact source demand inventory; later unresolved contracts block their named native consumer; finite selected M1 boundary only",
+  "input_reconciliation_manifest_sha256": "51e6f55aedd979c1b3c67b49e93434f13af07d2267b41f42ac15f7b3229e00d1",
+  "input_reconciliation_qualification_sha256": "0e6987dea039b814b69bd9abdcdf55d843d7464dc32064847d6656bc4787931f",
+  "builder_review_sha256": "3c1db2bdf45fea312d6dec48f42c231d72bc57fa271018d6430faa38791a7be7",
+  "argument_source_qualification_sha256": "44f0e7c991437a2c78e8493ef2fdf8da54ebcb30af8fe04d5bc8857f3e67aa67",
+  "contract_document_sha256": "113561c4438cf232fb55efde7a4b102d462fbd8c833b4b36344310bb02aed78b",
+  "tool_sha256": "b4784bea85dcf8b1b03cfb23d11ef3210782bed1a88338318dbc31032d79ac12",
+  "artifacts": {
+    "api": {
+      "raw_sha256": "2e6c789cdd61375f9f66b8bf02d8c9f9763e958b164e7f84e93638e7f1afd9b8",
+      "raw_bytes": 1060624,
+      "sha256": "f8e7a28c3fde7c980608145cd4f429e5f364e784c4f4b170f95564beb27351cd"
+    },
+    "calls": {
+      "raw_sha256": "7dea1c9579647d4a897a294f9a55b448ac6c1b46a1fa8fab2f3df6e5c22641a5",
+      "raw_bytes": 150440495,
+      "sha256": "5bc68c4a543725ccfdb45d3d5b4fa5ae58a16ea1977ebeedd946340814eaa752"
+    },
+    "syntax": {
+      "raw_sha256": "77b3b830eaacc41613a81afc6e2b05c40bcd6c0ecc0857079b0299da145bd425",
+      "raw_bytes": 24032559,
+      "sha256": "fc1199d4e4be84d0dcff37ad0a3d1071c739e451621e70c463779b2a9e6d3976"
+    },
+    "captures": {
+      "raw_sha256": "34824ed36ce519dbbd8cf5adecedf423b21b969f6f49a7462022d311af31e09c",
+      "raw_bytes": 12642483,
+      "sha256": "8975260e1e35bdffed0cb03caadbec074947e721b0b0e683c04c0e42a948ca87"
+    },
+    "hash": {
+      "raw_sha256": "3b7df5920a6c97c9d9d32e46ca1094bc713562184bdcb2642b3a1145af3d46ae",
+      "raw_bytes": 101621835,
+      "sha256": "08a86938c2ad7cc15e3cb4a3a168404830eb561a084d4c8d7dbc63bb9aade82f"
+    },
+    "consumers": {
+      "raw_sha256": "b67653207d8d7f242000cfb9fc007513aeeed861842af6bbe3796529392dc38d",
+      "raw_bytes": 3650424,
+      "sha256": "bb0c8d4476a6d5fe795db96201f4b8e4daa8cebeb7aabaa2c5260f6e798fc14d"
+    },
+    "excluded-edges": {
+      "raw_sha256": "d33c250c138971ef19ba03f08287dd6e3aea6ebfffbcdfbd128ba02452b7651b",
+      "raw_bytes": 134541,
+      "sha256": "4c42cd7fafbff5a7df08fb9339582d640a910264e43577a56f27146098b038bb"
+    }
+  },
+  "counts": {
+    "api": 712,
+    "calls": 30979,
+    "syntax": 12413,
+    "captures": 3054,
+    "origins": 849,
+    "traversals": 2957,
+    "contributions": 31325
+  }
+}

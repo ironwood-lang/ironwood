@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "manifest_sha256": "63807db7fec0f40ec20f4a07803b434d5bdc6484d5e7a3f25f0513ba95ecab1e",
+  "qualifier_sha256": "3eba78d5cd1f4028f266d8648c8279b9291d23811b008a05cb337c730184b7cd",
+  "counts": {
+    "api": 712,
+    "calls": 30979,
+    "syntax": 12413,
+    "captures": 3054,
+    "origins": 849,
+    "traversals": 2957,
+    "contributions": 31325
+  },
+  "selected_external_calls": 1330,
+  "negative_controls": [
+    "missing selected proof",
+    "missing typed source operand",
+    "CLI Bridge branch promoted to S4",
+    "conditional order proof promoted globally"
+  ],
+  "scope": "M0 source inventory/deferred gates; no native M1/M2 or whole-module qualification"
+}

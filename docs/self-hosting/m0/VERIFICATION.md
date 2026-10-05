@@ -816,6 +816,30 @@ native evaluation. The budget derivation repeats byte-for-byte; its added tool
 identity preserves the original numeric decision. Licenses, written-text and
 current/staged/complete-task whitespace checks pass.
 
+## Final deferred source demands and replay boundary
+
+DEFERRED_CONTRACTS.md/deferred/ supplement the immutable reconciliation with
+all 712 exact declarations, 30,979 typed call sites, 12,413 syntax sites, 3,054
+captured-symbol rows, 849 producers, 2,957 traversals and 31,325 witnessed
+contributions. Every later use has a source-backed resolution, precise B/phase,
+actual consumer and fixture; unresolved fields block that consumer. The original
+1,330 selected calls keep their finite M1/M2 boundaries and source proofs.
+Builder proofs join without removing producer order or native retirement gates.
+Main/Bridge facades, archive classpath and native process branches stay outside
+the source-only S4 adapter; actual semantic routes can bring helpers forward.
+Four controls reject missing selected proof, missing typed operands, CLI Bridge
+promotion to S4 and conditional ordering promoted to a global fact.
+
+REPLAY.md and replay-m0.py define read-only immutable git/blob reconstruction
+inside ignored target storage. Original/D247 source checks use that phase view
+after later authorized compiler edits; identities and historical resource
+measurements remain intact. No checkout reset, branch/worktree or network action
+is needed. M0.2 classification is complete; M0.3/S0 final handoff remains pending.
+The frozen bbba2035 view reproduces argument-source qualification, reconciliation
+qualification and builder-review bytes exactly. Replay verifies all 460 D247
+source hashes without modifying the active checkout. Selected Path/name and
+identity-hash sites are existing B7 M1.3 values, not B3/B4 host-service work.
+
 ## Sorting declarations and concrete domain boundaries
 
 [SORTING_CONTRACTS.md](SORTING_CONTRACTS.md) joins 41 exact declaration patterns,
