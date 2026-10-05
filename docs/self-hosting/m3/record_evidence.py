@@ -58,7 +58,9 @@ def main():
     }
     manifest.update(spec.get("extra", {}))
     (evidence / "manifest.json").write_text(json.dumps(manifest, indent=1) + "\n", encoding="utf-8")
-    failures = [line for line in status if not line.endswith(("exit=0", "exit=42"))]
+    # An "expected-failure" step must fail; every other step must pass.
+    failures = [line for line in status
+                if ("expected-failure" in line) == line.endswith(("exit=0", "exit=42"))]
     if failures:
         print("non-passing status lines:", failures)
         return 1

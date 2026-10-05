@@ -487,8 +487,9 @@ the S2-S4 port; they do not replace its integration exits.
   pinned J0 time, heap, and stack capacity evidence.
   In progress: the [numeric, text and SHA-256 helpers](self-hosting/m3/SEMANTIC.md)
   (D267) pass, including ByteView authority from J0's source, class and
-  archive contents; J0 cannot compile the accumulated port, so the capacity
-  evidence and the M3.2 handoff are pending.
+  archive contents, and the [classification](self-hosting/m3/CLASSIFICATION_M3.2.md)
+  covers every M3.2 pattern. J0 cannot compile the accumulated port; the
+  capacity evidence and the M3.2 handoff run are pending.
 - [ ] **M3.3: S4 backend prerequisites.** Complete MD5 GUID generation, unsigned
   comparison/widening, binary slices, and remaining emission/text helpers.
   Prepare explicit installation/build identity inputs for the source-only route.
