@@ -80,7 +80,7 @@ roadmap schedules them without replacing their detailed exit criteria.
 | Milestone | Purpose and workstreams | Entry dependency | Checkpoint and migration handoff | Status |
 | --- | --- | --- | --- | --- |
 | [M0](#m0-baseline-and-contract-inventory) | Freeze the baseline and evidence contract: B0a | Current Java compiler and source audit | S0 baseline, ordering inventory, fixtures, budgets, and selected pilot scope recorded | Complete on qualified macOS arm64 profile: M0.1/M0.2/M0.3 and S0 passed |
-| [M1](#m1-minimum-pilot-prerequisites) | Build the minimum pilot dependencies: selected B1/B2/B7 slices | M0 | Required copies, traversal, ordering, and syntax/helpers have focused evidence | Not started |
+| [M1](#m1-minimum-pilot-prerequisites) | Build the minimum pilot dependencies: selected B1/B2/B7 slices | M0 | Required copies, traversal, ordering, and syntax/helpers have focused evidence | In progress; [pre-change review](self-hosting/m1/PRE_CHANGE.md) |
 | [M2](#m2-portability-and-ownership-pilot) | Run B0b's frontend and ownership pilots | Required M1 phases | G1, the existing S1 gate, passes before broad translation | Not started |
 | [M3](#m3-semantic-and-backend-preparation) | Complete core B1/B2/B7 helpers and early B5 digests | M2 for broad port work; reuse M1 outputs | Staged readiness for S2, S3 with ByteView SHA-256, and S4 with MD5/native-link policy | Not started |
 | [M4](#m4-native-filesystem-and-process-services) | Deliver B3 filesystem and B4 process services | M2; audited helper dependencies | Filesystem checkpoint first, native process/driver checkpoint second | Not started |
