@@ -318,7 +318,7 @@ later obligations. The final source-backed deferred ledger assigns every exact
 call/syntax/capture/hash contribution its typed source demand, B preparation,
 actual first consumer and blocking fixture. Main/facade Bridge dispatch, archive
 classpath and native process branches no longer become source-only S4 demands.
-Actual earlier semantic call routes remain visible. Four admission controls pass;
+Actual earlier semantic call routes remain visible. Five final admission controls pass;
 later unresolved contracts stay blocked before their dependent consumer. REPLAY.md
 provides a read-only git/blob view for phase source checks after later edits.
 The final pilot handoff binds 1,330 calls, 723 syntax sites, 65 captured rows and
@@ -326,6 +326,11 @@ The final pilot handoff binds 1,330 calls, 723 syntax sites, 65 captured rows an
 manifest verification; comparison controls and fixed budget/control derivations
 reproduce their retained bytes. M0 and S0 are complete for this host/profile.
 Only the named M1 prerequisites are permitted next; no milestone is running.
+The final review corrects API0412/API0413's eight HexFormat call sites to private
+B5/B7 lowercase digest-text/factory elision: M3.2 before the ByteView/earlier Bridge
+S3 callers, M3.3 for TLS and reuse before later Bridge identity. A fifth admission
+control rejects the earlier collection/M3.1 classification. The selected pilot
+counts, fixed budgets and M1 scope are unchanged; no formatter API is introduced.
 
 ### M1. Minimum pilot prerequisites
 

@@ -95,7 +95,7 @@ def main():
     operation = read('operation-model-probe/qualification.json')
     assert operation['qualification_passed'] and operation['declarations'] == 233 and len(operation['negative_controls']) == 5
     deferred = read('deferred/qualification.json')
-    assert len(deferred['negative_controls']) == 4 and deferred['selected_external_calls'] == 1330
+    assert len(deferred['negative_controls']) == 5 and deferred['selected_external_calls'] == 1330
     assert deferred['manifest_sha256'] == digest((OUT / 'deferred/manifest.json').read_bytes())
     refs = ['qualified/identity.json', 'qualified/jvm-effective.json', 'ordered/qualified-identity.json',
             'comparison-qualification.json', 'reference-access-qualification.json', 'deferred/manifest.json',

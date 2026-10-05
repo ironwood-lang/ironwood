@@ -54,6 +54,7 @@ def excluded_edge(row):
 
 
 def family(owner, signature):
+    if owner == 'java.util.HexFormat': return 'digest-text'
     if 'CRC32' in owner or owner == 'java.security.MessageDigest' or owner == 'java.security.NoSuchAlgorithmException': return 'digest'
     if owner.startswith(('java.util.zip.', 'java.util.jar.')): return 'archive'
     if owner.startswith(('java.lang.Process', 'javax.tools.')): return 'process'
@@ -71,6 +72,7 @@ def family(owner, signature):
 
 
 RESOLUTION = {
+    'digest-text': 'elide stateless HexFormat.of default factory and use private lowercase full-byte-array formatting: two digits per byte including leading zero, no delimiter/prefix/suffix; null byte array fails, input borrowed through conversion and result text independent/owned through comparison or metadata consumer; SHA-256 sites produce 32 bytes; resolve allocation/failure cleanup, exact bytes and changed declaration authority without public HexFormat',
     'binary': 'resolve actual byte slice, endian/unsigned width, range/EOF/write failure and result aliases; private bounded codec/helper with owned output/backing and borrowed input lifetime',
     'archive': 'resolve admitted compression/container/metadata and duplicate/malformed cases, reader/writer identity, owned buffers and staged publication; no writer policy inferred',
     'digest': 'resolve exact input byte slice/encoding, algorithm/length/endian output and authoritative declaration identity; vectors and changed inputs; owned digest buffers',
@@ -127,7 +129,7 @@ def main():
         key = row['file'] + '|' + row['consumer']
         phase = phases.get(key, stage(row))
         name, function = Path(row['file']).name, method(row)
-        if phase <= 3: preparation = 'M3.2' if phase == 3 and category in ('numeric', 'text', 'digest') else 'M3.1'
+        if phase <= 3: preparation = 'M3.2' if phase == 3 and category in ('numeric', 'text', 'digest', 'digest-text') else 'M3.1'
         elif phase == 4: preparation = 'M3.3'
         elif phase == 6: preparation = 'M5.1' if category == 'digest' else 'M5.2-M5.3' if category in ('archive', 'properties', 'binary') or name in ('IronClass.java', 'IronJar.java', 'StandardLibrary.java') or function in ('locateClass', 'writeClassOutputs') else 'M5.4'
         else: preparation = 'M6.1 before M6.2'
@@ -144,6 +146,9 @@ def main():
         if category == 'sort': owner = 'B2/B7'
         if category == 'archive': owner = 'B6'
         if category == 'digest': owner = 'B5'
+        if category == 'digest-text':
+            owner = 'B5/B7'
+            if phase > 4: preparation = 'reuse M3.2 digest-text helper; ' + preparation
         return {'B_owner': owner, 'preparation': preparation, 'migration_consumer': consumer,
                 'actual_source_consumer': row['consumer'], 'earlier_owner_call_route': routes.get(key, []),
                 'admission': 'deferred; required resolution blocks this named native consumer',

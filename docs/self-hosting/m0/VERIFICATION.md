@@ -958,3 +958,20 @@ PILOT_HANDOFF.md's exact B1/B7 M1.1/M1.2/M1.3 prerequisite scope. Every later
 Unresolved contract still blocks its named consumer. License, written-text and
 current/staged/complete-task whitespace checks pass; no full suite or remote
 operation is performed. M0_CHECKPOINT.md is the authoritative outcome summary.
+
+## Digest-text gate correction
+
+Independent read-only review reproduced 7e59f041's final inventory and four
+controls, then identified API0412/API0413's HexFormat demand as digest formatting
+rather than collection work. The corrected final ledger joins all eight actual
+sites and their byte-array operands. Four S3 sites are B5/B7 M3.2; two TLS sites
+are M3.3; two later Bridge identity sites reuse the earlier helper. Exact lowercase
+full-array, null/byte/result-owner/failure fixtures stay required at those later
+consumers. No public HexFormat or native helper is implemented.
+
+qualify-final-inventory.py now verifies this exact two/eight selection and rejects
+a fifth deliberate ByteView family/M3.1 error. The regenerated deferred manifest,
+pilot handoff and S0 qualification retain all previous selected counts/budgets,
+archive checks and original identities. Source/negative-control/handoff/budget
+checks pass; licensing and complete-task whitespace are rechecked for this local
+correction. REPLAY.md remains the committed frozen-input reproduction procedure.

@@ -44,3 +44,9 @@ Verification uses focused source/control/archive checks, the license audit and
 current/staged/complete-task whitespace checks. No unfiltered compiler suite,
 remote synchronization, branch/worktree change or hosted build is part of this
 checkpoint. All task increments are local commits on before-self-hosting.
+
+Final review corrected HexFormat's two declarations/eight exact callers from
+collection work to B5/B7 private lowercase digest-text formatting/factory elision.
+ByteView and earlier Bridge SHA-256/hex demand is M3.2 before S3; TLS is M3.3;
+later Bridge identity reuses the helper. A fifth source admission control rejects
+the wrong family/phase. No public API, pilot scope or numerical budget changes.

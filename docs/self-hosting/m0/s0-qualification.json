@@ -9,9 +9,9 @@
     "ordered/qualified-identity.json": "938c0d4ceff7c9a893fe976ccf2306975ac058518b45c3450b3ba115249718e6",
     "comparison-qualification.json": "40b177432d28ad2615345cabdb18de3bafabf3416c8c4d8fb969ced5aebcb49f",
     "reference-access-qualification.json": "46585eb2af35997da05e1fec90c849bbb71d37c2d026e1dfc4bcb2548aeca788",
-    "deferred/manifest.json": "63807db7fec0f40ec20f4a07803b434d5bdc6484d5e7a3f25f0513ba95ecab1e",
-    "deferred/qualification.json": "27fbd6fcdac75f28b31cd1fda3a0ed74ab796504835ce172b476e3828d774e10",
-    "pilot-handoff.json.gz": "df008864283707ab72a6803a97f60b2456631a41b357319e5a119776cea2cb77",
+    "deferred/manifest.json": "8788a00a0314d5886014e2586db2931b32c489ef8a54cfc2df6fea222270f1cd",
+    "deferred/qualification.json": "4fa5e3e3bac9a9c2e9ddc3206f10d81fa9b1499df4ca49052560f7ae6dda7ce9",
+    "pilot-handoff.json.gz": "2c947df55a7c254c51eec5af41a505df40b562cffb8917f31826586c1daad4e6",
     "pilot-budgets.json": "18834a8dfc34d1c6a35d922f247e2e8ad74023c44f8bebf8b3032520171b2be5",
     "pilot-budget-controls.json": "e81744079f1daff9a45cdc7bb469a974e1271a42714e255f882288898fa3c362",
     "model-probe/qualification.json": "66086590500a177cf91daf86253470d6a5910aaebfe3281d79d977e6e0cf8d4c",
@@ -93,16 +93,16 @@
     "M1.3": 399,
     "M1.2": 15
   },
-  "tool_sha256": "9ca29be167bd081407289ee3fa4702174b3feb0e4db9acdf0ef9a53327097956",
+  "tool_sha256": "8630881360f38f264fa0a9928ec514f75081ee688395f7e652b0ff0312219741",
   "control_commands": [
     {
       "argv": [
         "/opt/homebrew/opt/python@3.14/bin/python3.14",
         "/Users/developer/workspace-mba-m2/Ironwood/scripts/self-hosting/compare.py",
         "selftest",
-        "/Users/developer/workspace-mba-m2/Ironwood/target/self-hosting-m0/s0-final-controls/references/BranchJoin-final",
-        "/Users/developer/workspace-mba-m2/Ironwood/target/self-hosting-m0/s0-final-controls/references/SlotOrder-final",
-        "/Users/developer/workspace-mba-m2/Ironwood/target/self-hosting-m0/s0-final-controls/mismatches"
+        "/Users/developer/workspace-mba-m2/Ironwood/target/self-hosting-m0/s0-digest-text-final-controls/references/BranchJoin-final",
+        "/Users/developer/workspace-mba-m2/Ironwood/target/self-hosting-m0/s0-digest-text-final-controls/references/SlotOrder-final",
+        "/Users/developer/workspace-mba-m2/Ironwood/target/self-hosting-m0/s0-digest-text-final-controls/mismatches"
       ],
       "returncode": 0,
       "stdout_sha256": "40b177432d28ad2615345cabdb18de3bafabf3416c8c4d8fb969ced5aebcb49f",
@@ -113,7 +113,7 @@
         "/opt/homebrew/opt/python@3.14/bin/python3.14",
         "/Users/developer/workspace-mba-m2/Ironwood/scripts/self-hosting/record-pilot-budgets.py",
         "--output",
-        "/Users/developer/workspace-mba-m2/Ironwood/target/self-hosting-m0/s0-final-controls/budgets.json"
+        "/Users/developer/workspace-mba-m2/Ironwood/target/self-hosting-m0/s0-digest-text-final-controls/budgets.json"
       ],
       "returncode": 0,
       "stdout_sha256": "3f99952fec6d40cef6329d7857d96f7986a01df50c2f6e84bd24b0f5b5ef672f",
@@ -124,7 +124,7 @@
         "/opt/homebrew/opt/python@3.14/bin/python3.14",
         "/Users/developer/workspace-mba-m2/Ironwood/scripts/self-hosting/check-pilot-budget.py",
         "--self-check-output",
-        "/Users/developer/workspace-mba-m2/Ironwood/target/self-hosting-m0/s0-final-controls/budget-controls.json"
+        "/Users/developer/workspace-mba-m2/Ironwood/target/self-hosting-m0/s0-digest-text-final-controls/budget-controls.json"
       ],
       "returncode": 0,
       "stdout_sha256": "9d17a243fc8e6b95baa6d460ba025c3384ce5c2ad6af29405812389765cc4289",

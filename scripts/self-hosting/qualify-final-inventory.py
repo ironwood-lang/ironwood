@@ -32,6 +32,16 @@ def call_contract(row):
         assert row['gate']['migration_consumer'].startswith('S7:')
     if row['file'].endswith('/IronJar.java'):
         assert row['gate']['migration_consumer'].startswith('S6:')
+    if row['pattern_id'] in ('API0412', 'API0413'):
+        assert row['dependency_family'] == 'digest-text'
+        assert row['gate']['B_owner'] == 'B5/B7'
+        assert 'lowercase full-byte-array' in row['required_resolution']['blocked_contract']
+        if row['gate']['migration_consumer'].startswith('S3:'):
+            assert row['gate']['preparation'] == 'M3.2'
+        elif row['file'].endswith('/TlsDependency.java'):
+            assert row['gate']['preparation'] == 'M3.3'
+        else:
+            assert row['gate']['preparation'].startswith('reuse M3.2 digest-text helper; ')
 
 
 def contribution_contract(row):
@@ -73,6 +83,10 @@ def main():
         assert row['site_ids'] == by_pattern[row['id']]
         assert row['B_owners'] and row['required_resolution']
         assert row['required_treatment_category'] in ('local rewrite', 'library extension', 'host service')
+        if row['id'] in ('API0412', 'API0413'):
+            assert row['dependency_family'] == 'digest-text' and row['B_owners'] == ['B5/B7']
+            assert row['required_treatment_category'] == 'local rewrite'
+    assert {r['id'] for r in calls if r['pattern_id'] in ('API0412', 'API0413')} == {'A08029', 'A08030', 'A11399', 'A11400', 'A11469', 'A11470', 'A19407', 'A19408'}
     for name, count in (('syntax', 12413), ('captures', 3054)):
         assert len(payloads[name]) == count
         for old, row in zip(load('reconciled', name), payloads[name]):
@@ -110,12 +124,14 @@ def main():
     rejected('CLI Bridge branch promoted to S4', call_contract, row)
     row = copy.deepcopy(next(r for r in storage['contributions'] if r['flow_path'] and r['scoped_proofs'] and all(p.get('conditional') for p in r['scoped_proofs']))); row['classification'] = 'order independent globally'
     rejected('conditional order proof promoted globally', contribution_contract, row)
+    row = copy.deepcopy(next(r for r in calls if r['id'] == 'A19407')); row['dependency_family'] = 'collection'; row['gate']['preparation'] = 'M3.1'
+    rejected('ByteView digest formatting misclassified as collection', call_contract, row)
     result = {'schema': 1, 'manifest_sha256': digest((OUT / 'deferred/manifest.json').read_bytes()),
               'qualifier_sha256': digest(Path(__file__).read_bytes()), 'counts': manifest['counts'],
               'selected_external_calls': len(selected), 'negative_controls': controls,
               'scope': 'M0 source inventory/deferred gates; no native M1/M2 or whole-module qualification'}
     (OUT / 'deferred/qualification.json').write_text(json.dumps(result, indent=2) + '\n')
-    print('PASS: complete exact demand coverage, 1,330 selected proofs and four admission controls')
+    print('PASS: complete exact demand coverage, 1,330 selected proofs and', len(controls), 'admission controls')
 
 
 if __name__ == '__main__':

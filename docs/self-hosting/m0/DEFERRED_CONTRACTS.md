@@ -85,3 +85,28 @@ invocation. Later fixtures must determine actual holder/result/last consumer,
 immediate/lazy/retained timing, mutation/reentrancy and exception effects, measure
 callback/state allocation, and pair independent cleanup with rejected premature
 capture/holder frees. No unknown effect is granted non-retaining status.
+
+## Fixed digest text, outside the pilot
+
+API0412 HexFormat.formatHex(byte[]) and API0413 HexFormat.of() are eight exact
+call sites, not collection operations. They need a compiler-private lowercase
+digest-byte formatter and factory elision under B5/B7. Each current format input
+is the full 32-byte SHA-256 result. Preserve two lowercase digits for every byte,
+including leading zeros, with no delimiter/prefix/suffix. Null bytes fail;
+conversion borrows the input until completion and returns independent text owned
+through its actual comparison/metadata consumer. Native digest temporary/result
+retirement and allocation-failure cleanup remain required before that consumer.
+No public HexFormat or general formatting subsystem is selected.
+
+A11399/A11400 in BridgeGeneration.bytesDigest and A19407/A19408 in
+ByteViewIntrinsic.trusted are M3.2 before their S3 callers. ByteView hashes the
+exact source-content UTF-8 bytes before its authoritative declaration comparison;
+the Bridge helper's earlier semantic route is through BridgeListenerProxies.lower.
+A08029/A08030 in TlsDependency.sha256 are M3.3 before S4 dependency validation.
+A11469/A11470 in BridgeGeneration.digest reuse the earlier helper at M6.1 before
+M6.2/S7 identity generation; its upstream sorted/framed metadata remains a
+separate source contract. Fixtures cover 00/7f/80/ff bytes, leading zeros, empty
+and null arrays, exact 64-character SHA-256 strings, changed declaration input,
+borrowed input/result independence and normal/failure cleanup. The final inventory
+control rejects classifying ByteView's exact formatting site as M3.1 collection
+work. None of these eight sites is admitted to M1/M2.
