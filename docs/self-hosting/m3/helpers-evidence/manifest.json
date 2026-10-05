@@ -1,0 +1,327 @@
+{
+ "schema_version": 1,
+ "increment": "M3.1 stack, order, value and callback helpers (D264)",
+ "commit": "d3f2164df75e6d8d974d2053dba36d5f2d4a855f",
+ "host": "macOS arm64 Apple M5, 32 GiB",
+ "java": "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home",
+ "llvm": "/opt/homebrew/opt/llvm@23",
+ "reproduce": "docs/self-hosting/m3/helpers-evidence/run-evidence.sh d3f2164d",
+ "status": [
+  "build exit=0",
+  "tests exit=0",
+  "compiler_scope_stack-java-1 exit=0",
+  "compiler_scope_stack-java-2 exit=0",
+  "compiler_scope_stack-java-3 exit=0",
+  "compiler_scope_stack-java-4 exit=0",
+  "compiler_scope_stack-compile exit=0",
+  "compiler_scope_stack-link exit=0",
+  "compiler_scope_stack-run-42 exit=42",
+  "compiler_scope_stack-equal exit=0",
+  "compiler_value_snapshots-java-1 exit=0",
+  "compiler_value_snapshots-java-2 exit=0",
+  "compiler_value_snapshots-java-3 exit=0",
+  "compiler_value_snapshots-java-4 exit=0",
+  "compiler_value_snapshots-compile exit=0",
+  "compiler_value_snapshots-link exit=0",
+  "compiler_value_snapshots-run-42 exit=42",
+  "compiler_value_snapshots-equal exit=0",
+  "compiler_callbacks-java-1 exit=0",
+  "compiler_callbacks-java-2 exit=0",
+  "compiler_callbacks-java-3 exit=0",
+  "compiler_callbacks-java-4 exit=0",
+  "compiler_callbacks-compile exit=0",
+  "compiler_callbacks-link exit=0",
+  "compiler_callbacks-run-42 exit=42",
+  "compiler_callbacks-equal exit=0",
+  "failure-compile exit=0",
+  "failure-link exit=0",
+  "diff-check exit=0",
+  "licenses exit=0"
+ ],
+ "sources": [
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/port/Action.iron",
+   "sha256": "f9a2c2e2bb21207950bb60e6c54e9989313b75c691e461afa7f8a1d1a8c1eb44"
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/port/BooleanSource.iron",
+   "sha256": "51524233ad501d2643776abb3c7cd13fa6535d7130a7eed214ead78184da1621"
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/port/Condition.iron",
+   "sha256": "15b70425f3493813f87539a09551468e34f7b8a2ed3878e1f4790c19cde4348e"
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/port/Extremes.iron",
+   "sha256": "646c066f59b1a3eae63d3f4691aa53d4e51d82cd085048209930e1f0b00890e4"
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/port/IdentityMapper.iron",
+   "sha256": "02c0db904a07b41329b614a93b69f5031eaa28720bc782d7931878c70b43ef76"
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/port/Lists.iron",
+   "sha256": "64dd04c087397553a4d958ca6e5b1989c6a10c873f951edcfdb66291a5aa640b"
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/port/Mapper.iron",
+   "sha256": "c8498dae8b6e01a14d19187226d6e0cec5ef9f5091c815ea2f4c3e07b5943e59"
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/port/Maps.iron",
+   "sha256": "fb4de5f2ddd4ec6509c922782dfef5ca94098a28dfbbd7fe4a098b29bacad0a2"
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/port/PairAction.iron",
+   "sha256": "981872810ce0c2154ea9e0587e5cfdd2ad98bf3a2367a8e1dc3243b00d01c475"
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/port/ScopeStack.iron",
+   "sha256": "7600464ef6210e0de8a259b95bbfcd99bb200ab2087d964933b769c6eccaff43"
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/port/SnapshotSet.iron",
+   "sha256": "543db5990ece3f59de7546c2deedca448606318b7630ce4793daa20a736b5e05"
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/port/Source.iron",
+   "sha256": "7963d85eef3b59cb50260a0bab283193da83c02e57a1a52cfa9a3f92a4c9a16c"
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/port/StringOrder.iron",
+   "sha256": "51b6e8c9ae455675484e587c923c883e420877bb19981286da0582f094c94cde"
+  },
+  {
+   "path": "integration-tests/cases/compiler_scope_stack.iron",
+   "sha256": "f3d917ba68bd167bca80e92b2bd6ef388ddaa6825ae02829cd2536a65eb535f3"
+  },
+  {
+   "path": "integration-tests/cases/compiler_value_snapshots.iron",
+   "sha256": "12b4aa527eced1550bb57fa35002188616d461e4ad0300de331431a95930e167"
+  },
+  {
+   "path": "integration-tests/cases/compiler_callbacks.iron",
+   "sha256": "7b338e2067e97c523990b6c16353a238dbc76ac8878756871beca84efec6922a"
+  },
+  {
+   "path": "integration-tests/cases/compiler_port_helpers_failure.iron",
+   "sha256": "4e22122b70ebd72d8eebfa5e0889b7f03d1905b66a1d34ec9ab2df6a994d47d7"
+  },
+  {
+   "path": "compiler/src/test/java/ironwood/compiler/PortHelperTests.java",
+   "sha256": "17d63214340723dc92be947137f5e649197605ef6303f4e7a5ef19319a684d01"
+  },
+  {
+   "path": "docs/self-hosting/m3/helpers-evidence/ScopeStackReference.java",
+   "sha256": "c73e3bcf9521e2174f129badbe6a4969e998fd89edf120a8b490e2992442a081"
+  },
+  {
+   "path": "docs/self-hosting/m3/helpers-evidence/ValueSnapshotsReference.java",
+   "sha256": "7f95da36d92b5d007129e874dc5cff9aedb2c01f24f2d10e6a85e890d688a96f"
+  },
+  {
+   "path": "docs/self-hosting/m3/helpers-evidence/CallbacksReference.java",
+   "sha256": "bcb4ceb56052d70786e2b2fe9f141622f20264c77a7a60cb16d11cd7351fdcac"
+  },
+  {
+   "path": "docs/self-hosting/m3/helpers-evidence/run-evidence.sh",
+   "sha256": "88b9f2b9ca798ebe026420127c5c589c8d4c9bc3b372268a4dd3e843c41016c1"
+  }
+ ],
+ "logs": [
+  {
+   "log": "commit.txt",
+   "retained": "docs/self-hosting/m3/helpers-evidence/logs/commit.txt.gz",
+   "sha256": "0f1f557a145e51a68c006207327452c7409ef6a5f21ede21924412f15f97d79d",
+   "gzip_sha256": "46e700a75e8255326f441b6f88c1c585811e47af2445ed77b711852f5a385973"
+  },
+  {
+   "log": "status.txt",
+   "retained": "docs/self-hosting/m3/helpers-evidence/logs/status.txt.gz",
+   "sha256": "597ff853e46d495f8be13f7b8b6be2575c05095367540c3af5101eaca5c050da",
+   "gzip_sha256": "8bb691b72902a8645f112e8a0333be5167a6e318d6f4a0cd7497cd6d6d2c2eb7"
+  },
+  {
+   "log": "build.log",
+   "retained": "docs/self-hosting/m3/helpers-evidence/logs/build.log.gz",
+   "sha256": "aee98b76b225da17699d82f4ea11dcb7b45bf6bf102beefffc35cbb08e1d8b10",
+   "gzip_sha256": "ee7c162b7b0892ac46ff0c1fc28ca8ef78fe0a906b773ad0fd2c6919ee6933e9"
+  },
+  {
+   "log": "build-identity.txt",
+   "retained": "docs/self-hosting/m3/helpers-evidence/logs/build-identity.txt.gz",
+   "sha256": "555d8fcbbaf3c57037b11b897d03800982c18e2a5e12a8f48fa3b1940a277ab5",
+   "gzip_sha256": "bff2c8c418c568f8941dacaba3d5bb751189a54b8d65e6e17364a71630aa7c22"
+  },
+  {
+   "log": "tests.log",
+   "retained": "docs/self-hosting/m3/helpers-evidence/logs/tests.log.gz",
+   "sha256": "13645149f091518874c7f99d46441c1d9b47cbd9c65146045568ec4e8f46b40a",
+   "gzip_sha256": "df5cc5a0ea992b27248596999c0fb37d3d426fbd57004f85bd42f565ee6990dd"
+  },
+  {
+   "log": "compiler_scope_stack-java-1.txt",
+   "retained": "docs/self-hosting/m3/helpers-evidence/logs/compiler_scope_stack-java-1.txt.gz",
+   "sha256": "e0a6f8e8721c00dcbeef2504a3fadb83f16e99d205c833aae3c4d7d986679869",
+   "gzip_sha256": "2f8510bdd20adfb9248796d10f46a4755e77e58a6725227901d00161dbec4b99"
+  },
+  {
+   "log": "compiler_scope_stack-java-2.txt",
+   "retained": "docs/self-hosting/m3/helpers-evidence/logs/compiler_scope_stack-java-2.txt.gz",
+   "sha256": "e0a6f8e8721c00dcbeef2504a3fadb83f16e99d205c833aae3c4d7d986679869",
+   "gzip_sha256": "2f8510bdd20adfb9248796d10f46a4755e77e58a6725227901d00161dbec4b99"
+  },
+  {
+   "log": "compiler_scope_stack-java-3.txt",
+   "retained": "docs/self-hosting/m3/helpers-evidence/logs/compiler_scope_stack-java-3.txt.gz",
+   "sha256": "e0a6f8e8721c00dcbeef2504a3fadb83f16e99d205c833aae3c4d7d986679869",
+   "gzip_sha256": "2f8510bdd20adfb9248796d10f46a4755e77e58a6725227901d00161dbec4b99"
+  },
+  {
+   "log": "compiler_scope_stack-java-4.txt",
+   "retained": "docs/self-hosting/m3/helpers-evidence/logs/compiler_scope_stack-java-4.txt.gz",
+   "sha256": "e0a6f8e8721c00dcbeef2504a3fadb83f16e99d205c833aae3c4d7d986679869",
+   "gzip_sha256": "2f8510bdd20adfb9248796d10f46a4755e77e58a6725227901d00161dbec4b99"
+  },
+  {
+   "log": "compiler_scope_stack-native.txt",
+   "retained": "docs/self-hosting/m3/helpers-evidence/logs/compiler_scope_stack-native.txt.gz",
+   "sha256": "e0a6f8e8721c00dcbeef2504a3fadb83f16e99d205c833aae3c4d7d986679869",
+   "gzip_sha256": "2f8510bdd20adfb9248796d10f46a4755e77e58a6725227901d00161dbec4b99"
+  },
+  {
+   "log": "compiler_scope_stack-compile.log",
+   "retained": "docs/self-hosting/m3/helpers-evidence/logs/compiler_scope_stack-compile.log.gz",
+   "sha256": "e6a05300af467339ee72823de58d59c4ee479f09a7ecac4d7ab35835a1e7430f",
+   "gzip_sha256": "859b55aedc382521b85769fafdf1cc52c9a7d8e4d4d83b7d5b308ee2aaca658f"
+  },
+  {
+   "log": "compiler_scope_stack-link.log",
+   "retained": "docs/self-hosting/m3/helpers-evidence/logs/compiler_scope_stack-link.log.gz",
+   "sha256": "b1436214c212490db026f1b85083cf7caae1c053ecd183ab94632095698b95a9",
+   "gzip_sha256": "66b2b267f16ea905b237b17fcb8889202365d1b871126753efced48d534a39b8"
+  },
+  {
+   "log": "compiler_value_snapshots-java-1.txt",
+   "retained": "docs/self-hosting/m3/helpers-evidence/logs/compiler_value_snapshots-java-1.txt.gz",
+   "sha256": "3716d5e6824622c701c68255f306418dd33a3c06d3567bc962990f67bb6b606d",
+   "gzip_sha256": "d71a9152bbcc2b5d45ed1e0d828fba2c85cb5d3bdccb8ef94e48844d1b0bd742"
+  },
+  {
+   "log": "compiler_value_snapshots-java-2.txt",
+   "retained": "docs/self-hosting/m3/helpers-evidence/logs/compiler_value_snapshots-java-2.txt.gz",
+   "sha256": "3716d5e6824622c701c68255f306418dd33a3c06d3567bc962990f67bb6b606d",
+   "gzip_sha256": "d71a9152bbcc2b5d45ed1e0d828fba2c85cb5d3bdccb8ef94e48844d1b0bd742"
+  },
+  {
+   "log": "compiler_value_snapshots-java-3.txt",
+   "retained": "docs/self-hosting/m3/helpers-evidence/logs/compiler_value_snapshots-java-3.txt.gz",
+   "sha256": "3716d5e6824622c701c68255f306418dd33a3c06d3567bc962990f67bb6b606d",
+   "gzip_sha256": "d71a9152bbcc2b5d45ed1e0d828fba2c85cb5d3bdccb8ef94e48844d1b0bd742"
+  },
+  {
+   "log": "compiler_value_snapshots-java-4.txt",
+   "retained": "docs/self-hosting/m3/helpers-evidence/logs/compiler_value_snapshots-java-4.txt.gz",
+   "sha256": "3716d5e6824622c701c68255f306418dd33a3c06d3567bc962990f67bb6b606d",
+   "gzip_sha256": "d71a9152bbcc2b5d45ed1e0d828fba2c85cb5d3bdccb8ef94e48844d1b0bd742"
+  },
+  {
+   "log": "compiler_value_snapshots-native.txt",
+   "retained": "docs/self-hosting/m3/helpers-evidence/logs/compiler_value_snapshots-native.txt.gz",
+   "sha256": "3716d5e6824622c701c68255f306418dd33a3c06d3567bc962990f67bb6b606d",
+   "gzip_sha256": "d71a9152bbcc2b5d45ed1e0d828fba2c85cb5d3bdccb8ef94e48844d1b0bd742"
+  },
+  {
+   "log": "compiler_value_snapshots-compile.log",
+   "retained": "docs/self-hosting/m3/helpers-evidence/logs/compiler_value_snapshots-compile.log.gz",
+   "sha256": "2f1a03bdd60a2f3ceb220809ebf887d91d092c739c106365c6b7e8312a531836",
+   "gzip_sha256": "5e66a8fd866de2366b203de678346ed68a78e48b6181abcda1e5fd898a8c0d64"
+  },
+  {
+   "log": "compiler_value_snapshots-link.log",
+   "retained": "docs/self-hosting/m3/helpers-evidence/logs/compiler_value_snapshots-link.log.gz",
+   "sha256": "f68e771a4aed0b45f2c7a2cc87f7618e269ee55833de3cf19623e618e568ab57",
+   "gzip_sha256": "69605f400c7d48ed024d1c149c195d4fb40aad408eec4840e73c32a65718f1d2"
+  },
+  {
+   "log": "compiler_callbacks-java-1.txt",
+   "retained": "docs/self-hosting/m3/helpers-evidence/logs/compiler_callbacks-java-1.txt.gz",
+   "sha256": "c624217fa2929034bd3137c6c23d55497e6379c85746052b5cf2b3c211894b4d",
+   "gzip_sha256": "adfa8dd42322037e54d2eaae4bf68195cd08442dad9cbafb976189f4ac62c1a0"
+  },
+  {
+   "log": "compiler_callbacks-java-2.txt",
+   "retained": "docs/self-hosting/m3/helpers-evidence/logs/compiler_callbacks-java-2.txt.gz",
+   "sha256": "c624217fa2929034bd3137c6c23d55497e6379c85746052b5cf2b3c211894b4d",
+   "gzip_sha256": "adfa8dd42322037e54d2eaae4bf68195cd08442dad9cbafb976189f4ac62c1a0"
+  },
+  {
+   "log": "compiler_callbacks-java-3.txt",
+   "retained": "docs/self-hosting/m3/helpers-evidence/logs/compiler_callbacks-java-3.txt.gz",
+   "sha256": "c624217fa2929034bd3137c6c23d55497e6379c85746052b5cf2b3c211894b4d",
+   "gzip_sha256": "adfa8dd42322037e54d2eaae4bf68195cd08442dad9cbafb976189f4ac62c1a0"
+  },
+  {
+   "log": "compiler_callbacks-java-4.txt",
+   "retained": "docs/self-hosting/m3/helpers-evidence/logs/compiler_callbacks-java-4.txt.gz",
+   "sha256": "c624217fa2929034bd3137c6c23d55497e6379c85746052b5cf2b3c211894b4d",
+   "gzip_sha256": "adfa8dd42322037e54d2eaae4bf68195cd08442dad9cbafb976189f4ac62c1a0"
+  },
+  {
+   "log": "compiler_callbacks-native.txt",
+   "retained": "docs/self-hosting/m3/helpers-evidence/logs/compiler_callbacks-native.txt.gz",
+   "sha256": "c624217fa2929034bd3137c6c23d55497e6379c85746052b5cf2b3c211894b4d",
+   "gzip_sha256": "adfa8dd42322037e54d2eaae4bf68195cd08442dad9cbafb976189f4ac62c1a0"
+  },
+  {
+   "log": "compiler_callbacks-compile.log",
+   "retained": "docs/self-hosting/m3/helpers-evidence/logs/compiler_callbacks-compile.log.gz",
+   "sha256": "6c44696f93b9e6994426ff8ee8d4da63e798701e24669bb9dd3e22f3f6ad1485",
+   "gzip_sha256": "e4dbe705d15847f5286bfdf77ec73b60a1cc82ec7b4539f2678f23fc507f2a70"
+  },
+  {
+   "log": "compiler_callbacks-link.log",
+   "retained": "docs/self-hosting/m3/helpers-evidence/logs/compiler_callbacks-link.log.gz",
+   "sha256": "c78dde49883fb7fe4151eec21e70d4bb8f420528606af0c606b087354e67c009",
+   "gzip_sha256": "d9b07a296b4b025bbeff4a84493f04a0b9153a21d49c22c91a813ad5a0f0d647"
+  },
+  {
+   "log": "failure-compile.log",
+   "retained": "docs/self-hosting/m3/helpers-evidence/logs/failure-compile.log.gz",
+   "sha256": "e44633263663bb5096ab1b383e2efb36fd6279695f832e596cf79fba1c005fb5",
+   "gzip_sha256": "316915c492423c3108763e328476a93e768cbd3a3f571c16b74c2048baed0d5c"
+  },
+  {
+   "log": "failure-link.log",
+   "retained": "docs/self-hosting/m3/helpers-evidence/logs/failure-link.log.gz",
+   "sha256": "fbf1f7c03c75a552079e1f8d8976931ae38c981ffcb3f73e0a4d55664c10ad04",
+   "gzip_sha256": "21c6ac7afba5c26ae31069d36abf251022213466af53d3e34336463fb51b7172"
+  },
+  {
+   "log": "oom.log",
+   "retained": "docs/self-hosting/m3/helpers-evidence/logs/oom.log.gz",
+   "sha256": "b4c64f26e889efa8e2f9a2c5f844999df5833faeb8719de9932f7e11a805092d",
+   "gzip_sha256": "0039fa76a6229e90f9d8702765394b45aef31c8725f4eef0f38aa831bf3cf558"
+  },
+  {
+   "log": "diff-check.log",
+   "retained": "docs/self-hosting/m3/helpers-evidence/logs/diff-check.log.gz",
+   "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "gzip_sha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64"
+  },
+  {
+   "log": "licenses.log",
+   "retained": "docs/self-hosting/m3/helpers-evidence/logs/licenses.log.gz",
+   "sha256": "baf5804aeb26498337c9c5223c199afeba5c3e2fc36ae219b9bf420e3775f673",
+   "gzip_sha256": "21fd3bcaf61e87e10822dd63176f2751a3282de06861c556f8ea5cb4d913c689"
+  },
+  {
+   "log": "m2-consumers.log",
+   "retained": "docs/self-hosting/m3/helpers-evidence/logs/m2-consumers.log.gz",
+   "sha256": "0d6fac7c8f3f1182eb4a45115e97b94c8e4526f33f9d35ced5e0a5a81af1854a",
+   "gzip_sha256": "ed61db36c54dd7400588d0504128c130591cd2a21c0c1d18ed897003df88c546"
+  }
+ ],
+ "java_reference_runs": 4,
+ "m2_consumers": "12 tests run in the checkout at d3f2164d: the three M1 value-helper tests and the nine M2 pilot tests, which compile the changed Lists.iron"
+}

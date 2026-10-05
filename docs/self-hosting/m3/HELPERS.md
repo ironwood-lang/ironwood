@@ -41,6 +41,7 @@ when their consumers are ported; only `@FunctionalInterface` is dropped.
 | Failure | Every allocation limit from 0 up to the first succeeding limit fails cleanly: a failed push leaves the stack unchanged, and the live-allocation count returns to its baseline. |
 | Ownership pairs | All modes: stacks, snapshots, set snapshots and fixed-arity lists retire; freeing a stacked or snapshotted item, using a freed stack or snapshot, freeing a callback before its holder and freeing captured state while its callback can run are rejected. |
 | Reference bounds | All 35 port generic declarations spell a bound; `ScopeStack<int>`, `SnapshotSet<long>`, `Mapper<int, ...>` and `SnapshotList<boolean>` are rejected. |
+| Existing consumers | `Lists.iron` gained methods, so its consumers were rerun: the three M1 value-helper tests and the nine M2 pilot tests pass. |
 
 All fixtures compile and link with `--unfreed=warn` and no diagnostics, from
 classes and archive at `-O3`.
