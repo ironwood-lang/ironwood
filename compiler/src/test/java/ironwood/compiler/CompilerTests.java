@@ -797,6 +797,12 @@ public final class CompilerTests {
                 this::privateBackingArraysRequireProvenDetachment);
         test("independent list copies preserve membership iterator and allocation scaling",
                 this::listCopiesRunNatively);
+        test("independent map copies preserve keys values and callback loan safety",
+                this::mapCopiesPreserveLoans);
+        test("independent map copy proofs reject changed traversal and publication",
+                this::mapCopyProofControls);
+        test("independent map copies survive artifacts and allocation failures",
+                this::mapCopiesAcrossArtifacts);
         test("independent list copies preserve destination and nested payload loans",
                 this::listCopiesPreserveLoans);
         test("independent list copy failures reclaim partial construction",
@@ -7525,6 +7531,220 @@ public final class CompilerTests {
                 }
                 class Main { public static int main(String[] args) { return 0; } }
                 """, "or a proven detached private backing array");
+    }
+
+    private void mapCopiesPreserveLoans() {
+        for (String family : List.of("HashMap", "IdentityHashMap", "LinkedHashMap")) {
+            String prefix = """
+                    import ironwood.ds.%1$s;
+                    class Item { }
+                    class Main { public static int main(String[] args) {
+                        Item item = new Item();
+                        %1$s<Item, Item> source = new %1$s<Item, Item>(1);
+                        source.put(item, item);
+                        %1$s<Item, Item> copied = source.copy();
+                    """.formatted(family);
+            for (String cleanup : List.of(
+                    "free source; free copied; free item;",
+                    "source.clear(); free source; copied.clear(); free item; free copied;",
+                    "if (args.length > 0) copied.put(item, item); free source; free copied; free item;")) {
+                CompilationArtifact artifact = compile(prefix + cleanup + "return 0; }}");
+                assertTrue(artifact.successful(), family + ": " + messages(artifact));
+            }
+            for (String cleanup : List.of("free source; free item; copied.size();",
+                    "source.clear(); free item; copied.size();", "free copied; free item; source.size();")) {
+                for (UnfreedMode mode : UnfreedMode.values()) {
+                    CompilationArtifact artifact = new CompilerPipeline(mode).compile(SourceFile.of("test/Main.iron",
+                            prefix + cleanup + "return 0; }}"));
+                    assertTrue(!artifact.successful(), family + " unsafe item retirement accepted under " + mode);
+                    assertContains(messages(artifact), "cannot free", family + " item loan diagnostic");
+                }
+            }
+            String delegated = prefix.replace("source.copy()", "duplicate(source)")
+                    + "free source; free copied; free item; return 0; } static " + family
+                    + "<Item, Item> duplicate(" + family + "<Item, Item> value) { return value.copy(); }}";
+            CompilationArtifact artifact = compile(delegated);
+            assertTrue(artifact.successful(), family + " delegation: " + messages(artifact));
+            String nested = """
+                    import ironwood.ds.*;
+                    class Item { }
+                    class Main { public static int main(String[] args) {
+                        Item key = new Item();
+                        ArrayList<Item> nested = new ArrayList<Item>();
+                        %1$s<Item, ArrayList<Item>> source = new %1$s<Item, ArrayList<Item>>(1);
+                        source.put(key, nested);
+                        %1$s<Item, ArrayList<Item>> copied = source.copy();
+                        free source; free nested; copied.size(); return 0;
+                    }}
+                    """.formatted(family);
+            assertTrue(!compile(nested).successful(), family + " nested item loan erased");
+            String contents = nested.replace("ArrayList<Item> nested = new ArrayList<Item>();",
+                    "Item value = new Item(); ArrayList<Item> nested = new ArrayList<Item>(); nested.add(value);")
+                    .replace("free source; free nested; copied.size(); return 0;",
+                            "free source; free copied; free nested; free key; free value; return 0;");
+            CompilationArtifact safeContents = compile(contents);
+            assertTrue(safeContents.successful(), family + " nested value cleanup: " + messages(safeContents));
+            String joinedContents = contents.replace("source.put(key, nested);", "if (args.length > 0) source.put(key, nested);")
+                    .replace("free source; free copied; free nested; free key; free value;",
+                            family + "<Item, ArrayList<Item>> again = copied.copy(); "
+                            + "free source; free copied; free again; free nested; free key; free value;");
+            CompilationArtifact joined = compile(joinedContents);
+            assertTrue(joined.successful(), family + " joined copy-of-copy values: " + messages(joined));
+            for (UnfreedMode mode : UnfreedMode.values()) {
+                CompilationArtifact unsafeContents = new CompilerPipeline(mode).compile(SourceFile.of("test/Main.iron",
+                        contents.replace("free source; free copied; free nested; free key; free value;",
+                                "free source; free value; copied.size();")));
+                assertTrue(!unsafeContents.successful(), family + " nested value item loan erased under " + mode);
+            }
+            String self = """
+                    import ironwood.ds.*;
+                    class Main { public static int main(String[] args) {
+                        %1$s<String, Object> source = new %1$s<String, Object>(1);
+                        source.put("self", source);
+                        %1$s<String, Object> copied = source.copy();
+                        free source; copied.size(); return 0;
+                    }}
+                    """.formatted(family);
+            for (UnfreedMode mode : UnfreedMode.values()) {
+                CompilationArtifact unsafe = new CompilerPipeline(mode).compile(SourceFile.of("test/Main.iron", self));
+                assertTrue(!unsafe.successful(), family + " self-item loan erased under " + mode);
+                assertContains(messages(unsafe), "cannot free", family + " self-item diagnostic");
+            }
+        }
+        String publishing = """
+                import ironwood.ds.HashMap;
+                class Item { }
+                class Publishing extends Item {
+                    static Object saved;
+                    @Override public int hashCode() { saved = this; return 1; }
+                }
+                class Main { public static int main(String[] args) {
+                    Publishing key = new Publishing();
+                    HashMap<Item, Item> source = new HashMap<Item, Item>(1);
+                    source.put(key, key);
+                    HashMap<Item, Item> copied = source.copy();
+                    free source; free copied; free key; return 0;
+                }}
+                """;
+        assertTrue(compile(publishing.replace("free source; free copied; free key;", "")).successful(),
+                "publishing callback witness must compile without reclamation");
+        for (UnfreedMode mode : UnfreedMode.values()) {
+            CompilationArtifact artifact = new CompilerPipeline(mode).compile(SourceFile.of("test/Main.iron", publishing));
+            assertTrue(!artifact.successful(), "publishing override admitted by copy under " + mode);
+            assertContains(messages(artifact), "cannot free", "publishing callback diagnostic");
+        }
+        String equalsPublication = publishing.replace("@Override public int hashCode() { saved = this; return 1; }",
+                "@Override public int hashCode() { return 1; } "
+                + "@Override public boolean equals(Object value) { saved = value; return false; }")
+                .replace("Publishing key = new Publishing();", "Publishing key = new Publishing(); Publishing other = new Publishing();")
+                .replace("source.put(key, key);", "source.put(key, key); source.put(other, other);")
+                .replace("free source; free copied; free key;", "free source; free copied; free key; free other;");
+        assertTrue(compile(equalsPublication.replace("free source; free copied; free key; free other;", "")).successful(),
+                "equals publication witness must compile without reclamation");
+        for (UnfreedMode mode : UnfreedMode.values()) {
+            CompilationArtifact artifact = new CompilerPipeline(mode).compile(SourceFile.of("test/Main.iron", equalsPublication));
+            assertTrue(!artifact.successful(), "equals publication admitted by copy under " + mode);
+            assertContains(messages(artifact), "cannot free", "equals publication diagnostic");
+        }
+        for (String witness : List.of(publishing, equalsPublication)) {
+            CompilationArtifact artifact = compile(witness.replace("HashMap", "IdentityHashMap"));
+            assertTrue(artifact.successful(), "identity copy invoked value-key callbacks: " + messages(artifact));
+        }
+        String nestedKeys = """
+                import ironwood.ds.*;
+                class Payload {
+                    static Object saved;
+                    @Override public int hashCode() { saved = this; return 1; }
+                }
+                class Main { public static int main(String[] args) {
+                    Payload item = new Payload();
+                    ArrayList<Payload> key = new ArrayList<Payload>(); key.add(item);
+                    HashMap<ArrayList<Payload>, String> source = new HashMap<ArrayList<Payload>, String>(1);
+                    if (args.length > 0) source.put(key, "value");
+                    HashMap<ArrayList<Payload>, String> copied = source.copy();
+                    HashMap<ArrayList<Payload>, String> again = copied.copy();
+                    free source; free copied; free again; free key; free item; return 0;
+                }}
+                """;
+        assertTrue(compile(nestedKeys.replace("free source; free copied; free again; free key; free item;", "")).successful(),
+                "nested publishing-key witness must compile without reclamation");
+        for (UnfreedMode mode : UnfreedMode.values()) {
+            CompilationArtifact artifact = new CompilerPipeline(mode).compile(SourceFile.of("test/Main.iron", nestedKeys));
+            assertTrue(!artifact.successful(), "joined copied nested key publication erased under " + mode);
+            assertContains(messages(artifact), "cannot free", "nested key publication diagnostic");
+        }
+        CompilationArtifact identityContents = compile(nestedKeys.replace("HashMap", "IdentityHashMap"));
+        assertTrue(identityContents.successful(), "identity nested key cleanup: " + messages(identityContents));
+    }
+
+    private void mapCopyProofControls() throws Exception {
+        for (String family : List.of("HashMap", "IdentityHashMap", "LinkedHashMap")) {
+            String source = Files.readString(Path.of("stdlib/src/main/ironwood/ironwood/ds/" + family + ".iron"));
+            String main = """
+                    import ironwood.ds.%1$s;
+                    class Item { }
+                    class Main { public static int main(String[] args) {
+                        Item item = new Item();
+                        %1$s<Item, Item> source = new %1$s<Item, Item>(1); source.put(item, item);
+                        %1$s<Item, Item> copied = source.copy();
+                        free source; free copied; free item; return 0;
+                    }}
+                    """.formatted(family);
+            for (String operation : List.of("savedCopyInput = this;", "this.clear();", "observeCopyInput(this);")) {
+                String modified = source.replace("private int count;", """
+                        private int count;
+                        private static Object savedCopyInput;
+                        private static void observeCopyInput(Object value) { savedCopyInput = value; }
+                        """.stripTrailing()).replace("try {\n            ", "try {\n            " + operation + "\n            ");
+                assertTrue(!modified.equals(source), "copy shape control unchanged");
+                CompilationArtifact admitted = compileSources(SourceFile.of("test/" + family + ".iron", modified),
+                        SourceFile.of("test/Main.iron", main.replace("free source; free copied; free item;", "")));
+                assertTrue(admitted.successful(), family + " control definition: " + messages(admitted));
+                CompilationArtifact rejected = compileSources(SourceFile.of("test/" + family + ".iron", modified),
+                        SourceFile.of("test/Main.iron", main));
+                assertTrue(!rejected.successful(), family + " changed factory obtained item-only proof");
+                assertContains(messages(rejected), "cannot free", "changed factory diagnostic");
+            }
+        }
+    }
+
+    private void mapCopiesAcrossArtifacts() throws Exception {
+        Path root = Files.createTempDirectory("ironwood-map-copy-artifacts-");
+        try {
+            String expected = "value:0:8\nidentity:0:8\nlinked:0:8\n";
+            for (int count : List.of(8, 32, 128, 512)) {
+                for (String family : List.of("value", "identity", "linked")) expected += family + ":" + count + ":" + (count + 7) + "\n";
+            }
+            for (String fixture : List.of("ds_map_copy", "ds_map_copy_membership", "ds_map_copy_failure", "ds_map_copy_callback_failure")) {
+                Path classes = root.resolve(fixture);
+                assertMainRun(new String[]{"stdlib/src/main/ironwood/ironwood/ds/HashMap.iron",
+                        "stdlib/src/main/ironwood/ironwood/ds/IdentityHashMap.iron",
+                        "stdlib/src/main/ironwood/ironwood/ds/LinkedHashMap.iron",
+                        "integration-tests/cases/" + fixture + ".iron", "--unfreed=warn",
+                        "-d", classes.toString()}, 0, fixture + " source compile");
+                Path archive = root.resolve(fixture + ".ironjar");
+                assertEquals(0, IronJarMain.run(new String[]{"--create", "--file", archive.toString(), classes.toString()},
+                        new PrintStream(new ByteArrayOutputStream()), new PrintStream(new ByteArrayOutputStream())),
+                        "map archive creation");
+                for (Path input : List.of(classes, archive)) {
+                    Path executable = root.resolve(input.getFileName() + "-program");
+                    assertMainRun(new String[]{"--link", "-cp", input.toString(), "--main-class", "Main",
+                            "--unfreed=warn", "-O3", "-o", executable.toString()}, 0, fixture + " artifact link");
+                    NativeResult result = runNative(executable, root, Map.of());
+                    assertEquals(fixture.equals("ds_map_copy_failure") ? 43 : 42, result.exit(), fixture + ": " + result.stderr());
+                    assertEquals(fixture.equals("ds_map_copy") ? expected : "", result.stdout(), fixture + " output");
+                    assertEquals("", result.stderr(), fixture + " stderr");
+                    if (fixture.equals("ds_map_copy_failure")) {
+                        for (int limit = 0; limit <= 66; limit++) {
+                            NativeResult failed = runNative(executable, root, Map.of("IRONWOOD_ALLOCATION_LIMIT", Integer.toString(limit)));
+                            assertEquals(limit < 66 ? 42 : 43, failed.exit(), "map failure limit " + limit + ": " + failed.stderr());
+                            assertEquals("", failed.stdout(), "map OOM stdout");
+                            assertEquals("", failed.stderr(), "map OOM stderr");
+                        }
+                    }
+                }
+            }
+        } finally { deleteTree(root); }
     }
 
     private void listCopiesRunNatively() throws Exception {

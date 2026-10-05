@@ -1,0 +1,86 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// A populated value map copy propagates an ordinary key callback exception.
+// Failed destination storage is reclaimed and the source cursor still advances.
+// The preallocated static failure and three explicit global keys remain
+// process-lived. Baselines start after their creation, isolating copy storage
+// from existing conservative cursor exposure of key references. Exit 42.
+import ironwood.ds.*;
+import ironwood.util.Iterator;
+class Key {
+
+    static RuntimeException failure;
+    static Key firstKey;
+    static Key secondKey;
+    static Key thirdKey;
+    static int calls;
+    static int throwAt;
+    @Override public int hashCode() {
+
+        calls++;
+        if (calls == throwAt) throw failure;
+        return 1;
+    }
+}
+class Main {
+
+    static void checkHashMap() {
+
+        Key firstKey = Key.firstKey;
+        Key secondKey = Key.secondKey;
+        Key thirdKey = Key.thirdKey;
+        HashMap<Key, String> source = new HashMap<Key, String>(3, 1.0f);
+        source.put(firstKey, "first"); source.put(secondKey, "second"); source.put(thirdKey, "third");
+        Iterator<String> cursor = source.iterator();
+        String first = cursor.next();
+        Key.calls = 0; Key.throwAt = 2;
+        long baseline = System.liveAllocationCount();
+        try {
+            HashMap<Key, String> copied = source.copy();
+            free copied;
+            throw new IllegalStateException();
+        } catch (RuntimeException failure) {
+            if (failure != Key.failure) throw new IllegalStateException();
+        }
+        Key.throwAt = 0;
+        if (System.liveAllocationCount() != baseline || source.size() != 3 || Key.calls != 2) throw new IllegalStateException();
+        String second = cursor.next();
+        String third = cursor.next();
+        if (first == second || second == third || first == third) throw new IllegalStateException();
+        free source;
+    }
+    static void checkLinkedHashMap() {
+
+        Key firstKey = Key.firstKey;
+        Key secondKey = Key.secondKey;
+        Key thirdKey = Key.thirdKey;
+        LinkedHashMap<Key, String> source = new LinkedHashMap<Key, String>(3, 1.0f);
+        source.put(firstKey, "first"); source.put(secondKey, "second"); source.put(thirdKey, "third");
+        Iterator<String> cursor = source.iterator();
+        String first = cursor.next();
+        Key.calls = 0; Key.throwAt = 2;
+        long baseline = System.liveAllocationCount();
+        try {
+            LinkedHashMap<Key, String> copied = source.copy();
+            free copied;
+            throw new IllegalStateException();
+        } catch (RuntimeException failure) {
+            if (failure != Key.failure) throw new IllegalStateException();
+        }
+        Key.throwAt = 0;
+        if (System.liveAllocationCount() != baseline || source.size() != 3 || Key.calls != 2) throw new IllegalStateException();
+        String second = cursor.next();
+        String third = cursor.next();
+        if (first == second || second == third || first == third) throw new IllegalStateException();
+        free source;
+    }
+    public static int main(String[] args) {
+
+        Key.failure = new RuntimeException();
+        Key.firstKey = new Key(); Key.secondKey = new Key(); Key.thirdKey = new Key();
+        long baseline = System.liveAllocationCount();
+        checkHashMap(); checkLinkedHashMap();
+        if (System.liveAllocationCount() != baseline) return 1;
+        return 42;
+    }
+}

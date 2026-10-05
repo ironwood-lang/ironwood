@@ -142,6 +142,8 @@ final class FreshBorrowingFactoryAnalysis {
             List<Statement> statements = method.body().orElseThrow().statements();
             Result list = listFactory(method, statements);
             if (list != null) return list;
+            Result map = new MapCopyFactoryAnalysis(types, resolver, escapes, owned).prove(method, statements);
+            if (map != null) return map;
             if (statements.size() != 1 || !(statements.getFirst() instanceof ReturnStatement returned)
                     || returned.value().isEmpty()) return null;
             Expression expression = returned.value().orElseThrow();

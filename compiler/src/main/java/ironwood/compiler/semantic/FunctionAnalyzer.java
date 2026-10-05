@@ -9204,6 +9204,9 @@ final class FunctionAnalyzer {
                 if (child != null) {
                     addRetainedBorrow(owner, child,
                             callSites == null ? null : callSites.argument(index));
+                    if (index == 0 && MapCopyFactoryAnalysis.isMap(owner.constructedType)) {
+                        recordPossibleMapKey(owner, child);
+                    }
                 }
             }
         }
@@ -9259,8 +9262,28 @@ final class FunctionAnalyzer {
         if (result.isEmpty()) return false;
         FreshBorrowingFactoryAnalysis.Result proof = escapeSummaries.freshBorrowingFactory(method);
         if (proof == null) return false;
+        if (MapCopyFactoryAnalysis.isMap(proof.type())
+                && !proof.type().referenceName().equals("ironwood.ds.IdentityHashMap")) {
+            for (var input : proof.elements()) {
+                IrOperand source = switch (input.origin().kind()) {
+                    case THIS -> receiver;
+                    case PARAMETER -> input.origin().parameterIndex() < arguments.size()
+                            ? arguments.get(input.origin().parameterIndex()).operand() : null;
+                    case ELEMENT_OF_PARAMETER -> null;
+                };
+                if (source == null || !input.fields().isEmpty() || !hasBorrowingKeyCallbacks(source.type())) return false;
+            }
+        }
         AllocationInfo owner = AllocationInfo.freshCall(controlFlowDepth);
         owner.constructedType = proof.type();
+        IrType resultType = result.orElseThrow().type();
+        if (resultType.isNominalReference() && proof.type().isNominalReference()
+                && resultType.referenceName().equals(proof.type().referenceName())) {
+            // The body proof uses declaration type parameters. The typed call
+            // already resolved their actual arguments; preserve them for later
+            // callback dispatch and container loan checks on the fresh result.
+            owner.constructedType = resultType;
+        }
         allocations.add(owner);
         pendingFreshResult = owner;
         recordAllocationOrigin(owner, result.orElseThrow().sourceSpan());
@@ -9287,13 +9310,34 @@ final class FunctionAnalyzer {
             if (input.containerElements() && input.fields().isEmpty()
                     && !isDependentBorrow(source) && !exposedContainerContents.contains(backing)
                     && backing.constructedType != null && backing.constructedType.isNominalReference()
-                    && backing.constructedType.referenceName().equals("ironwood.ds.ArrayList")) {
+                    && (backing.constructedType.referenceName().equals("ironwood.ds.ArrayList")
+                        || MapCopyFactoryAnalysis.isMap(backing.constructedType))) {
                 // Copy the actual loans, including a self-item or a nested wrapper.
                 // Fresh storage does not erase any payload's lifetime dependency.
                 for (AllocationInfo child : retainedBorrows.getOrDefault(backing, Set.of())) {
+                    if (MapCopyFactoryAnalysis.isMap(proof.type())
+                            && !proof.type().referenceName().equals("ironwood.ds.IdentityHashMap")
+                            && backing.possibleMapKeys != null && backing.possibleMapKeys.contains(child)) {
+                        exposeContainerContents(child, "copy key callbacks can observe nested data-structure contents",
+                                Collections.newSetFromMap(new IdentityHashMap<>()));
+                    }
+                    if (MapCopyFactoryAnalysis.isMap(proof.type()) && backing.possibleMapKeys != null
+                            && backing.possibleMapKeys.contains(child)) {
+                        recordPossibleMapKey(owner, child);
+                    }
                     borrows.add(new WrapperBorrow(owner, child, result.orElseThrow().sourceSpan()));
                 }
             } else {
+                if (MapCopyFactoryAnalysis.isMap(proof.type())) {
+                    // A whole source root represents unknown key membership.
+                    // Preserve it as a possible key for subsequent copies;
+                    // an empty metadata set never proves these keys absent.
+                    recordPossibleMapKey(owner, backing);
+                    if (!proof.type().referenceName().equals("ironwood.ds.IdentityHashMap")) {
+                        exposeContainerContents(backing, "copy callbacks can observe unknown key membership",
+                                Collections.newSetFromMap(new IdentityHashMap<>()));
+                    }
+                }
                 borrows.add(new WrapperBorrow(owner, backing, result.orElseThrow().sourceSpan()));
             }
             for (var entry : proof.borrows().entrySet()) {
@@ -9407,6 +9451,13 @@ final class FunctionAnalyzer {
     }
 
     private record WrapperBorrow(AllocationInfo owner, AllocationInfo child, SourceSpan site) {}
+
+    private static void recordPossibleMapKey(AllocationInfo owner, AllocationInfo key) {
+        if (owner.possibleMapKeys == null) {
+            owner.possibleMapKeys = Collections.newSetFromMap(new IdentityHashMap<>());
+        }
+        owner.possibleMapKeys.add(key);
+    }
 
     private void exposeContainerContents(IrOperand operand, String reason) {
         AllocationInfo allocation = allocationOf(operand);
@@ -14234,6 +14285,10 @@ final class FunctionAnalyzer {
         private final Map<String, AllocationInfo> finalBorrowedFields = new LinkedHashMap<>();
         private IrType constructedType;
         private boolean copiedContainerItems;
+        // Monotonic observation metadata, independent of path restoration.
+        // Used only to expose possible key contents, intersected with current
+        // retained loans. It never establishes ownership or permits a free.
+        private Set<AllocationInfo> possibleMapKeys;
         /** For a ONE_OF identity, the allocations it may be, as known where it was made. */
         private Set<AllocationInfo> mayBe = Set.of();
         private boolean detached;

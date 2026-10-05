@@ -348,11 +348,14 @@ complete, and M1/M2 and every later milestone remain not started.
   backing storage, borrowed elements, failure rollback, and safe destruction.
   In progress: the [ArrayList slice](self-hosting/m1/ARRAY_LIST.md) and
   [private list/logical-bit helpers](self-hosting/m1/SNAPSHOTS.md) pass;
-  selected map/set storage and operation snapshot composition remain.
+  [independent map copies](self-hosting/m1/MAPS.md) also pass. Set storage and
+  operation snapshot composition remain.
 - [ ] **M1.2: Pilot maps, traversal, and order.** Add the selected map/set copies,
   use local/indexed traversal or copied keys, and preserve identity/value/order
   distinctions. Rewrite pilot stack/FIFO consumers. Bring in B2's list sort or
   sorted-container rewrites only where M0 identified a pilot dependency.
+  In progress: the three map-copy families qualify; private keyed storage,
+  set copies, operation composition and selected FIFO/LIFO work remain.
 - [ ] **M1.3: Pilot language and text helpers.** Prepare record value operations,
   text-block normalization, varargs/factory rewrites, numeric/nullable results,
   reached name splitting, and required callback interfaces. Rewrite any pattern

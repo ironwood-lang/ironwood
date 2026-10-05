@@ -736,6 +736,19 @@ references before recycling detached nodes.
 Map iterators traverse values. After `next()`, the current key is available
 through the concrete map's `getCurrIteratorKey()` method. Iterators support
 removal and are reused by the owning map.
+
+`HashMap.copy()`, `IdentityHashMap.copy()` and `LinkedHashMap.copy()` create
+independent mutable membership with fresh buckets, entries, entry pools and
+iterator state. Keys and values remain borrowed and non-null. Copies use load
+factor 1.0 and at least one bucket, sized to current membership. Value maps
+rerun key hash/equality callbacks, propagating exceptions after destination
+cleanup; identity copies invoke no key callbacks. Linked copies preserve
+insertion order. Copy traversal does not reset the source iterator. Each
+nonempty copy allocates one entry per member plus seven support objects; an
+empty copy uses eight allocations. Caller-owned inputs must remain alive while
+observable. Current proofs discharge membership loans on clear or destruction,
+subject to retained aliases; individual removal does not discharge a loan.
+See [the map-copy qualification](self-hosting/m1/MAPS.md).
 Hash-map iterator removal unlinks the last returned entry from its own bucket
 and returns that entry to its pool. Other mappings, including colliding entries
 and entries in previously visited buckets, remain intact.

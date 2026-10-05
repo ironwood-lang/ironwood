@@ -9528,3 +9528,25 @@ occurrence order. If no
   contract checks, class/archive loan reconstruction, null and trailing-zero
   cases, maximum-bit overflow, native allocation scaling and every representative
   failure boundary. See [the private snapshot record](self-hosting/m1/SNAPSHOTS.md).
+
+## D250 - Derive independent map-copy loans from direct membership traversal
+
+- **Status:** Implemented during M1.2 on 2026-10-05.
+- **Decision:** Add original `copy()` helpers to value, identity and linked maps,
+  with independently owned storage and borrowed non-null key/value references.
+  Traverse private membership without touching the source iterator. Preserve
+  linked order and ordinary value-key callback behavior, including exceptions.
+- **Proof:** Qualify the actual constructor, traversal, insertion and cleanup
+  bodies. Preserve concrete typed-call result arguments for callback analysis.
+  Transfer current local item loans, retaining whole roots for unknown sources.
+  Monotonic possible-key observation metadata preserves nested callback exposure
+  across joins/copies without misclassifying ordinary nested values. Fallback
+  roots remain possible keys; metadata cannot establish reclamation safety.
+- **Boundary:** Existing getter/cursor exposure and individual-removal limits
+  remain conservative. No runtime bookkeeping or lowering change is introduced.
+  This extends D248's fresh membership proofs; it supersedes no earlier decision
+  and establishes neither a complete M1 checkpoint nor S1/G1.
+- **Verification:** All-mode lifetime/publication pairs, conditional insertion,
+  copy-of-copy, nested key/value controls, source/class/archive reconstruction,
+  Java 21 logical contracts, geometric allocation counts, every representative
+  OOM boundary and ordinary throwing-callback cleanup. See [the map-copy record](self-hosting/m1/MAPS.md).

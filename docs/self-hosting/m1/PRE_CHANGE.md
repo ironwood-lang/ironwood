@@ -154,3 +154,41 @@ before cleanup in the safe case, reject a returned alias after retirement under
 every unfreed mode, and preserve publication/unknown effects. Any precision must
 derive from the same actual read body and existing one-of lifetime identities;
 do not treat a join or helper name as non-retaining by convention.
+
+## Independent map copy increment
+
+First qualify value, identity and linked maps using their existing insertion
+contracts and fresh constructors. Traverse private buckets or insertion links
+directly, without resetting the source iterator. Destination entries and pools
+are independent; keys and values retain their original identity. Value maps
+recompute hashes and invoke ordinary key callbacks, so publishing callbacks
+must keep the ordinary conservative effects. Identity maps do not invoke them.
+Constructor sizing avoids ordinary geometric growth; measure actual allocation
+counts before deciding whether lazy pool initialization is needed.
+
+If a safe source retirement probe fails, extend the structural fresh factory
+proof only for the observed traversal and insertion bodies. Keep exposed and
+dependent source roots, nested/self/backlink loans, unknown helper bodies and
+publishing virtual callbacks conservative. Check safe and unsafe cases in every
+unfreed mode, source/class/archive reconstruction, iterator continuation,
+colliding value keys, equal identity keys, linked order, empty/geometric sizes,
+independent mutations and each allocation-failure boundary. Existing entry-pool,
+pool-helper and list-copy checks cover shared consumers. Set and private keyed
+snapshot composition remain a separate increment until map ownership qualifies.
+
+The allocation probe additionally shows a fresh map factory result retaining
+the declaration's generic key parameter instead of the typed call's actual key
+type. Later insertion/removal therefore loses the existing key-callback proof
+and merges an escaped state into conditional cleanup. Preserve the typed result's
+arguments only when its nominal type exactly matches the proved fresh type.
+Paired publishing-key/override tests must still reject actual unsafe callbacks.
+
+Nested-value review: value-key copy callbacks may observe keys, not values. The
+existing key/value loan union cannot distinguish them. Record a monotonic set of
+possible key roots on each allocation, updated by audited insertion and copied
+with factory membership. Intersect that set with the current retained loans
+before callback exposure. This is an observation superset, never a reclamation
+proof: joins/restores can retain extra possible keys without dropping any real
+key, and clear still retires loans through the existing snapshot-tracked map.
+No runtime state or snapshot format is added. Pair complete nested-value cleanup
+with nested-key content publication and branch/clear/reinsert controls.
