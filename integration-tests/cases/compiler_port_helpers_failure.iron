@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
 // Inject allocation failure into the M3.1 helpers: ScopeStack construction,
-// growth, snapshot and restore; SnapshotSet construction; fixed-arity lists.
+// growth, snapshot and restore; SnapshotSet construction; fixed-arity lists
+// and prefix copies; split bounds, including the trimmed second array.
 // Elements are literals, which are never allocated. Stack growth installs
 // the larger array before changing membership, so a failed push leaves the
 // stack as it was. Every failure unwinds to the live-allocation baseline.
@@ -11,6 +12,7 @@ import ironwood.compiler.port.Lists;
 import ironwood.compiler.port.ScopeStack;
 import ironwood.compiler.port.SnapshotList;
 import ironwood.compiler.port.SnapshotSet;
+import ironwood.compiler.port.Splits;
 
 class Main {
 
@@ -53,7 +55,13 @@ class Main {
         defer free set;
         SnapshotList<String> four = Lists.of("w", "x", "y", "z");
         defer free four;
-        if (!set.contains("x") || four.size() != 4) throw new IllegalStateException();
+        SnapshotList<String> two = Lists.prefix(four, 2);
+        defer free two;
+        int[] bounds = Splits.bounds("a.b..", '.', 0);
+        defer free bounds;
+        if (!set.contains("x") || four.size() != 4 || two.size() != 2 || Splits.count(bounds) != 2) {
+            throw new IllegalStateException();
+        }
     }
 
     public static int main(String[] args) {

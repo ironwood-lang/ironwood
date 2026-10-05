@@ -85,5 +85,22 @@ public final class ValueSnapshotsReference {
         StringBuilder found = new StringBuilder();
         for (String text : texts) found.append(snapshot.contains(text) ? '1' : '0');
         System.out.println("set " + snapshot.size() + " " + found + " " + snapshot.contains("later"));
+
+        List<Integer> counts = List.of(0, 2, 1);
+        for (int count = 0; count <= 4; count++) {
+            List<String> items = List.copyOf(four.subList(0, count));
+            StringBuilder line = new StringBuilder("prefix " + count + " " + items.size() + " " + items.hashCode());
+            if (count <= 3) {
+                List<Integer> values = List.copyOf(counts.subList(0, count));
+                line.append(" ints ").append(values.size()).append(' ')
+                        .append(values.stream().mapToInt(Integer::intValue).sum()).append(' ').append(values.hashCode());
+            }
+            System.out.println(line);
+        }
+        try {
+            List.copyOf(four.subList(0, 5));
+        } catch (IndexOutOfBoundsException expected) {
+            System.out.println("prefix 5 rejected");
+        }
     }
 }

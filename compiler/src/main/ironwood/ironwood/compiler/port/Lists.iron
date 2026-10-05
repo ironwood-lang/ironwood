@@ -3,6 +3,7 @@
 package ironwood.compiler.port;
 
 import ironwood.ds.ArrayList;
+import ironwood.ds.IntArrayList;
 
 /**
  * Immutable lists for the compiler's {@code List.of} sites and Java list value
@@ -129,5 +130,38 @@ public final class Lists {
         int hash = 1;
         for (int index = 0; index < list.size(); index++) hash = 31 * hash + list.get(index).hashCode();
         return hash;
+    }
+
+    /**
+     * Returns a fresh immutable list of the first {@code count} borrowed
+     * items, for {@code List.subList(0, count)} copied into a new record
+     * component. The caller owns the list, not the items.
+     *
+     * @throws IndexOutOfBoundsException if count is negative or exceeds the size
+     */
+    public static <E extends Object> SnapshotList<E> prefix(SnapshotList<E> source, int count) {
+
+        if (count < 0 || count > source.size()) throw new IndexOutOfBoundsException();
+        ArrayList<E> builder = new ArrayList<E>(count > 0 ? count : 1);
+        // Retires the builder even if the list's own allocation fails.
+        defer free builder;
+        for (int index = 0; index < count; index++) builder.add(source.get(index));
+        return new SnapshotList<E>(builder);
+    }
+
+    /**
+     * Returns a fresh immutable copy of the first {@code count} values, for
+     * the segment-count {@code subList(0, count)} sites. The caller owns it.
+     *
+     * @throws IndexOutOfBoundsException if count is negative or exceeds the size
+     */
+    public static SnapshotInts prefix(SnapshotInts source, int count) {
+
+        if (count < 0 || count > source.size()) throw new IndexOutOfBoundsException();
+        IntArrayList builder = new IntArrayList(count > 0 ? count : 1);
+        // Retires the builder even if the copy's own allocation fails.
+        defer free builder;
+        for (int index = 0; index < count; index++) builder.add(source.get(index));
+        return new SnapshotInts(builder);
     }
 }

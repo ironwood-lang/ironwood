@@ -105,6 +105,13 @@ final class IrModelInventory {
             out.append("            case ").append(constant(record)).append(" -> Root.").append(root(record)).append(";\n");
         }
         out.append("        };\n    }\n\n");
+        out.append("    /** @return the Java simple name, as {@code getClass().getSimpleName()} renders it in diagnostics */\n");
+        out.append("    public static String javaName(Record record) {\n\n        return switch (record) {\n");
+        for (Class<?> record : records) {
+            out.append("            case ").append(constant(record)).append(" -> \"").append(record.getSimpleName())
+                    .append("\";\n");
+        }
+        out.append("        };\n    }\n\n");
         out.append("    /** @return the record's components in declaration order, as name:JavaType */\n");
         out.append("    public static String components(Record record) {\n\n        return switch (record) {\n");
         for (Class<?> record : records) {

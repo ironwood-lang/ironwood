@@ -207,6 +207,126 @@ public final class IrModel {
         };
     }
 
+    /** @return the Java simple name, as {@code getClass().getSimpleName()} renders it in diagnostics */
+    public static String javaName(Record record) {
+
+        return switch (record) {
+            case IR_ADD_SECONDARY_EXCEPTION_INSTRUCTION -> "IrAddSecondaryExceptionInstruction";
+            case IR_ALLOCATE_INSTRUCTION -> "IrAllocateInstruction";
+            case IR_ALLOCATION_COUNT_INSTRUCTION -> "IrAllocationCountInstruction";
+            case IR_ARRAY_ALLOCATE_INSTRUCTION -> "IrArrayAllocateInstruction";
+            case IR_ARRAY_BOUNDS_CHECK_INSTRUCTION -> "IrArrayBoundsCheckInstruction";
+            case IR_ARRAY_LENGTH_CHECK_INSTRUCTION -> "IrArrayLengthCheckInstruction";
+            case IR_ARRAY_LENGTH_INSTRUCTION -> "IrArrayLengthInstruction";
+            case IR_ARRAY_LOAD_INSTRUCTION -> "IrArrayLoadInstruction";
+            case IR_ARRAY_STORE_INSTRUCTION -> "IrArrayStoreInstruction";
+            case IR_ARRAY_TYPE -> "IrArrayType";
+            case IR_ARRAY_TYPE_TEST_INSTRUCTION -> "IrArrayTypeTestInstruction";
+            case IR_BASIC_BLOCK -> "IrBasicBlock";
+            case IR_BINARY_INSTRUCTION -> "IrBinaryInstruction";
+            case IR_BRANCH -> "IrBranch";
+            case IR_BRIDGE_ARRAY_COPY_INSTRUCTION -> "IrBridgeArrayCopyInstruction";
+            case IR_BRIDGE_BATCH_APPEND_INSTRUCTION -> "IrBridgeBatchAppendInstruction";
+            case IR_BRIDGE_FAILURE_SNAPSHOT_INSTRUCTION -> "IrBridgeFailureSnapshotInstruction";
+            case IR_BRIDGE_RESULT_STORE_INSTRUCTION -> "IrBridgeResultStoreInstruction";
+            case IR_BRIDGE_SLOT_STORE_INSTRUCTION -> "IrBridgeSlotStoreInstruction";
+            case IR_BRIDGE_STRING_COPY_INSTRUCTION -> "IrBridgeStringCopyInstruction";
+            case IR_BYTE_VIEW_INSTRUCTION -> "IrByteViewInstruction";
+            case IR_CALL_INSTRUCTION -> "IrCallInstruction";
+            case IR_CHARACTER_INSTRUCTION -> "IrCharacterInstruction";
+            case IR_CLASS -> "IrClass";
+            case IR_CONSTANT -> "IrConstant";
+            case IR_DESTROY_ARRAY_ELEMENTS_INSTRUCTION -> "IrDestroyArrayElementsInstruction";
+            case IR_DISPATCH_ENTRY -> "IrDispatchEntry";
+            case IR_DISPATCH_SLOT -> "IrDispatchSlot";
+            case IR_ENSURE_TYPE_INITIALIZED_INSTRUCTION -> "IrEnsureTypeInitializedInstruction";
+            case IR_ENUM_CONSTANT -> "IrEnumConstant";
+            case IR_EXCEPTION_CAUGHT_INSTRUCTION -> "IrExceptionCaughtInstruction";
+            case IR_EXCEPTION_LANDING_PAD_INSTRUCTION -> "IrExceptionLandingPadInstruction";
+            case IR_FIELD -> "IrField";
+            case IR_FIELD_LOAD_INSTRUCTION -> "IrFieldLoadInstruction";
+            case IR_FIELD_STORE_INSTRUCTION -> "IrFieldStoreInstruction";
+            case IR_FILE_INSTRUCTION -> "IrFileInstruction";
+            case IR_FLOATING_BITS_INSTRUCTION -> "IrFloatingBitsInstruction";
+            case IR_FLOATING_PARSE_INSTRUCTION -> "IrFloatingParseInstruction";
+            case IR_FOREIGN_CALL_INSTRUCTION -> "IrForeignCallInstruction";
+            case IR_FREE_INSTRUCTION -> "IrFreeInstruction";
+            case IR_FUNCTION -> "IrFunction";
+            case IR_IDENTITY_HASH_CODE_INSTRUCTION -> "IrIdentityHashCodeInstruction";
+            case IR_IMMORTAL_OBJECT -> "IrImmortalObject";
+            case IR_INSTANCE_OF_INSTRUCTION -> "IrInstanceOfInstruction";
+            case IR_INTERFACE_CALL_INSTRUCTION -> "IrInterfaceCallInstruction";
+            case IR_INVOKE_TERMINATOR -> "IrInvokeTerminator";
+            case IR_JUMP -> "IrJump";
+            case IR_LIVE_ALLOCATION_COUNT_INSTRUCTION -> "IrLiveAllocationCountInstruction";
+            case IR_MATH_BINARY_INSTRUCTION -> "IrMathBinaryInstruction";
+            case IR_MATH_UNARY_INSTRUCTION -> "IrMathUnaryInstruction";
+            case IR_NULL -> "IrNull";
+            case IR_NULL_CHECK_INSTRUCTION -> "IrNullCheckInstruction";
+            case IR_NUMERIC_CONVERSION_INSTRUCTION -> "IrNumericConversionInstruction";
+            case IR_OBJECT_HASH_CODE_INSTRUCTION -> "IrObjectHashCodeInstruction";
+            case IR_OBJECT_TO_STRING_INSTRUCTION -> "IrObjectToStringInstruction";
+            case IR_PARAMETER -> "IrParameter";
+            case IR_PHI_INCOMING -> "IrPhiIncoming";
+            case IR_PHI_INSTRUCTION -> "IrPhiInstruction";
+            case IR_PRINT_STREAM_CHECK_ERROR_INSTRUCTION -> "IrPrintStreamCheckErrorInstruction";
+            case IR_PRINT_STREAM_FLUSH_INSTRUCTION -> "IrPrintStreamFlushInstruction";
+            case IR_PRINT_STREAM_PRINTLN_INSTRUCTION -> "IrPrintStreamPrintlnInstruction";
+            case IR_PRINT_STREAM_WRITE_INSTRUCTION -> "IrPrintStreamWriteInstruction";
+            case IR_PROGRAM -> "IrProgram";
+            case IR_RAW_DEALLOCATE_INSTRUCTION -> "IrRawDeallocateInstruction";
+            case IR_REFERENCE_CONVERSION_INSTRUCTION -> "IrReferenceConversionInstruction";
+            case IR_RELEASE_OWNED_THROWABLE_MESSAGE_INSTRUCTION -> "IrReleaseOwnedThrowableMessageInstruction";
+            case IR_RELEASE_OWNED_TO_STRING_RESULT_INSTRUCTION -> "IrReleaseOwnedToStringResultInstruction";
+            case IR_RETURN_TERMINATOR -> "IrReturnTerminator";
+            case IR_ROLLBACK_INSTRUCTION -> "IrRollbackInstruction";
+            case IR_SECONDARY_EXCEPTION_AT_INSTRUCTION -> "IrSecondaryExceptionAtInstruction";
+            case IR_SECONDARY_EXCEPTION_COUNT_INSTRUCTION -> "IrSecondaryExceptionCountInstruction";
+            case IR_STATIC_FIELD -> "IrStaticField";
+            case IR_STATIC_FIELD_LOAD_INSTRUCTION -> "IrStaticFieldLoadInstruction";
+            case IR_STATIC_FIELD_STORE_INSTRUCTION -> "IrStaticFieldStoreInstruction";
+            case IR_STREAM_INSTRUCTION -> "IrStreamInstruction";
+            case IR_STRING_CASE_INSTRUCTION -> "IrStringCaseInstruction";
+            case IR_STRING_CHAR_AT_INSTRUCTION -> "IrStringCharAtInstruction";
+            case IR_STRING_CONCAT_INSTRUCTION -> "IrStringConcatInstruction";
+            case IR_STRING_CONCAT_PART -> "IrStringConcatPart";
+            case IR_STRING_CONSTANT -> "IrStringConstant";
+            case IR_STRING_COPY_INSTRUCTION -> "IrStringCopyInstruction";
+            case IR_STRING_EQUALS_IGNORE_CASE_INSTRUCTION -> "IrStringEqualsIgnoreCaseInstruction";
+            case IR_STRING_EQUALS_INSTRUCTION -> "IrStringEqualsInstruction";
+            case IR_STRING_FROM_CHAR_RANGE_INSTRUCTION -> "IrStringFromCharRangeInstruction";
+            case IR_STRING_FROM_CHARACTER_INSTRUCTION -> "IrStringFromCharacterInstruction";
+            case IR_STRING_FROM_CHARS_INSTRUCTION -> "IrStringFromCharsInstruction";
+            case IR_STRING_FROM_INTEGER_INSTRUCTION -> "IrStringFromIntegerInstruction";
+            case IR_STRING_FROM_RANGE_INSTRUCTION -> "IrStringFromRangeInstruction";
+            case IR_STRING_FROM_UTF8_INSTRUCTION -> "IrStringFromUtf8Instruction";
+            case IR_STRING_HASH_CODE_INSTRUCTION -> "IrStringHashCodeInstruction";
+            case IR_STRING_JOIN_INSTRUCTION -> "IrStringJoinInstruction";
+            case IR_STRING_REPEAT_INSTRUCTION -> "IrStringRepeatInstruction";
+            case IR_STRING_REPLACE_CHAR_INSTRUCTION -> "IrStringReplaceCharInstruction";
+            case IR_STRING_REPLACE_TEXT_INSTRUCTION -> "IrStringReplaceTextInstruction";
+            case IR_SWITCH_CASE -> "IrSwitchCase";
+            case IR_SWITCH_TERMINATOR -> "IrSwitchTerminator";
+            case IR_SYSTEM_ARRAY_COPY_INSTRUCTION -> "IrSystemArrayCopyInstruction";
+            case IR_SYSTEM_CLOCK_INSTRUCTION -> "IrSystemClockInstruction";
+            case IR_SYSTEM_EXIT_INSTRUCTION -> "IrSystemExitInstruction";
+            case IR_SYSTEM_GETENV_INSTRUCTION -> "IrSystemGetenvInstruction";
+            case IR_SYSTEM_PROPERTY_INSTRUCTION -> "IrSystemPropertyInstruction";
+            case IR_TCP_INSTRUCTION -> "IrTcpInstruction";
+            case IR_THROW_TERMINATOR -> "IrThrowTerminator";
+            case IR_THROWABLE_DESCRIPTION_INSTRUCTION -> "IrThrowableDescriptionInstruction";
+            case IR_THROWABLE_TRACE_INSTRUCTION -> "IrThrowableTraceInstruction";
+            case IR_TLS_INSTRUCTION -> "IrTlsInstruction";
+            case IR_TYPE -> "IrType";
+            case IR_TYPE_INITIALIZATION -> "IrTypeInitialization";
+            case IR_TYPE_INITIALIZED_INSTRUCTION -> "IrTypeInitializedInstruction";
+            case IR_UNARY_INSTRUCTION -> "IrUnaryInstruction";
+            case IR_UNREACHABLE -> "IrUnreachable";
+            case IR_VALUE_REFERENCE -> "IrValueReference";
+            case IR_VIRTUAL_CALL_INSTRUCTION -> "IrVirtualCallInstruction";
+        };
+    }
+
     /** @return the record's components in declaration order, as name:JavaType */
     public static String components(Record record) {
 

@@ -10103,3 +10103,30 @@ occurrence order. If no
   untreated enum fails compilation in every unfreed mode; a native program
   prints the whole inventory identically to the Java-derived transcript from
   classes and archive at `-O3`. See [the variant record](self-hosting/m3/VARIANTS.md).
+
+## D266 - Bring split bounds, prefix copies and IR names forward to M3.1
+
+- **Status:** Implemented during M3.1 on 2026-10-05.
+- **Decision:** The S2 `TypeName` rendering that M2 left later-only is M3.1's
+  first consumer of three helpers, so they move ahead of their M3.2/M3.3
+  phases. `Splits.bounds(text, delimiter, limit)` implements Java 21
+  `String.split` for a regex matching one literal character, with Java's
+  no-match, leading-empty, positive-limit and trailing-empty rules, and
+  returns one fresh `int[]` of field bounds instead of a String per field;
+  `Splits.field` takes only the substrings a caller keeps. It also serves
+  `TypeResolver` (S3) and `CommandLine.parsePathList` (S4). `Lists.prefix`
+  copies the first items of a `SnapshotList` or a `SnapshotInts`, for the
+  `subList(0, count)` record components of `qualifierReference`.
+  `IrModel.javaName(record)` (generated, D265) gives the Java simple name for
+  the Bridge diagnostics that print `getClass().getSimpleName()`.
+- **Proof:** No analysis change. Bounds and prefix copies are fresh results
+  of builders freed on every exit; a trimmed split frees its first array.
+- **Boundary:** No regex engine: the multi-character and Unicode
+  line-separator patterns (`\R`, `\s+`) stay with their M5 documentation
+  consumers. Supersedes no decision.
+- **Verification:** Every string over four characters up to length five,
+  split on two delimiters with limits -1 to 3 (13,650 cases), equals Java 21;
+  prefix copies, their hashes and the out-of-range rejection equal
+  `List.copyOf(subList)`; the generated names equal the Java simple names;
+  the allocation-failure sweep covers both; classes and archive at `-O3`. See
+  [the helper record](self-hosting/m3/HELPERS.md).

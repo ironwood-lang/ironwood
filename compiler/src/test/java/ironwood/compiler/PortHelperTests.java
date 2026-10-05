@@ -20,18 +20,20 @@ import java.util.stream.Stream;
 
 /**
  * M3.1 compiler-private helpers (D264): ScopeStack, SnapshotSet, StringOrder,
- * Extremes, the Lists and Maps value helpers and the callback interfaces.
+ * Extremes, Splits, the Lists and Maps value helpers and the callback
+ * interfaces.
  */
 final class PortHelperTests {
     private static final String PORT = "compiler/src/main/ironwood/ironwood/compiler/port/";
     private static final List<String> HELPERS = List.of("Action", "BooleanSource", "Condition", "Extremes",
-            "IdentityMapper", "Lists", "Mapper", "Maps", "PairAction", "ScopeStack", "SnapshotList",
-            "SnapshotMap", "SnapshotSet", "Source", "StringOrder");
+            "IdentityMapper", "Lists", "Mapper", "Maps", "PairAction", "ScopeStack", "SnapshotInts", "SnapshotList",
+            "SnapshotMap", "SnapshotSet", "Source", "Splits", "StringOrder");
     private static final String EVIDENCE = "docs/self-hosting/m3/helpers-evidence/";
     private static final Map<String, String> FIXTURES = Map.of(
             "compiler_scope_stack", "ScopeStackReference.java",
             "compiler_value_snapshots", "ValueSnapshotsReference.java",
-            "compiler_callbacks", "CallbacksReference.java");
+            "compiler_callbacks", "CallbacksReference.java",
+            "compiler_splits", "SplitsReference.java");
     private static final String PREFIX = """
             import ironwood.ds.HashSet;
             import ironwood.ds.ArrayList;

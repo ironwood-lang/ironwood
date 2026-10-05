@@ -2,7 +2,8 @@
 
 # M3.1 stack, order, value and callback helpers
 
-Status: passes ([D264](../../DECISIONS.md#d264---provide-the-m31-stack-order-value-and-callback-helpers)).
+Status: passes ([D264](../../DECISIONS.md#d264---provide-the-m31-stack-order-value-and-callback-helpers),
+with the split bounds and prefix copies of [D266](../../DECISIONS.md#d266---bring-split-bounds-prefix-copies-and-ir-names-forward-to-m31)).
 These compiler-private helpers cover the M3.1 collection, worklist,
 sorted-container, value and callback demands of the M0 inventory that no
 existing API or recorded convention already covers. The evidence run is in
@@ -21,6 +22,9 @@ original and use the default license.
 | `Stream.min`/`max` | `Extremes.minimum`/`maximum`: first equal candidate wins, null when empty | FunctionAnalyzer free witnesses, SemanticAnalyzer scopes, LexicalTypeScopes |
 | `Set.copyOf` queried for membership | `SnapshotSet`; traversal keeps a separate ordered member list (D257) | semantic snapshot membership |
 | `List.of` with one to four items, longer literals | `Lists.single`, `Lists.of`; longer literals fill a builder and freeze it | AST/IR constructors |
+| `String.split` on one literal character (`TypeName`, `TypeResolver`, path lists) | `Splits.bounds` field bounds plus `Splits.field` for kept substrings (D266) | `TypeName.displayReference` (S2), `TypeResolver` (S3), `CommandLine.parsePathList` (S4) |
+| `subList(0, count)` copied into record components | `Lists.prefix` for `SnapshotList` and `SnapshotInts` (D266) | `TypeName.qualifierReference` |
+| `getClass().getSimpleName()` of IR records in diagnostics | `IrModel.javaName` (D265, D266) | Bridge analyzer diagnostics |
 | record `equals`/`hashCode` over list and map components | `Lists.equal`/`hash`; `Maps.equal`/`hash` over a `SnapshotMap` and its key list | IR records with `List` and `Map<String, ...>` components (`IrCallInstruction`, `IrImmortalObject`) |
 | `BooleanSupplier`, `Function`, `Predicate`, `Consumer`, `Supplier`, `BiConsumer`, `Function.identity`/`UnaryOperator.identity` | `BooleanSource`, `Mapper`, `Condition`, `Action`, `Source`, `PairAction`, `IdentityMapper` | flow helpers, IrCfgRenamer, TemporaryBorrowAnalysis, reclaimInOrder, l-values, clone observers |
 | omitted generic bounds | every port type and method parameter spells `extends Object` (audited) | all port generics |
@@ -36,6 +40,8 @@ when their consumers are ported; only `@FunctionalInterface` is dropped.
 | --- | --- |
 | Stack differential | 3,000 seeded push, pop, peek, full and outer traversals, saves, restores, innermost-first searches and clears equal a Java 21 `ArrayDeque` with `List.copyOf` snapshots and `restoreDeque`. |
 | Order and value differential | `StringOrder` signs over all 225 pairs of fifteen strings (empty, prefixes, U+0000, U+00E9, U+E000, a supplementary pair, isolated surrogates, U+FFFF) and a stable sort equal `String.compareTo` and `List.sort`; first-tie minimum and maximum over every prefix of a tied sequence, from lists and snapshots, equal `Stream.min`/`max`; list and map equality and hashes equal `List.of` and `Map.copyOf`; set membership equals `Set.copyOf`. |
+| Split differential | Every string over `{a, b, '.', '/'}` up to length five, split on `.` and `/` with limits -1, 0, 1, 2 and 3 (13,650 cases, including ten empty results), equals Java 21 `String.split`. |
+| Prefix copies | Item and int prefixes of every length, their hashes and the out-of-range rejection equal `List.copyOf(subList)`. |
 | Callback differential | The flow helper restores its depth after a throwing source; retained renamer mappers number fresh values on first encounter and pass labels through unchanged; the scan stops after the first match; actions run in reverse candidate order; the l-value reads before the right-hand side and writes after it; the retained clone observer sees original then clone. The transcript equals the `java.util.function` reference. |
 | Allocation | A stack costs two allocations; pushes within capacity, pops, peeks, depth reads and a restore into sufficient capacity cost none; growth costs one. A named or capturing callback costs one allocation and a call none. |
 | Failure | Every allocation limit from 0 up to the first succeeding limit fails cleanly: a failed push leaves the stack unchanged, and the live-allocation count returns to its baseline. |

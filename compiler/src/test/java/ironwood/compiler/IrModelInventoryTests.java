@@ -33,7 +33,7 @@ final class IrModelInventoryTests {
         for (String[] root : new String[][]{{"Instruction", "INSTRUCTION"}, {"Terminator", "TERMINATOR"},
                 {"Operand", "OPERAND"}}) {
             long shared = transcript().lines().filter(line -> line.startsWith("record ")
-                    && line.split(" ")[2].equals(root[1])).count();
+                    && line.split(" ")[3].equals(root[1])).count();
             Matcher matcher = Pattern.compile("public enum " + root[0] + " \\{([^}]*)\\}").matcher(operations);
             if (!matcher.find()) throw new AssertionError("no pilot list " + root[0]);
             long pilot = matcher.group(1).split(",").length;
@@ -110,7 +110,8 @@ final class IrModelInventoryTests {
         List<String> enums = constants(source, "Enumeration");
         StringBuilder out = new StringBuilder();
         for (String record : records) {
-            out.append("record ").append(record).append(' ').append(arm(source, "root", record).replace("Root.", ""))
+            out.append("record ").append(record).append(' ').append(unquote(arm(source, "javaName", record)))
+                    .append(' ').append(arm(source, "root", record).replace("Root.", ""))
                     .append(' ').append(unquote(arm(source, "components", record)))
                     .append(" walked=").append(unquote(arm(source, "walked", record))).append('\n');
         }

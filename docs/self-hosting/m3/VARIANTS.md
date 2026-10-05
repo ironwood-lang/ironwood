@@ -16,6 +16,7 @@ from `compiler/src/main/java/ironwood/compiler/ir` by reflection:
 | --- | --- | --- |
 | `Record` | every IR record | 113 |
 | `root(Record)` | the sealed root it implements: 85 instructions, 7 terminators, 6 operands, 15 other records | 113 arms |
+| `javaName(Record)` | the Java simple name, for diagnostics that print `getSimpleName()` (D266) | 113 arms |
 | `components(Record)` | `name:JavaType` in declaration order | 447 components |
 | `walked(Record)` | the components the reflective walkers follow | 113 arms |
 | `Enumeration`, `constants(Enumeration)` | every IR enum and its constants | 20 |

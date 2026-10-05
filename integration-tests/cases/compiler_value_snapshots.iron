@@ -6,15 +6,18 @@
 // U+E000 that UTF-16 order puts after a supplementary pair; a stable sort
 // by it; first-tie minimum and maximum; fixed-arity lists with List.equals
 // and List.hashCode; Map.equals and Map.hashCode over keyed snapshots and
-// their key lists; SnapshotSet membership. Prints the shared transcript and
+// their key lists; SnapshotSet membership; prefix copies of item and int
+// sequences, as TypeName.qualifierReference takes them. Prints the shared transcript and
 // exits 42; every helper result and builder is freed, and the strings stay
 // process-lived.
 import ironwood.ds.ArrayList;
 import ironwood.ds.HashMap;
 import ironwood.ds.HashSet;
+import ironwood.ds.IntArrayList;
 import ironwood.compiler.port.Extremes;
 import ironwood.compiler.port.Lists;
 import ironwood.compiler.port.Maps;
+import ironwood.compiler.port.SnapshotInts;
 import ironwood.compiler.port.SnapshotList;
 import ironwood.compiler.port.SnapshotMap;
 import ironwood.compiler.port.SnapshotSet;
@@ -217,6 +220,40 @@ class Main {
         System.out.println("set " + snapshot.size() + " " + found.toString() + " " + snapshot.contains("later"));
     }
 
+    static void prefixes() {
+
+        SnapshotList<String> four = Lists.of("x", "y", "z", "w");
+        defer free four;
+        IntArrayList builder = new IntArrayList();
+        defer free builder;
+        builder.add(0);
+        builder.add(2);
+        builder.add(1);
+        SnapshotInts counts = new SnapshotInts(builder);
+        defer free counts;
+        for (int count = 0; count <= 4; count++) {
+            SnapshotList<String> items = Lists.prefix(four, count);
+            StringBuilder line = new StringBuilder();
+            defer free line;
+            line.append("prefix ").append(count).append(' ').append(items.size()).append(' ')
+                    .append(Lists.hash(items));
+            if (count <= 3) {
+                SnapshotInts values = Lists.prefix(counts, count);
+                line.append(" ints ").append(values.size()).append(' ').append(values.sum()).append(' ')
+                        .append(values.hashCode());
+                free values;
+            }
+            System.out.println(line.toString());
+            free items;
+        }
+        try {
+            SnapshotList<String> unexpected = Lists.prefix(four, 5);
+            free unexpected;
+        } catch (IndexOutOfBoundsException expected) {
+            System.out.println("prefix 5 rejected");
+        }
+    }
+
     public static int main(String[] args) {
 
         prepare();
@@ -225,6 +262,7 @@ class Main {
         lists();
         maps();
         sets();
+        prefixes();
         return 42;
     }
 }
