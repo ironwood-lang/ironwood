@@ -1,0 +1,67 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// Inject OOM throughout source and immutable keyed snapshot construction. Each
+// defer retires completed owned storage, while constructor rollback retires
+// incomplete storage. Borrowed literals outlive every version. Exit 42 on OOM,
+// 43 on success, or 1 if any private allocation remains.
+import ironwood.ds.*;
+import ironwood.compiler.port.*;
+
+class Main {
+
+    static void checkHashMap() {
+
+        HashMap<String, String> source = new HashMap<String, String>(1);
+        defer free source;
+        source.put("key", "value");
+        SnapshotMap<String, String> snapshot = new SnapshotMap<String, String>(source);
+        defer free snapshot;
+        if (snapshot.size() != 1) throw new RuntimeException();
+    }
+
+    static void checkIdentityHashMap() {
+
+        IdentityHashMap<String, String> source = new IdentityHashMap<String, String>(1);
+        defer free source;
+        source.put("key", "value");
+        SnapshotIdentityMap<String, String> snapshot = new SnapshotIdentityMap<String, String>(source);
+        defer free snapshot;
+        if (snapshot.size() != 1) throw new RuntimeException();
+    }
+
+    static void checkLinkedHashMap() {
+
+        LinkedHashMap<String, String> source = new LinkedHashMap<String, String>(1);
+        defer free source;
+        source.put("key", "value");
+        SnapshotLinkedMap<String, String> snapshot = new SnapshotLinkedMap<String, String>(source);
+        defer free snapshot;
+        if (snapshot.size() != 1) throw new RuntimeException();
+    }
+
+    static void checkSet() {
+
+        IdentityHashSet<String> source = new IdentityHashSet<String>(1);
+        defer free source;
+        source.add("key");
+        SnapshotIdentitySet<String> snapshot = new SnapshotIdentitySet<String>(source);
+        defer free snapshot;
+        if (snapshot.size() != 1) throw new RuntimeException();
+    }
+
+    public static int main(String[] args) {
+
+        long baseline = System.liveAllocationCount();
+        boolean failed = false;
+        try {
+            checkHashMap(); checkIdentityHashMap(); checkLinkedHashMap(); checkSet();
+        }
+
+        catch (OutOfMemoryError ordinary) {
+            failed = true;
+        }
+
+        if (System.liveAllocationCount() != baseline) return 1;
+        return failed ? 42 : 43;
+    }
+}

@@ -1,0 +1,171 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// Keyed snapshots own independent membership and borrow caller payloads. Exit
+// 42 after checking builder mutation, colliding hashes, allocation
+// scaling and complete private-storage cleanup. The item owner outlives every
+// source and snapshot; lookup performs no allocation on valid paths.
+import ironwood.ds.*;
+import ironwood.compiler.port.*;
+
+final class Item {
+
+    private int id;
+
+    Item(int id) {
+
+        this.id = id;
+    }
+
+    int value() {
+
+        return this.id;
+    }
+
+    @Override public int hashCode() {
+
+        return this.id % 2;
+    }
+
+    @Override public boolean equals(Object value) {
+
+        if (!(value instanceof Item)) return false;
+        return this.id == ((Item) value).id;
+    }
+}
+
+class Items {
+
+    private Item[] data;
+
+    Items(int count) {
+
+        this.data = new Item[count];
+        for (int index = 0; index < count; index++) {
+            Item item = new Item(index);
+            this.data[index] = item;
+        }
+
+    }
+
+    Item get(int index) {
+
+        return this.data[index];
+    }
+
+    destructor {
+
+        for (int index = 0; index < this.data.length; index++) {
+            free this.data[index];
+        }
+
+        free this.data;
+    }
+}
+
+class Main {
+
+    static void checkValue(int count) {
+
+        long baseline = System.liveAllocationCount();
+        Items items = new Items(count * 2);
+        HashMap<Item, Item> source = new HashMap<Item, Item>(1);
+        for (int index = 0; index < count; index++) source.put(items.get(index), items.get(index + count));
+        long before = System.allocationCount();
+        SnapshotMap<Item, Item> snapshot = new SnapshotMap<Item, Item>(source);
+        long allocations = System.allocationCount() - before;
+        if (allocations != (count == 0 ? 9 : count + 8)) throw new RuntimeException();
+        source.clear(); free source;
+        if (snapshot.size() != count || snapshot.isEmpty() != (count == 0)) throw new RuntimeException();
+        before = System.allocationCount();
+        for (int index = 0; index < count; index++) {
+            if (!snapshot.containsKey(items.get(index))) throw new RuntimeException();
+            if (snapshot.get(items.get(index)).value() != index + count) throw new RuntimeException();
+        }
+
+        if (System.allocationCount() != before) throw new RuntimeException();
+        free snapshot; free items;
+        if (System.liveAllocationCount() != baseline) throw new RuntimeException();
+        System.out.println("value:" + count + ":" + allocations);
+    }
+
+    static void checkIdentity(int count) {
+
+        long baseline = System.liveAllocationCount();
+        Items items = new Items(count * 2);
+        IdentityHashMap<Item, Item> source = new IdentityHashMap<Item, Item>(1);
+        for (int index = 0; index < count; index++) source.put(items.get(index), items.get(index + count));
+        long before = System.allocationCount();
+        SnapshotIdentityMap<Item, Item> snapshot = new SnapshotIdentityMap<Item, Item>(source);
+        long allocations = System.allocationCount() - before;
+        if (allocations != (count == 0 ? 9 : count + 8)) throw new RuntimeException();
+        source.clear(); free source;
+        if (snapshot.size() != count || snapshot.isEmpty() != (count == 0)) throw new RuntimeException();
+        before = System.allocationCount();
+        for (int index = 0; index < count; index++) {
+            if (!snapshot.containsKey(items.get(index))) throw new RuntimeException();
+            if (snapshot.get(items.get(index)).value() != index + count) throw new RuntimeException();
+        }
+
+        if (System.allocationCount() != before) throw new RuntimeException();
+        free snapshot; free items;
+        if (System.liveAllocationCount() != baseline) throw new RuntimeException();
+        System.out.println("identity:" + count + ":" + allocations);
+    }
+
+    static void checkLinked(int count) {
+
+        long baseline = System.liveAllocationCount();
+        Items items = new Items(count * 2);
+        LinkedHashMap<Item, Item> source = new LinkedHashMap<Item, Item>(1);
+        for (int index = 0; index < count; index++) source.put(items.get(index), items.get(index + count));
+        long before = System.allocationCount();
+        SnapshotLinkedMap<Item, Item> snapshot = new SnapshotLinkedMap<Item, Item>(source);
+        long allocations = System.allocationCount() - before;
+        if (allocations != (count == 0 ? 9 : count + 8)) throw new RuntimeException();
+        source.clear(); free source;
+        if (snapshot.size() != count || snapshot.isEmpty() != (count == 0)) throw new RuntimeException();
+        before = System.allocationCount();
+        for (int index = 0; index < count; index++) {
+            if (!snapshot.containsKey(items.get(index))) throw new RuntimeException();
+            if (snapshot.get(items.get(index)).value() != index + count) throw new RuntimeException();
+        }
+
+        if (System.allocationCount() != before) throw new RuntimeException();
+        free snapshot; free items;
+        if (System.liveAllocationCount() != baseline) throw new RuntimeException();
+        System.out.println("linked:" + count + ":" + allocations);
+    }
+
+    static void checkSet(int count) {
+
+        long baseline = System.liveAllocationCount();
+        Items items = new Items(count);
+        IdentityHashSet<Item> source = new IdentityHashSet<Item>(1);
+        for (int index = 0; index < count; index++) source.add(items.get(index));
+        long before = System.allocationCount();
+        SnapshotIdentitySet<Item> snapshot = new SnapshotIdentitySet<Item>(source);
+        long allocations = System.allocationCount() - before;
+        if (allocations != (count == 0 ? 11 : count + 10)) throw new RuntimeException();
+        source.clear(); free source;
+        if (snapshot.size() != count || snapshot.isEmpty() != (count == 0)) throw new RuntimeException();
+        before = System.allocationCount();
+        for (int index = 0; index < count; index++) {
+            if (!snapshot.contains(items.get(index))) throw new RuntimeException();
+        }
+
+        if (System.allocationCount() != before) throw new RuntimeException();
+        free snapshot; free items;
+        if (System.liveAllocationCount() != baseline) throw new RuntimeException();
+        System.out.println("set:" + count + ":" + allocations);
+    }
+
+    public static int main(String[] args) {
+
+        for (int index = 0; index < 5; index++) {
+            int count = index == 0 ? 0 : index == 1 ? 8 : index == 2 ? 32 : index == 3 ? 128 : 512;
+            checkValue(count); checkIdentity(count); checkLinked(count); checkSet(count);
+        }
+
+        return 42;
+    }
+}

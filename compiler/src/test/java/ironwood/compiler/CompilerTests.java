@@ -833,6 +833,10 @@ public final class CompilerTests {
                 this::listCopyCountQueriesPreserveMembership);
         test("private compiler snapshots preserve copied payload loans",
                 this::privateSnapshotLoans);
+        test("private keyed snapshots preserve payload aliases and shared child versions", KeyedSnapshotTests::loans);
+        test("private keyed snapshot reads reject unknown bodies and publishing callbacks", KeyedSnapshotTests::proofControls);
+        test("private keyed counts and lookups preserve stored callback exposure", KeyedSnapshotTests::countAndStoredCallbacks);
+        test("private keyed snapshots survive artifacts and allocation failures", KeyedSnapshotTests::artifacts);
         test("private compiler snapshot getter loans survive joins and delegation",
                 this::privateSnapshotGetterJoins);
         test("private compiler snapshot proofs reject publication and unrecognized construction",

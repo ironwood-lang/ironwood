@@ -8260,11 +8260,28 @@ final class FunctionAnalyzer {
                 if (backing == null) continue;
                 if (!isDependentBorrow(source) && !exposedContainerContents.contains(backing)
                         && backing.constructedType != null && backing.constructedType.isNominalReference()
-                        && backing.constructedType.referenceName().equals("ironwood.ds.ArrayList")) {
+                        && (backing.constructedType.referenceName().equals("ironwood.ds.ArrayList")
+                            || MapCopyFactoryAnalysis.isMap(backing.constructedType)
+                            || SetCopyFactoryAnalysis.isSet(backing.constructedType))) {
                     for (AllocationInfo child : retainedBorrows.getOrDefault(backing, Set.of())) {
+                        if (SetCopyFactoryAnalysis.isSet(backing.constructedType)
+                                || backing.possibleMapKeys != null && backing.possibleMapKeys.contains(child)) {
+                            recordPossibleMapKey(owner, child);
+                            if (input.keyCallbacks()) {
+                                exposeContainerContents(child, "snapshot key callbacks can observe nested data-structure contents",
+                                        Collections.newSetFromMap(new IdentityHashMap<>()));
+                            }
+                        }
                         addRetainedBorrow(owner, child, argumentSpans.get(input.origin().parameterIndex()));
                     }
                 } else {
+                    if (MapCopyFactoryAnalysis.isMap(input.type()) || SetCopyFactoryAnalysis.isSet(input.type())) {
+                        recordPossibleMapKey(owner, backing);
+                    }
+                    if (input.keyCallbacks()) {
+                        exposeContainerContents(backing, "snapshot callbacks can observe unknown key membership",
+                                Collections.newSetFromMap(new IdentityHashMap<>()));
+                    }
                     addRetainedBorrow(owner, backing, argumentSpans.get(input.origin().parameterIndex()));
                 }
             }
@@ -9074,9 +9091,26 @@ final class FunctionAnalyzer {
                 && escapeSummaries.primitivePayloadRead(resolved)
                 && !possibleTargets.isEmpty()
                 && possibleTargets.stream().allMatch(escapeSummaries::primitivePayloadRead)) return;
-        if (resolved != null && receiver != null && escapeSummaries.copiedListRead(resolved)) {
+        CopiedMapReadAnalysis.Read copiedRead = resolved == null || receiver == null ? null
+                : escapeSummaries.copiedMembershipRead(resolved);
+        if (copiedRead != null && (!copiedRead.keyCallbacks()
+                || hasBorrowingKeyCallbacks(receiver.type()) && arguments.stream().allMatch(argument ->
+                    hasBorrowingCallbacks(argument.type(), Map.of("hashCode", List.of(), "equals",
+                            List.of(IrType.reference("ironwood.lang.Object"))))))) {
             AllocationInfo owner = allocationOf(receiver);
             if (owner != null && owner.copiedContainerItems) {
+                if (copiedRead.keyCallbacks()) {
+                    if (owner.possibleMapKeys != null) {
+                        for (AllocationInfo key : retainedBorrows.getOrDefault(owner, Set.of())) {
+                            if (owner.possibleMapKeys.contains(key)) {
+                                exposeContainerContents(key, "snapshot lookup callbacks can observe stored key contents",
+                                        Collections.newSetFromMap(new IdentityHashMap<>()));
+                            }
+                        }
+                    }
+                    arguments.forEach(argument -> exposeContainerContents(argument.operand(),
+                            "snapshot lookup callbacks can observe nested key contents"));
+                }
                 if (result.isPresent() && result.orElseThrow().type().isReference()) {
                     allocationsByOperand.put(result.orElseThrow(), owner);
                     ownedHelperBorrows.add(result.orElseThrow());

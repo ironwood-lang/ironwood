@@ -1,0 +1,45 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.port;
+
+import ironwood.ds.IdentityHashSet;
+
+/**
+ * Compiler-owned independent read-only keyed membership. Items are
+ * borrowed; destruction reclaims private storage and never frees caller items.
+ * Source mutation does not change this version. No iterator or mutable view escapes.
+ */
+public final class SnapshotIdentitySet<E extends Object> {
+
+    private final IdentityHashSet<E> membership;
+
+    /** Copies non-null source membership without touching its source cursor. */
+    public SnapshotIdentitySet(IdentityHashSet<E> source) {
+
+        if (source == null) throw new NullPointerException();
+        this.membership = source.copy();
+    }
+
+    /** @return the fixed membership count, without allocation */
+    public int size() {
+
+        return this.membership.size();
+    }
+
+    /** @return whether this version is empty, without allocation */
+    public boolean isEmpty() {
+
+        return this.membership.isEmpty();
+    }
+
+    /** @return whether the non-null item belongs to this immutable version */
+    public boolean contains(E item) {
+
+        return this.membership.contains(item);
+    }
+
+    destructor {
+
+        free this.membership;
+    }
+}

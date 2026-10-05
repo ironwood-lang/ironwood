@@ -367,8 +367,8 @@ final class EscapeSummaryAnalyzer {
         return new FreshBorrowingFactoryAnalysis(types, resolver, this, ownedFields, null).constructorElements(callable);
     }
 
-    boolean copiedListRead(CallableSymbol callable) {
-        return new FreshBorrowingFactoryAnalysis(types, resolver, this, ownedFields, null).copiedListRead(callable);
+    CopiedMapReadAnalysis.Read copiedMembershipRead(CallableSymbol callable) {
+        return new FreshBorrowingFactoryAnalysis(types, resolver, this, ownedFields, null).copiedMembershipRead(callable);
     }
 
     boolean primitivePayloadRead(CallableSymbol callable) {

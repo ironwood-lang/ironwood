@@ -1,0 +1,107 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// Ordinary key callback failures roll back partial keyed snapshot storage and
+// preserve the original source cursor. Keys and the preallocated exception are
+// explicit process-lived inputs, initialized before each storage baseline.
+// Identity copying invokes no callbacks. Exit 42 after both value-family
+// failure checks and the identity control.
+import ironwood.ds.*;
+import ironwood.util.Iterator;
+import ironwood.compiler.port.*;
+
+final class Key {
+
+    private int id;
+
+    Key(int id) {
+
+        this.id = id;
+    }
+
+    @Override public int hashCode() {
+
+        Main.calls++;
+        if (Main.fail && Main.calls == 2) throw Main.failure;
+        return this.id % 2;
+    }
+}
+
+class Main {
+
+    static Key first = new Key(1);
+    static Key second = new Key(2);
+    static Key third = new Key(3);
+    static RuntimeException failure = new RuntimeException();
+    static int calls;
+    static boolean fail;
+
+    static void checkValue() {
+
+        HashMap<Key, String> source = new HashMap<Key, String>(4);
+        defer free source;
+        source.put(first, "one"); source.put(second, "two"); source.put(third, "three");
+        Iterator<String> cursor = source.iterator();
+        if (!cursor.next().equals("two")) throw new RuntimeException();
+        long baseline = System.liveAllocationCount();
+        calls = 0; fail = true;
+        boolean caught = false;
+        try {
+            SnapshotMap<Key, String> unexpected = new SnapshotMap<Key, String>(source);
+            free unexpected;
+        }
+
+        catch (RuntimeException expected) {
+            if (expected != failure) throw new RuntimeException();
+            caught = true;
+        }
+
+        fail = false;
+        if (!caught || calls != 2 || System.liveAllocationCount() != baseline) throw new RuntimeException();
+        if (source.size() != 3 || !cursor.next().equals("three")) throw new RuntimeException();
+    }
+
+    static void checkLinked() {
+
+        LinkedHashMap<Key, String> source = new LinkedHashMap<Key, String>(4);
+        defer free source;
+        source.put(first, "one"); source.put(second, "two"); source.put(third, "three");
+        Iterator<String> cursor = source.iterator();
+        if (!cursor.next().equals("one")) throw new RuntimeException();
+        long baseline = System.liveAllocationCount();
+        calls = 0; fail = true;
+        boolean caught = false;
+        try {
+            SnapshotLinkedMap<Key, String> unexpected = new SnapshotLinkedMap<Key, String>(source);
+            free unexpected;
+        }
+
+        catch (RuntimeException expected) {
+            if (expected != failure) throw new RuntimeException();
+            caught = true;
+        }
+
+        fail = false;
+        if (!caught || calls != 2 || System.liveAllocationCount() != baseline) throw new RuntimeException();
+        if (source.size() != 3 || !cursor.next().equals("two")) throw new RuntimeException();
+    }
+
+    static void checkIdentity() {
+
+        IdentityHashMap<Key, String> source = new IdentityHashMap<Key, String>(4);
+        defer free source;
+        source.put(first, "one"); source.put(second, "two"); source.put(third, "three");
+        long baseline = System.liveAllocationCount();
+        calls = 0; fail = true;
+        SnapshotIdentityMap<Key, String> snapshot = new SnapshotIdentityMap<Key, String>(source);
+        if (calls != 0 || snapshot.size() != 3 || !snapshot.get(second).equals("two")) throw new RuntimeException();
+        free snapshot;
+        fail = false;
+        if (System.liveAllocationCount() != baseline) throw new RuntimeException();
+    }
+
+    public static int main(String[] args) {
+
+        checkValue(); checkLinked(); checkIdentity();
+        return 42;
+    }
+}

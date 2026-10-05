@@ -47,7 +47,7 @@ final class FreshBorrowingFactoryAnalysis {
         this.checkingField = checkingField;
     }
 
-    /** A final wrapper that owns one proved list copy, with no other observation
+    /** A final wrapper that owns one proved membership copy, with no other observation
      * of its input. The returned inputs describe the copied items, not the source
      * list identity. Unknown construction/publication remains conservative.
      */
@@ -102,24 +102,26 @@ final class FreshBorrowingFactoryAnalysis {
                 && returned.value().isPresent() && readOnlyPrimitiveCount(method, returned.value().orElseThrow());
     }
 
-    /** A single read delegated through the wrapper's private owned list. */
-    boolean copiedListRead(CallableSymbol method) {
+    /** A single read delegated through the wrapper's private copied storage. */
+    CopiedMapReadAnalysis.Read copiedMembershipRead(CallableSymbol method) {
         TypeSymbol owner = types.get(method.ownerType());
         if (method.isStatic() || owner == null || owner.constructors().isEmpty()
-                || owner.constructors().stream().anyMatch(constructor -> constructorElements(constructor) == null)) return false;
+                || owner.constructors().stream().anyMatch(constructor -> constructorElements(constructor) == null)) return null;
         var body = method.body().orElse(null);
         if (body == null || body.statements().size() != 1
                 || !(body.statements().getFirst() instanceof ReturnStatement returned)
                 || !(returned.value().orElse(null) instanceof CallExpression call)
                 || !(call.receiver().orElse(null) instanceof FieldAccessExpression field)
                 || !(field.receiver() instanceof ThisExpression)
-                || !owner.declaredFields().containsKey(field.fieldName())) return false;
+                || !owner.declaredFields().containsKey(field.fieldName())) return null;
         List<CallableSymbol> targets = escapes.boundTargets(method, call);
-        if (targets.size() != 1 || !targets.getFirst().ownerType().equals("ironwood.ds.ArrayList")) return false;
+        if (targets.size() != 1 || !(targets.getFirst().ownerType().equals("ironwood.ds.ArrayList")
+                || MapCopyFactoryAnalysis.isMap(IrType.reference(targets.getFirst().ownerType()))
+                || SetCopyFactoryAnalysis.isSet(IrType.reference(targets.getFirst().ownerType())))) return null;
         CallableSymbol target = targets.getFirst();
         for (Expression argument : call.arguments()) {
             if (!(argument instanceof NameExpression name) || method.parameters().stream()
-                    .noneMatch(parameter -> parameter.name().equals(name.name()))) return false;
+                    .noneMatch(parameter -> parameter.name().equals(name.name()))) return null;
         }
         CallExpression guard = DataStructureSemantics.arrayListElementReadGuard(target);
         if (guard != null) {
@@ -127,14 +129,19 @@ final class FreshBorrowingFactoryAnalysis {
             FieldSymbol array = list == null ? null : list.declaredFields().get("array");
             List<CallableSymbol> guards = escapes.boundTargets(target, guard);
             return array != null && owned.isOwned(array) && guards.size() == 1
-                    && DataStructureSemantics.isPureArrayListReadGuard(guards.getFirst());
+                    && DataStructureSemantics.isPureArrayListReadGuard(guards.getFirst())
+                    ? new CopiedMapReadAnalysis.Read(false) : null;
+        }
+        if (!target.ownerType().equals("ironwood.ds.ArrayList")) {
+            return new CopiedMapReadAnalysis(types, escapes, owned).prove(target);
         }
         var targetBody = target.body().orElse(null);
         return call.arguments().isEmpty() && target.parameterTypes().isEmpty()
                 && target.returnType().isPrimitive()
                 && targetBody != null && targetBody.statements().size() == 1
                 && targetBody.statements().getFirst() instanceof ReturnStatement value
-                && value.value().isPresent() && readOnlyPrimitiveCount(target, value.value().orElseThrow());
+                && value.value().isPresent() && readOnlyPrimitiveCount(target, value.value().orElseThrow())
+                ? new CopiedMapReadAnalysis.Read(false) : null;
     }
 
     Result prove(CallableSymbol method) { return prove(method, new LinkedHashSet<>()); }

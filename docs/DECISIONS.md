@@ -9646,3 +9646,32 @@ occurrence order. If no
   arrays and a dropped caught `this` keep identical LLVM and native exits. The
   strict library, all 79 example/project trees, the D252 suite and focused
   copy/snapshot/pool/Bridge consumers pass. See [the field-alias record](self-hosting/m1/FIELD_ALIAS.md).
+
+## D254 - Prove private keyed snapshot reads from copied bucket bodies
+
+- **Status:** Implemented during M1.2 on 2026-10-05.
+- **Decision:** Add compiler-private `SnapshotMap`, `SnapshotIdentityMap`,
+  `SnapshotLinkedMap` and `SnapshotIdentitySet`. Each final wrapper owns one
+  D250/D251 copy, borrows keys, values and immutable child versions, and
+  exposes only size, emptiness and lookup. No iterator or mutable view escapes.
+  Null sources fail before storage acquisition.
+- **Proof:** Reuse D249's one-field copied-wrapper constructor proof for map
+  and set copies. Lookup bodies are proved structurally: they may read owned
+  private buckets, entries, stored keys and values, private key helpers and
+  null guards, and may return only stored entry values. Count reads must be
+  pure primitive field expressions. Value-key `hashCode`/`equals` calls are
+  reported as callbacks; each caller must then prove its actual key and query
+  dispatch non-retaining. Callback-bearing lookups expose stored and queried
+  key contents. Copied stored keys stay possible keys through nested copies.
+  Lookup aliases conservatively retain the wrapper. Unknown, changed or
+  publishing bodies keep ordinary effects, and no method name grants a proof.
+- **Boundary:** Ordered traversal and restore are not part of this API; the
+  seven-field operation composition adds them separately. Identity lookup runs
+  no callbacks. No runtime bookkeeping or lowering change is introduced. This
+  extends D249-D251 and D253 without superseding them and establishes neither
+  full M1 nor S1/G1.
+- **Verification:** All-mode loan, shared-child, changed-body, publishing
+  callback, stored count/lookup callback and nested publication controls;
+  class/archive loan reconstruction; Java 21 reference; native allocation
+  scaling, membership, null rollback, callback failure and every OOM limit
+  0-80. See [the keyed snapshot record](self-hosting/m1/KEYED.md).

@@ -1,0 +1,160 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// Immutable keyed membership distinguishes value equality from reference
+// identity, including equal-looking keys, later builder changes and absent keys.
+// Null source checks compare ordinary retained exceptions with constructor
+// rollback. Storage baselines follow those checks; exceptions retain their
+// ordinary allocation lifetime. Exit 42 with all fixture-owned keys/storage freed.
+import ironwood.ds.*;
+import ironwood.compiler.port.*;
+
+final class Item {
+
+    private final int id;
+
+    Item(int id) {
+
+        this.id = id;
+    }
+
+    @Override public int hashCode() {
+
+        return this.id % 2;
+    }
+
+    @Override public boolean equals(Object value) {
+
+        if (!(value instanceof Item)) return false;
+        return this.id == ((Item) value).id;
+    }
+}
+
+class Main {
+
+    static void checkValue() {
+
+        long baseline = System.liveAllocationCount();
+        Item key = new Item(7); Item equal = new Item(7); Item other = new Item(9); Item later = new Item(11);
+        Object first = new Object(); Object second = new Object();
+        HashMap<Item, Object> source = new HashMap<Item, Object>(1);
+        source.put(key, first); source.put(other, second);
+        SnapshotMap<Item, Object> snapshot = new SnapshotMap<Item, Object>(source);
+        source.clear(); source.put(later, second); free source;
+        if (snapshot.size() != 2 || snapshot.get(key) != first || snapshot.get(other) != second) throw new RuntimeException();
+        if (snapshot.get(equal) != first || snapshot.containsKey(equal) != true) throw new RuntimeException();
+        if (snapshot.get(later) != null || snapshot.containsKey(later)) throw new RuntimeException();
+        free snapshot; free key; free equal; free other; free later; free first; free second;
+        if (System.liveAllocationCount() != baseline) throw new RuntimeException();
+    }
+
+    static void checkIdentity() {
+
+        long baseline = System.liveAllocationCount();
+        Item key = new Item(7); Item equal = new Item(7); Item other = new Item(9); Item later = new Item(11);
+        Object first = new Object(); Object second = new Object();
+        IdentityHashMap<Item, Object> source = new IdentityHashMap<Item, Object>(1);
+        source.put(key, first); source.put(other, second);
+        SnapshotIdentityMap<Item, Object> snapshot = new SnapshotIdentityMap<Item, Object>(source);
+        source.clear(); source.put(later, second); free source;
+        if (snapshot.size() != 2 || snapshot.get(key) != first || snapshot.get(other) != second) throw new RuntimeException();
+        if (snapshot.get(equal) != null || snapshot.containsKey(equal) != false) throw new RuntimeException();
+        if (snapshot.get(later) != null || snapshot.containsKey(later)) throw new RuntimeException();
+        free snapshot; free key; free equal; free other; free later; free first; free second;
+        if (System.liveAllocationCount() != baseline) throw new RuntimeException();
+    }
+
+    static void checkLinked() {
+
+        long baseline = System.liveAllocationCount();
+        Item key = new Item(7); Item equal = new Item(7); Item other = new Item(9); Item later = new Item(11);
+        Object first = new Object(); Object second = new Object();
+        LinkedHashMap<Item, Object> source = new LinkedHashMap<Item, Object>(1);
+        source.put(key, first); source.put(other, second);
+        SnapshotLinkedMap<Item, Object> snapshot = new SnapshotLinkedMap<Item, Object>(source);
+        source.clear(); source.put(later, second); free source;
+        if (snapshot.size() != 2 || snapshot.get(key) != first || snapshot.get(other) != second) throw new RuntimeException();
+        if (snapshot.get(equal) != first || snapshot.containsKey(equal) != true) throw new RuntimeException();
+        if (snapshot.get(later) != null || snapshot.containsKey(later)) throw new RuntimeException();
+        free snapshot; free key; free equal; free other; free later; free first; free second;
+        if (System.liveAllocationCount() != baseline) throw new RuntimeException();
+    }
+
+    static void checkSet() {
+
+        long baseline = System.liveAllocationCount();
+        Item key = new Item(7); Item equal = new Item(7); Item later = new Item(9);
+        IdentityHashSet<Item> source = new IdentityHashSet<Item>(1); source.add(key);
+        SnapshotIdentitySet<Item> snapshot = new SnapshotIdentitySet<Item>(source);
+        source.clear(); source.add(later); free source;
+        if (snapshot.size() != 1 || !snapshot.contains(key) || snapshot.contains(equal) || snapshot.contains(later)) throw new RuntimeException();
+        free snapshot; free key; free equal; free later;
+        if (System.liveAllocationCount() != baseline) throw new RuntimeException();
+    }
+
+    static void checkNull() {
+
+        long before = System.liveAllocationCount();
+        try { throw new NullPointerException(); }
+        catch (NullPointerException ordinary) { }
+        long exceptionDelta = System.liveAllocationCount() - before;
+
+        before = System.liveAllocationCount();
+        boolean mapRejected = false;
+        try {
+            SnapshotMap<String, String> unexpected = new SnapshotMap<String, String>(null);
+            free unexpected;
+        }
+
+        catch (NullPointerException ordinary) {
+            mapRejected = true;
+        }
+
+        if (!mapRejected || System.liveAllocationCount() - before != exceptionDelta) throw new RuntimeException();
+
+        before = System.liveAllocationCount();
+        boolean identityMapRejected = false;
+        try {
+            SnapshotIdentityMap<String, String> unexpected = new SnapshotIdentityMap<String, String>(null);
+            free unexpected;
+        }
+
+        catch (NullPointerException ordinary) {
+            identityMapRejected = true;
+        }
+
+        if (!identityMapRejected || System.liveAllocationCount() - before != exceptionDelta) throw new RuntimeException();
+
+        before = System.liveAllocationCount();
+        boolean linkedMapRejected = false;
+        try {
+            SnapshotLinkedMap<String, String> unexpected = new SnapshotLinkedMap<String, String>(null);
+            free unexpected;
+        }
+
+        catch (NullPointerException ordinary) {
+            linkedMapRejected = true;
+        }
+
+        if (!linkedMapRejected || System.liveAllocationCount() - before != exceptionDelta) throw new RuntimeException();
+
+        before = System.liveAllocationCount();
+        boolean identitySetRejected = false;
+        try {
+            SnapshotIdentitySet<String> unexpected = new SnapshotIdentitySet<String>(null);
+            free unexpected;
+        }
+
+        catch (NullPointerException ordinary) {
+            identitySetRejected = true;
+        }
+
+        if (!identitySetRejected || System.liveAllocationCount() - before != exceptionDelta) throw new RuntimeException();
+    }
+
+    public static int main(String[] args) {
+
+        checkNull();
+        checkValue(); checkIdentity(); checkLinked(); checkSet();
+        return 42;
+    }
+}

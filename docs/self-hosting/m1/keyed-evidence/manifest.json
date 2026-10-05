@@ -1,0 +1,168 @@
+{
+ "schema_version": 1,
+ "increment": "D254 private keyed snapshot wrappers and copied bucket read proofs",
+ "base_commit": "8f013511b6287c3b333a42f66f09c203a89052d9",
+ "producing_compiler": {
+  "path": "/Users/developer/workspace-mba-m2/Ironwood/workspace/m1/keyed-final/stage/compiler/build/ironwoodc.jar",
+  "sha256": "ab50fe2c128137005c4dbac8263bc1190ab956c1012bf5a285940709655a54b2",
+  "role": "base commit plus this increment"
+ },
+ "sources": [
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/port/SnapshotIdentityMap.iron",
+   "sha256": "0737456690db73ff59cb6e00c66f6d02b77619d4e49098ff99e18dad027fd341"
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/port/SnapshotIdentitySet.iron",
+   "sha256": "e31223150b809ba0cb1bd4c1dda25b75f86052a110504fbb907e5324b129f215"
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/port/SnapshotLinkedMap.iron",
+   "sha256": "3f43da73866900ea76745cfad9ab10e7eebcf8dd4cadce17ab77d990649fc23e"
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/port/SnapshotMap.iron",
+   "sha256": "ad8906131237770e0ae17b39d4daeb9c3ee011d7dbed42c2d76c5bf6325e284a"
+  },
+  {
+   "path": "compiler/src/main/java/ironwood/compiler/semantic/CopiedMapReadAnalysis.java",
+   "sha256": "3c59b6e0a01d33c48a2fefe624343a549575ec8ac45a9d528a4642e2cfdd39a1"
+  },
+  {
+   "path": "compiler/src/main/java/ironwood/compiler/semantic/EscapeSummaryAnalyzer.java",
+   "sha256": "ab5ad6f2a46223b135bc82e638d8f3d5d4a7b631b7289857ca94b39a0c674441"
+  },
+  {
+   "path": "compiler/src/main/java/ironwood/compiler/semantic/FreshBorrowingFactoryAnalysis.java",
+   "sha256": "ae6fde9967459ef3b21d218e6d2a878918be78a3658883a63455ae414b1867e9"
+  },
+  {
+   "path": "compiler/src/main/java/ironwood/compiler/semantic/FunctionAnalyzer.java",
+   "sha256": "8f184c742141b8b78b51108de62402d5b7d521144639cc27afc73f0c0940830e"
+  },
+  {
+   "path": "compiler/src/test/java/ironwood/compiler/CompilerTests.java",
+   "sha256": "93add0e94285478c44bb828ba219304aa9f1993f64eec1f2204ee6de7b8ab74c"
+  },
+  {
+   "path": "compiler/src/test/java/ironwood/compiler/KeyedSnapshotTests.java",
+   "sha256": "48610edc288d8c854e5398091fefb648b44f5ba526e39b49e9aabb34a1c13de9"
+  },
+  {
+   "path": "integration-tests/cases/compiler_keyed_snapshot_callback_failure.iron",
+   "sha256": "43c1684eb222cf0ab4f8c9518c6e3cffbf636c2057a975631ac2ce8f5d330a67"
+  },
+  {
+   "path": "integration-tests/cases/compiler_keyed_snapshot_failure.iron",
+   "sha256": "ea52a8c2979a7c8fcfe71be240e2b5237f4e9238d0bfda0ef66cc81e201f75d6"
+  },
+  {
+   "path": "integration-tests/cases/compiler_keyed_snapshot_membership.iron",
+   "sha256": "2742b60b3e656317ce3ebceaed07a5d0b076448508718c084bac848624619c49"
+  },
+  {
+   "path": "integration-tests/cases/compiler_keyed_snapshots.iron",
+   "sha256": "31776e63ec5f279183ed1d400cdd8ad3984982095ba5483757f81b54b103c62d"
+  }
+ ],
+ "java_reference": {
+  "path": "docs/self-hosting/m1/keyed-evidence/KeyedSnapshotReference.java",
+  "sha256": "52a1a2274953b0a7c6bead475566585bbf042d92b9e28ad25f9085c6d5db8eff",
+  "runs": 4
+ },
+ "tools": [
+  {
+   "path": "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home/bin/java",
+   "sha256": "00e1f85b58fbb7b9e28c78740288028fc3d5146fc2810b78fe4f1a3ed7765d98",
+   "role": "Java 21.0.1"
+  },
+  {
+   "path": "/opt/homebrew/opt/llvm@23/bin/opt",
+   "sha256": "bc0c3344c3ce3c5c9614d2f132836c9e590304e2021b104433992cbf75e6d71c",
+   "role": "LLVM 23.1.0"
+  },
+  {
+   "path": "/opt/homebrew/opt/llvm@23/bin/llc",
+   "sha256": "68ec93686ac68bb70b93fa413bf2a9696face192bb949043734fb1053094c793",
+   "role": "LLVM 23.1.0"
+  }
+ ],
+ "commands": {
+  "stage_and_build": "STAGE_CHECK=compiler/src/main/java/ironwood/compiler/semantic/CopiedMapReadAnalysis.java workspace/m1/stage-patch.sh <stage> <patch of every keyed draft file>",
+  "focused_tests": "CompilerTests with the 16 --test names in logs/focused-tests.log.gz from the stage root; artifacts test rerun after the fixture local rename (logs/artifacts-rerun.log.gz)",
+  "native": "workspace/m1/keyed-final/qualify.sh: IronDocs, --unfreed=warn compile/archive/link -O3 of the four fixtures from classes and archive, native runs, OOM limits 0-80",
+  "java_reference": "javac --release 21 -Xlint:all -Werror; four java runs",
+  "hygiene": "git diff --check; ./scripts/check-licenses.sh"
+ },
+ "logs": [
+  {
+   "retained": "docs/self-hosting/m1/keyed-evidence/logs/artifacts-rerun.log.gz",
+   "sha256": "4d1642692f81f1fa31bff2ed9be52660c1bc8e907ba521cb8d40939b79e07da9",
+   "gzip_sha256": "c94559a6d3b434d829a6367c08f2a6ce92ee09818304e28a72fda8bdd1b44e31",
+   "bytes": 208
+  },
+  {
+   "retained": "docs/self-hosting/m1/keyed-evidence/logs/build.log.gz",
+   "sha256": "a7a16f097b370d470c33ad770d0e75bf9e2ce3fde7571da9f0e65626d82a02b4",
+   "gzip_sha256": "1684eff939d43d9f6f821b9bef02ef9ee95bb6c8703ad0575559e2f36f47ea48",
+   "bytes": 36341
+  },
+  {
+   "retained": "docs/self-hosting/m1/keyed-evidence/logs/diff-check.log.gz",
+   "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "gzip_sha256": "f61f27bd17de546264aa58f40f3aafaac7021e0ef69c17f6b1b4cd7664a037ec",
+   "bytes": 0
+  },
+  {
+   "retained": "docs/self-hosting/m1/keyed-evidence/logs/focused-tests.log.gz",
+   "sha256": "eef15f0b8e833176e9ea36a9880d66c8d57dbba5cb96f0b0cf41fb74bfa05288",
+   "gzip_sha256": "52e36a9d757e2b7f1b74efbf9c2e343439ac52e9ad992841a2a6112a978a21b3",
+   "bytes": 21481
+  },
+  {
+   "retained": "docs/self-hosting/m1/keyed-evidence/logs/java-reference.log.gz",
+   "sha256": "eaa76f62f1d63b31c7907538d1c77d51708d86d5cf31f2cbf0f8bd1d6656b214",
+   "gzip_sha256": "dad7a78d507c18f75e28a2438d95f2c81acd1f065fdca25755363001284c2ab7",
+   "bytes": 156
+  },
+  {
+   "retained": "docs/self-hosting/m1/keyed-evidence/logs/licenses.log.gz",
+   "sha256": "baf5804aeb26498337c9c5223c199afeba5c3e2fc36ae219b9bf420e3775f673",
+   "gzip_sha256": "c33bdaafc40ae52137c7119d2922a14fd4f4f340cea86e19094625617947bf77",
+   "bytes": 54
+  },
+  {
+   "retained": "docs/self-hosting/m1/keyed-evidence/logs/native-logs.tar.gz",
+   "sha256": "c21e4e20bd9b342c3c7d75f6687e47b49c4f80baa8cf84c6994939cf1f08e65a",
+   "gzip_sha256": "ca637a10dfa3254760a0a859b71ae6fe5b5731e7a9fadea4396e9e3164d20193",
+   "bytes": 491520
+  },
+  {
+   "retained": "docs/self-hosting/m1/keyed-evidence/logs/qualify.log.gz",
+   "sha256": "c1cdce08851e077d3a4e5a895b45953b7bcea2c7df7ed517880ee924d4d06a3e",
+   "gzip_sha256": "d80a71d4f9984178b25201815154a3948135c53e3765a7925c1bbf70d8e2100e",
+   "bytes": 1921
+  }
+ ],
+ "results": {
+  "focused_tests": "PASS: 16 compiler tests; artifacts rerun PASS: 1",
+  "allocations": "maps 9 empty and n+8 at 8/32/128/512; identity set 11 empty and n+10",
+  "native": "exit 42 for snapshots/membership/callback failure and OOM limits 0-71; failure success path and limits 72-80 exit 43; classes and archive identical",
+  "unfreed_warn": "0 warnings in every compile and link; no suppressions",
+  "irondocs": "4 types generated",
+  "java_reference": "selected keyed snapshot contracts pass, 4 fresh JVMs",
+  "licensing": "passed, 5 OpenJDK-derived files",
+  "unsafe_native_execution": false
+ },
+ "boundaries": [
+  "full M1.1/M1.2/M1.3 remains open",
+  "ordered traversal and restore are not part of this API",
+  "Java reference checks logical contracts only",
+  "allocation counts are measured workloads, not universal bounds"
+ ],
+ "host_profile": {
+  "host": "macOS 27.0.1, arm64, Apple M5, 32 GiB",
+  "bootstrap": "Java 21.0.1 explicit JDK paths",
+  "backend": "pinned LLVM 23.1.0"
+ }
+}

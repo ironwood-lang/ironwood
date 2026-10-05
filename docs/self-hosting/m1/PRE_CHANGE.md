@@ -229,6 +229,29 @@ Native scaling, every OOM limit 0-80, ordinary callback exceptions, selected Jav
 contracts, map/snapshot/pool consumers, IronDocs and licensing pass. Full M1
 remains open; the [set record](SETS.md) retains detailed commands and identities.
 
+## Private keyed snapshot increment
+
+Start from the accepted map/set increment and ae78b826/aa98ace2's qualified
+mandatory construction-safety correction. Prepare narrowly
+read-only value, identity and ordered map snapshots and immutable identity child
+versions for all seven operation fields. Copies borrow keys/values/children;
+shared immutable child versions outlive every borrowing outer snapshot. Preserve
+D247 order in the owned linked backing and use keyed/local traversal for finite
+pilot inputs, without adding a general cursor or sorting subsystem.
+
+First probe constructor retirement, primitive counts and lookup aliases against
+the existing one-field copied-wrapper proof. Extend analysis only where an
+actual safe probe demonstrates missing precision. Body-check delegated reads,
+null guards and index helpers; publishing/mutating/unknown lookup paths retain
+ordinary effects. Actual value-key callbacks remain a call-site obligation.
+Paired cases cover independent source retirement, early key/value/child frees,
+returned aliases, nested/self versions, publishing callbacks and changed read
+bodies under every unfreed mode. Qualify source/class/archive reconstruction,
+null/empty/geometric storage, failure rollback, membership and linked-order
+parity. Recheck current list/map/set copied-loan and pool safety consumers if
+shared constructor/read analysis changes. No runtime tracking or lowering change
+is planned; full operation consumers remain bounded by the M0 model.
+
 ## Set construction rollback correction
 
 The publishing-reset control without explicit caller frees is insufficient.
