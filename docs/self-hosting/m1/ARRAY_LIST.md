@@ -62,3 +62,26 @@ They pass with the accepted, self/nested and publishing-getter pairs.
 
 Results: 3/3 and 4/4 tests pass; focused IronDocs generation passes with one type.
 The remaining private snapshot constructor proof is a separate pending increment.
+
+## Java differential
+
+`compiler_list_copy_parity` applies 400 seeded operations (add, insert, set,
+indexed remove, removeFirst, removeLast, addFirst) to a source and its copy,
+then to both plus a copy of the copy and a second source copy, and prints every
+list after each step. `ListCopyParityTests` builds the same transcript with
+`java.util.ArrayList`'s copy constructor and requires byte equality for class
+and archive links at `-O3`, both with `--unfreed=warn` and no diagnostics. The
+seed exercises 70 add, 58 insert, 54 set, 45 indexed remove, 51 removeFirst,
+47 removeLast and 51 addFirst operations plus 24 no-ops on empty lists, with
+sizes from 0 to 30. The transcript was also identical on four separate JVM runs.
+
+Each copy generation lives in its own frame and is freed there before its
+lenders. Passing a lender to a helper, copying it, and then passing the copy to
+a helper in the same frame leaves the lender unfreeable: escape summaries
+expose the copy's contents and mark its structural lender escaped. That is a
+conservative rejection, not a safety gap, and the checkpoint lists it with the
+other retained limits.
+
+```sh
+./scripts/test.sh --test 'independent list copies match Java ArrayList copies across artifacts'
+```

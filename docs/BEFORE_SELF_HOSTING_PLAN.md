@@ -357,7 +357,10 @@ complete, and M1/M2 and every later milestone remain not started.
   for source, class and archive inputs in every unfreed mode, with unchanged
   valid LLVM. [Private keyed snapshots](self-hosting/m1/KEYED.md) (D254) and
   the [seven-field composition](self-hosting/m1/COMPOSITION.md) (D257) pass;
-  node and version retirement is the M2.2 native lifetime proof.
+  node and version retirement is the M2.2 native lifetime proof. A
+  [400-operation list-copy differential](self-hosting/m1/ARRAY_LIST.md#java-differential)
+  over a source, its copy, a copy of the copy and a later source copy equals
+  Java 21's `ArrayList` copy-constructor transcript.
 - [ ] **M1.2: Pilot maps, traversal, and order.** Add the selected map/set copies,
   use local/indexed traversal or copied keys, and preserve identity/value/order
   distinctions. Rewrite pilot stack/FIFO consumers. Bring in B2's list sort or

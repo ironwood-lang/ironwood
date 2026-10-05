@@ -831,6 +831,8 @@ public final class CompilerTests {
                 this::listCopyReadProofRejectsMutation);
         test("independent list item projections require pure count queries",
                 this::listCopyCountQueriesPreserveMembership);
+        test("independent list copies match Java ArrayList copies across artifacts",
+                ListCopyParityTests::differential);
         test("private compiler snapshots preserve copied payload loans",
                 this::privateSnapshotLoans);
         test("private keyed snapshots preserve payload aliases and shared child versions", KeyedSnapshotTests::loans);

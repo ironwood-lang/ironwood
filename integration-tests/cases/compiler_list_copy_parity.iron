@@ -1,0 +1,103 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// Differential input for ArrayList.copy. A shared generator applies 400 random
+// operations (add, insert, set, remove by index, removeFirst, removeLast,
+// addFirst) to a source and its copy, then to those two plus a copy of the
+// copy and a second source copy. After every operation it prints every list;
+// the transcript must equal ListCopyParityTests' Java 21 transcript from
+// java.util.ArrayList's copy constructor. Literal labels are borrowed by every
+// list. Exit 42 with every list freed.
+//
+// Each copy generation lives in its own frame and is freed there before its
+// lenders. Passing a lender and then its copy to helpers in one frame makes the
+// lender's later free a conservative rejection (see the M1 checkpoint).
+import ironwood.ds.ArrayList;
+
+class Main {
+
+    static int state = 20261005;
+    static String[] labels = {"a", "b", "c", "d", "e", "f", "g", "h"};
+
+    static int next(int bound) {
+
+        state = state * 1103515245 + 12345;
+        return ((state >>> 16) & 32767) % bound;
+    }
+
+    static void apply(ArrayList<String> list, int operation, String label) {
+
+        if (operation == 0) list.add(label);
+        if (operation == 1) list.insert(next(list.size() + 1), label);
+        if (operation == 2 && !list.isEmpty()) list.set(next(list.size()), label);
+        if (operation == 3 && !list.isEmpty()) list.remove(next(list.size()));
+        if (operation == 4 && !list.isEmpty()) list.removeFirst();
+        if (operation == 5 && !list.isEmpty()) list.removeLast();
+        if (operation == 6) list.addFirst(label);
+    }
+
+    static void print(StringBuilder out, ArrayList<String> list) {
+
+        out.append(" [");
+        for (int index = 0; index < list.size(); index++) {
+            if (index > 0) out.append(',');
+            out.append(list.get(index));
+        }
+        out.append(']');
+    }
+
+    // Copies the source and its copy after the first phase; both copies are
+    // freed here, before the caller frees their lenders.
+    static void secondPhase(StringBuilder out, ArrayList<String> source, ArrayList<String> first) {
+
+        ArrayList<String> second = first.copy();
+        ArrayList<String> third = source.copy();
+        for (int step = 200; step < 400; step++) {
+            int operation = next(7);
+            int target = next(4);
+            String label = labels[next(labels.length)];
+            if (target == 0) apply(source, operation, label);
+            if (target == 1) apply(first, operation, label);
+            if (target == 2) apply(second, operation, label);
+            if (target == 3) apply(third, operation, label);
+            out.append(step).append(':');
+            print(out, source);
+            print(out, first);
+            print(out, second);
+            print(out, third);
+            out.append('\n');
+        }
+        free third;
+        free second;
+    }
+
+    static void firstPhase(StringBuilder out, ArrayList<String> source) {
+
+        ArrayList<String> first = source.copy();
+        for (int step = 0; step < 200; step++) {
+            int operation = next(7);
+            int target = next(2);
+            String label = labels[next(labels.length)];
+            if (target == 0) apply(source, operation, label);
+            if (target == 1) apply(first, operation, label);
+            out.append(step).append(':');
+            print(out, source);
+            print(out, first);
+            out.append('\n');
+        }
+        secondPhase(out, source, first);
+        free first;
+    }
+
+    public static int main(String[] args) {
+
+        ArrayList<String> source = new ArrayList<String>(4);
+        source.add("a");
+        source.add("b");
+        StringBuilder out = new StringBuilder();
+        firstPhase(out, source);
+        System.out.print(out.toString());
+        free out;
+        free source;
+        return 42;
+    }
+}
