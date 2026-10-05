@@ -9723,3 +9723,48 @@ occurrence order. If no
   feed, vertical tab, em space and non-whitespace no-break space, match Java 21
   exactly from classes and archive at `-O3`; each call leaves only its result
   live. All-mode ownership controls pass. See [the text-block record](self-hosting/m1/TEXT.md).
+
+## D257 - Compose seven-field ownership snapshots from private snapshot helpers
+
+- **Status:** Implemented during M1.1/M1.2 on 2026-10-05.
+- **Decision:** The native `OwnershipSnapshot` is a final composite of the
+  qualified helpers. States, retained-child versions and pool owners use
+  identity maps; array slots and borrowed-field names use linked maps; the
+  diagnostic live set uses an identity set. Keyed snapshots expose no
+  iteration, so every field that restore or join traverses also keeps a
+  `SnapshotList` of keys or members copied when the snapshot is taken: slot
+  keys in D247 current-store order, and field names, retained-borrow owners,
+  pool values, exposed members and live members in the live container's own
+  order. States need no list: restore and join walk the append-only allocation
+  list and look each node up. Exposed membership is only traversed, so it is a
+  list alone. Retained-child versions are immutable `SnapshotList`s shared by
+  reference; a join builds a new version rather than mutating one. State
+  values are immutable versions owned by the invocation: snapshots share a
+  node's current version, and a state change installs a new one. Value records
+  and slot keys have explicit `equals`/`hashCode`; nodes keep identity. Live
+  borrowed fields use a `LinkedHashMap`, so restore order is deterministic
+  where Java's `Map.copyOf` order is incidental and later-only. Native builders
+  reject null keys, values and members at insertion
+  (`IllegalArgumentException`), so copies only see the non-null domain that
+  Java's copies enforce with `NullPointerException`.
+- **Proof:** No analysis change. Builders and traversal lists retire through
+  ordinary local proofs; a snapshot retires exactly the storage it acquired; a
+  null at any constructor position rolls back the fields already copied.
+  Nodes, state versions and child versions read through a composite are
+  conservatively exposed, so their later frees are rejected; they are
+  invocation-lived, as the analyzer's own state is. Freeing a node or child
+  version while a snapshot observes it, or using a retired snapshot, is
+  rejected in every mode.
+- **Boundary:** Retiring allocation nodes and versions is the M2.2 native
+  lifetime proof the M0 handoff assigns to M2; this decision does not choose
+  it. Sharing state versions changes only object identity of equal values,
+  which no consumer compares. The fixtures' join is a demonstration of
+  sufficiency; the real save, restore and join are ported in M2.2. No runtime
+  bookkeeping or lowering change is introduced. This establishes neither full
+  M1 nor S1/G1.
+- **Verification:** A native save/mutate/save/restore/join projection equal to
+  a Java reference of FunctionAnalyzer's seven-field rules; a 43-check native
+  replay of the M0 value/null/copy contract; D247 order; snapshot storage of
+  exactly 6n+75 allocations at n = 8/32/128 with full retirement; all-mode
+  safe/unsafe controls; classes/archive at `-O3` with one classified
+  `--unfreed=warn` diagnostic per fixture. See [the composition record](self-hosting/m1/COMPOSITION.md).

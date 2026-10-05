@@ -842,6 +842,9 @@ public final class CompilerTests {
                 WorkQueueTests::artifacts);
         test("compiler text blocks own only their normalized result", TextBlocksTests::ownership);
         test("compiler text blocks match Java stripIndent across artifacts", TextBlocksTests::differential);
+        test("seven-field ownership snapshots retire storage and keep payload safety", OwnershipSnapshotTests::controls);
+        test("seven-field ownership snapshots match the M0 value contract across artifacts",
+                OwnershipSnapshotTests::artifacts);
         test("private compiler snapshot getter loans survive joins and delegation",
                 this::privateSnapshotGetterJoins);
         test("private compiler snapshot proofs reject publication and unrecognized construction",

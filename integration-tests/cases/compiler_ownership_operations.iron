@@ -1,0 +1,544 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// Shows the private snapshot helpers suffice for the seven-field ownership
+// operations. A small analyzer saves, mutates, saves, restores and joins two
+// predecessors using FunctionAnalyzer's rules, reading snapshots only through
+// keyed lookup and copied traversal lists (slot order is D247 current-store
+// order; other lists need no particular order). State values are immutable
+// versions shared by snapshots; a change installs a new version. Nodes, state
+// versions and retained-child versions are invocation-lived. The printed
+// projection must equal OwnershipOperationsReference. Exit 42 after each
+// snapshot's private storage is retired.
+import ironwood.ds.*;
+import ironwood.util.Iterator;
+import ironwood.compiler.port.*;
+
+final class StateValue {
+
+    private final int state;
+    private final String reason;
+    private final boolean detached;
+
+    StateValue(int state, String reason, boolean detached) {
+
+        this.state = state;
+        this.reason = reason;
+        this.detached = detached;
+    }
+
+    int state() {
+
+        return this.state;
+    }
+
+    String reason() {
+
+        return this.reason;
+    }
+
+    boolean detached() {
+
+        return this.detached;
+    }
+
+    @Override public boolean equals(Object value) {
+
+        if (!(value instanceof StateValue)) return false;
+        StateValue other = (StateValue) value;
+        if (this.state != other.state || this.detached != other.detached) return false;
+        return this.reason == null ? other.reason == null : other.reason != null && this.reason.equals(other.reason);
+    }
+
+    @Override public int hashCode() {
+
+        int text = this.reason == null ? 0 : this.reason.hashCode();
+        return (this.state * 31 + text) * 31 + (this.detached ? 1 : 0);
+    }
+}
+
+final class Node {
+
+    private final int id;
+    boolean present = true;
+    StateValue current;
+
+    Node(int id, StateValue initial) {
+
+        this.id = id;
+        this.current = initial;
+    }
+
+    int id() {
+
+        return this.id;
+    }
+}
+
+final class Slot {
+
+    private final Node container;
+    private final int index;
+
+    Slot(Node container, int index) {
+
+        this.container = container;
+        this.index = index;
+    }
+
+    Node container() {
+
+        return this.container;
+    }
+
+    int index() {
+
+        return this.index;
+    }
+
+    @Override public boolean equals(Object value) {
+
+        if (!(value instanceof Slot)) return false;
+        Slot other = (Slot) value;
+        return this.container == other.container && this.index == other.index;
+    }
+
+    @Override public int hashCode() {
+
+        return System.identityHashCode(this.container) * 31 + this.index;
+    }
+}
+
+// Live analyzer state, as fields of the native analyzer would hold it. The
+// fixture's static operations read these fields directly, so they are not
+// private owned fields; this object is retained to process exit and is the
+// fixture's one expected --unfreed=warn missing-free diagnostic.
+final class Live {
+
+    final ArrayList<Node> allocations = new ArrayList<Node>();
+    final LinkedHashMap<Slot, Node> slots = new LinkedHashMap<Slot, Node>(8);
+    final LinkedHashMap<String, Node> fields = new LinkedHashMap<String, Node>(8);
+    final IdentityHashMap<Node, SnapshotList<Node>> retained = new IdentityHashMap<Node, SnapshotList<Node>>(8);
+    final IdentityHashMap<Node, Node> pools = new IdentityHashMap<Node, Node>(8);
+    final IdentityHashSet<Node> exposed = new IdentityHashSet<Node>(8);
+    final IdentityHashSet<Node> live = new IdentityHashSet<Node>(8);
+    final IdentityHashSet<Node> blocked = new IdentityHashSet<Node>(8);
+}
+
+// The seven fields plus traversal lists. States are read by allocation-list
+// traversal and keyed lookup, so they need no list.
+final class OwnershipSnapshot {
+
+    private final SnapshotIdentityMap<Node, StateValue> states;
+    private final SnapshotLinkedMap<Slot, Node> slots;
+    private final SnapshotList<Slot> slotKeys;
+    private final SnapshotLinkedMap<String, Node> fields;
+    private final SnapshotList<String> fieldKeys;
+    private final SnapshotIdentityMap<Node, SnapshotList<Node>> retained;
+    private final SnapshotList<Node> retainedKeys;
+    private final SnapshotIdentityMap<Node, Node> pools;
+    private final SnapshotList<Node> poolKeys;
+    private final SnapshotList<Node> exposed;
+    private final SnapshotIdentitySet<Node> live;
+    private final SnapshotList<Node> liveItems;
+
+    OwnershipSnapshot(IdentityHashMap<Node, StateValue> states, Live state, ArrayList<Slot> slotKeys,
+                      ArrayList<String> fieldKeys, ArrayList<Node> retainedKeys, ArrayList<Node> poolKeys,
+                      ArrayList<Node> exposed, ArrayList<Node> liveItems) {
+
+        this.states = new SnapshotIdentityMap<Node, StateValue>(states);
+        this.slots = new SnapshotLinkedMap<Slot, Node>(state.slots);
+        this.slotKeys = new SnapshotList<Slot>(slotKeys);
+        this.fields = new SnapshotLinkedMap<String, Node>(state.fields);
+        this.fieldKeys = new SnapshotList<String>(fieldKeys);
+        this.retained = new SnapshotIdentityMap<Node, SnapshotList<Node>>(state.retained);
+        this.retainedKeys = new SnapshotList<Node>(retainedKeys);
+        this.pools = new SnapshotIdentityMap<Node, Node>(state.pools);
+        this.poolKeys = new SnapshotList<Node>(poolKeys);
+        this.exposed = new SnapshotList<Node>(exposed);
+        this.live = new SnapshotIdentitySet<Node>(state.live);
+        this.liveItems = new SnapshotList<Node>(liveItems);
+    }
+
+    StateValue state(Node node) { return this.states.get(node); }
+    Node slot(Slot slot) { return this.slots.get(slot); }
+    int slotCount() { return this.slotKeys.size(); }
+    Slot slotAt(int index) { return this.slotKeys.get(index); }
+    Node field(String name) { return this.fields.get(name); }
+    int fieldCount() { return this.fieldKeys.size(); }
+    String fieldAt(int index) { return this.fieldKeys.get(index); }
+    SnapshotList<Node> retained(Node owner) { return this.retained.get(owner); }
+    int retainedCount() { return this.retainedKeys.size(); }
+    Node retainedAt(int index) { return this.retainedKeys.get(index); }
+    Node pool(Node value) { return this.pools.get(value); }
+    int poolCount() { return this.poolKeys.size(); }
+    Node poolAt(int index) { return this.poolKeys.get(index); }
+    int exposedCount() { return this.exposed.size(); }
+    Node exposedAt(int index) { return this.exposed.get(index); }
+    boolean live(Node node) { return this.live.contains(node); }
+    int liveCount() { return this.liveItems.size(); }
+    Node liveAt(int index) { return this.liveItems.get(index); }
+
+    destructor {
+
+        free this.liveItems;
+        free this.live;
+        free this.exposed;
+        free this.poolKeys;
+        free this.pools;
+        free this.retainedKeys;
+        free this.retained;
+        free this.fieldKeys;
+        free this.fields;
+        free this.slotKeys;
+        free this.slots;
+        free this.states;
+    }
+}
+
+class Main {
+
+    static final int ACTIVE = 0;
+    static final int ESCAPED = 1;
+    static final int FREED = 2;
+    static final int MAYBE_FREED = 3;
+    static final int UNCERTAIN = 4;
+
+    static OwnershipSnapshot save(Live state) {
+
+        IdentityHashMap<Node, StateValue> states = new IdentityHashMap<Node, StateValue>(8);
+        for (int index = 0; index < state.allocations.size(); index++) {
+            Node node = state.allocations.get(index);
+            if (node.present) states.put(node, node.current);
+        }
+        ArrayList<Slot> slotKeys = new ArrayList<Slot>(8);
+        Iterator<Node> slotValues = state.slots.iterator();
+        while (slotValues.hasNext()) { slotValues.next(); slotKeys.add(state.slots.getCurrIteratorKey()); }
+        ArrayList<String> fieldKeys = new ArrayList<String>(8);
+        Iterator<Node> fieldValues = state.fields.iterator();
+        while (fieldValues.hasNext()) { fieldValues.next(); fieldKeys.add(state.fields.getCurrIteratorKey()); }
+        ArrayList<Node> retainedKeys = new ArrayList<Node>(8);
+        Iterator<SnapshotList<Node>> retainedValues = state.retained.iterator();
+        while (retainedValues.hasNext()) { retainedValues.next(); retainedKeys.add(state.retained.getCurrIteratorKey()); }
+        ArrayList<Node> poolKeys = new ArrayList<Node>(8);
+        Iterator<Node> poolValues = state.pools.iterator();
+        while (poolValues.hasNext()) { poolValues.next(); poolKeys.add(state.pools.getCurrIteratorKey()); }
+        ArrayList<Node> exposed = new ArrayList<Node>(8);
+        Iterator<Node> exposedItems = state.exposed.iterator();
+        while (exposedItems.hasNext()) exposed.add(exposedItems.next());
+        ArrayList<Node> liveItems = new ArrayList<Node>(8);
+        Iterator<Node> liveValues = state.live.iterator();
+        while (liveValues.hasNext()) liveItems.add(liveValues.next());
+        OwnershipSnapshot snapshot = new OwnershipSnapshot(states, state, slotKeys, fieldKeys, retainedKeys,
+                poolKeys, exposed, liveItems);
+        free liveItems; free exposed; free poolKeys; free retainedKeys; free fieldKeys; free slotKeys; free states;
+        return snapshot;
+    }
+
+    static void restore(Live state, OwnershipSnapshot snapshot) {
+
+        state.live.clear();
+        for (int index = 0; index < snapshot.liveCount(); index++) state.live.add(snapshot.liveAt(index));
+        for (int index = 0; index < state.allocations.size(); index++) {
+            Node node = state.allocations.get(index);
+            StateValue saved = snapshot.state(node);
+            node.present = saved != null;
+            if (saved != null) node.current = saved;
+        }
+        state.slots.clear();
+        for (int index = 0; index < snapshot.slotCount(); index++) {
+            Slot slot = snapshot.slotAt(index);
+            state.slots.put(slot, snapshot.slot(slot));
+        }
+        state.fields.clear();
+        for (int index = 0; index < snapshot.fieldCount(); index++) {
+            String name = snapshot.fieldAt(index);
+            state.fields.put(name, snapshot.field(name));
+        }
+        state.retained.clear();
+        for (int index = 0; index < snapshot.retainedCount(); index++) {
+            Node owner = snapshot.retainedAt(index);
+            state.retained.put(owner, snapshot.retained(owner));
+        }
+        state.pools.clear();
+        for (int index = 0; index < snapshot.poolCount(); index++) {
+            Node value = snapshot.poolAt(index);
+            state.pools.put(value, snapshot.pool(value));
+        }
+        state.exposed.clear();
+        for (int index = 0; index < snapshot.exposedCount(); index++) state.exposed.add(snapshot.exposedAt(index));
+    }
+
+    static void block(Live state, Node node, String reason) {
+
+        node.current = new StateValue(UNCERTAIN, reason, node.current.detached());
+        state.blocked.add(node);
+    }
+
+    static boolean childContains(SnapshotList<Node> children, Node node) {
+
+        for (int index = 0; index < children.size(); index++) {
+            if (children.get(index) == node) return true;
+        }
+        return false;
+    }
+
+    static void merge(Live state, OwnershipSnapshot before, OwnershipSnapshot first, OwnershipSnapshot second) {
+
+        restore(state, before);
+        // Joined states: allocation-list order; each node joins independently.
+        for (int index = 0; index < state.allocations.size(); index++) {
+            Node node = state.allocations.get(index);
+            StateValue left = first.state(node);
+            StateValue right = second.state(node);
+            if (left == null && right == null) continue;
+            node.present = true;
+            if (left == null || right == null || left.equals(right)) {
+                node.current = left != null ? left : right;
+            } else {
+                boolean mayBeFreed = left.state() == FREED || left.state() == MAYBE_FREED
+                        || right.state() == FREED || right.state() == MAYBE_FREED;
+                int joined = mayBeFreed ? MAYBE_FREED : UNCERTAIN;
+                node.current = new StateValue(joined, mayBeFreed ? "maybe freed" : "conflict",
+                        left.detached() && right.detached());
+            }
+        }
+        Iterator<Node> slotValues = state.slots.iterator();
+        while (slotValues.hasNext()) {
+            Node value = slotValues.next();
+            Slot slot = state.slots.getCurrIteratorKey();
+            if (first.slot(slot) != value || second.slot(slot) != value) slotValues.remove();
+        }
+        Iterator<Node> fieldValues = state.fields.iterator();
+        while (fieldValues.hasNext()) {
+            Node value = fieldValues.next();
+            String name = state.fields.getCurrIteratorKey();
+            if (first.field(name) != value || second.field(name) != value) fieldValues.remove();
+        }
+        for (int index = 0; index < first.slotCount(); index++) {
+            Slot slot = first.slotAt(index);
+            if (first.slot(slot) == second.slot(slot)) state.slots.put(slot, first.slot(slot));
+        }
+        for (int index = 0; index < first.fieldCount(); index++) {
+            String name = first.fieldAt(index);
+            if (first.field(name) == second.field(name)) state.fields.put(name, first.field(name));
+        }
+        state.pools.clear();
+        mergePools(state, first);
+        mergePools(state, second);
+        state.retained.clear();
+        state.exposed.clear();
+        mergeContents(state, first);
+        mergeContents(state, second);
+        lostSlots(state, first);
+        lostSlots(state, second);
+        state.live.clear();
+        for (int index = 0; index < first.liveCount(); index++) state.live.add(first.liveAt(index));
+        Iterator<Node> liveValues = state.live.iterator();
+        while (liveValues.hasNext()) {
+            Node node = liveValues.next();
+            if (!first.live(node) || !second.live(node)) liveValues.remove();
+        }
+    }
+
+    static void mergePools(Live state, OwnershipSnapshot path) {
+
+        for (int index = 0; index < path.poolCount(); index++) {
+            Node value = path.poolAt(index);
+            Node owner = path.pool(value);
+            Node previous = state.pools.get(value);
+            if (previous == null) {
+                state.pools.put(value, owner);
+            } else if (previous != owner) {
+                block(state, previous, "pool conflict");
+                block(state, owner, "pool conflict");
+            }
+        }
+    }
+
+    // Retained children union into a new immutable version; exposed membership unions.
+    static void mergeContents(Live state, OwnershipSnapshot path) {
+
+        for (int index = 0; index < path.exposedCount(); index++) state.exposed.add(path.exposedAt(index));
+        for (int index = 0; index < path.retainedCount(); index++) {
+            Node owner = path.retainedAt(index);
+            SnapshotList<Node> previous = state.retained.get(owner);
+            SnapshotList<Node> children = path.retained(owner);
+            ArrayList<Node> merged = new ArrayList<Node>(8);
+            if (previous != null) {
+                for (int child = 0; child < previous.size(); child++) merged.add(previous.get(child));
+            }
+            for (int child = 0; child < children.size(); child++) {
+                if (previous == null || !childContains(previous, children.get(child))) merged.add(children.get(child));
+            }
+            state.retained.put(owner, new SnapshotList<Node>(merged));
+            free merged;
+        }
+    }
+
+    static void lostSlots(Live state, OwnershipSnapshot path) {
+
+        for (int index = 0; index < path.slotCount(); index++) {
+            Slot slot = path.slotAt(index);
+            Node node = path.slot(slot);
+            if (state.slots.get(slot) != node) block(state, node, "lost slot");
+        }
+    }
+
+    // Sorted ids as "[a, b]".
+    static void ids(StringBuilder out, IdentityHashSet<Node> nodes, int limit) {
+
+        out.append('[');
+        boolean first = true;
+        for (int id = 0; id < limit; id++) {
+            Iterator<Node> values = nodes.iterator();
+            while (values.hasNext()) {
+                if (values.next().id() == id) {
+                    if (!first) out.append(", ");
+                    out.append(id);
+                    first = false;
+                }
+            }
+        }
+        out.append(']');
+    }
+
+    static void children(StringBuilder out, SnapshotList<Node> nodes, int limit) {
+
+        out.append('[');
+        boolean first = true;
+        for (int id = 0; id < limit; id++) {
+            for (int index = 0; index < nodes.size(); index++) {
+                if (nodes.get(index).id() == id) {
+                    if (!first) out.append(", ");
+                    out.append(id);
+                    first = false;
+                }
+            }
+        }
+        out.append(']');
+    }
+
+    static void project(StringBuilder out, Live state, String label) {
+
+        out.append(label).append('\n');
+        for (int index = 0; index < state.allocations.size(); index++) {
+            Node node = state.allocations.get(index);
+            if (!node.present) continue;
+            out.append("state ").append(node.id()).append(':').append(node.current.state()).append(':')
+                    .append(node.current.reason()).append(':').append(node.current.detached()).append('\n');
+        }
+        Iterator<Node> slotValues = state.slots.iterator();
+        while (slotValues.hasNext()) {
+            Node value = slotValues.next();
+            Slot slot = state.slots.getCurrIteratorKey();
+            out.append("slot ").append(slot.container().id()).append('/').append(slot.index())
+                    .append("->").append(value.id()).append('\n');
+        }
+        // Field order is later-only; the fixture's names sort by their only letter.
+        for (char letter = 'a'; letter <= 'z'; letter++) {
+            Iterator<Node> fieldValues = state.fields.iterator();
+            while (fieldValues.hasNext()) {
+                Node value = fieldValues.next();
+                String name = state.fields.getCurrIteratorKey();
+                if (name.charAt(0) == letter) out.append("field ").append(name).append("->").append(value.id()).append('\n');
+            }
+        }
+        for (int index = 0; index < state.allocations.size(); index++) {
+            Node owner = state.allocations.get(index);
+            SnapshotList<Node> nodes = state.retained.get(owner);
+            if (nodes == null) continue;
+            out.append("retained ").append(owner.id()).append("->");
+            children(out, nodes, state.allocations.size());
+            out.append('\n');
+        }
+        for (int index = 0; index < state.allocations.size(); index++) {
+            Node value = state.allocations.get(index);
+            Node owner = state.pools.get(value);
+            if (owner != null) out.append("pool ").append(value.id()).append("->").append(owner.id()).append('\n');
+        }
+        out.append("exposed ");
+        ids(out, state.exposed, state.allocations.size());
+        out.append("\nlive ");
+        ids(out, state.live, state.allocations.size());
+        out.append("\nblocked ");
+        ids(out, state.blocked, state.allocations.size());
+        out.append('\n');
+    }
+
+    public static int main(String[] args) {
+
+        StateValue active = new StateValue(ACTIVE, null, false);
+        Live state = new Live();
+        for (int id = 0; id < 6; id++) state.allocations.add(new Node(id, active));
+        Node n0 = state.allocations.get(0);
+        Node n1 = state.allocations.get(1);
+        Node n2 = state.allocations.get(2);
+        Node n3 = state.allocations.get(3);
+        Node n4 = state.allocations.get(4);
+        Node n5 = state.allocations.get(5);
+        n4.present = false;
+        n5.present = false;
+        n1.current = new StateValue(ACTIVE, "borrowed", false);
+        state.slots.put(new Slot(n4, 0), n0);
+        state.slots.put(new Slot(n4, 1), n1);
+        state.slots.put(new Slot(n5, 7), n2);
+        state.fields.put("a", n0);
+        state.fields.put("b", n1);
+        ArrayList<Node> initial = new ArrayList<Node>(2);
+        initial.add(n0);
+        initial.add(n1);
+        state.retained.put(n4, new SnapshotList<Node>(initial));
+        free initial;
+        state.pools.put(n0, n4);
+        state.exposed.add(n2);
+        state.live.add(n0);
+        state.live.add(n1);
+        state.live.add(n3);
+
+        long beforeSave = System.liveAllocationCount();
+        OwnershipSnapshot before = save(state);
+        long snapshotStorage = System.liveAllocationCount() - beforeSave;
+
+        n0.current = new StateValue(ESCAPED, "escaped", false);
+        n1.current = new StateValue(n1.current.state(), n1.current.reason(), true);
+        Slot removed = new Slot(n4, 0);
+        state.slots.remove(removed);
+        free removed;
+        state.slots.put(new Slot(n5, 9), n3);
+        state.fields.remove("a");
+        state.fields.put("c", n3);
+        state.pools.put(n0, n5);
+        ArrayList<Node> replaced = new ArrayList<Node>(3);
+        replaced.add(n0);
+        replaced.add(n1);
+        replaced.add(n3);
+        state.retained.put(n4, new SnapshotList<Node>(replaced));
+        free replaced;
+        state.exposed.add(n3);
+        state.live.remove(n0);
+        long beforeChanged = System.liveAllocationCount();
+        OwnershipSnapshot changed = save(state);
+        long changedStorage = System.liveAllocationCount() - beforeChanged;
+
+        StringBuilder out = new StringBuilder();
+        StringBuilder changedProjection = new StringBuilder();
+        project(changedProjection, state, "changed");
+        restore(state, before);
+        project(out, state, "restored");
+        out.append(changedProjection.toString());
+        free changedProjection;
+        merge(state, before, before, changed);
+        project(out, state, "merged");
+        System.out.print(out.toString());
+        free out;
+
+        // Each snapshot releases exactly the private storage it acquired.
+        long beforeRetire = System.liveAllocationCount();
+        free changed;
+        boolean retired = beforeRetire - System.liveAllocationCount() == changedStorage;
+        beforeRetire = System.liveAllocationCount();
+        free before;
+        retired = retired && beforeRetire - System.liveAllocationCount() == snapshotStorage;
+        return retired ? 42 : 1;
+    }
+}

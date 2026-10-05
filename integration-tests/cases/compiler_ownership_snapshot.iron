@@ -1,0 +1,462 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// Replays the M0 ownership value contract on the composite used by
+// compiler_ownership_operations: value-equal state records and slot keys,
+// identity allocation and pool keys, String field keys, shared immutable
+// retained-child versions, independent copies, builder null rejection,
+// null-source rollback at every constructor position and D247 current-store
+// slot order. Nodes, state versions and child versions are invocation-lived;
+// every builder, traversal list and snapshot is retired against the storage
+// baseline. Prints the passed check count; exit 42.
+import ironwood.ds.*;
+import ironwood.util.Iterator;
+import ironwood.compiler.port.*;
+
+final class StateValue {
+
+    private final int state;
+    private final String reason;
+    private final boolean detached;
+
+    StateValue(int state, String reason, boolean detached) {
+
+        this.state = state;
+        this.reason = reason;
+        this.detached = detached;
+    }
+
+    int state() {
+
+        return this.state;
+    }
+
+    String reason() {
+
+        return this.reason;
+    }
+
+    boolean detached() {
+
+        return this.detached;
+    }
+
+    @Override public boolean equals(Object value) {
+
+        if (!(value instanceof StateValue)) return false;
+        StateValue other = (StateValue) value;
+        if (this.state != other.state || this.detached != other.detached) return false;
+        return this.reason == null ? other.reason == null : other.reason != null && this.reason.equals(other.reason);
+    }
+
+    @Override public int hashCode() {
+
+        int text = this.reason == null ? 0 : this.reason.hashCode();
+        return (this.state * 31 + text) * 31 + (this.detached ? 1 : 0);
+    }
+}
+
+final class Node {
+
+    private final int id;
+    boolean present = true;
+    StateValue current;
+
+    Node(int id, StateValue initial) {
+
+        this.id = id;
+        this.current = initial;
+    }
+
+    int id() {
+
+        return this.id;
+    }
+}
+
+final class Slot {
+
+    private final Node container;
+    private final int index;
+
+    Slot(Node container, int index) {
+
+        this.container = container;
+        this.index = index;
+    }
+
+    Node container() {
+
+        return this.container;
+    }
+
+    int index() {
+
+        return this.index;
+    }
+
+    @Override public boolean equals(Object value) {
+
+        if (!(value instanceof Slot)) return false;
+        Slot other = (Slot) value;
+        return this.container == other.container && this.index == other.index;
+    }
+
+    @Override public int hashCode() {
+
+        return System.identityHashCode(this.container) * 31 + this.index;
+    }
+}
+
+// Live analyzer state, as fields of the native analyzer would hold it. The
+// fixture's static operations read these fields directly, so they are not
+// private owned fields; this object is retained to process exit and is the
+// fixture's one expected --unfreed=warn missing-free diagnostic.
+final class Live {
+
+    final ArrayList<Node> allocations = new ArrayList<Node>();
+    final LinkedHashMap<Slot, Node> slots = new LinkedHashMap<Slot, Node>(8);
+    final LinkedHashMap<String, Node> fields = new LinkedHashMap<String, Node>(8);
+    final IdentityHashMap<Node, SnapshotList<Node>> retained = new IdentityHashMap<Node, SnapshotList<Node>>(8);
+    final IdentityHashMap<Node, Node> pools = new IdentityHashMap<Node, Node>(8);
+    final IdentityHashSet<Node> exposed = new IdentityHashSet<Node>(8);
+    final IdentityHashSet<Node> live = new IdentityHashSet<Node>(8);
+    final IdentityHashSet<Node> blocked = new IdentityHashSet<Node>(8);
+}
+
+// The seven fields plus traversal lists. States are read by allocation-list
+// traversal and keyed lookup, so they need no list.
+final class OwnershipSnapshot {
+
+    private final SnapshotIdentityMap<Node, StateValue> states;
+    private final SnapshotLinkedMap<Slot, Node> slots;
+    private final SnapshotList<Slot> slotKeys;
+    private final SnapshotLinkedMap<String, Node> fields;
+    private final SnapshotList<String> fieldKeys;
+    private final SnapshotIdentityMap<Node, SnapshotList<Node>> retained;
+    private final SnapshotList<Node> retainedKeys;
+    private final SnapshotIdentityMap<Node, Node> pools;
+    private final SnapshotList<Node> poolKeys;
+    private final SnapshotList<Node> exposed;
+    private final SnapshotIdentitySet<Node> live;
+    private final SnapshotList<Node> liveItems;
+
+    OwnershipSnapshot(IdentityHashMap<Node, StateValue> states, Live state, ArrayList<Slot> slotKeys,
+                      ArrayList<String> fieldKeys, ArrayList<Node> retainedKeys, ArrayList<Node> poolKeys,
+                      ArrayList<Node> exposed, ArrayList<Node> liveItems) {
+
+        this.states = new SnapshotIdentityMap<Node, StateValue>(states);
+        this.slots = new SnapshotLinkedMap<Slot, Node>(state.slots);
+        this.slotKeys = new SnapshotList<Slot>(slotKeys);
+        this.fields = new SnapshotLinkedMap<String, Node>(state.fields);
+        this.fieldKeys = new SnapshotList<String>(fieldKeys);
+        this.retained = new SnapshotIdentityMap<Node, SnapshotList<Node>>(state.retained);
+        this.retainedKeys = new SnapshotList<Node>(retainedKeys);
+        this.pools = new SnapshotIdentityMap<Node, Node>(state.pools);
+        this.poolKeys = new SnapshotList<Node>(poolKeys);
+        this.exposed = new SnapshotList<Node>(exposed);
+        this.live = new SnapshotIdentitySet<Node>(state.live);
+        this.liveItems = new SnapshotList<Node>(liveItems);
+    }
+
+    StateValue state(Node node) { return this.states.get(node); }
+    Node slot(Slot slot) { return this.slots.get(slot); }
+    int slotCount() { return this.slotKeys.size(); }
+    Slot slotAt(int index) { return this.slotKeys.get(index); }
+    Node field(String name) { return this.fields.get(name); }
+    int fieldCount() { return this.fieldKeys.size(); }
+    String fieldAt(int index) { return this.fieldKeys.get(index); }
+    SnapshotList<Node> retained(Node owner) { return this.retained.get(owner); }
+    int retainedCount() { return this.retainedKeys.size(); }
+    Node retainedAt(int index) { return this.retainedKeys.get(index); }
+    Node pool(Node value) { return this.pools.get(value); }
+    int poolCount() { return this.poolKeys.size(); }
+    Node poolAt(int index) { return this.poolKeys.get(index); }
+    int exposedCount() { return this.exposed.size(); }
+    Node exposedAt(int index) { return this.exposed.get(index); }
+    boolean live(Node node) { return this.live.contains(node); }
+    int liveCount() { return this.liveItems.size(); }
+    Node liveAt(int index) { return this.liveItems.get(index); }
+
+    destructor {
+
+        free this.liveItems;
+        free this.live;
+        free this.exposed;
+        free this.poolKeys;
+        free this.pools;
+        free this.retainedKeys;
+        free this.retained;
+        free this.fieldKeys;
+        free this.fields;
+        free this.slotKeys;
+        free this.slots;
+        free this.states;
+    }
+}
+
+class Main {
+
+    static final int ACTIVE = 0;
+    static final int ESCAPED = 1;
+    static int checks;
+    static boolean failed;
+
+    static void require(boolean condition) {
+
+        checks++;
+        if (!condition) failed = true;
+    }
+
+    static OwnershipSnapshot save(Live state) {
+
+        IdentityHashMap<Node, StateValue> states = new IdentityHashMap<Node, StateValue>(8);
+        for (int index = 0; index < state.allocations.size(); index++) {
+            Node node = state.allocations.get(index);
+            if (node.present) states.put(node, node.current);
+        }
+        ArrayList<Slot> slotKeys = new ArrayList<Slot>(8);
+        Iterator<Node> slotValues = state.slots.iterator();
+        while (slotValues.hasNext()) { slotValues.next(); slotKeys.add(state.slots.getCurrIteratorKey()); }
+        ArrayList<String> fieldKeys = new ArrayList<String>(8);
+        Iterator<Node> fieldValues = state.fields.iterator();
+        while (fieldValues.hasNext()) { fieldValues.next(); fieldKeys.add(state.fields.getCurrIteratorKey()); }
+        ArrayList<Node> retainedKeys = new ArrayList<Node>(8);
+        Iterator<SnapshotList<Node>> retainedValues = state.retained.iterator();
+        while (retainedValues.hasNext()) { retainedValues.next(); retainedKeys.add(state.retained.getCurrIteratorKey()); }
+        ArrayList<Node> poolKeys = new ArrayList<Node>(8);
+        Iterator<Node> poolValues = state.pools.iterator();
+        while (poolValues.hasNext()) { poolValues.next(); poolKeys.add(state.pools.getCurrIteratorKey()); }
+        ArrayList<Node> exposed = new ArrayList<Node>(8);
+        Iterator<Node> exposedItems = state.exposed.iterator();
+        while (exposedItems.hasNext()) exposed.add(exposedItems.next());
+        ArrayList<Node> liveItems = new ArrayList<Node>(8);
+        Iterator<Node> liveValues = state.live.iterator();
+        while (liveValues.hasNext()) liveItems.add(liveValues.next());
+        OwnershipSnapshot snapshot = new OwnershipSnapshot(states, state, slotKeys, fieldKeys, retainedKeys,
+                poolKeys, exposed, liveItems);
+        free liveItems; free exposed; free poolKeys; free retainedKeys; free fieldKeys; free slotKeys; free states;
+        return snapshot;
+    }
+
+    // Record value contracts on standalone values. Records that keep a borrowed
+    // reference expose it through an accessor, so the nodes and reason texts
+    // stay live; the records and slot keys themselves are freed.
+    static void values() {
+
+        StringBuilder text = new StringBuilder();
+        text.append("reason");
+        String reason = text.toString();
+        String equalReason = text.toString();
+        free text;
+        StateValue first = new StateValue(ACTIVE, reason, false);
+        StateValue equal = new StateValue(ACTIVE, equalReason, false);
+        StateValue otherReason = new StateValue(ACTIVE, "different", false);
+        StateValue otherDetached = new StateValue(ACTIVE, reason, true);
+        StateValue absent = new StateValue(ACTIVE, null, false);
+        StateValue equalAbsent = new StateValue(ACTIVE, null, false);
+        require(first != equal && first.equals(equal) && first.hashCode() == equal.hashCode());
+        require(!first.equals(otherReason));
+        require(!first.equals(otherDetached));
+        require(absent.equals(equalAbsent) && !absent.equals(first) && !first.equals(absent));
+        Node node = new Node(0, null);
+        Node different = new Node(0, null);
+        Slot slot = new Slot(node, 65537);
+        Slot equalSlot = new Slot(node, 65537);
+        Slot otherContainer = new Slot(different, 65537);
+        Slot otherIndex = new Slot(node, 0);
+        require(slot != equalSlot && slot.equals(equalSlot) && slot.hashCode() == equalSlot.hashCode());
+        require(!slot.equals(otherContainer));
+        require(!slot.equals(otherIndex));
+        free otherIndex; free otherContainer; free equalSlot; free slot;
+        free equalAbsent; free absent; free otherDetached; free otherReason; free equal; free first;
+    }
+
+    // Two versions saved from the same live state; builders then change.
+    static void composed(Live state, Node node, Node different, Slot slot, Slot equalSlot,
+                         SnapshotList<Node> child, String fieldName) {
+
+        StateValue replacement = new StateValue(ESCAPED, "changed", false);
+        long before = System.liveAllocationCount();
+        OwnershipSnapshot saved = save(state);
+        OwnershipSnapshot sibling = save(state);
+        StateValue savedState = node.current;
+        node.current = replacement;
+        state.slots.clear(); state.fields.clear(); state.retained.clear(); state.pools.clear();
+        state.exposed.clear(); state.live.clear();
+        require(saved.state(node) == savedState && saved.state(node) != node.current);
+        require(saved.state(different) == null);
+        require(saved.slot(equalSlot) == node);
+        require(saved.field(fieldName) == node);
+        require(saved.retained(different) == child);
+        require(saved.retained(different) == sibling.retained(different));
+        require(saved.retained(node) == null);
+        require(saved.pool(node) == different);
+        require(saved.exposedCount() == 1 && saved.exposedAt(0) == node);
+        require(saved.live(node) && !saved.live(different));
+        require(saved.slotCount() == 1 && saved.slotAt(0) == slot && saved.fieldCount() == 1
+                && saved.retainedCount() == 1 && saved.poolCount() == 1 && saved.liveCount() == 1);
+        // A shared child version outlives the first outer version.
+        free saved;
+        require(sibling.retained(different).size() == 2 && sibling.retained(different).get(0) == node);
+        free sibling;
+        require(child.size() == 2 && child.get(1) == different);
+        require(System.liveAllocationCount() == before);
+    }
+
+    // Builders reject null keys, values and members before mutation, so every
+    // snapshot copy sees a non-null domain.
+    static void nullDomain(Node node, StateValue value) {
+
+        long before = System.liveAllocationCount();
+        try { throw new IllegalArgumentException(); }
+        catch (IllegalArgumentException ordinary) { }
+        long failure = System.liveAllocationCount() - before;
+        IdentityHashMap<Node, StateValue> identity = new IdentityHashMap<Node, StateValue>(1);
+        LinkedHashMap<Node, StateValue> linked = new LinkedHashMap<Node, StateValue>(1);
+        HashMap<String, Node> text = new HashMap<String, Node>(1);
+        IdentityHashSet<Node> set = new IdentityHashSet<Node>(1);
+        for (int attempt = 0; attempt < 7; attempt++) {
+            before = System.liveAllocationCount();
+            boolean rejected = false;
+            try {
+                if (attempt == 0) identity.put(null, value);
+                if (attempt == 1) identity.put(node, null);
+                if (attempt == 2) linked.put(null, value);
+                if (attempt == 3) linked.put(node, null);
+                if (attempt == 4) text.put(null, node);
+                if (attempt == 5) text.put("key", null);
+                if (attempt == 6) set.add(null);
+            }
+
+            catch (IllegalArgumentException expected) {
+                rejected = true;
+            }
+
+            require(rejected && System.liveAllocationCount() - before == failure
+                    && identity.size() + linked.size() + text.size() + set.size() == 0);
+        }
+        free set; free text; free linked; free identity;
+    }
+
+    static boolean rejectsNull(int position, IdentityHashMap<Node, StateValue> states, Live state,
+                               ArrayList<Slot> slotKeys, ArrayList<String> fieldKeys, ArrayList<Node> retainedKeys,
+                               ArrayList<Node> poolKeys, ArrayList<Node> exposed, ArrayList<Node> liveItems) {
+
+        try {
+            OwnershipSnapshot unexpected = new OwnershipSnapshot(position == 0 ? null : states,
+                    position == 1 ? null : state, position == 2 ? null : slotKeys,
+                    position == 3 ? null : fieldKeys, position == 4 ? null : retainedKeys,
+                    position == 5 ? null : poolKeys, position == 6 ? null : exposed,
+                    position == 7 ? null : liveItems);
+            free unexpected;
+        }
+
+        catch (NullPointerException expected) {
+            return true;
+        }
+
+        return false;
+    }
+
+    // A null source at each constructor position rolls back the fields already
+    // copied, leaving only the ordinary exception's allocation.
+    static void nullSources(Live state) {
+
+        long before = System.liveAllocationCount();
+        try { throw new NullPointerException(); }
+        catch (NullPointerException ordinary) { }
+        long failure = System.liveAllocationCount() - before;
+        IdentityHashMap<Node, StateValue> states = new IdentityHashMap<Node, StateValue>(1);
+        ArrayList<Slot> slotKeys = new ArrayList<Slot>(1);
+        ArrayList<String> fieldKeys = new ArrayList<String>(1);
+        ArrayList<Node> retainedKeys = new ArrayList<Node>(1);
+        ArrayList<Node> poolKeys = new ArrayList<Node>(1);
+        ArrayList<Node> exposed = new ArrayList<Node>(1);
+        ArrayList<Node> liveItems = new ArrayList<Node>(1);
+        for (int position = 0; position < 8; position++) {
+            before = System.liveAllocationCount();
+            boolean rejected = rejectsNull(position, states, state, slotKeys, fieldKeys, retainedKeys,
+                    poolKeys, exposed, liveItems);
+            require(rejected && System.liveAllocationCount() - before == failure);
+        }
+        free liveItems; free exposed; free poolKeys; free retainedKeys; free fieldKeys; free slotKeys; free states;
+    }
+
+    // Current-store slot order: re-storing a slot moves it to the end.
+    static void slotOrder(Node container, Slot first, Slot second, Slot third) {
+
+        long before = System.liveAllocationCount();
+        LinkedHashMap<Slot, Node> slots = new LinkedHashMap<Slot, Node>(4);
+        slots.put(first, container); slots.put(second, container); slots.put(third, container);
+        ArrayList<Slot> earlierKeys = new ArrayList<Slot>(4);
+        Iterator<Node> earlierValues = slots.iterator();
+        while (earlierValues.hasNext()) { earlierValues.next(); earlierKeys.add(slots.getCurrIteratorKey()); }
+        SnapshotList<Slot> earlier = new SnapshotList<Slot>(earlierKeys);
+        slots.remove(second);
+        slots.put(second, container);
+        ArrayList<Slot> laterKeys = new ArrayList<Slot>(4);
+        Iterator<Node> laterValues = slots.iterator();
+        while (laterValues.hasNext()) { laterValues.next(); laterKeys.add(slots.getCurrIteratorKey()); }
+        SnapshotList<Slot> later = new SnapshotList<Slot>(laterKeys);
+        require(earlier.size() == 3 && earlier.get(0) == first && earlier.get(1) == second && earlier.get(2) == third);
+        require(later.size() == 3 && later.get(0) == first && later.get(1) == third && later.get(2) == second);
+        free later; free laterKeys; free earlier; free earlierKeys; free slots;
+        require(System.liveAllocationCount() == before);
+    }
+
+    // Unchanged nodes share one immutable state version across snapshots;
+    // a changed node gets an unequal new version.
+    static void versions(Live state, Node changed, Node unchanged) {
+
+        long before = System.liveAllocationCount();
+        OwnershipSnapshot first = save(state);
+        changed.current = new StateValue(ESCAPED, "escaped", changed.current.detached());
+        OwnershipSnapshot second = save(state);
+        require(first.state(unchanged) == second.state(unchanged) && first.state(unchanged).equals(second.state(unchanged)));
+        require(first.state(unchanged).hashCode() == second.state(unchanged).hashCode());
+        require(!first.state(changed).equals(second.state(changed)));
+        free second; free first;
+        require(System.liveAllocationCount() - before == 1);
+    }
+
+    public static int main(String[] args) {
+
+        values();
+        // Invocation-lived payloads shared by the remaining checks.
+        StateValue active = new StateValue(ACTIVE, "reason", false);
+        Live state = new Live();
+        Node node = new Node(0, active);
+        Node different = new Node(1, active);
+        state.allocations.add(node);
+        state.allocations.add(different);
+        different.present = false;
+        Slot slot = new Slot(node, 65537);
+        Slot equalSlot = new Slot(node, 65537);
+        ArrayList<Node> childItems = new ArrayList<Node>(2);
+        childItems.add(node);
+        childItems.add(different);
+        SnapshotList<Node> child = new SnapshotList<Node>(childItems);
+        free childItems;
+        state.slots.put(slot, node);
+        state.fields.put("field", node);
+        state.retained.put(different, child);
+        state.pools.put(node, different);
+        state.exposed.add(node);
+        state.live.add(node);
+        StringBuilder text = new StringBuilder();
+        text.append("field");
+        String fieldName = text.toString();
+        free text;
+        composed(state, node, different, slot, equalSlot, child, fieldName);
+        nullDomain(node, active);
+        nullSources(state);
+        Node container = new Node(2, active);
+        slotOrder(container, new Slot(container, 3), new Slot(container, 1), new Slot(container, 2));
+        different.present = true;
+        versions(state, node, different);
+        free fieldName;
+        free equalSlot;
+        System.out.println("checks:" + checks);
+        return failed ? 1 : 42;
+    }
+}

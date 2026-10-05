@@ -1,0 +1,127 @@
+{
+ "schema_version": 1,
+ "increment": "D257 seven-field ownership snapshot composition and traversal",
+ "base_commit": "035f81e126e229897a6a0f310121a1e336c869af",
+ "producing_compiler": {
+  "path": "/Users/developer/workspace-mba-m2/Ironwood/workspace/m1/keyed-final/stage/compiler/build/ironwoodc.jar",
+  "sha256": "ab50fe2c128137005c4dbac8263bc1190ab956c1012bf5a285940709655a54b2",
+  "role": "compiler sources identical to base commit"
+ },
+ "sources": [
+  {
+   "path": "integration-tests/cases/compiler_ownership_snapshot.iron",
+   "sha256": "b98217fa6906612829ea94bc09a3f872d55144459b79b433390b8a02686fa5f9"
+  },
+  {
+   "path": "integration-tests/cases/compiler_ownership_snapshot_scaling.iron",
+   "sha256": "51dc0a7044ae6371150e02119dec34f460c05754a74e1284b66043524526d2c9"
+  },
+  {
+   "path": "integration-tests/cases/compiler_ownership_operations.iron",
+   "sha256": "fd9130b90f81307e89620167ff7327d8db2e525c2bfad8b527af2463a7d2b11f"
+  },
+  {
+   "path": "compiler/src/test/java/ironwood/compiler/OwnershipSnapshotTests.java",
+   "sha256": "53fba253e02edd9d668da84834d3ebd36f5fc16c183df6a725b5864cb8e4d02d"
+  }
+ ],
+ "java_references": [
+  {
+   "path": "docs/self-hosting/m1/composition-evidence/OwnershipOperationsReference.java",
+   "sha256": "b17309691bc2b2292ee32a2a1400b731ee35e4898e4ea5c0b1dc681b6fa3fdc1",
+   "runs": 4,
+   "result": "projection byte-identical to native"
+  },
+  {
+   "path": "scripts/self-hosting/OwnershipContractProbe.java",
+   "sha256": "e58a294560747e07e828e26492176fbc1ccac7c147878aaab5d9e93a7e1ec964",
+   "role": "M0 47-check J0 probe, unchanged"
+  }
+ ],
+ "logs": [
+  {
+   "retained": "docs/self-hosting/m1/composition-evidence/logs/compiler_ownership_operations-compile.log.gz",
+   "sha256": "5551afca43ce3bfb0475969adf9464048aaf9262648da35858c56fae40fbf28b",
+   "gzip_sha256": "0b73d28acbd74a8a5f838279f6fd54951429c34119ebe2f9ec3ad55a14802588"
+  },
+  {
+   "retained": "docs/self-hosting/m1/composition-evidence/logs/compiler_ownership_operations-link.log.gz",
+   "sha256": "14a985e74e47577e3b5af501e8d7fd4e991c1279e5653e63516ff984ee1f7512",
+   "gzip_sha256": "3889637d72e46a4e1785fb3357f35e322e391e71be6082906ca0336b82334539"
+  },
+  {
+   "retained": "docs/self-hosting/m1/composition-evidence/logs/compiler_ownership_operations-run.log.gz",
+   "sha256": "6facf0f887a67336958493739f7aad2d8dc6038eba80ca6f9c5205475edc626e",
+   "gzip_sha256": "457af596f430d64100d5314d5af18c544a61761932777878be9eb987e36be90b"
+  },
+  {
+   "retained": "docs/self-hosting/m1/composition-evidence/logs/compiler_ownership_snapshot-compile.log.gz",
+   "sha256": "65f2cbc42c2cef924d2426295042c262e912873efc133cf9b1f24b61d3ee5620",
+   "gzip_sha256": "ca22c9cfec19e88255e594c752e1d2a5b6aa851186ab63e1de6312afa9331f54"
+  },
+  {
+   "retained": "docs/self-hosting/m1/composition-evidence/logs/compiler_ownership_snapshot-link.log.gz",
+   "sha256": "5a0642acec26eed010b986dbf3d97d3333b46375d3fedfe700acb691f9b9c226",
+   "gzip_sha256": "309a494ced82a6decec390a663412600910c215c5dfbc816aa8feb59672ae9b0"
+  },
+  {
+   "retained": "docs/self-hosting/m1/composition-evidence/logs/compiler_ownership_snapshot-run.log.gz",
+   "sha256": "e9ac90c1feadc86587bbefbde890147a0de40988aee25ef35d3c99f43db6e0fd",
+   "gzip_sha256": "d3714384023e94260046ecb8e3ec9b47b6aba7a52aac1ed9d4639933d3b43ace"
+  },
+  {
+   "retained": "docs/self-hosting/m1/composition-evidence/logs/compiler_ownership_snapshot_scaling-compile.log.gz",
+   "sha256": "52f04fcf096d0252395fe5ccad7d68e4ca929ed9d06cd3b268c34af41c3f2375",
+   "gzip_sha256": "1317639caea68a62a857e23f1b3497c55bc83412f53471eff00e0388ee9b37fc"
+  },
+  {
+   "retained": "docs/self-hosting/m1/composition-evidence/logs/compiler_ownership_snapshot_scaling-link.log.gz",
+   "sha256": "0404d5e8bb75e52af712e9db4b3a382d27e47a125d5722d61ea266ca082c0137",
+   "gzip_sha256": "2a6cff3a7a6b06339bf1ba734e63cf368404d83ae78464043ed62b27cca5af5a"
+  },
+  {
+   "retained": "docs/self-hosting/m1/composition-evidence/logs/compiler_ownership_snapshot_scaling-run.log.gz",
+   "sha256": "a732926c039442b11fa74756e2f28441045038a293bb38e9913ae6e35a5b21a5",
+   "gzip_sha256": "aa436315af9d23efa20b5a73c4b30897475f5a4b5c380c00411df76287a42776"
+  },
+  {
+   "retained": "docs/self-hosting/m1/composition-evidence/logs/diff-check.log.gz",
+   "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "gzip_sha256": "f61f27bd17de546264aa58f40f3aafaac7021e0ef69c17f6b1b4cd7664a037ec"
+  },
+  {
+   "retained": "docs/self-hosting/m1/composition-evidence/logs/java-reference.log.gz",
+   "sha256": "6facf0f887a67336958493739f7aad2d8dc6038eba80ca6f9c5205475edc626e",
+   "gzip_sha256": "457af596f430d64100d5314d5af18c544a61761932777878be9eb987e36be90b"
+  },
+  {
+   "retained": "docs/self-hosting/m1/composition-evidence/logs/licenses.log.gz",
+   "sha256": "baf5804aeb26498337c9c5223c199afeba5c3e2fc36ae219b9bf420e3775f673",
+   "gzip_sha256": "c33bdaafc40ae52137c7119d2922a14fd4f4f340cea86e19094625617947bf77"
+  },
+  {
+   "retained": "docs/self-hosting/m1/composition-evidence/logs/tests.log.gz",
+   "sha256": "9fbc7e7ef2271c154e24230a8a33fe8a18de5410aeeb73a575c64d033d681a74",
+   "gzip_sha256": "508774351c32d2ed0429d5fd833473c8e684953c63eb14e191339a79958a2494"
+  }
+ ],
+ "results": {
+  "tests": "PASS: 2 compiler tests (controls all modes; artifacts classes/archive for three fixtures)",
+  "checks": "43 native value-contract checks",
+  "operations": "restored/changed/merged projection identical to Java",
+  "allocation": "snapshot storage 8:123 32:267 128:843 (6n+75); save totals 159/351/1041",
+  "unfreed_warn": "one diagnostic per compile and per link in each fixture: the deliberately retained live analyzer state ('state')",
+  "licensing": "passed",
+  "unsafe_native_execution": false
+ },
+ "boundaries": [
+  "nodes, state versions and child versions read through a snapshot are invocation-lived",
+  "real save/restore/join are ported in M2.2",
+  "full M1 open"
+ ],
+ "host_profile": {
+  "host": "macOS 27.0.1, arm64, Apple M5, 32 GiB",
+  "bootstrap": "Java 21.0.1",
+  "backend": "pinned LLVM 23.1.0"
+ }
+}

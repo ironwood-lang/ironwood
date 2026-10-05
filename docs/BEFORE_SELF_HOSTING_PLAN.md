@@ -355,8 +355,9 @@ complete, and M1/M2 and every later milestone remain not started.
   still publish the in-progress receiver. D253's
   [field-alias correction](self-hosting/m1/FIELD_ALIAS.md) closes that blocker
   for source, class and archive inputs in every unfreed mode, with unchanged
-  valid LLVM. [Private keyed snapshots](self-hosting/m1/KEYED.md) (D254) pass;
-  seven-field operation snapshot composition remains.
+  valid LLVM. [Private keyed snapshots](self-hosting/m1/KEYED.md) (D254) and
+  the [seven-field composition](self-hosting/m1/COMPOSITION.md) (D257) pass;
+  node and version retirement is the M2.2 native lifetime proof.
 - [ ] **M1.2: Pilot maps, traversal, and order.** Add the selected map/set copies,
   use local/indexed traversal or copied keys, and preserve identity/value/order
   distinctions. Rewrite pilot stack/FIFO consumers. Bring in B2's list sort or
@@ -366,7 +367,8 @@ complete, and M1/M2 and every later milestone remain not started.
   including through constructor-held fields (D253), and D254's read-only keyed
   snapshots. The selected FIFO and evidence-store iterator removal pass with
   [D255's worklist](self-hosting/m1/WORKLIST.md); no pilot stack consumer is
-  reached. Ordered restore traversal and operation composition remain.
+  reached. D257 adds copied traversal lists for restore and join, with a
+  native seven-field join projection equal to its Java reference.
 - [ ] **M1.3: Pilot language and text helpers.** Prepare record value operations,
   text-block normalization, varargs/factory rewrites, numeric/nullable results,
   reached name splitting, and required callback interfaces. Rewrite any pattern
