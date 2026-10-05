@@ -1,0 +1,23 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.ast;
+
+/**
+ * Simple and compound assignment operators. Ports the Java enum {@code AssignmentOperator} with the same constants in
+ * the same order.
+ */
+public enum AssignmentOperator {
+
+    ASSIGN,
+    ADD,
+    SUBTRACT,
+    MULTIPLY,
+    DIVIDE,
+    REMAINDER,
+    SHIFT_LEFT,
+    SHIFT_RIGHT,
+    UNSIGNED_SHIFT_RIGHT,
+    BITWISE_AND,
+    BITWISE_XOR,
+    BITWISE_OR
+}

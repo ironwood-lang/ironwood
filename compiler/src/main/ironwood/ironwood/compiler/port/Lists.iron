@@ -6,14 +6,29 @@ import ironwood.ds.ArrayList;
 
 /**
  * Immutable single-element lists for the compiler's {@code List.of(item)}
- * sites. Empty lists are not created here: a generic shared empty instance
- * would need an unchecked cast, which Ironwood rejects. Each element type
- * that needs one declares a process-lived static empty {@link SnapshotList};
- * holders borrow it and never free it.
+ * sites, and fresh empty lists. A generic shared empty instance would need an
+ * unchecked cast, which Ironwood rejects, so each element type that needs one
+ * stores the result of {@link #empty()} in its own process-lived static
+ * constant; holders borrow it and never free it.
  */
 public final class Lists {
 
     private Lists() {
+    }
+
+    /**
+     * Returns a fresh immutable empty list, for a process-lived per-type
+     * constant. The caller owns the list; the temporary builder is freed on
+     * every exit.
+     *
+     * @return the new empty list
+     */
+    public static <E extends Object> SnapshotList<E> empty() {
+
+        ArrayList<E> builder = new ArrayList<E>(1);
+        // Retires the builder even if the list's own allocation fails.
+        defer free builder;
+        return new SnapshotList<E>(builder);
     }
 
     /**

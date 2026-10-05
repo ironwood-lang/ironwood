@@ -1,0 +1,106 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.ast;
+
+import ironwood.compiler.port.SnapshotList;
+import ironwood.compiler.source.SourceSpan;
+
+/**
+ * Port of the Java frontend AST record {@code ConstructorDeclaration}. Components keep
+ * the record's order; {@code Optional} components are nullable, and list components
+ * are frozen, independent copies that the node borrows for the invocation.
+ */
+public final class ConstructorDeclaration {
+
+    private final AccessModifier accessModifier;
+    private final SnapshotList<TypeParameter> typeParameters;
+    private final String name;
+    private final SourceSpan nameSpan;
+    private final SnapshotList<Parameter> parameters;
+    private final SnapshotList<TypeName> thrownTypes;
+    private final SuperConstructorInvocation superInvocation;
+    private final ThisConstructorInvocation thisInvocation;
+    private final Block body;
+    private final SourceSpan span;
+
+    /** Creates the node from its components in record order. */
+    public ConstructorDeclaration(AccessModifier accessModifier, SnapshotList<TypeParameter> typeParameters,
+                                  String name, SourceSpan nameSpan, SnapshotList<Parameter> parameters,
+                                  SnapshotList<TypeName> thrownTypes, SuperConstructorInvocation superInvocation,
+                                  ThisConstructorInvocation thisInvocation, Block body, SourceSpan span) {
+
+        if (typeParameters == null) typeParameters = AstLists.NO_TYPE_PARAMETERS;
+        if (parameters == null) throw new NullPointerException();
+        if (thrownTypes == null) thrownTypes = AstLists.NO_TYPE_NAMES;
+        this.accessModifier = accessModifier;
+        this.typeParameters = typeParameters;
+        this.name = name;
+        this.nameSpan = nameSpan;
+        this.parameters = parameters;
+        this.thrownTypes = thrownTypes;
+        this.superInvocation = superInvocation;
+        this.thisInvocation = thisInvocation;
+        this.body = body;
+        this.span = span;
+    }
+
+    /** @return the {@code accessModifier} component */
+    public AccessModifier accessModifier() {
+
+        return this.accessModifier;
+    }
+
+    /** @return the {@code typeParameters} component */
+    public SnapshotList<TypeParameter> typeParameters() {
+
+        return this.typeParameters;
+    }
+
+    /** @return the {@code name} component */
+    public String name() {
+
+        return this.name;
+    }
+
+    /** @return the {@code nameSpan} component */
+    public SourceSpan nameSpan() {
+
+        return this.nameSpan;
+    }
+
+    /** @return the {@code parameters} component */
+    public SnapshotList<Parameter> parameters() {
+
+        return this.parameters;
+    }
+
+    /** @return the {@code thrownTypes} component */
+    public SnapshotList<TypeName> thrownTypes() {
+
+        return this.thrownTypes;
+    }
+
+    /** @return the {@code superInvocation} component */
+    public SuperConstructorInvocation superInvocation() {
+
+        return this.superInvocation;
+    }
+
+    /** @return the {@code thisInvocation} component */
+    public ThisConstructorInvocation thisInvocation() {
+
+        return this.thisInvocation;
+    }
+
+    /** @return the {@code body} component */
+    public Block body() {
+
+        return this.body;
+    }
+
+    /** @return the {@code span} component */
+    public SourceSpan span() {
+
+        return this.span;
+    }
+}

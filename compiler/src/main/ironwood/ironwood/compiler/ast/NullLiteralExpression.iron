@@ -1,0 +1,32 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.ast;
+
+import ironwood.compiler.source.SourceSpan;
+
+/**
+ * Port of the Java frontend AST record {@code NullLiteralExpression}. Components keep
+ * the record's order; {@code Optional} components are nullable, and list components
+ * are frozen, independent copies that the node borrows for the invocation.
+ */
+public final class NullLiteralExpression implements Expression {
+
+    private final SourceSpan span;
+
+    /** Creates the node from its components in record order. */
+    public NullLiteralExpression(SourceSpan span) {
+
+        this.span = span;
+    }
+
+    /** @return the {@code span} component */
+    @Override public SourceSpan span() {
+
+        return this.span;
+    }
+
+    @Override public ExpressionVariant expressionVariant() {
+
+        return ExpressionVariant.NULL_LITERAL_EXPRESSION;
+    }
+}

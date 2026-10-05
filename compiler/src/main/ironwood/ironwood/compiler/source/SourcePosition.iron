@@ -1,0 +1,60 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.source;
+
+/**
+ * A zero-based UTF-16 offset with its one-based line and column. Ports the
+ * Java record {@code SourcePosition}: components compare by value (D258).
+ */
+public final class SourcePosition {
+
+    private final int offset;
+    private final int line;
+    private final int column;
+
+    /**
+     * Creates a position.
+     *
+     * @param offset the zero-based UTF-16 offset
+     * @param line the one-based line
+     * @param column the one-based column
+     * @throws IllegalArgumentException if any component is out of range
+     */
+    public SourcePosition(int offset, int line, int column) {
+
+        if (offset < 0 || line < 1 || column < 1) throw new IllegalArgumentException("invalid source position");
+        this.offset = offset;
+        this.line = line;
+        this.column = column;
+    }
+
+    /** @return the zero-based UTF-16 offset */
+    public int offset() {
+
+        return this.offset;
+    }
+
+    /** @return the one-based line */
+    public int line() {
+
+        return this.line;
+    }
+
+    /** @return the one-based column */
+    public int column() {
+
+        return this.column;
+    }
+
+    @Override public boolean equals(Object value) {
+
+        if (!(value instanceof SourcePosition)) return false;
+        SourcePosition other = (SourcePosition) value;
+        return this.offset == other.offset && this.line == other.line && this.column == other.column;
+    }
+
+    @Override public int hashCode() {
+
+        return (this.offset * 31 + this.line) * 31 + this.column;
+    }
+}

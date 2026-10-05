@@ -1,0 +1,48 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.ast;
+
+import ironwood.compiler.source.SourceSpan;
+
+/**
+ * Port of the Java frontend AST record {@code CastExpression}. Components keep the
+ * record's order; {@code Optional} components are nullable, and list components are
+ * frozen, independent copies that the node borrows for the invocation.
+ */
+public final class CastExpression implements Expression {
+
+    private final TypeName targetType;
+    private final Expression operand;
+    private final SourceSpan span;
+
+    /** Creates the node from its components in record order. */
+    public CastExpression(TypeName targetType, Expression operand, SourceSpan span) {
+
+        this.targetType = targetType;
+        this.operand = operand;
+        this.span = span;
+    }
+
+    /** @return the {@code targetType} component */
+    public TypeName targetType() {
+
+        return this.targetType;
+    }
+
+    /** @return the {@code operand} component */
+    public Expression operand() {
+
+        return this.operand;
+    }
+
+    /** @return the {@code span} component */
+    @Override public SourceSpan span() {
+
+        return this.span;
+    }
+
+    @Override public ExpressionVariant expressionVariant() {
+
+        return ExpressionVariant.CAST_EXPRESSION;
+    }
+}

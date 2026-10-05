@@ -1,0 +1,56 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.ast;
+
+import ironwood.compiler.source.SourceSpan;
+
+/**
+ * Port of the Java frontend AST record {@code UnaryExpression}. Components keep the
+ * record's order; {@code Optional} components are nullable, and list components are
+ * frozen, independent copies that the node borrows for the invocation.
+ */
+public final class UnaryExpression implements Expression {
+
+    private final UnaryOperator operator;
+    private final Expression operand;
+    private final SourceSpan operatorSpan;
+    private final SourceSpan span;
+
+    /** Creates the node from its components in record order. */
+    public UnaryExpression(UnaryOperator operator, Expression operand, SourceSpan operatorSpan, SourceSpan span) {
+
+        this.operator = operator;
+        this.operand = operand;
+        this.operatorSpan = operatorSpan;
+        this.span = span;
+    }
+
+    /** @return the {@code operator} component */
+    public UnaryOperator operator() {
+
+        return this.operator;
+    }
+
+    /** @return the {@code operand} component */
+    public Expression operand() {
+
+        return this.operand;
+    }
+
+    /** @return the {@code operatorSpan} component */
+    public SourceSpan operatorSpan() {
+
+        return this.operatorSpan;
+    }
+
+    /** @return the {@code span} component */
+    @Override public SourceSpan span() {
+
+        return this.span;
+    }
+
+    @Override public ExpressionVariant expressionVariant() {
+
+        return ExpressionVariant.UNARY_EXPRESSION;
+    }
+}

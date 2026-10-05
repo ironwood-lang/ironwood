@@ -1,0 +1,64 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.source;
+
+/**
+ * A half-open source range. Ports the Java record {@code SourceSpan}: the
+ * positions are borrowed and compare by value (D258).
+ */
+public final class SourceSpan {
+
+    private final SourcePosition start;
+    private final SourcePosition end;
+
+    /**
+     * Creates a span.
+     *
+     * @param start the borrowed start position
+     * @param end the borrowed end position
+     * @throws IllegalArgumentException if a position is null or end precedes start
+     */
+    public SourceSpan(SourcePosition start, SourcePosition end) {
+
+        if (start == null || end == null || end.offset() < start.offset()) {
+            throw new IllegalArgumentException("invalid source span");
+        }
+        this.start = start;
+        this.end = end;
+    }
+
+    /**
+     * Returns an empty span at a position.
+     *
+     * @param position the borrowed position
+     * @return the new span
+     */
+    public static SourceSpan at(SourcePosition position) {
+
+        return new SourceSpan(position, position);
+    }
+
+    /** @return the borrowed start position */
+    public SourcePosition start() {
+
+        return this.start;
+    }
+
+    /** @return the borrowed end position */
+    public SourcePosition end() {
+
+        return this.end;
+    }
+
+    @Override public boolean equals(Object value) {
+
+        if (!(value instanceof SourceSpan)) return false;
+        SourceSpan other = (SourceSpan) value;
+        return this.start.equals(other.start) && this.end.equals(other.end);
+    }
+
+    @Override public int hashCode() {
+
+        return this.start.hashCode() * 31 + this.end.hashCode();
+    }
+}

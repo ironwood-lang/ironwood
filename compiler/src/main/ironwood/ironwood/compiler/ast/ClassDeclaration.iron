@@ -1,0 +1,195 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.ast;
+
+import ironwood.compiler.port.SnapshotList;
+import ironwood.compiler.source.SourceSpan;
+
+/**
+ * Port of the Java frontend AST record {@code ClassDeclaration}. Components keep the
+ * record's order; {@code Optional} components are nullable, and list components are
+ * frozen, independent copies that the node borrows for the invocation.
+ */
+public final class ClassDeclaration implements TypeDeclaration {
+
+    private final AccessModifier accessModifier;
+    private final boolean isStatic;
+    private final boolean isAbstract;
+    private final boolean isFinal;
+    private final String name;
+    private final SourceSpan nameSpan;
+    private final SnapshotList<TypeParameter> typeParameters;
+    private final TypeReference superclass;
+    private final SnapshotList<TypeReference> implementedInterfaces;
+    private final SnapshotList<FieldDeclaration> fields;
+    private final SnapshotList<InstanceInitialization> instanceInitializations;
+    private final SnapshotList<StaticInitialization> staticInitializations;
+    private final SnapshotList<ConstructorDeclaration> constructors;
+    private final DestructorDeclaration destructorDeclaration;
+    private final SnapshotList<MethodDeclaration> methods;
+    private final SnapshotList<TypeDeclaration> memberTypes;
+    private final boolean enumType;
+    private final SnapshotList<EnumConstant> enumConstants;
+    private final SourceSpan span;
+
+    /** Creates the node from its components in record order. */
+    public ClassDeclaration(AccessModifier accessModifier, boolean isStatic, boolean isAbstract, boolean isFinal,
+                            String name, SourceSpan nameSpan, SnapshotList<TypeParameter> typeParameters,
+                            TypeReference superclass, SnapshotList<TypeReference> implementedInterfaces,
+                            SnapshotList<FieldDeclaration> fields,
+                            SnapshotList<InstanceInitialization> instanceInitializations,
+                            SnapshotList<StaticInitialization> staticInitializations,
+                            SnapshotList<ConstructorDeclaration> constructors,
+                            DestructorDeclaration destructorDeclaration, SnapshotList<MethodDeclaration> methods,
+                            SnapshotList<TypeDeclaration> memberTypes, boolean enumType,
+                            SnapshotList<EnumConstant> enumConstants, SourceSpan span) {
+
+        if (typeParameters == null) throw new NullPointerException();
+        if (implementedInterfaces == null) throw new NullPointerException();
+        if (fields == null) throw new NullPointerException();
+        if (instanceInitializations == null) throw new NullPointerException();
+        if (staticInitializations == null) throw new NullPointerException();
+        if (constructors == null) throw new NullPointerException();
+        if (methods == null) throw new NullPointerException();
+        if (memberTypes == null) throw new NullPointerException();
+        if (enumConstants == null) throw new NullPointerException();
+        this.accessModifier = accessModifier;
+        this.isStatic = isStatic;
+        this.isAbstract = isAbstract;
+        this.isFinal = isFinal;
+        this.name = name;
+        this.nameSpan = nameSpan;
+        this.typeParameters = typeParameters;
+        this.superclass = superclass;
+        this.implementedInterfaces = implementedInterfaces;
+        this.fields = fields;
+        this.instanceInitializations = instanceInitializations;
+        this.staticInitializations = staticInitializations;
+        this.constructors = constructors;
+        this.destructorDeclaration = destructorDeclaration;
+        this.methods = methods;
+        this.memberTypes = memberTypes;
+        this.enumType = enumType;
+        this.enumConstants = enumConstants;
+        this.span = span;
+    }
+
+    /** @return the {@code accessModifier} component */
+    @Override public AccessModifier accessModifier() {
+
+        return this.accessModifier;
+    }
+
+    /** @return the {@code isStatic} component */
+    @Override public boolean isStatic() {
+
+        return this.isStatic;
+    }
+
+    /** @return the {@code isAbstract} component */
+    public boolean isAbstract() {
+
+        return this.isAbstract;
+    }
+
+    /** @return the {@code isFinal} component */
+    public boolean isFinal() {
+
+        return this.isFinal;
+    }
+
+    /** @return the {@code name} component */
+    @Override public String name() {
+
+        return this.name;
+    }
+
+    /** @return the {@code nameSpan} component */
+    @Override public SourceSpan nameSpan() {
+
+        return this.nameSpan;
+    }
+
+    /** @return the {@code typeParameters} component */
+    @Override public SnapshotList<TypeParameter> typeParameters() {
+
+        return this.typeParameters;
+    }
+
+    /** @return the {@code superclass} component */
+    public TypeReference superclass() {
+
+        return this.superclass;
+    }
+
+    /** @return the {@code implementedInterfaces} component */
+    public SnapshotList<TypeReference> implementedInterfaces() {
+
+        return this.implementedInterfaces;
+    }
+
+    /** @return the {@code fields} component */
+    public SnapshotList<FieldDeclaration> fields() {
+
+        return this.fields;
+    }
+
+    /** @return the {@code instanceInitializations} component */
+    public SnapshotList<InstanceInitialization> instanceInitializations() {
+
+        return this.instanceInitializations;
+    }
+
+    /** @return the {@code staticInitializations} component */
+    public SnapshotList<StaticInitialization> staticInitializations() {
+
+        return this.staticInitializations;
+    }
+
+    /** @return the {@code constructors} component */
+    public SnapshotList<ConstructorDeclaration> constructors() {
+
+        return this.constructors;
+    }
+
+    /** @return the {@code destructor} component, renamed because {@code destructor} is an Ironwood keyword */
+    public DestructorDeclaration destructorDeclaration() {
+
+        return this.destructorDeclaration;
+    }
+
+    /** @return the {@code methods} component */
+    public SnapshotList<MethodDeclaration> methods() {
+
+        return this.methods;
+    }
+
+    /** @return the {@code memberTypes} component */
+    @Override public SnapshotList<TypeDeclaration> memberTypes() {
+
+        return this.memberTypes;
+    }
+
+    /** @return the {@code enumType} component */
+    public boolean enumType() {
+
+        return this.enumType;
+    }
+
+    /** @return the {@code enumConstants} component */
+    public SnapshotList<EnumConstant> enumConstants() {
+
+        return this.enumConstants;
+    }
+
+    /** @return the {@code span} component */
+    @Override public SourceSpan span() {
+
+        return this.span;
+    }
+
+    @Override public TypeDeclarationVariant typeDeclarationVariant() {
+
+        return TypeDeclarationVariant.CLASS_DECLARATION;
+    }
+}

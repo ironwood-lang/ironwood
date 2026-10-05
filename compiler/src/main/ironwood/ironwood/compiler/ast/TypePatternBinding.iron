@@ -1,0 +1,46 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.ast;
+
+import ironwood.compiler.source.SourceSpan;
+
+/**
+ * Port of the Java frontend AST record {@code TypePatternBinding}. Components keep the
+ * record's order; {@code Optional} components are nullable, and list components are
+ * frozen, independent copies that the node borrows for the invocation.
+ */
+public final class TypePatternBinding {
+
+    private final String name;
+    private final SourceSpan nameSpan;
+    private final boolean isFinal;
+
+    /** Creates the node from its components in record order. */
+    public TypePatternBinding(String name, SourceSpan nameSpan, boolean isFinal) {
+
+        if (name == null || name.isBlank() || nameSpan == null) {
+            throw new IllegalArgumentException("type-pattern binding requires a name and source span");
+        }
+        this.name = name;
+        this.nameSpan = nameSpan;
+        this.isFinal = isFinal;
+    }
+
+    /** @return the {@code name} component */
+    public String name() {
+
+        return this.name;
+    }
+
+    /** @return the {@code nameSpan} component */
+    public SourceSpan nameSpan() {
+
+        return this.nameSpan;
+    }
+
+    /** @return the {@code isFinal} component */
+    public boolean isFinal() {
+
+        return this.isFinal;
+    }
+}

@@ -1,0 +1,65 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.ast;
+
+import ironwood.compiler.source.SourceSpan;
+
+/**
+ * Port of the Java frontend AST record {@code UpdateExpression}. Components keep the
+ * record's order; {@code Optional} components are nullable, and list components are
+ * frozen, independent copies that the node borrows for the invocation.
+ */
+public final class UpdateExpression implements Expression {
+
+    private final Expression target;
+    private final UpdateOperator operator;
+    private final boolean prefix;
+    private final SourceSpan operatorSpan;
+    private final SourceSpan span;
+
+    /** Creates the node from its components in record order. */
+    public UpdateExpression(Expression target, UpdateOperator operator, boolean prefix, SourceSpan operatorSpan,
+                            SourceSpan span) {
+
+        this.target = target;
+        this.operator = operator;
+        this.prefix = prefix;
+        this.operatorSpan = operatorSpan;
+        this.span = span;
+    }
+
+    /** @return the {@code target} component */
+    public Expression target() {
+
+        return this.target;
+    }
+
+    /** @return the {@code operator} component */
+    public UpdateOperator operator() {
+
+        return this.operator;
+    }
+
+    /** @return the {@code prefix} component */
+    public boolean prefix() {
+
+        return this.prefix;
+    }
+
+    /** @return the {@code operatorSpan} component */
+    public SourceSpan operatorSpan() {
+
+        return this.operatorSpan;
+    }
+
+    /** @return the {@code span} component */
+    @Override public SourceSpan span() {
+
+        return this.span;
+    }
+
+    @Override public ExpressionVariant expressionVariant() {
+
+        return ExpressionVariant.UPDATE_EXPRESSION;
+    }
+}

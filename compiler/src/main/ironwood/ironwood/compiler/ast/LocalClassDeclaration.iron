@@ -1,0 +1,39 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.ast;
+
+import ironwood.compiler.source.SourceSpan;
+
+/**
+ * A named class whose declaration and scope are contained by one block. It ports the
+ * Java frontend AST record {@code LocalClassDeclaration}. Components keep the record's
+ * order; {@code Optional} components are nullable, and list components are frozen,
+ * independent copies that the node borrows for the invocation.
+ */
+public final class LocalClassDeclaration implements Statement {
+
+    private final ClassDeclaration declaration;
+
+    /** Creates the node from its components in record order. */
+    public LocalClassDeclaration(ClassDeclaration declaration) {
+
+        this.declaration = declaration;
+    }
+
+    /** @return the {@code declaration} component */
+    public ClassDeclaration declaration() {
+
+        return this.declaration;
+    }
+
+    /** @return the declaration's span */
+    @Override public SourceSpan span() {
+
+        return this.declaration.span();
+    }
+
+    @Override public StatementVariant statementVariant() {
+
+        return StatementVariant.LOCAL_CLASS_DECLARATION;
+    }
+}

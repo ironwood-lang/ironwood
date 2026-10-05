@@ -1,0 +1,86 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.ast;
+
+import ironwood.compiler.port.SnapshotList;
+import ironwood.compiler.source.SourceSpan;
+
+/**
+ * The declaration body attached to an anonymous class or interface implementation. It
+ * ports the Java frontend AST record {@code AnonymousClassBody}. Components keep the
+ * record's order; {@code Optional} components are nullable, and list components are
+ * frozen, independent copies that the node borrows for the invocation.
+ */
+public final class AnonymousClassBody {
+
+    private final SnapshotList<FieldDeclaration> fields;
+    private final SnapshotList<InstanceInitialization> instanceInitializations;
+    private final SnapshotList<StaticInitialization> staticInitializations;
+    private final DestructorDeclaration destructorDeclaration;
+    private final SnapshotList<MethodDeclaration> methods;
+    private final SnapshotList<TypeDeclaration> memberTypes;
+    private final SourceSpan span;
+
+    /** Creates the node from its components in record order. */
+    public AnonymousClassBody(SnapshotList<FieldDeclaration> fields,
+                              SnapshotList<InstanceInitialization> instanceInitializations,
+                              SnapshotList<StaticInitialization> staticInitializations,
+                              DestructorDeclaration destructorDeclaration, SnapshotList<MethodDeclaration> methods,
+                              SnapshotList<TypeDeclaration> memberTypes, SourceSpan span) {
+
+        if (fields == null) throw new NullPointerException();
+        if (instanceInitializations == null) throw new NullPointerException();
+        if (staticInitializations == null) throw new NullPointerException();
+        if (methods == null) throw new NullPointerException();
+        if (memberTypes == null) throw new NullPointerException();
+        this.fields = fields;
+        this.instanceInitializations = instanceInitializations;
+        this.staticInitializations = staticInitializations;
+        this.destructorDeclaration = destructorDeclaration;
+        this.methods = methods;
+        this.memberTypes = memberTypes;
+        this.span = span;
+    }
+
+    /** @return the {@code fields} component */
+    public SnapshotList<FieldDeclaration> fields() {
+
+        return this.fields;
+    }
+
+    /** @return the {@code instanceInitializations} component */
+    public SnapshotList<InstanceInitialization> instanceInitializations() {
+
+        return this.instanceInitializations;
+    }
+
+    /** @return the {@code staticInitializations} component */
+    public SnapshotList<StaticInitialization> staticInitializations() {
+
+        return this.staticInitializations;
+    }
+
+    /** @return the {@code destructor} component, renamed because {@code destructor} is an Ironwood keyword */
+    public DestructorDeclaration destructorDeclaration() {
+
+        return this.destructorDeclaration;
+    }
+
+    /** @return the {@code methods} component */
+    public SnapshotList<MethodDeclaration> methods() {
+
+        return this.methods;
+    }
+
+    /** @return the {@code memberTypes} component */
+    public SnapshotList<TypeDeclaration> memberTypes() {
+
+        return this.memberTypes;
+    }
+
+    /** @return the {@code span} component */
+    public SourceSpan span() {
+
+        return this.span;
+    }
+}

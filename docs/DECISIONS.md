@@ -9877,3 +9877,53 @@ occurrence order. If no
   an untreated variant and dropping an admitted arm each fail compilation in
   every mode; the native admitted sets equal the model from classes and
   archive. See [the variant record](self-hosting/m1/VARIANTS.md).
+
+## D261 - Port the frontend slice with frozen child lists and invocation-lived trees
+
+- **Status:** Implemented during M2.1 on 2026-10-05.
+- **Decision:** The selected Java frontend slice (in-memory `SourceFile.of` and
+  `lineText`, source positions and spans, diagnostics and notes, tokens, the
+  lexer, the parser with its ten private records, and the AST model) is ported
+  under `compiler/src/main/ironwood/ironwood/compiler/`. Records become final
+  classes with private final fields and accessors in record order; `Optional`
+  components are nullable; list components are frozen `SnapshotList`s, and
+  `List<Integer>` segment counts are `SnapshotInts`. `AstLists` freezes a
+  builder into a fresh independent copy, or into the element type's
+  process-lived empty constant for an empty builder, which mirrors
+  `List.copyOf`. Nodes borrow their frozen lists. The parser owns every
+  builder and parser-private holder and retires each with `defer` or `free` on
+  every exit; nodes, frozen lists, tokens, spans and text are invocation-lived.
+  Each sealed root becomes an interface whose implementations report a variant
+  enum, and consumers dispatch with a `switch` expression without `default`
+  (D260). The `destructor` record component is renamed
+  `destructorDeclaration` because `destructor` is an Ironwood keyword.
+- **Conventions:** The D258 rewrites apply. In addition, numeric validation and
+  line-terminator normalization read index ranges of the source instead of
+  substrings; the constructor-body statements are collected once instead of
+  rebuilt into a second block; the type-argument and switch-label holders
+  carry their span as its two positions, because no output retains that span;
+  `defer free` reads its expression directly instead of building a discarded
+  `FreeStatement`; and a labeled statement's message is built only when it is
+  reported. Each rewrite keeps Java's tokens, spans, tree, diagnostics and
+  their order.
+- **Boundary:** `SourceFile.read`, `DiagnosticFormatter`, `TypeName` display and
+  qualifier splitting, `DeclaredType`, `DeclaredTypes` and `PatternFlow` stay
+  later-only (M3.1/M3.3). Java leaves three conversion residues and the
+  subtrees abandoned by error recovery to its collector; natively they are
+  invocation-lived and counted exactly: the receiver name of a qualified
+  `this` or interface `super` (one allocation), a qualified superclass
+  invocation expression and its span (two), and the subtree a failed class
+  parse discards. Native code computes no digest: the test-only wire adapter
+  prints the SHA-256 the harness supplies, and B5 SHA-256 stays with M3.2. No
+  analysis, runtime or lowering change is introduced. This establishes M2.1,
+  not S1/G1.
+- **Verification:** Tokens, lexical diagnostics, ASTs and parse diagnostics are
+  byte-identical to J0 for the 36 frozen frontend workloads, for the 125-unit
+  combined source bundle, for every tracked `.iron` source and for 3,000 seeded
+  mutations; `Character.isDigit`, `isWhitespace` and `digit(_, 16)` equal Java
+  21 for all 65,536 UTF-16 units. The 376-method closure and the 119-declaration
+  model are reconciled to native treatments. The pilot compiles and links under
+  `--unfreed=warn` with no findings; an allocation census shows no temporaries
+  left by accepted inputs; every allocation failure unwinds cleanly; paired
+  ownership controls hold in every mode; and all runs fit the fixed frontend
+  budget. See [the frontend record](self-hosting/m2/FRONTEND.md).

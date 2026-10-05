@@ -1,0 +1,89 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.ast;
+
+import ironwood.compiler.source.SourceSpan;
+
+/**
+ * Port of the Java frontend AST record {@code FieldDeclaration}. Components keep the
+ * record's order; {@code Optional} components are nullable, and list components are
+ * frozen, independent copies that the node borrows for the invocation.
+ */
+public final class FieldDeclaration implements InstanceInitialization, StaticInitialization {
+
+    private final AccessModifier accessModifier;
+    private final boolean isStatic;
+    private final boolean isFinal;
+    private final TypeName type;
+    private final String name;
+    private final SourceSpan nameSpan;
+    private final Expression initializer;
+    private final SourceSpan span;
+
+    /** Creates the node from its components in record order. */
+    public FieldDeclaration(AccessModifier accessModifier, boolean isStatic, boolean isFinal, TypeName type,
+                            String name, SourceSpan nameSpan, Expression initializer, SourceSpan span) {
+
+        this.accessModifier = accessModifier;
+        this.isStatic = isStatic;
+        this.isFinal = isFinal;
+        this.type = type;
+        this.name = name;
+        this.nameSpan = nameSpan;
+        this.initializer = initializer;
+        this.span = span;
+    }
+
+    /** @return the {@code accessModifier} component */
+    public AccessModifier accessModifier() {
+
+        return this.accessModifier;
+    }
+
+    /** @return the {@code isStatic} component */
+    public boolean isStatic() {
+
+        return this.isStatic;
+    }
+
+    /** @return the {@code isFinal} component */
+    public boolean isFinal() {
+
+        return this.isFinal;
+    }
+
+    /** @return the {@code type} component */
+    public TypeName type() {
+
+        return this.type;
+    }
+
+    /** @return the {@code name} component */
+    public String name() {
+
+        return this.name;
+    }
+
+    /** @return the {@code nameSpan} component */
+    public SourceSpan nameSpan() {
+
+        return this.nameSpan;
+    }
+
+    /** @return the {@code initializer} component */
+    public Expression initializer() {
+
+        return this.initializer;
+    }
+
+    /** @return the {@code span} component */
+    @Override public SourceSpan span() {
+
+        return this.span;
+    }
+
+    @Override public InitializationVariant initializationVariant() {
+
+        return InitializationVariant.FIELD_DECLARATION;
+    }
+}

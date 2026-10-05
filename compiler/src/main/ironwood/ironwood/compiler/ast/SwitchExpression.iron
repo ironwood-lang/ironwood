@@ -1,0 +1,71 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.ast;
+
+import ironwood.compiler.port.SnapshotList;
+import ironwood.compiler.source.SourceSpan;
+
+/**
+ * Port of the Java frontend AST record {@code SwitchExpression}. Components keep the
+ * record's order; {@code Optional} components are nullable, and list components are
+ * frozen, independent copies that the node borrows for the invocation.
+ */
+public final class SwitchExpression implements Expression {
+
+    private final Expression selector;
+    private final SnapshotList<SwitchGroup> groups;
+    private final SnapshotList<SwitchRule> rules;
+    private final boolean arrowRules;
+    private final SourceSpan span;
+
+    /** Creates the node from its components in record order. */
+    public SwitchExpression(Expression selector, SnapshotList<SwitchGroup> groups, SnapshotList<SwitchRule> rules,
+                            boolean arrowRules, SourceSpan span) {
+
+        if (groups == null) throw new NullPointerException();
+        if (rules == null) throw new NullPointerException();
+        if (arrowRules && !groups.isEmpty() || !arrowRules && !rules.isEmpty()) {
+            throw new IllegalArgumentException("switch expression body forms cannot be mixed");
+        }
+        this.selector = selector;
+        this.groups = groups;
+        this.rules = rules;
+        this.arrowRules = arrowRules;
+        this.span = span;
+    }
+
+    /** @return the {@code selector} component */
+    public Expression selector() {
+
+        return this.selector;
+    }
+
+    /** @return the {@code groups} component */
+    public SnapshotList<SwitchGroup> groups() {
+
+        return this.groups;
+    }
+
+    /** @return the {@code rules} component */
+    public SnapshotList<SwitchRule> rules() {
+
+        return this.rules;
+    }
+
+    /** @return the {@code arrowRules} component */
+    public boolean arrowRules() {
+
+        return this.arrowRules;
+    }
+
+    /** @return the {@code span} component */
+    @Override public SourceSpan span() {
+
+        return this.span;
+    }
+
+    @Override public ExpressionVariant expressionVariant() {
+
+        return ExpressionVariant.SWITCH_EXPRESSION;
+    }
+}

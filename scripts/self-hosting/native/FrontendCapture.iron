@@ -1,0 +1,192 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+import ironwood.compiler.diagnostic.Diagnostic;
+import ironwood.compiler.lexer.LexResult;
+import ironwood.compiler.lexer.Lexer;
+import ironwood.compiler.parser.ParseResult;
+import ironwood.compiler.parser.Parser;
+import ironwood.compiler.source.SourceFile;
+import ironwood.ds.ArrayList;
+import ironwood.nio.file.Files;
+import ironwood.nio.file.Path;
+
+/**
+ * Test-only native frontend pilot adapter (M2.1), the counterpart of the Java
+ * ReferenceCapture frontend outputs. Usage:
+ *
+ * <pre>
+ * FrontendCapture MANIFEST OUTPUT_DIRECTORY
+ * </pre>
+ *
+ * Each manifest line is {@code INPUT<TAB>LOGICAL_NAME<TAB>SHA256}. Every input
+ * is read as strict UTF-8, then all units are lexed and parsed in one measured
+ * phase while every source, token list, AST and diagnostic list stays live.
+ * After the phase each unit's tokens.json, lex-diagnostics.json, ast.json and
+ * parse-diagnostics.json are written to OUTPUT_DIRECTORY/INDEX. One summary line
+ * on standard output reports the unit count, the phase time in nanoseconds,
+ * the allocations made during the phase, the live-allocation increase over the
+ * phase, the census of distinct allocations the retained outputs reach, and
+ * their difference: the temporaries the phase left behind.
+ * Exit status 0 means every unit was processed; malformed sources are ordinary
+ * inputs whose diagnostics are written, not failures. A unit whose parser
+ * throws records the exception's simple class name in failure.txt instead of
+ * its AST and parse diagnostics, as the Java reference does.
+ */
+class FrontendCapture {
+
+    public static int main(String[] args) {
+
+        if (args.length != 2) {
+            System.err.println("usage: FrontendCapture MANIFEST OUTPUT_DIRECTORY");
+            return 2;
+        }
+        try {
+            return run(args[0], args[1]);
+        } catch (Exception failure) {
+            System.err.println("frontend capture failed: " + failure.getMessage());
+            return 1;
+        }
+    }
+
+    private static int run(String manifestPath, String outputDirectory) throws Exception {
+
+        Path manifestFile = Path.of(manifestPath);
+        defer free manifestFile;
+        String manifest = Files.readString(manifestFile);
+        defer free manifest;
+        ArrayList<String> inputs = new ArrayList<String>();
+        defer free inputs;
+        ArrayList<String> names = new ArrayList<String>();
+        defer free names;
+        ArrayList<String> hashes = new ArrayList<String>();
+        defer free hashes;
+        parseManifest(manifest, inputs, names, hashes);
+
+        ArrayList<SourceFile> sources = new ArrayList<SourceFile>();
+        defer free sources;
+        for (int index = 0; index < inputs.size(); index++) {
+            Path input = Path.of(inputs.get(index));
+            // Loop-local path: retires at the end of each iteration.
+            defer free input;
+            String content = Files.readString(input);
+            sources.add(SourceFile.of(names.get(index), content));
+        }
+
+        // The measured phase: lexing and parsing only, every result retained.
+        ArrayList<LexResult> lexed = new ArrayList<LexResult>();
+        defer free lexed;
+        ArrayList<ParseResult> parsed = new ArrayList<ParseResult>();
+        defer free parsed;
+        ArrayList<String> failures = new ArrayList<String>();
+        defer free failures;
+        // Containers hold no nulls: "" marks a unit without failure, and a
+        // shared sentinel stands for a parse that threw.
+        for (int index = 0; index < sources.size(); index++) failures.add("");
+        ArrayList<Diagnostic> none = new ArrayList<Diagnostic>(1);
+        defer free none;
+        // The sentinel is stored in the result list and lives to process exit.
+        @SuppressUnfreed ParseResult failed = new ParseResult(null, none);
+        FrontendCensus census = new FrontendCensus();
+        defer free census;
+        long[] unitRetained = new long[sources.size()];
+        defer free unitRetained;
+        long allocationsBefore = System.allocationCount();
+        long liveBefore = System.liveAllocationCount();
+        long started = System.nanoTime();
+        for (int index = 0; index < sources.size(); index++) {
+            long unitStart = System.liveAllocationCount();
+            SourceFile source = sources.get(index);
+            Lexer lexer = new Lexer(source);
+            LexResult lexResult = lexer.lex();
+            free lexer;
+            lexed.add(lexResult);
+            Parser parser = new Parser(source, lexResult.tokens());
+            ParseResult parseResult = failed;
+            // A parser exception is an observable outcome; the unit records its class.
+            try {
+                parseResult = parser.parse();
+            } catch (RuntimeException exception) {
+                failures.set(index, simpleName(exception));
+            }
+            free parser;
+            parsed.add(parseResult);
+            long unitLive = System.liveAllocationCount() - unitStart;
+            unitRetained[index] = unitLive;
+        }
+        long phase = System.nanoTime() - started;
+        long allocations = System.allocationCount() - allocationsBefore;
+        long retained = System.liveAllocationCount() - liveBefore;
+
+        for (int index = 0; index < sources.size(); index++) {
+            String directory = outputDirectory + "/" + index;
+            defer free directory;
+            FrontendWire wire = new FrontendWire(sources.get(index), hashes.get(index), census);
+            defer free wire;
+            long censusStart = census.total();
+            census.count(lexed.get(index), 1);
+            census.count(parsed.get(index), 1);
+            wire.writeTokens(lexed.get(index).tokens());
+            write(directory + "/tokens.json", wire);
+            wire.writeDiagnostics(lexed.get(index).diagnostics());
+            write(directory + "/lex-diagnostics.json", wire);
+            ParseResult result = parsed.get(index);
+            if (result != failed) {
+                wire.writeUnit(result.unit());
+                write(directory + "/ast.json", wire);
+                wire.writeDiagnostics(result.diagnostics());
+                write(directory + "/parse-diagnostics.json", wire);
+            }
+            String failure = failures.get(index);
+            if (!failure.isEmpty()) {
+                wire.text().append(failure);
+                wire.text().append('\n');
+                write(directory + "/failure.txt", wire);
+            }
+            long unitOutstanding = unitRetained[index] - (census.total() - censusStart);
+            if (unitOutstanding != 0) System.out.println("unit " + index + " outstanding " + unitOutstanding);
+        }
+        long outstanding = retained - census.total();
+        System.out.println("units " + sources.size() + " phase_nanos " + phase + " phase_allocations "
+                + allocations + " retained_allocations " + retained + " census_allocations " + census.total()
+                + " outstanding_temporaries " + outstanding + " calibration " + census.calibration());
+        return 0;
+    }
+
+    // The class name without its package, from Throwable.toString().
+    private static String simpleName(Throwable failure) {
+
+        String text = failure.toString();
+        defer free text;
+        int end = text.indexOf(':');
+        if (end < 0) end = text.length();
+        int start = text.lastIndexOf('.', end - 1) + 1;
+        return text.substring(start, end);
+    }
+
+    private static void write(String path, FrontendWire wire) throws Exception {
+
+        Path file = Path.of(path);
+        defer free file;
+        Files.writeString(file, wire.text());
+        wire.reset();
+    }
+
+    private static void parseManifest(String manifest, ArrayList<String> inputs, ArrayList<String> names,
+                                      ArrayList<String> hashes) {
+
+        int start = 0;
+        while (start < manifest.length()) {
+            int end = manifest.indexOf('\n', start);
+            if (end < 0) end = manifest.length();
+            if (end > start) {
+                int first = manifest.indexOf('\t', start);
+                int second = manifest.indexOf('\t', first + 1);
+                if (first < 0 || second < 0 || second >= end) throw new IllegalArgumentException("bad manifest line");
+                inputs.add(manifest.substring(start, first));
+                names.add(manifest.substring(first + 1, second));
+                hashes.add(manifest.substring(second + 1, end));
+            }
+            start = end + 1;
+        }
+    }
+}

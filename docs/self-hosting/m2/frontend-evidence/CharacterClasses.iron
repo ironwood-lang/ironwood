@@ -1,0 +1,42 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// Prints, for every UTF-16 code unit, the three Character predicates the
+// frontend lexer uses, as ranges of equal results. Output must equal
+// CharacterClassesReference under Java 21. Exit 0.
+class CharacterClasses {
+
+    public static int main(String[] args) {
+
+        StringBuilder out = new StringBuilder();
+        defer free out;
+        for (int property = 0; property < 3; property++) {
+            int start = 0;
+            int previous = value(property, 0);
+            for (int unit = 1; unit <= 65536; unit++) {
+                int current = unit == 65536 ? -2 : value(property, unit);
+                if (current != previous) {
+                    out.append(property);
+                    out.append(' ');
+                    out.append(start);
+                    out.append(' ');
+                    out.append(unit - 1);
+                    out.append(' ');
+                    out.append(previous);
+                    out.append('\n');
+                    start = unit;
+                    previous = current;
+                }
+            }
+        }
+        System.out.print(out);
+        return 0;
+    }
+
+    private static int value(int property, int unit) {
+
+        char current = (char) unit;
+        if (property == 0) return Character.isDigit(current) ? 1 : 0;
+        if (property == 1) return Character.isWhitespace(current) ? 1 : 0;
+        return Character.digit(current, 16);
+    }
+}

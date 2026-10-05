@@ -1,0 +1,64 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.ast;
+
+import ironwood.compiler.port.SnapshotInts;
+import ironwood.compiler.port.SnapshotList;
+import ironwood.compiler.source.SourceSpan;
+
+/**
+ * Port of the Java frontend AST record {@code TypeReference}. Components keep the
+ * record's order; {@code Optional} components are nullable, and list components are
+ * frozen, independent copies that the node borrows for the invocation.
+ */
+public final class TypeReference {
+
+    private final String name;
+    private final SnapshotList<TypeName> typeArguments;
+    private final SnapshotInts typeArgumentSegmentCounts;
+    private final SourceSpan span;
+
+    /** Creates the node from its components in record order. */
+    public TypeReference(String name, SnapshotList<TypeName> typeArguments, SnapshotInts typeArgumentSegmentCounts,
+                         SourceSpan span) {
+
+        if (typeArguments == null) typeArguments = AstLists.NO_TYPE_NAMES;
+        if (typeArgumentSegmentCounts == null) typeArgumentSegmentCounts = AstLists.NO_COUNTS;
+        if (typeArgumentSegmentCounts.anyNegative() || typeArgumentSegmentCounts.sum() != typeArguments.size()) {
+            throw new IllegalArgumentException(
+                    "parameterized name segments must account for every type argument");
+        }
+        if (typeArgumentSegmentCounts.size() != TypeName.segmentCount(name)) {
+            throw new IllegalArgumentException(
+                    "parameterized name segments must match the qualified reference name");
+        }
+        this.name = name;
+        this.typeArguments = typeArguments;
+        this.typeArgumentSegmentCounts = typeArgumentSegmentCounts;
+        this.span = span;
+    }
+
+    /** @return the {@code name} component */
+    public String name() {
+
+        return this.name;
+    }
+
+    /** @return the {@code typeArguments} component */
+    public SnapshotList<TypeName> typeArguments() {
+
+        return this.typeArguments;
+    }
+
+    /** @return the {@code typeArgumentSegmentCounts} component */
+    public SnapshotInts typeArgumentSegmentCounts() {
+
+        return this.typeArgumentSegmentCounts;
+    }
+
+    /** @return the {@code span} component */
+    public SourceSpan span() {
+
+        return this.span;
+    }
+}

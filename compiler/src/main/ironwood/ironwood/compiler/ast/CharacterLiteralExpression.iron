@@ -1,0 +1,44 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.ast;
+
+import ironwood.compiler.source.SourceSpan;
+
+/**
+ * One unsigned UTF-16 code unit. It ports the Java frontend AST record {@code
+ * CharacterLiteralExpression}. Components keep the record's order; {@code Optional}
+ * components are nullable, and list components are frozen, independent copies that the
+ * node borrows for the invocation.
+ */
+public final class CharacterLiteralExpression implements Expression {
+
+    private final int value;
+    private final SourceSpan span;
+
+    /** Creates the node from its components in record order. */
+    public CharacterLiteralExpression(int value, SourceSpan span) {
+
+        if (value < 0 || value > 65535) {
+            throw new IllegalArgumentException("character literal must be one UTF-16 code unit");
+        }
+        this.value = value;
+        this.span = span;
+    }
+
+    /** @return the {@code value} component */
+    public int value() {
+
+        return this.value;
+    }
+
+    /** @return the {@code span} component */
+    @Override public SourceSpan span() {
+
+        return this.span;
+    }
+
+    @Override public ExpressionVariant expressionVariant() {
+
+        return ExpressionVariant.CHARACTER_LITERAL_EXPRESSION;
+    }
+}

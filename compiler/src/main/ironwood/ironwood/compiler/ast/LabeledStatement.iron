@@ -1,0 +1,56 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.ast;
+
+import ironwood.compiler.source.SourceSpan;
+
+/**
+ * Port of the Java frontend AST record {@code LabeledStatement}. Components keep the
+ * record's order; {@code Optional} components are nullable, and list components are
+ * frozen, independent copies that the node borrows for the invocation.
+ */
+public final class LabeledStatement implements Statement {
+
+    private final String label;
+    private final SourceSpan labelSpan;
+    private final Statement body;
+    private final SourceSpan span;
+
+    /** Creates the node from its components in record order. */
+    public LabeledStatement(String label, SourceSpan labelSpan, Statement body, SourceSpan span) {
+
+        this.label = label;
+        this.labelSpan = labelSpan;
+        this.body = body;
+        this.span = span;
+    }
+
+    /** @return the {@code label} component */
+    public String label() {
+
+        return this.label;
+    }
+
+    /** @return the {@code labelSpan} component */
+    public SourceSpan labelSpan() {
+
+        return this.labelSpan;
+    }
+
+    /** @return the {@code body} component */
+    public Statement body() {
+
+        return this.body;
+    }
+
+    /** @return the {@code span} component */
+    @Override public SourceSpan span() {
+
+        return this.span;
+    }
+
+    @Override public StatementVariant statementVariant() {
+
+        return StatementVariant.LABELED_STATEMENT;
+    }
+}

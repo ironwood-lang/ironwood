@@ -1,0 +1,61 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.ast;
+
+import ironwood.compiler.source.SourceSpan;
+
+/**
+ * Port of the Java frontend AST record {@code ArrayCreationExpression}. Components
+ * keep the record's order; {@code Optional} components are nullable, and list
+ * components are frozen, independent copies that the node borrows for the invocation.
+ */
+public final class ArrayCreationExpression implements Expression {
+
+    private final TypeName elementType;
+    private final Expression length;
+    private final ArrayInitializerExpression initializer;
+    private final SourceSpan span;
+
+    /** Creates the node from its components in record order. */
+    public ArrayCreationExpression(TypeName elementType, Expression length, ArrayInitializerExpression initializer,
+                                   SourceSpan span) {
+
+        if ((length != null) == (initializer != null)) {
+            throw new IllegalArgumentException(
+                    "array creation requires exactly one of length or initializer");
+        }
+        this.elementType = elementType;
+        this.length = length;
+        this.initializer = initializer;
+        this.span = span;
+    }
+
+    /** @return the {@code elementType} component */
+    public TypeName elementType() {
+
+        return this.elementType;
+    }
+
+    /** @return the {@code length} component */
+    public Expression length() {
+
+        return this.length;
+    }
+
+    /** @return the {@code initializer} component */
+    public ArrayInitializerExpression initializer() {
+
+        return this.initializer;
+    }
+
+    /** @return the {@code span} component */
+    @Override public SourceSpan span() {
+
+        return this.span;
+    }
+
+    @Override public ExpressionVariant expressionVariant() {
+
+        return ExpressionVariant.ARRAY_CREATION_EXPRESSION;
+    }
+}

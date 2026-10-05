@@ -1,0 +1,51 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.ast;
+
+import ironwood.compiler.source.SourceSpan;
+
+/**
+ * Port of the Java frontend AST record {@code BreakStatement}. Components keep the
+ * record's order; {@code Optional} components are nullable, and list components are
+ * frozen, independent copies that the node borrows for the invocation.
+ */
+public final class BreakStatement implements Statement {
+
+    private final String label;
+    private final SourceSpan labelSpan;
+    private final SourceSpan span;
+
+    /** Creates the node from its components in record order. */
+    public BreakStatement(String label, SourceSpan labelSpan, SourceSpan span) {
+
+        if ((label != null) != (labelSpan != null)) {
+            throw new IllegalArgumentException("break label and span must be present together");
+        }
+        this.label = label;
+        this.labelSpan = labelSpan;
+        this.span = span;
+    }
+
+    /** @return the {@code label} component */
+    public String label() {
+
+        return this.label;
+    }
+
+    /** @return the {@code labelSpan} component */
+    public SourceSpan labelSpan() {
+
+        return this.labelSpan;
+    }
+
+    /** @return the {@code span} component */
+    @Override public SourceSpan span() {
+
+        return this.span;
+    }
+
+    @Override public StatementVariant statementVariant() {
+
+        return StatementVariant.BREAK_STATEMENT;
+    }
+}

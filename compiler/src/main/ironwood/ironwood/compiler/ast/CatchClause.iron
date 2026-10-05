@@ -1,0 +1,71 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.ast;
+
+import ironwood.compiler.port.SnapshotList;
+import ironwood.compiler.source.SourceSpan;
+
+/**
+ * Port of the Java frontend AST record {@code CatchClause}. Components keep the
+ * record's order; {@code Optional} components are nullable, and list components are
+ * frozen, independent copies that the node borrows for the invocation.
+ */
+public final class CatchClause {
+
+    private final SnapshotList<TypeName> types;
+    private final boolean isFinal;
+    private final String variableName;
+    private final SourceSpan variableNameSpan;
+    private final Block body;
+    private final SourceSpan span;
+
+    /** Creates the node from its components in record order. */
+    public CatchClause(SnapshotList<TypeName> types, boolean isFinal, String variableName, SourceSpan variableNameSpan,
+                       Block body, SourceSpan span) {
+
+        if (types == null) throw new NullPointerException();
+        if (types.isEmpty()) throw new IllegalArgumentException("catch clause requires at least one type");
+        this.types = types;
+        this.isFinal = isFinal;
+        this.variableName = variableName;
+        this.variableNameSpan = variableNameSpan;
+        this.body = body;
+        this.span = span;
+    }
+
+    /** @return the {@code types} component */
+    public SnapshotList<TypeName> types() {
+
+        return this.types;
+    }
+
+    /** @return the {@code isFinal} component */
+    public boolean isFinal() {
+
+        return this.isFinal;
+    }
+
+    /** @return the {@code variableName} component */
+    public String variableName() {
+
+        return this.variableName;
+    }
+
+    /** @return the {@code variableNameSpan} component */
+    public SourceSpan variableNameSpan() {
+
+        return this.variableNameSpan;
+    }
+
+    /** @return the {@code body} component */
+    public Block body() {
+
+        return this.body;
+    }
+
+    /** @return the {@code span} component */
+    public SourceSpan span() {
+
+        return this.span;
+    }
+}

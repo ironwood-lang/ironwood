@@ -1,0 +1,41 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.ast;
+
+import ironwood.compiler.source.SourceSpan;
+
+/**
+ * Captures a void invocation for cleanup at the end of its explicit source block. It
+ * ports the Java frontend AST record {@code DeferStatement}. Components keep the
+ * record's order; {@code Optional} components are nullable, and list components are
+ * frozen, independent copies that the node borrows for the invocation.
+ */
+public final class DeferStatement implements Statement {
+
+    private final CallExpression call;
+    private final SourceSpan span;
+
+    /** Creates the node from its components in record order. */
+    public DeferStatement(CallExpression call, SourceSpan span) {
+
+        this.call = call;
+        this.span = span;
+    }
+
+    /** @return the {@code call} component */
+    public CallExpression call() {
+
+        return this.call;
+    }
+
+    /** @return the {@code span} component */
+    @Override public SourceSpan span() {
+
+        return this.span;
+    }
+
+    @Override public StatementVariant statementVariant() {
+
+        return StatementVariant.DEFER_STATEMENT;
+    }
+}

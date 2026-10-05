@@ -857,6 +857,11 @@ public final class CompilerTests {
         test("pilot variant lists match the Java operation model", OperationVariantTests::matchesJavaModel);
         test("pilot variant admission fails closed on untreated variants", OperationVariantTests::failsClosed);
         test("pilot variant admission matches the model across artifacts", OperationVariantTests::artifacts);
+        test("frontend pilot variants match the Java syntax model", FrontendPilotTests::matchesJavaModel);
+        test("frontend pilot dispatch fails closed on untreated variants", FrontendPilotTests::failsClosed);
+        test("frontend pilot retires builders and rejects frees of observed state", FrontendPilotTests::ownership);
+        test("frontend pilot matches the Java frontend across artifacts", FrontendPilotTests::artifacts);
+        test("frontend pilot unwinds every allocation failure cleanly", FrontendPilotTests::failures);
         test("private compiler snapshot getter loans survive joins and delegation",
                 this::privateSnapshotGetterJoins);
         test("private compiler snapshot proofs reject publication and unrecognized construction",

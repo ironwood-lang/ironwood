@@ -1,0 +1,115 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.ast;
+
+import ironwood.compiler.port.SnapshotList;
+import ironwood.compiler.source.SourceSpan;
+
+/**
+ * Port of the Java frontend AST record {@code InterfaceMethodDeclaration}. Components
+ * keep the record's order; {@code Optional} components are nullable, and list
+ * components are frozen, independent copies that the node borrows for the invocation.
+ */
+public final class InterfaceMethodDeclaration {
+
+    private final AccessModifier accessModifier;
+    private final InterfaceMethodKind kind;
+    private final boolean hasOverrideDirective;
+    private final SnapshotList<TypeParameter> typeParameters;
+    private final TypeName returnType;
+    private final String name;
+    private final SourceSpan nameSpan;
+    private final SnapshotList<Parameter> parameters;
+    private final SnapshotList<TypeName> thrownTypes;
+    private final Block body;
+    private final SourceSpan span;
+
+    /** Creates the node from its components in record order. */
+    public InterfaceMethodDeclaration(AccessModifier accessModifier, InterfaceMethodKind kind,
+                                      boolean hasOverrideDirective, SnapshotList<TypeParameter> typeParameters,
+                                      TypeName returnType, String name, SourceSpan nameSpan,
+                                      SnapshotList<Parameter> parameters, SnapshotList<TypeName> thrownTypes,
+                                      Block body, SourceSpan span) {
+
+        if (typeParameters == null) typeParameters = AstLists.NO_TYPE_PARAMETERS;
+        if (parameters == null) throw new NullPointerException();
+        if (thrownTypes == null) thrownTypes = AstLists.NO_TYPE_NAMES;
+        this.accessModifier = accessModifier;
+        this.kind = kind;
+        this.hasOverrideDirective = hasOverrideDirective;
+        this.typeParameters = typeParameters;
+        this.returnType = returnType;
+        this.name = name;
+        this.nameSpan = nameSpan;
+        this.parameters = parameters;
+        this.thrownTypes = thrownTypes;
+        this.body = body;
+        this.span = span;
+    }
+
+    /** @return the {@code accessModifier} component */
+    public AccessModifier accessModifier() {
+
+        return this.accessModifier;
+    }
+
+    /** @return the {@code kind} component */
+    public InterfaceMethodKind kind() {
+
+        return this.kind;
+    }
+
+    /** @return the {@code hasOverrideDirective} component */
+    public boolean hasOverrideDirective() {
+
+        return this.hasOverrideDirective;
+    }
+
+    /** @return the {@code typeParameters} component */
+    public SnapshotList<TypeParameter> typeParameters() {
+
+        return this.typeParameters;
+    }
+
+    /** @return the {@code returnType} component */
+    public TypeName returnType() {
+
+        return this.returnType;
+    }
+
+    /** @return the {@code name} component */
+    public String name() {
+
+        return this.name;
+    }
+
+    /** @return the {@code nameSpan} component */
+    public SourceSpan nameSpan() {
+
+        return this.nameSpan;
+    }
+
+    /** @return the {@code parameters} component */
+    public SnapshotList<Parameter> parameters() {
+
+        return this.parameters;
+    }
+
+    /** @return the {@code thrownTypes} component */
+    public SnapshotList<TypeName> thrownTypes() {
+
+        return this.thrownTypes;
+    }
+
+    /** @return the {@code body} component */
+    public Block body() {
+
+        return this.body;
+    }
+
+    /** @return the {@code span} component */
+    public SourceSpan span() {
+
+        return this.span;
+    }
+}

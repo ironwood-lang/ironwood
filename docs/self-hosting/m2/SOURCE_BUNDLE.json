@@ -1,0 +1,1047 @@
+{
+ "schema_version": 1,
+ "scope": "M2.1 combined source manifest: the M1 helper bundle, the M1 library additions it uses and the translated frontend consumer sources; the representative compiler-source workload lexed and parsed in one invocation",
+ "extends": "docs/self-hosting/m1/HELPER_BUNDLE.json",
+ "base_commit": "97417cb4c6a09193f79eaeaa341fbe703aa93196",
+ "units": 125,
+ "lines": 13164,
+ "bytes": 460899,
+ "roles": {
+  "m2.1-frontend-consumer": 106,
+  "m1-helper": 11,
+  "m1-helper-extended-in-m2.1": 1,
+  "m1-library-addition": 7
+ },
+ "sources": [
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/ast/AccessModifier.iron",
+   "role": "m2.1-frontend-consumer",
+   "sha256": "c3d6075f4f431cb6de239949cee84735f9da8f7348247c70f099c22e2091eaf0",
+   "bytes": 308,
+   "lines": 15,
+   "m1_sha256": null
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/ast/AnonymousClassBody.iron",
+   "role": "m2.1-frontend-consumer",
+   "sha256": "f0af2c734690cafe14ad4138da87506bedd92a4d6389515491ad189898ee8952",
+   "bytes": 3311,
+   "lines": 86,
+   "m1_sha256": null
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/ast/ArrayAccessExpression.iron",
+   "role": "m2.1-frontend-consumer",
+   "sha256": "a770de67e8062b00f9964b2c8e68c07028c8265a56d30b49e756f5dd69c1cc04",
+   "bytes": 1274,
+   "lines": 48,
+   "m1_sha256": null
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/ast/ArrayCreationExpression.iron",
+   "role": "m2.1-frontend-consumer",
+   "sha256": "7186075da1c9b5052da0d5ba2627cb133ed91ccf2aa2db617237a484aec674c7",
+   "bytes": 1846,
+   "lines": 61,
+   "m1_sha256": null
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/ast/ArrayInitializerExpression.iron",
+   "role": "m2.1-frontend-consumer",
+   "sha256": "29b8d0b4154f8233b876c946e509f23e550c574ba6bfb856c18c7bd4e688aa43",
+   "bytes": 1335,
+   "lines": 43,
+   "m1_sha256": null
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/ast/AssignmentExpression.iron",
+   "role": "m2.1-frontend-consumer",
+   "sha256": "014f4d912a2a130446737413bb5a2dc609d95e18adc0606d13ccfffdaf77c4c4",
+   "bytes": 1794,
+   "lines": 65,
+   "m1_sha256": null
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/ast/AssignmentOperator.iron",
+   "role": "m2.1-frontend-consumer",
+   "sha256": "2718bb5a14c6098bdc410485ca0c71681eb411e557dd272c1eedf67ba64f51a1",
+   "bytes": 445,
+   "lines": 23,
+   "m1_sha256": null
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/ast/AssignmentStatement.iron",
+   "role": "m2.1-frontend-consumer",
+   "sha256": "75ba457fda0bbca6955f99b6c971703268ce962087406eb629b21ddf13e328be",
+   "bytes": 1499,
+   "lines": 56,
+   "m1_sha256": null
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/ast/AstLists.iron",
+   "role": "m2.1-frontend-consumer",
+   "sha256": "8481f75221d3d843d3007493a3b0a961e84e8944c2e0764c027cc2b30c4dfe29",
+   "bytes": 11231,
+   "lines": 254,
+   "m1_sha256": null
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/ast/BinaryExpression.iron",
+   "role": "m2.1-frontend-consumer",
+   "sha256": "74d75a83eaf0f6729b74d721077a8df0a6c6307fa003f11fdc1f32607c1e62a6",
+   "bytes": 1748,
+   "lines": 65,
+   "m1_sha256": null
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/ast/BinaryOperator.iron",
+   "role": "m2.1-frontend-consumer",
+   "sha256": "e786ae013faa401968f571024ebfb31c8ac74c899c86100bad3e52b2c38d6a7e",
+   "bytes": 526,
+   "lines": 29,
+   "m1_sha256": null
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/ast/Block.iron",
+   "role": "m2.1-frontend-consumer",
+   "sha256": "27fcad05395986d0647b07f5dff92bebd221bf4131409c40268c47205da18da0",
+   "bytes": 1359,
+   "lines": 47,
+   "m1_sha256": null
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/ast/BooleanLiteralExpression.iron",
+   "role": "m2.1-frontend-consumer",
+   "sha256": "53bc2f575758f1252bc4b1a4296cd7b645dc2d9a145244725c73bec5fa9fbaf8",
+   "bytes": 1081,
+   "lines": 40,
+   "m1_sha256": null
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/ast/BreakStatement.iron",
+   "role": "m2.1-frontend-consumer",
+   "sha256": "ac0f4d21a74f832edac510bfb9f5524aac61eac4672e9b9216341954c1e6e153",
+   "bytes": 1418,
+   "lines": 51,
+   "m1_sha256": null
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/ast/CallExpression.iron",
+   "role": "m2.1-frontend-consumer",
+   "sha256": "e0a094cd0f5b5e8cfd8d176b78609ca496e782aadd727411b62d8cd5367c1bee",
+   "bytes": 2312,
+   "lines": 76,
+   "m1_sha256": null
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/ast/CastExpression.iron",
+   "role": "m2.1-frontend-consumer",
+   "sha256": "9f8c694d2c1474a91ded3134502a81f8db3eb10efd61a9ed6d8c72ed29f349f5",
+   "bytes": 1288,
+   "lines": 48,
+   "m1_sha256": null
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/ast/CatchClause.iron",
+   "role": "m2.1-frontend-consumer",
+   "sha256": "0c5d1d85462e504ffc095e250359bfb77a1c82778c198232f81c5a6caf04e749",
+   "bytes": 2042,
+   "lines": 71,
+   "m1_sha256": null
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/ast/CharacterLiteralExpression.iron",
+   "role": "m2.1-frontend-consumer",
+   "sha256": "0e7724bacbb24505b659d4c4ef347c133880a2da4fc9c6a0ad2bb1a48ca2ca3b",
+   "bytes": 1262,
+   "lines": 44,
+   "m1_sha256": null
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/ast/ClassDeclaration.iron",
+   "role": "m2.1-frontend-consumer",
+   "sha256": "1fe3f70015850c89cb917eb0335f5a0a345ce729a011235a69bf33748fa3cf94",
+   "bytes": 6905,
+   "lines": 195,
+   "m1_sha256": null
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/ast/CompilationUnit.iron",
+   "role": "m2.1-frontend-consumer",
+   "sha256": "df35450e4b9d561f1219d0e0b3e4e39793ba9117bc0308b3cf483236930179d6",
+   "bytes": 2067,
+   "lines": 65,
+   "m1_sha256": null
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/ast/ConditionalExpression.iron",
+   "role": "m2.1-frontend-consumer",
+   "sha256": "fd7f0a0073c08cf46cc0f9371dfe039d60d6f773289e67a627c42dd4662ea019",
+   "bytes": 1824,
+   "lines": 65,
+   "m1_sha256": null
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/ast/ConstructorDeclaration.iron",
+   "role": "m2.1-frontend-consumer",
+   "sha256": "b99a629064b3074c3420ee6cdc7430c1baa53a89d76688bf73ad4d8ad9e65d56",
+   "bytes": 3402,
+   "lines": 106,
+   "m1_sha256": null
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/ast/ContinueStatement.iron",
+   "role": "m2.1-frontend-consumer",
+   "sha256": "964894aaf4ee76b80fcde5e37f0c536ea2a1ffbf298b1bd77ed90a1ac2d2f97c",
+   "bytes": 1433,
+   "lines": 51,
+   "m1_sha256": null
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/ast/DeferStatement.iron",
+   "role": "m2.1-frontend-consumer",
+   "sha256": "24ece8edd276037884b613e1c9bae6fcf5a580051a044623a5ea57b0b43f0083",
+   "bytes": 1134,
+   "lines": 41,
+   "m1_sha256": null
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/ast/DeferredFreeStatement.iron",
+   "role": "m2.1-frontend-consumer",
+   "sha256": "368fd2ffe01732cb5a348fa08ff57546388e1eca1587b370f98fe3f2ae95a62b",
+   "bytes": 1170,
+   "lines": 41,
+   "m1_sha256": null
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/ast/DestructorDeclaration.iron",
+   "role": "m2.1-frontend-consumer",
+   "sha256": "a9e7c2654e44dcb76dc65ef604938bf99a00e58f5ee1488a8e378bf2e168b3a1",
+   "bytes": 1211,
+   "lines": 44,
+   "m1_sha256": null
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/ast/DoWhileStatement.iron",
+   "role": "m2.1-frontend-consumer",
+   "sha256": "2b892a67e3f96fa027c7e21c19d4c1174f020503eae4c57cf8f1ae01c55d4149",
+   "bytes": 1268,
+   "lines": 48,
+   "m1_sha256": null
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/ast/EmptyStatement.iron",
+   "role": "m2.1-frontend-consumer",
+   "sha256": "846ac8346354263a8392d661ef241e5da8325bd5bb133f2c4f43442fab907314",
+   "bytes": 849,
+   "lines": 32,
+   "m1_sha256": null
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/ast/EnhancedForStatement.iron",
+   "role": "m2.1-frontend-consumer",
+   "sha256": "76cec5d800db234e1da15827c4c08eddcca02d5215d32d61af9445a6efdf42b5",
+   "bytes": 2297,
+   "lines": 81,
+   "m1_sha256": null
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/ast/EnumConstant.iron",
+   "role": "m2.1-frontend-consumer",
+   "sha256": "9feba546da39fadabf50f7399ecb69a6742f1866d4ae34b55dcb3c69cba247d9",
+   "bytes": 1793,
+   "lines": 63,
+   "m1_sha256": null
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/ast/EnumConstantInitialization.iron",
+   "role": "m2.1-frontend-consumer",
+   "sha256": "fd4fd523ed81c37a71014b3852e7a52e9c56f801c29db88ab54797d8c6a32537",
+   "bytes": 1208,
+   "lines": 41,
+   "m1_sha256": null
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/ast/Expression.iron",
+   "role": "m2.1-frontend-consumer",
+   "sha256": "150267bc15361f7bd05d7ac02e1892643617012f6d2f6c423a056dbb6adb599d",
+   "bytes": 502,
+   "lines": 19,
+   "m1_sha256": null
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/ast/ExpressionStatement.iron",
+   "role": "m2.1-frontend-consumer",
+   "sha256": "98c1f488323883b8485f9b909e6f85679535179027b5f2e9a39936e0913547ab",
+   "bytes": 1100,
+   "lines": 40,
+   "m1_sha256": null
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/ast/ExpressionVariant.iron",
+   "role": "m2.1-frontend-consumer",
+   "sha256": "fe7b6d399b065851615ec4821722de3101359c48b59e8355ee54c964d8e9199e",
+   "bytes": 1070,
+   "lines": 38,
+   "m1_sha256": null
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/ast/FieldAccessExpression.iron",
+   "role": "m2.1-frontend-consumer",
+   "sha256": "491ac5ac788e02a2a45eb03d2f2a6d3394b313877777646e656cfcaad87bf291",
+   "bytes": 1563,
+   "lines": 56,
+   "m1_sha256": null
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/ast/FieldDeclaration.iron",
+   "role": "m2.1-frontend-consumer",
+   "sha256": "8fceb7525a4d5d196fecf468259bd6bd2f95fc85ef9feed31d9cf4e8e577f088",
+   "bytes": 2430,
+   "lines": 89,
+   "m1_sha256": null
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/ast/FloatingLiteralExpression.iron",
+   "role": "m2.1-frontend-consumer",
+   "sha256": "deec00a61723afe673f3bdbd4d3e9880e2ebf07785fce715e1b8bff3eddea2eb",
+   "bytes": 1075,
+   "lines": 40,
+   "m1_sha256": null
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/ast/ForStatement.iron",
+   "role": "m2.1-frontend-consumer",
+   "sha256": "22cf75e372155ec8fe0095e85bad2cbd66f46278f87d0a857c33d1b638a73f13",
+   "bytes": 1869,
+   "lines": 67,
+   "m1_sha256": null
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/ast/FreeStatement.iron",
+   "role": "m2.1-frontend-consumer",
+   "sha256": "abb91c18e4bf025b9fa5eea7dfada503337eae492cd057c5a65ba1a86f28aa65",
+   "bytes": 1041,
+   "lines": 40,
+   "m1_sha256": null
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/ast/IfStatement.iron",
+   "role": "m2.1-frontend-consumer",
+   "sha256": "cf9d9b0a03b00635524211895f8fa3c6c6d52e1f2a99d22609ad008daa8c49e3",
+   "bytes": 1517,
+   "lines": 56,
+   "m1_sha256": null
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/ast/ImportDeclaration.iron",
+   "role": "m2.1-frontend-consumer",
+   "sha256": "b98a325ef1a2f751be8f190186873cecc267519a57aa9f8753d2205148034825",
+   "bytes": 1578,
+   "lines": 60,
+   "m1_sha256": null
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/ast/InitializationVariant.iron",
+   "role": "m2.1-frontend-consumer",
+   "sha256": "bf422efacbd98d2e365fbee75950f813ef1cf63602d8b40f514f02a1e2477860",
+   "bytes": 432,
+   "lines": 14,
+   "m1_sha256": null
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/ast/InstanceInitialization.iron",
+   "role": "m2.1-frontend-consumer",
+   "sha256": "b6c12d6130e56cad427fb4a05868939b83d932920a0e7cc7c25c655957c67d51",
+   "bytes": 589,
+   "lines": 19,
+   "m1_sha256": null
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/ast/InstanceOfExpression.iron",
+   "role": "m2.1-frontend-consumer",
+   "sha256": "106b0dadeffa3fdd9390d8b81b7f2b8c5635d0274aae9d3618a88f1313bbb475",
+   "bytes": 1824,
+   "lines": 65,
+   "m1_sha256": null
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/ast/IntegerLiteralExpression.iron",
+   "role": "m2.1-frontend-consumer",
+   "sha256": "8991e61fe54f9e38286fe9dbc8155d2a3bc44502774c5c2f2abbe9b99c85daf3",
+   "bytes": 1071,
+   "lines": 40,
+   "m1_sha256": null
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/ast/InterfaceDeclaration.iron",
+   "role": "m2.1-frontend-consumer",
+   "sha256": "bb0ebc676657b204c098210e77ee064f151f8fbdb0ff2c4ea8e4dd52d330b1ee",
+   "bytes": 3844,
+   "lines": 114,
+   "m1_sha256": null
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/ast/InterfaceMethodDeclaration.iron",
+   "role": "m2.1-frontend-consumer",
+   "sha256": "63461815c4a95b4c4596295f2423c266062e003569d0035a0f67188131e36a0d",
+   "bytes": 3579,
+   "lines": 115,
+   "m1_sha256": null
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/ast/InterfaceMethodKind.iron",
+   "role": "m2.1-frontend-consumer",
+   "sha256": "50c1d9ff981dca0b1cd01ae074bd75a15d03e2ccd41f0645ae9039fec766b63d",
+   "bytes": 346,
+   "lines": 16,
+   "m1_sha256": null
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/ast/InterfaceSuperExpression.iron",
+   "role": "m2.1-frontend-consumer",
+   "sha256": "0cc047d577ec83ba98f0b113a264b994e44c87219ff69d21d50af471071aa98e",
+   "bytes": 1481,
+   "lines": 49,
+   "m1_sha256": null
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/ast/LabeledStatement.iron",
+   "role": "m2.1-frontend-consumer",
+   "sha256": "34e7d9d05e6fb8f336e450c8fb2d3f2cbc223b28cc9c29ad131a254c3306c9b0",
+   "bytes": 1451,
+   "lines": 56,
+   "m1_sha256": null
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/ast/LocalClassDeclaration.iron",
+   "role": "m2.1-frontend-consumer",
+   "sha256": "ff3dbbf60a93e461c35ad3c6b97be904ff274b2179cfb7d4d357ef111592a118",
+   "bytes": 1140,
+   "lines": 39,
+   "m1_sha256": null
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/ast/LocalVariableDeclaration.iron",
+   "role": "m2.1-frontend-consumer",
+   "sha256": "3944c42e8536c0dc83f40198de54312230781d34ad165e05588ad3ac55b74341",
+   "bytes": 2283,
+   "lines": 81,
+   "m1_sha256": null
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/ast/MethodDeclaration.iron",
+   "role": "m2.1-frontend-consumer",
+   "sha256": "0bec80ed0c7ece39ca21ef57da9cd34b5c3eb5f4e9bcde73667ca6cfaed2dc9a",
+   "bytes": 4195,
+   "lines": 139,
+   "m1_sha256": null
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/ast/ModernSwitchStatement.iron",
+   "role": "m2.1-frontend-consumer",
+   "sha256": "92126737c6d73a37f8de0ef01faa4e1755a1e6e3c1b74c637ca0bcaa035d50dd",
+   "bytes": 1438,
+   "lines": 50,
+   "m1_sha256": null
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/ast/NameExpression.iron",
+   "role": "m2.1-frontend-consumer",
+   "sha256": "2b3a430bce36a3fa4d5a07e493afa42abb3f27eececf7d63f6de500ac650a4f7",
+   "bytes": 1030,
+   "lines": 40,
+   "m1_sha256": null
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/ast/NewExpression.iron",
+   "role": "m2.1-frontend-consumer",
+   "sha256": "e766e9d38e5843ebd7916d5bfd71e01e6688e3b8b7dda7246e41fac55826e4ba",
+   "bytes": 2746,
+   "lines": 85,
+   "m1_sha256": null
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/ast/NullLiteralExpression.iron",
+   "role": "m2.1-frontend-consumer",
+   "sha256": "101082ab655adcd37f20a385ee4309ddfb73cd166fd505d911ab607daf8c381f",
+   "bytes": 882,
+   "lines": 32,
+   "m1_sha256": null
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/ast/PackageDeclaration.iron",
+   "role": "m2.1-frontend-consumer",
+   "sha256": "523d0ae5b788a5cd59b1e409250c40051c46352bb748dc2b0ac148720664e0c9",
+   "bytes": 1108,
+   "lines": 43,
+   "m1_sha256": null
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/ast/Parameter.iron",
+   "role": "m2.1-frontend-consumer",
+   "sha256": "5b98c553797851189973c661e4bcb0025bf6be66e3f008a7900a73e7bbaac547",
+   "bytes": 1465,
+   "lines": 59,
+   "m1_sha256": null
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/ast/QualifiedSuperConstructorExpression.iron",
+   "role": "m2.1-frontend-consumer",
+   "sha256": "802b24bb85e147e636b4629241941aa2061e83d9c47426e167201af1c0220711",
+   "bytes": 2089,
+   "lines": 62,
+   "m1_sha256": null
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/ast/QualifiedThisExpression.iron",
+   "role": "m2.1-frontend-consumer",
+   "sha256": "8ad19a705c2ff23368e83941d31b21ed661f6a88d1264eb3adb2d7113f60f12d",
+   "bytes": 1403,
+   "lines": 49,
+   "m1_sha256": null
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/ast/ReturnStatement.iron",
+   "role": "m2.1-frontend-consumer",
+   "sha256": "62848611e9cb818a507c468fb303521874dd8cbac76e7bc4ae413d9a1d9d2608",
+   "bytes": 1049,
+   "lines": 40,
+   "m1_sha256": null
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/ast/Statement.iron",
+   "role": "m2.1-frontend-consumer",
+   "sha256": "28deed0dba1f17ab62ee3932975782235a5924e87d75fe0067f9bfb1b6ee1670",
+   "bytes": 496,
+   "lines": 19,
+   "m1_sha256": null
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/ast/StatementVariant.iron",
+   "role": "m2.1-frontend-consumer",
+   "sha256": "080207b9179c0e6f24ab87d4718a428d924adde65a240a1df04c40b0564dbf07",
+   "bytes": 975,
+   "lines": 38,
+   "m1_sha256": null
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/ast/StaticInitialization.iron",
+   "role": "m2.1-frontend-consumer",
+   "sha256": "b96d4a429d23c63825030c68fce14424b86bf34ee88ba36ae7c0126feb2a8cbc",
+   "bytes": 581,
+   "lines": 19,
+   "m1_sha256": null
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/ast/StringLiteralExpression.iron",
+   "role": "m2.1-frontend-consumer",
+   "sha256": "75ebb8944b15ebd6f53f01cb2262f43a5294dceea4a2b419f8e5420c9cdb2784",
+   "bytes": 1074,
+   "lines": 40,
+   "m1_sha256": null
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/ast/SuperConstructorInvocation.iron",
+   "role": "m2.1-frontend-consumer",
+   "sha256": "6647e63e654bdf0781f5a6a390894fd6c784c669e6bd5b4a0df4d0a0ccfe258e",
+   "bytes": 1954,
+   "lines": 60,
+   "m1_sha256": null
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/ast/SuperExpression.iron",
+   "role": "m2.1-frontend-consumer",
+   "sha256": "53a648195b9acd18da2b5aef874acf64e6a326026d47c40da87f0616cbea2bbc",
+   "bytes": 954,
+   "lines": 34,
+   "m1_sha256": null
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/ast/SwitchExpression.iron",
+   "role": "m2.1-frontend-consumer",
+   "sha256": "cdba9ce6776693d3638cc2794254e0488997733cab18b042214b4abff5352e64",
+   "bytes": 2169,
+   "lines": 71,
+   "m1_sha256": null
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/ast/SwitchGroup.iron",
+   "role": "m2.1-frontend-consumer",
+   "sha256": "04a114d0be55dd27f0c331bc00c7b244141374270e1e4193d0a454a0ba8b95f8",
+   "bytes": 1493,
+   "lines": 47,
+   "m1_sha256": null
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/ast/SwitchLabel.iron",
+   "role": "m2.1-frontend-consumer",
+   "sha256": "570a1ff8be70f9a11a26ab01075148be24991ecd1781fa6b13978288830e27d5",
+   "bytes": 889,
+   "lines": 35,
+   "m1_sha256": null
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/ast/SwitchRule.iron",
+   "role": "m2.1-frontend-consumer",
+   "sha256": "415e69e4b8c6e403add237b66db317f990db732c347c6642c74d37e3c79dc5bf",
+   "bytes": 1354,
+   "lines": 46,
+   "m1_sha256": null
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/ast/SwitchRuleBlock.iron",
+   "role": "m2.1-frontend-consumer",
+   "sha256": "f7913968c4ee071a5416c41c8cfd8f14c97e1cfcca21963b45ad8f3314aaa138",
+   "bytes": 1055,
+   "lines": 40,
+   "m1_sha256": null
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/ast/SwitchRuleBody.iron",
+   "role": "m2.1-frontend-consumer",
+   "sha256": "51a3cb3bced2f28248f19ae044b5c7182c70280b5bedb0caee6023b6e0d97b1b",
+   "bytes": 532,
+   "lines": 19,
+   "m1_sha256": null
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/ast/SwitchRuleBodyVariant.iron",
+   "role": "m2.1-frontend-consumer",
+   "sha256": "23b2c35a55cdbb6888b6341fc953622d99350f15551dfaa9dd4f88970847c9ad",
+   "bytes": 431,
+   "lines": 15,
+   "m1_sha256": null
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/ast/SwitchRuleExpression.iron",
+   "role": "m2.1-frontend-consumer",
+   "sha256": "4b054b8c1c2fb3a3838738119525ff5c1ab7af9d3432a87b1bd39ca251715c75",
+   "bytes": 1125,
+   "lines": 40,
+   "m1_sha256": null
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/ast/SwitchRuleThrow.iron",
+   "role": "m2.1-frontend-consumer",
+   "sha256": "301c3e089518b22f12ed0a0793a4260d795c7df125af61cae2683ba3db1197e1",
+   "bytes": 1110,
+   "lines": 40,
+   "m1_sha256": null
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/ast/SwitchStatement.iron",
+   "role": "m2.1-frontend-consumer",
+   "sha256": "2debd7ea7fe1e311d55221b029d268e63ca8b453c2b70cbb728b3179566394c1",
+   "bytes": 1424,
+   "lines": 50,
+   "m1_sha256": null
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/ast/ThisConstructorInvocation.iron",
+   "role": "m2.1-frontend-consumer",
+   "sha256": "cd7653ad4617f93609cacafff69b5e8bce410b6b902c8785d571b7932042e30a",
+   "bytes": 1669,
+   "lines": 52,
+   "m1_sha256": null
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/ast/ThisExpression.iron",
+   "role": "m2.1-frontend-consumer",
+   "sha256": "2ea098db5d5cbf75106238899fb818c584d2cbac7eaeef44e37159205119be0c",
+   "bytes": 853,
+   "lines": 32,
+   "m1_sha256": null
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/ast/ThrowStatement.iron",
+   "role": "m2.1-frontend-consumer",
+   "sha256": "1ebb76cdf5e31b03b74f98e3087c3a6526900c05f9b9a981d75aeab13ddd5577",
+   "bytes": 1045,
+   "lines": 40,
+   "m1_sha256": null
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/ast/TryStatement.iron",
+   "role": "m2.1-frontend-consumer",
+   "sha256": "ffde68a99f47ac2e99bd01fa4b8d24d226cc4eb13d4ad0f2a29fb837ab9ed333",
+   "bytes": 1607,
+   "lines": 58,
+   "m1_sha256": null
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/ast/TypeDeclaration.iron",
+   "role": "m2.1-frontend-consumer",
+   "sha256": "03adf47a6dbe8685175c8298bbea88ca0bea49e41d3b5d8637fd102b67614142",
+   "bytes": 1044,
+   "lines": 38,
+   "m1_sha256": null
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/ast/TypeDeclarationVariant.iron",
+   "role": "m2.1-frontend-consumer",
+   "sha256": "64a3454f4f0c275545e73cff6880a7811a5572a72006b8a08bcced4ea775a1dc",
+   "bytes": 409,
+   "lines": 14,
+   "m1_sha256": null
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/ast/TypeName.iron",
+   "role": "m2.1-frontend-consumer",
+   "sha256": "c72617d6cdbaad2a36cb49a7d7780c0a4c931a5c89e0bcb6d5b0f8d692c5b0f3",
+   "bytes": 8163,
+   "lines": 228,
+   "m1_sha256": null
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/ast/TypeParameter.iron",
+   "role": "m2.1-frontend-consumer",
+   "sha256": "aa88c62f7a41bb8060c1a68184ca4cc876c53f254c48c7058177b73995943925",
+   "bytes": 1379,
+   "lines": 46,
+   "m1_sha256": null
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/ast/TypePatternBinding.iron",
+   "role": "m2.1-frontend-consumer",
+   "sha256": "67b08c08c2e5ddf934df0b374d6bfa27a03fb7727a8f977f9efd60dadb47b17d",
+   "bytes": 1300,
+   "lines": 46,
+   "m1_sha256": null
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/ast/TypeReference.iron",
+   "role": "m2.1-frontend-consumer",
+   "sha256": "f3029525db5eec10ae0cb0cb2011701c9ab78aaef122b66c2ed62fa93cc2c9a5",
+   "bytes": 2279,
+   "lines": 64,
+   "m1_sha256": null
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/ast/UnaryExpression.iron",
+   "role": "m2.1-frontend-consumer",
+   "sha256": "a7fe846da194942d50cc19363ac72730d8c907bbd6fc614b584bb8d80566b046",
+   "bytes": 1538,
+   "lines": 56,
+   "m1_sha256": null
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/ast/UnaryOperator.iron",
+   "role": "m2.1-frontend-consumer",
+   "sha256": "9eb31a272954618ef955c0d5f2f064be3c18ecc95e00735cc454b7f62bce19e3",
+   "bytes": 326,
+   "lines": 15,
+   "m1_sha256": null
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/ast/UpdateExpression.iron",
+   "role": "m2.1-frontend-consumer",
+   "sha256": "4966f7a5596583fc140189b97f54f6fef3bdc4803e019b81deab0f3962756699",
+   "bytes": 1760,
+   "lines": 65,
+   "m1_sha256": null
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/ast/UpdateOperator.iron",
+   "role": "m2.1-frontend-consumer",
+   "sha256": "4fcdccc9cb7021ddea63792f9bf1af6456fabadcee2082e38573881c25ba5bd3",
+   "bytes": 275,
+   "lines": 13,
+   "m1_sha256": null
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/ast/WhileStatement.iron",
+   "role": "m2.1-frontend-consumer",
+   "sha256": "16a7d0b874545d3c190da86bc90e50a5866e7beadb879a304a395c1f4b33e31c",
+   "bytes": 1259,
+   "lines": 48,
+   "m1_sha256": null
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/ast/YieldStatement.iron",
+   "role": "m2.1-frontend-consumer",
+   "sha256": "bdafa353f21fd0feaa5e7dc926ee88c511cb16514d0e1df416a34914fbbf2451",
+   "bytes": 1045,
+   "lines": 40,
+   "m1_sha256": null
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/diagnostic/Diagnostic.iron",
+   "role": "m2.1-frontend-consumer",
+   "sha256": "244434355f392511f9a66efd809c974086d77989ad1a101b837db9f46189bec4",
+   "bytes": 4370,
+   "lines": 147,
+   "m1_sha256": null
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/diagnostic/DiagnosticNote.iron",
+   "role": "m2.1-frontend-consumer",
+   "sha256": "86ebee71cf3b1c26d8320a764a34a77430af4499e730c9b1733d072be670c528",
+   "bytes": 1682,
+   "lines": 57,
+   "m1_sha256": null
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/lexer/DocumentationComment.iron",
+   "role": "m2.1-frontend-consumer",
+   "sha256": "3062585f68c0314cec0aee26f8c734cc5eb859d546373f6c122b69fab46ac793",
+   "bytes": 874,
+   "lines": 39,
+   "m1_sha256": null
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/lexer/LexResult.iron",
+   "role": "m2.1-frontend-consumer",
+   "sha256": "1aea9bbd94a371c45c9b6a3849b87251bdd4788444d2d74960fc0931bf14d928",
+   "bytes": 1385,
+   "lines": 49,
+   "m1_sha256": null
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/lexer/Lexer.iron",
+   "role": "m2.1-frontend-consumer",
+   "sha256": "dcb2c9ac9ef81338f43976314b3c5e1f60cd3d37c227f74d0d3fcbac2279f703",
+   "bytes": 28488,
+   "lines": 724,
+   "m1_sha256": null
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/lexer/Token.iron",
+   "role": "m2.1-frontend-consumer",
+   "sha256": "9edc6cf34209d9b6556d4040e9ffc243aa125ff84e83aad747fa3b00115b2e36",
+   "bytes": 1062,
+   "lines": 48,
+   "m1_sha256": null
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/lexer/TokenKind.iron",
+   "role": "m2.1-frontend-consumer",
+   "sha256": "2e7b89fec850f049f26a271dfc97731d4840da0e2940c577afdce5fc50ca343e",
+   "bytes": 1494,
+   "lines": 108,
+   "m1_sha256": null
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/parser/ParseResult.iron",
+   "role": "m2.1-frontend-consumer",
+   "sha256": "c0347e6389e4e292ebe6be8b8cf35e16ecd8e6504cc319c3b084076bf1a29c37",
+   "bytes": 1440,
+   "lines": 50,
+   "m1_sha256": null
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/parser/Parser.iron",
+   "role": "m2.1-frontend-consumer",
+   "sha256": "8d622f17dacb2625442e84d39d6b09b143278e27c59c46326e04d9d705d72d58",
+   "bytes": 156576,
+   "lines": 3349,
+   "m1_sha256": null
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/port/CharEscapes.iron",
+   "role": "m1-helper",
+   "sha256": "0c7e2845d760d9919f57e49672de33e3cbfdd89ee691aa6a1936ed4d0140625a",
+   "bytes": 1321,
+   "lines": 41,
+   "m1_sha256": "0c7e2845d760d9919f57e49672de33e3cbfdd89ee691aa6a1936ed4d0140625a"
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/port/Lists.iron",
+   "role": "m1-helper-extended-in-m2.1",
+   "sha256": "f093c0faa0e009adbeb156f2b0cd0c004a5be856fe6cd320d42e9af8320f1fdf",
+   "bytes": 1701,
+   "lines": 51,
+   "m1_sha256": "511452a05f50bf125e26587b4cd83ad8c5ee1f2ecd87f10bf7558646f12ccaff"
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/port/OperationVariants.iron",
+   "role": "m1-helper",
+   "sha256": "8dcbda1887037656d2eb45624e889d4d8334df656e65518c2a0da9fc98ec61c1",
+   "bytes": 9866,
+   "lines": 232,
+   "m1_sha256": "8dcbda1887037656d2eb45624e889d4d8334df656e65518c2a0da9fc98ec61c1"
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/port/SnapshotBits.iron",
+   "role": "m1-helper",
+   "sha256": "1bb5d232a1fb01c01d2175c33826ee5706b8dc257a24c74ba1778d9c37133783",
+   "bytes": 1526,
+   "lines": 40,
+   "m1_sha256": "1bb5d232a1fb01c01d2175c33826ee5706b8dc257a24c74ba1778d9c37133783"
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/port/SnapshotIdentityMap.iron",
+   "role": "m1-helper",
+   "sha256": "0737456690db73ff59cb6e00c66f6d02b77619d4e49098ff99e18dad027fd341",
+   "bytes": 1487,
+   "lines": 52,
+   "m1_sha256": "0737456690db73ff59cb6e00c66f6d02b77619d4e49098ff99e18dad027fd341"
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/port/SnapshotIdentitySet.iron",
+   "role": "m1-helper",
+   "sha256": "e31223150b809ba0cb1bd4c1dda25b75f86052a110504fbb907e5324b129f215",
+   "bytes": 1236,
+   "lines": 45,
+   "m1_sha256": "e31223150b809ba0cb1bd4c1dda25b75f86052a110504fbb907e5324b129f215"
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/port/SnapshotInts.iron",
+   "role": "m1-helper",
+   "sha256": "b4eb48e4a08f5715152c30a7b625115e658886dc8a53255285005c99c3541a74",
+   "bytes": 2935,
+   "lines": 98,
+   "m1_sha256": "b4eb48e4a08f5715152c30a7b625115e658886dc8a53255285005c99c3541a74"
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/port/SnapshotLinkedMap.iron",
+   "role": "m1-helper",
+   "sha256": "3f43da73866900ea76745cfad9ab10e7eebcf8dd4cadce17ab77d990649fc23e",
+   "bytes": 1477,
+   "lines": 52,
+   "m1_sha256": "3f43da73866900ea76745cfad9ab10e7eebcf8dd4cadce17ab77d990649fc23e"
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/port/SnapshotList.iron",
+   "role": "m1-helper",
+   "sha256": "253c26a8516664d0a8dc56c3abf433f12d7a8268e0fcb00afbeb6833db227727",
+   "bytes": 1961,
+   "lines": 63,
+   "m1_sha256": "253c26a8516664d0a8dc56c3abf433f12d7a8268e0fcb00afbeb6833db227727"
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/port/SnapshotMap.iron",
+   "role": "m1-helper",
+   "sha256": "ad8906131237770e0ae17b39d4daeb9c3ee011d7dbed42c2d76c5bf6325e284a",
+   "bytes": 1447,
+   "lines": 52,
+   "m1_sha256": "ad8906131237770e0ae17b39d4daeb9c3ee011d7dbed42c2d76c5bf6325e284a"
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/port/TextBlocks.iron",
+   "role": "m1-helper",
+   "sha256": "77fd587da807ecdbeaadf6f9e94ba6ef5e6bd7a52e37f26d78534e909fe08fa5",
+   "bytes": 4056,
+   "lines": 106,
+   "m1_sha256": "77fd587da807ecdbeaadf6f9e94ba6ef5e6bd7a52e37f26d78534e909fe08fa5"
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/port/WorkQueue.iron",
+   "role": "m1-helper",
+   "sha256": "b88202a2ba1aed0c9e8f2e477d0a78d34baf5c4d35752eb78110c4caa2d49653",
+   "bytes": 3068,
+   "lines": 100,
+   "m1_sha256": "b88202a2ba1aed0c9e8f2e477d0a78d34baf5c4d35752eb78110c4caa2d49653"
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/source/SourceFile.iron",
+   "role": "m2.1-frontend-consumer",
+   "sha256": "d01efc265f447876486089aa7adbb796960573c9621839b238c9b5039e993b32",
+   "bytes": 3331,
+   "lines": 102,
+   "m1_sha256": null
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/source/SourcePosition.iron",
+   "role": "m2.1-frontend-consumer",
+   "sha256": "2eb9183748569f1e61112dd35c54c5044cd34804969fdd1f98a036359b7d97aa",
+   "bytes": 1589,
+   "lines": 60,
+   "m1_sha256": null
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/source/SourceSpan.iron",
+   "role": "m2.1-frontend-consumer",
+   "sha256": "2da0f412b932b22640bf6056827b56daba8b5ca2bdcb540f0bac0a724b4edf1d",
+   "bytes": 1680,
+   "lines": 64,
+   "m1_sha256": null
+  },
+  {
+   "path": "stdlib/src/main/ironwood/ironwood/ds/ArrayList.iron",
+   "role": "m1-library-addition",
+   "sha256": "fd084572e9eb1bcd6ea79dbcc609b523089c0bcead511c4f75159d3845182fd6",
+   "bytes": 10288,
+   "lines": 351,
+   "m1_sha256": "fd084572e9eb1bcd6ea79dbcc609b523089c0bcead511c4f75159d3845182fd6"
+  },
+  {
+   "path": "stdlib/src/main/ironwood/ironwood/ds/HashMap.iron",
+   "role": "m1-library-addition",
+   "sha256": "c683c7d82f837adac0c5840c3a7192b53ed4c8c289d5d14792bcfde497d4f366",
+   "bytes": 14041,
+   "lines": 437,
+   "m1_sha256": "c683c7d82f837adac0c5840c3a7192b53ed4c8c289d5d14792bcfde497d4f366"
+  },
+  {
+   "path": "stdlib/src/main/ironwood/ironwood/ds/HashSet.iron",
+   "role": "m1-library-addition",
+   "sha256": "e6c17f7f9688ef85d18854c6a4f1b30e07b4e00d67b20ecee16784ac69cbbbc6",
+   "bytes": 5506,
+   "lines": 198,
+   "m1_sha256": "e6c17f7f9688ef85d18854c6a4f1b30e07b4e00d67b20ecee16784ac69cbbbc6"
+  },
+  {
+   "path": "stdlib/src/main/ironwood/ironwood/ds/IdentityHashMap.iron",
+   "role": "m1-library-addition",
+   "sha256": "05e138e97b5c86833b718faafb881a8b9f4b24f39c4f43bd1918b9937a877089",
+   "bytes": 14035,
+   "lines": 431,
+   "m1_sha256": "05e138e97b5c86833b718faafb881a8b9f4b24f39c4f43bd1918b9937a877089"
+  },
+  {
+   "path": "stdlib/src/main/ironwood/ironwood/ds/IdentityHashSet.iron",
+   "role": "m1-library-addition",
+   "sha256": "bc54da8093d0f0442d23eff51771bd6808b3b7ac2ddb6531611dd27932b145d8",
+   "bytes": 5302,
+   "lines": 187,
+   "m1_sha256": "bc54da8093d0f0442d23eff51771bd6808b3b7ac2ddb6531611dd27932b145d8"
+  },
+  {
+   "path": "stdlib/src/main/ironwood/ironwood/ds/LinkedHashMap.iron",
+   "role": "m1-library-addition",
+   "sha256": "401a5bb3c810254d765e5bc61ea57add29a0855f8e766109764882db29a23bb5",
+   "bytes": 14607,
+   "lines": 457,
+   "m1_sha256": "401a5bb3c810254d765e5bc61ea57add29a0855f8e766109764882db29a23bb5"
+  },
+  {
+   "path": "stdlib/src/main/ironwood/ironwood/ds/LinkedHashSet.iron",
+   "role": "m1-library-addition",
+   "sha256": "b0bf57d8dd05cac1dba31415e94614ced5bf174292f266cb2dc1a9608c9a2adf",
+   "bytes": 5671,
+   "lines": 199,
+   "m1_sha256": "b0bf57d8dd05cac1dba31415e94614ced5bf174292f266cb2dc1a9608c9a2adf"
+  }
+ ],
+ "test_adapter_sources": [
+  {
+   "path": "scripts/self-hosting/native/FrontendCapture.iron",
+   "sha256": "06063fec12bdd49ebf132cba6ae4d4dbe0df387d4f0755c19504aaa8eb1b4ec1"
+  },
+  {
+   "path": "scripts/self-hosting/native/FrontendCensus.iron",
+   "sha256": "45e230499e8e6589b37b6f7dce231816b055f09c7fc9fbd96e22d2f1b22f34bb"
+  },
+  {
+   "path": "scripts/self-hosting/native/FrontendLiterals.iron",
+   "sha256": "2b6b00ca776389d07b8cc4b986c92475ea223caf7dbaaf53e9248adef60db6ce"
+  },
+  {
+   "path": "scripts/self-hosting/native/FrontendWire.iron",
+   "sha256": "febed98a3146ad6878b6212c86dff603a312a4c02436bd4303f05eab222c53dc"
+  }
+ ],
+ "producing_compiler": {
+  "path": "compiler/build/ironwoodc.jar (fresh M2.1 evidence tree)",
+  "sha256": "c6d8ccb16d75f56d714796a94d92067689f8a7ad16316fda46f6114ccbba7e78"
+ },
+ "built_library": {
+  "path": "compiler/build/ironwood-stdlib.ironjar (fresh M2.1 evidence tree, strict --unfreed=error build)",
+  "sha256": "a1fdd6520ce1c0d09a036c204e8586117e8b509d598057d8bd780562ad081cc5"
+ },
+ "j0": {
+  "revision": "6bde84df320e9dbc32977a2b665d214ac09bc2d4",
+  "seed_jar_sha256": "2a8b10ab5575f84d3660b3824a4b80cba7f6f9110023e7e30db3b41103893ad7"
+ }
+}

@@ -1,0 +1,65 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.ast;
+
+import ironwood.compiler.port.SnapshotList;
+import ironwood.compiler.source.SourceFile;
+import ironwood.compiler.source.SourceSpan;
+
+/**
+ * Port of the Java frontend AST record {@code CompilationUnit}. Components keep the
+ * record's order; {@code Optional} components are nullable, and list components are
+ * frozen, independent copies that the node borrows for the invocation.
+ */
+public final class CompilationUnit {
+
+    private final SourceFile source;
+    private final PackageDeclaration packageDeclaration;
+    private final SnapshotList<ImportDeclaration> imports;
+    private final SnapshotList<TypeDeclaration> declarations;
+    private final SourceSpan span;
+
+    /** Creates the node from its components in record order. */
+    public CompilationUnit(SourceFile source, PackageDeclaration packageDeclaration,
+                           SnapshotList<ImportDeclaration> imports, SnapshotList<TypeDeclaration> declarations,
+                           SourceSpan span) {
+
+        if (imports == null) throw new NullPointerException();
+        if (declarations == null) throw new NullPointerException();
+        this.source = source;
+        this.packageDeclaration = packageDeclaration;
+        this.imports = imports;
+        this.declarations = declarations;
+        this.span = span;
+    }
+
+    /** @return the {@code source} component */
+    public SourceFile source() {
+
+        return this.source;
+    }
+
+    /** @return the {@code packageDeclaration} component */
+    public PackageDeclaration packageDeclaration() {
+
+        return this.packageDeclaration;
+    }
+
+    /** @return the {@code imports} component */
+    public SnapshotList<ImportDeclaration> imports() {
+
+        return this.imports;
+    }
+
+    /** @return the {@code declarations} component */
+    public SnapshotList<TypeDeclaration> declarations() {
+
+        return this.declarations;
+    }
+
+    /** @return the {@code span} component */
+    public SourceSpan span() {
+
+        return this.span;
+    }
+}

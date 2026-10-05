@@ -1,0 +1,56 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.ast;
+
+import ironwood.compiler.source.SourceSpan;
+
+/**
+ * Port of the Java frontend AST record {@code IfStatement}. Components keep the
+ * record's order; {@code Optional} components are nullable, and list components are
+ * frozen, independent copies that the node borrows for the invocation.
+ */
+public final class IfStatement implements Statement {
+
+    private final Expression condition;
+    private final Statement thenBranch;
+    private final Statement elseBranch;
+    private final SourceSpan span;
+
+    /** Creates the node from its components in record order. */
+    public IfStatement(Expression condition, Statement thenBranch, Statement elseBranch, SourceSpan span) {
+
+        this.condition = condition;
+        this.thenBranch = thenBranch;
+        this.elseBranch = elseBranch;
+        this.span = span;
+    }
+
+    /** @return the {@code condition} component */
+    public Expression condition() {
+
+        return this.condition;
+    }
+
+    /** @return the {@code thenBranch} component */
+    public Statement thenBranch() {
+
+        return this.thenBranch;
+    }
+
+    /** @return the {@code elseBranch} component */
+    public Statement elseBranch() {
+
+        return this.elseBranch;
+    }
+
+    /** @return the {@code span} component */
+    @Override public SourceSpan span() {
+
+        return this.span;
+    }
+
+    @Override public StatementVariant statementVariant() {
+
+        return StatementVariant.IF_STATEMENT;
+    }
+}

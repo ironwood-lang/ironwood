@@ -1,0 +1,724 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.lexer;
+
+import ironwood.compiler.diagnostic.Diagnostic;
+import ironwood.compiler.port.CharEscapes;
+import ironwood.compiler.port.SnapshotList;
+import ironwood.compiler.port.TextBlocks;
+import ironwood.compiler.source.SourceFile;
+import ironwood.compiler.source.SourcePosition;
+import ironwood.compiler.source.SourceSpan;
+import ironwood.ds.ArrayList;
+
+/**
+ * Converts decoded source text to tokens and lexical diagnostics. Ports the
+ * Java {@code Lexer} with the D258 conventions: keywords are a {@code switch}
+ * on the lexeme, simple escapes use {@link CharEscapes}, and text blocks use
+ * {@link TextBlocks}. Numeric validation and line-terminator normalization
+ * work on index ranges of the source instead of substrings, so they allocate
+ * nothing; every intermediate string is freed. The lexer owns its builders;
+ * the result copies them, and tokens, spans and text borrow the source.
+ */
+public final class Lexer {
+
+    private final SourceFile source;
+    private final String text;
+    private final ArrayList<Token> tokens = new ArrayList<Token>();
+    private final ArrayList<Diagnostic> diagnostics = new ArrayList<Diagnostic>();
+    private final ArrayList<DocumentationComment> documentationComments = new ArrayList<DocumentationComment>();
+    private final boolean retainDocumentation;
+    private int offset;
+    private int line = 1;
+    private int column = 1;
+
+    /**
+     * Creates a lexer that skips documentation comments.
+     *
+     * @param source the borrowed source
+     */
+    public Lexer(SourceFile source) {
+
+        this(source, false);
+    }
+
+    /**
+     * Creates a lexer.
+     *
+     * @param source the borrowed source
+     * @param retainDocumentation whether to retain {@code /**} comments
+     */
+    public Lexer(SourceFile source, boolean retainDocumentation) {
+
+        this.source = source;
+        this.text = source.content();
+        this.retainDocumentation = retainDocumentation;
+    }
+
+    /** @return a caller-owned copy of the retained documentation comments */
+    public SnapshotList<DocumentationComment> documentationComments() {
+
+        return new SnapshotList<DocumentationComment>(this.documentationComments);
+    }
+
+    /**
+     * Scans the whole source.
+     *
+     * @return a caller-owned result whose lists copy this lexer's builders
+     */
+    public LexResult lex() {
+
+        while (!this.atEnd()) this.scanToken();
+        SourcePosition end = this.position();
+        this.tokens.add(new Token(TokenKind.EOF, "", SourceSpan.at(end)));
+        return new LexResult(this.tokens, this.diagnostics);
+    }
+
+    private void scanToken() {
+
+        char current = this.peek();
+        if (Character.isWhitespace(current)) {
+            this.advance();
+            return;
+        }
+        if (current == '/' && this.peekNext() == '/') {
+            this.skipLineComment();
+            return;
+        }
+        if (current == '/' && this.peekNext() == '*') {
+            this.skipBlockComment();
+            return;
+        }
+        if (this.startsWith("r\"\"\"")) {
+            this.scanTextBlock(true);
+            return;
+        }
+        if (this.startsWith("\"\"\"")) {
+            this.scanTextBlock(false);
+            return;
+        }
+        if (isIdentifierStart(current)) {
+            this.scanIdentifier();
+            return;
+        }
+        if (Character.isDigit(current) || current == '.' && Character.isDigit(this.peekNext())) {
+            this.scanNumber();
+            return;
+        }
+        if (current == '\'') {
+            this.scanCharacter();
+            return;
+        }
+        if (current == '"') {
+            this.scanString();
+            return;
+        }
+
+        SourcePosition start = this.position();
+        this.advance();
+        TokenKind kind = switch (current) {
+            case '@' -> TokenKind.AT;
+            case '{' -> TokenKind.LEFT_BRACE;
+            case '}' -> TokenKind.RIGHT_BRACE;
+            case '(' -> TokenKind.LEFT_PAREN;
+            case ')' -> TokenKind.RIGHT_PAREN;
+            case '[' -> TokenKind.LEFT_BRACKET;
+            case ']' -> TokenKind.RIGHT_BRACKET;
+            case ',' -> TokenKind.COMMA;
+            case '.' -> TokenKind.DOT;
+            case ';' -> TokenKind.SEMICOLON;
+            case '+' -> this.match('+') ? TokenKind.PLUS_PLUS
+                    : this.match('=') ? TokenKind.PLUS_EQUAL : TokenKind.PLUS;
+            case '-' -> this.match('>') ? TokenKind.ARROW
+                    : this.match('-') ? TokenKind.MINUS_MINUS
+                    : this.match('=') ? TokenKind.MINUS_EQUAL : TokenKind.MINUS;
+            case '*' -> this.match('=') ? TokenKind.STAR_EQUAL : TokenKind.STAR;
+            case '/' -> this.match('=') ? TokenKind.SLASH_EQUAL : TokenKind.SLASH;
+            case '%' -> this.match('=') ? TokenKind.PERCENT_EQUAL : TokenKind.PERCENT;
+            case '&' -> this.match('&') ? TokenKind.AND_AND
+                    : this.match('=') ? TokenKind.AMPERSAND_EQUAL : TokenKind.AMPERSAND;
+            case '|' -> this.match('|') ? TokenKind.OR_OR
+                    : this.match('=') ? TokenKind.PIPE_EQUAL : TokenKind.PIPE;
+            case '^' -> this.match('=') ? TokenKind.CARET_EQUAL : TokenKind.CARET;
+            case '~' -> TokenKind.TILDE;
+            case '!' -> this.match('=') ? TokenKind.BANG_EQUAL : TokenKind.BANG;
+            case '=' -> this.match('=') ? TokenKind.EQUAL_EQUAL : TokenKind.EQUAL;
+            case '<' -> this.match('=') ? TokenKind.LESS_EQUAL : TokenKind.LESS;
+            case '>' -> this.match('=') ? TokenKind.GREATER_EQUAL : TokenKind.GREATER;
+            case '?' -> TokenKind.QUESTION;
+            case ':' -> TokenKind.COLON;
+            default -> null;
+        };
+        if (kind == null) {
+            this.diagnostics.add(Diagnostic.error(this.source, new SourceSpan(start, this.position()),
+                    quoted("unexpected character '", current, "'")));
+        } else {
+            this.tokens.add(new Token(kind, this.text.substring(start.offset(), this.offset),
+                    new SourceSpan(start, this.position())));
+        }
+    }
+
+    private boolean match(char expected) {
+
+        if (this.atEnd() || this.peek() != expected) return false;
+        this.advance();
+        return true;
+    }
+
+    private void scanIdentifier() {
+
+        SourcePosition start = this.position();
+        int startOffset = this.offset;
+        while (!this.atEnd() && isIdentifierPart(this.peek())) this.advance();
+        String lexeme = this.text.substring(startOffset, this.offset);
+        this.tokens.add(new Token(keyword(lexeme), lexeme, new SourceSpan(start, this.position())));
+    }
+
+    // The Java keyword table, as a lookup that allocates nothing per token.
+    private static TokenKind keyword(String lexeme) {
+
+        return switch (lexeme) {
+            case "class" -> TokenKind.CLASS;
+            case "enum" -> TokenKind.ENUM;
+            case "interface" -> TokenKind.INTERFACE;
+            case "package" -> TokenKind.PACKAGE;
+            case "import" -> TokenKind.IMPORT;
+            case "extends" -> TokenKind.EXTENDS;
+            case "implements" -> TokenKind.IMPLEMENTS;
+            case "instanceof" -> TokenKind.INSTANCEOF;
+            case "public" -> TokenKind.PUBLIC;
+            case "protected" -> TokenKind.PROTECTED;
+            case "private" -> TokenKind.PRIVATE;
+            case "abstract" -> TokenKind.ABSTRACT;
+            case "default" -> TokenKind.DEFAULT;
+            case "static" -> TokenKind.STATIC;
+            case "final" -> TokenKind.FINAL;
+            case "new" -> TokenKind.NEW;
+            case "null" -> TokenKind.NULL;
+            case "this" -> TokenKind.THIS;
+            case "super" -> TokenKind.SUPER;
+            case "byte" -> TokenKind.BYTE;
+            case "short" -> TokenKind.SHORT;
+            case "int" -> TokenKind.INT;
+            case "long" -> TokenKind.LONG;
+            case "char" -> TokenKind.CHAR;
+            case "float" -> TokenKind.FLOAT;
+            case "double" -> TokenKind.DOUBLE;
+            case "boolean" -> TokenKind.BOOLEAN;
+            case "void" -> TokenKind.VOID;
+            case "return" -> TokenKind.RETURN;
+            case "yield" -> TokenKind.YIELD;
+            case "free" -> TokenKind.FREE;
+            case "defer" -> TokenKind.DEFER;
+            case "destructor" -> TokenKind.DESTRUCTOR;
+            case "throw" -> TokenKind.THROW;
+            case "throws" -> TokenKind.THROWS;
+            case "try" -> TokenKind.TRY;
+            case "catch" -> TokenKind.CATCH;
+            case "finally" -> TokenKind.FINALLY;
+            case "if" -> TokenKind.IF;
+            case "else" -> TokenKind.ELSE;
+            case "while" -> TokenKind.WHILE;
+            case "do" -> TokenKind.DO;
+            case "for" -> TokenKind.FOR;
+            case "switch" -> TokenKind.SWITCH;
+            case "case" -> TokenKind.CASE;
+            case "break" -> TokenKind.BREAK;
+            case "continue" -> TokenKind.CONTINUE;
+            case "true" -> TokenKind.TRUE;
+            case "false" -> TokenKind.FALSE;
+            default -> TokenKind.IDENTIFIER;
+        };
+    }
+
+    private void scanNumber() {
+
+        SourcePosition start = this.position();
+        int startOffset = this.offset;
+        boolean hexadecimal = this.peek() == '0' && (this.peekNext() == 'x' || this.peekNext() == 'X');
+        boolean binary = this.peek() == '0' && (this.peekNext() == 'b' || this.peekNext() == 'B');
+        boolean floating = false;
+        if (hexadecimal || binary) {
+            this.advance();
+            this.advance();
+            while (!this.atEnd() && ((hexadecimal ? isHexDigit(this.peek()) : isBinaryDigit(this.peek()))
+                    || this.peek() == '_')) {
+                this.advance();
+            }
+        } else {
+            while (!this.atEnd() && (Character.isDigit(this.peek()) || this.peek() == '_')) this.advance();
+            if (!this.atEnd() && this.peek() == '.') {
+                floating = true;
+                this.advance();
+                while (!this.atEnd() && (Character.isDigit(this.peek()) || this.peek() == '_')) this.advance();
+            }
+            if (!this.atEnd() && (this.peek() == 'e' || this.peek() == 'E')) {
+                floating = true;
+                this.advance();
+                if (!this.atEnd() && (this.peek() == '+' || this.peek() == '-')) this.advance();
+                while (!this.atEnd() && (Character.isDigit(this.peek()) || this.peek() == '_')) this.advance();
+            }
+        }
+        if (!hexadecimal && !binary && !this.atEnd() && (this.peek() == 'f' || this.peek() == 'F'
+                || this.peek() == 'd' || this.peek() == 'D')) {
+            floating = true;
+            this.advance();
+        } else if (!this.atEnd() && (this.peek() == 'l' || this.peek() == 'L')) {
+            this.advance();
+        }
+        while (!this.atEnd() && isIdentifierPart(this.peek())) this.advance();
+        String lexeme = this.text.substring(startOffset, this.offset);
+        // The numeric body is the lexeme without its suffix, as an index range.
+        int bodyEnd = hexadecimal || binary
+                ? stripIntegralSuffix(this.text, startOffset, this.offset)
+                : stripNumericSuffix(this.text, startOffset, this.offset);
+        boolean valid = hexadecimal
+                ? validHexIntegral(this.text, startOffset, bodyEnd)
+                : binary ? validBinaryIntegral(this.text, startOffset, bodyEnd)
+                : validDecimalNumber(this.text, startOffset, bodyEnd, floating);
+        if (!valid) {
+            this.diagnostics.add(Diagnostic.error(this.source, new SourceSpan(start, this.position()),
+                    "malformed numeric literal '" + lexeme + "'"));
+        }
+        this.tokens.add(new Token(floating ? TokenKind.FLOATING : TokenKind.INTEGER, lexeme,
+                new SourceSpan(start, this.position())));
+    }
+
+    // Each validation helper reads text[start, end) where Java reads a substring.
+    private static int stripNumericSuffix(String text, int start, int end) {
+
+        if (start == end) return end;
+        char last = text.charAt(end - 1);
+        return "fFdDlL".indexOf(last) >= 0 ? end - 1 : end;
+    }
+
+    private static int stripIntegralSuffix(String text, int start, int end) {
+
+        if (start == end) return end;
+        char last = text.charAt(end - 1);
+        return last == 'l' || last == 'L' ? end - 1 : end;
+    }
+
+    private static boolean validHexIntegral(String text, int start, int end) {
+
+        if (end - start <= 2 || text.charAt(start) != '0'
+                || text.charAt(start + 1) != 'x' && text.charAt(start + 1) != 'X') {
+            return false;
+        }
+        return validDigitSequence(text, start + 2, end, true);
+    }
+
+    private static boolean validBinaryIntegral(String text, int start, int end) {
+
+        if (end - start <= 2 || text.charAt(start) != '0'
+                || text.charAt(start + 1) != 'b' && text.charAt(start + 1) != 'B') {
+            return false;
+        }
+        return validBinaryDigitSequence(text, start + 2, end);
+    }
+
+    private static boolean validBinaryDigitSequence(String text, int start, int end) {
+
+        if (start == end || text.charAt(start) == '_' || text.charAt(end - 1) == '_') return false;
+        for (int index = start; index < end; index++) {
+            char current = text.charAt(index);
+            if (current != '_' && !isBinaryDigit(current)) return false;
+        }
+        return true;
+    }
+
+    private static boolean validDecimalNumber(String text, int start, int end, boolean floating) {
+
+        int exponent = Math.max(indexOf(text, start, end, 'e'), indexOf(text, start, end, 'E'));
+        int significandEnd = exponent < 0 ? end : exponent;
+        if (exponent >= 0) {
+            int exponentStart = exponent + 1;
+            if (exponentStart < end && (text.charAt(exponentStart) == '+' || text.charAt(exponentStart) == '-')) {
+                exponentStart++;
+            }
+            if (!validDigitSequence(text, exponentStart, end, false)) return false;
+        }
+        int dot = indexOf(text, start, significandEnd, '.');
+        if (dot >= 0) {
+            if (indexOf(text, dot + 1, significandEnd, '.') >= 0) return false;
+            boolean beforeEmpty = dot == start;
+            boolean afterEmpty = dot + 1 == significandEnd;
+            if (beforeEmpty && afterEmpty) return false;
+            return (beforeEmpty || validDigitSequence(text, start, dot, false))
+                    && (afterEmpty || validDigitSequence(text, dot + 1, significandEnd, false));
+        }
+        return validDigitSequence(text, start, significandEnd, false)
+                && (!floating || exponent >= 0 || start != end);
+    }
+
+    private static int indexOf(String text, int start, int end, char value) {
+
+        for (int index = start; index < end; index++) {
+            if (text.charAt(index) == value) return index;
+        }
+        return -1;
+    }
+
+    private static boolean validDigitSequence(String text, int start, int end, boolean hexadecimal) {
+
+        if (start == end || text.charAt(start) == '_' || text.charAt(end - 1) == '_') return false;
+        for (int index = start; index < end; index++) {
+            char current = text.charAt(index);
+            if (current == '_') continue;
+            if (hexadecimal ? !isHexDigit(current) : !Character.isDigit(current)) return false;
+        }
+        return true;
+    }
+
+    private void scanCharacter() {
+
+        SourcePosition start = this.position();
+        this.advance();
+        int value = 0;
+        boolean hasValue = false;
+        if (!this.atEnd() && this.peek() != '\'' && this.peek() != '\n' && this.peek() != '\r') {
+            if (this.peek() == '\\') {
+                SourcePosition escapeStart = this.position();
+                this.advance();
+                if (!this.atEnd() && this.peek() == 'u') {
+                    this.advance();
+                    int decoded = 0;
+                    boolean valid = true;
+                    for (int index = 0; index < 4; index++) {
+                        if (this.atEnd() || !isHexDigit(this.peek())) {
+                            valid = false;
+                            break;
+                        }
+                        decoded = decoded * 16 + Character.digit(this.advance(), 16);
+                    }
+                    if (!valid) {
+                        this.diagnostics.add(Diagnostic.error(this.source,
+                                new SourceSpan(escapeStart, this.position()),
+                                "malformed Unicode escape in character literal; expected four hexadecimal digits"));
+                    } else {
+                        // Only a reported escape keeps its start position.
+                        free escapeStart;
+                        value = decoded;
+                        hasValue = true;
+                    }
+                } else if (!this.atEnd()) {
+                    char escaped = this.advance();
+                    int decoded = CharEscapes.decodeSimple(escaped, true);
+                    if (decoded == CharEscapes.ABSENT) {
+                        this.diagnostics.add(Diagnostic.error(this.source,
+                                new SourceSpan(escapeStart, this.position()),
+                                quoted("unsupported character escape '\\", escaped, "'")));
+                    } else {
+                        free escapeStart;
+                        value = decoded;
+                        hasValue = true;
+                    }
+                } else {
+                    free escapeStart;
+                }
+            } else {
+                value = this.advance();
+                hasValue = true;
+            }
+        }
+        if (!hasValue) {
+            this.diagnostics.add(Diagnostic.error(this.source, new SourceSpan(start, this.position()),
+                    "character literal must contain exactly one UTF-16 code unit"));
+        }
+        if (!this.atEnd() && this.peek() == '\'') {
+            this.advance();
+        } else {
+            while (!this.atEnd() && this.peek() != '\'' && this.peek() != '\n' && this.peek() != '\r') {
+                this.advance();
+            }
+            if (!this.atEnd() && this.peek() == '\'') this.advance();
+            this.diagnostics.add(Diagnostic.error(this.source, new SourceSpan(start, this.position()),
+                    "unterminated or oversized character literal"));
+        }
+        this.tokens.add(new Token(TokenKind.CHARACTER, String.valueOf((char) value),
+                new SourceSpan(start, this.position())));
+    }
+
+    private void scanString() {
+
+        SourcePosition start = this.position();
+        this.advance();
+        StringBuilder value = new StringBuilder();
+        // The builder retires on every exit; the token keeps only its text.
+        defer free value;
+        boolean terminated = false;
+        while (!this.atEnd()) {
+            char current = this.peek();
+            if (current == '"') {
+                this.advance();
+                terminated = true;
+                break;
+            }
+            if (current == '\n' || current == '\r') break;
+            if (current != '\\') {
+                value.append(this.advance());
+                continue;
+            }
+            SourcePosition escapeStart = this.position();
+            this.advance();
+            if (this.atEnd()) {
+                // Only a reported escape keeps its start position.
+                free escapeStart;
+                break;
+            }
+            char escaped = this.advance();
+            int decoded = CharEscapes.decodeSimple(escaped, false);
+            if (decoded == CharEscapes.ABSENT) {
+                this.diagnostics.add(Diagnostic.error(this.source,
+                        new SourceSpan(escapeStart, this.position()),
+                        quoted("unsupported string escape '\\", escaped, "'")));
+                value.append(escaped);
+            } else {
+                free escapeStart;
+                value.append((char) decoded);
+            }
+        }
+        if (!terminated) {
+            this.diagnostics.add(Diagnostic.error(this.source, new SourceSpan(start, this.position()),
+                    "unterminated string literal"));
+        }
+        this.tokens.add(new Token(TokenKind.STRING, value.toString(), new SourceSpan(start, this.position())));
+    }
+
+    private void scanTextBlock(boolean raw) {
+
+        SourcePosition start = this.position();
+        if (raw) this.advance();
+        this.advance();
+        this.advance();
+        this.advance();
+
+        while (!this.atEnd() && isTextBlockOpeningWhitespace(this.peek())) this.advance();
+        if (this.atEnd() || this.peek() != '\n' && this.peek() != '\r') {
+            this.diagnostics.add(Diagnostic.error(this.source, new SourceSpan(start, this.position()),
+                    "text block opening delimiter must be followed by a line terminator"));
+        } else {
+            this.consumeLineTerminator();
+        }
+
+        int contentStart = this.offset;
+        boolean terminated = false;
+        while (!this.atEnd()) {
+            if (this.startsWith("\"\"\"")) {
+                terminated = true;
+                break;
+            }
+            if (!raw && this.peek() == '\\') {
+                this.advance();
+                if (!this.atEnd()) this.advance();
+                continue;
+            }
+            this.advance();
+        }
+
+        int contentEnd = this.offset;
+        if (terminated) {
+            this.advance();
+            this.advance();
+            this.advance();
+        } else {
+            this.diagnostics.add(Diagnostic.error(this.source, new SourceSpan(start, this.position()),
+                    raw ? "unterminated raw text block" : "unterminated text block"));
+        }
+
+        String normalized = normalizeLineTerminators(this.text, contentStart, contentEnd);
+        // The normalized copy is an intermediate; only the token's value survives.
+        defer free normalized;
+        String content = TextBlocks.stripIndent(normalized);
+        if (raw) {
+            this.tokens.add(new Token(TokenKind.STRING, content, new SourceSpan(start, this.position())));
+        } else {
+            defer free content;
+            String value = this.decodeTextBlockEscapes(content, start);
+            this.tokens.add(new Token(TokenKind.STRING, value, new SourceSpan(start, this.position())));
+        }
+    }
+
+    private String decodeTextBlockEscapes(String content, SourcePosition start) {
+
+        StringBuilder value = new StringBuilder();
+        // The builder retires on every exit; the caller owns the result.
+        defer free value;
+        for (int index = 0; index < content.length(); index++) {
+            char current = content.charAt(index);
+            if (current != '\\') {
+                value.append(current);
+                continue;
+            }
+            if (index + 1 >= content.length()) {
+                this.diagnostics.add(Diagnostic.error(this.source, new SourceSpan(start, this.position()),
+                        "unterminated escape in text block"));
+                continue;
+            }
+            index++;
+            char escaped = content.charAt(index);
+            int decoded = CharEscapes.decodeSimple(escaped, false);
+            if (decoded == CharEscapes.ABSENT) {
+                this.diagnostics.add(Diagnostic.error(this.source, new SourceSpan(start, this.position()),
+                        quoted("unsupported text block escape '\\", escaped, "'")));
+                value.append(escaped);
+            } else {
+                value.append((char) decoded);
+            }
+        }
+        return value.toString();
+    }
+
+    private void consumeLineTerminator() {
+
+        char first = this.advance();
+        if (first == '\r' && !this.atEnd() && this.peek() == '\n') this.advance();
+    }
+
+    private static boolean isTextBlockOpeningWhitespace(char value) {
+
+        return value == ' ' || value == '\t' || value == '\f';
+    }
+
+    // Java replaces "\r\n" and then '\r' with '\n'; this builds the same text
+    // directly from text[start, end).
+    private static String normalizeLineTerminators(String text, int start, int end) {
+
+        StringBuilder result = new StringBuilder(end - start + 1);
+        // The builder retires on every exit; the caller owns the result.
+        defer free result;
+        for (int index = start; index < end; index++) {
+            char current = text.charAt(index);
+            if (current == '\r') {
+                if (index + 1 < end && text.charAt(index + 1) == '\n') index++;
+                result.append('\n');
+            } else {
+                result.append(current);
+            }
+        }
+        return result.toString();
+    }
+
+    private void skipLineComment() {
+
+        while (!this.atEnd() && this.peek() != '\n' && this.peek() != '\r') this.advance();
+    }
+
+    private void skipBlockComment() {
+
+        SourcePosition start = this.position();
+        boolean documentation = this.retainDocumentation && this.startsWith("/**");
+        this.advance();
+        this.advance();
+        while (!this.atEnd() && !(this.peek() == '*' && this.peekNext() == '/')) this.advance();
+        if (this.atEnd()) {
+            this.diagnostics.add(Diagnostic.error(this.source, new SourceSpan(start, this.position()),
+                    "unterminated block comment"));
+            return;
+        }
+        this.advance();
+        this.advance();
+        if (documentation) {
+            this.documentationComments.add(new DocumentationComment(
+                    this.text.substring(start.offset(), this.offset), new SourceSpan(start, this.position())));
+        } else {
+            // Only a retained documentation comment keeps its start position.
+            free start;
+        }
+    }
+
+    private char advance() {
+
+        char value = this.text.charAt(this.offset);
+        this.offset++;
+        if (value == '\r') {
+            this.line++;
+            this.column = 1;
+        } else if (value == '\n') {
+            if (this.offset < 2 || this.text.charAt(this.offset - 2) != '\r') this.line++;
+            this.column = 1;
+        } else {
+            this.column++;
+        }
+        return value;
+    }
+
+    private char peek() {
+
+        return this.atEnd() ? (char) 0 : this.text.charAt(this.offset);
+    }
+
+    private char peekNext() {
+
+        return this.offset + 1 >= this.text.length() ? (char) 0 : this.text.charAt(this.offset + 1);
+    }
+
+    private boolean startsWith(String value) {
+
+        return this.text.startsWith(value, this.offset);
+    }
+
+    private static boolean isHexDigit(char value) {
+
+        return value >= '0' && value <= '9'
+                || value >= 'a' && value <= 'f'
+                || value >= 'A' && value <= 'F';
+    }
+
+    private static boolean isBinaryDigit(char value) {
+
+        return value == '0' || value == '1';
+    }
+
+    private boolean atEnd() {
+
+        return this.offset >= this.text.length();
+    }
+
+    private SourcePosition position() {
+
+        return new SourcePosition(this.offset, this.line, this.column);
+    }
+
+    private static boolean isIdentifierStart(char value) {
+
+        return value == '_' || value == '$' || isAsciiLetter(value);
+    }
+
+    private static boolean isIdentifierPart(char value) {
+
+        return isIdentifierStart(value) || Character.isDigit(value);
+    }
+
+    private static boolean isAsciiLetter(char value) {
+
+        return value >= 'a' && value <= 'z' || value >= 'A' && value <= 'Z';
+    }
+
+    // Builds prefix + printable(value) + suffix without an intermediate string.
+    private static String quoted(String prefix, char value, String suffix) {
+
+        StringBuilder result = new StringBuilder();
+        // The builder retires on every exit; the caller owns the result.
+        defer free result;
+        result.append(prefix);
+        if (value == '\r') {
+            result.append("\\r");
+        } else if (value == '\n') {
+            result.append("\\n");
+        } else if (value == '\t') {
+            result.append("\\t");
+        } else {
+            result.append(value);
+        }
+        result.append(suffix);
+        return result.toString();
+    }
+
+    destructor {
+
+        free this.documentationComments;
+        free this.diagnostics;
+        free this.tokens;
+    }
+}

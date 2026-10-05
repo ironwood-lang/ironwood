@@ -1,0 +1,40 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.ast;
+
+import ironwood.compiler.source.SourceSpan;
+
+/**
+ * Port of the Java frontend AST record {@code FloatingLiteralExpression}. Components
+ * keep the record's order; {@code Optional} components are nullable, and list
+ * components are frozen, independent copies that the node borrows for the invocation.
+ */
+public final class FloatingLiteralExpression implements Expression {
+
+    private final String text;
+    private final SourceSpan span;
+
+    /** Creates the node from its components in record order. */
+    public FloatingLiteralExpression(String text, SourceSpan span) {
+
+        this.text = text;
+        this.span = span;
+    }
+
+    /** @return the {@code text} component */
+    public String text() {
+
+        return this.text;
+    }
+
+    /** @return the {@code span} component */
+    @Override public SourceSpan span() {
+
+        return this.span;
+    }
+
+    @Override public ExpressionVariant expressionVariant() {
+
+        return ExpressionVariant.FLOATING_LITERAL_EXPRESSION;
+    }
+}

@@ -1,0 +1,48 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.lexer;
+
+import ironwood.compiler.source.SourceSpan;
+
+/**
+ * One lexical token. Ports the Java record {@code Token}; the lexeme and span
+ * are borrowed for the invocation.
+ */
+public final class Token {
+
+    private final TokenKind kind;
+    private final String lexeme;
+    private final SourceSpan span;
+
+    /**
+     * Creates a token.
+     *
+     * @param kind the token kind
+     * @param lexeme the source text, or the cooked value of a string or character literal
+     * @param span the source span
+     */
+    public Token(TokenKind kind, String lexeme, SourceSpan span) {
+
+        this.kind = kind;
+        this.lexeme = lexeme;
+        this.span = span;
+    }
+
+    /** @return the token kind */
+    public TokenKind kind() {
+
+        return this.kind;
+    }
+
+    /** @return the lexeme or cooked literal value */
+    public String lexeme() {
+
+        return this.lexeme;
+    }
+
+    /** @return the source span */
+    public SourceSpan span() {
+
+        return this.span;
+    }
+}

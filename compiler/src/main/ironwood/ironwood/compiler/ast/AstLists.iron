@@ -1,0 +1,254 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.ast;
+
+import ironwood.compiler.port.Lists;
+import ironwood.compiler.port.SnapshotInts;
+import ironwood.compiler.port.SnapshotList;
+import ironwood.ds.ArrayList;
+import ironwood.ds.IntArrayList;
+
+/**
+ * Frozen AST child lists. Java record constructors copy each list with
+ * {@code List.copyOf}, which returns one shared empty list for empty input.
+ * Natively the parser freezes each builder here: an empty builder yields the
+ * element type's process-lived empty constant, which is never freed (D258),
+ * and any other builder yields a fresh independent copy. Nodes borrow the
+ * frozen lists, which live for the invocation with the AST; the parser still
+ * owns and frees every builder.
+ */
+public final class AstLists {
+
+    /** The shared empty segment-count sequence. */
+    public static final SnapshotInts NO_COUNTS = new SnapshotInts(null);
+    /** The shared empty {@code CatchClause} list. */
+    public static final SnapshotList<CatchClause> NO_CATCH_CLAUSES = Lists.<CatchClause>empty();
+    /** The shared empty {@code ConstructorDeclaration} list. */
+    public static final SnapshotList<ConstructorDeclaration> NO_CONSTRUCTOR_DECLARATIONS
+            = Lists.<ConstructorDeclaration>empty();
+    /** The shared empty {@code EnumConstant} list. */
+    public static final SnapshotList<EnumConstant> NO_ENUM_CONSTANTS = Lists.<EnumConstant>empty();
+    /** The shared empty {@code Expression} list. */
+    public static final SnapshotList<Expression> NO_EXPRESSIONS = Lists.<Expression>empty();
+    /** The shared empty {@code FieldDeclaration} list. */
+    public static final SnapshotList<FieldDeclaration> NO_FIELD_DECLARATIONS = Lists.<FieldDeclaration>empty();
+    /** The shared empty {@code ImportDeclaration} list. */
+    public static final SnapshotList<ImportDeclaration> NO_IMPORT_DECLARATIONS = Lists.<ImportDeclaration>empty();
+    /** The shared empty {@code InstanceInitialization} list. */
+    public static final SnapshotList<InstanceInitialization> NO_INSTANCE_INITIALIZATIONS
+            = Lists.<InstanceInitialization>empty();
+    /** The shared empty {@code InterfaceMethodDeclaration} list. */
+    public static final SnapshotList<InterfaceMethodDeclaration> NO_INTERFACE_METHOD_DECLARATIONS
+            = Lists.<InterfaceMethodDeclaration>empty();
+    /** The shared empty {@code MethodDeclaration} list. */
+    public static final SnapshotList<MethodDeclaration> NO_METHOD_DECLARATIONS = Lists.<MethodDeclaration>empty();
+    /** The shared empty {@code Parameter} list. */
+    public static final SnapshotList<Parameter> NO_PARAMETERS = Lists.<Parameter>empty();
+    /** The shared empty {@code Statement} list. */
+    public static final SnapshotList<Statement> NO_STATEMENTS = Lists.<Statement>empty();
+    /** The shared empty {@code StaticInitialization} list. */
+    public static final SnapshotList<StaticInitialization> NO_STATIC_INITIALIZATIONS
+            = Lists.<StaticInitialization>empty();
+    /** The shared empty {@code SwitchGroup} list. */
+    public static final SnapshotList<SwitchGroup> NO_SWITCH_GROUPS = Lists.<SwitchGroup>empty();
+    /** The shared empty {@code SwitchLabel} list. */
+    public static final SnapshotList<SwitchLabel> NO_SWITCH_LABELS = Lists.<SwitchLabel>empty();
+    /** The shared empty {@code SwitchRule} list. */
+    public static final SnapshotList<SwitchRule> NO_SWITCH_RULES = Lists.<SwitchRule>empty();
+    /** The shared empty {@code TypeDeclaration} list. */
+    public static final SnapshotList<TypeDeclaration> NO_TYPE_DECLARATIONS = Lists.<TypeDeclaration>empty();
+    /** The shared empty {@code TypeName} list. */
+    public static final SnapshotList<TypeName> NO_TYPE_NAMES = Lists.<TypeName>empty();
+    /** The shared empty {@code TypeParameter} list. */
+    public static final SnapshotList<TypeParameter> NO_TYPE_PARAMETERS = Lists.<TypeParameter>empty();
+    /** The shared empty {@code TypeReference} list. */
+    public static final SnapshotList<TypeReference> NO_TYPE_REFERENCES = Lists.<TypeReference>empty();
+
+    private AstLists() {
+
+    }
+
+    /**
+     * @param builder the borrowed counts
+     * @return the shared empty sequence, or a fresh copy of nonempty counts
+     */
+    public static SnapshotInts counts(IntArrayList builder) {
+
+        return builder.isEmpty() ? NO_COUNTS : new SnapshotInts(builder);
+    }
+
+    /**
+     * @param builder the borrowed builder
+     * @return the shared empty list, or a fresh independent copy of a nonempty builder
+     */
+    public static SnapshotList<CatchClause> catchClauses(ArrayList<CatchClause> builder) {
+
+        return builder.isEmpty() ? NO_CATCH_CLAUSES : new SnapshotList<CatchClause>(builder);
+    }
+
+    /**
+     * @param builder the borrowed builder
+     * @return the shared empty list, or a fresh independent copy of a nonempty builder
+     */
+    public static SnapshotList<ConstructorDeclaration> constructorDeclarations(
+            ArrayList<ConstructorDeclaration> builder) {
+
+        return builder.isEmpty() ? NO_CONSTRUCTOR_DECLARATIONS : new SnapshotList<ConstructorDeclaration>(builder);
+    }
+
+    /**
+     * @param builder the borrowed builder
+     * @return the shared empty list, or a fresh independent copy of a nonempty builder
+     */
+    public static SnapshotList<EnumConstant> enumConstants(ArrayList<EnumConstant> builder) {
+
+        return builder.isEmpty() ? NO_ENUM_CONSTANTS : new SnapshotList<EnumConstant>(builder);
+    }
+
+    /**
+     * @param builder the borrowed builder
+     * @return the shared empty list, or a fresh independent copy of a nonempty builder
+     */
+    public static SnapshotList<Expression> expressions(ArrayList<Expression> builder) {
+
+        return builder.isEmpty() ? NO_EXPRESSIONS : new SnapshotList<Expression>(builder);
+    }
+
+    /**
+     * @param builder the borrowed builder
+     * @return the shared empty list, or a fresh independent copy of a nonempty builder
+     */
+    public static SnapshotList<FieldDeclaration> fieldDeclarations(ArrayList<FieldDeclaration> builder) {
+
+        return builder.isEmpty() ? NO_FIELD_DECLARATIONS : new SnapshotList<FieldDeclaration>(builder);
+    }
+
+    /**
+     * @param builder the borrowed builder
+     * @return the shared empty list, or a fresh independent copy of a nonempty builder
+     */
+    public static SnapshotList<ImportDeclaration> importDeclarations(ArrayList<ImportDeclaration> builder) {
+
+        return builder.isEmpty() ? NO_IMPORT_DECLARATIONS : new SnapshotList<ImportDeclaration>(builder);
+    }
+
+    /**
+     * @param builder the borrowed builder
+     * @return the shared empty list, or a fresh independent copy of a nonempty builder
+     */
+    public static SnapshotList<InstanceInitialization> instanceInitializations(
+            ArrayList<InstanceInitialization> builder) {
+
+        return builder.isEmpty() ? NO_INSTANCE_INITIALIZATIONS : new SnapshotList<InstanceInitialization>(builder);
+    }
+
+    /**
+     * @param builder the borrowed builder
+     * @return the shared empty list, or a fresh independent copy of a nonempty builder
+     */
+    public static SnapshotList<InterfaceMethodDeclaration> interfaceMethodDeclarations(
+            ArrayList<InterfaceMethodDeclaration> builder) {
+
+        return builder.isEmpty() ? NO_INTERFACE_METHOD_DECLARATIONS
+                : new SnapshotList<InterfaceMethodDeclaration>(builder);
+    }
+
+    /**
+     * @param builder the borrowed builder
+     * @return the shared empty list, or a fresh independent copy of a nonempty builder
+     */
+    public static SnapshotList<MethodDeclaration> methodDeclarations(ArrayList<MethodDeclaration> builder) {
+
+        return builder.isEmpty() ? NO_METHOD_DECLARATIONS : new SnapshotList<MethodDeclaration>(builder);
+    }
+
+    /**
+     * @param builder the borrowed builder
+     * @return the shared empty list, or a fresh independent copy of a nonempty builder
+     */
+    public static SnapshotList<Parameter> parameters(ArrayList<Parameter> builder) {
+
+        return builder.isEmpty() ? NO_PARAMETERS : new SnapshotList<Parameter>(builder);
+    }
+
+    /**
+     * @param builder the borrowed builder
+     * @return the shared empty list, or a fresh independent copy of a nonempty builder
+     */
+    public static SnapshotList<Statement> statements(ArrayList<Statement> builder) {
+
+        return builder.isEmpty() ? NO_STATEMENTS : new SnapshotList<Statement>(builder);
+    }
+
+    /**
+     * @param builder the borrowed builder
+     * @return the shared empty list, or a fresh independent copy of a nonempty builder
+     */
+    public static SnapshotList<StaticInitialization> staticInitializations(ArrayList<StaticInitialization> builder) {
+
+        return builder.isEmpty() ? NO_STATIC_INITIALIZATIONS : new SnapshotList<StaticInitialization>(builder);
+    }
+
+    /**
+     * @param builder the borrowed builder
+     * @return the shared empty list, or a fresh independent copy of a nonempty builder
+     */
+    public static SnapshotList<SwitchGroup> switchGroups(ArrayList<SwitchGroup> builder) {
+
+        return builder.isEmpty() ? NO_SWITCH_GROUPS : new SnapshotList<SwitchGroup>(builder);
+    }
+
+    /**
+     * @param builder the borrowed builder
+     * @return the shared empty list, or a fresh independent copy of a nonempty builder
+     */
+    public static SnapshotList<SwitchLabel> switchLabels(ArrayList<SwitchLabel> builder) {
+
+        return builder.isEmpty() ? NO_SWITCH_LABELS : new SnapshotList<SwitchLabel>(builder);
+    }
+
+    /**
+     * @param builder the borrowed builder
+     * @return the shared empty list, or a fresh independent copy of a nonempty builder
+     */
+    public static SnapshotList<SwitchRule> switchRules(ArrayList<SwitchRule> builder) {
+
+        return builder.isEmpty() ? NO_SWITCH_RULES : new SnapshotList<SwitchRule>(builder);
+    }
+
+    /**
+     * @param builder the borrowed builder
+     * @return the shared empty list, or a fresh independent copy of a nonempty builder
+     */
+    public static SnapshotList<TypeDeclaration> typeDeclarations(ArrayList<TypeDeclaration> builder) {
+
+        return builder.isEmpty() ? NO_TYPE_DECLARATIONS : new SnapshotList<TypeDeclaration>(builder);
+    }
+
+    /**
+     * @param builder the borrowed builder
+     * @return the shared empty list, or a fresh independent copy of a nonempty builder
+     */
+    public static SnapshotList<TypeName> typeNames(ArrayList<TypeName> builder) {
+
+        return builder.isEmpty() ? NO_TYPE_NAMES : new SnapshotList<TypeName>(builder);
+    }
+
+    /**
+     * @param builder the borrowed builder
+     * @return the shared empty list, or a fresh independent copy of a nonempty builder
+     */
+    public static SnapshotList<TypeParameter> typeParameters(ArrayList<TypeParameter> builder) {
+
+        return builder.isEmpty() ? NO_TYPE_PARAMETERS : new SnapshotList<TypeParameter>(builder);
+    }
+
+    /**
+     * @param builder the borrowed builder
+     * @return the shared empty list, or a fresh independent copy of a nonempty builder
+     */
+    public static SnapshotList<TypeReference> typeReferences(ArrayList<TypeReference> builder) {
+
+        return builder.isEmpty() ? NO_TYPE_REFERENCES : new SnapshotList<TypeReference>(builder);
+    }
+}

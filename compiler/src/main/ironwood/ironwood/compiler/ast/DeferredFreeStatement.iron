@@ -1,0 +1,41 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.ast;
+
+import ironwood.compiler.source.SourceSpan;
+
+/**
+ * Binds a local for proven-safe reclamation when its explicit block exits. It ports
+ * the Java frontend AST record {@code DeferredFreeStatement}. Components keep the
+ * record's order; {@code Optional} components are nullable, and list components are
+ * frozen, independent copies that the node borrows for the invocation.
+ */
+public final class DeferredFreeStatement implements Statement {
+
+    private final NameExpression target;
+    private final SourceSpan span;
+
+    /** Creates the node from its components in record order. */
+    public DeferredFreeStatement(NameExpression target, SourceSpan span) {
+
+        this.target = target;
+        this.span = span;
+    }
+
+    /** @return the {@code target} component */
+    public NameExpression target() {
+
+        return this.target;
+    }
+
+    /** @return the {@code span} component */
+    @Override public SourceSpan span() {
+
+        return this.span;
+    }
+
+    @Override public StatementVariant statementVariant() {
+
+        return StatementVariant.DEFERRED_FREE_STATEMENT;
+    }
+}

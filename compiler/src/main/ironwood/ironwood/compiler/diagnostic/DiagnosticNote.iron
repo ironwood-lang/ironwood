@@ -1,0 +1,57 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.diagnostic;
+
+import ironwood.compiler.source.SourceFile;
+import ironwood.compiler.source.SourceSpan;
+
+/**
+ * A related message whose location, when known, belongs to its own source.
+ * Ports the Java record {@code DiagnosticNote}; the source keeps identity and
+ * the span compares by value.
+ */
+public final class DiagnosticNote {
+
+    private final String message;
+    private final SourceFile source;
+    private final SourceSpan span;
+
+    /**
+     * Creates a note.
+     *
+     * @param message the nonblank message
+     * @param source the borrowed source, or null when the note has no location
+     * @param span the borrowed span, present exactly when the source is
+     * @throws IllegalArgumentException if the message is blank or only one location part is present
+     */
+    public DiagnosticNote(String message, SourceFile source, SourceSpan span) {
+
+        if (message == null || message.isBlank()) {
+            throw new IllegalArgumentException("diagnostic note message must not be blank");
+        }
+        if ((source == null) != (span == null)) {
+            throw new IllegalArgumentException("diagnostic note source and span must be present together");
+        }
+        this.message = message;
+        this.source = source;
+        this.span = span;
+    }
+
+    /** @return the message */
+    public String message() {
+
+        return this.message;
+    }
+
+    /** @return the borrowed source, or null */
+    public SourceFile source() {
+
+        return this.source;
+    }
+
+    /** @return the borrowed span, or null */
+    public SourceSpan span() {
+
+        return this.span;
+    }
+}

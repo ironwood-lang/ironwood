@@ -1,0 +1,65 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.ast;
+
+import ironwood.compiler.source.SourceSpan;
+
+/**
+ * Port of the Java frontend AST record {@code BinaryExpression}. Components keep the
+ * record's order; {@code Optional} components are nullable, and list components are
+ * frozen, independent copies that the node borrows for the invocation.
+ */
+public final class BinaryExpression implements Expression {
+
+    private final Expression left;
+    private final BinaryOperator operator;
+    private final Expression right;
+    private final SourceSpan operatorSpan;
+    private final SourceSpan span;
+
+    /** Creates the node from its components in record order. */
+    public BinaryExpression(Expression left, BinaryOperator operator, Expression right, SourceSpan operatorSpan,
+                            SourceSpan span) {
+
+        this.left = left;
+        this.operator = operator;
+        this.right = right;
+        this.operatorSpan = operatorSpan;
+        this.span = span;
+    }
+
+    /** @return the {@code left} component */
+    public Expression left() {
+
+        return this.left;
+    }
+
+    /** @return the {@code operator} component */
+    public BinaryOperator operator() {
+
+        return this.operator;
+    }
+
+    /** @return the {@code right} component */
+    public Expression right() {
+
+        return this.right;
+    }
+
+    /** @return the {@code operatorSpan} component */
+    public SourceSpan operatorSpan() {
+
+        return this.operatorSpan;
+    }
+
+    /** @return the {@code span} component */
+    @Override public SourceSpan span() {
+
+        return this.span;
+    }
+
+    @Override public ExpressionVariant expressionVariant() {
+
+        return ExpressionVariant.BINARY_EXPRESSION;
+    }
+}

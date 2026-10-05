@@ -1,0 +1,81 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.ast;
+
+import ironwood.compiler.source.SourceSpan;
+
+/**
+ * Port of the Java frontend AST record {@code LocalVariableDeclaration}. Components
+ * keep the record's order; {@code Optional} components are nullable, and list
+ * components are frozen, independent copies that the node borrows for the invocation.
+ */
+public final class LocalVariableDeclaration implements Statement {
+
+    private final TypeName type;
+    private final boolean isFinal;
+    private final boolean hasSuppressUnfreedDirective;
+    private final String name;
+    private final SourceSpan nameSpan;
+    private final Expression initializer;
+    private final SourceSpan span;
+
+    /** Creates the node from its components in record order. */
+    public LocalVariableDeclaration(TypeName type, boolean isFinal, boolean hasSuppressUnfreedDirective, String name,
+                                    SourceSpan nameSpan, Expression initializer, SourceSpan span) {
+
+        this.type = type;
+        this.isFinal = isFinal;
+        this.hasSuppressUnfreedDirective = hasSuppressUnfreedDirective;
+        this.name = name;
+        this.nameSpan = nameSpan;
+        this.initializer = initializer;
+        this.span = span;
+    }
+
+    /** @return the {@code type} component */
+    public TypeName type() {
+
+        return this.type;
+    }
+
+    /** @return the {@code isFinal} component */
+    public boolean isFinal() {
+
+        return this.isFinal;
+    }
+
+    /** @return the {@code hasSuppressUnfreedDirective} component */
+    public boolean hasSuppressUnfreedDirective() {
+
+        return this.hasSuppressUnfreedDirective;
+    }
+
+    /** @return the {@code name} component */
+    public String name() {
+
+        return this.name;
+    }
+
+    /** @return the {@code nameSpan} component */
+    public SourceSpan nameSpan() {
+
+        return this.nameSpan;
+    }
+
+    /** @return the {@code initializer} component */
+    public Expression initializer() {
+
+        return this.initializer;
+    }
+
+    /** @return the {@code span} component */
+    @Override public SourceSpan span() {
+
+        return this.span;
+    }
+
+    @Override public StatementVariant statementVariant() {
+
+        return StatementVariant.LOCAL_VARIABLE_DECLARATION;
+    }
+}

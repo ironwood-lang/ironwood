@@ -1,0 +1,38 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.ast;
+
+/**
+ * The closed variants of {@link Statement}, one constant per permitted
+ * Java record. Dispatch uses a {@code switch} expression without {@code default},
+ * so an added variant or a missing treatment fails compilation (D260).
+ */
+public enum StatementVariant {
+
+    ASSIGNMENT_STATEMENT,
+    BLOCK,
+    BREAK_STATEMENT,
+    CONTINUE_STATEMENT,
+    DEFER_STATEMENT,
+    DEFERRED_FREE_STATEMENT,
+    DO_WHILE_STATEMENT,
+    EMPTY_STATEMENT,
+    ENHANCED_FOR_STATEMENT,
+    ENUM_CONSTANT_INITIALIZATION,
+    EXPRESSION_STATEMENT,
+    FOR_STATEMENT,
+    FREE_STATEMENT,
+    IF_STATEMENT,
+    LABELED_STATEMENT,
+    LOCAL_CLASS_DECLARATION,
+    LOCAL_VARIABLE_DECLARATION,
+    MODERN_SWITCH_STATEMENT,
+    RETURN_STATEMENT,
+    SUPER_CONSTRUCTOR_INVOCATION,
+    SWITCH_STATEMENT,
+    THIS_CONSTRUCTOR_INVOCATION,
+    THROW_STATEMENT,
+    TRY_STATEMENT,
+    WHILE_STATEMENT,
+    YIELD_STATEMENT
+}

@@ -1,0 +1,81 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.ast;
+
+import ironwood.compiler.source.SourceSpan;
+
+/**
+ * Port of the Java frontend AST record {@code EnhancedForStatement}. Components keep
+ * the record's order; {@code Optional} components are nullable, and list components
+ * are frozen, independent copies that the node borrows for the invocation.
+ */
+public final class EnhancedForStatement implements Statement {
+
+    private final TypeName variableType;
+    private final boolean variableFinal;
+    private final String variableName;
+    private final SourceSpan variableNameSpan;
+    private final Expression iterable;
+    private final Statement body;
+    private final SourceSpan span;
+
+    /** Creates the node from its components in record order. */
+    public EnhancedForStatement(TypeName variableType, boolean variableFinal, String variableName,
+                                SourceSpan variableNameSpan, Expression iterable, Statement body, SourceSpan span) {
+
+        this.variableType = variableType;
+        this.variableFinal = variableFinal;
+        this.variableName = variableName;
+        this.variableNameSpan = variableNameSpan;
+        this.iterable = iterable;
+        this.body = body;
+        this.span = span;
+    }
+
+    /** @return the {@code variableType} component */
+    public TypeName variableType() {
+
+        return this.variableType;
+    }
+
+    /** @return the {@code variableFinal} component */
+    public boolean variableFinal() {
+
+        return this.variableFinal;
+    }
+
+    /** @return the {@code variableName} component */
+    public String variableName() {
+
+        return this.variableName;
+    }
+
+    /** @return the {@code variableNameSpan} component */
+    public SourceSpan variableNameSpan() {
+
+        return this.variableNameSpan;
+    }
+
+    /** @return the {@code iterable} component */
+    public Expression iterable() {
+
+        return this.iterable;
+    }
+
+    /** @return the {@code body} component */
+    public Statement body() {
+
+        return this.body;
+    }
+
+    /** @return the {@code span} component */
+    @Override public SourceSpan span() {
+
+        return this.span;
+    }
+
+    @Override public StatementVariant statementVariant() {
+
+        return StatementVariant.ENHANCED_FOR_STATEMENT;
+    }
+}

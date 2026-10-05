@@ -81,7 +81,7 @@ roadmap schedules them without replacing their detailed exit criteria.
 | --- | --- | --- | --- | --- |
 | [M0](#m0-baseline-and-contract-inventory) | Freeze the baseline and evidence contract: B0a | Current Java compiler and source audit | S0 baseline, ordering inventory, fixtures, budgets, and selected pilot scope recorded | Complete on qualified macOS arm64 profile: M0.1/M0.2/M0.3 and S0 passed |
 | [M1](#m1-minimum-pilot-prerequisites) | Build the minimum pilot dependencies: selected B1/B2/B7 slices | M0 | Required copies, traversal, ordering, and syntax/helpers have focused evidence | Complete on the qualified macOS arm64 profile; [checkpoint](self-hosting/m1/CHECKPOINT.md), [pre-change review](self-hosting/m1/PRE_CHANGE.md) |
-| [M2](#m2-portability-and-ownership-pilot) | Run B0b's frontend and ownership pilots | Required M1 phases | G1, the existing S1 gate, passes before broad translation | Not started |
+| [M2](#m2-portability-and-ownership-pilot) | Run B0b's frontend and ownership pilots | Required M1 phases | G1, the existing S1 gate, passes before broad translation | In progress: M2.1 complete on the qualified macOS arm64 profile ([frontend](self-hosting/m2/FRONTEND.md)); M2.2, M2.3 and G1 open |
 | [M3](#m3-semantic-and-backend-preparation) | Complete core B1/B2/B7 helpers and early B5 digests | M2 for broad port work; reuse M1 outputs | Staged readiness for S2, S3 with ByteView SHA-256, and S4 with MD5/native-link policy | Not started |
 | [M4](#m4-native-filesystem-and-process-services) | Deliver B3 filesystem and B4 process services | M2; audited helper dependencies | Filesystem checkpoint first, native process/driver checkpoint second | Not started |
 | [M5](#m5-artifacts-and-command-line-helpers) | Deliver public CRC32, B6 archives, and S6 B7 helpers | M2; required M3 helpers; M4 filesystem checkpoint for publication | Artifact and documentation/CLI prerequisites ready for S6 | Not started |
@@ -404,9 +404,18 @@ created. M2 has not started.
 [B0b](#b0b-execute-the-s1-pilot); [S1](SELF_HOSTING_PLAN.md#s1-prove-portability-and-memory-feasibility)
 remains the gate definition, and **G1** remains its stable checkpoint name.
 
-- [ ] **M2.1: Frontend slice.** Port spans, diagnostics, lexer, and parser with
+- [x] **M2.1: Frontend slice.** Port spans, diagnostics, lexer, and parser with
   the selected AST subset. Compare positive/malformed inputs, cooked text,
   Unicode digit continuation, and exact UTF-16 source spans against J0.
+  Complete: the [native frontend](self-hosting/m2/FRONTEND.md) (D261) is
+  byte-identical to J0 on the 36 frozen workloads, the 125-unit combined
+  [source bundle](self-hosting/m2/SOURCE_BUNDLE.json), all 759 tracked `.iron`
+  sources and 3,000 seeded mutations, and reconciles the 376-method closure
+  and 119-declaration model. It compiles and links under `--unfreed=warn`
+  with no findings, retires every builder (a census leaves no temporaries on
+  accepted inputs), unwinds every allocation failure, and fits the frontend
+  budget: the whole bundle in one invocation takes 0.297 s and 140.8 MB, and
+  every case completes within a 128-KiB stack.
 - [ ] **M2.2: Ownership slice.** Exercise real snapshot construction, copy,
   mutation, joins, restoration, and retirement, including explanation evidence.
   Measure immediate and field-retained callbacks and captured-state allocations;

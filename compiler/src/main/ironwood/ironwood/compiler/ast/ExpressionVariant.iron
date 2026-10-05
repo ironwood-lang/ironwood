@@ -1,0 +1,38 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.ast;
+
+/**
+ * The closed variants of {@link Expression}, one constant per permitted
+ * Java record. Dispatch uses a {@code switch} expression without {@code default},
+ * so an added variant or a missing treatment fails compilation (D260).
+ */
+public enum ExpressionVariant {
+
+    ARRAY_ACCESS_EXPRESSION,
+    ARRAY_CREATION_EXPRESSION,
+    ARRAY_INITIALIZER_EXPRESSION,
+    ASSIGNMENT_EXPRESSION,
+    BINARY_EXPRESSION,
+    BOOLEAN_LITERAL_EXPRESSION,
+    CALL_EXPRESSION,
+    CAST_EXPRESSION,
+    CHARACTER_LITERAL_EXPRESSION,
+    CONDITIONAL_EXPRESSION,
+    FIELD_ACCESS_EXPRESSION,
+    FLOATING_LITERAL_EXPRESSION,
+    INSTANCE_OF_EXPRESSION,
+    INTEGER_LITERAL_EXPRESSION,
+    INTERFACE_SUPER_EXPRESSION,
+    NAME_EXPRESSION,
+    NEW_EXPRESSION,
+    NULL_LITERAL_EXPRESSION,
+    QUALIFIED_SUPER_CONSTRUCTOR_EXPRESSION,
+    QUALIFIED_THIS_EXPRESSION,
+    STRING_LITERAL_EXPRESSION,
+    SUPER_EXPRESSION,
+    SWITCH_EXPRESSION,
+    THIS_EXPRESSION,
+    UNARY_EXPRESSION,
+    UPDATE_EXPRESSION
+}
