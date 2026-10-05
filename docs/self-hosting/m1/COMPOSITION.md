@@ -67,6 +67,7 @@ copy. Field projections are sorted because restored field order is later-only.
 | Check | Result |
 | --- | --- |
 | Operations | Native projection for restored, changed and merged state is byte-identical to the Java reference |
+| Order and collisions | The same scenario rerun with reversed insertion of every order-independent membership, with capacity-1 containers (one collision chain and repeated resizes) in both orders, and with capacity 64 prints the identical projection |
 | Value contract | 43 native checks: 7 record value checks, 14 seven-field lookup/independence/sharing checks, 7 builder null-domain checks, 8 null-source rollback checks, 3 D247 order checks, 4 version checks |
 | Java mapping | The M0 [47-check probe](../../../scripts/self-hosting/OwnershipContractProbe.java) passes on J0. Its 12 copy-time null key/value/member checks become 7 insertion-time builder rejections; its 7 `UnsupportedOperationException` checks become the absence of any mutator on the snapshot types; its distinct-but-equal unchanged state objects become one shared version, which compares equal as before |
 | Allocation | Snapshot storage 123, 267 and 843 allocations at n = 8, 32, 128 (6n + 75); saves allocate 159, 351 and 1,041 including transient builders; freeing returns to the pre-save live count |

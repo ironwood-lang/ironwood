@@ -7,8 +7,10 @@
 // order; other lists need no particular order). State values are immutable
 // versions shared by snapshots; a change installs a new version. Nodes, state
 // versions and retained-child versions are invocation-lived. The printed
-// projection must equal OwnershipOperationsReference. Exit 42 after each
-// snapshot's private storage is retired.
+// projection must equal OwnershipOperationsReference. The run repeats with
+// reversed insertion orders and with capacity-1 containers (one collision
+// chain, repeated resizes); every repeat must print the same projection.
+// Exit 42 after each snapshot's private storage is retired.
 import ironwood.ds.*;
 import ironwood.util.Iterator;
 import ironwood.compiler.port.*;
@@ -115,13 +117,25 @@ final class Slot {
 final class Live {
 
     final ArrayList<Node> allocations = new ArrayList<Node>();
-    final LinkedHashMap<Slot, Node> slots = new LinkedHashMap<Slot, Node>(8);
-    final LinkedHashMap<String, Node> fields = new LinkedHashMap<String, Node>(8);
-    final IdentityHashMap<Node, SnapshotList<Node>> retained = new IdentityHashMap<Node, SnapshotList<Node>>(8);
-    final IdentityHashMap<Node, Node> pools = new IdentityHashMap<Node, Node>(8);
-    final IdentityHashSet<Node> exposed = new IdentityHashSet<Node>(8);
-    final IdentityHashSet<Node> live = new IdentityHashSet<Node>(8);
-    final IdentityHashSet<Node> blocked = new IdentityHashSet<Node>(8);
+    final LinkedHashMap<Slot, Node> slots;
+    final LinkedHashMap<String, Node> fields;
+    final IdentityHashMap<Node, SnapshotList<Node>> retained;
+    final IdentityHashMap<Node, Node> pools;
+    final IdentityHashSet<Node> exposed;
+    final IdentityHashSet<Node> live;
+    final IdentityHashSet<Node> blocked;
+
+    // Capacity 1 chains every key in one bucket and resizes repeatedly.
+    Live(int capacity) {
+
+        this.slots = new LinkedHashMap<Slot, Node>(capacity);
+        this.fields = new LinkedHashMap<String, Node>(capacity);
+        this.retained = new IdentityHashMap<Node, SnapshotList<Node>>(capacity);
+        this.pools = new IdentityHashMap<Node, Node>(capacity);
+        this.exposed = new IdentityHashSet<Node>(capacity);
+        this.live = new IdentityHashSet<Node>(capacity);
+        this.blocked = new IdentityHashSet<Node>(capacity);
+    }
 }
 
 // The seven fields plus traversal lists. States are read by allocation-list
@@ -465,10 +479,14 @@ class Main {
         out.append('\n');
     }
 
-    public static int main(String[] args) {
+    // One save/mutate/save/restore/join run. Reversed inserts every
+    // order-independent membership in the opposite order; slot order stays
+    // the D247 current-store order. Returns the projection, or a marker if a
+    // snapshot did not release exactly its own storage.
+    static String scenario(int capacity, boolean reversed) {
 
         StateValue active = new StateValue(ACTIVE, null, false);
-        Live state = new Live();
+        Live state = new Live(capacity);
         for (int id = 0; id < 6; id++) state.allocations.add(new Node(id, active));
         Node n0 = state.allocations.get(0);
         Node n1 = state.allocations.get(1);
@@ -482,18 +500,18 @@ class Main {
         state.slots.put(new Slot(n4, 0), n0);
         state.slots.put(new Slot(n4, 1), n1);
         state.slots.put(new Slot(n5, 7), n2);
-        state.fields.put("a", n0);
-        state.fields.put("b", n1);
+        state.fields.put(reversed ? "b" : "a", reversed ? n1 : n0);
+        state.fields.put(reversed ? "a" : "b", reversed ? n0 : n1);
         ArrayList<Node> initial = new ArrayList<Node>(2);
-        initial.add(n0);
-        initial.add(n1);
+        initial.add(reversed ? n1 : n0);
+        initial.add(reversed ? n0 : n1);
         state.retained.put(n4, new SnapshotList<Node>(initial));
         free initial;
         state.pools.put(n0, n4);
         state.exposed.add(n2);
-        state.live.add(n0);
+        state.live.add(reversed ? n3 : n0);
         state.live.add(n1);
-        state.live.add(n3);
+        state.live.add(reversed ? n0 : n3);
 
         long beforeSave = System.liveAllocationCount();
         OwnershipSnapshot before = save(state);
@@ -509,9 +527,9 @@ class Main {
         state.fields.put("c", n3);
         state.pools.put(n0, n5);
         ArrayList<Node> replaced = new ArrayList<Node>(3);
-        replaced.add(n0);
+        replaced.add(reversed ? n3 : n0);
         replaced.add(n1);
-        replaced.add(n3);
+        replaced.add(reversed ? n0 : n3);
         state.retained.put(n4, new SnapshotList<Node>(replaced));
         free replaced;
         state.exposed.add(n3);
@@ -529,7 +547,7 @@ class Main {
         free changedProjection;
         merge(state, before, before, changed);
         project(out, state, "merged");
-        System.out.print(out.toString());
+        String projection = out.toString();
         free out;
 
         // Each snapshot releases exactly the private storage it acquired.
@@ -539,6 +557,20 @@ class Main {
         beforeRetire = System.liveAllocationCount();
         free before;
         retired = retired && beforeRetire - System.liveAllocationCount() == snapshotStorage;
-        return retired ? 42 : 1;
+        if (retired) return projection;
+        free projection;
+        return "retire-failed";
+    }
+
+    public static int main(String[] args) {
+
+        String expected = scenario(8, false);
+        System.out.print(expected);
+        boolean same = true;
+        for (int variant = 0; variant < 3; variant++) {
+            String observed = scenario(variant == 2 ? 64 : 1, variant != 1);
+            same = same && observed.equals(expected);
+        }
+        return same ? 42 : 1;
     }
 }

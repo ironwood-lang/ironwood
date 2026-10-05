@@ -18,7 +18,7 @@
   },
   {
    "path": "integration-tests/cases/compiler_ownership_operations.iron",
-   "sha256": "fd9130b90f81307e89620167ff7327d8db2e525c2bfad8b527af2463a7d2b11f"
+   "sha256": "811d45d254d0ec6b4662c201588617d7c819ac3cb2d4e76beee7827cdab4b2bf"
   },
   {
    "path": "compiler/src/test/java/ironwood/compiler/OwnershipSnapshotTests.java",
@@ -41,13 +41,13 @@
  "logs": [
   {
    "retained": "docs/self-hosting/m1/composition-evidence/logs/compiler_ownership_operations-compile.log.gz",
-   "sha256": "5551afca43ce3bfb0475969adf9464048aaf9262648da35858c56fae40fbf28b",
-   "gzip_sha256": "0b73d28acbd74a8a5f838279f6fd54951429c34119ebe2f9ec3ad55a14802588"
+   "sha256": "374c09085b57bad9616121530f03c0f3de048c82f376e09bc595e5a226ca03a5",
+   "gzip_sha256": "582cf8578ecdcd6886862f750324e00f318c4f6d80af7b52147cebf75e623991"
   },
   {
    "retained": "docs/self-hosting/m1/composition-evidence/logs/compiler_ownership_operations-link.log.gz",
-   "sha256": "14a985e74e47577e3b5af501e8d7fd4e991c1279e5653e63516ff984ee1f7512",
-   "gzip_sha256": "3889637d72e46a4e1785fb3357f35e322e391e71be6082906ca0336b82334539"
+   "sha256": "172669800cd22e1fd9bec017d18936fe29c9550254ac2def2cf0e2f3bd84074b",
+   "gzip_sha256": "72f1bb6d1d3f760a9f1a39bd2a284a3b7596270979b575568f8c106c471f990b"
   },
   {
    "retained": "docs/self-hosting/m1/composition-evidence/logs/compiler_ownership_operations-run.log.gz",
@@ -100,6 +100,11 @@
    "gzip_sha256": "c33bdaafc40ae52137c7119d2922a14fd4f4f340cea86e19094625617947bf77"
   },
   {
+   "retained": "docs/self-hosting/m1/composition-evidence/logs/tests-permutation.log.gz",
+   "sha256": "fb0d22c4070b8f045916098c336c03c919450336264956d2335ac8f0cf20a731",
+   "gzip_sha256": "97adc5a17e02cef5bf3dc3b8055a6fab8ef14b0ff5b9131bf7ebc591c5e14dc6"
+  },
+  {
    "retained": "docs/self-hosting/m1/composition-evidence/logs/tests.log.gz",
    "sha256": "9fbc7e7ef2271c154e24230a8a33fe8a18de5410aeeb73a575c64d033d681a74",
    "gzip_sha256": "508774351c32d2ed0429d5fd833473c8e684953c63eb14e191339a79958a2494"
@@ -112,7 +117,8 @@
   "allocation": "snapshot storage 8:123 32:267 128:843 (6n+75); save totals 159/351/1041",
   "unfreed_warn": "one diagnostic per compile and per link in each fixture: the deliberately retained live analyzer state ('state')",
   "licensing": "passed",
-  "unsafe_native_execution": false
+  "unsafe_native_execution": false,
+  "order_and_collisions": "reversed insertion, capacity 1 in both orders and capacity 64 print the identical projection"
  },
  "boundaries": [
   "nodes, state versions and child versions read through a snapshot are invocation-lived",
