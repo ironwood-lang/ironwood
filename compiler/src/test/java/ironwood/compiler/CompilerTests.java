@@ -847,6 +847,8 @@ public final class CompilerTests {
                 OwnershipSnapshotTests::artifacts);
         test("compiler value helpers keep ownership of results only", ValueHelpersTests::ownership);
         test("compiler value helpers match Java escapes counts lists and records", ValueHelpersTests::artifacts);
+        test("proof snapshots own saved evidence and keep its ownership safe", SavedEvidenceTests::controls);
+        test("snapshot-owned evidence retires every unit across budgets and artifacts", SavedEvidenceTests::artifacts);
         test("private compiler snapshot getter loans survive joins and delegation",
                 this::privateSnapshotGetterJoins);
         test("private compiler snapshot proofs reject publication and unrecognized construction",

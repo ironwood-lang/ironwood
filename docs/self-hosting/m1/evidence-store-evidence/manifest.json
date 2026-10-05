@@ -1,0 +1,68 @@
+{
+ "schema_version": 1,
+ "increment": "D259 snapshot-owned saved explanation evidence",
+ "base_commit": "b8cf06cb7943e709dc70c7fe7d1f419cd71edbab",
+ "producing_compiler": {
+  "path": "/Users/developer/workspace-mba-m2/Ironwood/workspace/m1/keyed-final/stage/compiler/build/ironwoodc.jar",
+  "sha256": "ab50fe2c128137005c4dbac8263bc1190ab956c1012bf5a285940709655a54b2",
+  "role": "compiler sources identical to base commit"
+ },
+ "sources": [
+  {
+   "path": "integration-tests/cases/compiler_saved_evidence.iron",
+   "sha256": "54d1aef50ce03e6c0ec619ed77e8ed85e4e3a01038346d33997c32ebd7daccb1"
+  },
+  {
+   "path": "compiler/src/test/java/ironwood/compiler/SavedEvidenceTests.java",
+   "sha256": "b025462dcbfe4f9070afb25bc94315c7de45601b8067d9617a18117e18c59b44"
+  }
+ ],
+ "logs": [
+  {
+   "retained": "docs/self-hosting/m1/evidence-store-evidence/logs/compile.log.gz",
+   "sha256": "102d48c2c477d26e8f43f5311352857d9e30214909fbb6781f40706cdf6d9dcb",
+   "gzip_sha256": "486ec83080fed0953f984d6c2818444156c7f9c612c7f5c586692fcce30bd6e1"
+  },
+  {
+   "retained": "docs/self-hosting/m1/evidence-store-evidence/logs/diff-check.log.gz",
+   "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "gzip_sha256": "f61f27bd17de546264aa58f40f3aafaac7021e0ef69c17f6b1b4cd7664a037ec"
+  },
+  {
+   "retained": "docs/self-hosting/m1/evidence-store-evidence/logs/licenses.log.gz",
+   "sha256": "baf5804aeb26498337c9c5223c199afeba5c3e2fc36ae219b9bf420e3775f673",
+   "gzip_sha256": "c33bdaafc40ae52137c7119d2922a14fd4f4f340cea86e19094625617947bf77"
+  },
+  {
+   "retained": "docs/self-hosting/m1/evidence-store-evidence/logs/link.log.gz",
+   "sha256": "c95620e4e4ab7888ed6eb763ecdded130255a3e8775cf9b86976b7c26d91d821",
+   "gzip_sha256": "1fdf76b8316def0be1e2ccaa12eb332887043b38ba7aa40ad9ec63d892709245"
+  },
+  {
+   "retained": "docs/self-hosting/m1/evidence-store-evidence/logs/run.log.gz",
+   "sha256": "dd49e3fad2c7f756780dd1200303c8450fb32020cdbb09e598b9cf373559d6c0",
+   "gzip_sha256": "52d05a2c06c2f7045a28c29d550976c1c356fea65e339295cb116c441df38b5b"
+  },
+  {
+   "retained": "docs/self-hosting/m1/evidence-store-evidence/logs/tests.log.gz",
+   "sha256": "d892d14e034f984a6dfa9eb83b77301fa2116375efab2feac804c8afa16035e8",
+   "gzip_sha256": "b2eb24a1eca7fc18d3844ba72f136be5b0965462cbf064a233eec4cd14237e90"
+  }
+ ],
+ "results": {
+  "tests": "PASS: 2 compiler tests",
+  "accounting": "budgets 1048576/8/5 save 2/1/0 versions; all units and references zero; baseline restored",
+  "unfreed_warn": "0 diagnostics",
+  "licensing": "passed"
+ },
+ "boundaries": [
+  "real six-map store and budgets are M2.2",
+  "sites invocation-lived",
+  "full M1 open"
+ ],
+ "host_profile": {
+  "host": "macOS 27.0.1, arm64, Apple M5, 32 GiB",
+  "bootstrap": "Java 21.0.1",
+  "backend": "pinned LLVM 23.1.0"
+ }
+}

@@ -9815,3 +9815,35 @@ occurrence order. If no
   with the selected component types. All-mode ownership controls and
   classes/archive artifacts with zero `--unfreed=warn` diagnostics. See
   [the value helper record](self-hosting/m1/VALUES.md).
+
+## D259 - Let proof snapshots own their saved explanation evidence
+
+- **Status:** Implemented during M1.1/M1.3 on 2026-10-05.
+- **Problem:** RejectedFreeEvidence keys saved versions by a `WeakReference`
+  to the proof snapshot, hashes it with `System.identityHashCode` and retires
+  dead versions by polling a `ReferenceQueue`. Ironwood has no garbage
+  collector, and a map-keyed native store could not free a saved version it
+  removes, because a value taken out of a map is not a proven fresh allocation.
+- **Decision:** Each native proof snapshot owns its optional saved evidence as a
+  private field installed from the store's fresh-or-null `save()` factory.
+  Version identity is the snapshot object; no identity hash, weak reference,
+  queue or registry remains. Before freeing a snapshot, its owner calls the
+  store's explicit release (the E6 unit, association and reference-count
+  release); destroying the snapshot frees the saved storage. Saving reserves
+  the whole version before copying (E2) or saves nothing; restoring a snapshot
+  without evidence clears current state and reports truncation, as Java does
+  for an absent version. Sites carry primitive reference counts that equality
+  ignores; `close` releases the current associations.
+- **Boundary:** This is the mechanism and its ownership proof, demonstrated on
+  origin associations. The real store's six maps, budget arithmetic, merge
+  intersections and limits are ported in M2.2. Java's collector could retire a
+  version earlier than its last use; the selected pilot holds every version
+  until verification, so accounting at close is unchanged. Sites remain
+  invocation-lived. No runtime bookkeeping or lowering change is introduced.
+  This establishes neither full M1 nor S1/G1.
+- **Verification:** Budgets admitting two, one and zero saved versions all
+  return every unit and site reference to zero and restore the storage
+  baseline; all-mode controls accept retirement and reject a saved-version
+  alias after its snapshot is freed, a separate free of the owned version and
+  use of a freed store; classes/archive at `-O3` with zero `--unfreed=warn`
+  diagnostics. See [the evidence store record](self-hosting/m1/EVIDENCE_STORE.md).
