@@ -844,6 +844,11 @@ public final class CompilerTests {
         test("private keyed snapshot reads reject unknown bodies and publishing callbacks", KeyedSnapshotTests::proofControls);
         test("private keyed counts and lookups preserve stored callback exposure", KeyedSnapshotTests::countAndStoredCallbacks);
         test("private keyed snapshots survive artifacts and allocation failures", KeyedSnapshotTests::artifacts);
+        test("compiler port helpers keep borrowed items and captured state alive", PortHelperTests::ownership);
+        test("compiler port generics spell reference bounds", PortHelperTests::referenceBounds);
+        test("compiler port helpers match Java stacks values and callbacks across artifacts",
+                PortHelperTests::artifacts);
+        test("compiler port helpers unwind every allocation failure", PortHelperTests::failures);
         test("compiler work queue keeps queued items alive and its ring private", WorkQueueTests::ownership);
         test("compiler worklists preserve FIFO and retain-filter order across artifacts and failures",
                 WorkQueueTests::artifacts);

@@ -10027,3 +10027,45 @@ occurrence order. If no
   list-growing comparator; every allocation failure unwinds; all-mode
   ownership pairs; O3 code shows the devirtualized comparator inlined into
   one compare. See [the sort record](self-hosting/m3/SORT.md).
+
+## D264 - Provide the M3.1 stack, order, value and callback helpers
+
+- **Status:** Implemented during M3.1 on 2026-10-05.
+- **Decision:** Add compiler-private helpers under
+  `compiler/src/main/ironwood/ironwood/compiler/port/` for the S2 and S3
+  consumers that the M0 inventory assigns to M3.1. `ScopeStack<E>` replaces
+  the analyzers' LIFO `ArrayDeque`s (WORKLIST_CONTRACTS Q21-Q41): head
+  push/pop/peek, depth-from-head reads for innermost-first traversal,
+  head-to-tail `snapshot()` like `List.copyOf(deque)` and `restore()` like
+  `restoreDeque`, `NoSuchElementException` on an empty pop and null from an
+  empty peek. The FIFO queues keep D255's `WorkQueue`. `StringOrder` is
+  natural UTF-16 String order for the `TreeMap`/`TreeSet` and `sorted()`
+  rewrites, which sort a hash container's keys at each observation;
+  `Extremes` keeps Java's first-tie rule for `Stream.min` and `max`.
+  `SnapshotSet` is the value-set member of the D254 family for `Set.copyOf`
+  lookups. `Lists.of` with two to four items, `Lists.equal`/`hash` and
+  `Maps.equal`/`hash` give Java list and map value semantics over snapshots
+  and their D257 key lists. `BooleanSource`, `Mapper`, `Condition`,
+  `Action`, `Source`, `PairAction` and `IdentityMapper` replace the surviving
+  `java.util.function` uses (CALLBACK_CONTRACTS); every port generic spells
+  `extends Object`.
+- **Proof:** No analysis change. `ScopeStack` reuses the owned-array growth
+  shape of `WorkQueue`; its restore pushes each saved item, because storing a
+  snapshot read straight into the owned array makes the array's ownership
+  uncertain. Stacked items escape as queued items do. The set snapshot reuses
+  D251's copy and D254's lookup proof shape. Fixed-arity lists expose their
+  items conservatively, as `Lists.single` does (D258). Holders free before
+  the callbacks they retain; captured state stays invocation-lived, as M2
+  found, because freeing a callback never frees what it captured.
+- **Boundary:** No public API, runtime bookkeeping or lowering change.
+  Primitive `Arrays.sort` stays an insertion sort; the Integer natural-order
+  sites sort small inputs, and a faster primitive sort waits for a measured
+  need (B2). Consumer rewrites are S2/S3 work. Supersedes no decision.
+- **Verification:** Native transcripts equal Java 21 for 3,000 seeded
+  `ArrayDeque` stack operations, for String order over surrogates and U+E000,
+  first-tie extremes, list and map equality and hashes and set membership,
+  and for every callback shape, from classes and archive at `-O3` with no
+  diagnostics; allocation checks (a stack costs two allocations, a callback
+  one, a call none); every allocation-failure limit unwinds; all-mode
+  ownership pairs; an audit that every port generic has a reference bound and
+  primitive arguments are rejected. See [the helper record](self-hosting/m3/HELPERS.md).

@@ -1,0 +1,16 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.port;
+
+/**
+ * Compiler-local replacement for {@code Predicate} (API0613), as in
+ * TemporaryBorrowAnalysis.hasCandidate and UnfreedAllocationTracker.observe,
+ * which test in encounter order and stop at the first true result.
+ *
+ * @param <T> the reference argument type
+ */
+public interface Condition<T extends Object> {
+
+    /** @return whether the value matches; failures propagate to the caller */
+    boolean test(T value);
+}

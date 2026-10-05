@@ -1,0 +1,79 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// Inject allocation failure into the M3.1 helpers: ScopeStack construction,
+// growth, snapshot and restore; SnapshotSet construction; fixed-arity lists.
+// Elements are literals, which are never allocated. Stack growth installs
+// the larger array before changing membership, so a failed push leaves the
+// stack as it was. Every failure unwinds to the live-allocation baseline.
+// Exit 42 on allocation failure with every check intact, 43 on success.
+import ironwood.ds.HashSet;
+import ironwood.compiler.port.Lists;
+import ironwood.compiler.port.ScopeStack;
+import ironwood.compiler.port.SnapshotList;
+import ironwood.compiler.port.SnapshotSet;
+
+class Main {
+
+    static String key(int index) {
+
+        return switch (index % 4) {
+            case 0 -> "w";
+            case 1 -> "x";
+            case 2 -> "y";
+            default -> "z";
+        };
+    }
+
+    static void exercise() {
+
+        ScopeStack<String> stack = new ScopeStack<String>();
+        defer free stack;
+        for (int index = 0; index < 40; index++) {
+            int before = stack.size();
+            try {
+                stack.push(key(index));
+            } catch (OutOfMemoryError failure) {
+                if (stack.size() != before || before > 0 && stack.peek() != key(before - 1)) {
+                    throw new IllegalStateException();
+                }
+                throw failure;
+            }
+        }
+        SnapshotList<String> saved = stack.snapshot();
+        defer free saved;
+        ScopeStack<String> restored = new ScopeStack<String>();
+        defer free restored;
+        restored.restore(saved);
+        if (restored.size() != 40 || restored.peek() != key(39)) throw new IllegalStateException();
+        HashSet<String> builder = new HashSet<String>();
+        defer free builder;
+        builder.add("w");
+        builder.add("x");
+        SnapshotSet<String> set = new SnapshotSet<String>(builder);
+        defer free set;
+        SnapshotList<String> four = Lists.of("w", "x", "y", "z");
+        defer free four;
+        if (!set.contains("x") || four.size() != 4) throw new IllegalStateException();
+    }
+
+    public static int main(String[] args) {
+
+        // The first HashSet runs its one-time, process-lived class
+        // initialization; take the baseline after it.
+        try {
+            HashSet<String> warm = new HashSet<String>();
+            free warm;
+        } catch (OutOfMemoryError failure) {
+            return 42;
+        }
+        long baseline = System.liveAllocationCount();
+        boolean failed = false;
+        try {
+            exercise();
+        } catch (OutOfMemoryError failure) {
+            failed = true;
+        }
+        if (System.liveAllocationCount() != baseline) return 1;
+        return failed ? 42 : 43;
+    }
+}

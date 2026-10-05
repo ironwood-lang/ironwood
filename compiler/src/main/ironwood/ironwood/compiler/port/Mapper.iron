@@ -1,0 +1,18 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.port;
+
+/**
+ * Compiler-local replacement for {@code Function} (API0612): IrCfgRenamer's
+ * retained value and label mappers, specializer factories and emitter
+ * services. A holder that keeps a mapper in a field retains it and its
+ * captures for the holder's lifetime; results may alias the argument.
+ *
+ * @param <T> the reference argument type
+ * @param <R> the reference result type
+ */
+public interface Mapper<T extends Object, R extends Object> {
+
+    /** @return the mapped value; failures propagate to the caller */
+    R apply(T value);
+}

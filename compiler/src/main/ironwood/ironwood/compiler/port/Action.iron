@@ -1,0 +1,16 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.port;
+
+/**
+ * Compiler-local replacement for {@code Consumer} (API0610), as in
+ * FunctionAnalyzer.reclaimInOrder, which runs the action only after a proof
+ * accepts the value. The action may retain its argument.
+ *
+ * @param <T> the reference argument type
+ */
+public interface Action<T extends Object> {
+
+    /** Performs the action; failures propagate to the caller. */
+    void accept(T value);
+}

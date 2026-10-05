@@ -1,0 +1,17 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.port;
+
+/**
+ * Compiler-local replacement for {@code BiConsumer} (API0607), the clone
+ * observer that the initialized-type and enum-argument specializers retain
+ * for a whole run and notify with the original, then the clone.
+ *
+ * @param <T> the first reference argument type
+ * @param <U> the second reference argument type
+ */
+public interface PairAction<T extends Object, U extends Object> {
+
+    /** Performs the action; failures propagate to the caller. */
+    void accept(T first, U second);
+}

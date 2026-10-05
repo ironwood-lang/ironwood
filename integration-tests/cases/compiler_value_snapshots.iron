@@ -1,0 +1,230 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// M3.1 order and value helpers against Java 21 (docs/self-hosting/m3/
+// helpers-evidence/ValueSnapshotsReference.java): StringOrder's sign over
+// every pair of fifteen strings, including surrogates and the private-use
+// U+E000 that UTF-16 order puts after a supplementary pair; a stable sort
+// by it; first-tie minimum and maximum; fixed-arity lists with List.equals
+// and List.hashCode; Map.equals and Map.hashCode over keyed snapshots and
+// their key lists; SnapshotSet membership. Prints the shared transcript and
+// exits 42; every helper result and builder is freed, and the strings stay
+// process-lived.
+import ironwood.ds.ArrayList;
+import ironwood.ds.HashMap;
+import ironwood.ds.HashSet;
+import ironwood.compiler.port.Extremes;
+import ironwood.compiler.port.Lists;
+import ironwood.compiler.port.Maps;
+import ironwood.compiler.port.SnapshotList;
+import ironwood.compiler.port.SnapshotMap;
+import ironwood.compiler.port.SnapshotSet;
+import ironwood.compiler.port.StringOrder;
+import ironwood.util.Comparator;
+
+final class Ranked {
+
+    final int key;
+    final int id;
+
+    Ranked(int key, int id) {
+
+        this.key = key;
+        this.id = id;
+    }
+}
+
+final class ByRank implements Comparator<Ranked> {
+
+    @Override
+    public int compare(Ranked first, Ranked second) {
+
+        return Integer.compare(first.key, second.key);
+    }
+}
+
+class Main {
+
+    static String[] texts = new String[15];
+
+    static String pair(char first, char second) {
+
+        StringBuilder text = new StringBuilder();
+        defer free text;
+        text.append(first).append(second);
+        return text.toString();
+    }
+
+    static void prepare() {
+
+        texts[0] = "";
+        texts[1] = "a";
+        texts[2] = "b";
+        texts[3] = "ab";
+        texts[4] = "abc";
+        texts[5] = "ba";
+        texts[6] = "Z";
+        texts[7] = pair('a', '\u0000');
+        texts[8] = pair('é', 'x');
+        texts[9] = pair('', 'x');
+        texts[10] = pair('\ud83d', '\ude00');
+        texts[11] = pair('\ud800', 'x');
+        texts[12] = pair('x', '\udc00');
+        texts[13] = pair('￿', 'x');
+        // Equal to texts[3] but a distinct object, so stability is visible.
+        texts[14] = pair('a', 'b');
+    }
+
+    static void order() {
+
+        StringOrder order = new StringOrder();
+        defer free order;
+        StringBuilder signs = new StringBuilder();
+        defer free signs;
+        for (int left = 0; left < texts.length; left++) {
+            for (int right = 0; right < texts.length; right++) {
+                int sign = Integer.signum(order.compare(texts[left], texts[right]));
+                signs.append(sign < 0 ? '-' : sign == 0 ? '0' : '+');
+            }
+            signs.append('/');
+        }
+        System.out.println("signs " + signs.toString());
+        ArrayList<String> sorted = new ArrayList<String>();
+        defer free sorted;
+        for (int index = texts.length - 1; index >= 0; index--) sorted.add(texts[index]);
+        sorted.sortWithComparator(order);
+        StringBuilder positions = new StringBuilder();
+        defer free positions;
+        for (int index = 0; index < sorted.size(); index++) {
+            String text = sorted.get(index);
+            int original = -1;
+            for (int candidate = 0; candidate < texts.length && original < 0; candidate++) {
+                if (texts[candidate] == text) original = candidate;
+            }
+            positions.append(original).append(' ');
+        }
+        System.out.println("sorted " + positions.toString());
+    }
+
+    // A list lent to a helper, copied and lent again through the copy in the
+    // same frame stays unfreeable there (the retained M1 copy-lent limit), so
+    // each snapshot lives in its own frame. Returns min id * 100 + max id.
+    static int frozenExtremes(ArrayList<Ranked> candidates, ByRank byRank) {
+
+        SnapshotList<Ranked> frozen = new SnapshotList<Ranked>(candidates);
+        defer free frozen;
+        return Extremes.minimum(frozen, byRank).id * 100 + Extremes.maximum(frozen, byRank).id;
+    }
+
+    static void extremes() {
+
+        ByRank byRank = new ByRank();
+        defer free byRank;
+        int[] keys = {5, 3, 9, 3, 9, 1, 1, 7};
+        defer free keys;
+        ArrayList<Ranked> candidates = new ArrayList<Ranked>();
+        defer free candidates;
+        Ranked none = Extremes.minimum(candidates, byRank);
+        System.out.println("empty " + (none == null));
+        for (int index = 0; index < keys.length; index++) {
+            candidates.add(new Ranked(keys[index], index));
+            Ranked minimum = Extremes.minimum(candidates, byRank);
+            Ranked maximum = Extremes.maximum(candidates, byRank);
+            int frozen = frozenExtremes(candidates, byRank);
+            System.out.println("prefix " + (index + 1) + " min " + minimum.id + " max " + maximum.id
+                    + " snapshot " + frozen / 100 + " " + frozen % 100);
+        }
+    }
+
+    static void lists() {
+
+        SnapshotList<String> one = Lists.single("x");
+        defer free one;
+        SnapshotList<String> two = Lists.of("x", "y");
+        defer free two;
+        SnapshotList<String> three = Lists.of("x", "y", "z");
+        defer free three;
+        SnapshotList<String> four = Lists.of("x", "y", "z", "w");
+        defer free four;
+        SnapshotList<String> again = Lists.of("x", "y");
+        defer free again;
+        SnapshotList<String> swapped = Lists.of("y", "x");
+        defer free swapped;
+        SnapshotList<String> empty = Lists.empty();
+        defer free empty;
+        System.out.println("hash " + Lists.hash(empty) + " " + Lists.hash(one) + " " + Lists.hash(two)
+                + " " + Lists.hash(three) + " " + Lists.hash(four));
+        System.out.println("equal " + Lists.equal(two, again) + " " + Lists.equal(two, swapped) + " "
+                + Lists.equal(two, three) + " " + Lists.equal(empty, empty) + " " + Lists.equal(one, two));
+        System.out.println("order " + four.get(0) + four.get(1) + four.get(2) + four.get(3));
+    }
+
+    static SnapshotMap<String, String> snapshotOf(HashMap<String, String> builder) {
+
+        return new SnapshotMap<String, String>(builder);
+    }
+
+    static void maps() {
+
+        HashMap<String, String> firstBuilder = new HashMap<String, String>();
+        defer free firstBuilder;
+        firstBuilder.put("k1", "v1");
+        firstBuilder.put("k2", "v2");
+        firstBuilder.put("k3", "v3");
+        SnapshotMap<String, String> first = snapshotOf(firstBuilder);
+        defer free first;
+        SnapshotList<String> firstKeys = Lists.of("k1", "k2", "k3");
+        defer free firstKeys;
+        HashMap<String, String> sameBuilder = new HashMap<String, String>();
+        defer free sameBuilder;
+        sameBuilder.put("k3", "v3");
+        sameBuilder.put("k1", "v1");
+        sameBuilder.put("k2", "v2");
+        SnapshotMap<String, String> same = snapshotOf(sameBuilder);
+        defer free same;
+        SnapshotList<String> sameKeys = Lists.of("k3", "k1", "k2");
+        defer free sameKeys;
+        HashMap<String, String> otherBuilder = new HashMap<String, String>();
+        defer free otherBuilder;
+        otherBuilder.put("k1", "v1");
+        otherBuilder.put("k2", "changed");
+        otherBuilder.put("k3", "v3");
+        SnapshotMap<String, String> other = snapshotOf(otherBuilder);
+        defer free other;
+        HashMap<String, String> shortBuilder = new HashMap<String, String>();
+        defer free shortBuilder;
+        shortBuilder.put("k1", "v1");
+        SnapshotMap<String, String> shorter = snapshotOf(shortBuilder);
+        defer free shorter;
+        SnapshotList<String> shortKeys = Lists.single("k1");
+        defer free shortKeys;
+        System.out.println("map equal " + Maps.equal(first, firstKeys, same) + " " + Maps.equal(same, sameKeys, first)
+                + " " + Maps.equal(first, firstKeys, other) + " " + Maps.equal(shorter, shortKeys, first));
+        System.out.println("map hash " + Maps.hash(first, firstKeys) + " " + Maps.hash(same, sameKeys) + " "
+                + Maps.hash(shorter, shortKeys));
+    }
+
+    static void sets() {
+
+        HashSet<String> builder = new HashSet<String>();
+        defer free builder;
+        for (int index = 1; index < 7; index++) builder.add(texts[index]);
+        SnapshotSet<String> snapshot = new SnapshotSet<String>(builder);
+        defer free snapshot;
+        builder.add("later");
+        StringBuilder found = new StringBuilder();
+        defer free found;
+        for (int index = 0; index < texts.length; index++) found.append(snapshot.contains(texts[index]) ? '1' : '0');
+        System.out.println("set " + snapshot.size() + " " + found.toString() + " " + snapshot.contains("later"));
+    }
+
+    public static int main(String[] args) {
+
+        prepare();
+        order();
+        extremes();
+        lists();
+        maps();
+        sets();
+        return 42;
+    }
+}

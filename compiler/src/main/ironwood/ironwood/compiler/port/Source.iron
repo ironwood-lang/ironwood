@@ -1,0 +1,16 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.port;
+
+/**
+ * Compiler-local replacement for {@code Supplier} (API0614), as in the
+ * analyzer's l-value read services and scoped helpers. A stored source runs
+ * when its holder invokes it, with the analyzer state of that moment.
+ *
+ * @param <T> the reference result type
+ */
+public interface Source<T extends Object> {
+
+    /** @return the supplied value; failures propagate to the caller */
+    T get();
+}
