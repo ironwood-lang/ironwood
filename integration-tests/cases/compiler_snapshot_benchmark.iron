@@ -1,0 +1,74 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// Compare the original one-word-plus-or copy with the selected capacity bound.
+// Five deterministic 100000-copy batches per width report allocations, checksum,
+// and elapsed nanoseconds; exit 42 requires zero live-allocation delta.
+import ironwood.util.BitSet;
+import ironwood.compiler.port.SnapshotBits;
+
+class Main {
+
+    static BitSet baselineCopy(BitSet source) {
+
+        BitSet result = new BitSet();
+        try {
+            result.or(source);
+            return result;
+        } catch (RuntimeException failure) {
+            free result;
+            throw failure;
+        } catch (Error failure) {
+            free result;
+            throw failure;
+        }
+    }
+
+    static void compare(int bit, boolean sized) {
+
+        BitSet source = new BitSet();
+        defer free source;
+        if (bit >= 0) source.set(bit);
+        long before = System.allocationCount();
+        long start = System.nanoTime();
+        int checksum = 0;
+        for (int index = 0; index < 100000; index++) {
+            if (sized) {
+                BitSet result = SnapshotBits.copy(source);
+                checksum += result.cardinality();
+                free result;
+            } else {
+                BitSet result = baselineCopy(source);
+                checksum += result.cardinality();
+                free result;
+            }
+        }
+        long elapsed = System.nanoTime() - start;
+        System.out.print(bit);
+        System.out.print(":");
+        System.out.print(sized);
+        System.out.print(":");
+        System.out.print(System.allocationCount() - before);
+        System.out.print(":");
+        System.out.print(checksum);
+        System.out.print(":");
+        System.out.println(elapsed);
+    }
+
+    public static int main(String[] args) {
+
+        long baseline = System.liveAllocationCount();
+        for (int repeat = 0; repeat < 5; repeat++) {
+            compare(-1, false);
+            compare(-1, true);
+            compare(0, false);
+            compare(0, true);
+            compare(63, false);
+            compare(63, true);
+            compare(64, false);
+            compare(64, true);
+            compare(4096, false);
+            compare(4096, true);
+        }
+        return System.liveAllocationCount() == baseline ? 42 : 1;
+    }
+}

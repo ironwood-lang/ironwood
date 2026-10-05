@@ -268,7 +268,7 @@ public class ArrayList<E extends Object> implements Iterable<E> {
 
     private int copyCapacity() {
 
-        return Math.max(1, this.currentSize);
+        return this.currentSize > 0 ? this.currentSize : 1;
     }
 
     /** Returns the number of stored values. */

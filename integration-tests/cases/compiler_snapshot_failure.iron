@@ -1,0 +1,41 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// Fail each allocation in private list and logical-bit snapshot construction.
+// Deferred cleanup keeps borrowed literals and source buffers independent.
+// Exit 42 on injected OOM, 43 on success, 1 if private storage survives.
+import ironwood.compiler.port.SnapshotList;
+import ironwood.compiler.port.SnapshotBits;
+import ironwood.ds.ArrayList;
+import ironwood.util.BitSet;
+
+class Main {
+
+    static void construct() {
+
+        ArrayList<String> builder = new ArrayList<String>(2);
+        defer free builder;
+        builder.add("first");
+        builder.add("second");
+        SnapshotList<String> snapshot = new SnapshotList<String>(builder);
+        defer free snapshot;
+        BitSet source = new BitSet(4097);
+        defer free source;
+        source.set(4096);
+        BitSet bits = SnapshotBits.copy(source);
+        defer free bits;
+        if (snapshot.size() != 2 || !bits.get(4096)) throw new IllegalStateException();
+    }
+
+    public static int main(String[] args) {
+
+        long baseline = System.liveAllocationCount();
+        boolean failed = false;
+        try {
+            construct();
+        } catch (OutOfMemoryError failure) {
+            failed = true;
+        }
+        if (System.liveAllocationCount() != baseline) return 1;
+        return failed ? 42 : 43;
+    }
+}

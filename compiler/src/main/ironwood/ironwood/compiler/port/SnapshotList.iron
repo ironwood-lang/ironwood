@@ -1,0 +1,63 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.port;
+
+import ironwood.ds.ArrayList;
+
+/**
+ * Compiler-owned independent ordered membership with a narrow read interface.
+ * Items are borrowed and retain their identity; construction neither clones
+ * nor owns them. The owner must keep them alive through all snapshot reads.
+ * Destroying the snapshot reclaims only its private list storage and iterator.
+ *
+ * @param <E> the borrowed item type
+ */
+public final class SnapshotList<E extends Object> {
+
+    private final ArrayList<E> membership;
+
+    /**
+     * Copies source membership without touching its reusable iterator.
+     * Null source is rejected. The source can be mutated independently after
+     * construction. Partial construction reclaims all private storage.
+     *
+     * @param source the non-null ordered builder, borrowed during construction
+     * @throws NullPointerException if source is null
+     */
+    public SnapshotList(ArrayList<E> source) {
+
+        if (source == null) throw new NullPointerException();
+        this.membership = source.copy();
+    }
+
+    /** @return the fixed number of borrowed items, without allocation */
+    public int size() {
+
+        return this.membership.size();
+    }
+
+    /**
+     * Reads a borrowed item without allocation or changing iteration state.
+     * Returned aliases conservatively borrow this snapshot's lifetime. Keep
+     * the snapshot alive until their last use, including retained aliases.
+     *
+     * @param index the zero-based member index
+     * @return the non-null borrowed item
+     * @throws IndexOutOfBoundsException if index is outside membership
+     */
+    public E get(int index) {
+
+        return this.membership.get(index);
+    }
+
+    /** @return whether the fixed membership is empty, without allocation */
+    public boolean isEmpty() {
+
+        return this.membership.isEmpty();
+    }
+
+    destructor {
+
+        free this.membership;
+    }
+}

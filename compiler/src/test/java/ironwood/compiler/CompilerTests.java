@@ -805,6 +805,18 @@ public final class CompilerTests {
                 this::listCopiesAcrossArtifacts);
         test("independent list copy read proofs reject guard mutation and retention",
                 this::listCopyReadProofRejectsMutation);
+        test("independent list item projections require pure count queries",
+                this::listCopyCountQueriesPreserveMembership);
+        test("private compiler snapshots preserve copied payload loans",
+                this::privateSnapshotLoans);
+        test("private compiler snapshot getter loans survive joins and delegation",
+                this::privateSnapshotGetterJoins);
+        test("private compiler snapshot proofs reject publication and unrecognized construction",
+                this::privateSnapshotProofControls);
+        test("private compiler snapshots survive artifacts and allocation failures",
+                this::privateSnapshotsAcrossArtifacts);
+        test("private logical bit snapshots preserve the maximum valid bit index",
+                this::privateSnapshotBitOverflow);
         test("data structures retain inserted references for safe-free analysis",
                 this::dataStructuresBlockUnsafeFree);
         test("data structure generic bounds reject primitives at the use site",
@@ -7544,7 +7556,7 @@ public final class CompilerTests {
                 """;
         for (String replacement : List.of(
                 "this.currentSize = 0; " + guard,
-                "this.array[index] = (E) (Object) this; " + guard,
+                "this.array[index] = null; " + guard,
                 "saved = this; " + guard,
                 "observe(this); " + guard)) {
             String mutated = list.replace(guard, replacement).replace("private E[] array;", """
@@ -7553,6 +7565,13 @@ public final class CompilerTests {
                         private static void observe(Object value) { saved = value; }
                     """.stripTrailing());
             assertTrue(!mutated.equals(list), "read guard mutation unchanged");
+            CompilationArtifact admitted = compileSources(SourceFile.of("test/ArrayList.iron", mutated),
+                    SourceFile.of("test/Main.iron", main.replace("free source;", "").replace("free copied;", "").replace("free item;", "")));
+            if (!admitted.successful()) {
+                assertContains(messages(admitted), "cannot free", "guard definition safety diagnostic");
+                assertTrue(!messages(admitted).contains("not supported"), "unsupported guard witness: " + messages(admitted));
+                System.out.println("guard definition already rejected by ownership: " + messages(admitted));
+            }
             CompilationArtifact artifact = compileSources(SourceFile.of("test/ArrayList.iron", mutated),
                     SourceFile.of("test/Main.iron", main));
             assertTrue(!artifact.successful(), "mutating/publishing guard obtained a copy loan proof");
@@ -7560,9 +7579,16 @@ public final class CompilerTests {
         }
         for (String replacement : List.of(
                 "this.currentSize = 0; return this.array[index];",
-                "return (E) (Object) this;")) {
-            CompilationArtifact artifact = compileSources(SourceFile.of("test/ArrayList.iron",
-                    list.replace("return this.array[index];", replacement)), SourceFile.of("test/Main.iron", main));
+                "return null;")) {
+            String changed = list.replace("return this.array[index];", replacement);
+            CompilationArtifact admitted = compileSources(SourceFile.of("test/ArrayList.iron", changed),
+                    SourceFile.of("test/Main.iron", main.replace("free source;", "").replace("free copied;", "").replace("free item;", "")));
+            if (!admitted.successful()) {
+                assertContains(messages(admitted), "cannot free", "getter definition safety diagnostic");
+                assertTrue(!messages(admitted).contains("not supported"), "unsupported getter witness: " + messages(admitted));
+                System.out.println("getter definition already rejected by ownership: " + messages(admitted));
+            }
+            CompilationArtifact artifact = compileSources(SourceFile.of("test/ArrayList.iron", changed), SourceFile.of("test/Main.iron", main));
             assertTrue(!artifact.successful(), "changed getter obtained the base storage read proof");
             assertContains(messages(artifact), "cannot free", "changed getter diagnostic");
         }
@@ -7577,6 +7603,84 @@ public final class CompilerTests {
                 SourceFile.of("test/Main.iron", virtual));
         assertTrue(!artifact.successful(), "virtual guard override obtained the base storage read proof");
         assertContains(messages(artifact), "cannot free", "virtual guard diagnostic");
+    }
+
+    private void listCopyCountQueriesPreserveMembership() throws Exception {
+        String list = Files.readString(Path.of("stdlib/src/main/ironwood/ironwood/ds/ArrayList.iron"));
+        String main = """
+                import ironwood.ds.ArrayList;
+                class Item { }
+                class Main {
+                    public static int main(String[] args) {
+                        Item item = new Item();
+                        ArrayList<Object> source = new ArrayList<Object>();
+                        source.add(item);
+                        ArrayList<Object> copied = source.copy();
+                        free source;
+                        free copied;
+                        free item;
+                        return 0;
+                    }
+                }
+                """;
+        CompilationArtifact baseline = compileSources(SourceFile.of("test/ArrayList.iron", list),
+                SourceFile.of("test/Main.iron", main));
+        assertTrue(baseline.successful(), messages(baseline));
+        String capacity = "return this.currentSize > 0 ? this.currentSize : 1;";
+        for (String body : List.of(
+                "this.currentSize = 0; return 1;",
+                "this.array[0] = null; " + capacity,
+                "this.clear(); return 1;",
+                "this.removeLast(); " + capacity,
+                "saved = this; " + capacity)) {
+            String changed = list.replace(capacity, body).replace("private E[] array;",
+                    "private E[] array; private static Object saved;");
+            assertTrue(!changed.equals(list), "capacity control unchanged");
+            CompilationArtifact admitted = compileSources(SourceFile.of("test/ArrayList.iron", changed),
+                    SourceFile.of("test/Main.iron", main.replace("free source;", "").replace("free copied;", "").replace("free item;", "")));
+            assertTrue(admitted.successful(), "capacity control is not admitted: " + messages(admitted));
+            CompilationArtifact artifact = compileSources(SourceFile.of("test/ArrayList.iron", changed),
+                    SourceFile.of("test/Main.iron", main));
+            assertTrue(!artifact.successful(), "mutating capacity obtained independent item projection");
+            assertContains(messages(artifact), "cannot free", "capacity control diagnostic");
+        }
+        for (String body : List.of("this.currentSize = 0; return 0;", "this.clear(); return 0;")) {
+            String changed = list.replace("return currentSize;", body);
+            CompilationArtifact artifact = compileSources(SourceFile.of("test/ArrayList.iron", changed),
+                    SourceFile.of("test/Main.iron", main));
+            assertTrue(!artifact.successful(), "mutating size obtained independent item projection");
+            assertContains(messages(artifact), "cannot free", "size control diagnostic");
+        }
+        for (String body : List.of(
+                "this.add(this); return super.size();",
+                "this.removeLast(); return super.size();",
+                "saved = this; return super.size();")) {
+            String virtual = main.replace("new ArrayList<Object>()", "new CountList()") + """
+                    class CountList extends ArrayList<Object> {
+                        static Object saved;
+                        @Override public int size() { %s }
+                    }
+                    """.formatted(body);
+            CompilationArtifact admitted = compile(virtual.replace("free source;", "").replace("free copied;", "").replace("free item;", ""));
+            if (!admitted.successful()) {
+                assertContains(messages(admitted), "cannot free", "virtual size definition safety diagnostic");
+                assertTrue(!messages(admitted).contains("not supported"), "unsupported virtual size witness: " + messages(admitted));
+                System.out.println("virtual size definition already rejected by ownership: " + messages(admitted));
+            }
+            CompilationArtifact artifact = compile(virtual);
+            assertTrue(!artifact.successful(), "virtual size obtained independent item projection");
+            assertContains(messages(artifact), "cannot free", "virtual size diagnostic");
+        }
+        String protectedCapacity = list.replace("private int copyCapacity()", "protected int copyCapacity()");
+        String virtual = main.replace("new ArrayList<Object>()", "new CapacityList()") + """
+                class CapacityList extends ArrayList<Object> {
+                    @Override protected int copyCapacity() { this.add(this); return 1; }
+                }
+                """;
+        CompilationArtifact artifact = compileSources(SourceFile.of("test/ArrayList.iron", protectedCapacity),
+                SourceFile.of("test/Main.iron", virtual));
+        assertTrue(!artifact.successful(), "virtual capacity obtained independent item projection");
+        assertContains(messages(artifact), "cannot free", "virtual capacity diagnostic");
     }
 
     private void listCopiesAcrossArtifacts() throws Exception {
@@ -7602,6 +7706,287 @@ public final class CompilerTests {
                 assertEquals("8:3\n32:3\n128:3\n512:3\n", result.stdout(), "copy artifact allocation counts");
                 assertEquals("", result.stderr(), "copy artifact stderr");
             }
+        } finally { deleteTree(root); }
+    }
+
+    private void privateSnapshotLoans() throws Exception {
+        SourceFile helper = SourceFile.of("test/SnapshotList.iron", Files.readString(Path.of(
+                "compiler/src/main/ironwood/ironwood/compiler/port/SnapshotList.iron")));
+        String prefix = """
+                import ironwood.ds.ArrayList;
+                import ironwood.compiler.port.SnapshotList;
+                class Item {
+                    private int marker = 7;
+                    int value() { return this.marker; }
+                    @Override public int hashCode() { return this.marker; }
+                    int publish() { Sink.saved = this; return this.marker; }
+                }
+                class Sink { static Object saved; }
+                class Main {
+                    public static int main(String[] args) {
+                        Item item = new Item();
+                        ArrayList<Item> builder = new ArrayList<Item>();
+                        builder.add(item);
+                        SnapshotList<Item> snapshot = new SnapshotList<Item>(builder);
+                """;
+        for (String cleanup : List.of("free builder; free snapshot; free item;",
+                "builder.clear(); free builder; free snapshot; free item;",
+                "int observed = snapshot.get(0).value(); free builder; free snapshot; free item;",
+                "int observed = snapshot.get(0).hashCode(); free builder; free snapshot; free item;",
+                "ArrayList<Item> sink = new ArrayList<Item>(); sink.add(snapshot.get(0));"
+                        + "sink.clear(); free sink; free builder; free snapshot; free item;")) {
+            CompilationArtifact artifact = compileSources(helper,
+                    SourceFile.of("test/Main.iron", prefix + cleanup + "return 42; }}"));
+            assertTrue(artifact.successful(), messages(artifact));
+        }
+        for (String cleanup : List.of("free builder; free item; snapshot.size();",
+                "Item alias = snapshot.get(0); free snapshot; free builder; free item; alias.hashCode();",
+                "Item alias = snapshot.get(0); free snapshot; free builder; free item; return alias.value();",
+                "snapshot.get(0).publish(); free builder; free snapshot; free item;",
+                "ArrayList<Item> sink = new ArrayList<Item>(); sink.add(snapshot.get(0));"
+                        + "free builder; free snapshot; sink.size();",
+                "ArrayList<SnapshotList<Item>> outer = new ArrayList<SnapshotList<Item>>(); outer.add(snapshot);"
+                        + "SnapshotList<SnapshotList<Item>> nested = new SnapshotList<SnapshotList<Item>>(outer);"
+                        + "free outer; free snapshot; nested.size();")) {
+            for (UnfreedMode mode : UnfreedMode.values()) {
+                CompilationArtifact artifact = new CompilerPipeline(mode).compile(List.of(helper,
+                        SourceFile.of("test/Main.iron", prefix + cleanup + "return 0; }}")));
+                assertTrue(!artifact.successful(), "unsafe snapshot cleanup accepted under " + mode + ": " + cleanup);
+                assertTrue(messages(artifact).contains("cannot free") || messages(artifact).contains("after its allocation was freed"),
+                        "snapshot loan diagnostic: " + messages(artifact));
+                assertTrue(!messages(artifact).contains("not supported"), messages(artifact));
+            }
+        }
+        String self = """
+                import ironwood.ds.ArrayList;
+                import ironwood.compiler.port.SnapshotList;
+                class Main { public static int main(String[] args) {
+                    ArrayList<Object> builder = new ArrayList<Object>();
+                    builder.add(builder);
+                    SnapshotList<Object> snapshot = new SnapshotList<Object>(builder);
+                    free builder; return snapshot.size();
+                }}
+                """;
+        for (UnfreedMode mode : UnfreedMode.values()) {
+            CompilationArtifact selfArtifact = new CompilerPipeline(mode).compile(List.of(helper,
+                    SourceFile.of("test/Main.iron", self)));
+            assertTrue(!selfArtifact.successful(), "self-containing snapshot accepted under " + mode);
+            assertContains(messages(selfArtifact), "cannot free", "snapshot self loan");
+        }
+        String backlink = """
+                import ironwood.ds.ArrayList;
+                import ironwood.compiler.port.SnapshotList;
+                class Item {
+                    private final ArrayList<Item> owner;
+                    Item(ArrayList<Item> owner) { this.owner = owner; }
+                }
+                class Main { public static int main(String[] args) {
+                    ArrayList<Item> builder = new ArrayList<Item>();
+                    Item item = new Item(builder); builder.add(item);
+                    SnapshotList<Item> snapshot = new SnapshotList<Item>(builder);
+                    free builder; return snapshot.size();
+                }}
+                """;
+        for (UnfreedMode mode : UnfreedMode.values()) {
+            CompilationArtifact artifact = new CompilerPipeline(mode).compile(List.of(helper,
+                    SourceFile.of("test/Main.iron", backlink)));
+            assertTrue(!artifact.successful(), "snapshot payload backlink source retired under " + mode);
+            assertContains(messages(artifact), "cannot free", "snapshot payload backlink");
+            assertTrue(!messages(artifact).contains("not supported"), messages(artifact));
+        }
+        String override = prefix.replace("new Item()", "new PublishingItem()")
+                + "snapshot.get(0).value(); free builder; free snapshot; free item; return 0; }}"
+                + "class PublishingItem extends Item { @Override int value() { Sink.saved = this; return 7; }}";
+        CompilationArtifact overridden = compileSources(helper, SourceFile.of("test/Main.iron", override));
+        assertTrue(!overridden.successful(), "publishing primitive accessor override accepted");
+        assertContains(messages(overridden), "cannot free", "snapshot virtual payload publication");
+    }
+
+    private void privateSnapshotGetterJoins() throws Exception {
+        SourceFile helper = SourceFile.of("test/SnapshotList.iron", Files.readString(Path.of(
+                "compiler/src/main/ironwood/ironwood/compiler/port/SnapshotList.iron")));
+        String prefix = """
+                import ironwood.ds.ArrayList;
+                import ironwood.compiler.port.SnapshotList;
+                class Item { private int marker = 7; int value() { return this.marker; } }
+                class Main {
+                    static Item read(SnapshotList<Item> snapshot) { return snapshot.get(0); }
+                    public static int main(String[] args) {
+                        Item first = new Item(); Item second = new Item();
+                        ArrayList<Item> leftBuilder = new ArrayList<Item>(); leftBuilder.add(first);
+                        ArrayList<Item> rightBuilder = new ArrayList<Item>(); rightBuilder.add(second);
+                        SnapshotList<Item> left = new SnapshotList<Item>(leftBuilder);
+                        SnapshotList<Item> right = new SnapshotList<Item>(rightBuilder);
+                """;
+        String cleanup = "free leftBuilder; free rightBuilder; free left; free right; free first; free second;";
+        for (String getter : List.of("(args.length == 0 ? left : right).get(0)", "read(left)")) {
+            CompilationArtifact safe = compileSources(helper, SourceFile.of("test/Main.iron", prefix
+                    + "int value = " + getter + ".value();" + cleanup + "return value; }}"));
+            if (!safe.successful()) {
+                assertContains(messages(safe), "cannot free", "conservative getter cleanup boundary");
+                assertTrue(!messages(safe).contains("not supported"), messages(safe));
+                System.out.println("getter cleanup remains conservative for " + getter + ": " + messages(safe));
+            }
+            for (UnfreedMode mode : UnfreedMode.values()) {
+                CompilationArtifact unsafe = new CompilerPipeline(mode).compile(List.of(helper,
+                        SourceFile.of("test/Main.iron", prefix + "Item alias = " + getter + ";"
+                                + cleanup + "return alias.value(); }}")));
+                assertTrue(!unsafe.successful(), "joined/delegated alias survived retirement under " + mode + ": " + getter);
+                assertTrue(messages(unsafe).contains("cannot free") || messages(unsafe).contains("after its allocation was freed"),
+                        messages(unsafe));
+            }
+        }
+    }
+
+    private void privateSnapshotProofControls() throws Exception {
+        String helper = Files.readString(Path.of("compiler/src/main/ironwood/ironwood/compiler/port/SnapshotList.iron"));
+        String main = """
+                import ironwood.ds.ArrayList;
+                import ironwood.compiler.port.SnapshotList;
+                class Item { int marker = 7; }
+                class Main { public static int main(String[] args) {
+                    Item item = new Item();
+                    ArrayList<Item> builder = new ArrayList<Item>(); builder.add(item);
+                    SnapshotList<Item> snapshot = new SnapshotList<Item>(builder);
+                    free builder; free snapshot; free item; return 42;
+                }}
+                """;
+        String initialize = "this.membership = source.copy();";
+        for (String changed : List.of(
+                helper.replace(initialize, "Sink.saved = source; " + initialize),
+                helper.replace(initialize, initialize + " Sink.saved = this;"),
+                helper.replace(initialize, "source.clear(); " + initialize),
+                helper.replace(initialize, "source.size(); " + initialize),
+                helper.replace("private final ArrayList<E> membership", "private ArrayList<E> membership"),
+                helper.replace("public SnapshotList(ArrayList<E> source) {",
+                        "public SnapshotList(ArrayList<E> source) { this(source, 0); }\n"
+                                + "public SnapshotList(ArrayList<E> source, int ignored) {"))) {
+            SourceFile changedHelper = SourceFile.of("test/SnapshotList.iron", changed
+                    + "\nclass Sink { static Object saved; }\n");
+            CompilationArtifact admitted = compileSources(changedHelper, SourceFile.of("test/Main.iron",
+                    main.replace("free builder;", "").replace("free snapshot;", "").replace("free item;", "")));
+            if (!admitted.successful()) {
+                assertTrue(admitted.diagnostics().stream().filter(diagnostic -> diagnostic.isError()).allMatch(diagnostic ->
+                        diagnostic.message().contains("cannot free")
+                                || diagnostic.message().contains("constructor may publish in-progress 'this'")
+                                || diagnostic.message().contains("cannot prove destructor free")), messages(admitted));
+                assertTrue(!messages(admitted).contains("not supported"), messages(admitted));
+                System.out.println("snapshot constructor definition rejected by ownership: " + messages(admitted));
+            }
+            CompilationArtifact artifact = compileSources(changedHelper, SourceFile.of("test/Main.iron", main));
+            assertTrue(!artifact.successful(), "unrecognized snapshot construction acquired item projection");
+            assertContains(messages(artifact), "cannot free", "snapshot constructor control");
+            assertTrue(!messages(artifact).contains("not supported"), messages(artifact));
+        }
+        SourceFile ordinary = SourceFile.of("test/SnapshotList.iron", helper);
+        String capturedHelper = helper.replace("public final class SnapshotList<E extends Object> {",
+                "public class Outer { public final class SnapshotList<E extends Object> {") + "\n}\n";
+        String capturedMain = main.replace("import ironwood.compiler.port.SnapshotList;",
+                "import ironwood.compiler.port.Outer;")
+                .replace("SnapshotList<Item> snapshot = new SnapshotList<Item>(builder);",
+                        "Outer outer = new Outer(); Outer.SnapshotList<Item> snapshot = outer.new SnapshotList<Item>(builder);");
+        CompilationArtifact captured = compileSources(SourceFile.of("test/Outer.iron", capturedHelper),
+                SourceFile.of("test/Main.iron", capturedMain));
+        assertTrue(!captured.successful(), "captured snapshot owner acquired independent item projection");
+        assertContains(messages(captured), "cannot free", "captured snapshot construction");
+        assertTrue(!messages(captured).contains("not supported"), messages(captured));
+        for (String observe : List.of("Sink.saved = snapshot;", "Sink.saved = snapshot.get(0);")) {
+            CompilationArtifact artifact = compileSources(ordinary, SourceFile.of("test/Main.iron",
+                    main.replace("free builder;", observe + " free builder;") + "\nclass Sink { static Object saved; }\n"));
+            assertTrue(!artifact.successful(), "published snapshot payload reclaimed");
+            assertContains(messages(artifact), "cannot free", "snapshot late publication");
+        }
+        String publishingGetter = helper.replace("return this.membership.get(index);",
+                "Sink.saved = this.membership.get(index); return this.membership.get(index);")
+                + "\nclass Sink { static Object saved; }\n";
+        CompilationArtifact getter = compileSources(SourceFile.of("test/SnapshotList.iron", publishingGetter),
+                SourceFile.of("test/Main.iron", main.replace("free builder;", "snapshot.get(0); free builder;")));
+        assertTrue(!getter.successful(), "publishing snapshot getter erased payload loans");
+        assertContains(messages(getter), "cannot free", "snapshot getter publication");
+    }
+
+    private void privateSnapshotsAcrossArtifacts() throws Exception {
+        Path root = Files.createTempDirectory("ironwood-private-snapshots-");
+        try {
+            String helpers = "compiler/src/main/ironwood/ironwood/compiler/port/";
+            Path classes = root.resolve("classes");
+            assertMainRun(new String[]{helpers + "SnapshotList.iron", helpers + "SnapshotBits.iron",
+                    "integration-tests/cases/compiler_snapshots.iron", "--unfreed=warn", "-d", classes.toString()},
+                    0, "snapshot source compile");
+            Path archive = root.resolve("snapshots.ironjar");
+            assertEquals(0, IronJarMain.run(new String[]{"--create", "--file", archive.toString(), classes.toString()},
+                    new PrintStream(new ByteArrayOutputStream()), new PrintStream(new ByteArrayOutputStream())),
+                    "snapshot archive creation");
+            for (Path input : List.of(classes, archive)) {
+                Path executable = root.resolve(input.getFileName() + "-program");
+                assertMainRun(new String[]{"--link", "-cp", input.toString(), "--main-class", "Main",
+                        "--unfreed=warn", "-O3", "-o", executable.toString()}, 0, "snapshot artifact link");
+                NativeResult result = runNative(executable, root, Map.of());
+                assertEquals(42, result.exit(), "snapshot artifact exit: " + result.stderr());
+                assertEquals("0:4\n8:4\n32:4\n128:4\n512:4\n-1:2\n63:2\n64:2\n65:2\n4096:2\n",
+                        result.stdout(), "snapshot allocation counts");
+                assertEquals("", result.stderr(), "snapshot artifact stderr");
+                String loan = """
+                        import ironwood.ds.ArrayList;
+                        import ironwood.compiler.port.SnapshotList;
+                        class Payload {
+                            int marker = 7;
+                            private int valueField = 7;
+                            int value() { return this.valueField; }
+                        }
+                        class LoanMain { public static int main(String[] args) {
+                            Payload item = new Payload();
+                            ArrayList<Payload> builder = new ArrayList<Payload>(); builder.add(item);
+                            SnapshotList<Payload> snapshot = new SnapshotList<Payload>(builder);
+                            int observed = snapshot.get(0).value();
+                            free builder; free snapshot; free item; return 42;
+                        }}
+                        """;
+                Path safe = writeSource(root, "LoanMain.iron", loan);
+                assertMainRun(new String[]{safe.toString(), "-cp", input.toString(), "--unfreed=warn",
+                        "-d", root.resolve("safe-" + input.getFileName()).toString()}, 0, "snapshot artifact loan acceptance");
+                Path unsafe = writeSource(root, "UnsafeLoanMain.iron", loan.replace("class LoanMain", "class UnsafeLoanMain")
+                        .replace("free builder; free snapshot; free item; return 42;",
+                                "Payload alias = snapshot.get(0); free snapshot; free builder; free item; return alias.marker;"));
+                ByteArrayOutputStream diagnostics = new ByteArrayOutputStream();
+                int exit = Main.run(new String[]{unsafe.toString(), "-cp", input.toString(), "--unfreed=warn",
+                        "-d", root.resolve("unsafe-" + input.getFileName()).toString()},
+                        new PrintStream(new ByteArrayOutputStream()), new PrintStream(diagnostics));
+                assertEquals(1, exit, "snapshot artifact unsafe loan rejection");
+                assertTrue(diagnostics.toString().contains("cannot free")
+                        || diagnostics.toString().contains("after its allocation was freed"), diagnostics.toString());
+            }
+            Path failureClasses = root.resolve("failure-classes");
+            assertMainRun(new String[]{helpers + "SnapshotList.iron", helpers + "SnapshotBits.iron",
+                    "integration-tests/cases/compiler_snapshot_failure.iron", "--unfreed=warn",
+                    "-d", failureClasses.toString()}, 0, "snapshot failure compile");
+            Path failureExecutable = root.resolve("failure-program");
+            assertMainRun(new String[]{"--link", "-cp", failureClasses.toString(), "--main-class", "Main",
+                    "--unfreed=warn", "-O3", "-o", failureExecutable.toString()}, 0, "snapshot failure link");
+            for (int limit = 0; limit <= 11; limit++) {
+                NativeResult result = runNative(failureExecutable, root,
+                        Map.of("IRONWOOD_ALLOCATION_LIMIT", Integer.toString(limit)));
+                assertEquals(limit < 11 ? 42 : 43, result.exit(), "snapshot OOM limit " + limit + ": " + result.stderr());
+                assertEquals("", result.stdout(), "snapshot failure stdout");
+                assertEquals("", result.stderr(), "snapshot failure stderr");
+            }
+        } finally { deleteTree(root); }
+    }
+
+    private void privateSnapshotBitOverflow() throws Exception {
+        Path root = Files.createTempDirectory("ironwood-snapshot-bit-overflow-");
+        try {
+            Path classes = root.resolve("classes");
+            assertMainRun(new String[]{"compiler/src/main/ironwood/ironwood/compiler/port/SnapshotBits.iron",
+                    "integration-tests/cases/compiler_snapshot_bit_overflow.iron", "--unfreed=warn",
+                    "-d", classes.toString()}, 0, "overflow snapshot source compile");
+            Path executable = root.resolve("program");
+            assertMainRun(new String[]{"--link", "-cp", classes.toString(), "--main-class", "Main",
+                    "--unfreed=warn", "-O3", "-o", executable.toString()}, 0, "overflow snapshot link");
+            NativeResult result = runNative(executable, root, Map.of());
+            assertEquals(42, result.exit(), "overflow snapshot exit: " + result.stderr());
+            assertEquals("", result.stdout(), "overflow snapshot stdout");
+            assertEquals("", result.stderr(), "overflow snapshot stderr");
         } finally { deleteTree(root); }
     }
 

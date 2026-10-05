@@ -1,0 +1,657 @@
+{
+  "schema": 1,
+  "scope": "M1.1 private ordered/list and logical-bit snapshot increment only; M1/S1/G1 incomplete",
+  "base_commit": "85c8fa01e8a48a081796bada924b21aa2d2f18f8",
+  "jdk": "Java 21.0.1+12-LTS-29",
+  "llvm": "Homebrew LLVM 23.1.0",
+  "host": "macOS 27.0.1 (26A434), arm64",
+  "reference_inputs": {
+    "J0": "6bde84df320e9dbc32977a2b665d214ac09bc2d4",
+    "D247": "28664736270f19a73c0a79a2f845bac916953471"
+  },
+  "logs": {
+    "bit-copy-benchmark-assembly.log": {
+      "raw_bytes": 225926,
+      "raw_sha256": "d99e1d109b5ede97cf51104d6c4de188808da5fc9997aff1409fb714793749e4",
+      "gzip_sha256": "3cbc2648a5ddebd5b2e6e3afc9c6691d85a84f6c4f296a8ff657e8ad315fe846"
+    },
+    "bit-copy-benchmark-compile.log": {
+      "raw_bytes": 1155,
+      "raw_sha256": "1e4b0bc6bf7e38972f410cd9614aba17adbae488769a433f0f03f7327ab2454c",
+      "gzip_sha256": "f2f849b4edb82c8cd750a0f7823f85c9266e031f4c8be3feab44691e34b11c9d"
+    },
+    "bit-copy-benchmark-compile2.log": {
+      "raw_bytes": 341,
+      "raw_sha256": "dde61773c44792387e824dfeda759535606af4f29bd23fdf06d6d57dddb30e9b",
+      "gzip_sha256": "ad006607ca54f92e10002cbaed1f566dd748b7d9174eea8d4100ce33f51304ea"
+    },
+    "bit-copy-benchmark-compile3.log": {
+      "raw_bytes": 239,
+      "raw_sha256": "abacb71f4be05853ef104929f928c15763452cb32ddf6ec5fb1ab795eae3589a",
+      "gzip_sha256": "b029f92db46c7160ab41a7b0236e88147929f1120b2788addf8d6e466df2075f"
+    },
+    "bit-copy-benchmark-compile4.log": {
+      "raw_bytes": 239,
+      "raw_sha256": "abacb71f4be05853ef104929f928c15763452cb32ddf6ec5fb1ab795eae3589a",
+      "gzip_sha256": "b029f92db46c7160ab41a7b0236e88147929f1120b2788addf8d6e466df2075f"
+    },
+    "bit-copy-benchmark-compile5.log": {
+      "raw_bytes": 239,
+      "raw_sha256": "abacb71f4be05853ef104929f928c15763452cb32ddf6ec5fb1ab795eae3589a",
+      "gzip_sha256": "b029f92db46c7160ab41a7b0236e88147929f1120b2788addf8d6e466df2075f"
+    },
+    "bit-copy-benchmark-compile6.log": {
+      "raw_bytes": 28597,
+      "raw_sha256": "06f9833f4b84c11ede16d1ef540204856af1d174ea5af48c224813cd1bbff24a",
+      "gzip_sha256": "968ad4b7067c87493c297ea48be947f42fbffca8a1a1b95e4b53b60c1017f50b"
+    },
+    "bit-copy-benchmark-compile7.log": {
+      "raw_bytes": 105,
+      "raw_sha256": "f8d3d8779811d697309bc5dc774a2358ef39dc462d786a219b8d6b3eed19f566",
+      "gzip_sha256": "9cf015c930131ba202e5f8fb41f1f9bae28c1fa0b6b0332ecf9ed49cbfc7edd2"
+    },
+    "bit-copy-benchmark-compile8.log": {
+      "raw_bytes": 105,
+      "raw_sha256": "dd0d9d080d0795ee000f27c9e17eff756ff0a4f4af10a2d2e2159cdf94aefe60",
+      "gzip_sha256": "acc0ffa91d44bcaad7c071e0b8c23aef2191bc4b63db2c3f6bfe2045d9e35e47"
+    },
+    "bit-copy-benchmark-link.log": {
+      "raw_bytes": 50,
+      "raw_sha256": "a13662a833d1974a615b459f5da83dab8cf97850e597a79a391a0609f7501da2",
+      "gzip_sha256": "444c0bcb066fa038df97d3887357057ab82a7d0781d41b610c5c65821f8d3b9a"
+    },
+    "bit-copy-benchmark-link2.log": {
+      "raw_bytes": 50,
+      "raw_sha256": "a13662a833d1974a615b459f5da83dab8cf97850e597a79a391a0609f7501da2",
+      "gzip_sha256": "444c0bcb066fa038df97d3887357057ab82a7d0781d41b610c5c65821f8d3b9a"
+    },
+    "bit-copy-benchmark-link3.log": {
+      "raw_bytes": 81,
+      "raw_sha256": "be6c578ce17b35ef9dd8d7524d83ea3a99c4c109d95e1288fd03ddf550759c4d",
+      "gzip_sha256": "189a4970d2016cdee448d7fabfeb3ef268fd296ef7b03da2224f0f3f8a504111"
+    },
+    "bit-copy-benchmark-link4.log": {
+      "raw_bytes": 82,
+      "raw_sha256": "a54ac2b9d0de34262cc1a17f167bced38fd9d271982b376dd2dc1743db1dad64",
+      "gzip_sha256": "a3ca9c689727b42b05bf66d01d7b2fd12652f646639e02eed68fff53e4a30c2b"
+    },
+    "bit-copy-benchmark-link5.log": {
+      "raw_bytes": 28440,
+      "raw_sha256": "30c2b175c903089eb1d676fd5e99fda4dade8fb8ebc498caf7b13f03509ebdc2",
+      "gzip_sha256": "4ae9aaa88981aab4c0a08b4129e217e1dfea7c6e41af31701fcd3e3aa4d4c048"
+    },
+    "bit-copy-benchmark-link6.log": {
+      "raw_bytes": 82,
+      "raw_sha256": "cec0513bd7b2bc8efe9dae32341d64ed5a317aa060bb81c4319caf87908f9e12",
+      "gzip_sha256": "ff7cbcc08b55afbf5120cb068903a0f77acd37c23d2714efe99e5da57667e144"
+    },
+    "bit-copy-benchmark-link7.log": {
+      "raw_bytes": 82,
+      "raw_sha256": "747cdec2d9b583d6f67e02dc6e810efff22de4e76bf342363f2beb422cf19a8a",
+      "gzip_sha256": "1291e35929f12d3475c03b28207fa778ecb5a2ac1920427492b4596888530819"
+    },
+    "bit-copy-benchmark-link8.log": {
+      "raw_bytes": 82,
+      "raw_sha256": "2a11ce5800341a3ada317b5805953c1ff765e3b6775d53f720c6f787228bee6e",
+      "gzip_sha256": "518e886c74c6aa7fed65e9cef193d8ad5fda5a27f14cdfb8bbce77e5c53d4b98"
+    },
+    "bit-copy-benchmark-run.log": {
+      "raw_bytes": 1487,
+      "raw_sha256": "2cb3d08ab1a86575585ff5b6519601defcdcaa508dd84b1112a52c1b936a93c0",
+      "gzip_sha256": "8e603fea0eef0bb012d29760a89d8bb5563db0cfc98684e76516ca46ca996305"
+    },
+    "bit-copy-benchmark-run4.log": {
+      "raw_bytes": 1491,
+      "raw_sha256": "5325643c9d50afd473a73810010aca88aecc486297e324705523bf7c9a60a1a8",
+      "gzip_sha256": "4a774d0095758b5fdc6bea0bd5679522b563311dc308f33b011363a99dfae768"
+    },
+    "bit-copy-benchmark-run5.log": {
+      "raw_bytes": 1485,
+      "raw_sha256": "7c72e178228325d6c3a2590e1f76d30c5cdda7e6a881151803abb4373141a712",
+      "gzip_sha256": "6ed4b732f621ccdb77f855a2244ef9fe73fbe0ecced0f849d2dc0f17b97ac160"
+    },
+    "bit-copy-benchmark-run6.log": {
+      "raw_bytes": 1486,
+      "raw_sha256": "d6bd35a5e3df91c6d7c5e64907edc4159c8ebd9986da92ded3ec837984cde63d",
+      "gzip_sha256": "b98a23c9ef39d6b20c45ccd4f3e2b379fc56d76081e8fc43acc35fd02b47d8df"
+    },
+    "bit-copy-benchmark-run7.log": {
+      "raw_bytes": 1485,
+      "raw_sha256": "5be0c71f16bf06b99936278f064d75fc41ccf3c60f34add4fa7c3f2aebd889b1",
+      "gzip_sha256": "f565e6afc6d8baaacf5285a702780e31577496cfe3f8d2dc40adfb9a7b05d9ef"
+    },
+    "bit-copy-benchmark-run8.log": {
+      "raw_bytes": 1486,
+      "raw_sha256": "a697e39efc58983dd83d5017d226e5bde0efbb67ef83444745d538cc17aac010",
+      "gzip_sha256": "6b8fb5bda39f13c108edcf0525c7dead008c960dc2a0df2a08bd60e9e1594071"
+    },
+    "count-admission-controls.log": {
+      "raw_bytes": 29570,
+      "raw_sha256": "8c77eee9fe29a5b6f381db8a023878ac248575d24e779497358696d5c2b0d850",
+      "gzip_sha256": "7f3b8ff5ed1a2a4a1b484e5d664df0d00189ba1982d6ceade195fb8a21f15521"
+    },
+    "count-classified-controls.log": {
+      "raw_bytes": 30101,
+      "raw_sha256": "9a818f4d6c0a123f43acf0478d3f8820cd46a7cb0225a62fce1e10a1050e3418",
+      "gzip_sha256": "7a4b5f52b4656939794b155bbe65f1e87094f585ee2b681503a3329afe91f118"
+    },
+    "count-query-tests.log": {
+      "raw_bytes": 29334,
+      "raw_sha256": "ffec08fe0d394b53d4b7f6e726884cfa4cf0deb25a26c87a85c128236c794b92",
+      "gzip_sha256": "3510e45b1d324b4880266b1caa5f0c073dff9db36050323d85a54d273307d7d8"
+    },
+    "count-self-analysis-before.log": {
+      "raw_bytes": 256,
+      "raw_sha256": "07fe3946fe5de2ec06dd77978b517792a1b8bcfab2d17c70e7b7b82fbd92281f",
+      "gzip_sha256": "06d38fafa289dedf67fbb27ab08ba0f219cbae274eeed53e9a2c672961662d14"
+    },
+    "count-self-before.log": {
+      "raw_bytes": 296,
+      "raw_sha256": "fa79d5875528307ef061cb93058c519af6a89d39ffdc45d478eba1e6469b0add",
+      "gzip_sha256": "fb68ab98745d829f6f5588569fed687a876e9630b4d5760cbe639261cf974b88"
+    },
+    "count-self-valid-before.log": {
+      "raw_bytes": 495,
+      "raw_sha256": "7c821fd5445391342e3e448a6d002578776c56000765f61975bf5faae6e6dc2d",
+      "gzip_sha256": "2c26f223b5788baa06960e11763dc02e20ef7991016e328c536805c799197be6"
+    },
+    "snapshot-alias-fixed-tests.log": {
+      "raw_bytes": 29838,
+      "raw_sha256": "6d1b8f55f0206b3a9f3f3c6053e4e56a9f5cd823e5892a1d7f8bfe9f265877b1",
+      "gzip_sha256": "89acd1788d642cc7a68eca993f36dd9fd0729bb8c0346b25376b1c2e53d337d8"
+    },
+    "snapshot-alias.log": {
+      "raw_bytes": 307,
+      "raw_sha256": "1373e188040f97c8613031a25a339913ee943564b5f200ab947bbc7b415fa009",
+      "gzip_sha256": "446f2e0c734d8439bbfc85193bb5029de1ac473e073e46ea6b42f676ac31bd45"
+    },
+    "snapshot-artifact-helper-compile.log": {
+      "raw_bytes": 268,
+      "raw_sha256": "0cb685388e3598ca8538663a55d36d8e438302e9e96a9a1837e2f9a468d23c45",
+      "gzip_sha256": "f67ba9477490316c68433d07d46b2dc7a5df260b6fc4089acbc8701a512bf672"
+    },
+    "snapshot-artifact-payload-tests.log": {
+      "raw_bytes": 214,
+      "raw_sha256": "5d0fe13a0a4ebe4a08079a699626be9fab5791e2127b69194a25d6254105801e",
+      "gzip_sha256": "985b0bf5dcc78f81d12a5b8f6199e96a3f846499e8fbbd595dfe9e08583006ed"
+    },
+    "snapshot-backlink-tests.log": {
+      "raw_bytes": 190,
+      "raw_sha256": "5f29dc262e1e8f4795077342fdefab756ab6a4d9ac7016316b903c8136ba0f2c",
+      "gzip_sha256": "333f0ba3db0d6288ae0bc5f331c54c5b87e66c5ede62a283b26e99c4ada98f4e"
+    },
+    "snapshot-benchmark-final-assembly.log": {
+      "raw_bytes": 224913,
+      "raw_sha256": "1f8c8573781f7adc419fc1aa7605e59a551e784f81c26e67e42b3d67c0c3cedd",
+      "gzip_sha256": "cc013869545fb9cca5ae63c48602dd4a82c51b7bff57ffa6e9c60cc48b66071f"
+    },
+    "snapshot-benchmark-final-compile.log": {
+      "raw_bytes": 251,
+      "raw_sha256": "ce7f386dabce7f1a6b20a743a120e2035b33d752a76269d4451dd3afdfc70619",
+      "gzip_sha256": "a274cdc784cb9cd2f0c1bd5d073b66070990f506ea68ccb5fa4f612e4d0455e4"
+    },
+    "snapshot-benchmark-final-link.log": {
+      "raw_bytes": 87,
+      "raw_sha256": "ec89f70be893a391c4f9e956cc38e79a8b7a74c510d74c2ec321b24d75efdf1d",
+      "gzip_sha256": "643bb3bc0eced4162f33a7b4d9bfcede4ae4ee4eb204ed6bbba150b1c248fc1e"
+    },
+    "snapshot-benchmark-final-run.log": {
+      "raw_bytes": 1486,
+      "raw_sha256": "ff766befdbefa32151e9b7140faf5c641df8d1fc0a21304d529bbe82e4102eb4",
+      "gzip_sha256": "28df97186b1ce4f9da10816240fd093124a802409f5d49758610c4a5d3ba4988"
+    },
+    "snapshot-benchmark-formatted-compile.log": {
+      "raw_bytes": 251,
+      "raw_sha256": "ce7f386dabce7f1a6b20a743a120e2035b33d752a76269d4451dd3afdfc70619",
+      "gzip_sha256": "a274cdc784cb9cd2f0c1bd5d073b66070990f506ea68ccb5fa4f612e4d0455e4"
+    },
+    "snapshot-benchmark-formatted-link.log": {
+      "raw_bytes": 91,
+      "raw_sha256": "165852185b33447b238e66cc8783d68456ce314af53f564a9620b8591d166007",
+      "gzip_sha256": "231f05581f571e41936bf95af24b3046057d8a1c27d830be2ad8f1cde3b3ff6a"
+    },
+    "snapshot-benchmark-formatted-run.log": {
+      "raw_bytes": 1485,
+      "raw_sha256": "d23683cf031e03df35dd3a3f1fefd0fd6fca1b10cf57a618081341a5714f9e61",
+      "gzip_sha256": "b02c4e526701c69a4957b31ce476a31c0a28b09320a68e1f538d3b2cd75f1ef0"
+    },
+    "snapshot-captured-owner-tests.log": {
+      "raw_bytes": 240,
+      "raw_sha256": "299b653a7f39467b921381cc653ec55b8b166417067a2cc0637ea9c81db47ba7",
+      "gzip_sha256": "404bf07040f5da7c2c802fdd547d9f80bcb67aa992ae75293b4a1c9359e8000b"
+    },
+    "snapshot-constructor-error-boundary-tests.log": {
+      "raw_bytes": 435,
+      "raw_sha256": "a2a8f84934928554023a91240262efdd38775723676bc9a430602fd8963c7292",
+      "gzip_sha256": "aba38a606d0de7c10ca251fb3f5ce59524d8e2024fec194158ce4ae289916341"
+    },
+    "snapshot-controls-tests.log": {
+      "raw_bytes": 598,
+      "raw_sha256": "380aefee4cd9d912d322848d109bb2c0064338a4a238736082fe7b99a3b94bc4",
+      "gzip_sha256": "36235efab1fbdb621a46298a431a0f5e8105230773080fcaaad623dbfe7f9de4"
+    },
+    "snapshot-expanded-tests.log": {
+      "raw_bytes": 1276,
+      "raw_sha256": "30c4a7bb3a372b4e14bead3a2f1989d598560b87c3e9f8f62f71e47133821310",
+      "gzip_sha256": "b7a84b0f1d6e3edb57c68b72683de25ee63070cec3158a57f9817364159d6a89"
+    },
+    "snapshot-final-constructor-classification.log": {
+      "raw_bytes": 435,
+      "raw_sha256": "2a361713e86a05e298c47eafca5001cc962c9eb2faddd909a2e65f43a4f78fb9",
+      "gzip_sha256": "1fe4d459c4b22871cab4e8cd5b2241672a65b7bbd01cb07d257e0416a75da257"
+    },
+    "snapshot-final-control-classification.log": {
+      "raw_bytes": 726,
+      "raw_sha256": "f8d1f23ab60c6c47033887f5ac0627bfc414a8c7fb425b280b0f6c9edf867b0e",
+      "gzip_sha256": "e1e20775ee001fb03a27ed9c4db79e73f1512303c55754cd211d393c9e39b975"
+    },
+    "snapshot-final-diff-check.log": {
+      "raw_bytes": 0,
+      "raw_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "gzip_sha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64"
+    },
+    "snapshot-final-diff-check2.log": {
+      "raw_bytes": 0,
+      "raw_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "gzip_sha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64"
+    },
+    "snapshot-final-diff-check3.log": {
+      "raw_bytes": 0,
+      "raw_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "gzip_sha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64"
+    },
+    "snapshot-final-licenses.log": {
+      "raw_bytes": 54,
+      "raw_sha256": "baf5804aeb26498337c9c5223c199afeba5c3e2fc36ae219b9bf420e3775f673",
+      "gzip_sha256": "21fd3bcaf61e87e10822dd63176f2751a3282de06861c556f8ea5cb4d913c689"
+    },
+    "snapshot-final-licenses2.log": {
+      "raw_bytes": 54,
+      "raw_sha256": "baf5804aeb26498337c9c5223c199afeba5c3e2fc36ae219b9bf420e3775f673",
+      "gzip_sha256": "21fd3bcaf61e87e10822dd63176f2751a3282de06861c556f8ea5cb4d913c689"
+    },
+    "snapshot-final-licenses3.log": {
+      "raw_bytes": 54,
+      "raw_sha256": "baf5804aeb26498337c9c5223c199afeba5c3e2fc36ae219b9bf420e3775f673",
+      "gzip_sha256": "21fd3bcaf61e87e10822dd63176f2751a3282de06861c556f8ea5cb4d913c689"
+    },
+    "snapshot-final-tests.log": {
+      "raw_bytes": 1532,
+      "raw_sha256": "b5b77e904d531c5edf53aabf507a5f222c41ede8064c0dce68593cbf96a98790",
+      "gzip_sha256": "70f297668ce5e3ec49ad0307a241628213be9bd6c18dacd925127727eba57e98"
+    },
+    "snapshot-irondocs.log": {
+      "raw_bytes": 214,
+      "raw_sha256": "f97b9bbc3ed227119f5c9c9943b5975563f2bc693413de462218c375a4539023",
+      "gzip_sha256": "97fe0dd23b5d0971de32c5b07e5c2782f3dd24e07902779b6f696c3d85d4182c"
+    },
+    "snapshot-irondocs2.log": {
+      "raw_bytes": 117,
+      "raw_sha256": "1ec02e5357a6f24fd8334585f45529b037028caceceddf58127a7027bd9ff3e3",
+      "gzip_sha256": "10e56fd4d0d965baf311dd8e1b90d20ce6a8cd11df3a3e258163159497825227"
+    },
+    "snapshot-java-reference.log": {
+      "raw_bytes": 33,
+      "raw_sha256": "062957cbd4a67c5d834ec5cd949d300670466f81c59e176f047e6bba3097a4e3",
+      "gzip_sha256": "6541ed8114cb913d889889afbe968a92274328fc29a9016018f86ef338843d36"
+    },
+    "snapshot-joins-before-tests.log": {
+      "raw_bytes": 626,
+      "raw_sha256": "b1a755ecc432e36507838952ecad6b0b854e3ecf106fb867289f29f28efa3766",
+      "gzip_sha256": "747025de74a6ba3ead8928691ad790505ce866d432515d2b2384baa3eb2658bf"
+    },
+    "snapshot-joins-classified-tests.log": {
+      "raw_bytes": 738,
+      "raw_sha256": "5f4ba48b53652e0dafd2dde3322bed4f8f31f38754515dccc9c12b215393ff57",
+      "gzip_sha256": "02396171f07da23c4d66cbbb4fbcbe93f71f6622d0a0135d7106d585d48db81c"
+    },
+    "snapshot-loans-tests.log": {
+      "raw_bytes": 28803,
+      "raw_sha256": "62f9b3b437cd6027e92c0ead7310ec1b5f809fa56b2190f46af55aade3d4f762",
+      "gzip_sha256": "8b1f301df01b972293990009a4df2ac84b1cfa8a31dd52a8e6dc0e98955ff702"
+    },
+    "snapshot-null-accounting-tests.log": {
+      "raw_bytes": 214,
+      "raw_sha256": "6353c34c3b03fde8926bc18944bfcd6bef7bc3d2e504642a0d20dbe25ece1e42",
+      "gzip_sha256": "b99743495de39d02dad05032aea2d8abb00b6659d5846b9c581ca3787c98112d"
+    },
+    "snapshot-payload-tests.log": {
+      "raw_bytes": 29010,
+      "raw_sha256": "3d8d88f36f783ffb324731f23d9abca25f1905b3c89c2aa669694d6873a11279",
+      "gzip_sha256": "0e89b9a4c16c8aa9c0764517e910c4df5d3265a67d0b462e5ca991171a199128"
+    },
+    "snapshot-proof-build.log": {
+      "raw_bytes": 286,
+      "raw_sha256": "dc2f78dfe71094c6044be5ca8b753d0c9ab9357fd8fa423f4dd88d84d543c748",
+      "gzip_sha256": "79c0b6de96ac023c35a28ed109f73515d4b97942b6df7da5d91d2dbead643a01"
+    },
+    "snapshot-proof-build2.log": {
+      "raw_bytes": 28358,
+      "raw_sha256": "d1a08f1fe0719e043af9226f4b6a084f0bd1596e305e2a34e8713d3b6a9af016",
+      "gzip_sha256": "e4cec8509c7729aff62abaf0640b60483f0ffbc760a6bd66e55c317a4e865546"
+    },
+    "snapshot-proof-build3.log": {
+      "raw_bytes": 28358,
+      "raw_sha256": "d1a08f1fe0719e043af9226f4b6a084f0bd1596e305e2a34e8713d3b6a9af016",
+      "gzip_sha256": "e4cec8509c7729aff62abaf0640b60483f0ffbc760a6bd66e55c317a4e865546"
+    },
+    "snapshot-qualified-compile.log": {
+      "raw_bytes": 374,
+      "raw_sha256": "78bf334f78501ef26916684faaa1ee1432949a9a5438aa88b905a86ec79c781a",
+      "gzip_sha256": "5c6d41defb6b6aba9e90cb44c0a4273e6c79ca85b88231d1fe0b881e8105b3fe"
+    },
+    "snapshot-qualified-link.log": {
+      "raw_bytes": 81,
+      "raw_sha256": "02d9af81d19ba3238fcafe1cb2d59187e01a5cc58850a3d9bc0776e52b6ee8d1",
+      "gzip_sha256": "e2d825bcd601922009f6d7700163ccb17d523687b5e2dbe6bae2b79972a421ae"
+    },
+    "snapshot-qualified-null-compile.log": {
+      "raw_bytes": 389,
+      "raw_sha256": "685db010f355f7f31feef75851c6739d78b4fbfbc9f6e40d05619e3905ca1a6c",
+      "gzip_sha256": "d90f14c30d1822e5cf892acf86bf2255419fca3a673512cf07fe51452739bbe2"
+    },
+    "snapshot-qualified-null-link.log": {
+      "raw_bytes": 86,
+      "raw_sha256": "1139425f3259dd8d2d2332a93133abddf35f2f84a2a46044a78098006b786541",
+      "gzip_sha256": "e7e77bb99a86638290643534caaed7ccf1342cc2daa2000312eccb95004bda74"
+    },
+    "snapshot-qualified-null-run.log": {
+      "raw_bytes": 52,
+      "raw_sha256": "80efdc1103a6f4b60347991c70b0bcf6c31206dbfaacc0163971e6636776974b",
+      "gzip_sha256": "9302c257247ac56fbd42af2605054ff6ceecc4c7853018c7611ab9a6acc5e9c1"
+    },
+    "snapshot-qualified-run.log": {
+      "raw_bytes": 52,
+      "raw_sha256": "80efdc1103a6f4b60347991c70b0bcf6c31206dbfaacc0163971e6636776974b",
+      "gzip_sha256": "9302c257247ac56fbd42af2605054ff6ceecc4c7853018c7611ab9a6acc5e9c1"
+    },
+    "snapshot-safe-artifact.log": {
+      "raw_bytes": 200,
+      "raw_sha256": "472e992a95db2a410fb8f51dc7aa388f621117316bf2129957ec47df8bb0ba2d",
+      "gzip_sha256": "369270defd847b73499259e1ef96f2de5d23df514a158a73a80f99ba0ddb5352"
+    },
+    "snapshot-safe.log": {
+      "raw_bytes": 223,
+      "raw_sha256": "8dc6105472f97277c4e7afc342b9d5ba883c2722ed7ab7e4d47955362995d161",
+      "gzip_sha256": "aa7639a402d049312cba7ff11631b0940f9eaed7822aaadc1b1f7b8c29018cac"
+    },
+    "snapshot-safe2.log": {
+      "raw_bytes": 304,
+      "raw_sha256": "38f2ac3aebb14ea99f9cb5c76db4498c8e8f7e1e735ebf4eea63f16b96b98d0c",
+      "gzip_sha256": "50fdea435f55adaa909f09ceb444dea8b3a4a8a5b2969d280deb918cd9eda548"
+    },
+    "snapshot-target-coverage-tests.log": {
+      "raw_bytes": 28602,
+      "raw_sha256": "477299313936e15e2cd6f4d1c1d09ba9f5e93d2031e5fe9f762982ba8648ec6f",
+      "gzip_sha256": "cd8cebb7f349f8f34bf2671da3d7a1bbe92d194d58dcc5eb6d4436dedbba1a23"
+    },
+    "snapshot-tests.log": {
+      "raw_bytes": 28905,
+      "raw_sha256": "04e0d5f9457131d9a12149bb9ce104980952587facf4beb6e4e635710b076a2b",
+      "gzip_sha256": "a45b7b44e470498070f88633ff3f44a0975223d5a13163a7f909edf2270dcfc2"
+    },
+    "snapshot-unsafe-after.log": {
+      "raw_bytes": 225,
+      "raw_sha256": "497d602a236a0d48855c8c264f658f2eb114120afba24d668ad8e9214393b406",
+      "gzip_sha256": "5c061f9d278a741122692b9ba87088238dcad53535c06fd22ed46886b3075a0d"
+    },
+    "snapshot-unsafe.log": {
+      "raw_bytes": 225,
+      "raw_sha256": "497d602a236a0d48855c8c264f658f2eb114120afba24d668ad8e9214393b406",
+      "gzip_sha256": "5c061f9d278a741122692b9ba87088238dcad53535c06fd22ed46886b3075a0d"
+    },
+    "snapshot-unsafe2.log": {
+      "raw_bytes": 215,
+      "raw_sha256": "f0e94fc14d3b3a68cebc2fcdafc804a3592de3e8f3c7ce552ec74394a3e82201",
+      "gzip_sha256": "b57561bef83f1bec9df5f5cbbff5a6b139f198478b699011da8b6ce9ed72741c"
+    },
+    "snapshots-compile.log": {
+      "raw_bytes": 236,
+      "raw_sha256": "b79920812b4fe84be78e257b94a3d502747c349dbec7b60c68cba46a61dea36d",
+      "gzip_sha256": "5aed5762927c761987a002697938e33323dcd3a0afcdf65bcdaa9c5ef18764e5"
+    }
+  },
+  "sources": {
+    "compiler/src/main/ironwood/ironwood/compiler/port/SnapshotBits.iron": "1bb5d232a1fb01c01d2175c33826ee5706b8dc257a24c74ba1778d9c37133783",
+    "compiler/src/main/ironwood/ironwood/compiler/port/SnapshotList.iron": "253c26a8516664d0a8dc56c3abf433f12d7a8268e0fcb00afbeb6833db227727",
+    "compiler/src/main/java/ironwood/compiler/semantic/EscapeSummaryAnalyzer.java": "46c70a0a1b8d506b4a3d950a76306316a5280135409034457c36bff8a2462c38",
+    "compiler/src/main/java/ironwood/compiler/semantic/FreshBorrowingFactoryAnalysis.java": "2baa4dfb475e4d6a100899bd224bed28113c099ee8a73f07ec3739df6060e612",
+    "compiler/src/main/java/ironwood/compiler/semantic/FunctionAnalyzer.java": "2d8f03d1f42cebf0e79539042379ee0f83b05052ed664df02305ea58cad3edab",
+    "compiler/src/test/java/ironwood/compiler/CompilerTests.java": "c93b0745383de0a15d0da4e9bb84e42a15fc9281ca7c7e5e856e2c45353c6c4b",
+    "integration-tests/cases/compiler_snapshot_benchmark.iron": "00925312a09e88e08be9fae1fef78e3bf85d64c211c117c8c531669eda3138f5",
+    "integration-tests/cases/compiler_snapshot_bit_overflow.iron": "919888f66e50d23a69f9f1ef1fbe3441e3a12c2c2e69aabeb9db5b7b3d6a7542",
+    "integration-tests/cases/compiler_snapshot_failure.iron": "4ac550c001207cfc04ab76cc9671f4d17024f3b724bcd823b3c3e0466a80bfeb",
+    "integration-tests/cases/compiler_snapshots.iron": "362aa2986a5bb99e304671681edea896e6f4fc4364afbf2992ed772f31516e3a",
+    "integration-tests/fixtures/SnapshotReference.java": "da3187af8751e1fd0cd2a234393342e382271bda0db0f9ec7007c42357fd24f3",
+    "stdlib/src/main/ironwood/ironwood/ds/ArrayList.iron": "fd084572e9eb1bcd6ea79dbcc609b523089c0bcead511c4f75159d3845182fd6"
+  },
+  "warnings": {
+    "qualified_command_logs": [
+      "snapshot-qualified-null-compile.log",
+      "snapshot-qualified-null-link.log",
+      "snapshot-benchmark-formatted-compile.log",
+      "snapshot-benchmark-formatted-link.log"
+    ],
+    "per_command_count": {
+      "snapshot-qualified-null-compile.log": 0,
+      "snapshot-qualified-null-link.log": 0,
+      "snapshot-benchmark-formatted-compile.log": 0,
+      "snapshot-benchmark-formatted-link.log": 0
+    },
+    "unique_sites": 0,
+    "suppression_sites": [],
+    "stdlib_mode": "error unchanged; test.sh builds strict stdlib",
+    "historical_probes": "Captured negative-test diagnostics and temporary failed prototypes are separate from accepted CLI warning counts."
+  },
+  "qualification_commands": [
+    "env JAVA_HOME=/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home bin/ironwoodc compiler/src/main/ironwood/ironwood/compiler/port/SnapshotList.iron compiler/src/main/ironwood/ironwood/compiler/port/SnapshotBits.iron integration-tests/cases/compiler_snapshots.iron --unfreed=warn -d workspace/m1/snapshot-qualified-null-classes",
+    "env JAVA_HOME=/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home bin/ironwoodc --link -cp workspace/m1/snapshot-qualified-null-classes --main-class Main --unfreed=warn -O3 -o workspace/m1/snapshot-qualified-null",
+    "workspace/m1/snapshot-qualified-null > workspace/m1/snapshot-qualified-null-run.log 2>&1; observed exit 42",
+    "env JAVA_HOME=/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home bin/ironwoodc compiler/src/main/ironwood/ironwood/compiler/port/SnapshotBits.iron integration-tests/cases/compiler_snapshot_benchmark.iron --unfreed=warn -d workspace/m1/snapshot-benchmark-final-classes",
+    "env JAVA_HOME=/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home bin/ironwoodc --link -cp workspace/m1/snapshot-benchmark-final-classes --main-class Main --unfreed=warn -O3 --emit-llvm workspace/m1/snapshot-benchmark-formatted.ll -o workspace/m1/snapshot-benchmark-formatted",
+    "workspace/m1/snapshot-benchmark-formatted > workspace/m1/snapshot-benchmark-formatted-run.log 2>&1; observed exit 42",
+    "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home/bin/javac --release 21 -Xlint:all -Werror -d workspace/m1/snapshot-java-reference integration-tests/fixtures/SnapshotReference.java",
+    "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home/bin/java -Xmx2g -cp workspace/m1/snapshot-java-reference SnapshotReference; observed exit 0",
+    "env JAVA_HOME=/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home bin/irondoc compiler/src/main/ironwood/ironwood/compiler/port/SnapshotList.iron compiler/src/main/ironwood/ironwood/compiler/port/SnapshotBits.iron -d workspace/m1/snapshot-irondocs",
+    "./scripts/check-licenses.sh; git diff --check",
+    "/opt/homebrew/opt/llvm@23/bin/llvm-objdump -d workspace/m1/snapshot-benchmark-final > workspace/m1/snapshot-benchmark-final-assembly.log"
+  ],
+  "probe_classification": {
+    "count-self-before.log / count-self-analysis-before.log": "Excluded generic self-cast attempt, not a valid mutation witness.",
+    "count-self-valid-before.log": "Despite its historical filename, E[] to Object[] view is excluded, not a valid witness.",
+    "count-admission-controls.log": "Overstrict admission assertion failed because two definitions are already rejected by ordinary ownership.",
+    "count-classified-controls.log / count-query-tests.log": "Final direct null/size and concrete Object-list controls; definition versus caller rejection classified.",
+    "snapshot-proof-build.log": "Initial missing Java List qualification; corrected in subsequent build logs.",
+    "snapshot-tests.log / snapshot-loans-tests.log / snapshot-alias.log": "Initial untracked getter-alias unsafe acceptance. alias source reads a field after all owners retire.",
+    "snapshot-alias-fixed-tests.log": "Safety tracking fixed; assertion required free-site diagnostic although use-site error is mandatory too. Native string-observation probe remained conservative.",
+    "snapshot-final-control-classification.log": "Constructor that publishes in-progress this is rejected by its ordinary publication rule, not a free-site rule; corrected classification follows.",
+    "snapshot-irondocs.log": "Unsupported apiNote tag, replaced with ordinary prose; snapshot-irondocs2.log passes.",
+    "bit-copy-benchmark-compile.log / compile2.log / bit-copy-benchmark-link.log / link2.log": "Temporary conditional allocation/result did not prove a freeable allocation; no safety relaxation. Split selection into existing scopes.",
+    "bit-copy-benchmark-run.log": "Logical length pre-sizing: two wide allocations, trailing-zero scan cost.",
+    "bit-copy-benchmark-run4.log": "Higher-bit scan plus logical length: extra sparse-wide scan cost.",
+    "bit-copy-benchmark-run5.log": "Single-word capacity guard plus logical length.",
+    "bit-copy-benchmark-run6.log": "Existing capacity bound without empty specialization.",
+    "bit-copy-benchmark-run7.log": "Selected capacity bound with one-word empty/overflow behavior.",
+    "bit-copy-benchmark-run8.log": "Split fixed-size helper alternative; no advantage over smaller selected source.",
+    "snapshot-backlink-tests.log / snapshot-constructor-error-boundary-tests.log / snapshot-artifact-payload-tests.log": "Final additional backlink/all-mode, constructor-definition classification and artifact primitive payload checks pass.",
+    "snapshot-null-accounting-tests.log / snapshot-qualified-null-run.log": "Null private storage delta equals direct thrown-exception delta; successful storage remains balanced.",
+    "snapshot-joins-before-tests.log / snapshot-joins-classified-tests.log": "Joined roots block retirement and static delegation exposes payloads. Unsafe aliases rejected in all modes; safe cleanup remains conservative, not an accepted positive witness."
+  },
+  "source_revision_binding": "Base commit plus exact source delta hashes; semantic bootstrap classes below were built from this compiler source delta. Later edits affect regression/docs only.",
+  "artifact_identities": {
+    "compiler/build/ironwoodc.jar": {
+      "sha256": "2ae418230c9dd883b1067c9551697462787d14a123878a37080c53b2abe0fcdc",
+      "bytes": 2334203
+    },
+    "compiler/build/classes/ironwood/compiler/semantic/FunctionAnalyzer.class": {
+      "sha256": "7f902e1995a1056db92aba3179fc2f137a27de8e52f23e2b3da896a3e8c3a6ed",
+      "bytes": 446882
+    },
+    "compiler/build/classes/ironwood/compiler/semantic/FunctionAnalyzer$AllocationInfo.class": {
+      "sha256": "28d9fe68b8ebf2780307d8a8a8bb8b7c05f1578ecfb8da040e6d63f5d1db39ce",
+      "bytes": 2808
+    },
+    "compiler/build/classes/ironwood/compiler/semantic/FreshBorrowingFactoryAnalysis.class": {
+      "sha256": "1c262ae06b615bc8f3d7a3cb5c6152e7d4119d9542eba23a4e720e37c53fb4a9",
+      "bytes": 23991
+    },
+    "compiler/build/classes/ironwood/compiler/semantic/EscapeSummaryAnalyzer.class": {
+      "sha256": "943bd80895c112d5c9fb5688188b6368fbe2fac0c1a015eaf28fef92999142aa",
+      "bytes": 74709
+    },
+    "compiler/build/test-classes/ironwood/compiler/CompilerTests.class": {
+      "sha256": "cedac3211dfe12dae75f539624da2ab71202a15ec6ceb022d66fa9032854dbd2",
+      "bytes": 860766
+    },
+    "runtime/src/ironwood_runtime.c": {
+      "sha256": "db1556358c69d2ecded75308b402ee703a246574bd535863946d68751bb76b1e",
+      "bytes": 154433
+    },
+    "workspace/m1/snapshot-qualified-null": {
+      "sha256": "23c2c27f70b69918b9f5730043e8698e353d8ed1a2d7861b35539d3b97567f2d",
+      "bytes": 174456
+    },
+    "workspace/m1/snapshot-benchmark-formatted": {
+      "sha256": "0ff0625da73fd840639162a75080ff41f4d348a6ca30360975ac851046cec30c",
+      "bytes": 122128
+    },
+    "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home/bin/java": {
+      "sha256": "00e1f85b58fbb7b9e28c78740288028fc3d5146fc2810b78fe4f1a3ed7765d98",
+      "bytes": 69936
+    },
+    "/opt/homebrew/opt/llvm@23/bin/clang": {
+      "sha256": "4e4fd968922cd634ebb6445325703a6276effde7b39337a6a9ff40b3b0c657b8",
+      "bytes": 138440
+    },
+    "compiler/build/ironwood-stdlib.ironjar": {
+      "sha256": "67b8b6137f8fe56d4285a91a18846d9e9d42d5055e5ed4914aed9163bf92d495",
+      "bytes": 871593
+    },
+    "compiler/build/ironwood-testing.ironjar": {
+      "sha256": "5f6edbd0b1ce0fb0a04cf2a0a971ffc1990c56c0c5fa762c46ff27c436677921",
+      "bytes": 44445
+    }
+  },
+  "focused_test_commands": [
+    {
+      "log": "snapshot-tests.log",
+      "command": "env JAVA_HOME=/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home ./scripts/test.sh --test 'private compiler snapshots preserve copied payload loans' --test 'private compiler snapshots survive artifacts and allocation failures'",
+      "preparation": "test.sh builds strict stdlib and javac test classes",
+      "result": "1/2 pass; initial alias unsafe acceptance"
+    },
+    {
+      "log": "snapshot-loans-tests.log",
+      "command": "env JAVA_HOME=/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home ./scripts/test.sh --test 'private compiler snapshots preserve copied payload loans'",
+      "preparation": "test.sh builds strict stdlib and javac test classes",
+      "result": "0/1; stronger alias confirms unsafe acceptance"
+    },
+    {
+      "log": "count-classified-controls.log",
+      "command": "env JAVA_HOME=/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home ./scripts/test.sh --test 'independent list copy read proofs reject guard mutation and retention' --test 'independent list item projections require pure count queries'",
+      "preparation": "test.sh builds strict stdlib and javac test classes",
+      "result": "2/2 pass; ordinary definition rejection classified"
+    },
+    {
+      "log": "snapshot-alias-fixed-tests.log",
+      "command": "env JAVA_HOME=/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home ./scripts/test.sh --test 'private compiler snapshots preserve copied payload loans' --test 'private compiler snapshots survive artifacts and allocation failures'",
+      "preparation": "test.sh builds strict stdlib and javac test classes",
+      "result": "0/2; tracking fixes use-site safety but assertion/free-site and conservative string read require correction"
+    },
+    {
+      "log": "snapshot-controls-tests.log",
+      "command": "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home/bin/java -ea -cp compiler/build/classes:compiler/build/test-classes ironwood.compiler.CompilerTests --test 'private compiler snapshots preserve copied payload loans' --test 'private compiler snapshot proofs reject publication and unrecognized construction' --test 'private compiler snapshots survive artifacts and allocation failures'",
+      "preparation": "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home/bin/javac --release 21 -encoding UTF-8 -Xlint:all -Werror -cp compiler/build/classes:compiler/build/test-classes -d compiler/build/test-classes compiler/src/test/java/ironwood/compiler/CompilerTests.java",
+      "result": "3/3 pass"
+    },
+    {
+      "log": "snapshot-expanded-tests.log",
+      "command": "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home/bin/java -ea -cp compiler/build/classes:compiler/build/test-classes ironwood.compiler.CompilerTests --test 'private compiler snapshots preserve copied payload loans' --test 'private compiler snapshot proofs reject publication and unrecognized construction' --test 'private compiler snapshots survive artifacts and allocation failures' --test 'flat interface snapshots preserve owned element borrows' --test 'snapshot navigation and fresh cursors preserve root borrows' --test 'owned buffer fields require a fresh unescaped factory result' --test 'data structure caller loans survive allocation failures'",
+      "preparation": "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home/bin/javac --release 21 -encoding UTF-8 -Xlint:all -Werror -cp compiler/build/classes:compiler/build/test-classes -d compiler/build/test-classes compiler/src/test/java/ironwood/compiler/CompilerTests.java",
+      "result": "7/7 pass"
+    },
+    {
+      "log": "snapshot-payload-tests.log",
+      "command": "env JAVA_HOME=/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home ./scripts/test.sh --test 'private compiler snapshots preserve copied payload loans' --test 'private compiler snapshot proofs reject publication and unrecognized construction' --test 'private compiler snapshots survive artifacts and allocation failures'",
+      "preparation": "test.sh builds strict stdlib and javac test classes",
+      "result": "3/3 pass"
+    },
+    {
+      "log": "snapshot-final-tests.log",
+      "command": "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home/bin/java -ea -cp compiler/build/classes:compiler/build/test-classes ironwood.compiler.CompilerTests --test 'private compiler snapshots preserve copied payload loans' --test 'private compiler snapshot proofs reject publication and unrecognized construction' --test 'private compiler snapshots survive artifacts and allocation failures' --test 'private logical bit snapshots preserve the maximum valid bit index' --test 'independent list item projections require pure count queries'",
+      "preparation": "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home/bin/javac --release 21 -encoding UTF-8 -Xlint:all -Werror -cp compiler/build/classes:compiler/build/test-classes -d compiler/build/test-classes compiler/src/test/java/ironwood/compiler/CompilerTests.java",
+      "result": "5/5 pass"
+    },
+    {
+      "log": "snapshot-target-coverage-tests.log",
+      "command": "env JAVA_HOME=/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home ./scripts/test.sh --test 'private compiler snapshots preserve copied payload loans'",
+      "preparation": "test.sh builds strict stdlib and javac test classes",
+      "result": "1/1 pass after nonempty dispatch-target guard"
+    },
+    {
+      "log": "snapshot-captured-owner-tests.log",
+      "command": "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home/bin/java -ea -cp compiler/build/classes:compiler/build/test-classes ironwood.compiler.CompilerTests --test 'private compiler snapshot proofs reject publication and unrecognized construction'",
+      "preparation": "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home/bin/javac --release 21 -encoding UTF-8 -Xlint:all -Werror -cp compiler/build/classes:compiler/build/test-classes -d compiler/build/test-classes compiler/src/test/java/ironwood/compiler/CompilerTests.java",
+      "result": "1/1 pass including captured owner"
+    },
+    {
+      "log": "snapshot-final-control-classification.log",
+      "command": "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home/bin/java -ea -cp compiler/build/classes:compiler/build/test-classes ironwood.compiler.CompilerTests --test 'private compiler snapshots preserve copied payload loans' --test 'private compiler snapshot proofs reject publication and unrecognized construction'",
+      "preparation": "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home/bin/javac --release 21 -encoding UTF-8 -Xlint:all -Werror -cp compiler/build/classes:compiler/build/test-classes -d compiler/build/test-classes compiler/src/test/java/ironwood/compiler/CompilerTests.java",
+      "result": "1/2; in-progress constructor publication fails earlier ordinary rule"
+    },
+    {
+      "log": "snapshot-null-accounting-tests.log",
+      "command": "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home/bin/java -ea -cp compiler/build/classes:compiler/build/test-classes ironwood.compiler.CompilerTests --test 'private compiler snapshots survive artifacts and allocation failures'",
+      "preparation": "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home/bin/javac --release 21 -encoding UTF-8 -Xlint:all -Werror -cp compiler/build/classes:compiler/build/test-classes -d compiler/build/test-classes compiler/src/test/java/ironwood/compiler/CompilerTests.java",
+      "result": "1/1 pass, null delta control"
+    },
+    {
+      "log": "snapshot-final-constructor-classification.log",
+      "command": "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home/bin/java -ea -cp compiler/build/classes:compiler/build/test-classes ironwood.compiler.CompilerTests --test 'private compiler snapshot proofs reject publication and unrecognized construction'",
+      "preparation": "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home/bin/javac --release 21 -encoding UTF-8 -Xlint:all -Werror -cp compiler/build/classes:compiler/build/test-classes -d compiler/build/test-classes compiler/src/test/java/ironwood/compiler/CompilerTests.java",
+      "result": "1/1 pass, publication classification"
+    },
+    {
+      "log": "snapshot-constructor-error-boundary-tests.log",
+      "command": "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home/bin/java -ea -cp compiler/build/classes:compiler/build/test-classes ironwood.compiler.CompilerTests --test 'private compiler snapshot proofs reject publication and unrecognized construction'",
+      "preparation": "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home/bin/javac --release 21 -encoding UTF-8 -Xlint:all -Werror -cp compiler/build/classes:compiler/build/test-classes -d compiler/build/test-classes compiler/src/test/java/ironwood/compiler/CompilerTests.java",
+      "result": "1/1 pass, every admission error is an ownership/publication error"
+    },
+    {
+      "log": "snapshot-artifact-payload-tests.log",
+      "command": "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home/bin/java -ea -cp compiler/build/classes:compiler/build/test-classes ironwood.compiler.CompilerTests --test 'private compiler snapshots survive artifacts and allocation failures'",
+      "preparation": "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home/bin/javac --release 21 -encoding UTF-8 -Xlint:all -Werror -cp compiler/build/classes:compiler/build/test-classes -d compiler/build/test-classes compiler/src/test/java/ironwood/compiler/CompilerTests.java",
+      "result": "1/1 pass, artifact primitive observation and null controls"
+    },
+    {
+      "log": "snapshot-backlink-tests.log",
+      "command": "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home/bin/java -ea -cp compiler/build/classes:compiler/build/test-classes ironwood.compiler.CompilerTests --test 'private compiler snapshots preserve copied payload loans'",
+      "preparation": "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home/bin/javac --release 21 -encoding UTF-8 -Xlint:all -Werror -cp compiler/build/classes:compiler/build/test-classes -d compiler/build/test-classes compiler/src/test/java/ironwood/compiler/CompilerTests.java",
+      "result": "1/1 pass, all-mode self/backlink controls"
+    },
+    {
+      "log": "snapshot-joins-before-tests.log",
+      "command": "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home/bin/java -ea -cp compiler/build/classes:compiler/build/test-classes ironwood.compiler.CompilerTests --test 'private compiler snapshot getter loans survive joins and delegation'",
+      "preparation": "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home/bin/javac --release 21 -encoding UTF-8 -Xlint:all -Werror -cp compiler/build/classes:compiler/build/test-classes -d compiler/build/test-classes compiler/src/test/java/ironwood/compiler/CompilerTests.java",
+      "result": "0/1; safe cleanup hits existing merged-reference conservatism"
+    },
+    {
+      "log": "snapshot-joins-classified-tests.log",
+      "command": "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home/bin/java -ea -cp compiler/build/classes:compiler/build/test-classes ironwood.compiler.CompilerTests --test 'private compiler snapshot getter loans survive joins and delegation'",
+      "preparation": "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home/bin/javac --release 21 -encoding UTF-8 -Xlint:all -Werror -cp compiler/build/classes:compiler/build/test-classes -d compiler/build/test-classes compiler/src/test/java/ironwood/compiler/CompilerTests.java",
+      "result": "1/1 boundary test pass; both positive full-cleanup cases remain conservatively rejected"
+    },
+    {
+      "log": "count-query-tests.log",
+      "command": "env JAVA_HOME=/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home ./scripts/test.sh --test 'snapshot navigation and fresh cursors preserve root borrows' --test 'flat interface snapshots preserve owned element borrows' --test 'independent list copies preserve destination and nested payload loans' --test 'independent list copy read proofs reject guard mutation and retention' --test 'independent list item projections require pure count queries'",
+      "preparation": "test.sh builds strict stdlib and javac test classes",
+      "result": "5/5 pass"
+    },
+    {
+      "log": "count-admission-controls.log",
+      "command": "env JAVA_HOME=/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home ./scripts/test.sh --test 'independent list copy read proofs reject guard mutation and retention' --test 'independent list item projections require pure count queries'",
+      "preparation": "test.sh builds strict stdlib and javac test classes",
+      "result": "0/2; overstrict admission assertion, corrected classification follows"
+    }
+  ]
+}

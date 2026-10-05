@@ -1,0 +1,117 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// Private membership and logical-bit snapshots own independent storage.
+// Exit 42 after ordered reads, mutation isolation, and zero live allocations.
+import ironwood.compiler.port.SnapshotList;
+import ironwood.compiler.port.SnapshotBits;
+import ironwood.ds.ArrayList;
+import ironwood.util.BitSet;
+import ironwood.util.Iterator;
+
+class Main {
+
+    static void checkList(int count) {
+
+        ArrayList<String> builder = new ArrayList<String>(1);
+        defer free builder;
+        for (int index = 0; index < count; index++) builder.add("item");
+        Iterator<String> cursor = builder.iterator();
+        if (count > 0) cursor.next();
+        long before = System.allocationCount();
+        SnapshotList<String> snapshot = new SnapshotList<String>(builder);
+        defer free snapshot;
+        long allocations = System.allocationCount() - before;
+        if (snapshot.size() != count || snapshot.isEmpty() != (count == 0)) throw new IllegalStateException();
+        if (count > 1 && !cursor.next().equals("item")) throw new IllegalStateException();
+        builder.clear();
+        if (snapshot.size() != count) throw new IllegalStateException();
+        if (count > 0 && snapshot.get(count - 1) != "item") throw new IllegalStateException();
+        System.out.print(count);
+        System.out.print(":");
+        System.out.println(allocations);
+    }
+
+    static void checkBits(int bit) {
+
+        BitSet source = new BitSet();
+        defer free source;
+        if (bit >= 0) source.set(bit);
+        long before = System.allocationCount();
+        BitSet snapshot = SnapshotBits.copy(source);
+        defer free snapshot;
+        long allocations = System.allocationCount() - before;
+        if (!snapshot.equals(source)) throw new IllegalStateException();
+        source.clear();
+        if (bit >= 0 && (!snapshot.get(bit) || snapshot.length() != bit + 1)) throw new IllegalStateException();
+        snapshot.clear();
+        snapshot.set(2);
+        if (!source.isEmpty()) throw new IllegalStateException();
+        System.out.print(bit);
+        System.out.print(":");
+        System.out.println(allocations);
+    }
+
+    static void checkEmptyCapacity() {
+
+        BitSet source = new BitSet(8192);
+        defer free source;
+        source.set(4096);
+        source.clear(4096);
+        BitSet snapshot = SnapshotBits.copy(source);
+        defer free snapshot;
+        if (!snapshot.isEmpty() || !snapshot.equals(source)) throw new IllegalStateException();
+        snapshot.set(3);
+        if (!source.isEmpty()) throw new IllegalStateException();
+    }
+
+    static void checkNull() {
+
+        long before = System.liveAllocationCount();
+        try {
+            throw new NullPointerException();
+        } catch (NullPointerException failure) {
+            // Isolate the ordinary retained exception from constructor rollback.
+        }
+        long exceptionDelta = System.liveAllocationCount() - before;
+        before = System.liveAllocationCount();
+        boolean listRejected = false;
+        try {
+            SnapshotList<String> unexpected = new SnapshotList<String>(null);
+            free unexpected;
+        } catch (NullPointerException failure) {
+            listRejected = true;
+        }
+        if (System.liveAllocationCount() - before != exceptionDelta) throw new IllegalStateException();
+        before = System.liveAllocationCount();
+        boolean bitsRejected = false;
+        try {
+            BitSet unexpected = SnapshotBits.copy(null);
+            free unexpected;
+        } catch (NullPointerException failure) {
+            bitsRejected = true;
+        }
+        if (System.liveAllocationCount() - before != exceptionDelta) throw new IllegalStateException();
+        if (!listRejected || !bitsRejected) throw new IllegalStateException();
+    }
+
+    public static int main(String[] args) {
+
+        // Thrown language exceptions retain their ordinary allocation lifetime.
+        // Take the storage accounting baseline after null-contract checks.
+        checkNull();
+        long baseline = System.liveAllocationCount();
+        checkEmptyCapacity();
+        checkList(0);
+        checkList(8);
+        checkList(32);
+        checkList(128);
+        checkList(512);
+        checkBits(-1);
+        checkBits(63);
+        checkBits(64);
+        checkBits(65);
+        checkBits(4096);
+        if (System.liveAllocationCount() != baseline) return 1;
+        return 42;
+    }
+}

@@ -9494,3 +9494,37 @@ occurrence order. If no
   source/class/archive reconstruction, native ordered membership and iterator
   continuation, 8/32/128/512 allocation scaling, and every allocation-failure
   boundary. See [the M1 list-copy record](self-hosting/m1/ARRAY_LIST.md).
+
+## D249 - Prove private copied membership and its read lifetimes structurally
+
+- **Status:** Implemented during M1.1 on 2026-10-05.
+- **Decision:** Add compiler-private `SnapshotList` and `SnapshotBits` helpers.
+  A list snapshot owns independent ordered storage and borrows its items; its
+  read interface lends aliases under the snapshot lifetime. Logical bit copies
+  use existing BitSet construction and `or`, with capacity pre-sizing for
+  nonempty ordinary bounds, one-word empty storage and overflow-safe growth.
+- **Proof:** Recognize a final Object-derived wrapper with one private final
+  owned field, no captured owner/delegation/initializer, a null-only guard and
+  one body-proved list-copy assignment. Transfer actual local list item loans,
+  retaining whole roots for unknown/exposed/dependent sources. Verify primitive
+  count purity only for item projections. A single delegated owned-list read
+  lends reference results under the wrapper. Unknown wrapper methods expose
+  copied payloads conservatively. Proved primitive payload observations do not
+  expose wrapper membership; every resolved override must satisfy that proof.
+- **Reason:** Ordinary constructor exposure rejected safe builder retirement.
+  Merely suppressing it left getter aliases untracked and admitted a use after
+  free. Construction, reads and conservative exposure therefore form one
+  qualified contract. No method-name ownership exemption or runtime metadata
+  is introduced, and LLVM lowering is unchanged.
+- **Boundary:** List aliases may conservatively require a live snapshot even
+  when the payload has its own owner. Unknown mutation/publication keeps ordinary
+  safety checks. The BitSet capacity query costs roughly one nanosecond in the
+  measured one-word case and removes a growth allocation for wider sets; measured
+  wider copies are faster. M1 map/set, composition, traversal and B7 work remain.
+  This extends D248 for the private wrapper and count proof only. It does not
+  supersede other decisions or establish S1/G1.
+- **Verification:** All-mode alias/nested/self rejection, primitive observation
+  and publication/override pairs, unrecognized constructor controls, Java 21
+  contract checks, class/archive loan reconstruction, null and trailing-zero
+  cases, maximum-bit overflow, native allocation scaling and every representative
+  failure boundary. See [the private snapshot record](self-hosting/m1/SNAPSHOTS.md).

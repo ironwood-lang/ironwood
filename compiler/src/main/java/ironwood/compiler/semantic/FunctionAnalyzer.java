@@ -8128,8 +8128,11 @@ final class FunctionAnalyzer {
     private void markConstructorPublications(CallableSymbol constructor, TypeSymbol target,
                                              List<TypedValue> arguments,
                                              List<SourceSpan> argumentSpans) {
-        arguments.forEach(argument -> exposeContainerContents(argument.operand(),
-                "constructor can observe stored data-structure references"));
+        List<FreshBorrowingFactoryAnalysis.Input> copiedItems = escapeSummaries.constructorBorrowedElements(constructor);
+        if (copiedItems == null) {
+            arguments.forEach(argument -> exposeContainerContents(argument.operand(),
+                    "constructor can observe stored data-structure references"));
+        }
         EscapeSummaryAnalyzer.EscapeSummary summary = escapeSummaries.summary(constructor);
         boolean publishesReceiver = summary.thisEscapes();
         for (TypeSymbol parent = target.superclass().orElse(null); parent != null;
@@ -8155,6 +8158,24 @@ final class FunctionAnalyzer {
                                           List<TypedValue> arguments,
                                           List<SourceSpan> argumentSpans) {
         EscapeSummaryAnalyzer.EscapeSummary summary = escapeSummaries.summary(constructor);
+        List<FreshBorrowingFactoryAnalysis.Input> copiedItems = escapeSummaries.constructorBorrowedElements(constructor);
+        if (copiedItems != null) {
+            owner.copiedContainerItems = true;
+            for (var input : copiedItems) {
+                IrOperand source = arguments.get(input.origin().parameterIndex()).operand();
+                AllocationInfo backing = allocationOf(source);
+                if (backing == null) continue;
+                if (!isDependentBorrow(source) && !exposedContainerContents.contains(backing)
+                        && backing.constructedType != null && backing.constructedType.isNominalReference()
+                        && backing.constructedType.referenceName().equals("ironwood.ds.ArrayList")) {
+                    for (AllocationInfo child : retainedBorrows.getOrDefault(backing, Set.of())) {
+                        addRetainedBorrow(owner, child, argumentSpans.get(input.origin().parameterIndex()));
+                    }
+                } else {
+                    addRetainedBorrow(owner, backing, argumentSpans.get(input.origin().parameterIndex()));
+                }
+            }
+        }
         for (int index = 0; index < arguments.size(); index++) {
             AllocationInfo argument = allocationOf(arguments.get(index).operand());
             if (argument == null || !arguments.get(index).type().isReference()) { continue; }
@@ -8954,6 +8975,22 @@ final class FunctionAnalyzer {
                                     List<CallableSymbol> possibleTargets,
                                     boolean possibleDispatch) {
         CallableSymbol resolved = useTargetMetadata ? escapeSummaries.callable(resolvedLinkageName) : null;
+        if (resolved != null && receiver != null && isDependentBorrow(receiver)
+                && allocationOf(receiver) != null && allocationOf(receiver).copiedContainerItems
+                && !resolved.ownerType().equals(allocationOf(receiver).constructedType.referenceName())
+                && escapeSummaries.primitivePayloadRead(resolved)
+                && !possibleTargets.isEmpty()
+                && possibleTargets.stream().allMatch(escapeSummaries::primitivePayloadRead)) return;
+        if (resolved != null && receiver != null && escapeSummaries.copiedListRead(resolved)) {
+            AllocationInfo owner = allocationOf(receiver);
+            if (owner != null && owner.copiedContainerItems) {
+                if (result.isPresent() && result.orElseThrow().type().isReference()) {
+                    allocationsByOperand.put(result.orElseThrow(), owner);
+                    ownedHelperBorrows.add(result.orElseThrow());
+                }
+                return;
+            }
+        }
         if (resolved != null && recordSingleRootListGet(resolved, receiver, result)) return;
         if (resolved != null && recordFreshBorrowingFactory(resolved, receiver, arguments, result)) {
             return;
@@ -9383,7 +9420,7 @@ final class FunctionAnalyzer {
                                          Set<AllocationInfo> visited) {
         if (!visited.add(allocation)) { return; }
         Set<AllocationInfo> children = retainedBorrows.getOrDefault(allocation, Set.of());
-        if (isKnownContainer(allocation)) {
+        if (isKnownContainer(allocation) || allocation.copiedContainerItems) {
             exposedContainerContents.add(allocation);
             for (AllocationInfo child : children) {
                 markEscaped(child, reason, Collections.newSetFromMap(new IdentityHashMap<>()));
@@ -14196,6 +14233,7 @@ final class FunctionAnalyzer {
         private final String ownedFieldName;
         private final Map<String, AllocationInfo> finalBorrowedFields = new LinkedHashMap<>();
         private IrType constructedType;
+        private boolean copiedContainerItems;
         /** For a ONE_OF identity, the allocations it may be, as known where it was made. */
         private Set<AllocationInfo> mayBe = Set.of();
         private boolean detached;

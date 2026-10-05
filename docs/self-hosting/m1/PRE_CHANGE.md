@@ -76,3 +76,81 @@ M2.1 adds Lexer/Parser/AST consumers and fresh Java qualification under fixed M0
 caps before G1. M1 does not run native G1 or change retained M0 hashes.
 
 Status: pre-change inspection in progress. No phase checkpoint passes yet.
+
+
+## Private snapshot constructor increment
+
+ArrayList slice is committed at 85c8fa01. SnapshotList's initial constructor
+builds an independent copy into one private final owned field. A source probe
+shows the existing unconditional constructor observation marks all builder
+items escaped, preventing valid destruction even after the snapshot retires.
+The unsafe prototype is conservatively rejected, not a demonstrated unsafe
+acceptance. SnapshotBits compiles with existing new-plus-or and failure cleanup.
+
+Qualify a structural constructor proof only for the actual private copied-field
+shape: final ordinary owner, Object superclass, no capture/delegation/field
+initializer, null-only input guard, one private final owned field initialized
+by a body-proved fresh list factory, and no other body operation. Map factory
+inputs back to the constructor parameter; successful construction borrows the
+actual payloads through the snapshot owner. Exceptional construction rolls back
+private storage and cannot publish a result or erase source loans. Mutation,
+publication, delegation and unrecognized bodies retain ordinary exposure.
+
+Focused cases: independent source retirement followed by snapshot/item cleanup;
+rejected early item, source self-item, nested snapshot and returned-alias frees;
+null/empty construction; every constructor/copy allocation-failure boundary;
+publishing or mutating constructor/guard/getter controls; equivalent source and
+class/archive consumer reconstruction. Rerun affected constructor-borrow, owned
+fresh-field, pool rollback and copied-list loans only. No runtime bookkeeping,
+source-independence exemption or unknown non-retaining effect is introduced.
+
+
+Count-query review: constructor capacity and loop bounds need membership purity
+when a factory projects a container's individual item loans. Keep the existing
+non-retaining count contract for flat/root-borrow factories, whose results keep
+the whole input root alive. Add a structural no-mutation count predicate only
+for container-element projections, without method-name exemptions. Include
+changed capacity/size self-item insertion, clearing/removal and publishing or
+virtual query targets. The first generic self-cast probe hit an excluded checked
+cast and is not a valid mutation witness; use an Object[] alias with an Object
+list or a concrete Object-list subclass for admitted self insertion instead.
+Focused existing consumers additionally include 'flat interface snapshots
+preserve owned element borrows' and 'snapshot navigation and fresh cursors
+preserve root borrows'. Preserve original source/class/archive shapes.
+
+The attempted Object[] view of the generic E[] backing is also excluded by the
+current type boundary and produces uncertain owned-array errors. Preserve both
+invalid attempts as historical probe failures, not valid mutation controls.
+The final controls remove those casts/views, use null/size membership writes and
+concrete Object-list virtual methods, and independently require source admission
+without frees before asserting the reclamation failure where ordinary ownership
+admits the definition. Guard publication and two virtual size definitions fail
+ordinary internal ownership first; record those separately rather than as
+caller-loan witnesses. No unsupported cast/view qualifies a negative control.
+
+The initial snapshot returned-alias test demonstrates an actual unsafe acceptance:
+a copied wrapper's untracked getter result survived snapshot, builder and item
+destruction. Add a narrow body-proved owned-list read, lending reference results
+under the copied wrapper. Mark these constructor-proved allocations as copied
+item owners so unrecognized methods conservatively expose their actual payloads.
+Primitive delegated reads cannot mutate membership. Qualify direct field reads,
+nested/returned aliases, constructor publication/observation/delegation/field
+controls and late snapshot/payload publication through source and artifacts.
+This metadata exists only during compilation and adds no runtime tracking.
+
+Payload observation review: a getter alias is conservatively tied to the wrapper,
+but a body-proved non-retaining primitive read of that payload must not expose
+the wrapper's entire membership. Accept only the single-return primitive private
+int-field expression shape for this increment and verify every resolved dispatch
+target. Keep publication, unknown effects and publishing overrides conservative.
+Pair value/hash reads followed by cleanup with publication and retained aliases
+through another list. Bit snapshots compare one-word growth, logical-length bounds
+and existing capacity bounds; qualify empty/trailing-zero storage and the maximum
+valid bit index, whose int length/capacity overflow must not become a size trap.
+
+Join/delegation review: pair a conditional receiver selecting two independently
+constructed snapshots and a single-return static delegating getter. Observe
+before cleanup in the safe case, reject a returned alias after retirement under
+every unfreed mode, and preserve publication/unknown effects. Any precision must
+derive from the same actual read body and existing one-of lifetime identities;
+do not treat a join or helper name as non-retaining by convention.

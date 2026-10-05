@@ -363,6 +363,18 @@ final class EscapeSummaryAnalyzer {
         return new FreshBorrowingFactoryAnalysis(types, resolver, this, ownedFields, checkingField).prove(callable);
     }
 
+    java.util.List<FreshBorrowingFactoryAnalysis.Input> constructorBorrowedElements(CallableSymbol callable) {
+        return new FreshBorrowingFactoryAnalysis(types, resolver, this, ownedFields, null).constructorElements(callable);
+    }
+
+    boolean copiedListRead(CallableSymbol callable) {
+        return new FreshBorrowingFactoryAnalysis(types, resolver, this, ownedFields, null).copiedListRead(callable);
+    }
+
+    boolean primitivePayloadRead(CallableSymbol callable) {
+        return new FreshBorrowingFactoryAnalysis(types, resolver, this, ownedFields, null).primitivePayloadRead(callable);
+    }
+
     java.util.List<CallableSymbol> boundTargets(CallableSymbol caller, CallExpression call) {
         return caller == null ? java.util.List.of()
                 : boundTargets(caller.linkageName(), call.span(), call.methodName());
