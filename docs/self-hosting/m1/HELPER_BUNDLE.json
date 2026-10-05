@@ -1,0 +1,112 @@
+{
+ "schema_version": 1,
+ "scope": "M1.1/M1.3 compiler-private helper sources and the M1 library additions they use; M2.1 adds consumer sources to complete the combined bundle",
+ "commit": "980ea94bf6608981beca3d5d812331569e1aab8b",
+ "port_helpers": [
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/port/CharEscapes.iron",
+   "sha256": "0c7e2845d760d9919f57e49672de33e3cbfdd89ee691aa6a1936ed4d0140625a",
+   "bytes": 1321
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/port/Lists.iron",
+   "sha256": "511452a05f50bf125e26587b4cd83ad8c5ee1f2ecd87f10bf7558646f12ccaff",
+   "bytes": 1194
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/port/OperationVariants.iron",
+   "sha256": "8dcbda1887037656d2eb45624e889d4d8334df656e65518c2a0da9fc98ec61c1",
+   "bytes": 9866
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/port/SnapshotBits.iron",
+   "sha256": "1bb5d232a1fb01c01d2175c33826ee5706b8dc257a24c74ba1778d9c37133783",
+   "bytes": 1526
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/port/SnapshotIdentityMap.iron",
+   "sha256": "0737456690db73ff59cb6e00c66f6d02b77619d4e49098ff99e18dad027fd341",
+   "bytes": 1487
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/port/SnapshotIdentitySet.iron",
+   "sha256": "e31223150b809ba0cb1bd4c1dda25b75f86052a110504fbb907e5324b129f215",
+   "bytes": 1236
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/port/SnapshotInts.iron",
+   "sha256": "b4eb48e4a08f5715152c30a7b625115e658886dc8a53255285005c99c3541a74",
+   "bytes": 2935
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/port/SnapshotLinkedMap.iron",
+   "sha256": "3f43da73866900ea76745cfad9ab10e7eebcf8dd4cadce17ab77d990649fc23e",
+   "bytes": 1477
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/port/SnapshotList.iron",
+   "sha256": "253c26a8516664d0a8dc56c3abf433f12d7a8268e0fcb00afbeb6833db227727",
+   "bytes": 1961
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/port/SnapshotMap.iron",
+   "sha256": "ad8906131237770e0ae17b39d4daeb9c3ee011d7dbed42c2d76c5bf6325e284a",
+   "bytes": 1447
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/port/TextBlocks.iron",
+   "sha256": "77fd587da807ecdbeaadf6f9e94ba6ef5e6bd7a52e37f26d78534e909fe08fa5",
+   "bytes": 4056
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/port/WorkQueue.iron",
+   "sha256": "b88202a2ba1aed0c9e8f2e477d0a78d34baf5c4d35752eb78110c4caa2d49653",
+   "bytes": 3068
+  }
+ ],
+ "library_sources_with_m1_additions": [
+  {
+   "path": "stdlib/src/main/ironwood/ironwood/ds/ArrayList.iron",
+   "sha256": "fd084572e9eb1bcd6ea79dbcc609b523089c0bcead511c4f75159d3845182fd6",
+   "bytes": 10288
+  },
+  {
+   "path": "stdlib/src/main/ironwood/ironwood/ds/HashMap.iron",
+   "sha256": "c683c7d82f837adac0c5840c3a7192b53ed4c8c289d5d14792bcfde497d4f366",
+   "bytes": 14041
+  },
+  {
+   "path": "stdlib/src/main/ironwood/ironwood/ds/IdentityHashMap.iron",
+   "sha256": "05e138e97b5c86833b718faafb881a8b9f4b24f39c4f43bd1918b9937a877089",
+   "bytes": 14035
+  },
+  {
+   "path": "stdlib/src/main/ironwood/ironwood/ds/LinkedHashMap.iron",
+   "sha256": "401a5bb3c810254d765e5bc61ea57add29a0855f8e766109764882db29a23bb5",
+   "bytes": 14607
+  },
+  {
+   "path": "stdlib/src/main/ironwood/ironwood/ds/HashSet.iron",
+   "sha256": "e6c17f7f9688ef85d18854c6a4f1b30e07b4e00d67b20ecee16784ac69cbbbc6",
+   "bytes": 5506
+  },
+  {
+   "path": "stdlib/src/main/ironwood/ironwood/ds/IdentityHashSet.iron",
+   "sha256": "bc54da8093d0f0442d23eff51771bd6808b3b7ac2ddb6531611dd27932b145d8",
+   "bytes": 5302
+  },
+  {
+   "path": "stdlib/src/main/ironwood/ironwood/ds/LinkedHashSet.iron",
+   "sha256": "b0bf57d8dd05cac1dba31415e94614ced5bf174292f266cb2dc1a9608c9a2adf",
+   "bytes": 5671
+  }
+ ],
+ "built_library": {
+  "path": "compiler/build/ironwood-stdlib.ironjar (fresh checkpoint tree, strict --unfreed=error build)",
+  "sha256": "a1fdd6520ce1c0d09a036c204e8586117e8b509d598057d8bd780562ad081cc5"
+ },
+ "producing_compiler": {
+  "path": "compiler/build/ironwoodc.jar (fresh checkpoint tree)",
+  "sha256": "b3e52e19086c024b0cd010de34739cbdec33c683a4fb96de5e85f7652fe609d8"
+ }
+}

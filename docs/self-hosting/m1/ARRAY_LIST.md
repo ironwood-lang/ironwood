@@ -2,7 +2,7 @@
 
 # M1.1 ArrayList storage slice
 
-Status: ArrayList slice passes; M1.1/M1 checkpoint remains in progress.
+Status: ArrayList slice passes; the M1 checkpoint passes ([CHECKPOINT.md](CHECKPOINT.md)).
 Contracts: independent ordered mutable membership, borrowed non-null items,
 source iterator continuation, exact-sized private storage and failure rollback.
 D248 records API/proof choices. No JVM compatibility facade or hot lowering change.

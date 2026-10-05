@@ -80,7 +80,7 @@ roadmap schedules them without replacing their detailed exit criteria.
 | Milestone | Purpose and workstreams | Entry dependency | Checkpoint and migration handoff | Status |
 | --- | --- | --- | --- | --- |
 | [M0](#m0-baseline-and-contract-inventory) | Freeze the baseline and evidence contract: B0a | Current Java compiler and source audit | S0 baseline, ordering inventory, fixtures, budgets, and selected pilot scope recorded | Complete on qualified macOS arm64 profile: M0.1/M0.2/M0.3 and S0 passed |
-| [M1](#m1-minimum-pilot-prerequisites) | Build the minimum pilot dependencies: selected B1/B2/B7 slices | M0 | Required copies, traversal, ordering, and syntax/helpers have focused evidence | In progress; [pre-change review](self-hosting/m1/PRE_CHANGE.md) |
+| [M1](#m1-minimum-pilot-prerequisites) | Build the minimum pilot dependencies: selected B1/B2/B7 slices | M0 | Required copies, traversal, ordering, and syntax/helpers have focused evidence | Complete on the qualified macOS arm64 profile; [checkpoint](self-hosting/m1/CHECKPOINT.md), [pre-change review](self-hosting/m1/PRE_CHANGE.md) |
 | [M2](#m2-portability-and-ownership-pilot) | Run B0b's frontend and ownership pilots | Required M1 phases | G1, the existing S1 gate, passes before broad translation | Not started |
 | [M3](#m3-semantic-and-backend-preparation) | Complete core B1/B2/B7 helpers and early B5 digests | M2 for broad port work; reuse M1 outputs | Staged readiness for S2, S3 with ByteView SHA-256, and S4 with MD5/native-link policy | Not started |
 | [M4](#m4-native-filesystem-and-process-services) | Deliver B3 filesystem and B4 process services | M2; audited helper dependencies | Filesystem checkpoint first, native process/driver checkpoint second | Not started |
@@ -141,8 +141,9 @@ profile. [PILOT_HANDOFF.md](self-hosting/m0/PILOT_HANDOFF.md) defines the exact
 permitted B1/B7 M1.1/M1.2/M1.3 prerequisites, with no selected B2 sorting demand.
 [s0-qualification.json](self-hosting/m0/s0-qualification.json) binds archive
 integrity, mismatch controls, fixed budget replay and the finite source handoff.
-M1/M2 remain not started. The following paragraphs retain the increment history;
-their earlier open-status notes are superseded by this checkpoint.
+M1 has since passed its own [checkpoint](self-hosting/m1/CHECKPOINT.md); M2 has
+not started. The following paragraphs retain the M0 increment history; their
+earlier open-status notes are superseded by the M0 checkpoint.
 Attributed discovery and its focused qualification are retained in that record;
 candidate labels remain separate from the required reviewed use-site contracts.
 The neutral process comparison now detects deliberately changed diagnostics,
@@ -342,11 +343,11 @@ complete, and M1/M2 and every later milestone remain not started.
 [B2](#5-b2-stable-list-level-sorting-for-compiler-objects), and
 [B7](#10-b7-compiler-local-portability-helpers).
 
-- [ ] **M1.1: Independent snapshot storage.** Implement the required ArrayList
+- [x] **M1.1: Independent snapshot storage.** Implement the required ArrayList
   and private compiler snapshot copies. Start BitSet copying with the existing
   `or` operation; add a convenience only when justified. Establish independent
   backing storage, borrowed elements, failure rollback, and safe destruction.
-  In progress: the [ArrayList slice](self-hosting/m1/ARRAY_LIST.md) and
+  Complete: the [ArrayList slice](self-hosting/m1/ARRAY_LIST.md) and
   [private list/logical-bit helpers](self-hosting/m1/SNAPSHOTS.md) pass;
   [independent map copies](self-hosting/m1/MAPS.md) and
   [set copies](self-hosting/m1/SETS.md), including D252's mandatory helper
@@ -361,22 +362,22 @@ complete, and M1/M2 and every later milestone remain not started.
   [400-operation list-copy differential](self-hosting/m1/ARRAY_LIST.md#java-differential)
   over a source, its copy, a copy of the copy and a later source copy equals
   Java 21's `ArrayList` copy-constructor transcript.
-- [ ] **M1.2: Pilot maps, traversal, and order.** Add the selected map/set copies,
+- [x] **M1.2: Pilot maps, traversal, and order.** Add the selected map/set copies,
   use local/indexed traversal or copied keys, and preserve identity/value/order
   distinctions. Rewrite pilot stack/FIFO consumers. Bring in B2's list sort or
   sorted-container rewrites only where M0 identified a pilot dependency.
-  In progress: the three map-copy and three set-copy families qualify, with
+  Complete: the three map-copy and three set-copy families qualify, with
   publishing helper construction rejected even without explicit caller frees,
   including through constructor-held fields (D253), and D254's read-only keyed
   snapshots. The selected FIFO and evidence-store iterator removal pass with
   [D255's worklist](self-hosting/m1/WORKLIST.md); no pilot stack consumer is
   reached. D257 adds copied traversal lists for restore and join, with a
   native seven-field join projection equal to its Java reference.
-- [ ] **M1.3: Pilot language and text helpers.** Prepare record value operations,
+- [x] **M1.3: Pilot language and text helpers.** Prepare record value operations,
   text-block normalization, varargs/factory rewrites, numeric/nullable results,
   reached name splitting, and required callback interfaces. Rewrite any pattern
   dispatch reached by the pilot and establish its variant coverage check.
-  In progress: [text-block normalization](self-hosting/m1/TEXT.md) (D256)
+  Complete: [text-block normalization](self-hosting/m1/TEXT.md) (D256)
   matches Java 21 `stripIndent` on 20,012 differential inputs, and the
   [value helpers and port conventions](self-hosting/m1/VALUES.md) (D258) cover
   escapes, segment counts, singleton/empty lists and record values. The
@@ -390,6 +391,12 @@ measurements, and applicable safe/unsafe and failure-cleanup pairs. List the
 remaining B1/B2/B7 work explicitly. New cursors, a general deque, reusable sort
 workspace, or more precise ownership rules remain conditional on demonstrated
 need. Passing this checkpoint makes M2 runnable; it does not establish S1.
+
+Status: passed on the qualified macOS arm64 M5/32-GiB profile. The
+[M1 checkpoint](self-hosting/m1/CHECKPOINT.md) maps every selected helper to its
+evidence, reconciles all 1,330 handoff calls, hashes the helper source bundle
+for M2.1 and lists the remaining B1/B2/B7 work and the M2 obligations M1
+created. M2 has not started.
 
 ### M2. Portability and ownership pilot
 

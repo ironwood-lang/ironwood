@@ -75,7 +75,8 @@ each commit. Hash helper .iron sources for M2.1's combined real-source bundle;
 M2.1 adds Lexer/Parser/AST consumers and fresh Java qualification under fixed M0
 caps before G1. M1 does not run native G1 or change retained M0 hashes.
 
-Status: pre-change inspection in progress. No phase checkpoint passes yet.
+Status: inspection complete; the M1 checkpoint passes ([CHECKPOINT.md](CHECKPOINT.md)).
+The increments below record the reviews made as each phase advanced.
 
 
 ## Private snapshot constructor increment
