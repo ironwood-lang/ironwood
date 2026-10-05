@@ -22,7 +22,7 @@
   },
   {
    "path": "compiler/src/test/java/ironwood/compiler/OwnershipSnapshotTests.java",
-   "sha256": "53fba253e02edd9d668da84834d3ebd36f5fc16c183df6a725b5864cb8e4d02d"
+   "sha256": "4cabc9929ede0167cfc9efab3c61857230bb4bcf4c961be4e83c1c98bfa0ddd3"
   }
  ],
  "java_references": [
@@ -101,8 +101,8 @@
   },
   {
    "retained": "docs/self-hosting/m1/composition-evidence/logs/tests-permutation.log.gz",
-   "sha256": "fb0d22c4070b8f045916098c336c03c919450336264956d2335ac8f0cf20a731",
-   "gzip_sha256": "97adc5a17e02cef5bf3dc3b8055a6fab8ef14b0ff5b9131bf7ebc591c5e14dc6"
+   "sha256": "9702cbbe5fbeac1ff9d2e4e24ffebedeed6b0b04b93af1dba82fbc98b33e4926",
+   "gzip_sha256": "2846f148e0741c5f8273836e9c62d65f5465f23468dfd11f4ea1fb0b306fab6f"
   },
   {
    "retained": "docs/self-hosting/m1/composition-evidence/logs/tests.log.gz",
@@ -118,7 +118,8 @@
   "unfreed_warn": "one diagnostic per compile and per link in each fixture: the deliberately retained live analyzer state ('state')",
   "licensing": "passed",
   "unsafe_native_execution": false,
-  "order_and_collisions": "reversed insertion, capacity 1 in both orders and capacity 64 print the identical projection"
+  "order_and_collisions": "reversed insertion, capacity 1 in both orders and capacity 64 print the identical projection",
+  "tests_after_permutation": "PASS: 2 compiler tests (controls updated for Live(capacity))"
  },
  "boundaries": [
   "nodes, state versions and child versions read through a snapshot are invocation-lived",

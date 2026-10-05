@@ -80,7 +80,7 @@ final class OwnershipSnapshotTests {
                 fixture.indexOf("    static void restore(Live state, OwnershipSnapshot snapshot) {"));
         String prefix = types + "class Main {\n" + save + """
                 public static int main(String[] args) {
-                    Live state = new Live(); Node node = new Node(0, null); Node other = new Node(1, null);
+                    Live state = new Live(8); Node node = new Node(0, null); Node other = new Node(1, null);
                     state.allocations.add(node); state.allocations.add(other);
                     ArrayList<Node> childItems = new ArrayList<Node>(1); childItems.add(node);
                     SnapshotList<Node> child = new SnapshotList<Node>(childItems); free childItems;
