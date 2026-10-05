@@ -293,6 +293,17 @@ retention facts and the remaining global inventory still precede S0 completion.
 Independent review accepted the fixed budget arithmetic, exact input sets,
 stack capacity, source-bundle phase split and synthetic enforcement controls;
 this does not qualify native G1 or the complete M0 checkpoint.
+The [source reconciliation](self-hosting/m0/RECONCILIATION.md) now joins all
+712 patterns/30,979 external calls, 12,413 syntax sites, 3,054 capture rows and
+31,325 hash-origin/traversal contributions without promoting candidate labels.
+Exact selected method/site overlays preserve M1 prerequisites and M2 first
+consumers, while excluded roles and general producers remain later. The private
+operation factory's 51 constructor calls/14 patterns have conditional data
+contracts; 98 general hash contributions are excluded from that fixed input,
+without a global order proof. Current D247 attribution is preserved separately.
+All selected call/capture/contribution joins and four rejection controls pass.
+Next: finish the remaining global contracts and precise consumer obligations,
+then reconcile the pilot handoff and S0 exit. M0 remains in progress.
 
 ### M1. Minimum pilot prerequisites
 

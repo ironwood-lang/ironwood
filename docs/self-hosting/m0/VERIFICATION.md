@@ -853,3 +853,32 @@ Sorting verification checks all 39 archived members against exact byte counts
 and SHA-256 values, all four final 59-check outputs and the preserved probe source.
 The source ledger reproduces its 41/554/88/58 selections. The license audit,
 written-text restrictions and current/staged/complete-task whitespace checks pass.
+
+## Source reconciliation and finite factory boundary
+
+Independent sorting review accepted 59-check source/output parity, 41/554/88/58
+source joins, both Path trees, natural stream domains and six SDK hashes. All
+39 archived members and native expected statuses were checked. This accepts the
+exact API/immediate source slice, with producer/tie/retention still unresolved.
+
+RECONCILIATION.md retains every exact API/call/syntax/capture row, literal UTF-16
+source and scoped proof/gate. Selected source methods/sites overlay discovery
+staging: 1,330 selected external calls and 65 captured rows have scoped contracts;
+unselected methods/roles in the same files remain later. The private operation
+factory source review covers 51 constructor calls/14 exact declarations. All
+460 original/current source hashes are pinned, and general contracts remain open.
+
+The hash join witnesses all 31,325 contributions across 849 origins/2,957 records,
+using 7,142 original graph edges. Evidence/effect/tracker contribution proofs,
+keyword lookup and conditional bounded ownership facts stay distinct. Ninety-eight
+general contributions into constrained constructors are excluded by the finite
+factory, without changing their unresolved general classification. Four controls
+reject missing proof, later frontend gate, dropped graph edge and promotion of
+a conditional ordering fact. Literal source/line and exact table parity pass.
+
+Current attribution compiles Inventory with Java 21 release/Xlint/Werror and runs
+it under the pinned profile. All seven current FunctionAnalyzer tables and exact
+logs/tool source are retained; 14,464 unchanged calls map across source offsets.
+Five old/ten current changed enclosing calls include the comment-only comparator
+expressions and the new ordered helper. Original IDs and J0 remain immutable.
+This is source/model evidence, not native implementation or a resource rerun.

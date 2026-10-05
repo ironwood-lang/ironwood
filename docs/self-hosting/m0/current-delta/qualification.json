@@ -1,0 +1,332 @@
+{
+  "schema": 1,
+  "original_source_sha256": "3e1261b969ca224c959f6cc79fbe58f44a9d61637fd8c9aa687c5ef9ec061723",
+  "current_source_sha256": "8bd284de9d8d9004e083c714ae83edf54c52b2277b0e37559feb2fde409c7243",
+  "scope": "all current FunctionAnalyzer attribution tables plus exact changed source regions; no overwrite of original IDs or ordering proofs",
+  "preserved": {
+    "commands.json": {
+      "bytes": 718,
+      "sha256": "a5fe776b5d2f8518abaece6bb1997150e9c0413021976fe55e438dd3827aba45"
+    },
+    "0.stdout": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "0.stderr": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "1.stdout": {
+      "bytes": 51,
+      "sha256": "1f2545462b573136dc82574e80a507fad1243d0adff8ee8a227926be98417f9b"
+    },
+    "1.stderr": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "inventory-source.java.gz": {
+      "raw_bytes": 31030,
+      "raw_sha256": "9079e4a0db073b4a95adb1e1a532c05b4f83fd8d75d17c1a34fbd12eac45ec6f"
+    },
+    "calls.tsv.gz": {
+      "rows": 14474,
+      "raw_bytes": 6237160,
+      "raw_sha256": "69b49150862b5ca3bd57acec03a33b55eb60846b5b28dcfb917b06d5b01078ae"
+    },
+    "captures.tsv.gz": {
+      "rows": 438,
+      "raw_bytes": 273601,
+      "raw_sha256": "381aa4b3f65d64fb54f403782faf43da06e42d036fa653a33040c4dbd0f6f993"
+    },
+    "containers.tsv.gz": {
+      "rows": 589,
+      "raw_bytes": 376765,
+      "raw_sha256": "c2be5bfbf2204924693e57491e9121a0e6604a4de6ad75fa100518cec60dedce"
+    },
+    "references.tsv.gz": {
+      "rows": 2947,
+      "raw_bytes": 1481709,
+      "raw_sha256": "b9c4d013de8c5962d12f7363a5636d6630e0c264cce8679553ddca394110b708"
+    },
+    "flow.tsv.gz": {
+      "rows": 57329,
+      "raw_bytes": 19356305,
+      "raw_sha256": "068a1b46800a545762824d8bb8da69c5df906fc2da26ff7a49d9521b71138848"
+    },
+    "syntax.tsv.gz": {
+      "rows": 1993,
+      "raw_bytes": 647318,
+      "raw_sha256": "610f32695a213444195747b7d46825990e29b0822625a4f02ff073e52c5e09ae"
+    },
+    "traversals.tsv.gz": {
+      "rows": 2049,
+      "raw_bytes": 910978,
+      "raw_sha256": "0a34231a9bb50462e9614ecd17654d248200872d90f12026097db36ee1d00351"
+    }
+  },
+  "unchanged_utf16_regions": [
+    [
+      0,
+      115962,
+      0
+    ],
+    [
+      116037,
+      686157,
+      26
+    ],
+    [
+      686211,
+      772995,
+      5
+    ],
+    [
+      773054,
+      773357,
+      9
+    ],
+    [
+      773357,
+      782788,
+      471
+    ]
+  ],
+  "unchanged_call_count": 14464,
+  "changed_original_calls": [
+    {
+      "file": "compiler/src/main/java/ironwood/compiler/semantic/FunctionAnalyzer.java",
+      "line": "2072",
+      "start_utf16": "115757",
+      "end_utf16": "116219",
+      "consumer": "ironwood.compiler.semantic.FunctionAnalyzer::probeFree(ironwood.compiler.semantic.FunctionAnalyzer.LocalSymbol,ironwood.compiler.ir.IrOperand,ironwood.compiler.ir.IrType,java.util.Set<ironwood.compiler.semantic.FunctionAnalyzer.LocalSymbol>)",
+      "kind": "METHOD",
+      "declaring_owner": "java.util.Optional",
+      "resolved_signature": "orElse(T)",
+      "instantiated_type": "(ironwood.compiler.semantic.FunctionAnalyzer.ArraySlot)ironwood.compiler.semantic.FunctionAnalyzer.ArraySlot",
+      "expression": "knownArraySlots.entrySet().stream().filter((entry)->entry.getValue() == allocation).map(Map.Entry::getKey).filter((slot)->slot.container() != allocation).min(Comparator.comparingInt(ArraySlot::index).thenComparingInt((slot)->allocations.indexOf(slot.container()))).orElse(null)"
+    },
+    {
+      "file": "compiler/src/main/java/ironwood/compiler/semantic/FunctionAnalyzer.java",
+      "line": "2072",
+      "start_utf16": "115757",
+      "end_utf16": "116189",
+      "consumer": "ironwood.compiler.semantic.FunctionAnalyzer::probeFree(ironwood.compiler.semantic.FunctionAnalyzer.LocalSymbol,ironwood.compiler.ir.IrOperand,ironwood.compiler.ir.IrType,java.util.Set<ironwood.compiler.semantic.FunctionAnalyzer.LocalSymbol>)",
+      "kind": "METHOD",
+      "declaring_owner": "java.util.stream.Stream",
+      "resolved_signature": "min(java.util.Comparator<? super T>)",
+      "instantiated_type": "(java.util.Comparator<? super ironwood.compiler.semantic.FunctionAnalyzer.ArraySlot>)java.util.Optional<ironwood.compiler.semantic.FunctionAnalyzer.ArraySlot>",
+      "expression": "knownArraySlots.entrySet().stream().filter((entry)->entry.getValue() == allocation).map(Map.Entry::getKey).filter((slot)->slot.container() != allocation).min(Comparator.comparingInt(ArraySlot::index).thenComparingInt((slot)->allocations.indexOf(slot.container())))"
+    },
+    {
+      "file": "compiler/src/main/java/ironwood/compiler/semantic/FunctionAnalyzer.java",
+      "line": "12518",
+      "start_utf16": "686107",
+      "end_utf16": "686462",
+      "consumer": "ironwood.compiler.semantic.FunctionAnalyzer::snapshotOwnership()",
+      "kind": "CONSTRUCTOR",
+      "declaring_owner": "ironwood.compiler.semantic.FunctionAnalyzer.OwnershipSnapshot",
+      "resolved_signature": "OwnershipSnapshot(java.util.Map<ironwood.compiler.semantic.FunctionAnalyzer.AllocationInfo,ironwood.compiler.semantic.FunctionAnalyzer.AllocationStateSnapshot>,java.util.Map<ironwood.compiler.semantic.FunctionAnalyzer.ArraySlot,ironwood.compiler.semantic.FunctionAnalyzer.AllocationInfo>,java.util.Map<java.lang.String,ironwood.compiler.semantic.FunctionAnalyzer.AllocationInfo>,java.util.Map<ironwood.compiler.semantic.FunctionAnalyzer.AllocationInfo,java.util.Set<ironwood.compiler.semantic.FunctionAnalyzer.AllocationInfo>>,java.util.Map<ironwood.compiler.semantic.FunctionAnalyzer.AllocationInfo,ironwood.compiler.semantic.FunctionAnalyzer.AllocationInfo>,java.util.Set<ironwood.compiler.semantic.FunctionAnalyzer.AllocationInfo>,java.util.Set<ironwood.compiler.semantic.FunctionAnalyzer.AllocationInfo>)",
+      "instantiated_type": "ironwood.compiler.semantic.FunctionAnalyzer.OwnershipSnapshot",
+      "expression": "new OwnershipSnapshot(snapshotAllocationStates(), new LinkedHashMap<>(knownArraySlots), new LinkedHashMap<>(borrowedOwnedFields), new IdentityHashMap<>(retainedBorrows), new IdentityHashMap<>(poolOwners), Set.copyOf(exposedContainerContents), unfreed == null ? Set.of() : unfreed.snapshot())"
+    },
+    {
+      "file": "compiler/src/main/java/ironwood/compiler/semantic/FunctionAnalyzer.java",
+      "line": "12519",
+      "start_utf16": "686173",
+      "end_utf16": "686209",
+      "consumer": "ironwood.compiler.semantic.FunctionAnalyzer::snapshotOwnership()",
+      "kind": "CONSTRUCTOR",
+      "declaring_owner": "java.util.LinkedHashMap",
+      "resolved_signature": "LinkedHashMap(java.util.Map<? extends K,? extends V>)",
+      "instantiated_type": "java.util.LinkedHashMap<ironwood.compiler.semantic.FunctionAnalyzer.ArraySlot,ironwood.compiler.semantic.FunctionAnalyzer.AllocationInfo>",
+      "expression": "new LinkedHashMap<>(knownArraySlots)"
+    },
+    {
+      "file": "compiler/src/main/java/ironwood/compiler/semantic/FunctionAnalyzer.java",
+      "line": "14261",
+      "start_utf16": "773025",
+      "end_utf16": "773052",
+      "consumer": "ironwood.compiler.semantic.FunctionAnalyzer.OwnershipSnapshot::OwnershipSnapshot(java.util.Map<ironwood.compiler.semantic.FunctionAnalyzer.AllocationInfo,ironwood.compiler.semantic.FunctionAnalyzer.AllocationStateSnapshot>,java.util.Map<ironwood.compiler.semantic.FunctionAnalyzer.ArraySlot,ironwood.compiler.semantic.FunctionAnalyzer.AllocationInfo>,java.util.Map<java.lang.String,ironwood.compiler.semantic.FunctionAnalyzer.AllocationInfo>,java.util.Map<ironwood.compiler.semantic.FunctionAnalyzer.AllocationInfo,java.util.Set<ironwood.compiler.semantic.FunctionAnalyzer.AllocationInfo>>,java.util.Map<ironwood.compiler.semantic.FunctionAnalyzer.AllocationInfo,ironwood.compiler.semantic.FunctionAnalyzer.AllocationInfo>,java.util.Set<ironwood.compiler.semantic.FunctionAnalyzer.AllocationInfo>,java.util.Set<ironwood.compiler.semantic.FunctionAnalyzer.AllocationInfo>)",
+      "kind": "METHOD",
+      "declaring_owner": "java.util.Map",
+      "resolved_signature": "<K,V>copyOf(java.util.Map<? extends K,? extends V>)",
+      "instantiated_type": "(java.util.Map<? extends ironwood.compiler.semantic.FunctionAnalyzer.ArraySlot,? extends ironwood.compiler.semantic.FunctionAnalyzer.AllocationInfo>)java.util.Map<ironwood.compiler.semantic.FunctionAnalyzer.ArraySlot,ironwood.compiler.semantic.FunctionAnalyzer.AllocationInfo>",
+      "expression": "Map.copyOf(knownArraySlots)"
+    }
+  ],
+  "changed_current_calls": [
+    {
+      "file": "compiler/src/main/java/ironwood/compiler/semantic/FunctionAnalyzer.java",
+      "line": "2072",
+      "start_utf16": "115757",
+      "end_utf16": "116245",
+      "consumer": "ironwood.compiler.semantic.FunctionAnalyzer::probeFree(ironwood.compiler.semantic.FunctionAnalyzer.LocalSymbol,ironwood.compiler.ir.IrOperand,ironwood.compiler.ir.IrType,java.util.Set<ironwood.compiler.semantic.FunctionAnalyzer.LocalSymbol>)",
+      "kind": "METHOD",
+      "declaring_owner": "java.util.Optional",
+      "resolved_signature": "orElse(T)",
+      "instantiated_type": "(ironwood.compiler.semantic.FunctionAnalyzer.ArraySlot)ironwood.compiler.semantic.FunctionAnalyzer.ArraySlot",
+      "expression": "knownArraySlots.entrySet().stream().filter((entry)->entry.getValue() == allocation).map(Map.Entry::getKey).filter((slot)->slot.container() != allocation).min(Comparator.comparingInt(ArraySlot::index).thenComparingInt((slot)->allocations.indexOf(slot.container()))).orElse(null)",
+      "literal_source": "knownArraySlots.entrySet().stream()\n                .filter(entry -> entry.getValue() == allocation)\n                .map(Map.Entry::getKey)\n                .filter(slot -> slot.container() != allocation)\n                // Prefer slot index, then container allocation order, independently of store order.\n                .min(Comparator.comparingInt(ArraySlot::index)\n                        .thenComparingInt(slot -> allocations.indexOf(slot.container())))\n                .orElse(null)",
+      "original_pattern": "API0535",
+      "change_role": "comment-only enclosing expression",
+      "contract": "SORTING_CONTRACTS.md: unchanged minimum slot index then container allocation index; edited explanatory comment only",
+      "owner_phase_consumer": "B1/B2/B7 M3.1 before full S3 free-probe selection; excluded from selected M2 operation"
+    },
+    {
+      "file": "compiler/src/main/java/ironwood/compiler/semantic/FunctionAnalyzer.java",
+      "line": "2072",
+      "start_utf16": "115757",
+      "end_utf16": "116215",
+      "consumer": "ironwood.compiler.semantic.FunctionAnalyzer::probeFree(ironwood.compiler.semantic.FunctionAnalyzer.LocalSymbol,ironwood.compiler.ir.IrOperand,ironwood.compiler.ir.IrType,java.util.Set<ironwood.compiler.semantic.FunctionAnalyzer.LocalSymbol>)",
+      "kind": "METHOD",
+      "declaring_owner": "java.util.stream.Stream",
+      "resolved_signature": "min(java.util.Comparator<? super T>)",
+      "instantiated_type": "(java.util.Comparator<? super ironwood.compiler.semantic.FunctionAnalyzer.ArraySlot>)java.util.Optional<ironwood.compiler.semantic.FunctionAnalyzer.ArraySlot>",
+      "expression": "knownArraySlots.entrySet().stream().filter((entry)->entry.getValue() == allocation).map(Map.Entry::getKey).filter((slot)->slot.container() != allocation).min(Comparator.comparingInt(ArraySlot::index).thenComparingInt((slot)->allocations.indexOf(slot.container())))",
+      "literal_source": "knownArraySlots.entrySet().stream()\n                .filter(entry -> entry.getValue() == allocation)\n                .map(Map.Entry::getKey)\n                .filter(slot -> slot.container() != allocation)\n                // Prefer slot index, then container allocation order, independently of store order.\n                .min(Comparator.comparingInt(ArraySlot::index)\n                        .thenComparingInt(slot -> allocations.indexOf(slot.container())))",
+      "original_pattern": "API0675",
+      "change_role": "comment-only enclosing expression",
+      "contract": "SORTING_CONTRACTS.md: unchanged minimum slot index then container allocation index; edited explanatory comment only",
+      "owner_phase_consumer": "B1/B2/B7 M3.1 before full S3 free-probe selection; excluded from selected M2 operation"
+    },
+    {
+      "file": "compiler/src/main/java/ironwood/compiler/semantic/FunctionAnalyzer.java",
+      "line": "12518",
+      "start_utf16": "686133",
+      "end_utf16": "686467",
+      "consumer": "ironwood.compiler.semantic.FunctionAnalyzer::snapshotOwnership()",
+      "kind": "CONSTRUCTOR",
+      "declaring_owner": "ironwood.compiler.semantic.FunctionAnalyzer.OwnershipSnapshot",
+      "resolved_signature": "OwnershipSnapshot(java.util.Map<ironwood.compiler.semantic.FunctionAnalyzer.AllocationInfo,ironwood.compiler.semantic.FunctionAnalyzer.AllocationStateSnapshot>,java.util.Map<ironwood.compiler.semantic.FunctionAnalyzer.ArraySlot,ironwood.compiler.semantic.FunctionAnalyzer.AllocationInfo>,java.util.Map<java.lang.String,ironwood.compiler.semantic.FunctionAnalyzer.AllocationInfo>,java.util.Map<ironwood.compiler.semantic.FunctionAnalyzer.AllocationInfo,java.util.Set<ironwood.compiler.semantic.FunctionAnalyzer.AllocationInfo>>,java.util.Map<ironwood.compiler.semantic.FunctionAnalyzer.AllocationInfo,ironwood.compiler.semantic.FunctionAnalyzer.AllocationInfo>,java.util.Set<ironwood.compiler.semantic.FunctionAnalyzer.AllocationInfo>,java.util.Set<ironwood.compiler.semantic.FunctionAnalyzer.AllocationInfo>)",
+      "instantiated_type": "ironwood.compiler.semantic.FunctionAnalyzer.OwnershipSnapshot",
+      "expression": "new OwnershipSnapshot(snapshotAllocationStates(), knownArraySlots, new LinkedHashMap<>(borrowedOwnedFields), new IdentityHashMap<>(retainedBorrows), new IdentityHashMap<>(poolOwners), Set.copyOf(exposedContainerContents), unfreed == null ? Set.of() : unfreed.snapshot())",
+      "literal_source": "new OwnershipSnapshot(snapshotAllocationStates(),\n                knownArraySlots,\n                new LinkedHashMap<>(borrowedOwnedFields), new IdentityHashMap<>(retainedBorrows),\n                new IdentityHashMap<>(poolOwners), Set.copyOf(exposedContainerContents),\n                unfreed == null ? Set.of() : unfreed.snapshot())",
+      "original_pattern": null,
+      "change_role": "snapshot builder supplied directly",
+      "contract": "ordered/DELTA.md: unchanged seven-field snapshot construction; supply knownArraySlots directly because the compact constructor now owns its independent ordered copy",
+      "owner_phase_consumer": "B1 M1.1/B7 M1.3 before M2 snapshot construction; later full ownership M3.1 before S3"
+    },
+    {
+      "file": "compiler/src/main/java/ironwood/compiler/semantic/FunctionAnalyzer.java",
+      "line": "14261",
+      "start_utf16": "773030",
+      "end_utf16": "773061",
+      "consumer": "ironwood.compiler.semantic.FunctionAnalyzer.OwnershipSnapshot::OwnershipSnapshot(java.util.Map<ironwood.compiler.semantic.FunctionAnalyzer.AllocationInfo,ironwood.compiler.semantic.FunctionAnalyzer.AllocationStateSnapshot>,java.util.Map<ironwood.compiler.semantic.FunctionAnalyzer.ArraySlot,ironwood.compiler.semantic.FunctionAnalyzer.AllocationInfo>,java.util.Map<java.lang.String,ironwood.compiler.semantic.FunctionAnalyzer.AllocationInfo>,java.util.Map<ironwood.compiler.semantic.FunctionAnalyzer.AllocationInfo,java.util.Set<ironwood.compiler.semantic.FunctionAnalyzer.AllocationInfo>>,java.util.Map<ironwood.compiler.semantic.FunctionAnalyzer.AllocationInfo,ironwood.compiler.semantic.FunctionAnalyzer.AllocationInfo>,java.util.Set<ironwood.compiler.semantic.FunctionAnalyzer.AllocationInfo>,java.util.Set<ironwood.compiler.semantic.FunctionAnalyzer.AllocationInfo>)",
+      "kind": "METHOD",
+      "declaring_owner": "ironwood.compiler.semantic.FunctionAnalyzer.OwnershipSnapshot",
+      "resolved_signature": "copyArraySlots(java.util.Map<ironwood.compiler.semantic.FunctionAnalyzer.ArraySlot,ironwood.compiler.semantic.FunctionAnalyzer.AllocationInfo>)",
+      "instantiated_type": "(java.util.Map<ironwood.compiler.semantic.FunctionAnalyzer.ArraySlot,ironwood.compiler.semantic.FunctionAnalyzer.AllocationInfo>)java.util.Map<ironwood.compiler.semantic.FunctionAnalyzer.ArraySlot,ironwood.compiler.semantic.FunctionAnalyzer.AllocationInfo>",
+      "expression": "copyArraySlots(knownArraySlots)",
+      "literal_source": "copyArraySlots(knownArraySlots)",
+      "original_pattern": null,
+      "change_role": "new ordered copy helper",
+      "contract": "ordered/DELTA.md: independent insertion-ordered slot membership, non-null keys/values, borrowed nodes, immediate copy callback, immutable wrapper with no escaping mutable copy",
+      "owner_phase_consumer": "B1 M1.1/B7 M1.3 before M2 snapshot construction; later full ownership M3.1 before S3"
+    },
+    {
+      "file": "compiler/src/main/java/ironwood/compiler/semantic/FunctionAnalyzer.java",
+      "line": "14271",
+      "start_utf16": "773554",
+      "end_utf16": "773575",
+      "consumer": "ironwood.compiler.semantic.FunctionAnalyzer.OwnershipSnapshot::copyArraySlots(java.util.Map<ironwood.compiler.semantic.FunctionAnalyzer.ArraySlot,ironwood.compiler.semantic.FunctionAnalyzer.AllocationInfo>)",
+      "kind": "CONSTRUCTOR",
+      "declaring_owner": "java.util.LinkedHashMap",
+      "resolved_signature": "LinkedHashMap()",
+      "instantiated_type": "java.util.LinkedHashMap<ironwood.compiler.semantic.FunctionAnalyzer.ArraySlot,ironwood.compiler.semantic.FunctionAnalyzer.AllocationInfo>",
+      "expression": "new LinkedHashMap<>()",
+      "literal_source": "new LinkedHashMap<>()",
+      "original_pattern": "API0428",
+      "change_role": "new ordered copy helper",
+      "contract": "ordered/DELTA.md: independent insertion-ordered slot membership, non-null keys/values, borrowed nodes, immediate copy callback, immutable wrapper with no escaping mutable copy",
+      "owner_phase_consumer": "B1 M1.1/B7 M1.3 before M2 snapshot construction; later full ownership M3.1 before S3"
+    },
+    {
+      "file": "compiler/src/main/java/ironwood/compiler/semantic/FunctionAnalyzer.java",
+      "line": "14272",
+      "start_utf16": "773589",
+      "end_utf16": "773762",
+      "consumer": "ironwood.compiler.semantic.FunctionAnalyzer.OwnershipSnapshot::copyArraySlots(java.util.Map<ironwood.compiler.semantic.FunctionAnalyzer.ArraySlot,ironwood.compiler.semantic.FunctionAnalyzer.AllocationInfo>)",
+      "kind": "METHOD",
+      "declaring_owner": "java.util.Map",
+      "resolved_signature": "forEach(java.util.function.BiConsumer<? super K,? super V>)",
+      "instantiated_type": "(java.util.function.BiConsumer<? super ironwood.compiler.semantic.FunctionAnalyzer.ArraySlot,? super ironwood.compiler.semantic.FunctionAnalyzer.AllocationInfo>)void",
+      "expression": "source.forEach((slot,allocation)->copy.put(java.util.Objects.requireNonNull(slot), java.util.Objects.requireNonNull(allocation)))",
+      "literal_source": "source.forEach((slot, allocation) -> copy.put(\n                    java.util.Objects.requireNonNull(slot),\n                    java.util.Objects.requireNonNull(allocation)))",
+      "original_pattern": "API0496",
+      "change_role": "new ordered copy helper",
+      "contract": "ordered/DELTA.md: independent insertion-ordered slot membership, non-null keys/values, borrowed nodes, immediate copy callback, immutable wrapper with no escaping mutable copy",
+      "owner_phase_consumer": "B1 M1.1/B7 M1.3 before M2 snapshot construction; later full ownership M3.1 before S3"
+    },
+    {
+      "file": "compiler/src/main/java/ironwood/compiler/semantic/FunctionAnalyzer.java",
+      "line": "14272",
+      "start_utf16": "773626",
+      "end_utf16": "773761",
+      "consumer": "ironwood.compiler.semantic.FunctionAnalyzer.OwnershipSnapshot::copyArraySlots(java.util.Map<ironwood.compiler.semantic.FunctionAnalyzer.ArraySlot,ironwood.compiler.semantic.FunctionAnalyzer.AllocationInfo>)",
+      "kind": "METHOD",
+      "declaring_owner": "java.util.Map",
+      "resolved_signature": "put(K,V)",
+      "instantiated_type": "(ironwood.compiler.semantic.FunctionAnalyzer.ArraySlot,ironwood.compiler.semantic.FunctionAnalyzer.AllocationInfo)ironwood.compiler.semantic.FunctionAnalyzer.AllocationInfo",
+      "expression": "copy.put(java.util.Objects.requireNonNull(slot), java.util.Objects.requireNonNull(allocation))",
+      "literal_source": "copy.put(\n                    java.util.Objects.requireNonNull(slot),\n                    java.util.Objects.requireNonNull(allocation))",
+      "original_pattern": "API0503",
+      "change_role": "new ordered copy helper",
+      "contract": "ordered/DELTA.md: independent insertion-ordered slot membership, non-null keys/values, borrowed nodes, immediate copy callback, immutable wrapper with no escaping mutable copy",
+      "owner_phase_consumer": "B1 M1.1/B7 M1.3 before M2 snapshot construction; later full ownership M3.1 before S3"
+    },
+    {
+      "file": "compiler/src/main/java/ironwood/compiler/semantic/FunctionAnalyzer.java",
+      "line": "14273",
+      "start_utf16": "773656",
+      "end_utf16": "773694",
+      "consumer": "ironwood.compiler.semantic.FunctionAnalyzer.OwnershipSnapshot::copyArraySlots(java.util.Map<ironwood.compiler.semantic.FunctionAnalyzer.ArraySlot,ironwood.compiler.semantic.FunctionAnalyzer.AllocationInfo>)",
+      "kind": "METHOD",
+      "declaring_owner": "java.util.Objects",
+      "resolved_signature": "<T>requireNonNull(T)",
+      "instantiated_type": "(ironwood.compiler.semantic.FunctionAnalyzer.ArraySlot)ironwood.compiler.semantic.FunctionAnalyzer.ArraySlot",
+      "expression": "java.util.Objects.requireNonNull(slot)",
+      "literal_source": "java.util.Objects.requireNonNull(slot)",
+      "original_pattern": "API0516",
+      "change_role": "new ordered copy helper",
+      "contract": "ordered/DELTA.md: independent insertion-ordered slot membership, non-null keys/values, borrowed nodes, immediate copy callback, immutable wrapper with no escaping mutable copy",
+      "owner_phase_consumer": "B1 M1.1/B7 M1.3 before M2 snapshot construction; later full ownership M3.1 before S3"
+    },
+    {
+      "file": "compiler/src/main/java/ironwood/compiler/semantic/FunctionAnalyzer.java",
+      "line": "14274",
+      "start_utf16": "773716",
+      "end_utf16": "773760",
+      "consumer": "ironwood.compiler.semantic.FunctionAnalyzer.OwnershipSnapshot::copyArraySlots(java.util.Map<ironwood.compiler.semantic.FunctionAnalyzer.ArraySlot,ironwood.compiler.semantic.FunctionAnalyzer.AllocationInfo>)",
+      "kind": "METHOD",
+      "declaring_owner": "java.util.Objects",
+      "resolved_signature": "<T>requireNonNull(T)",
+      "instantiated_type": "(ironwood.compiler.semantic.FunctionAnalyzer.AllocationInfo)ironwood.compiler.semantic.FunctionAnalyzer.AllocationInfo",
+      "expression": "java.util.Objects.requireNonNull(allocation)",
+      "literal_source": "java.util.Objects.requireNonNull(allocation)",
+      "original_pattern": "API0516",
+      "change_role": "new ordered copy helper",
+      "contract": "ordered/DELTA.md: independent insertion-ordered slot membership, non-null keys/values, borrowed nodes, immediate copy callback, immutable wrapper with no escaping mutable copy",
+      "owner_phase_consumer": "B1 M1.1/B7 M1.3 before M2 snapshot construction; later full ownership M3.1 before S3"
+    },
+    {
+      "file": "compiler/src/main/java/ironwood/compiler/semantic/FunctionAnalyzer.java",
+      "line": "14275",
+      "start_utf16": "773783",
+      "end_utf16": "773826",
+      "consumer": "ironwood.compiler.semantic.FunctionAnalyzer.OwnershipSnapshot::copyArraySlots(java.util.Map<ironwood.compiler.semantic.FunctionAnalyzer.ArraySlot,ironwood.compiler.semantic.FunctionAnalyzer.AllocationInfo>)",
+      "kind": "METHOD",
+      "declaring_owner": "java.util.Collections",
+      "resolved_signature": "<K,V>unmodifiableMap(java.util.Map<? extends K,? extends V>)",
+      "instantiated_type": "(java.util.Map<? extends ironwood.compiler.semantic.FunctionAnalyzer.ArraySlot,? extends ironwood.compiler.semantic.FunctionAnalyzer.AllocationInfo>)java.util.Map<ironwood.compiler.semantic.FunctionAnalyzer.ArraySlot,ironwood.compiler.semantic.FunctionAnalyzer.AllocationInfo>",
+      "expression": "java.util.Collections.unmodifiableMap(copy)",
+      "literal_source": "java.util.Collections.unmodifiableMap(copy)",
+      "original_pattern": "API0368",
+      "change_role": "new ordered copy helper",
+      "contract": "ordered/DELTA.md: independent insertion-ordered slot membership, non-null keys/values, borrowed nodes, immediate copy callback, immutable wrapper with no escaping mutable copy",
+      "owner_phase_consumer": "B1 M1.1/B7 M1.3 before M2 snapshot construction; later full ownership M3.1 before S3"
+    }
+  ],
+  "source_contract": "ordered/DELTA.md",
+  "source_contract_sha256": "98bdb581d2fdf371bdf54cf898c2667d8a0825cd88492e339569e7ecf5bfa762",
+  "limits": "static attribution is not native execution, lifetime proof or classification of the whole analyzer"
+}
