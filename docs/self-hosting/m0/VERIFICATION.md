@@ -2,6 +2,12 @@
 
 # M0 baseline qualification
 
+Current checkpoint: M0.1/M0.2/M0.3 and S0 passed on the qualified macOS arm64
+M5/32-GiB profile. See M0_CHECKPOINT.md, s0-qualification.json and PILOT_HANDOFF.md
+for the complete evidence and exact next scope. M1/M2 and native G1 are not
+started. The sections below are retained increment history; their earlier
+incomplete-status statements describe those increments, not the final checkpoint.
+
 ## M0.1, increment 1, B0a, S0
 
 Scope: freeze the original Java seed and all source inputs before any ordering
@@ -925,3 +931,30 @@ compilation, including the original DocModel anchor. Typed source/null/ownership
 limits and later producer-order/retirement gates stay explicit. No native helper
 or pilot result is introduced. Focused evidence, licenses, written-text and
 current/staged/complete-task whitespace checks pass.
+
+## Complete M0.3 and S0 checkpoint
+
+PILOT_HANDOFF.md and pilot-handoff.json.gz freeze 1,330 exact selected calls,
+723 syntax sites, 65 captured rows and 446 scoped/conditional hash contributions.
+The phase grouping is 916 M1.1, fifteen M1.2 and 399 M1.3 external call sites;
+these are source prerequisite assignments, not counts of new APIs. Only B1/B7
+enter this finite pilot; no B2 sorting dependency is selected. Independent model,
+real-source helper/consumer split, ownership/callback/failure obligations and
+fixed numerical limits remain explicit. No native pilot is implemented/evaluated.
+
+qualify-s0.py checks original/ordered installations, all 460 source identities
+and their sole D247 production difference, all ten archives/9,873 members, the
+complete finite handoff and model/deferred qualification links. Its real source
+diagnostic/IR-edge/LLVM mismatch controls reproduce the retained comparison
+record; budget derivation and four-category/twelve-negative synthetic resource
+controls reproduce retained bytes. These checks add no resource measurements.
+s0-qualification.json records the exact fresh commands, hashes and remaining
+native/later obligations. The 7e59f041 immutable replay reproduces final-inventory
+qualification bytes, complementing the earlier three frozen-view replay checks.
+
+M0.1/M0.2/M0.3 and S0 pass for the qualified macOS arm64 M5/32-GiB profile.
+M1/M2/G1 and all later milestones remain not started. Next permitted work is
+PILOT_HANDOFF.md's exact B1/B7 M1.1/M1.2/M1.3 prerequisite scope. Every later
+Unresolved contract still blocks its named consumer. License, written-text and
+current/staged/complete-task whitespace checks pass; no full suite or remote
+operation is performed. M0_CHECKPOINT.md is the authoritative outcome summary.

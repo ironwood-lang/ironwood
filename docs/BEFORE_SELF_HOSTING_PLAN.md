@@ -79,7 +79,7 @@ roadmap schedules them without replacing their detailed exit criteria.
 
 | Milestone | Purpose and workstreams | Entry dependency | Checkpoint and migration handoff | Status |
 | --- | --- | --- | --- | --- |
-| [M0](#m0-baseline-and-contract-inventory) | Freeze the baseline and evidence contract: B0a | Current Java compiler and source audit | S0 baseline, ordering inventory, fixtures, budgets, and selected pilot scope recorded | In progress: M0.1 passed; inventory and comparison/resource gate next |
+| [M0](#m0-baseline-and-contract-inventory) | Freeze the baseline and evidence contract: B0a | Current Java compiler and source audit | S0 baseline, ordering inventory, fixtures, budgets, and selected pilot scope recorded | Complete on qualified macOS arm64 profile: M0.1/M0.2/M0.3 and S0 passed |
 | [M1](#m1-minimum-pilot-prerequisites) | Build the minimum pilot dependencies: selected B1/B2/B7 slices | M0 | Required copies, traversal, ordering, and syntax/helpers have focused evidence | Not started |
 | [M2](#m2-portability-and-ownership-pilot) | Run B0b's frontend and ownership pilots | Required M1 phases | G1, the existing S1 gate, passes before broad translation | Not started |
 | [M3](#m3-semantic-and-backend-preparation) | Complete core B1/B2/B7 helpers and early B5 digests | M2 for broad port work; reuse M1 outputs | Staged readiness for S2, S3 with ByteView SHA-256, and S4 with MD5/native-link policy | Not started |
@@ -123,7 +123,7 @@ or displace the feasibility pilot.
   and every hash-container traversal. Assign each required replacement to a B
   owner, phase, first consumer, and fixture. Preserve the original evidence
   when reviewed Java ordering refactors change a comparison baseline.
-- [ ] **M0.3: Freeze fixtures and pilot scope.** Capture tokens/spans, AST,
+- [x] **M0.3: Freeze fixtures and pilot scope.** Capture tokens/spans, AST,
   diagnostics, IR, LLVM, and resource baselines. Prove the comparison harness
   detects deliberate mismatches. Choose numerical budgets from these
   measurements before evaluating native results. Name the exact B1/B2/B7
@@ -136,7 +136,13 @@ This is S0's baseline checkpoint, not a second definition of S0.
 
 Evidence: [M0 qualification record](self-hosting/m0/VERIFICATION.md), including
 the original J0 input manifest, effective numeric JVM profile and measurement
-procedure. M0.1/M0.2 passed on macOS arm64; final M0.3/S0 handoff is in progress.
+procedure. M0.1/M0.2/M0.3 and S0 passed on the qualified macOS arm64 M5/32-GiB
+profile. [PILOT_HANDOFF.md](self-hosting/m0/PILOT_HANDOFF.md) defines the exact
+permitted B1/B7 M1.1/M1.2/M1.3 prerequisites, with no selected B2 sorting demand.
+[s0-qualification.json](self-hosting/m0/s0-qualification.json) binds archive
+integrity, mismatch controls, fixed budget replay and the finite source handoff.
+M1/M2 remain not started. The following paragraphs retain the increment history;
+their earlier open-status notes are superseded by this checkpoint.
 Attributed discovery and its focused qualification are retained in that record;
 candidate labels remain separate from the required reviewed use-site contracts.
 The neutral process comparison now detects deliberately changed diagnostics,
@@ -315,8 +321,11 @@ classpath and native process branches no longer become source-only S4 demands.
 Actual earlier semantic call routes remain visible. Four admission controls pass;
 later unresolved contracts stay blocked before their dependent consumer. REPLAY.md
 provides a read-only git/blob view for phase source checks after later edits.
-M0.2 is complete. Next: record the final pilot dependency handoff and S0 check.
-M0 remains in progress; M1/M2 have not started.
+The final pilot handoff binds 1,330 calls, 723 syntax sites, 65 captured rows and
+446 scoped/conditional hash contributions. All ten retained archives pass byte/
+manifest verification; comparison controls and fixed budget/control derivations
+reproduce their retained bytes. M0 and S0 are complete for this host/profile.
+Only the named M1 prerequisites are permitted next; no milestone is running.
 
 ### M1. Minimum pilot prerequisites
 

@@ -1,0 +1,138 @@
+{
+  "schema": 1,
+  "checkpoint": "M0.1/M0.2/M0.3 and S0",
+  "passed": true,
+  "scope": "qualified macOS arm64 M5/32-GiB Java baseline and preparation handoff only",
+  "references": {
+    "qualified/identity.json": "9bb758d05a1cb893da116d452729bde0301790b50f2ad488f774d37a20aaded4",
+    "qualified/jvm-effective.json": "bfb8ec072146a7f0b4004deb196aa9cbba1aa4ea0ab7bf382aef4a53514690fc",
+    "ordered/qualified-identity.json": "938c0d4ceff7c9a893fe976ccf2306975ac058518b45c3450b3ba115249718e6",
+    "comparison-qualification.json": "40b177432d28ad2615345cabdb18de3bafabf3416c8c4d8fb969ced5aebcb49f",
+    "reference-access-qualification.json": "46585eb2af35997da05e1fec90c849bbb71d37c2d026e1dfc4bcb2548aeca788",
+    "deferred/manifest.json": "63807db7fec0f40ec20f4a07803b434d5bdc6484d5e7a3f25f0513ba95ecab1e",
+    "deferred/qualification.json": "27fbd6fcdac75f28b31cd1fda3a0ed74ab796504835ce172b476e3828d774e10",
+    "pilot-handoff.json.gz": "df008864283707ab72a6803a97f60b2456631a41b357319e5a119776cea2cb77",
+    "pilot-budgets.json": "18834a8dfc34d1c6a35d922f247e2e8ad74023c44f8bebf8b3032520171b2be5",
+    "pilot-budget-controls.json": "e81744079f1daff9a45cdc7bb469a974e1271a42714e255f882288898fa3c362",
+    "model-probe/qualification.json": "66086590500a177cf91daf86253470d6a5910aaebfe3281d79d977e6e0cf8d4c",
+    "operation-model-probe/qualification.json": "70255ae59b89282fea9096851facf3c389ed2eb0f9fc0d70373b1620e2f83a53",
+    "REPLAY.md": "7f4807070229daeaf311e71220a9731d9af30d0443c5789801b3af20b8dcc834",
+    "PILOT_HANDOFF.md": "8e61da83722bebd1fe62cddbef06d89a3140093d33cda09f6647d007bf4ce4d7"
+  },
+  "archives": {
+    "argument-parsing-attempts.tar.gz": {
+      "sha256": "f0111ac9e278937272e553c1844e6656b3926c6e63417e210ead164402014081",
+      "members": 35
+    },
+    "canonical-corpus.tar.gz": {
+      "sha256": "a49383e2400ed93ab8aa4994eeb0e5bcc5534bb4a614778dfec3c3e2733c58e2",
+      "members": 450
+    },
+    "existing-path-order.tar.gz": {
+      "sha256": "c667041ee953233e3d43b5e775ec895d86db28be280f1ba14234425b942d30f0",
+      "members": 39
+    },
+    "kernel-resources.tar.gz": {
+      "sha256": "1e1d6b13cf8ad590f8c9951de6fdefc9660eed690aaedff0beefb94af5f7d59f",
+      "members": 451
+    },
+    "loop-cycle-reference.tar.gz": {
+      "sha256": "54eccdecc1414b393f2be893dd8686d956abed44443c217f9ee119355b1bdcc1",
+      "members": 2393
+    },
+    "native-resources.tar.gz": {
+      "sha256": "df15490910bbe722a55d2f489c9eff101d09ca057cf2ea18a1a27c6ec5e4c844",
+      "members": 1775
+    },
+    "ordered/references.tar.gz": {
+      "sha256": "3cf94bcf48d809f7caf9eba6a68f038a5d7bd730c159d32331b5e59e74650252",
+      "members": 416
+    },
+    "original-captures.tar.gz": {
+      "sha256": "7acaf3795ce3b18706b95a7e011175bcca9085956b28862854bc9c88b49d7106",
+      "members": 131
+    },
+    "ownership-resources.tar.gz": {
+      "sha256": "d077a35bb47c9ece52691caeab4a6cf36a7a960194e21c82c4f768d9c90a50a8",
+      "members": 2964
+    },
+    "resources-original.tar.gz": {
+      "sha256": "d326614a1c0584ed23d4279263e821a9fba9b43eba9b04ebb405a8a4db490407",
+      "members": 1219
+    }
+  },
+  "comparison_controls": [
+    {
+      "mutation": "diagnostic",
+      "detected": [
+        "diagnostics.json: $[0].message: value differs"
+      ]
+    },
+    {
+      "mutation": "ir-edge",
+      "detected": [
+        "final-typed-ir.json: $.optional.functions[45].blocks[2].terminator: fields differ"
+      ]
+    },
+    {
+      "mutation": "llvm",
+      "detected": [
+        "output.ll: bytes or presence differ"
+      ]
+    }
+  ],
+  "source_files": 460,
+  "selected_counts": {
+    "calls": 1330,
+    "syntax": 723,
+    "captures": 65,
+    "hash_contributions": 446
+  },
+  "phase_call_counts": {
+    "M1.1": 916,
+    "M1.3": 399,
+    "M1.2": 15
+  },
+  "tool_sha256": "9ca29be167bd081407289ee3fa4702174b3feb0e4db9acdf0ef9a53327097956",
+  "control_commands": [
+    {
+      "argv": [
+        "/opt/homebrew/opt/python@3.14/bin/python3.14",
+        "/Users/developer/workspace-mba-m2/Ironwood/scripts/self-hosting/compare.py",
+        "selftest",
+        "/Users/developer/workspace-mba-m2/Ironwood/target/self-hosting-m0/s0-final-controls/references/BranchJoin-final",
+        "/Users/developer/workspace-mba-m2/Ironwood/target/self-hosting-m0/s0-final-controls/references/SlotOrder-final",
+        "/Users/developer/workspace-mba-m2/Ironwood/target/self-hosting-m0/s0-final-controls/mismatches"
+      ],
+      "returncode": 0,
+      "stdout_sha256": "40b177432d28ad2615345cabdb18de3bafabf3416c8c4d8fb969ced5aebcb49f",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "argv": [
+        "/opt/homebrew/opt/python@3.14/bin/python3.14",
+        "/Users/developer/workspace-mba-m2/Ironwood/scripts/self-hosting/record-pilot-budgets.py",
+        "--output",
+        "/Users/developer/workspace-mba-m2/Ironwood/target/self-hosting-m0/s0-final-controls/budgets.json"
+      ],
+      "returncode": 0,
+      "stdout_sha256": "3f99952fec6d40cef6329d7857d96f7986a01df50c2f6e84bd24b0f5b5ef672f",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "argv": [
+        "/opt/homebrew/opt/python@3.14/bin/python3.14",
+        "/Users/developer/workspace-mba-m2/Ironwood/scripts/self-hosting/check-pilot-budget.py",
+        "--self-check-output",
+        "/Users/developer/workspace-mba-m2/Ironwood/target/self-hosting-m0/s0-final-controls/budget-controls.json"
+      ],
+      "returncode": 0,
+      "stdout_sha256": "9d17a243fc8e6b95baa6d460ba025c3384ce5c2ad6af29405812389765cc4289",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "native_pilot_implemented": false,
+  "native_pilot_evaluated": false,
+  "remaining": "all source-backed later unresolved contracts block their named consumer; native M1/M2 allocation/safety/resource/input gates remain required",
+  "next_permitted_scope": "M1.1/M1.2/M1.3 exact B1/B7 prerequisites in PILOT_HANDOFF.md; no selected B2 sort or broad translation"
+}

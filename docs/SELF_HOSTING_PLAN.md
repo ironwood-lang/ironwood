@@ -621,6 +621,14 @@ budgets from these measurements before evaluating the port against them. The
 J0 launcher profile, numeric limits/budgets, and measurement procedure must be
 recorded before S0 exits; unspecified JVM defaults do not satisfy this gate.
 
+Current local checkpoint: M0.1/M0.2/M0.3 and S0 passed on the qualified macOS
+arm64 Apple M5/32-GiB profile on 2026-10-04. The
+[checkpoint record](self-hosting/m0/M0_CHECKPOINT.md) links pinned original/D247
+inputs, exact source-backed deferred consumers, frozen fixtures, mismatch controls
+and fixed pilot budgets. [PILOT_HANDOFF.md](self-hosting/m0/PILOT_HANDOFF.md) permits
+only the selected B1/B7 M1 prerequisites. M1/M2 and native S1/G1 are not started;
+later unresolved contracts block their named consumers.
+
 ### S1. Prove portability and memory feasibility
 
 [B0](BEFORE_SELF_HOSTING_PLAN.md#3-b0-inventory-and-the-s1-pilot) details this pilot's prerequisite work and evidence; S1 remains the gate definition.
