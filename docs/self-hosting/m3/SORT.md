@@ -5,9 +5,11 @@
 Status: passes. `ironwood.ds.ArrayList.sortWithComparator(Comparator<? super
 E>)` is B2's list-level sort ([D263](../../DECISIONS.md#d263---sort-array-lists-stably-with-an-explicit-comparator)).
 It is the only public library change in M3.1 and the sorting primitive behind
-the tree-container rewrites and the S3/S4 sort consumers. The evidence run is
-recorded in [sort-evidence/manifest.json](sort-evidence/manifest.json) and
-reproduced by [run-evidence.sh](sort-evidence/run-evidence.sh).
+the tree-container rewrites and the S3/S4 sort consumers. One evidence run on
+a fresh `git archive` of d077d1ff passed every step; its
+[manifest](sort-evidence/manifest.json) hashes the sources and retains the
+compressed logs, and [run-evidence.sh](sort-evidence/run-evidence.sh)
+reproduces it.
 
 ## Contract and behavioral review
 
@@ -34,15 +36,16 @@ reproduced by [run-evidence.sh](sort-evidence/run-evidence.sh).
 | Non-callers | `ds_list_copy` links the same 199 functions with identical bodies before and after; only closed-world type IDs, dispatch slots and string-constant names are renumbered, as for any library addition. |
 | IronDocs | `ArrayList` generated without diagnostics. |
 
-Timing series (fixed-seed random keys, best of five, macOS arm64 M5, load
-average below 3; comparison counts are deterministic):
+Timing series from the evidence run (fixed-seed random keys, best of five,
+macOS arm64 M5, one-minute load 2.89 and no overlapping work; comparison
+counts are deterministic, and an earlier isolated run agreed within 5%):
 
 | n | Comparisons | Per element | ns per element |
 | --- | --- | --- | --- |
-| 1,024 | 10,779 | 10.5 | 32.2 |
-| 16,384 | 237,379 | 14.5 | 76.4 |
-| 131,072 | 2,290,615 | 17.5 | 61.2 |
-| 1,048,576 | 21,473,953 | 20.5 | 84.2 |
+| 1,024 | 10,779 | 10.5 | 31.3 |
+| 16,384 | 237,379 | 14.5 | 77.4 |
+| 131,072 | 2,290,615 | 17.5 | 65.4 |
+| 1,048,576 | 21,473,953 | 20.5 | 86.9 |
 
 Comparisons grow as n log2 n and sorted input takes n - 1 at every size, so
 no size shows quadratic growth. The records are scattered in memory, so time
