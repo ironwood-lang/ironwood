@@ -66,12 +66,14 @@ analysis change with paired safe/unsafe regressions.
 
 ## Checkpoint run
 
-One run on a fresh `git archive` tree of 65fdb750 (M2.3): the strict
+One run on a fresh `git archive` tree of 48a1516b (M2.3 with the declared
+adapter retention and the isolated re-measurement): the strict
 `scripts/build.sh` (library under `--unfreed=error`), `javac --release 21
 -Xlint:all -Werror` over every compiler test source, and the nine M2 focused
 tests (five frontend, four ownership), all passing, with a clean
-`git diff --check` over the three M2 commits and a passing license audit. The
-[manifest](checkpoint-evidence/manifest.json) names the commit and each test,
-retains compressed logs and hashes the three M2 records and their ledgers.
-[run-evidence.sh](checkpoint-evidence/run-evidence.sh) reproduces it. Unsafe
+`git diff --check` over every M2 change since the M1 checkpoint and a passing
+license audit. The [manifest](checkpoint-evidence/manifest.json) names the
+commit and each test, retains compressed logs and hashes the three M2 records
+and their ledgers. [run-evidence.sh](checkpoint-evidence/run-evidence.sh)
+reproduces it. An earlier checkpoint run of 65fdb750 also passed. Unsafe
 programs were compile-only; no full suite or hosted build ran.

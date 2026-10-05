@@ -7,7 +7,7 @@ set -u
 root=/Users/developer/workspace-mba-m2/Ironwood
 commit=${1:?usage: run-evidence.sh COMMIT}
 ev=$root/workspace/m2/g1-evidence
-stage=$root/workspace/m2/g1-stage
+stage=$root/workspace/m2.noindex/g1-stage
 export JAVA_HOME=/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home
 export IRONWOOD_LLVM_HOME=/opt/homebrew/opt/llvm@23
 rm -rf "$ev" "$stage" && mkdir -p "$ev" "$stage"
@@ -34,6 +34,7 @@ args=(); for name in "${tests[@]}"; do args+=(--test "$name"); done
 "$JAVA_HOME/bin/java" -ea -Xss8m -cp compiler/build/classes:compiler/build/test-classes ironwood.compiler.CompilerTests \
     "${args[@]}" > "$ev/tests.log" 2>&1; status tests $?
 cd "$root"
-git diff --check "$commit~3" "$commit" > "$ev/diff-check.log" 2>&1; status diff-check $?
+# Every M2 change since the M1 checkpoint commit.
+git diff --check 97417cb4c6a09193f79eaeaa341fbe703aa93196 "$commit" > "$ev/diff-check.log" 2>&1; status diff-check $?
 ./scripts/check-licenses.sh > "$ev/licenses.log" 2>&1; status licenses $?
 cat "$ev/status.txt"
