@@ -474,7 +474,9 @@ the S2-S4 port; they do not replace its integration exits.
   In progress: B2's stable [list sort](self-hosting/m3/SORT.md) (D263) and the
   [stack, order, value and callback helpers](self-hosting/m3/HELPERS.md) (D264)
   and the [shared IR variant inventory](self-hosting/m3/VARIANTS.md) (D265)
-  pass; the M3.1 classification and handoff are not yet recorded.
+  pass, with split bounds, prefix copies and IR names brought forward (D266);
+  the [classification](self-hosting/m3/CLASSIFICATION_M3.1.md) covers every
+  M3.1 pattern; the handoff run is pending.
 - [ ] **M3.2: S3 semantic prerequisites.** Complete bounded numeric folding,
   StringPool/UTF-16 and name helpers, and exact SHA-256 before ByteView analysis.
   Test original versus changed declarations and preserve declaration authority.
