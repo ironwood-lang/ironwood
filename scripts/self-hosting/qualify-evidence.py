@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parents[2]
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', type=Path, required=True)
-    parser.add_argument('--probe', choices=('evidence', 'ast', 'effect', 'diagnostic', 'unfreed', 'ownership'), default='evidence')
+    parser.add_argument('--probe', choices=('evidence', 'ast', 'effect', 'diagnostic', 'unfreed', 'ownership', 'b2'), default='evidence')
     args = parser.parse_args()
     if args.output.exists():
         raise ValueError('qualification destination already exists')
@@ -54,6 +54,11 @@ def main():
         main_class = 'ironwood.compiler.semantic.' + probe
         cases = '8/32/128 collision keys; reversed registration, predecessor and snapshot membership; immutable copies, intersection, ordered immediate predicate calls, mode severities, first registration/name and suppression before span deduplication'
         limits = 'no mandatory free-proof analysis, upstream caller event ordering, resource or native retirement qualification; OFF tracker behavior is direct helper behavior, production omits the tracker in OFF'
+    elif args.probe == 'b2':
+        probe = 'B2ContractProbe'
+        main_class = 'ironwood.compiler.' + probe
+        cases = 'natural UTF-16 names; nullable sorted-map values and absent membership; independent copies and immutable first entry; comparator-zero deduplication/first representative; stable equal-key sorting and min/max selection; reverse extreme sign and unsigned keys; null comparator/extractor/item failures'
+        limits = 'JDK contract facts only; compiler producer/tie ordering remains source-gated; no native B2 helper or resource measurement'
     else:
         probe = 'OwnershipContractProbe'
         main_class = 'ironwood.compiler.semantic.' + probe

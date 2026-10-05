@@ -815,3 +815,41 @@ stack/retirement/safety/method failures qualify check-pilot-budget.py without an
 native evaluation. The budget derivation repeats byte-for-byte; its added tool
 identity preserves the original numeric decision. Licenses, written-text and
 current/staged/complete-task whitespace checks pass.
+
+## Sorting declarations and concrete domain boundaries
+
+[SORTING_CONTRACTS.md](SORTING_CONTRACTS.md) joins 41 exact declaration patterns,
+554 calls in 72 original files/134 consumers, 88 sorted origins and 58 captured
+argument rows. The ledger adds Stream.sorted/min/max and unsigned keys to the
+B2 discovery candidates. Literal UTF-16 source ranges and original/current hashes,
+exact types, callback symbols and named consumer gates remain visible. API and
+immediate caller facts are reviewed; upstream/tie/retention obligations stay
+unresolved before their dependent consumer, without a global ordering claim.
+
+The independently written B2 Java probe passes 59 checks in four fresh original
+profile JVMs after Java 21 release/Xlint/Werror compilation. It covers stable
+ties, comparator-zero first representatives, first-entry snapshots, nullable
+tree values/membership, null composition, unsigned/extreme reversal and Unicode
+String/Path distinctions, including both Path-key tree domains. Earlier 49/51
+captures remain preserved. The tree inventory is 73 String/one Path TreeMaps;
+eleven String/one Integer/one custom Key/one Path TreeSets. Natural Stream.sorted
+has 19 String/12 Path/10 Integer sites. No native sorting helper is implemented.
+
+The frozen original compiler/library compiles and links PathOrder at O3 with
+unfreed error and safe cleanup of both paths. Two fresh executions return one;
+the qualified Java Unix provider expects zero for the same Unicode order. Raw
+commands/source/LLVM/class/program/logs and preceding probes are preserved in
+the existing-path-order archive. This is a confirmed compiler-demand mismatch
+against D087/D093's fixed POSIX surface, with B2/B3/B7 consumer gates; it is not
+an API repair, provider expansion or equivalence success.
+
+Independent budget review recalculated all eight report members and their
+88/96/24/160 counts, 112 excluded complete runs, maxima/headroom, fixed 8,176-KiB
+stack profile and concrete source-bundle helper/consumer split. It independently
+exercised all four synthetic categories/twelve controls and verified tool/policy
+hashes and no-native labels. This accepts scoped budget selection, not G1/M0.
+
+Sorting verification checks all 39 archived members against exact byte counts
+and SHA-256 values, all four final 59-check outputs and the preserved probe source.
+The source ledger reproduces its 41/554/88/58 selections. The license audit,
+written-text restrictions and current/staged/complete-task whitespace checks pass.

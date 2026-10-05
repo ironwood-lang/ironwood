@@ -280,6 +280,19 @@ four identical 233-model outputs, finite roles and negative controls. Native
 consumer implementation remains in M1/M2. Next action: finish global reviewed
 API/capture/syntax and transitive ordering classifications, then reconcile the
 selected pilot dependencies, fixed budgets and S0 evidence before M0 completion.
+The [sorting contracts](self-hosting/m0/SORTING_CONTRACTS.md) now review 41 exact
+patterns/554 calls in 72 original files, including stream sorts/min/max omitted
+from the B2 discovery label. All 88 sorted origins and 58 captured argument rows
+retain literal source facts and blocking consumer fixtures. The 59-check Java
+probe passes four fresh processes. Seventy-three String/one Path TreeMaps and
+eleven String/one Integer/one custom Key/one Path TreeSets need distinct domains.
+The existing native Path Unicode-order difference is confirmed and preserved
+against D087/D093's fixed POSIX surface; B2/B3 actual callers remain gated without
+selecting a provider subsystem or a broad API repair. Upstream producer/tie/
+retention facts and the remaining global inventory still precede S0 completion.
+Independent review accepted the fixed budget arithmetic, exact input sets,
+stack capacity, source-bundle phase split and synthetic enforcement controls;
+this does not qualify native G1 or the complete M0 checkpoint.
 
 ### M1. Minimum pilot prerequisites
 
