@@ -1,0 +1,92 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// Copying leaves each source cursor in place and owns a separate cursor.
+// Value copies preserve collisions; identity copies retain reference identity;
+// linked copies preserve insertion order. Exit 42 with all sets reclaimed.
+// Two global equal strings remain process-lived because ordinary lookup
+// conservatively exposes keys. Their allocations precede the storage baseline.
+import ironwood.ds.*;
+import ironwood.util.Iterator;
+
+class Main {
+
+    static String key;
+    static String other;
+
+    static void hash() {
+
+        HashSet<String> source = new HashSet<String>(4);
+        source.add("Aa"); source.add("BB");
+        Iterator<String> cursor = source.iterator();
+        String first = cursor.next();
+        HashSet<String> copied = source.copy();
+        String second = cursor.next();
+        if (first == second || cursor.hasNext()) throw new IllegalStateException();
+        if (copied.size() != 2) throw new IllegalStateException();
+        free copied; free source;
+        source = new HashSet<String>(4);
+        source.add("Aa"); source.add("BB");
+        copied = source.copy();
+        if (!copied.contains("Aa") || !copied.contains("BB")) throw new IllegalStateException();
+        copied.remove("Aa");
+        if (!source.contains("Aa") || copied.size() != 1) throw new IllegalStateException();
+        source.clear();
+        if (!copied.contains("BB")) throw new IllegalStateException();
+        free copied; free source;
+    }
+
+    static void identity() {
+
+        IdentityHashSet<String> source = new IdentityHashSet<String>(4);
+        source.add("Aa"); source.add("BB");
+        Iterator<String> cursor = source.iterator();
+        String first = cursor.next();
+        IdentityHashSet<String> copied = source.copy();
+        String second = cursor.next();
+        if (first == second || cursor.hasNext()) throw new IllegalStateException();
+        if (copied.size() != 2) throw new IllegalStateException();
+        free copied; free source;
+        source = new IdentityHashSet<String>(4);
+        source.add("Aa"); source.add("BB");
+        copied = source.copy();
+        source.clear();
+        if (!copied.contains("Aa") || !copied.contains("BB")) throw new IllegalStateException();
+        free copied; free source;
+        IdentityHashSet<String> dynamic = new IdentityHashSet<String>(1);
+        dynamic.add(key);
+        IdentityHashSet<String> dynamicCopy = dynamic.copy();
+        if (!dynamicCopy.contains(key) || dynamicCopy.contains(other)) throw new IllegalStateException();
+        free dynamicCopy; free dynamic;
+    }
+
+    static void linked() {
+
+        LinkedHashSet<String> source = new LinkedHashSet<String>(4);
+        source.add("Aa"); source.add("BB"); source.add("third");
+        Iterator<String> cursor = source.iterator();
+        if (cursor.next() != "Aa") throw new IllegalStateException();
+        LinkedHashSet<String> copied = source.copy();
+        if (cursor.next() != "BB" || cursor.next() != "third" || cursor.hasNext()) throw new IllegalStateException();
+        if (copied.size() != 3) throw new IllegalStateException();
+        free copied; free source;
+        source = new LinkedHashSet<String>(4);
+        source.add("Aa"); source.add("BB"); source.add("third");
+        copied = source.copy();
+        Iterator<String> copyCursor = copied.iterator();
+        if (copyCursor.next() != "Aa" || copyCursor.next() != "BB" || copyCursor.next() != "third") throw new IllegalStateException();
+        source.clear();
+        if (copied.size() != 3 || !copied.contains("BB")) throw new IllegalStateException();
+        free copied; free source;
+    }
+
+    public static int main(String[] args) {
+
+        key = new String("equal"); other = new String("equal");
+        if (key == other || !key.equals(other)) return 2;
+        if (HashSet.DEFAULT_INITIAL_CAPACITY <= 0 || LinkedHashSet.DEFAULT_INITIAL_CAPACITY <= 0) return 3;
+        long baseline = System.liveAllocationCount();
+        hash(); identity(); linked();
+        if (System.liveAllocationCount() != baseline) return 1;
+        return 42;
+    }
+}

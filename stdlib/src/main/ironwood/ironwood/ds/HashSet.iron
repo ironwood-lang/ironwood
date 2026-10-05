@@ -20,7 +20,7 @@ public class HashSet<E extends Object> implements Iterable<E> {
     public static float DEFAULT_LOAD_FACTOR = HashMap.DEFAULT_LOAD_FACTOR;
     private static final Object FILLER = new Object();
 
-    private HashMap<E, Object> map;
+    private final HashMap<E, Object> map;
     private HashSetIterator<E> reusableIterator;
     /** Creates a new HashSet. */
 
@@ -41,6 +41,32 @@ public class HashSet<E extends Object> implements Iterable<E> {
         this.map = new HashMap<E, Object>(initialCapacity, loadFactor);
         this.reusableIterator = new HashSetIterator<E>(this);
     }
+
+    private HashSet(HashSet<E> source) {
+
+        this.map = source.map.copy();
+        this.reusableIterator = new HashSetIterator<E>(this);
+    }
+
+    /**
+     * Creates independent mutable membership with separately owned map and
+     * iterator storage. Non-null items are borrowed; the caller owns the result.
+     * Source cursor state is untouched. Partial construction reclaims storage.
+     * The backing map uses load factor 1.0 and max(1, size()) initial capacity;
+     * unused source pool capacity is not copied. Destruction reclaims private
+     * storage and never frees caller-owned items.
+     * Membership loans remain until clear or destruction, subject to retained
+     * aliases; individual removal does not discharge a compiler loan.
+     * Ordinary item hash/equality callbacks run again; their exceptions
+     * propagate after cleanup. They must not mutate source membership.
+     *
+     * @return an independent shallow copy
+     */
+    public HashSet<E> copy() {
+
+        return new HashSet<E>(this);
+    }
+
     /** Returns the initial capacity. */
 
     public int getInitialCapacity() {

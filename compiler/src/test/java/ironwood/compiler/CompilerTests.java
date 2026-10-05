@@ -799,6 +799,12 @@ public final class CompilerTests {
                 this::listCopiesRunNatively);
         test("independent map copies preserve keys values and callback loan safety",
                 this::mapCopiesPreserveLoans);
+        test("independent set copies preserve item loans and callback boundaries",
+                this::setCopiesPreserveLoans);
+        test("independent set copy constructor and iterator proofs reject publication",
+                this::setCopyProofControls);
+        test("independent set copies survive artifacts and allocation failures",
+                this::setCopiesAcrossArtifacts);
         test("independent map copy proofs reject changed traversal and publication",
                 this::mapCopyProofControls);
         test("independent map copies survive artifacts and allocation failures",
@@ -7531,6 +7537,216 @@ public final class CompilerTests {
                 }
                 class Main { public static int main(String[] args) { return 0; } }
                 """, "or a proven detached private backing array");
+    }
+
+    private void setCopiesPreserveLoans() {
+        for (String family : List.of("HashSet", "IdentityHashSet", "LinkedHashSet")) {
+            String prefix = """
+                    import ironwood.ds.*;
+                    class Item { }
+                    class Main { public static int main(String[] args) {
+                        Item item = new Item();
+                        %1$s<Item> source = new %1$s<Item>(1); source.add(item);
+                        %1$s<Item> copied = source.copy();
+                    """.formatted(family);
+            for (String cleanup : List.of("free source; free copied; free item;",
+                    "source.clear(); free source; copied.clear(); free item; free copied;",
+                    "if (args.length > 0) copied.add(item); free source; free copied; free item;")) {
+                CompilationArtifact artifact = compile(prefix + cleanup + "return 0; }}");
+                assertTrue(artifact.successful(), family + ": " + messages(artifact));
+            }
+            for (String cleanup : List.of("free source; free item; copied.size();",
+                    "source.clear(); free item; copied.size();", "free copied; free item; source.size();")) {
+                for (UnfreedMode mode : UnfreedMode.values()) {
+                    CompilationArtifact artifact = new CompilerPipeline(mode).compile(SourceFile.of("test/Main.iron",
+                            prefix + cleanup + "return 0; }}"));
+                    assertTrue(!artifact.successful(), family + " early item retirement accepted under " + mode);
+                    assertContains(messages(artifact), "cannot free", "set item loan diagnostic");
+                }
+            }
+            String delegated = prefix.replace("source.copy()", "duplicate(source)")
+                    + "free source; free copied; free item; return 0; } static " + family
+                    + "<Item> duplicate(" + family + "<Item> source) { return source.copy(); }}";
+            assertTrue(compile(delegated).successful(), family + " delegating set factory failed");
+            String nested = """
+                    import ironwood.ds.*;
+                    class Payload {
+                        static Object saved;
+                        @Override public int hashCode() { saved = this; return 1; }
+                    }
+                    class Main { public static int main(String[] args) {
+                        Payload item = new Payload();
+                        ArrayList<Payload> key = new ArrayList<Payload>(); key.add(item);
+                        %1$s<ArrayList<Payload>> source = new %1$s<ArrayList<Payload>>(1);
+                        if (args.length > 0) source.add(key);
+                        %1$s<ArrayList<Payload>> copied = source.copy();
+                        %1$s<ArrayList<Payload>> again = copied.copy();
+                        free source; free copied; free again; free key; free item; return 0;
+                    }}
+                    """.formatted(family);
+            CompilationArtifact admitted = compile(nested.replace("free source; free copied; free again; free key; free item;", ""));
+            assertTrue(admitted.successful(), family + " nested-key source admission: " + messages(admitted));
+            if (family.equals("IdentityHashSet")) {
+                CompilationArtifact safe = compile(nested);
+                assertTrue(safe.successful(), "identity set invoked payload callbacks: " + messages(safe));
+            } else {
+                for (UnfreedMode mode : UnfreedMode.values()) {
+                    CompilationArtifact unsafe = new CompilerPipeline(mode).compile(SourceFile.of("test/Main.iron", nested));
+                    assertTrue(!unsafe.successful(), family + " nested key publication erased under " + mode);
+                    assertContains(messages(unsafe), "cannot free", "set nested-key publication diagnostic");
+                }
+            }
+            String view = prefix + "ironwood.util.Iterator<Item> view = copied.iterator(); "
+                    + "free copied; free source; free item; view.next(); return 0; }}";
+            for (UnfreedMode mode : UnfreedMode.values()) {
+                CompilationArtifact unsafe = new CompilerPipeline(mode).compile(SourceFile.of("test/Main.iron", view));
+                assertTrue(!unsafe.successful(), family + " escaped iterator outlived its owner under " + mode);
+                assertContains(messages(unsafe), "cannot free", "set iterator lifetime diagnostic");
+            }
+            String collision = """
+                    import ironwood.ds.*;
+                    class Key {
+                        static Object saved;
+                        @Override public int hashCode() { return 1; }
+                        @Override public boolean equals(Object other) { saved = this; return this == other; }
+                    }
+                    class Main { public static int main(String[] args) {
+                        Key first = new Key(); Key second = new Key();
+                        %1$s<Key> source = new %1$s<Key>(2); source.add(first); source.add(second);
+                        %1$s<Key> copied = source.copy();
+                        free source; free copied; free first; free second; return 0;
+                    }}
+                    """.formatted(family);
+            assertTrue(compile(collision.replace("free source; free copied; free first; free second;", "")).successful(),
+                    family + " colliding publication source is not admitted");
+            if (family.equals("IdentityHashSet")) {
+                CompilationArtifact safe = compile(collision);
+                assertTrue(safe.successful(), "identity set called equality override: " + messages(safe));
+            } else {
+                for (UnfreedMode mode : UnfreedMode.values()) {
+                    CompilationArtifact unsafe = new CompilerPipeline(mode).compile(SourceFile.of("test/Main.iron", collision));
+                    assertTrue(!unsafe.successful(), family + " equality publication accepted under " + mode);
+                    assertContains(messages(unsafe), "cannot free", "colliding set equality publication diagnostic");
+                }
+            }
+        }
+        String self = """
+                import ironwood.ds.IdentityHashSet;
+                class Main { public static int main(String[] args) {
+                    IdentityHashSet<Object> source = new IdentityHashSet<Object>(1); source.add(source);
+                    IdentityHashSet<Object> copied = source.copy();
+                    free source; copied.size(); return 0;
+                }}
+                """;
+        for (UnfreedMode mode : UnfreedMode.values()) {
+            CompilationArtifact unsafe = new CompilerPipeline(mode).compile(SourceFile.of("test/Main.iron", self));
+            assertTrue(!unsafe.successful(), "self-containing set source retired under " + mode);
+        }
+    }
+
+    private void setCopyProofControls() throws Exception {
+        for (String family : List.of("HashSet", "IdentityHashSet", "LinkedHashSet")) {
+            String set = Files.readString(Path.of("stdlib/src/main/ironwood/ironwood/ds/" + family + ".iron"));
+            String iterator = Files.readString(Path.of("stdlib/src/main/ironwood/ironwood/ds/" + family + "Iterator.iron"));
+            String main = """
+                    import ironwood.ds.*;
+                    class Item { }
+                    class Main { public static int main(String[] args) {
+                        Item item = new Item(); %1$s<Item> source = new %1$s<Item>(1); source.add(item);
+                        %1$s<Item> copied = source.copy();
+                        free source; free copied; free item; return 0;
+                    }}
+                    """.formatted(family);
+            for (String operation : List.of("saved = source;", "source.clear();", "observe(source);")) {
+                String changed = set.replace("this.map = source.map.copy();", operation + " this.map = source.map.copy();")
+                        .replace("private final ", "private static Object saved; private static void observe(Object value) { saved = value; }\n    private final ");
+                CompilationArtifact noFree = compileSources(SourceFile.of("test/" + family + ".iron", changed),
+                        SourceFile.of("test/Main.iron", main.replace("free source; free copied; free item;", "")));
+                assertTrue(noFree.successful(), family + " changed constructor source: " + messages(noFree));
+                CompilationArtifact unsafe = compileSources(SourceFile.of("test/" + family + ".iron", changed),
+                        SourceFile.of("test/Main.iron", main));
+                assertTrue(!unsafe.successful(), family + " changed constructor received set-copy proof");
+                assertContains(messages(unsafe), "cannot free", "changed set constructor diagnostic");
+            }
+            for (String body : List.of("this.owner = owner; saved = owner;", "this.owner = owner;")) {
+                String published = iterator.replace("private " + family + "<E> owner;",
+                        "private static Object saved; private " + family + "<E> owner;")
+                        .replace("this.owner = owner;", body);
+                if (body.equals("this.owner = owner;")) {
+                    published = published.replace("void reset() {", "void reset() { saved = this.owner;");
+                }
+                CompilationArtifact noFree = compileSources(SourceFile.of("test/" + family + "Iterator.iron", published),
+                        SourceFile.of("test/Main.iron", main.replace("free source; free copied; free item;", "")));
+                if (body.equals("this.owner = owner;")) {
+                    assertTrue(noFree.successful(), family + " reset publication source: " + messages(noFree));
+                } else {
+                    assertTrue(!noFree.successful(), family + " iterator publication definition accepted");
+                    assertContains(messages(noFree), "constructor may publish in-progress 'this'",
+                            "publishing iterator constructor definition diagnostic");
+                }
+                CompilationArtifact unsafe = compileSources(SourceFile.of("test/" + family + "Iterator.iron", published),
+                        SourceFile.of("test/Main.iron", main));
+                assertTrue(!unsafe.successful(), family + " publishing iterator constructor received set-copy proof");
+                assertContains(messages(unsafe), body.equals("this.owner = owner;") ? "cannot free"
+                        : "constructor may publish in-progress 'this'", "publishing iterator diagnostic");
+            }
+            String backend = family.replace("Set", "Map");
+            String map = Files.readString(Path.of("stdlib/src/main/ironwood/ironwood/ds/" + backend + ".iron"));
+            int start = map.indexOf("    public " + backend + "<K, E> copy() {");
+            int end = map.indexOf("\n    /**", start);
+            assertTrue(start >= 0 && end > start, "map copy body control was not located");
+            String bodyless = (map.substring(0, start) + "    public abstract " + backend + "<K, E> copy();\n"
+                    + map.substring(end)).replace("public class " + backend, "public abstract class " + backend);
+            CompilationArtifact badSource = compileSources(SourceFile.of("test/" + backend + ".iron", bodyless),
+                    SourceFile.of("test/Main.iron", main));
+            assertTrue(!badSource.successful(), family + " bodyless backend copy accepted");
+            assertTrue(!badSource.diagnostics().isEmpty(), family + " bodyless copy has no diagnostics");
+            assertContains(messages(badSource), "abstract", "bodyless copy source diagnostic");
+            assertTrue(!messages(badSource).contains("internal compiler"), "bodyless copy caused an internal error");
+            System.out.println(family + " abstract backend copy diagnostics: " + messages(badSource));
+        }
+    }
+
+    private void setCopiesAcrossArtifacts() throws Exception {
+        Path root = Files.createTempDirectory("ironwood-set-copy-artifacts-");
+        try {
+            String expected = "value:0:10\nidentity:0:10\nlinked:0:10\n";
+            for (int count : List.of(8, 32, 128, 512)) {
+                for (String family : List.of("value", "identity", "linked")) expected += family + ":" + count + ":" + (count + 9) + "\n";
+            }
+            for (String fixture : List.of("ds_set_copy", "ds_set_copy_membership", "ds_set_copy_failure", "ds_set_copy_callback_failure")) {
+                Path classes = root.resolve(fixture);
+                assertMainRun(new String[]{"stdlib/src/main/ironwood/ironwood/ds/HashMap.iron",
+                        "stdlib/src/main/ironwood/ironwood/ds/IdentityHashMap.iron",
+                        "stdlib/src/main/ironwood/ironwood/ds/LinkedHashMap.iron",
+                        "stdlib/src/main/ironwood/ironwood/ds/HashSet.iron",
+                        "stdlib/src/main/ironwood/ironwood/ds/IdentityHashSet.iron",
+                        "stdlib/src/main/ironwood/ironwood/ds/LinkedHashSet.iron",
+                        "integration-tests/cases/" + fixture + ".iron", "--unfreed=warn",
+                        "-d", classes.toString()}, 0, fixture + " source compile");
+                Path archive = root.resolve(fixture + ".ironjar");
+                assertEquals(0, IronJarMain.run(new String[]{"--create", "--file", archive.toString(), classes.toString()},
+                        new PrintStream(new ByteArrayOutputStream()), new PrintStream(new ByteArrayOutputStream())),
+                        "set archive creation");
+                for (Path input : List.of(classes, archive)) {
+                    Path executable = root.resolve(input.getFileName() + "-program");
+                    assertMainRun(new String[]{"--link", "-cp", input.toString(), "--main-class", "Main",
+                            "--unfreed=warn", "-O3", "-o", executable.toString()}, 0, fixture + " artifact link");
+                    NativeResult result = runNative(executable, root, Map.of());
+                    assertEquals(fixture.equals("ds_set_copy_failure") ? 43 : 42, result.exit(), fixture + ": " + result.stderr());
+                    assertEquals(fixture.equals("ds_set_copy") ? expected : "", result.stdout(), fixture + " output");
+                    assertEquals("", result.stderr(), fixture + " stderr");
+                    if (fixture.equals("ds_set_copy_failure")) {
+                        for (int limit = 0; limit <= 80; limit++) {
+                            NativeResult failed = runNative(executable, root, Map.of("IRONWOOD_ALLOCATION_LIMIT", Integer.toString(limit)));
+                            assertEquals(limit < 80 ? 42 : 43, failed.exit(), "set failure limit " + limit + ": " + failed.stderr());
+                            assertEquals("", failed.stdout(), "set OOM stdout");
+                            assertEquals("", failed.stderr(), "set OOM stderr");
+                        }
+                    }
+                }
+            }
+        } finally { deleteTree(root); }
     }
 
     private void mapCopiesPreserveLoans() {

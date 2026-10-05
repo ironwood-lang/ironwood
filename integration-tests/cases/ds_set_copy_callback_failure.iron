@@ -1,0 +1,94 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// A value-set copy propagates the original callback exception and reclaims
+// partially built private storage. Source cursors continue after the failure.
+// The explicit global keys and exception precede each storage baseline and
+// remain process-lived; no input-retirement claim relies on cursor exposure.
+// Exit 42 after checking both value families and identity's absent callbacks.
+import ironwood.ds.*;
+import ironwood.util.Iterator;
+
+class Key {
+
+    static RuntimeException failure;
+    static Key firstKey;
+    static Key secondKey;
+    static Key thirdKey;
+    static int calls;
+    static int throwAt;
+
+    @Override public int hashCode() {
+
+        calls++;
+        if (calls == throwAt) throw failure;
+        return 1;
+    }
+}
+
+class Main {
+
+    static void hash() {
+
+        HashSet<Key> source = new HashSet<Key>(3, 1.0f);
+        source.add(Key.firstKey); source.add(Key.secondKey); source.add(Key.thirdKey);
+        Iterator<Key> cursor = source.iterator();
+        Key first = cursor.next();
+        Key.calls = 0; Key.throwAt = 2;
+        long baseline = System.liveAllocationCount();
+        try {
+            HashSet<Key> copied = source.copy();
+            free copied;
+            throw new IllegalStateException();
+        } catch (RuntimeException failure) {
+            if (failure != Key.failure) throw new IllegalStateException();
+        }
+        Key.throwAt = 0;
+        if (System.liveAllocationCount() != baseline || source.size() != 3 || Key.calls != 2) throw new IllegalStateException();
+        Key second = cursor.next(); Key third = cursor.next();
+        if (first == second || second == third || first == third) throw new IllegalStateException();
+        free source;
+    }
+
+    static void linked() {
+
+        LinkedHashSet<Key> source = new LinkedHashSet<Key>(3, 1.0f);
+        source.add(Key.firstKey); source.add(Key.secondKey); source.add(Key.thirdKey);
+        Iterator<Key> cursor = source.iterator();
+        Key first = cursor.next();
+        Key.calls = 0; Key.throwAt = 2;
+        long baseline = System.liveAllocationCount();
+        try {
+            LinkedHashSet<Key> copied = source.copy();
+            free copied;
+            throw new IllegalStateException();
+        } catch (RuntimeException failure) {
+            if (failure != Key.failure) throw new IllegalStateException();
+        }
+        Key.throwAt = 0;
+        if (System.liveAllocationCount() != baseline || source.size() != 3 || Key.calls != 2) throw new IllegalStateException();
+        if (first != Key.firstKey || cursor.next() != Key.secondKey || cursor.next() != Key.thirdKey) throw new IllegalStateException();
+        free source;
+    }
+
+    static void identity() {
+
+        IdentityHashSet<Key> source = new IdentityHashSet<Key>(3, 1.0f);
+        source.add(Key.firstKey); source.add(Key.secondKey); source.add(Key.thirdKey);
+        Key.calls = 0; Key.throwAt = 1;
+        IdentityHashSet<Key> copied = source.copy();
+        if (Key.calls != 0 || copied.size() != 3) throw new IllegalStateException();
+        Key.throwAt = 0;
+        free copied; free source;
+    }
+
+    public static int main(String[] args) {
+
+        Key.failure = new RuntimeException();
+        Key.firstKey = new Key(); Key.secondKey = new Key(); Key.thirdKey = new Key();
+        if (HashSet.DEFAULT_INITIAL_CAPACITY <= 0 || LinkedHashSet.DEFAULT_INITIAL_CAPACITY <= 0) return 2;
+        long baseline = System.liveAllocationCount();
+        hash(); linked(); identity();
+        if (System.liveAllocationCount() != baseline) return 1;
+        return 42;
+    }
+}

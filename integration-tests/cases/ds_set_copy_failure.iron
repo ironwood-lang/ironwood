@@ -1,0 +1,63 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// Inject OOM through each set constructor and its independent copy, including
+// entry-pool preloading. Exit 42 on OOM and 43 on success, with no live delta.
+import ironwood.ds.*;
+class Main {
+
+    static void copyHashSet() {
+
+        HashSet<String> source = new HashSet<String>(4, 1.0f);
+        defer free source;
+        source.add("one"); source.add("two");
+        source.add("three"); source.add("four");
+        HashSet<String> copied = source.copy();
+        defer free copied;
+        if (copied.size() != 4) throw new IllegalStateException();
+    }
+
+    static void copyIdentityHashSet() {
+
+        IdentityHashSet<String> source = new IdentityHashSet<String>(4, 1.0f);
+        defer free source;
+        source.add("one"); source.add("two");
+        source.add("three"); source.add("four");
+        IdentityHashSet<String> copied = source.copy();
+        defer free copied;
+        if (copied.size() != 4) throw new IllegalStateException();
+    }
+
+    static void copyLinkedHashSet() {
+
+        LinkedHashSet<String> source = new LinkedHashSet<String>(4, 1.0f);
+        defer free source;
+        source.add("one"); source.add("two");
+        source.add("three"); source.add("four");
+        LinkedHashSet<String> copied = source.copy();
+        defer free copied;
+        if (copied.size() != 4) throw new IllegalStateException();
+    }
+
+    public static int main(String[] args) {
+
+        long baseline = System.liveAllocationCount();
+        boolean failed = false;
+        try {
+            // Initialize the two process-lived filler objects before measuring
+            // private storage. An OOM during either initializer has no storage.
+            int hashCapacity = HashSet.DEFAULT_INITIAL_CAPACITY;
+            baseline = System.liveAllocationCount();
+            int linkedCapacity = LinkedHashSet.DEFAULT_INITIAL_CAPACITY;
+            baseline = System.liveAllocationCount();
+            if (hashCapacity <= 0 || linkedCapacity <= 0) return 2;
+            copyHashSet(); copyIdentityHashSet(); copyLinkedHashSet();
+        }
+
+        catch (OutOfMemoryError failure) {
+            failed = true;
+        }
+
+        if (System.liveAllocationCount() != baseline) return 1;
+        return failed ? 42 : 43;
+    }
+}

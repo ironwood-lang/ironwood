@@ -8129,6 +8129,7 @@ final class FunctionAnalyzer {
                                              List<TypedValue> arguments,
                                              List<SourceSpan> argumentSpans) {
         List<FreshBorrowingFactoryAnalysis.Input> copiedItems = escapeSummaries.constructorBorrowedElements(constructor);
+        if (copiedItems != null && !factoryInputsHaveBorrowingCallbacks(copiedItems, null, arguments)) copiedItems = null;
         if (copiedItems == null) {
             arguments.forEach(argument -> exposeContainerContents(argument.operand(),
                     "constructor can observe stored data-structure references"));
@@ -8159,6 +8160,7 @@ final class FunctionAnalyzer {
                                           List<SourceSpan> argumentSpans) {
         EscapeSummaryAnalyzer.EscapeSummary summary = escapeSummaries.summary(constructor);
         List<FreshBorrowingFactoryAnalysis.Input> copiedItems = escapeSummaries.constructorBorrowedElements(constructor);
+        if (copiedItems != null && !factoryInputsHaveBorrowingCallbacks(copiedItems, null, arguments)) copiedItems = null;
         if (copiedItems != null) {
             owner.copiedContainerItems = true;
             for (var input : copiedItems) {
@@ -9262,18 +9264,7 @@ final class FunctionAnalyzer {
         if (result.isEmpty()) return false;
         FreshBorrowingFactoryAnalysis.Result proof = escapeSummaries.freshBorrowingFactory(method);
         if (proof == null) return false;
-        if (MapCopyFactoryAnalysis.isMap(proof.type())
-                && !proof.type().referenceName().equals("ironwood.ds.IdentityHashMap")) {
-            for (var input : proof.elements()) {
-                IrOperand source = switch (input.origin().kind()) {
-                    case THIS -> receiver;
-                    case PARAMETER -> input.origin().parameterIndex() < arguments.size()
-                            ? arguments.get(input.origin().parameterIndex()).operand() : null;
-                    case ELEMENT_OF_PARAMETER -> null;
-                };
-                if (source == null || !input.fields().isEmpty() || !hasBorrowingKeyCallbacks(source.type())) return false;
-            }
-        }
+        if (!factoryInputsHaveBorrowingCallbacks(proof.elements(), receiver, arguments)) return false;
         AllocationInfo owner = AllocationInfo.freshCall(controlFlowDepth);
         owner.constructedType = proof.type();
         IrType resultType = result.orElseThrow().type();
@@ -9311,13 +9302,13 @@ final class FunctionAnalyzer {
                     && !isDependentBorrow(source) && !exposedContainerContents.contains(backing)
                     && backing.constructedType != null && backing.constructedType.isNominalReference()
                     && (backing.constructedType.referenceName().equals("ironwood.ds.ArrayList")
-                        || MapCopyFactoryAnalysis.isMap(backing.constructedType))) {
+                        || MapCopyFactoryAnalysis.isMap(backing.constructedType)
+                        || SetCopyFactoryAnalysis.isSet(backing.constructedType))) {
                 // Copy the actual loans, including a self-item or a nested wrapper.
                 // Fresh storage does not erase any payload's lifetime dependency.
                 for (AllocationInfo child : retainedBorrows.getOrDefault(backing, Set.of())) {
-                    if (MapCopyFactoryAnalysis.isMap(proof.type())
-                            && !proof.type().referenceName().equals("ironwood.ds.IdentityHashMap")
-                            && backing.possibleMapKeys != null && backing.possibleMapKeys.contains(child)) {
+                    if (input.keyCallbacks() && (SetCopyFactoryAnalysis.isSet(backing.constructedType)
+                            || backing.possibleMapKeys != null && backing.possibleMapKeys.contains(child))) {
                         exposeContainerContents(child, "copy key callbacks can observe nested data-structure contents",
                                 Collections.newSetFromMap(new IdentityHashMap<>()));
                     }
@@ -9333,10 +9324,14 @@ final class FunctionAnalyzer {
                     // Preserve it as a possible key for subsequent copies;
                     // an empty metadata set never proves these keys absent.
                     recordPossibleMapKey(owner, backing);
-                    if (!proof.type().referenceName().equals("ironwood.ds.IdentityHashMap")) {
+                    if (input.keyCallbacks()) {
                         exposeContainerContents(backing, "copy callbacks can observe unknown key membership",
                                 Collections.newSetFromMap(new IdentityHashMap<>()));
                     }
+                }
+                if (SetCopyFactoryAnalysis.isSet(proof.type()) && input.keyCallbacks()) {
+                    exposeContainerContents(backing, "copy callbacks can observe unknown set membership",
+                            Collections.newSetFromMap(new IdentityHashMap<>()));
                 }
                 borrows.add(new WrapperBorrow(owner, backing, result.orElseThrow().sourceSpan()));
             }
@@ -9351,6 +9346,21 @@ final class FunctionAnalyzer {
             unfreedFreshResults.add(result.orElseThrow());
         }
         temporaryFreshResults.add(result.orElseThrow());
+        return true;
+    }
+
+    private boolean factoryInputsHaveBorrowingCallbacks(List<FreshBorrowingFactoryAnalysis.Input> inputs,
+                                                        IrOperand receiver, List<TypedValue> arguments) {
+        for (var input : inputs) {
+            if (!input.keyCallbacks()) continue;
+            IrOperand source = switch (input.origin().kind()) {
+                case THIS -> receiver;
+                case PARAMETER -> input.origin().parameterIndex() < arguments.size()
+                        ? arguments.get(input.origin().parameterIndex()).operand() : null;
+                case ELEMENT_OF_PARAMETER -> null;
+            };
+            if (source == null || !input.fields().isEmpty() || !hasBorrowingKeyCallbacks(source.type())) return false;
+        }
         return true;
     }
 

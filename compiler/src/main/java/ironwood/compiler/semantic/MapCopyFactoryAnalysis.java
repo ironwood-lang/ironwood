@@ -78,7 +78,7 @@ final class MapCopyFactoryAnalysis {
                     || !entries(method, entries, entry.name(), result.name(), "next")) return null;
         }
         var items = new FreshBorrowingFactoryAnalysis.Input(ReturnOrigin.thisOrigin(), List.of(),
-                source.selfType(), true);
+                source.selfType(), true, !source.name().equals("ironwood.ds.IdentityHashMap"));
         return new FreshBorrowingFactoryAnalysis.Result(method.returnType(), Map.of(), List.of(items));
     }
 

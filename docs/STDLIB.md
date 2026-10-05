@@ -789,6 +789,18 @@ limited to the current heap-backed NIO surface.
 | `IntSet` | Primitive `int` set with a reusable `IntHolder` iterator. |
 | `LongSet` | Primitive `long` set with a reusable `LongHolder` iterator. |
 
+`HashSet.copy()`, `IdentityHashSet.copy()` and `LinkedHashSet.copy()` own
+independent mutable membership, map storage and reusable iterators. Non-null
+items remain borrowed; destruction never frees caller-owned items. The backing
+map uses load factor 1.0 and initial capacity `max(1, size())`, without copying
+unused source pool capacity. Source iterator positions remain unchanged. Value
+copies rerun ordinary hash/equality callbacks and propagate exceptions after
+cleanup; callbacks must not mutate source membership. Identity copies invoke no
+item callbacks, and linked copies preserve insertion order. Empty copies use
+ten allocations; nonempty copies use one entry per item plus nine support
+objects. Clear/destruction can discharge membership loans subject to retained
+aliases; individual removal does not. See [the set-copy qualification](self-hosting/m1/SETS.md).
+
 `HashSet`, `LinkedHashSet`, `IntSet`, and `LongSet` each use one private static
 `Object` as the non-null value stored in their backing map. The first active use
 of each set class lazily creates that ordinary allocation. Its static reference

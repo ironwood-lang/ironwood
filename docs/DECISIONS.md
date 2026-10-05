@@ -9550,3 +9550,27 @@ occurrence order. If no
   copy-of-copy, nested key/value controls, source/class/archive reconstruction,
   Java 21 logical contracts, geometric allocation counts, every representative
   OOM boundary and ordinary throwing-callback cleanup. See [the map-copy record](self-hosting/m1/MAPS.md).
+
+## D251 - Prove set copying through owned backend and confined iterator construction
+
+- **Status:** Implemented during M1.2 on 2026-10-05.
+- **Decision:** Add original `copy()` helpers to value, identity and linked
+  sets using independent map storage and a fresh owned iterator. Borrow non-null
+  items, preserve linked order and source cursor state, and propagate ordinary
+  value callbacks after failure cleanup. Identity copying invokes no callbacks.
+- **Proof:** Require the actual private two-assignment constructor, a proved
+  backend copy and confined iterator owner capture. Carry callback obligations
+  on borrowing inputs through delegation and copied-wrapper construction, with
+  actual value-item dispatch checked at each caller. Transfer local item loans;
+  retain whole roots for unknown/exposed/dependent sources and preserve nested
+  key publication. General constructor observation is unchanged. Bodyless copy
+  targets receive no proof and bad-source diagnostics do not crash the compiler.
+- **Boundary:** Clear/destruction and retained aliases govern item lifetime;
+  individual removal does not discharge loans. Combined lookup on an exposed
+  source's copy remains conservative. No runtime bookkeeping or lowering change
+  is introduced. This extends D250 for selected sets, supersedes no earlier
+  decision and establishes neither full M1 nor S1/G1.
+- **Verification:** All-mode safe/unsafe lifetime and callback controls,
+  constructor/reset publication, Java logical contracts, source/class/archive
+  reconstruction, geometric allocation counts, ordinary callback failures and
+  every representative OOM boundary. See [the set-copy record](self-hosting/m1/SETS.md).

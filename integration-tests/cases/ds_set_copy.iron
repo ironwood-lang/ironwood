@@ -1,0 +1,172 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// Set copies own separate maps, entries and cursors, borrow items, and leave
+// source cursors untouched. Exit 42 after checking independent mutations and
+// entry allocation scaling. Items outlive every set; all owned storage is reclaimed.
+import ironwood.ds.*;
+
+final class Item {
+
+    private int id;
+
+    Item(int id) {
+
+        this.id = id;
+    }
+
+    @Override public int hashCode() {
+
+        return this.id % 2;
+    }
+
+    @Override public boolean equals(Object value) {
+
+        if (!(value instanceof Item)) return false;
+        return this.id == ((Item) value).id;
+    }
+}
+
+class Items {
+
+    private Item[] data;
+
+    Items(int count) {
+
+        this.data = new Item[count];
+        for (int i = 0; i < this.data.length; i++) {
+            Item item = new Item(i);
+            this.data[i] = item;
+        }
+
+    }
+    Item get(int index) {
+
+        return this.data[index];
+    }
+
+    destructor {
+
+        for (int i = 0; i < this.data.length; i++) {
+            free this.data[i];
+        }
+
+        free this.data;
+    }
+}
+
+class Main {
+
+    static void checkHashSet(int count) {
+
+        long baseline = System.liveAllocationCount();
+        Items items = new Items(count);
+        HashSet<Item> source = new HashSet<Item>(1);
+        for (int i = 0; i < count; i++) {
+            source.add(items.get(i));
+        }
+
+        long before = System.allocationCount();
+        HashSet<Item> copied = source.copy();
+        long allocations = System.allocationCount() - before;
+        if (copied.size() != count) throw new IllegalStateException();
+        if (count > 0) {
+            copied.remove(items.get(0));
+            if (source.size() != count || copied.size() != count - 1) throw new IllegalStateException();
+            copied.add(items.get(0));
+        }
+
+        source.clear();
+        if (copied.size() != count) throw new IllegalStateException();
+        free copied;
+        free source;
+        free items;
+        if (System.liveAllocationCount() != baseline) throw new IllegalStateException();
+        System.out.print("value:");
+        System.out.print(count);
+        System.out.print(":");
+        System.out.println(allocations);
+    }
+
+    static void checkIdentityHashSet(int count) {
+
+        long baseline = System.liveAllocationCount();
+        Items items = new Items(count);
+        IdentityHashSet<Item> source = new IdentityHashSet<Item>(1);
+        for (int i = 0; i < count; i++) {
+            source.add(items.get(i));
+        }
+
+        long before = System.allocationCount();
+        IdentityHashSet<Item> copied = source.copy();
+        long allocations = System.allocationCount() - before;
+        if (copied.size() != count) throw new IllegalStateException();
+        if (count > 0) {
+            copied.remove(items.get(0));
+            if (source.size() != count || copied.size() != count - 1) throw new IllegalStateException();
+            copied.add(items.get(0));
+        }
+
+        source.clear();
+        if (copied.size() != count) throw new IllegalStateException();
+        free copied;
+        free source;
+        free items;
+        if (System.liveAllocationCount() != baseline) throw new IllegalStateException();
+        System.out.print("identity:");
+        System.out.print(count);
+        System.out.print(":");
+        System.out.println(allocations);
+    }
+
+    static void checkLinkedHashSet(int count) {
+
+        long baseline = System.liveAllocationCount();
+        Items items = new Items(count);
+        LinkedHashSet<Item> source = new LinkedHashSet<Item>(1);
+        for (int i = 0; i < count; i++) {
+            source.add(items.get(i));
+        }
+
+        long before = System.allocationCount();
+        LinkedHashSet<Item> copied = source.copy();
+        long allocations = System.allocationCount() - before;
+        if (copied.size() != count) throw new IllegalStateException();
+        if (count > 0) {
+            copied.remove(items.get(0));
+            if (source.size() != count || copied.size() != count - 1) throw new IllegalStateException();
+            copied.add(items.get(0));
+        }
+
+        source.clear();
+        if (copied.size() != count) throw new IllegalStateException();
+        free copied;
+        free source;
+        free items;
+        if (System.liveAllocationCount() != baseline) throw new IllegalStateException();
+        System.out.print("linked:");
+        System.out.print(count);
+        System.out.print(":");
+        System.out.println(allocations);
+    }
+
+    static void checkScale(int count) {
+
+        checkHashSet(count);
+        checkIdentityHashSet(count);
+        checkLinkedHashSet(count);
+    }
+
+    public static int main(String[] args) {
+
+        // Class initialization retains two filler objects until process exit.
+        if (HashSet.DEFAULT_INITIAL_CAPACITY <= 0 || LinkedHashSet.DEFAULT_INITIAL_CAPACITY <= 0) return 2;
+        long baseline = System.liveAllocationCount();
+        checkScale(0);
+        checkScale(8);
+        checkScale(32);
+        checkScale(128);
+        checkScale(512);
+        if (System.liveAllocationCount() != baseline) return 1;
+        return 42;
+    }
+}

@@ -192,3 +192,39 @@ proof: joins/restores can retain extra possible keys without dropping any real
 key, and clear still retires loans through the existing snapshot-tracked map.
 No runtime state or snapshot format is added. Pair complete nested-value cleanup
 with nested-key content publication and branch/clear/reinsert controls.
+
+## Independent set copy increment
+
+Map copies are qualified at 98974945. First probe a private set copying
+constructor: a separate map copy followed by a new reusable set iterator.
+This should avoid source cursor resets and unnecessary temporary storage.
+Inspect constructor publication and private owned-field effects before extending
+any proof. Preserve value/identity/linked semantics, borrowed items, failure
+rollback and actual callback effects; no constructor/name exemption is allowed.
+Pair complete source/result/item cleanup with early item, nested/self, callback
+publication and returned-view lifetime rejection under every unfreed mode.
+Measure empty/geometric allocations, independent mutations, linked order and
+source cursor continuation, and qualify representative OOM/callback failures
+through source/class/archive inputs. Existing map/list/pool consumers cover
+shared machinery only if implementation actually changes their analysis.
+
+The direct source probes reject item cleanup because the copying constructor
+is reached through an unrecognized fresh factory. Qualify only its actual two
+assignments: a body-proved private backend map copy and a separately owned,
+confined iterator constructed with the new result owner. Do not suppress general
+constructor observation. Carry callback requirements on borrowing inputs through
+factory delegation and copied-wrapper construction; actual value-key dispatch
+must still prove non-retention before any item projection is applied. Set items
+are all possible key roots. Existing map callback and private snapshot checks
+cover this shared input metadata, alongside iterator constructor/reset publication
+controls, source-field mutation and no-free admission checks.
+
+Set qualification: three families preserve full item cleanup, callback boundaries
+and independent source/class/archive storage. Direct iterator publication is an
+ordinary construction-definition error. Reset publication is admitted without
+caller frees but blocks retirement; it receives no fresh copy proof. Abstract
+backend-copy controls produce ordinary diagnostics without an internal failure.
+The conservative combined exposed-source cursor/lookup cleanup remains recorded.
+Native scaling, every OOM limit 0-80, ordinary callback exceptions, selected Java
+contracts, map/snapshot/pool consumers, IronDocs and licensing pass. Full M1
+remains open; the [set record](SETS.md) retains detailed commands and identities.

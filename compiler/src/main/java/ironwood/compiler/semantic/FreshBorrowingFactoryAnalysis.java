@@ -16,10 +16,14 @@ import java.util.Set;
  * to the ordinary conservative escape summary.
  */
 final class FreshBorrowingFactoryAnalysis {
-    record Input(ReturnOrigin origin, List<FieldSymbol> fields, IrType type, boolean containerElements) {
+    record Input(ReturnOrigin origin, List<FieldSymbol> fields, IrType type, boolean containerElements,
+                 boolean keyCallbacks) {
         Input { fields = List.copyOf(fields); }
         Input(ReturnOrigin origin, List<FieldSymbol> fields, IrType type) {
-            this(origin, fields, type, false);
+            this(origin, fields, type, false, false);
+        }
+        Input(ReturnOrigin origin, List<FieldSymbol> fields, IrType type, boolean containerElements) {
+            this(origin, fields, type, containerElements, false);
         }
     }
     record Result(IrType type, Map<FieldSymbol, Input> borrows, List<Input> elements) {
@@ -195,7 +199,7 @@ final class FreshBorrowingFactoryAnalysis {
         List<FieldSymbol> fields = new ArrayList<>(source.fields());
         fields.addAll(input.fields());
         if (source.containerElements()) return null;
-        return new Input(source.origin(), fields, input.type(), input.containerElements());
+        return new Input(source.origin(), fields, input.type(), input.containerElements(), input.keyCallbacks());
     }
 
     /** A bounded list of borrowed inputs with explicit failure cleanup. Element
@@ -328,6 +332,12 @@ final class FreshBorrowingFactoryAnalysis {
         for (TypeSymbol current = type; current != null; current = current.superclass().orElse(null)) {
             if (current.constructors().stream().anyMatch(candidate -> escapes.summary(candidate).thisEscapes()))
                 return null;
+        }
+        Input copiedSet = new SetCopyFactoryAnalysis(types, resolver, escapes, owned).prove(constructor);
+        if (copiedSet != null && creation.arguments().size() == 1) {
+            Input source = input(method, creation.arguments().getFirst());
+            Input mapped = source == null ? null : remap(copiedSet, null, List.of(source));
+            return mapped == null ? null : new Result(type.selfType(), Map.of(), List.of(mapped));
         }
         Map<FieldSymbol, Input> borrows = new LinkedHashMap<>();
         for (int index = 0; index < creation.arguments().size(); index++) {
