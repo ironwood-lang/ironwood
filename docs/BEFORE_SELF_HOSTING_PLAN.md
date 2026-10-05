@@ -81,7 +81,7 @@ roadmap schedules them without replacing their detailed exit criteria.
 | --- | --- | --- | --- | --- |
 | [M0](#m0-baseline-and-contract-inventory) | Freeze the baseline and evidence contract: B0a | Current Java compiler and source audit | S0 baseline, ordering inventory, fixtures, budgets, and selected pilot scope recorded | Complete on qualified macOS arm64 profile: M0.1/M0.2/M0.3 and S0 passed |
 | [M1](#m1-minimum-pilot-prerequisites) | Build the minimum pilot dependencies: selected B1/B2/B7 slices | M0 | Required copies, traversal, ordering, and syntax/helpers have focused evidence | Complete on the qualified macOS arm64 profile; [checkpoint](self-hosting/m1/CHECKPOINT.md), [pre-change review](self-hosting/m1/PRE_CHANGE.md) |
-| [M2](#m2-portability-and-ownership-pilot) | Run B0b's frontend and ownership pilots | Required M1 phases | G1, the existing S1 gate, passes before broad translation | In progress: M2.1, M2.2 and M2.3 complete on the qualified macOS arm64 profile ([frontend](self-hosting/m2/FRONTEND.md), [ownership](self-hosting/m2/OWNERSHIP.md), [qualification](self-hosting/m2/QUALIFICATION.md)); G1 open |
+| [M2](#m2-portability-and-ownership-pilot) | Run B0b's frontend and ownership pilots | Required M1 phases | G1, the existing S1 gate, passes before broad translation | Complete: G1 passed on the qualified macOS arm64 profile ([checkpoint](self-hosting/m2/CHECKPOINT.md)); M3 not started |
 | [M3](#m3-semantic-and-backend-preparation) | Complete core B1/B2/B7 helpers and early B5 digests | M2 for broad port work; reuse M1 outputs | Staged readiness for S2, S3 with ByteView SHA-256, and S4 with MD5/native-link policy | Not started |
 | [M4](#m4-native-filesystem-and-process-services) | Deliver B3 filesystem and B4 process services | M2; audited helper dependencies | Filesystem checkpoint first, native process/driver checkpoint second | Not started |
 | [M5](#m5-artifacts-and-command-line-helpers) | Deliver public CRC32, B6 archives, and S6 B7 helpers | M2; required M3 helpers; M4 filesystem checkpoint for publication | Artifact and documentation/CLI prerequisites ready for S6 | Not started |
@@ -450,6 +450,12 @@ has an evidence record. On failure, name the limiting representation/proof or
 resource cost, return to the affected M1 phase, and rerun the affected checks.
 Do not expand translation to hide an unresolved pilot failure or weaken a free
 proof to make the checkpoint pass.
+
+Status: passed on the qualified macOS arm64 M5/32-GiB profile. The
+[G1 checkpoint](self-hosting/m2/CHECKPOINT.md) maps every S1 evidence item to
+its record, lists the consumers that retained conservative limits block and
+the forms that avoid them, and names what M3 needs. No new ownership
+semantics or analysis change was required. M3 has not started.
 
 ### M3. Semantic and backend preparation
 

@@ -1,0 +1,119 @@
+{
+ "schema_version": 1,
+ "checkpoint": "G1 (S1 gate): M2.1, M2.2 and M2.3",
+ "commit": "65fdb7501c6e112283574ed40ab30041538c5f2e",
+ "tree": "fresh git archive of the commit",
+ "host_profile": "macOS 27.0.1 arm64 Apple M5 32 GiB; JDK 21.0.1; LLVM 23.1.0 (/opt/homebrew/opt/llvm@23)",
+ "commands": [
+  "scripts/build.sh",
+  "javac --release 21 -encoding UTF-8 -Xlint:all -Werror -cp compiler/build/classes over every compiler/src/test/java source",
+  "java -ea ironwood.compiler.CompilerTests --test NAME for each M2 test",
+  "git diff --check COMMIT~3 COMMIT",
+  "scripts/check-licenses.sh"
+ ],
+ "results": {
+  "status": [
+   "build exit=0",
+   "javac exit=0",
+   "tests exit=0",
+   "diff-check exit=0",
+   "licenses exit=0"
+  ],
+  "build_identity": [
+   "59ad4c73f5b4dfe9ba3dbee4ceeafa766260bb5ec8cada7cd8b6ac4064b3c29a  compiler/build/ironwoodc.jar",
+   "a1fdd6520ce1c0d09a036c204e8586117e8b509d598057d8bd780562ad081cc5  compiler/build/ironwood-stdlib.ironjar"
+  ],
+  "tests": [
+   "16:23:15.533 - 1/9 - ok - frontend pilot variants match the Java syntax model",
+   "16:24:10.845 - 2/9 - ok - frontend pilot dispatch fails closed on untreated variants",
+   "16:26:23.067 - 3/9 - ok - frontend pilot retires builders and rejects frees of observed state",
+   "16:27:02.097 - 4/9 - ok - frontend pilot matches the Java frontend across artifacts",
+   "16:27:46.797 - 5/9 - ok - frontend pilot unwinds every allocation failure cleanly",
+   "16:30:38.724 - 6/9 - ok - ownership pilot retires versions and rejects frees of observed state",
+   "16:32:17.719 - 7/9 - ok - ownership pilot counts callbacks and rejects frees of captured state",
+   "16:32:39.899 - 8/9 - ok - ownership pilot matches the Java kernels across artifacts",
+   "16:33:09.338 - 9/9 - ok - ownership pilot unwinds every allocation failure cleanly"
+  ],
+  "summary": "PASS: 9 compiler tests"
+ },
+ "evidence_records": {
+  "FRONTEND.md": {
+   "path": "docs/self-hosting/m2/FRONTEND.md",
+   "sha256": "bd14b2d5e27cd23755233e871be5f5617f10be7faee801d12c4463f1d31eb93f"
+  },
+  "OWNERSHIP.md": {
+   "path": "docs/self-hosting/m2/OWNERSHIP.md",
+   "sha256": "844c9d70f80e815935cf5e863e16e6f67757e0a8b78fdfdcca51257a1966c7e8"
+  },
+  "QUALIFICATION.md": {
+   "path": "docs/self-hosting/m2/QUALIFICATION.md",
+   "sha256": "3db45c1904a7e5ffa8db46c99c4caa78031a65ee9f4fb288f70f299a878b527d"
+  },
+  "frontend-evidence/manifest.json": {
+   "path": "docs/self-hosting/m2/frontend-evidence/manifest.json",
+   "sha256": "abbad17bd39bcbfd86ce166c1501492bef1a177495b3e92625ff57550380bc2b"
+  },
+  "ownership-evidence/manifest.json": {
+   "path": "docs/self-hosting/m2/ownership-evidence/manifest.json",
+   "sha256": "ba70b371ecb448a3e64809b9c7cb54056ac2f5080e1f24383df3a08b4978a046"
+  },
+  "qualification-evidence/manifest.json": {
+   "path": "docs/self-hosting/m2/qualification-evidence/manifest.json",
+   "sha256": "11bba35113bb079d347a76810e21dafc7cf9f2ec8e3b294dcfe04c1ca65adbcd"
+  },
+  "SOURCE_BUNDLE.json": {
+   "path": "docs/self-hosting/m2/SOURCE_BUNDLE.json",
+   "sha256": "676be302b60653687e1c7d0e24a952b7e4e6c96530c7e03e1d9889349b7b9829"
+  }
+ },
+ "logs": [
+  {
+   "retained": "docs/self-hosting/m2/checkpoint-evidence/logs/status.txt.gz",
+   "sha256": "eb7048f5286268dffd0c6700682ae706a1e2beb34f556b00a9857cb1b5c0b14d",
+   "gzip_sha256": "114ada2222c25bb588845fe079615a1ab22d947316a94e3c9a47d4d4cba8ca8e",
+   "bytes": 73
+  },
+  {
+   "retained": "docs/self-hosting/m2/checkpoint-evidence/logs/commit.txt.gz",
+   "sha256": "6ee2d2249f8660ae26faeb69b41bcc3d51d0d6493d5f006829df218359ec024e",
+   "gzip_sha256": "9840bb89c127613e244adb7919ee3fc6908a9da24bd4610ac1c6d0c0b7f7f005",
+   "bytes": 41
+  },
+  {
+   "retained": "docs/self-hosting/m2/checkpoint-evidence/logs/build.log.gz",
+   "sha256": "82cfa06e129a59a6c2e44c8c9ddd81584ae675ec81360a15ddc35efa19a5764e",
+   "gzip_sha256": "a08bb8bac2b6e70738b8f03525dd030d096a78b76e410202df88bb2d5ae1cd61",
+   "bytes": 34012
+  },
+  {
+   "retained": "docs/self-hosting/m2/checkpoint-evidence/logs/build-identity.txt.gz",
+   "sha256": "ae98269cab8235b3f535fc8ce64c9a6a677ab23a07652958593b3a816568e048",
+   "gzip_sha256": "5db631eacd8298c93a3da3cb1155a8089f19735f25881e8dcb1cb9daf69b6a88",
+   "bytes": 200
+  },
+  {
+   "retained": "docs/self-hosting/m2/checkpoint-evidence/logs/javac.log.gz",
+   "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "gzip_sha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+   "bytes": 0
+  },
+  {
+   "retained": "docs/self-hosting/m2/checkpoint-evidence/logs/tests.log.gz",
+   "sha256": "a85a00418c5861a9d9e04f5b6e83b1af48d0a7790fe4b14e2fee72ae49520447",
+   "gzip_sha256": "bb2459be4910be0c46dceab8229702416cd2e5f8d148c401f587e9efadb5fe53",
+   "bytes": 1592
+  },
+  {
+   "retained": "docs/self-hosting/m2/checkpoint-evidence/logs/diff-check.log.gz",
+   "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "gzip_sha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+   "bytes": 0
+  },
+  {
+   "retained": "docs/self-hosting/m2/checkpoint-evidence/logs/licenses.log.gz",
+   "sha256": "baf5804aeb26498337c9c5223c199afeba5c3e2fc36ae219b9bf420e3775f673",
+   "gzip_sha256": "21fd3bcaf61e87e10822dd63176f2751a3282de06861c556f8ea5cb4d913c689",
+   "bytes": 54
+  }
+ ]
+}
