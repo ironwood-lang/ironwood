@@ -335,6 +335,9 @@ final class OwnershipPilotTests {
     private static long invocationLived(String[] configuration, Map<String, Long> metrics) {
         if (configuration[0].equals("ownership")) {
             boolean events = configuration[4].equals("explain-on") && Integer.parseInt(configuration[3]) < 3;
+            if (metrics.get("recordedEvents") != (events ? 64 * 5 : 0)) {
+                throw new AssertionError("ownership kernel events: " + metrics.get("recordedEvents"));
+            }
             return 64 * (7 + 2 * metrics.get("childVersionAllocations") + (events ? 5 : 0)) + 1;
         }
         return configuration[0].equals("evidence") ? 128 : 1;

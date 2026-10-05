@@ -81,7 +81,7 @@ roadmap schedules them without replacing their detailed exit criteria.
 | --- | --- | --- | --- | --- |
 | [M0](#m0-baseline-and-contract-inventory) | Freeze the baseline and evidence contract: B0a | Current Java compiler and source audit | S0 baseline, ordering inventory, fixtures, budgets, and selected pilot scope recorded | Complete on qualified macOS arm64 profile: M0.1/M0.2/M0.3 and S0 passed |
 | [M1](#m1-minimum-pilot-prerequisites) | Build the minimum pilot dependencies: selected B1/B2/B7 slices | M0 | Required copies, traversal, ordering, and syntax/helpers have focused evidence | Complete on the qualified macOS arm64 profile; [checkpoint](self-hosting/m1/CHECKPOINT.md), [pre-change review](self-hosting/m1/PRE_CHANGE.md) |
-| [M2](#m2-portability-and-ownership-pilot) | Run B0b's frontend and ownership pilots | Required M1 phases | G1, the existing S1 gate, passes before broad translation | In progress: M2.1 and M2.2 complete on the qualified macOS arm64 profile ([frontend](self-hosting/m2/FRONTEND.md), [ownership](self-hosting/m2/OWNERSHIP.md)); M2.3 and G1 open |
+| [M2](#m2-portability-and-ownership-pilot) | Run B0b's frontend and ownership pilots | Required M1 phases | G1, the existing S1 gate, passes before broad translation | In progress: M2.1, M2.2 and M2.3 complete on the qualified macOS arm64 profile ([frontend](self-hosting/m2/FRONTEND.md), [ownership](self-hosting/m2/OWNERSHIP.md), [qualification](self-hosting/m2/QUALIFICATION.md)); G1 open |
 | [M3](#m3-semantic-and-backend-preparation) | Complete core B1/B2/B7 helpers and early B5 digests | M2 for broad port work; reuse M1 outputs | Staged readiness for S2, S3 with ByteView SHA-256, and S4 with MD5/native-link policy | Not started |
 | [M4](#m4-native-filesystem-and-process-services) | Deliver B3 filesystem and B4 process services | M2; audited helper dependencies | Filesystem checkpoint first, native process/driver checkpoint second | Not started |
 | [M5](#m5-artifacts-and-command-line-helpers) | Deliver public CRC32, B6 archives, and S6 B7 helpers | M2; required M3 helpers; M4 filesystem checkpoint for publication | Artifact and documentation/CLI prerequisites ready for S6 | Not started |
@@ -429,11 +429,21 @@ remains the gate definition, and **G1** remains its stable checkpoint name.
   zero temporaries. Callback costs are recorded per kind (observer calls add
   no allocations), paired controls hold in every mode, every allocation
   failure unwinds, and all 94 runs fit the budgets within a 32-KiB stack.
-- [ ] **M2.3: Scale and qualify.** Compile and link with `--unfreed=warn`, retain
+- [x] **M2.3: Scale and qualify.** Compile and link with `--unfreed=warn`, retain
   logs, and classify per-command and unique-site missing-free counts and local
   suppressions. Compare geometrically increasing workloads, memory/stack/time,
   and outstanding temporaries against M0 budgets. Mandatory safety failures
   remain errors, and zero missing-free warnings is not a requirement.
+  Complete: the [qualification record](self-hosting/m2/QUALIFICATION.md)
+  classifies the ten pilot commands' eight reports as four test-adapter sites,
+  all intentional invocation-lifetime retention, with one justified local
+  suppression; the port reports nothing and no command has a mandatory error.
+  The unsafe corpus sources stay rejected in every mode. The selected kernels
+  rerun within budget, and doubling past the references leaves zero
+  temporaries: ownership stays linear to 4,096 nodes, while forced-collision
+  evidence and fixed-point effects grow faster and reach their phase caps at
+  1,024 nodes and 512 functions; the frontend bundle matches M2.1 up to eight
+  copies.
 
 **Checkpoint G1:** all [S1 evidence](#evidence-for-the-s1-exit-gate) passes and
 has an evidence record. On failure, name the limiting representation/proof or

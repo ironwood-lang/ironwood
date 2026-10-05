@@ -15,6 +15,12 @@ which must be zero.
 `stack` bisects external stack limits per configuration: the smallest limit
 at which the unchanged binary exits 0 with the same result, and the next
 smaller limit tried, which fails. No bookkeeping is added to the binary.
+
+`scale` (M2.3) doubles each kernel's size from 128: ownership to 4,096 nodes,
+evidence and effects to 1,024 nodes or functions, two fresh repeats each,
+under the same launcher and a 10-second runner timeout. Sizes above 128 have
+no J0 reference; the kernel's own contract checks still run, and the same
+retirement split applies.
 """
 import argparse
 import json
@@ -31,7 +37,7 @@ PROFILE = 'macOS arm64 Apple M5, 32 GiB, qualified pinned JDK/LLVM identities'
 ITERATIONS = 64
 # Per ownership iteration: setState, setDetached, two joined states and three
 # blocks (seven state versions); the replacement and the joined child version;
-# with recorded explanations, five selected-reason events.
+# with recorded explanations, five selected-reason events (counted by the kernel).
 STATE_VERSIONS = 7
 CHILD_VERSIONS = 2
 EVENTS = 5
@@ -58,16 +64,37 @@ def metrics(path):
     return {key: int(value) for key, value in (line.split('=', 1) for line in path.read_text().splitlines())}
 
 
+def expected_events(kind, shape, flag):
+    # Every join records five events unless explanations are off or the tight
+    # budget stopped during setup; a large kernel can exhaust the ample budget.
+    return ITERATIONS * EVENTS if kind == 'ownership' and flag == 'explain-on' and shape < 3 else 0
+
+
 def invocation_lived(kind, shape, flag, values):
     if kind == 'ownership':
-        events = EVENTS if flag == 'explain-on' and shape < 3 else 0
-        return ITERATIONS * (STATE_VERSIONS + CHILD_VERSIONS * values['childVersionAllocations'] + events) + 1
+        return ITERATIONS * (STATE_VERSIONS + CHILD_VERSIONS * values['childVersionAllocations']) \
+            + values['recordedEvents'] + 1
     if kind == 'evidence':
         return ITERATIONS * 2  # one join and one selected-reason event per iteration
     return 1  # the effect projection text
 
 
-def launch(argv, run_dir, env, cap):
+def scale_configurations():
+    result = []
+    for size in (128, 256, 512, 1024, 2048, 4096):
+        for shape in (1, 2, 3):
+            result.append(('ownership', 'ownership', size, shape, 'explain-on', 'ownership-%d-%d-on' % (size, shape)))
+    # Above about 1,365 colliding nodes the store's fixed snapshot limit stops saving.
+    for size in (128, 256, 512, 1024):
+        result.append(('evidence', 'evidence', size, 1, 'observer-off', 'evidence-%d' % size))
+    # A chain needs one fixed-point round per function, so effects grow quadratically.
+    for size in (128, 256, 512, 1024):
+        for kind in ('effect', 'effect-cycle'):
+            result.append(('effect', kind, size, 65, 'observer-on', '%s-%d-65-on' % (kind, size)))
+    return result
+
+
+def launch(argv, run_dir, env, cap, wall_cap=WALL_CAP):
     run_dir.mkdir(parents=True)
     limits = run_dir / 'stack-limits.txt'
     rusage = run_dir / 'rusage.txt'
@@ -78,7 +105,7 @@ def launch(argv, run_dir, env, cap):
     with open(run_dir / 'stdout.txt', 'wb') as out, open(run_dir / 'stderr.txt', 'wb') as err:
         process = subprocess.Popen(command, stdout=out, stderr=err, env=env, start_new_session=True)
         try:
-            status = process.wait(timeout=WALL_CAP)
+            status = process.wait(timeout=wall_cap)
             timed_out = False
         except subprocess.TimeoutExpired:
             os.killpg(process.pid, 9)
@@ -105,6 +132,9 @@ def resources(args, env):
             reference = args.references / (label + '-sample0-r0') / 'result.txt'
             result = output / 'result.txt'
             matches = result.exists() and result.read_bytes() == reference.read_bytes()
+            if (output / 'metrics.txt').exists():
+                # At the selected sizes every join's events must be recorded.
+                matches = matches and metrics(output / 'metrics.txt')['recordedEvents'] == expected_events(kind, width, flag)
             record.update({'case': label, 'repeat': repeat, 'group': group, 'kind': kind, 'profile': PROFILE,
                            'result_matches_j0': matches})
             if (output / 'metrics.txt').exists():
@@ -114,6 +144,7 @@ def resources(args, env):
                 record.update({'phase_seconds': values['phaseNanos'] / 1e9,
                                'phase_allocations': values['phaseAllocations'],
                                'live_after_phase': values['liveAfterPhase'] - values['liveAfterSetup'],
+                               'recorded_events': values['recordedEvents'],
                                'retained_after_retirement': retained, 'invocation_lived': expected,
                                'temporary_outstanding_after_retirement': retained - expected})
             runs.append(record)
@@ -123,6 +154,34 @@ def resources(args, env):
     mismatched = [run['case'] for run in runs if not run['result_matches_j0'] or run['exit_status'] != 0]
     print('runs', len(runs), 'mismatched', len(mismatched))
     return 1 if mismatched else 0
+
+
+def scale(args, env):
+    runs = []
+    for repeat in range(args.repeats):
+        for group, kind, size, width, flag, label in scale_configurations():
+            run_dir = args.output / ('%s-r%d' % (label, repeat))
+            output = run_dir / 'output'
+            output.mkdir(parents=True)
+            record = launch([args.binary, kind, str(size), str(width), flag, str(output)], run_dir / 'process', env,
+                            STACK_KIB, 10.0)
+            record.update({'case': label, 'repeat': repeat, 'group': group, 'kind': kind, 'size': size,
+                           'profile': PROFILE})
+            if record['exit_status'] == 0 and (output / 'metrics.txt').exists():
+                values = metrics(output / 'metrics.txt')
+                retained = values['liveAfterRetirement'] - values['liveAfterSetup']
+                expected = invocation_lived(kind, width, flag, values)
+                record.update({'phase_seconds': values['phaseNanos'] / 1e9,
+                               'phase_allocations': values['phaseAllocations'],
+                               'live_after_phase': values['liveAfterPhase'] - values['liveAfterSetup'],
+                               'recorded_events': values['recordedEvents'],
+                               'retained_after_retirement': retained, 'invocation_lived': expected,
+                               'temporary_outstanding_after_retirement': retained - expected})
+            runs.append(record)
+            print(label, repeat, record['exit_status'], record['timed_out'], '%.3f s' % record['fresh_wall_seconds'],
+                  record['rss_bytes'], record.get('phase_seconds'), record.get('temporary_outstanding_after_retirement'))
+    (args.output / 'runs.json').write_text(json.dumps({'runs': runs}, indent=1) + '\n')
+    return 0
 
 
 def stack(args, env):
@@ -165,7 +224,7 @@ def stack(args, env):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('mode', choices=['resources', 'stack'])
+    parser.add_argument('mode', choices=['resources', 'stack', 'scale'])
     parser.add_argument('--binary', required=True, help='native KernelCapture executable')
     parser.add_argument('--references', type=Path, help='directory of J0 LABEL-sample0-r0/result.txt files')
     parser.add_argument('--repeats', type=int, default=2)
@@ -175,7 +234,7 @@ def main():
         raise SystemExit('preserve existing measurements: ' + str(args.output))
     args.output.mkdir(parents=True)
     env = {k: v for k, v in os.environ.items() if k not in ('JAVA_TOOL_OPTIONS', 'JDK_JAVA_OPTIONS', '_JAVA_OPTIONS')}
-    return resources(args, env) if args.mode == 'resources' else stack(args, env)
+    return {'resources': resources, 'stack': stack, 'scale': scale}[args.mode](args, env)
 
 
 if __name__ == '__main__':

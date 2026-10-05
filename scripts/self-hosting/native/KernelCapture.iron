@@ -46,7 +46,8 @@ import ironwood.nio.file.Path;
  * allocation count and the live-allocation observations after setup, after
  * the phase and after every snapshot and saved version is retired. What stays
  * live after retirement is the invocation-lived payload of D262 plus the
- * result text; the ownership kernel calibrates one child version's cost. Snapshot versions are held in recursion frames, so all
+ * result text; the ownership kernel calibrates one child version's cost and
+ * counts the explanation events its joins recorded. Snapshot versions are held in recursion frames, so all
  * of them stay live until verification, as Java's strong keys keep them, and
  * each retires by an ordinary local proof. Exit 0 when every check holds.
  */
@@ -60,6 +61,7 @@ class KernelCapture {
     static long allocationsAtStart;
     static long phaseAllocations;
     static long childVersionAllocations;
+    static long recordedEvents;
 
     public static int main(String[] args) {
 
@@ -72,7 +74,7 @@ class KernelCapture {
             String metrics = "phaseNanos=" + phaseNanos + "\nphaseAllocations=" + phaseAllocations
                     + "\nliveAfterSetup=" + liveAfterSetup + "\nliveAfterPhase=" + liveAfterPhase
                     + "\nliveAfterRetirement=" + liveAfterRetirement + "\nchildVersionAllocations="
-                    + childVersionAllocations + "\n";
+                    + childVersionAllocations + "\nrecordedEvents=" + recordedEvents + "\n";
             write(args[4] + "/result.txt", result);
             write(args[4] + "/metrics.txt", metrics);
             free metrics;
@@ -253,6 +255,7 @@ final class OwnershipKernel {
         KernelCapture.require(this.nodes[0].state() == OperationVariants.AllocationState.ACTIVE
                 && !this.nodes[1].detached());
         this.analyzer.mergeOwnership(before, paths, "kernel conflict");
+        this.countEvents();
         OperationVariants.AllocationState uncertain = OperationVariants.AllocationState.UNCERTAIN;
         KernelCapture.require(this.nodes[0].state() == uncertain && this.nodes[1].state() == uncertain);
         KernelCapture.require(this.nodes[3].state() == uncertain && this.nodes[5].state() == uncertain
@@ -286,6 +289,19 @@ final class OwnershipKernel {
             return;
         }
         this.iterate(iteration + 1, firstBefore, firstChanged);
+    }
+
+    // The join records a selected-reason event for each of the five nodes it
+    // makes uncertain or blocks while the explanation budget allows; restoring
+    // the event-free pre-branch version clears them again.
+    private void countEvents() {
+
+        if (this.evidence == null) return;
+        if (this.evidence.event(this.nodes[0]) != null) KernelCapture.recordedEvents++;
+        if (this.evidence.event(this.nodes[1]) != null) KernelCapture.recordedEvents++;
+        if (this.evidence.event(this.nodes[3]) != null) KernelCapture.recordedEvents++;
+        if (this.evidence.event(this.nodes[5]) != null) KernelCapture.recordedEvents++;
+        if (this.evidence.event(this.nodes[6]) != null) KernelCapture.recordedEvents++;
     }
 
     private void verify(OwnershipSnapshot before, OwnershipSnapshot changed, OwnershipSnapshot merged) {
@@ -577,6 +593,8 @@ final class EvidenceKernel {
         // Java's collector would retire the versions after close; release is a no-op then.
         defer keys.release(this.store);
         keys.save(this.store);
+        // The store's fixed snapshot limit stops saving above about 1,365 nodes.
+        KernelCapture.require(keys.key(0).savedEvidence() != null);
         int saved = keys.key(0).savedEvidence().associations();
         KernelCapture.require(saved == this.nodes.length * 6);
         this.associations += saved;
@@ -584,7 +602,7 @@ final class EvidenceKernel {
         KernelCapture.require(this.store.joined(this.nodes[0], new RejectedFreeEvidence.Join("state", "reason", 0,
                 "complete", true)));
         keys.save(this.store);
-        KernelCapture.require(keys.key(1).savedEvidence().associations() == saved);
+        KernelCapture.require(keys.key(1).savedEvidence() != null && keys.key(1).savedEvidence().associations() == saved);
         this.associations += saved;
         KernelCapture.require(this.store.merge(keys));
         if (this.store.event(this.nodes[0]) == null && this.store.join(this.nodes[0]) == null
