@@ -200,7 +200,8 @@
       ],
       "log": "workspace/m1/set-rollback-qualified/helper-compile.log",
       "exit": 0,
-      "expected_exit": 0
+      "expected_exit": 0,
+      "cwd": "/Users/developer/workspace-mba-m2/Ironwood"
     },
     {
       "argv": [
@@ -215,7 +216,8 @@
       ],
       "log": "workspace/m1/set-rollback-qualified/helper-archive.log",
       "exit": 0,
-      "expected_exit": 0
+      "expected_exit": 0,
+      "cwd": "/Users/developer/workspace-mba-m2/Ironwood"
     },
     {
       "argv": [
@@ -236,7 +238,8 @@
       ],
       "log": "workspace/m1/set-rollback-qualified/helper-classes-link.log",
       "exit": 0,
-      "expected_exit": 0
+      "expected_exit": 0,
+      "cwd": "/Users/developer/workspace-mba-m2/Ironwood"
     },
     {
       "argv": [
@@ -244,7 +247,8 @@
       ],
       "log": "workspace/m1/set-rollback-qualified/helper-classes-run.log",
       "exit": 42,
-      "expected_exit": 42
+      "expected_exit": 42,
+      "cwd": "/Users/developer/workspace-mba-m2/Ironwood"
     },
     {
       "argv": [
@@ -265,7 +269,8 @@
       ],
       "log": "workspace/m1/set-rollback-qualified/helper-archive-link.log",
       "exit": 0,
-      "expected_exit": 0
+      "expected_exit": 0,
+      "cwd": "/Users/developer/workspace-mba-m2/Ironwood"
     },
     {
       "argv": [
@@ -273,7 +278,8 @@
       ],
       "log": "workspace/m1/set-rollback-qualified/helper-archive-run.log",
       "exit": 42,
-      "expected_exit": 42
+      "expected_exit": 42,
+      "cwd": "/Users/developer/workspace-mba-m2/Ironwood"
     },
     {
       "argv": [
@@ -287,7 +293,8 @@
       ],
       "log": "workspace/m1/set-rollback-qualified/baseline-compile.log",
       "exit": 0,
-      "expected_exit": 0
+      "expected_exit": 0,
+      "cwd": "/Users/developer/workspace-mba-m2/Ironwood"
     },
     {
       "argv": [
@@ -308,7 +315,8 @@
       ],
       "log": "workspace/m1/set-rollback-qualified/baseline-link.log",
       "exit": 0,
-      "expected_exit": 0
+      "expected_exit": 0,
+      "cwd": "/Users/developer/workspace-mba-m2/Ironwood"
     },
     {
       "argv": [
@@ -572,7 +580,8 @@
       "log": "workspace/m1/set-rollback-qualified/strict-library.log",
       "exit": 0,
       "expected_exit": 0,
-      "label": "strict library"
+      "label": "strict library",
+      "cwd": "/Users/developer/workspace-mba-m2/Ironwood"
     },
     {
       "argv": [
@@ -603,7 +612,8 @@
       "log": "workspace/m1/set-rollback-qualified/focused-tests.log",
       "exit": 0,
       "expected_exit": 0,
-      "label": "9 focused tests"
+      "label": "9 focused tests",
+      "cwd": "/Users/developer/workspace-mba-m2/Ironwood"
     },
     {
       "argv": [
@@ -619,7 +629,8 @@
         "@workspace/m1/set-rollback-qualified/sources.txt"
       ],
       "exit": 0,
-      "expected_exit": 0
+      "expected_exit": 0,
+      "cwd": "/Users/developer/workspace-mba-m2/Ironwood"
     },
     {
       "argv": [
@@ -627,7 +638,8 @@
       ],
       "log": "workspace/m1/set-rollback-qualified/licenses.log",
       "exit": 0,
-      "expected_exit": 0
+      "expected_exit": 0,
+      "cwd": "/Users/developer/workspace-mba-m2/Ironwood"
     },
     {
       "argv": [
@@ -637,7 +649,8 @@
       ],
       "log": "workspace/m1/set-rollback-qualified/diff-check.log",
       "exit": 0,
-      "expected_exit": 0
+      "expected_exit": 0,
+      "cwd": "/Users/developer/workspace-mba-m2/Ironwood"
     },
     {
       "argv": [
@@ -647,7 +660,8 @@
       ],
       "log": "workspace/m1/set-rollback-qualified/helper-classes-O3-machine-code.log",
       "exit": 0,
-      "expected_exit": 0
+      "expected_exit": 0,
+      "cwd": "/Users/developer/workspace-mba-m2/Ironwood"
     },
     {
       "argv": [
@@ -662,7 +676,8 @@
         "."
       ],
       "exit": 0,
-      "expected_exit": 0
+      "expected_exit": 0,
+      "cwd": "/Users/developer/workspace-mba-m2/Ironwood"
     },
     {
       "argv": [
@@ -681,7 +696,8 @@
       ],
       "exit": 0,
       "expected_exit": 0,
-      "log": "workspace/m1/set-rollback-qualified/test-javac.log"
+      "log": "workspace/m1/set-rollback-qualified/test-javac.log",
+      "cwd": "/Users/developer/workspace-mba-m2/Ironwood"
     }
   ],
   "logs": [
@@ -1019,5 +1035,53 @@
     "historical admission witness is compile-only",
     "expected rejected-source diagnostics and missing-free diagnostics in off/warn/error comparisons remain complete; no warnings suppressed",
     "allocation claims are qualified to measured scales; inherited very-large-capacity float threshold unchanged"
-  ]
+  ],
+  "replay": {
+    "cwd": "/Users/developer/workspace-mba-m2/Ironwood",
+    "focused_commit": "ae78b826400976c02ec0ea1eb65e63550883b8f7",
+    "compiler_source_count": 462,
+    "source_list": {
+      "path": "docs/self-hosting/m1/set-rollback-evidence/sources.txt",
+      "sha256": "8e5240b92767efd7ad3d35a2e585cbd6b2267f32020c8d54da905fbe720a272a"
+    },
+    "materialized_source_overrides": [
+      {
+        "repository_path": "compiler/src/main/java/ironwood/compiler/semantic/EscapeSummaryAnalyzer.java",
+        "compile_input": "workspace/m1/set-rollback-qualified/sources/compiler/src/main/java/ironwood/compiler/semantic/EscapeSummaryAnalyzer.java",
+        "sha256": "46c70a0a1b8d506b4a3d950a76306316a5280135409034457c36bff8a2462c38"
+      },
+      {
+        "repository_path": "compiler/src/main/java/ironwood/compiler/semantic/FreshBorrowingFactoryAnalysis.java",
+        "compile_input": "workspace/m1/set-rollback-qualified/sources/compiler/src/main/java/ironwood/compiler/semantic/FreshBorrowingFactoryAnalysis.java",
+        "sha256": "607404d34b90fb413581a333e75d838f4e09fc6516766c8aec3ed7cd3113d412"
+      },
+      {
+        "repository_path": "compiler/src/main/java/ironwood/compiler/semantic/FunctionAnalyzer.java",
+        "compile_input": "workspace/m1/set-rollback-qualified/sources/compiler/src/main/java/ironwood/compiler/semantic/FunctionAnalyzer.java",
+        "sha256": "c28e6b4d07cef3ec5d61d50eb97f1db65c474966d020cdda68198179e132e6ab"
+      }
+    ],
+    "unchanged_checkout_inputs": 459,
+    "materialization": "Read each tracked compiler Java blob from the focused index with git show :<repository_path>. Write the three listed overrides under workspace/m1/set-rollback-qualified/sources, preserve the repository path beneath it, and bind their SHA-256. For all other 459 inputs, assert that checkout bytes equal the indexed blob before compiling. sources.txt uses the override paths for these three files and repository paths for the others. It excludes untracked CopiedMapReadAnalysis.java. Reproduce from the focused commit by verifying compiler-sources.json and materializing the same three committed blobs; never use paused draft bytes. Copy VERSION into classes/ironwood/compiler/VERSION before jar creation.",
+    "test_source_count": 209,
+    "test_source_list": {
+      "original_argument_path": "compiler/build/test-sources.txt",
+      "retained_path": "docs/self-hosting/m1/set-rollback-evidence/test-sources.txt",
+      "sha256": "bf0a7be609725eac931ab85a1a2a564310f676efb9cbf4f128bd1d14d7eed85b"
+    },
+    "test_source_identities": {
+      "path": "docs/self-hosting/m1/set-rollback-evidence/test-source-identities.json",
+      "sha256": "fb86fdffcc765df393f9529905c027c26bd19191b8d99615eaf1d5c5e8b73c49"
+    },
+    "tests_compiler_classpath": "workspace/m1/set-rollback-qualified/classes",
+    "tests_runtime_classpath": "workspace/m1/set-rollback-qualified/classes:workspace/m1/set-rollback-qualified/test-classes",
+    "CompilerTests_sha256": "0316e2e3dd958a7af6df608d83db7ae5cfdafd917cf685a91a6d1a5d5bd71717"
+  },
+  "host_profile": {
+    "host": "macOS 27.0.1, build 26A434, arm64",
+    "bootstrap": "Java/javac/jar 21.0.1; explicit /Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home/bin paths",
+    "backend": "pinned LLVM 23.1.0 from /opt/homebrew/opt/llvm@23/bin; native arm64 -O3",
+    "environment": "Commands ran from the canonical checkout. Isolated javac/jar/test commands use explicit JDK executable paths and no environment overrides. Native qualification has no IRONWOOD_ALLOCATION_LIMIT override. Port set artifact tests explicitly select warn; strict library and explicit confined-helper native compilation/link select error. No warning suppressions. Development build scripts set JAVA_HOME=/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home.",
+    "prior_profile_reference": "docs/self-hosting/m1/set-evidence/manifest.json and immutable M0 profile; no target-profile change"
+  }
 }

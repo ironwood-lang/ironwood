@@ -11,7 +11,8 @@
     ],
     "log": "workspace/m1/set-rollback-qualified/helper-compile.log",
     "exit": 0,
-    "expected_exit": 0
+    "expected_exit": 0,
+    "cwd": "/Users/developer/workspace-mba-m2/Ironwood"
   },
   {
     "argv": [
@@ -26,7 +27,8 @@
     ],
     "log": "workspace/m1/set-rollback-qualified/helper-archive.log",
     "exit": 0,
-    "expected_exit": 0
+    "expected_exit": 0,
+    "cwd": "/Users/developer/workspace-mba-m2/Ironwood"
   },
   {
     "argv": [
@@ -47,7 +49,8 @@
     ],
     "log": "workspace/m1/set-rollback-qualified/helper-classes-link.log",
     "exit": 0,
-    "expected_exit": 0
+    "expected_exit": 0,
+    "cwd": "/Users/developer/workspace-mba-m2/Ironwood"
   },
   {
     "argv": [
@@ -55,7 +58,8 @@
     ],
     "log": "workspace/m1/set-rollback-qualified/helper-classes-run.log",
     "exit": 42,
-    "expected_exit": 42
+    "expected_exit": 42,
+    "cwd": "/Users/developer/workspace-mba-m2/Ironwood"
   },
   {
     "argv": [
@@ -76,7 +80,8 @@
     ],
     "log": "workspace/m1/set-rollback-qualified/helper-archive-link.log",
     "exit": 0,
-    "expected_exit": 0
+    "expected_exit": 0,
+    "cwd": "/Users/developer/workspace-mba-m2/Ironwood"
   },
   {
     "argv": [
@@ -84,6 +89,7 @@
     ],
     "log": "workspace/m1/set-rollback-qualified/helper-archive-run.log",
     "exit": 42,
-    "expected_exit": 42
+    "expected_exit": 42,
+    "cwd": "/Users/developer/workspace-mba-m2/Ironwood"
   }
 ]

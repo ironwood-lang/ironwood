@@ -11,7 +11,8 @@
     ],
     "log": "workspace/m1/set-rollback-qualified/baseline-compile.log",
     "exit": 0,
-    "expected_exit": 0
+    "expected_exit": 0,
+    "cwd": "/Users/developer/workspace-mba-m2/Ironwood"
   },
   {
     "argv": [
@@ -32,6 +33,7 @@
     ],
     "log": "workspace/m1/set-rollback-qualified/baseline-link.log",
     "exit": 0,
-    "expected_exit": 0
+    "expected_exit": 0,
+    "cwd": "/Users/developer/workspace-mba-m2/Ironwood"
   }
 ]
