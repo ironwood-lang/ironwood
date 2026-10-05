@@ -364,8 +364,9 @@ complete, and M1/M2 and every later milestone remain not started.
   In progress: the three map-copy and three set-copy families qualify, with
   publishing helper construction rejected even without explicit caller frees,
   including through constructor-held fields (D253), and D254's read-only keyed
-  snapshots; ordered restore traversal, operation composition and selected
-  FIFO/LIFO work remain.
+  snapshots. The selected FIFO and evidence-store iterator removal pass with
+  [D255's worklist](self-hosting/m1/WORKLIST.md); no pilot stack consumer is
+  reached. Ordered restore traversal and operation composition remain.
 - [ ] **M1.3: Pilot language and text helpers.** Prepare record value operations,
   text-block normalization, varargs/factory rewrites, numeric/nullable results,
   reached name splitting, and required callback interfaces. Rewrite any pattern

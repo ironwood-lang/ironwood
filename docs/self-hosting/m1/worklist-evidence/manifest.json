@@ -1,0 +1,139 @@
+{
+ "schema_version": 1,
+ "increment": "D255 compiler-private FIFO and evidence-store iterator removal",
+ "base_commit": "fa2020467b0c8a812adbce98fc95fe8835275843",
+ "producing_compiler": {
+  "path": "/Users/developer/workspace-mba-m2/Ironwood/workspace/m1/keyed-final/stage/compiler/build/ironwoodc.jar",
+  "sha256": "ab50fe2c128137005c4dbac8263bc1190ab956c1012bf5a285940709655a54b2",
+  "role": "compiler sources identical to base commit; no analysis change"
+ },
+ "sources": [
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/port/WorkQueue.iron",
+   "sha256": "b88202a2ba1aed0c9e8f2e477d0a78d34baf5c4d35752eb78110c4caa2d49653"
+  },
+  {
+   "path": "integration-tests/cases/compiler_work_queue.iron",
+   "sha256": "547c9c8d614fa05888223810858a8225bc26fa3b6eb9bf7da719762fd34d73f9"
+  },
+  {
+   "path": "integration-tests/cases/compiler_work_queue_failure.iron",
+   "sha256": "b2557052affb954ff8b8a8b7ce3d27192a1af0b05e83539f686eebacb46f9b65"
+  },
+  {
+   "path": "integration-tests/cases/compiler_iterator_retain.iron",
+   "sha256": "e833cd52cfc82e6ba01aea0cb98558917dfd51b6db0c41ed692498704668984a"
+  },
+  {
+   "path": "compiler/src/test/java/ironwood/compiler/WorkQueueTests.java",
+   "sha256": "7ff0ba887f936316cc370255e9f44fc824fe87c211e72477b8a1322e620323d1"
+  }
+ ],
+ "java_references": [
+  {
+   "path": "docs/self-hosting/m1/worklist-evidence/WorkQueueReference.java",
+   "sha256": "2852602522fac540d0fc1b4dc9c2448ea5b2c42f36a3702403d24c3059ebb8c9",
+   "runs": 4
+  },
+  {
+   "path": "docs/self-hosting/m1/worklist-evidence/IteratorRetainReference.java",
+   "sha256": "5045dce76b1f4c80debac8a1cb955abc2ea7bd85b612a9d372ed2f14c78910f5",
+   "runs": 4
+  }
+ ],
+ "handoff_sites": {
+  "M1.2": "12 ArrayDeque calls in ClosedWorldEffectAnalyzer.reachableBlocks (API0319/0321/0322/0325/0329) and 3 Iterator calls in RejectedFreeEvidence.retainArrayStores (API0425/0426/0427)"
+ },
+ "logs": [
+  {
+   "retained": "docs/self-hosting/m1/worklist-evidence/logs/diff-check.log.gz",
+   "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "gzip_sha256": "f61f27bd17de546264aa58f40f3aafaac7021e0ef69c17f6b1b4cd7664a037ec"
+  },
+  {
+   "retained": "docs/self-hosting/m1/worklist-evidence/logs/failure-compile.log.gz",
+   "sha256": "2b1659cf78284fb2c2a605b45811aa2fabef995f88781de591b014b9e67f7b4a",
+   "gzip_sha256": "a262066983706936c7aa84527408df8aea7f9c623c77304fbcf565b32199ee47"
+  },
+  {
+   "retained": "docs/self-hosting/m1/worklist-evidence/logs/failure-link.log.gz",
+   "sha256": "927ff95fce81f465563fcaba27e7aa9b6395c1404682933ef84d4a315e1a9a9d",
+   "gzip_sha256": "92d23232722973857f362493a06e1f127c69c997331cab9f904a9517f05cbdf5"
+  },
+  {
+   "retained": "docs/self-hosting/m1/worklist-evidence/logs/fixture-compile.log.gz",
+   "sha256": "3847c75fafd027fda498ce64f13a984306b00a7d05d4d921a1667d4549e77ef7",
+   "gzip_sha256": "64f9199e75efa59cb0448b6045e89ce2bd2dfde12ffbecc600784e62af888e59"
+  },
+  {
+   "retained": "docs/self-hosting/m1/worklist-evidence/logs/irondocs.log.gz",
+   "sha256": "4994ec39b1ca0e6fe929611b77a31fc21f279dbf4b97de4848516d11e76b11ff",
+   "gzip_sha256": "182db64ff693bbe0ccbfa90c95058699eeb8f825c4814a682e511c023a21174b"
+  },
+  {
+   "retained": "docs/self-hosting/m1/worklist-evidence/logs/java-reference.log.gz",
+   "sha256": "bba951f1cdd0667bcd8de9858e7517187236f6c803965e4be4539f17ba0bd117",
+   "gzip_sha256": "6c3ad993c69d952df60364181ee3d2bac023d47c0d8dbdc5e78c01cf825d08f0"
+  },
+  {
+   "retained": "docs/self-hosting/m1/worklist-evidence/logs/licenses.log.gz",
+   "sha256": "baf5804aeb26498337c9c5223c199afeba5c3e2fc36ae219b9bf420e3775f673",
+   "gzip_sha256": "c33bdaafc40ae52137c7119d2922a14fd4f4f340cea86e19094625617947bf77"
+  },
+  {
+   "retained": "docs/self-hosting/m1/worklist-evidence/logs/link.log.gz",
+   "sha256": "280c7778e981b2b42b844f02c5fa3776505c7d021fd327581504835cc1a101fc",
+   "gzip_sha256": "d5da92ab26c9417258dba581bf7b2bcf313a1861163652326ac543549dcd27dc"
+  },
+  {
+   "retained": "docs/self-hosting/m1/worklist-evidence/logs/native.txt.gz",
+   "sha256": "c4f295af8f8162fdacfe5c5408ca42722b6298b5c0abdfd6e54d7b3cc3067c16",
+   "gzip_sha256": "26537bba779872e0bf252f641427ba87c05e7693b654058f90eb0fe616e8d5f8"
+  },
+  {
+   "retained": "docs/self-hosting/m1/worklist-evidence/logs/oom.log.gz",
+   "sha256": "0a35e96c1aeedb8426db27a9ec34bd51b71414464e99c9c0b5218972b57f25e7",
+   "gzip_sha256": "bdc603be8a09464dd6aa523bf7dd9bd4670058f478cce65f97366e8a4550dbf9"
+  },
+  {
+   "retained": "docs/self-hosting/m1/worklist-evidence/logs/retain-compile.log.gz",
+   "sha256": "fefc8909aadba88c0f88d5b1056af06cece414a4678f9ab51edf0252c4b05496",
+   "gzip_sha256": "8290936b7da381cd482057e8aaf232aa1810f0ebefdd591468c30853ce88837f"
+  },
+  {
+   "retained": "docs/self-hosting/m1/worklist-evidence/logs/retain-link.log.gz",
+   "sha256": "5c0c28b38f64f8e14bd16fe9e3c36b33e20ff168205bb08dd28cd8ce8174c67f",
+   "gzip_sha256": "57e72f0b4ea85c9db2ef267b51fbe546a3158be25f270fc65f01a2f40d7ad1fd"
+  },
+  {
+   "retained": "docs/self-hosting/m1/worklist-evidence/logs/retain-native.txt.gz",
+   "sha256": "059a6d6334ed1c10112a61e9dfa768f2e31b1e5f801854b1fe288e6144d719b3",
+   "gzip_sha256": "cd2efe7b6aac7acebc662bfa46b812ee00402ca7207e73593dfde5c05caced08"
+  },
+  {
+   "retained": "docs/self-hosting/m1/worklist-evidence/logs/tests.log.gz",
+   "sha256": "b388bf97a4e8bd3277f7f27e73923a1851f9fb1cb871debe7dd064e4bf5cbb2e",
+   "gzip_sha256": "36c71b6ff1f16a4103ae273ad9e4c54598f15540e2bf64042aa7431678d3fc7c"
+  }
+ ],
+ "results": {
+  "tests": "PASS: 2 compiler tests (ownership all modes; artifacts classes/archive)",
+  "java_parity": "both transcripts byte-identical to native in 4 fresh JVMs each",
+  "allocations": "construction 2; 16,000 bounded adds/takes 0; growth 1 with old ring freed",
+  "oom": "limits 0-3 exit 42 with order intact and storage reclaimed; 4-8 exit 43",
+  "unfreed_warn": "0 warnings in every compile and link",
+  "irondocs": "1 type",
+  "licensing": "passed"
+ },
+ "boundaries": [
+  "queued items escape conservatively; no loan discharge",
+  "no stack, deque or iterator type added",
+  "other worklists remain with M3/M6 owners",
+  "full M1 open"
+ ],
+ "host_profile": {
+  "host": "macOS 27.0.1, arm64, Apple M5, 32 GiB",
+  "bootstrap": "Java 21.0.1",
+  "backend": "pinned LLVM 23.1.0"
+ }
+}

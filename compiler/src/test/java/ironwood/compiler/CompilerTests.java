@@ -837,6 +837,9 @@ public final class CompilerTests {
         test("private keyed snapshot reads reject unknown bodies and publishing callbacks", KeyedSnapshotTests::proofControls);
         test("private keyed counts and lookups preserve stored callback exposure", KeyedSnapshotTests::countAndStoredCallbacks);
         test("private keyed snapshots survive artifacts and allocation failures", KeyedSnapshotTests::artifacts);
+        test("compiler work queue keeps queued items alive and its ring private", WorkQueueTests::ownership);
+        test("compiler worklists preserve FIFO and retain-filter order across artifacts and failures",
+                WorkQueueTests::artifacts);
         test("private compiler snapshot getter loans survive joins and delegation",
                 this::privateSnapshotGetterJoins);
         test("private compiler snapshot proofs reject publication and unrecognized construction",

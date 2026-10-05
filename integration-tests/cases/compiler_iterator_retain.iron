@@ -1,0 +1,63 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// Mirrors RejectedFreeEvidence.retainArrayStores: traverse a value-keyed map,
+// skip live keys and remove every other entry through the iterator. The first
+// eight keys share one String hash, so removals hit chain heads, middles and
+// tails. Prints the removal count and survivors in key order per case, which
+// must equal the Java reference; traversal order itself is not compared
+// because the selected consumer is order-independent. Exit 42 after every map
+// is freed and the storage baseline is restored; literal keys are never freed.
+import ironwood.ds.*;
+import ironwood.util.Iterator;
+
+class Main {
+
+    static int indexOf(String[] keys, String key) {
+
+        for (int index = 0; index < keys.length; index++) {
+            if (keys[index].equals(key)) return index;
+        }
+        return -1;
+    }
+
+    // Bit i of live keeps keys[i].
+    static void retain(String[] keys, int live) {
+
+        HashMap<String, String> stores = new HashMap<String, String>(4);
+        defer free stores;
+        for (int index = 0; index < keys.length; index++) stores.put(keys[index], "site");
+        int removed = 0;
+        Iterator<String> values = stores.iterator();
+        while (values.hasNext()) {
+            values.next();
+            int index = indexOf(keys, stores.getCurrIteratorKey());
+            if ((live & (1 << index)) != 0) continue;
+            values.remove();
+            removed++;
+        }
+        StringBuilder line = new StringBuilder();
+        defer free line;
+        line.append("removed:").append(removed).append(" kept:");
+        for (int index = 0; index < keys.length; index++) {
+            if (stores.containsKey(keys[index])) line.append(keys[index]).append(' ');
+        }
+        line.append("size:").append(stores.size());
+        System.out.println(line.toString());
+    }
+
+    public static int main(String[] args) {
+
+        String[] keys = {"AaAaAa", "AaAaBB", "AaBBAa", "AaBBBB", "BBAaAa", "BBAaBB", "BBBBAa", "BBBBBB",
+                "x0", "x1", "x2", "x3"};
+        defer free keys;
+        long baseline = System.liveAllocationCount();
+        retain(keys, 0);
+        retain(keys, 4095);
+        retain(keys, 1 | 8 | 64 | 512);
+        retain(keys, 2 | 4 | 16 | 32 | 128 | 256 | 1024 | 2048);
+        retain(keys, 7);
+        retain(keys, 7 << 5);
+        if (System.liveAllocationCount() != baseline) return 1;
+        return 42;
+    }
+}

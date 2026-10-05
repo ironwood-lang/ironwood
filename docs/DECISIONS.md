@@ -9675,3 +9675,30 @@ occurrence order. If no
   class/archive loan reconstruction; Java 21 reference; native allocation
   scaling, membership, null rollback, callback failure and every OOM limit
   0-80. See [the keyed snapshot record](self-hosting/m1/KEYED.md).
+
+## D255 - Use a compiler-private ring FIFO for the selected pilot worklist
+
+- **Status:** Implemented during M1.2 on 2026-10-05.
+- **Decision:** Replace the effect analyzer's selected `ArrayDeque` FIFO
+  (WORKLIST_CONTRACTS Q20) with compiler-private `WorkQueue<E>`: append at the
+  tail, take from the head, `isEmpty`, `size` and `clear`. Null items throw
+  `NullPointerException` and an empty take throws `NoSuchElementException`, as
+  in Java. A power-of-two ring reuses consumed slots, so takes never shift
+  membership and storage is bounded by the largest simultaneous membership.
+  Growth installs the doubled ring before copying and leaves the queue
+  unchanged if allocation fails. The selected evidence-store iterator removal
+  uses the existing `HashMap` iterator `remove()` and current-key accessor.
+- **Proof:** No analysis change. The ring is an ordinary owned array field
+  with the existing detached-backing growth shape. Queued items escape
+  conservatively: freeing one while queued is rejected, and so is a later free
+  after the queue is gone. The selected consumer queues block labels owned by
+  the IR, so no loan discharge is needed.
+- **Boundary:** No stack, general deque, sorting or iterator type is added; no
+  stack consumer is reached by the pilot. Other WORKLIST_CONTRACTS queues stay
+  with their M3/M6 owners. Item loan discharge remains conditional on a
+  demonstrated consumer. This establishes neither full M1 nor S1/G1.
+- **Verification:** Java `ArrayDeque` transcript parity for wraparound,
+  growth and the analyzer's CFG order; zero allocations over 16,000 bounded
+  adds/takes; ordinary null/empty failure lifetimes; every OOM limit; all-mode
+  ownership controls; class/archive artifacts; retain-filter parity with the
+  Java `retainArrayStores` loop. See [the worklist record](self-hosting/m1/WORKLIST.md).

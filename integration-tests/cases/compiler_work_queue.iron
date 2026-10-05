@@ -1,0 +1,137 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// A compiler-private FIFO borrows queued labels, reuses consumed ring slots and
+// grows by copying membership in head-to-tail order. The CFG walk mirrors the
+// effect analyzer's reachable-block order: jump, true before false, switch
+// default before cases, normal before unwind. Output must equal the Java
+// ArrayDeque reference transcript. Exit 42 after allocation, failure and
+// cleanup checks; every queue is freed, and literal labels are never freed.
+import ironwood.ds.*;
+import ironwood.compiler.port.WorkQueue;
+import ironwood.util.NoSuchElementException;
+
+class Main {
+
+    // Six rounds add three and take one, so the ring has wrapped before it grows.
+    static void order() {
+
+        String[] names = {"n0", "n1", "n2", "n3", "n4", "n5", "n6", "n7", "n8", "n9", "n10", "n11",
+                "n12", "n13", "n14", "n15", "n16", "n17", "n18", "n19", "n20", "n21", "n22", "n23"};
+        defer free names;
+        WorkQueue<String> queue = new WorkQueue<String>();
+        defer free queue;
+        StringBuilder taken = new StringBuilder();
+        defer free taken;
+        int next = 0;
+        for (int round = 0; round < 6; round++) {
+            for (int added = 0; added < 3; added++) queue.add(names[next++]);
+            taken.append(queue.removeFirst()).append(' ');
+        }
+        while (next < names.length) queue.add(names[next++]);
+        System.out.println("size:" + queue.size());
+        while (!queue.isEmpty()) taken.append(queue.removeFirst()).append(' ');
+        System.out.println("order:" + taken.toString().trim());
+    }
+
+    // Successors in the analyzer's producer order; "dead" is never reached.
+    static String[] successors(String label) {
+
+        if (label.equals("entry")) return new String[]{"branch"};
+        if (label.equals("branch")) return new String[]{"then", "else"};
+        if (label.equals("then")) return new String[]{"switch"};
+        if (label.equals("else")) return new String[]{"loop"};
+        if (label.equals("loop")) return new String[]{"loop", "invoke"};
+        if (label.equals("switch")) return new String[]{"default", "case1", "case2"};
+        if (label.equals("invoke")) return new String[]{"normal", "unwind"};
+        if (label.equals("case1")) return new String[]{"default"};
+        if (label.equals("normal")) return new String[]{"branch"};
+        if (label.equals("dead")) return new String[]{"entry"};
+        return new String[0];
+    }
+
+    static void reachable() {
+
+        LinkedHashSet<String> seen = new LinkedHashSet<String>();
+        defer free seen;
+        WorkQueue<String> pending = new WorkQueue<String>();
+        defer free pending;
+        StringBuilder visited = new StringBuilder();
+        defer free visited;
+        pending.add("entry");
+        while (!pending.isEmpty()) {
+            String label = pending.removeFirst();
+            if (seen.contains(label)) continue;
+            seen.add(label);
+            visited.append(label).append(' ');
+            String[] next = successors(label);
+            for (int index = 0; index < next.length; index++) pending.add(next[index]);
+            free next;
+        }
+        System.out.println("reachable:" + visited.toString().trim());
+    }
+
+    // Construction allocates the object and ring; bounded reuse allocates nothing.
+    static int queueAllocations(long baseline) {
+
+        long before = System.allocationCount();
+        WorkQueue<String> queue = new WorkQueue<String>();
+        defer free queue;
+        if (System.allocationCount() - before != 2) return 1;
+        before = System.allocationCount();
+        for (int cycle = 0; cycle < 1000; cycle++) {
+            for (int added = 0; added < 16; added++) queue.add("label");
+            for (int taken = 0; taken < 16; taken++) queue.removeFirst();
+        }
+        if (System.allocationCount() - before != 0) return 2;
+        for (int added = 0; added < 17; added++) queue.add("label");
+        if (System.allocationCount() - before != 1) return 3;
+        if (System.liveAllocationCount() - baseline != 2) return 4;
+        queue.clear();
+        if (!queue.isEmpty() || queue.size() != 0) return 5;
+        return 0;
+    }
+
+    static int failures(long emptyDelta, long nullDelta) {
+
+        WorkQueue<String> queue = new WorkQueue<String>();
+        defer free queue;
+        long before = System.liveAllocationCount();
+        boolean empty = false;
+        try { queue.removeFirst(); }
+        catch (NoSuchElementException expected) { empty = true; }
+        if (!empty || System.liveAllocationCount() - before != emptyDelta) return 7;
+        queue.add("kept");
+        before = System.liveAllocationCount();
+        boolean rejected = false;
+        try { queue.add(null); }
+        catch (NullPointerException expected) { rejected = true; }
+        if (!rejected || System.liveAllocationCount() - before != nullDelta) return 8;
+        if (queue.size() != 1 || !queue.removeFirst().equals("kept")) return 9;
+        return 0;
+    }
+
+    public static int main(String[] args) {
+
+        order();
+        reachable();
+        long baseline = System.liveAllocationCount();
+        int status = queueAllocations(baseline);
+        if (status != 0) return status;
+        if (System.liveAllocationCount() != baseline) return 6;
+
+        // Failed takes and adds keep only the ordinary exception object.
+        long before = System.liveAllocationCount();
+        try { throw new NoSuchElementException(); }
+        catch (NoSuchElementException ordinary) { }
+        long emptyDelta = System.liveAllocationCount() - before;
+        before = System.liveAllocationCount();
+        try { throw new NullPointerException(); }
+        catch (NullPointerException ordinary) { }
+        long nullDelta = System.liveAllocationCount() - before;
+        baseline = System.liveAllocationCount();
+        status = failures(emptyDelta, nullDelta);
+        if (status != 0) return status;
+        if (System.liveAllocationCount() - baseline != emptyDelta + nullDelta) return 10;
+        return 42;
+    }
+}
