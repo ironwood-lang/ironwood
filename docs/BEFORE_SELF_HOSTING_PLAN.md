@@ -82,7 +82,7 @@ roadmap schedules them without replacing their detailed exit criteria.
 | [M0](#m0-baseline-and-contract-inventory) | Freeze the baseline and evidence contract: B0a | Current Java compiler and source audit | S0 baseline, ordering inventory, fixtures, budgets, and selected pilot scope recorded | Complete on qualified macOS arm64 profile: M0.1/M0.2/M0.3 and S0 passed |
 | [M1](#m1-minimum-pilot-prerequisites) | Build the minimum pilot dependencies: selected B1/B2/B7 slices | M0 | Required copies, traversal, ordering, and syntax/helpers have focused evidence | Complete on the qualified macOS arm64 profile; [checkpoint](self-hosting/m1/CHECKPOINT.md), [pre-change review](self-hosting/m1/PRE_CHANGE.md) |
 | [M2](#m2-portability-and-ownership-pilot) | Run B0b's frontend and ownership pilots | Required M1 phases | G1, the existing S1 gate, passes before broad translation | Complete: G1 passed on the qualified macOS arm64 profile ([checkpoint](self-hosting/m2/CHECKPOINT.md)) |
-| [M3](#m3-semantic-and-backend-preparation) | Complete core B1/B2/B7 helpers and early B5 digests | M2 for broad port work; reuse M1 outputs | Staged readiness for S2, S3 with ByteView SHA-256, and S4 with MD5/native-link policy | In progress: [M3.1 handoff](self-hosting/m3/HANDOFF_M3.1.md) passes, ready for S2 ([pre-change review](self-hosting/m3/PRE_CHANGE.md)); M3.2 [helpers](self-hosting/m3/SEMANTIC.md) pass, handoff pending; M3.3 not started |
+| [M3](#m3-semantic-and-backend-preparation) | Complete core B1/B2/B7 helpers and early B5 digests | M2 for broad port work; reuse M1 outputs | Staged readiness for S2, S3 with ByteView SHA-256, and S4 with MD5/native-link policy | In progress: [M3.1 handoff](self-hosting/m3/HANDOFF_M3.1.md) passes, ready for S2 ([pre-change review](self-hosting/m3/PRE_CHANGE.md)); [M3.2 handoff](self-hosting/m3/HANDOFF_M3.2.md) passes, ready for S3 and ByteView; M3.3 in progress |
 | [M4](#m4-native-filesystem-and-process-services) | Deliver B3 filesystem and B4 process services | M2; audited helper dependencies | Filesystem checkpoint first, native process/driver checkpoint second | Not started |
 | [M5](#m5-artifacts-and-command-line-helpers) | Deliver public CRC32, B6 archives, and S6 B7 helpers | M2; required M3 helpers; M4 filesystem checkpoint for publication | Artifact and documentation/CLI prerequisites ready for S6 | Not started |
 | [M6](#m6-bridge-preparation-and-final-handoff) | Qualify remaining Bridge consumers of B3-B7 | Required M3 helpers, M4 process checkpoint, and M5 artifact facilities | Preparation evidence and remaining S7/S8 integration obligations handed off | Not started |
@@ -480,16 +480,18 @@ the S2-S4 port; they do not replace its integration exits.
   319 M3.1 patterns an existing API, a recorded convention or a delivered
   helper, and the [M3.1 handoff](self-hosting/m3/HANDOFF_M3.1.md) records
   readiness for the S2 consumers.
-- [ ] **M3.2: S3 semantic prerequisites.** Complete bounded numeric folding,
+- [x] **M3.2: S3 semantic prerequisites.** Complete bounded numeric folding,
   StringPool/UTF-16 and name helpers, and exact SHA-256 before ByteView analysis.
   Test original versus changed declarations and preserve declaration authority.
   Extend semantic/snapshot differential fixtures as the port grows, using S3's
   pinned J0 time, heap, and stack capacity evidence.
-  In progress: the [numeric, text and SHA-256 helpers](self-hosting/m3/SEMANTIC.md)
+  Complete: the [numeric, text and SHA-256 helpers](self-hosting/m3/SEMANTIC.md)
   (D267) pass, including ByteView authority from J0's source, class and
   archive contents, and the [classification](self-hosting/m3/CLASSIFICATION_M3.2.md)
-  covers every M3.2 pattern. J0 cannot compile the accumulated port; the
-  capacity evidence and the M3.2 handoff run are pending.
+  covers every M3.2 pattern. The [M3.2 handoff](self-hosting/m3/HANDOFF_M3.2.md)
+  records the pinned capacity evidence and readiness for the S3 consumers.
+  J0 cannot compile the accumulated port, so S3 qualifies capacity on a newer
+  recorded seed.
 - [ ] **M3.3: S4 backend prerequisites.** Complete MD5 GUID generation, unsigned
   comparison/widening, binary slices, and remaining emission/text helpers.
   Prepare explicit installation/build identity inputs for the source-only route.

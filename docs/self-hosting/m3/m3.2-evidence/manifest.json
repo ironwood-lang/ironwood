@@ -1,0 +1,305 @@
+{
+ "schema_version": 1,
+ "increment": "M3.2 handoff: S3 semantic prerequisites before their S3 consumers, ByteView first",
+ "commit": "776a9efc3cbc065ec3b9852591ebe1422c2ddbee",
+ "host": "macOS arm64 Apple M5, 32 GiB",
+ "java": "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home",
+ "llvm": "/opt/homebrew/opt/llvm@23",
+ "reproduce": "docs/self-hosting/m3/m3.2-evidence/run-evidence.sh 776a9efc",
+ "status": [
+  "build exit=0",
+  "javac exit=0",
+  "tests exit=0",
+  "classification exit=0",
+  "capacity-summary exit=0",
+  "j0-compile-1-expected-failure exit=1",
+  "seed-compile-1 exit=0",
+  "seed-link-frontend-1 exit=0",
+  "seed-link-kernel-1 exit=0",
+  "j0-compile-2-expected-failure exit=1",
+  "seed-compile-2 exit=0",
+  "seed-link-frontend-2 exit=0",
+  "seed-link-kernel-2 exit=0",
+  "diff-check exit=0",
+  "licenses exit=0"
+ ],
+ "sources": [
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/port/IntegerLiterals.iron",
+   "sha256": "ddeb55e89b11184447dd359d4e1542aede0f29929eb143a8c65d7c1b8a81d586"
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/port/IntegralConstants.iron",
+   "sha256": "698b49200a09da1cc6ef6e12c585caaa4b833746bc40188c9ef6e1d5933d2a23"
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/port/Sha256.iron",
+   "sha256": "eb32978b5f9a66909b847e0bf73397d1fd0027a2426cace0bccba17244bfcb14"
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/port/Texts.iron",
+   "sha256": "86b0b38710759d2f568df60bb20eb2fde460da7ccd0fde85ee32579bca92250c"
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/port/Splits.iron",
+   "sha256": "96a0874c80c0bc3feca557eabafa292250faf29c3bb1d2d969a9ca38b552875f"
+  },
+  {
+   "path": "docs/self-hosting/m3/classify.py",
+   "sha256": "3d0f0de34298f69641b0457bde670815ce4a59ec468c1c334cd202da6e32ddf6"
+  },
+  {
+   "path": "docs/self-hosting/m3/CLASSIFICATION_M3.2.md",
+   "sha256": "8c9799960c232b5c6af5d940786c3695b250b7ad8c3f1f9acee2f56155970964"
+  },
+  {
+   "path": "docs/self-hosting/m3/capacity.py",
+   "sha256": "6ff39ecde0940ad87deaa838538bfc5f21c34bc3043cb2f4275fd3459f5259e4"
+  },
+  {
+   "path": "docs/self-hosting/m3/m3.2-evidence/run-evidence.sh",
+   "sha256": "beebff4f3a8701e41827af66ed834bacc360abbf3020a60954bf6556996bad92"
+  }
+ ],
+ "logs": [
+  {
+   "log": "commit.txt",
+   "retained": "docs/self-hosting/m3/m3.2-evidence/logs/commit.txt.gz",
+   "sha256": "8f7a77f724d5f47c0345cc39bb4fe90e729372a632cb03103d82a21eab884dea",
+   "gzip_sha256": "baf7cdc17fd8554b58158082ba58841e3d8c7e368a0ead1059ad0f37394d22fa"
+  },
+  {
+   "log": "status.txt",
+   "retained": "docs/self-hosting/m3/m3.2-evidence/logs/status.txt.gz",
+   "sha256": "9439b7521f88796374424384a9f85258cc07ca50f8a01c38665f2e4976b6a41b",
+   "gzip_sha256": "4496c9d0ceb36d1d0d8523e75324c8c67c2e9a229b1afbcd75c4ae527904507b"
+  },
+  {
+   "log": "build.log",
+   "retained": "docs/self-hosting/m3/m3.2-evidence/logs/build.log.gz",
+   "sha256": "08d35fa414a515bfba7dd9c5a17eb6d7d6a89fbe30f0279b4b49e949a8e8ab01",
+   "gzip_sha256": "ede22b164e01f5864a80862579e273726233b5c5dd1325bd8354f98f7ee1a33c"
+  },
+  {
+   "log": "build-identity.txt",
+   "retained": "docs/self-hosting/m3/m3.2-evidence/logs/build-identity.txt.gz",
+   "sha256": "5250001f4f476982f123c7baf20c925faa1f425ba88bf2542b1559ff0eb7a1ca",
+   "gzip_sha256": "ade3dd3fa637f026fa249cc188d6019bd5260782ed3ae6ff49f2bee6fc61db7f"
+  },
+  {
+   "log": "javac.log",
+   "retained": "docs/self-hosting/m3/m3.2-evidence/logs/javac.log.gz",
+   "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "gzip_sha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64"
+  },
+  {
+   "log": "tests.log",
+   "retained": "docs/self-hosting/m3/m3.2-evidence/logs/tests.log.gz",
+   "sha256": "b3a751363c7a9006d6c30cdc149b2d79faaccf4fb378d78f5f7241b3d159588b",
+   "gzip_sha256": "bcc95e3c12b5c29e6b084e22a7e9d69e28795a3d6d62036acb3d34feac9db094"
+  },
+  {
+   "log": "classification.log",
+   "retained": "docs/self-hosting/m3/m3.2-evidence/logs/classification.log.gz",
+   "sha256": "3b8f13b5282ee194ddf0e345093fa63023a646eddc78ed21267ed73539c7b024",
+   "gzip_sha256": "875ae05bc0ab49958856efa164a94bb49a8a45e5fc5a5a2c003e72c646797787"
+  },
+  {
+   "log": "classification.md",
+   "retained": "docs/self-hosting/m3/m3.2-evidence/logs/classification.md.gz",
+   "sha256": "8c9799960c232b5c6af5d940786c3695b250b7ad8c3f1f9acee2f56155970964",
+   "gzip_sha256": "e50e184f91a2b91d610d6d142492eb57496c10ebdd80e67a7f3a66fd8d05f5ad"
+  },
+  {
+   "log": "capacity.json",
+   "retained": "docs/self-hosting/m3/m3.2-evidence/logs/capacity.json.gz",
+   "sha256": "a2cd80c907988e7413697b31d841c1e8e3d8dc0e86b16822729bf3c8ab130218",
+   "gzip_sha256": "f47c53a0738e059bc4bf160d457e33953bc66f2fb356e6ba91fbfff0b7dc59a9"
+  },
+  {
+   "log": "capacity.log",
+   "retained": "docs/self-hosting/m3/m3.2-evidence/logs/capacity.log.gz",
+   "sha256": "ace4491d93c9651bb89d0ad271f3725128f6c89e1a0cea351fe645fe44f97334",
+   "gzip_sha256": "8f7a1b7f0360cb8688b9ddd5ca23a1efe818637e43a051f134f5bbecd1815314"
+  },
+  {
+   "log": "j0-errors.txt",
+   "retained": "docs/self-hosting/m3/m3.2-evidence/logs/j0-errors.txt.gz",
+   "sha256": "8001b815eb9f08af9b60bb6b87ccac53e9997aa5c10076d382460443b6651aa6",
+   "gzip_sha256": "96ffb4e589c9bdc457158e3aa42cd50bb07875cff821992754778027f5a02069"
+  },
+  {
+   "log": "seed-diagnostics.txt",
+   "retained": "docs/self-hosting/m3/m3.2-evidence/logs/seed-diagnostics.txt.gz",
+   "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+   "gzip_sha256": "89ed3b723e0e40d8957a2df55fcb04d57b6d95fa665c5fe67b098df7f29694ae"
+  },
+  {
+   "log": "capacity/port-sources.txt",
+   "retained": "docs/self-hosting/m3/m3.2-evidence/logs/port-sources.txt.gz",
+   "sha256": "fb18f68bd412c0b8f26bdad0904c42861980581fc20e20659ed0ccfe4f269ebe",
+   "gzip_sha256": "847d593045520e01f0b2752c33ab5bc43b3cec1bfab0cfa735199c9aa3c524eb"
+  },
+  {
+   "log": "capacity/port-sources.sha256",
+   "retained": "docs/self-hosting/m3/m3.2-evidence/logs/port-sources.sha256.gz",
+   "sha256": "0fd049b61afec17bd6c55de992e766925f6baf84e2f4d7809155447b3651a8a5",
+   "gzip_sha256": "e5e5309175351974c980b3ec09f359e2465090dbbb2c6f0057a49761e5253049"
+  },
+  {
+   "log": "capacity/j0-compile-1.log",
+   "retained": "docs/self-hosting/m3/m3.2-evidence/logs/j0-compile-1.log.gz",
+   "sha256": "6ff8f8b9aa92c9c49b7f7dbf80d11a819e5e983c22049f1947896f13ab91012e",
+   "gzip_sha256": "8feac9cf58ea3d7afeb6f4609961d55da167023726d97bf661d9e668166112e0"
+  },
+  {
+   "log": "capacity/j0-compile-1.load",
+   "retained": "docs/self-hosting/m3/m3.2-evidence/logs/j0-compile-1.load.gz",
+   "sha256": "a2d68aacbad12146dd79850e2aa4b5ed889b742d6dfb74efc63b9868a89bfcb3",
+   "gzip_sha256": "87a82ecbab2587279aba618028840103b63d2a9d356b60ad8762b0018e71b47b"
+  },
+  {
+   "log": "capacity/j0-compile-1.rusage",
+   "retained": "docs/self-hosting/m3/m3.2-evidence/logs/j0-compile-1.rusage.gz",
+   "sha256": "01ed7ce4f4f80e1b4af7cb7273768fee63c5ed80f62bee21585c389df4c006a4",
+   "gzip_sha256": "50e626252392adeceab640d322af16b560a24b7be75ba0cc22047109f99a76bd"
+  },
+  {
+   "log": "capacity/j0-compile-1.gc",
+   "retained": "docs/self-hosting/m3/m3.2-evidence/logs/j0-compile-1.gc.gz",
+   "sha256": "e5ab2466d8beb4f2ff5b908bfab4f38a6de1cf7c1ff645a75c134dec8e990ff6",
+   "gzip_sha256": "601ab418eec8773d966f77dae4605d9f44374e39b777918ee0f971978d318ec8"
+  },
+  {
+   "log": "capacity/seed-compile-1.log",
+   "retained": "docs/self-hosting/m3/m3.2-evidence/logs/seed-compile-1.log.gz",
+   "sha256": "f07d26e22341526a86cd541cf5c916ed5a7510f7963e4d3e0f8196f3e578e9a2",
+   "gzip_sha256": "efda96b4e058f67996f12857e9a14eaf91752f3f982c6e7f858e0f4a315aad07"
+  },
+  {
+   "log": "capacity/seed-compile-1.load",
+   "retained": "docs/self-hosting/m3/m3.2-evidence/logs/seed-compile-1.load.gz",
+   "sha256": "2e655d07e44e52d991ec90d3eee06b7ce4f4fd8b69941e4260145d2b991d8865",
+   "gzip_sha256": "9c4c9f47a53fc95f75d77f2d68432c823dcbe77abc0b56252c86a07e7379492c"
+  },
+  {
+   "log": "capacity/seed-compile-1.rusage",
+   "retained": "docs/self-hosting/m3/m3.2-evidence/logs/seed-compile-1.rusage.gz",
+   "sha256": "b001ba2a1344f1a535cbc17a670b02b1c0a265f2e6a46f6c583bc9d63fffedbc",
+   "gzip_sha256": "4e1daf0e768737c75bb1d947f69a7aa8acc935645d8201a7228cd6ad88b2bcb5"
+  },
+  {
+   "log": "capacity/seed-compile-1.gc",
+   "retained": "docs/self-hosting/m3/m3.2-evidence/logs/seed-compile-1.gc.gz",
+   "sha256": "55e38b7a83d1315409d1f57a1d93fd982bbd90c0c3fae8f1dcd8fc39c2182a20",
+   "gzip_sha256": "f3de478b1554f836aec1fe41a67ded322307d86ae38f8a92e2e2c6f85995919f"
+  },
+  {
+   "log": "capacity/seed-compile-2.load",
+   "retained": "docs/self-hosting/m3/m3.2-evidence/logs/seed-compile-2.load.gz",
+   "sha256": "58e8fc1984419cc8e723c2f4c35b59773857bc55a20606eef269193b1259e822",
+   "gzip_sha256": "4e375dc948d6846f3553881e1825bdc187b0e971303b5c82d96c63d4b38f6274"
+  },
+  {
+   "log": "capacity/seed-compile-2.rusage",
+   "retained": "docs/self-hosting/m3/m3.2-evidence/logs/seed-compile-2.rusage.gz",
+   "sha256": "8387c3d7ec059f3ad15b5a33115e1ed5e80eaa8bf48aab782f29d9b6fada1201",
+   "gzip_sha256": "fb5c6afa99f5b19c1e1375d17d140a56b3a1c9510ffa72e2d31accbf70cc1dfc"
+  },
+  {
+   "log": "capacity/seed-compile-2.gc",
+   "retained": "docs/self-hosting/m3/m3.2-evidence/logs/seed-compile-2.gc.gz",
+   "sha256": "5f8370fb0ff5713fd8121b76c9e59f93fa1b72fa4930584a8f8098cb451d47d3",
+   "gzip_sha256": "ef156c055ef4e99e93a8440c45b843a44d6242da08de6c43ec2ecbd1f84f6587"
+  },
+  {
+   "log": "capacity/seed-link-frontend-1.log",
+   "retained": "docs/self-hosting/m3/m3.2-evidence/logs/seed-link-frontend-1.log.gz",
+   "sha256": "8d4ede5f9c5fe30136ff48a8f4715bed847097b7d7776a48fc50f6457e6f28c1",
+   "gzip_sha256": "edee0ebd06747596f7de0077fc21ae77e58776dd8852ccdf2761ae2a40e796d5"
+  },
+  {
+   "log": "capacity/seed-link-frontend-1.load",
+   "retained": "docs/self-hosting/m3/m3.2-evidence/logs/seed-link-frontend-1.load.gz",
+   "sha256": "3767d4ffc1a517f98768edd518d076b095d04f4af69dba776eca72acc75c3060",
+   "gzip_sha256": "4bdd2353d66c0a7f0d2d089e517b9701c91719f0122fb609e7070bacbdd08a67"
+  },
+  {
+   "log": "capacity/seed-link-frontend-1.rusage",
+   "retained": "docs/self-hosting/m3/m3.2-evidence/logs/seed-link-frontend-1.rusage.gz",
+   "sha256": "cf8ed3b0c6fcfe0902b536af334cb964f94b80577d0bd610824c8bcedf6d9611",
+   "gzip_sha256": "9c705efa92ec79dda14b6b24e12c09f5713a4c86179b6a75fdefa32aa96e2a2c"
+  },
+  {
+   "log": "capacity/seed-link-frontend-1.gc",
+   "retained": "docs/self-hosting/m3/m3.2-evidence/logs/seed-link-frontend-1.gc.gz",
+   "sha256": "87100b11c251faa21cdb092a5e7db267c2a604c74d61f7c7dd8bd8e6178fdcab",
+   "gzip_sha256": "40c9863ccf5ebc7ea27bcde7370016e7e040dcb2043b199ce9676c92e898c538"
+  },
+  {
+   "log": "capacity/seed-link-frontend-2.load",
+   "retained": "docs/self-hosting/m3/m3.2-evidence/logs/seed-link-frontend-2.load.gz",
+   "sha256": "d871301da581c217380c3d43684c08138956810fca32f252546e77cd565c1048",
+   "gzip_sha256": "694dfd0beef74c05d4556b1928910aeaccdee55699a934a36991f2d12ee07b7b"
+  },
+  {
+   "log": "capacity/seed-link-frontend-2.rusage",
+   "retained": "docs/self-hosting/m3/m3.2-evidence/logs/seed-link-frontend-2.rusage.gz",
+   "sha256": "eb102cc8810de4586c187fdbcfd126d8ed27ea11907d451d9f0270074e3af042",
+   "gzip_sha256": "6bb7192f3abba78b60c731a06e767f3009a44ee8ae904be5d30520d7b1dd2e17"
+  },
+  {
+   "log": "capacity/seed-link-kernel-1.log",
+   "retained": "docs/self-hosting/m3/m3.2-evidence/logs/seed-link-kernel-1.log.gz",
+   "sha256": "623bb1713fc502ef6fff78fc564ab3736e0d6b38a0ce72b89da96a12eae374b8",
+   "gzip_sha256": "df9c4f4e890eb22555a5569254774e0ddeae8f7a88cdc75f2c6af19e430f81f6"
+  },
+  {
+   "log": "capacity/seed-link-kernel-1.load",
+   "retained": "docs/self-hosting/m3/m3.2-evidence/logs/seed-link-kernel-1.load.gz",
+   "sha256": "deea37205233315c43f34a9db7373c263de79e89c06debbdbe2ded088d690d1e",
+   "gzip_sha256": "b6a021e1d695f271e67199bc6b98007d9e69d20a9d1236e5394e208ad388ba5a"
+  },
+  {
+   "log": "capacity/seed-link-kernel-1.rusage",
+   "retained": "docs/self-hosting/m3/m3.2-evidence/logs/seed-link-kernel-1.rusage.gz",
+   "sha256": "4525c75a3d81592b806fd6d264840d9ca618f24a96716c614a739a6f53224c5c",
+   "gzip_sha256": "34e57285de5b6b6b3d462c959470316d819b19fc05db9e03dcd189f8e9182756"
+  },
+  {
+   "log": "capacity/seed-link-kernel-1.gc",
+   "retained": "docs/self-hosting/m3/m3.2-evidence/logs/seed-link-kernel-1.gc.gz",
+   "sha256": "371c8b91ed1d2a2573acbe9b8f8347fafe2192069548a4db701cd02652f75e0e",
+   "gzip_sha256": "c123d72db9ff2c1a33bb794e57603b996096260e4821c5ad0ea176946e0cc54b"
+  },
+  {
+   "log": "capacity/seed-link-kernel-2.load",
+   "retained": "docs/self-hosting/m3/m3.2-evidence/logs/seed-link-kernel-2.load.gz",
+   "sha256": "d07c9cd4976173bcc25d875fb20f1ae61b7032dbcbd981c47da5227a30a42cbc",
+   "gzip_sha256": "43ff528bf0b207fe39167334fdc9cd5c91fc6c11cfbefe26f9477fc554b31902"
+  },
+  {
+   "log": "capacity/seed-link-kernel-2.rusage",
+   "retained": "docs/self-hosting/m3/m3.2-evidence/logs/seed-link-kernel-2.rusage.gz",
+   "sha256": "f1af375f7169b1654eae4a58e95fb0be94181be7bf41a5a324625ffb8153457f",
+   "gzip_sha256": "7db7381d44cfccdb9ddf9fd3d1c9eb29d699963e6af1517ebd10c6a12cdddd3a"
+  },
+  {
+   "log": "diff-check.log",
+   "retained": "docs/self-hosting/m3/m3.2-evidence/logs/diff-check.log.gz",
+   "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "gzip_sha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64"
+  },
+  {
+   "log": "licenses.log",
+   "retained": "docs/self-hosting/m3/m3.2-evidence/logs/licenses.log.gz",
+   "sha256": "baf5804aeb26498337c9c5223c199afeba5c3e2fc36ae219b9bf420e3775f673",
+   "gzip_sha256": "21fd3bcaf61e87e10822dd63176f2751a3282de06861c556f8ea5cb4d913c689"
+  }
+ ],
+ "tests": 17,
+ "m3_2_patterns": 72,
+ "m3_2_calls": 981,
+ "jvm_profile": "-Xms256m -Xmx4096m -Xss8m -XX:+UseG1GC, JAVA_TOOL_OPTIONS/JDK_JAVA_OPTIONS/_JAVA_OPTIONS cleared",
+ "j0": "target/self-hosting-m0/J0-final2/lib/ironwoodc.jar sha256 2a8b10ab5575f84d3660b3824a4b80cba7f6f9110023e7e30db3b41103893ad7 (0.6.1-beta, seed 6bde84df)"
+}

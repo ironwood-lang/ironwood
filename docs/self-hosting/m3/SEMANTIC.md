@@ -46,4 +46,4 @@ classes and archive at `-O3`.
 - Floating-to-integral constant casts and the explicit constant
   representation are S2/S3 consumer work; the native casts' Java semantics
   must be checked there.
-- J0 cannot compile the accumulated port (D267); see the M3.2 handoff.
+- J0 cannot compile the accumulated port (D267); see the [M3.2 handoff](HANDOFF_M3.2.md).
