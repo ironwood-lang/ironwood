@@ -1,0 +1,505 @@
+{
+ "schema_version": 1,
+ "increment": "M2.2 native ownership slice (D262)",
+ "base_commit": "cb64dda11294d9de461d2eccf210203697cdd449",
+ "evidence_tree": {
+  "description": "fresh copy of the checkout's tracked and new non-ignored files at the run; documentation written afterward is outside this identity",
+  "files": 5474,
+  "file_hashes": "logs/tree-sha256.txt.gz"
+ },
+ "host_profile": "macOS 27.0.1 arm64 Apple M5 32 GiB; JDK 21.0.1; LLVM 23.1.0 (/opt/homebrew/opt/llvm@23)",
+ "build_identity": [
+  "29d008903a830f3be1ddf47b971a670eaab49ab1080a6e0e7b958ed600114901  compiler/build/ironwoodc.jar",
+  "a1fdd6520ce1c0d09a036c204e8586117e8b509d598057d8bd780562ad081cc5  compiler/build/ironwood-stdlib.ironjar"
+ ],
+ "native_binaries": [
+  "0ef99908348359f6452f48bee7096ec2a8553120ffc774b9e6b563d66b31e213  /Users/developer/workspace-mba-m2/Ironwood/workspace/m2/m22-stage/workspace/m2-ownership/kernel-capture",
+  "dd2cd893621552ca9824f03cff0fcee994b497001efb77e865b9a1c2070ddc24  /Users/developer/workspace-mba-m2/Ironwood/workspace/m2/m22-stage/workspace/m2-ownership/callbacks",
+  "a401a0efe09ca2d65c3b1ed41b277c59f837112f5d03e45406438e1f9c1f1760  /Users/developer/workspace-mba-m2/Ironwood/workspace/m2/m22-stage/workspace/m2-ownership/failure"
+ ],
+ "j0_references": {
+  "ownership": "docs/self-hosting/m0/ownership-resources.tar.gz ordered/*-sample0-r0/result.txt",
+  "evidence_and_effect": "docs/self-hosting/m0/kernel-resources.tar.gz ordered/*-sample0-r0/result.txt",
+  "effect_cycle": "docs/self-hosting/m0/loop-cycle-reference.tar.gz cycle-ordered/*-sample0-r0/result.txt"
+ },
+ "sources": [
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/ir/IrBasicBlock.iron",
+   "sha256": "b235692373d37a0dd23e1bd35ec0da1f0e126f39021a4b3c15f880295a3d8419"
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/ir/IrCallInstruction.iron",
+   "sha256": "722acdc7378ff707e1eb7c87bbfbdb9a9090590184b3b874d4f9c890ffa00850"
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/ir/IrForeignCallInstruction.iron",
+   "sha256": "36f6888fe52ef8b671c7afb98d6691b5b8c6693f5d905ff3433f396c8a219e4c"
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/ir/IrFunction.iron",
+   "sha256": "4c5bed8cacd2dc8ddf9dd837948cd71cff5781e186259d706fae18167f57da3f"
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/ir/IrInstruction.iron",
+   "sha256": "0070f23025154cc9119e01fa96142895d239d8a4ed8cff2bfb039fe9df25161c"
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/ir/IrOperand.iron",
+   "sha256": "124ee3bacd02625e8d2abb01d4a3f2a9d5a8344678794a73843e59a05e6a9b0a"
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/ir/IrParameter.iron",
+   "sha256": "8400986ea59c1739ba334cc990d81db9d973d42bb7fff3ff111de8e2fbd7a6a8"
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/ir/IrReturnTerminator.iron",
+   "sha256": "48f5c2afaf2e9d212a4ab2e761c73fc35c270f51ce1ede9146fa3b0d64271b91"
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/ir/IrTerminator.iron",
+   "sha256": "1b30ba128a65cd5b19d5b31d5bc997449dee2910dea9db62dd836a6ed4a7728a"
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/ir/IrType.iron",
+   "sha256": "3f7e080d7a831283159d579425d3f5dee6a68faf115bfe74951f3ea0e5205822"
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/ir/IrValueReference.iron",
+   "sha256": "02f997527bedb3424b55a7264a6b3b37ae5055e7130dd8b629a302094d3b77fc"
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/semantic/AllocationInfo.iron",
+   "sha256": "cf2c89c60ef1a9579a3892292ff6f4aa6971c329bf5694b87fdd07ad8cc9bdbc"
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/semantic/AllocationStateSnapshot.iron",
+   "sha256": "fd6fb163c1fa6a6708e9abebb3e916584a570a80a80f733aa6bd3d099c7396f9"
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/semantic/ArraySlot.iron",
+   "sha256": "95f2703d05b1cc963af299430c37ed453cf521f76bf1522a952c58f4829ffb53"
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/semantic/ClosedWorldEffectAnalyzer.iron",
+   "sha256": "85474fbbbc439bd46d9c426c8aa4f6d7fbe4075cb978b94889d69d08a926e9af"
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/semantic/FunctionOwnership.iron",
+   "sha256": "475f73b2e480723a87236aeeab285455c6ea0a4728149d877fc6fceafcfed088"
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/semantic/OwnershipPaths.iron",
+   "sha256": "d22474348784cf7ca5a37671f043da38802ce54b20b9e937df6997f5fce2bcd3"
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/semantic/OwnershipSnapshot.iron",
+   "sha256": "637d41e895035f3bd0be1d0ba6d5d832fb6048230b4505558b8aaab755db3380"
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/semantic/PilotInputs.iron",
+   "sha256": "ce64f30033801e78e2f188482a18d7db39b1f94fe871ce8df1a1052c85de6065"
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/semantic/RejectedFreeEvidence.iron",
+   "sha256": "ffcdd0d2376b624097413d0684969002ce79dfb26cab8d957e73ade8f584ddaa"
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/semantic/SemanticAnalysisObserver.iron",
+   "sha256": "dcb2a8746c39af85f50d674617dc653d86e05511261db7a046bd67d1f809cab0"
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/semantic/SnapshotBuilders.iron",
+   "sha256": "efe9cc664f679854c2e37316d922d0e22669532cbf8152b2d8d7be267428211b"
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/semantic/UnfreedAllocationTracker.iron",
+   "sha256": "6a430d5df51a21235200c1bab5abe0a945bd1e12781d993863f66672986eb0ed"
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/port/BitRows.iron",
+   "sha256": "f3679b0e75e80e1e529491100ed1d92472f915e811204aeb3a309b25966a3904"
+  },
+  {
+   "path": "scripts/self-hosting/native/KernelCapture.iron",
+   "sha256": "360c436698cc94263902e4b8dffcd8c2b478181f9ef896e92d41a12dd72e1d71"
+  },
+  {
+   "path": "integration-tests/cases/compiler_ownership_callbacks.iron",
+   "sha256": "837c159d116fb13d777091be2d3542d8ac4b134dd15116ce54075ae7bc244101"
+  },
+  {
+   "path": "integration-tests/cases/compiler_ownership_failure.iron",
+   "sha256": "1777727da18a6ed92969dc68e6d7eafbd5ab4c789ef451bc49fd0646f4e87fb5"
+  },
+  {
+   "path": "compiler/src/test/java/ironwood/compiler/OwnershipPilotTests.java",
+   "sha256": "18be03edee6814091070af7bbf2eeb2a3a1df7391f6e08d1fece2409f11637da"
+  },
+  {
+   "path": "compiler/src/test/java/ironwood/compiler/CompilerTests.java",
+   "sha256": "328b828ecf9f5bd1c4682de64d2d22835c57b6b36ba7d7e87da49bacec867a3b"
+  },
+  {
+   "path": "scripts/self-hosting/measure-m2-kernels.py",
+   "sha256": "95673a7e7a82a19cfa0db5bde09b5d47f46c4f9687d01d0f9a33754630352e55"
+  },
+  {
+   "path": "scripts/self-hosting/check-m2-kernel-budgets.py",
+   "sha256": "867a6e5ae15eba9d7e2905d1b9ede54d82b3c83e5b522e39f6811ac815a36159"
+  },
+  {
+   "path": "docs/self-hosting/m2/ownership-evidence/run-evidence.sh",
+   "sha256": "7526799e8f5d762dc742aab3a91987d48de8f49f044db3d4da438c99d847ce08"
+  }
+ ],
+ "commands": [
+  "bash docs/self-hosting/m2/ownership-evidence/run-evidence.sh (paths are the canonical checkout and its ignored workspace)"
+ ],
+ "results": {
+  "status": [
+   "build exit=0",
+   "javac exit=0",
+   "kernel-compile exit=0",
+   "kernel-link exit=0",
+   "callbacks-compile exit=0",
+   "callbacks-link exit=0",
+   "failure-compile exit=0",
+   "failure-link exit=0",
+   "tests exit=0",
+   "resources exit=0",
+   "budgets exit=0",
+   "stack exit=0",
+   "inputs exit=0",
+   "callbacks-run-42 exit=0",
+   "failure-sweep exit=0",
+   "frontend-compile exit=0",
+   "frontend-link exit=0",
+   "diff-new-sources exit=0",
+   "diff-check exit=0",
+   "new-file-whitespace exit=0 (rerun after removing a __pycache__ created outside the evidence tree)",
+   "licenses exit=0"
+  ],
+  "tests": [
+   "15:30:38.644 - 1/9 - ok - frontend pilot variants match the Java syntax model",
+   "15:31:32.694 - 2/9 - ok - frontend pilot dispatch fails closed on untreated variants",
+   "15:33:39.551 - 3/9 - ok - frontend pilot retires builders and rejects frees of observed state",
+   "15:34:14.387 - 4/9 - ok - frontend pilot matches the Java frontend across artifacts",
+   "15:34:56.510 - 5/9 - ok - frontend pilot unwinds every allocation failure cleanly",
+   "15:37:39.869 - 6/9 - ok - ownership pilot retires versions and rejects frees of observed state",
+   "15:39:12.671 - 7/9 - ok - ownership pilot counts callbacks and rejects frees of captured state",
+   "15:39:37.289 - 8/9 - ok - ownership pilot matches the Java kernels across artifacts",
+   "15:40:06.918 - 9/9 - ok - ownership pilot unwinds every allocation failure cleanly"
+  ],
+  "parity": {
+   "configurations": 47,
+   "runs": 94,
+   "mismatches": 0
+  },
+  "retirement": {
+   "ownership": [
+    [
+     961,
+     961
+    ],
+    [
+     1281,
+     1281
+    ]
+   ],
+   "evidence": [
+    [
+     128,
+     128
+    ]
+   ],
+   "effect": [
+    [
+     1,
+     1
+    ]
+   ]
+  },
+  "temporary_outstanding_after_retirement_max": 0,
+  "observer_rounds_add_no_phase_allocations": true,
+  "budget_records": {
+   "records": 94,
+   "passed": 94
+  },
+  "resources": {
+   "ownership": {
+    "runs": 48,
+    "max_fresh_wall_seconds": 0.2425668750074692,
+    "max_rss_bytes": 12632064,
+    "max_phase_seconds": 0.007458,
+    "phase_allocations_range": [
+     50469,
+     212390
+    ]
+   },
+   "evidence": {
+    "runs": 6,
+    "max_fresh_wall_seconds": 0.020040292001795024,
+    "max_rss_bytes": 10649600,
+    "max_phase_seconds": 0.009972,
+    "phase_allocations_range": [
+     60480,
+     163776
+    ]
+   },
+   "effect": {
+    "runs": 40,
+    "max_fresh_wall_seconds": 0.07714974996633828,
+    "max_rss_bytes": 3162112,
+    "max_phase_seconds": 0.033261,
+    "phase_allocations_range": [
+     41,
+     41
+    ]
+   }
+  },
+  "stack": {
+   "configurations": 47,
+   "bounds": [
+    [
+     32,
+     16
+    ]
+   ]
+  },
+  "inputs": [
+   "admitted chain 0",
+   "pilot input rejects this unique function names",
+   "pilot input rejects this callable kind",
+   "pilot input rejects this one entry block",
+   "pilot input rejects this call kind",
+   "pilot input rejects this foreign target",
+   "pilot input rejects this foreign result",
+   "pilot input rejects this value return",
+   "pilot input rejects this value number",
+   "admitted allocation",
+   "pilot input rejects this allocation state"
+  ],
+  "callbacks": [
+   "immediate.named.callback=2",
+   "immediate.named.captured=0",
+   "immediate.named.calls=0",
+   "immediate.capturing.callback=1",
+   "immediate.capturing.captured=1",
+   "immediate.capturing.calls=0",
+   "retained.named.callback=2",
+   "retained.named.captured=0",
+   "retained.named.calls=0"
+  ],
+  "failure_sweep": "limits 0..3561 exit 42 (caught OutOfMemoryError); limit 3562 exit 43",
+  "frontend_differential_new_sources": {
+   "units": 27,
+   "files": 135,
+   "mismatches": 0,
+   "units_with_diagnostics": 0
+  },
+  "warnings": {
+   "kernel-compile.log": [
+    "warning: allocation assigned to 'kernel' leaves scope without being freed",
+    "warning: allocation assigned to 'node' leaves scope without being freed"
+   ],
+   "kernel-link.log": [
+    "warning: allocation assigned to 'kernel' leaves scope without being freed",
+    "warning: allocation assigned to 'node' leaves scope without being freed"
+   ],
+   "callbacks-compile.log": [],
+   "callbacks-link.log": [],
+   "failure-compile.log": [],
+   "failure-link.log": [],
+   "frontend-compile.log": [],
+   "frontend-link.log": []
+  }
+ },
+ "logs": [
+  {
+   "retained": "docs/self-hosting/m2/ownership-evidence/logs/status.txt.gz",
+   "sha256": "f5905aa2813a4db401539993ead360f37ed51afd68449c0857b792a5dfc4fe44",
+   "gzip_sha256": "b17520b0bef5b7f01f57a5f2bd57cc670a8f9d389d9fe7ea857986b5eeeacc7a",
+   "bytes": 475
+  },
+  {
+   "retained": "docs/self-hosting/m2/ownership-evidence/logs/base-head.txt.gz",
+   "sha256": "37bb89e8307dde875e9cbb7ad201ad09678052b049aa6eef67a15a5d6640a775",
+   "gzip_sha256": "caed6249d835c7952caf7c5adbec5e158d02167f1305812f616a7e9d17ea1f43",
+   "bytes": 41
+  },
+  {
+   "retained": "docs/self-hosting/m2/ownership-evidence/logs/tree-files.txt.gz",
+   "sha256": "3aaa4a679f6c44c23355d12484f04cd4727ac5c9bb8ce270b52a909deb509fc2",
+   "gzip_sha256": "cb297fd3802aed1b178cfac24b34aa494e3c93f55d2c4a9fd723d1b064cfa124",
+   "bytes": 296288
+  },
+  {
+   "retained": "docs/self-hosting/m2/ownership-evidence/logs/tree-sha256.txt.gz",
+   "sha256": "d89c5e7a6493044383f543d419285bdfdd8227528c3636c54ad9cac9f793933b",
+   "gzip_sha256": "ccf8eecd5fdceaed494c895ddbdae81cf67467ac3577ed07e0e636adb8457313",
+   "bytes": 668520
+  },
+  {
+   "retained": "docs/self-hosting/m2/ownership-evidence/logs/build.log.gz",
+   "sha256": "2a5e97d8eb17eba9a5d57f7905ed98f3c4474a362b37859e5340b3151274a391",
+   "gzip_sha256": "d0010b8621334a084047ee4a3034b7fb90646453f7f6fed309cf743957c18b44",
+   "bytes": 34269
+  },
+  {
+   "retained": "docs/self-hosting/m2/ownership-evidence/logs/build-identity.txt.gz",
+   "sha256": "942ba7ad5bd202906bbde907d85ea7cb132d19e73df712fa9dcd029287ce5dab",
+   "gzip_sha256": "89a82c53d96705b334547a22aa1603cc76baa88b9eb9553949a2baece475e1d5",
+   "bytes": 200
+  },
+  {
+   "retained": "docs/self-hosting/m2/ownership-evidence/logs/javac.log.gz",
+   "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "gzip_sha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+   "bytes": 0
+  },
+  {
+   "retained": "docs/self-hosting/m2/ownership-evidence/logs/kernel-compile.log.gz",
+   "sha256": "836513503e3fed26a6414cf4916b83eabd45cfa77321c0e8d52c53bdfab3ac87",
+   "gzip_sha256": "01060b51a2a4f561bc5c5c5bddcfb832015ed1c1d50cf278f278046a313abc5d",
+   "bytes": 30382
+  },
+  {
+   "retained": "docs/self-hosting/m2/ownership-evidence/logs/kernel-link.log.gz",
+   "sha256": "a8b45327901aabae369c4a44c7ae039871e9ad6343e918866585ce02fa7a59fe",
+   "gzip_sha256": "bf02779b17ac631a8f6182898f17decb561eab811b59e05d090bfe7b6a5c92ae",
+   "bytes": 1586
+  },
+  {
+   "retained": "docs/self-hosting/m2/ownership-evidence/logs/callbacks-compile.log.gz",
+   "sha256": "7643754d42b1c03569da81f9ba83aeadb3373cd7d947b898e8f9a62de1e8ff6e",
+   "gzip_sha256": "f99c1905606575e407aab0d009a44851ae6037774690333b78a424134b82b987",
+   "bytes": 29839
+  },
+  {
+   "retained": "docs/self-hosting/m2/ownership-evidence/logs/callbacks-link.log.gz",
+   "sha256": "07e8667701cf6bea4725996d0935811c3199986cd05d5e5e39dd1ecad1cff22b",
+   "gzip_sha256": "4d18ac625a5a22828f9b3ced179bce8707a2e9c06e94f458de89974dfa71ad43",
+   "bytes": 105
+  },
+  {
+   "retained": "docs/self-hosting/m2/ownership-evidence/logs/failure-compile.log.gz",
+   "sha256": "7a26e765c9ff56db35e68e1b6199e1467f5aa8e3a2c351590e90d441612f09fc",
+   "gzip_sha256": "ece726a5b20db3bea05aa8fc210dcaaa57ffb3916ba621315005e75b02ea200c",
+   "bytes": 29467
+  },
+  {
+   "retained": "docs/self-hosting/m2/ownership-evidence/logs/failure-link.log.gz",
+   "sha256": "344f2847fddcaf251849f992a2be2768cb5e0fa65dee67aefac64d37fbf45d50",
+   "gzip_sha256": "ca36c793a3cc5e2d4de2dcba368cdd007b82a08e7c5efea12455bcdee0b924eb",
+   "bytes": 103
+  },
+  {
+   "retained": "docs/self-hosting/m2/ownership-evidence/logs/binaries.txt.gz",
+   "sha256": "7007100d793e6c7f98763532cdabf7ff571b9b547f884721399dea8c4ec301a1",
+   "gzip_sha256": "f7ebdffe2597bd7dd987e118704d9fc6fc9721ffe899e34830f2f8e20287d83d",
+   "bytes": 498
+  },
+  {
+   "retained": "docs/self-hosting/m2/ownership-evidence/logs/tests.log.gz",
+   "sha256": "5dd7d46c46125e66ad5cc9a89a4dd8dbaa5f5c4848909930b3dd08d4767f8644",
+   "gzip_sha256": "ef5cf2e04e66c515af1435b4e32e16ea3a30b746d663f9364dc87f11e70cf4bd",
+   "bytes": 1592
+  },
+  {
+   "retained": "docs/self-hosting/m2/ownership-evidence/logs/resources.log.gz",
+   "sha256": "4f93e53f25095a6cf795529edc371d9b49275287d3c3df7823faf9cb500f7df2",
+   "gzip_sha256": "bafe651d56018345f13385e84498f83e8d8ab7285c30247a558ec642c2f5b8af",
+   "bytes": 5776
+  },
+  {
+   "retained": "docs/self-hosting/m2/ownership-evidence/logs/resources.json.gz",
+   "sha256": "bc42636e696836d81e5cb690e9b04c0c456f8b1f403f20c1fbf9e7549bbfaec1",
+   "gzip_sha256": "b9bf42ed2bb9727d7cc50516c3f8201b7e923af387fe892c620d50e59561d0a9",
+   "bytes": 138889
+  },
+  {
+   "retained": "docs/self-hosting/m2/ownership-evidence/logs/budget-check.log.gz",
+   "sha256": "4899f778120a4b6a81e482a8ce3ed455ac750f80287f5d27a339a81afb73d418",
+   "gzip_sha256": "4ea6bc3555f20f33f351787efefa9aaa8bf57a760954382b0f7dc21cb3080f3a",
+   "bytes": 272
+  },
+  {
+   "retained": "docs/self-hosting/m2/ownership-evidence/logs/budget-records.json.gz",
+   "sha256": "fd0287390afcd89e318c8d49e3096dc36c6418812b0d1ddb59d3df1f546f6ed6",
+   "gzip_sha256": "7edafdf541b0c1058a9a69eb329a6f10b9411d6b17ca2cf394202750165dffb5",
+   "bytes": 61115
+  },
+  {
+   "retained": "docs/self-hosting/m2/ownership-evidence/logs/stack.log.gz",
+   "sha256": "466393e620504796edfb685ae4590f840a22fdde2153e152f412c45543a69ec2",
+   "gzip_sha256": "499dbdbdf40216e79ed435facb71777e32e689ae497ea95c90f15a371b6eb58e",
+   "bytes": 2790
+  },
+  {
+   "retained": "docs/self-hosting/m2/ownership-evidence/logs/stack.json.gz",
+   "sha256": "d852e4431657fd473ce990d3a8599a556f0c7a0f99c4aeddd3f29577c19def5a",
+   "gzip_sha256": "b0d16f703d89e2957c9b6de76a771f2a2f5c6a295734cdf6ca1d9f9a12cbea96",
+   "bytes": 35452
+  },
+  {
+   "retained": "docs/self-hosting/m2/ownership-evidence/logs/inputs.log.gz",
+   "sha256": "594b06a0c2077a46f2fc7b60530edbd72a3f193dc1877ef95537b1dbd0b0c285",
+   "gzip_sha256": "e682691405a3a53c53491f47ae10b3e0e342eb47e1f88fd3fde283603308a457",
+   "bytes": 397
+  },
+  {
+   "retained": "docs/self-hosting/m2/ownership-evidence/logs/callbacks-run.log.gz",
+   "sha256": "96d7f236a806eb57b787f998e15839440fd6cfb1d8a8786d88f70b9f2942d680",
+   "gzip_sha256": "d8cf59f6093059c1e29d42d59de81d936978f7ac629e41209b486b4f2d14f871",
+   "bytes": 243
+  },
+  {
+   "retained": "docs/self-hosting/m2/ownership-evidence/logs/failure-sweep.log.gz",
+   "sha256": "112bc2b54a842e899639233f513d413c9f7513b65ef37d81db58fa2daea72c52",
+   "gzip_sha256": "949f6a8627055f98488bac877371a655f0eb624c8c2648bfdcd3e09bfcfa8f85",
+   "bytes": 69
+  },
+  {
+   "retained": "docs/self-hosting/m2/ownership-evidence/logs/frontend-compile.log.gz",
+   "sha256": "f6ff3cc50a4702f7c2e0c6f1706fe3036f4988dac11356bcba42cc3c58b9c733",
+   "gzip_sha256": "fa4cbafb4f295d3a3311ec556c6247272d1bb238d3fc962b7d2dfb2e40cfc866",
+   "bytes": 29941
+  },
+  {
+   "retained": "docs/self-hosting/m2/ownership-evidence/logs/frontend-link.log.gz",
+   "sha256": "6e2a2781619f77b05db078d9abbcaf36ed1c5664142215627dbf5c397d6fbddb",
+   "gzip_sha256": "20cad473dd6d5d92f7aa499196f09c7fc3188709180d8a33c561bafa1f6ad1ec",
+   "bytes": 112
+  },
+  {
+   "retained": "docs/self-hosting/m2/ownership-evidence/logs/diff-new.log.gz",
+   "sha256": "7b5fcafb78b1c4d8dfa75c29aec009f36596ddb47b433191ce8989373c512927",
+   "gzip_sha256": "89f5730cbbe9a9c3475d19fa11289dffe5bea49dd7e6607d2e3a46b759c941c3",
+   "bytes": 436
+  },
+  {
+   "retained": "docs/self-hosting/m2/ownership-evidence/logs/diff-new.json.gz",
+   "sha256": "0a6cc549c5a432cb31e3f3cd9bf4774bfa94aada8b73b11fcf128ccdd6f40879",
+   "gzip_sha256": "90998ac1ec702f923b30737fb99f862df75317eb81937ed3d1e0f71debcc6931",
+   "bytes": 39272
+  },
+  {
+   "retained": "docs/self-hosting/m2/ownership-evidence/logs/diff-check.log.gz",
+   "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "gzip_sha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+   "bytes": 0
+  },
+  {
+   "retained": "docs/self-hosting/m2/ownership-evidence/logs/new-file-whitespace.log.gz",
+   "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "gzip_sha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+   "bytes": 0
+  },
+  {
+   "retained": "docs/self-hosting/m2/ownership-evidence/logs/licenses.log.gz",
+   "sha256": "baf5804aeb26498337c9c5223c199afeba5c3e2fc36ae219b9bf420e3775f673",
+   "gzip_sha256": "21fd3bcaf61e87e10822dd63176f2751a3282de06861c556f8ea5cb4d913c689",
+   "bytes": 54
+  }
+ ]
+}

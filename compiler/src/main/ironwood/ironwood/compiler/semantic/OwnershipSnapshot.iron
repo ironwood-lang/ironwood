@@ -1,0 +1,252 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.semantic;
+
+import ironwood.compiler.port.SnapshotIdentityMap;
+import ironwood.compiler.port.SnapshotIdentitySet;
+import ironwood.compiler.port.SnapshotLinkedMap;
+import ironwood.compiler.port.SnapshotList;
+import ironwood.ds.IdentityHashMap;
+import ironwood.ds.IdentityHashSet;
+import ironwood.ds.LinkedHashMap;
+
+/**
+ * An immutable copy of a function's seven ownership fields at a control-flow
+ * point. Ports the Java record {@code FunctionAnalyzer.OwnershipSnapshot} on
+ * the D257 composition: identity maps for states, retained-child versions and
+ * pool owners, linked maps for array slots (in D247 current-store order) and
+ * borrowed field names, and identity sets for exposed and live membership,
+ * each with the key or member list that restore and join traverse. Child
+ * versions are shared immutable lists. Nodes, state versions and child
+ * versions are borrowed and invocation-lived.
+ *
+ * <p>The snapshot also owns its optional saved explanation evidence (D259):
+ * the store's {@code save()} result, installed when the snapshot is made. The
+ * owner releases that version through the store before freeing the snapshot;
+ * the destructor then frees the copies and the saved maps, never the payloads.
+ */
+public final class OwnershipSnapshot implements RejectedFreeEvidence.Version {
+
+    private final SnapshotIdentityMap<AllocationInfo, AllocationStateSnapshot> states;
+    private final SnapshotLinkedMap<ArraySlot, AllocationInfo> knownArraySlots;
+    private final SnapshotList<ArraySlot> slotKeys;
+    private final SnapshotLinkedMap<String, AllocationInfo> borrowedOwnedFields;
+    private final SnapshotList<String> fieldKeys;
+    private final SnapshotIdentityMap<AllocationInfo, SnapshotList<AllocationInfo>> retainedBorrows;
+    private final SnapshotList<AllocationInfo> retainedKeys;
+    private final SnapshotIdentityMap<AllocationInfo, AllocationInfo> poolOwners;
+    private final SnapshotList<AllocationInfo> poolKeys;
+    private final SnapshotIdentitySet<AllocationInfo> exposedContainerContents;
+    private final SnapshotList<AllocationInfo> exposedItems;
+    private final SnapshotIdentitySet<AllocationInfo> unfreedLive;
+    private final SnapshotList<AllocationInfo> liveItems;
+    private final RejectedFreeEvidence.Saved saved;
+
+    /**
+     * Copies a function's seven ownership fields and, when explanations are
+     * enabled, saves the evidence version this snapshot then owns. The
+     * constructor is the snapshot's only factory, so a join owner can record
+     * each version as a fresh allocation (D262). It takes the borrowed fields
+     * rather than their analyzer: an analyzer passed here would leave every
+     * service it holds, such as its observer, conservatively escaping.
+     *
+     * @param builders the borrowed key lists and membership built from the fields
+     * @param knownArraySlots the borrowed live slots
+     * @param borrowedOwnedFields the borrowed live field names
+     * @param retainedBorrows the borrowed live child versions
+     * @param poolOwners the borrowed live pool owners
+     * @param exposed the borrowed live exposed membership
+     * @param evidence the borrowed explanation store, or null
+     * @param observer the borrowed observer, or null
+     */
+    OwnershipSnapshot(SnapshotBuilders builders, LinkedHashMap<ArraySlot, AllocationInfo> knownArraySlots,
+                      LinkedHashMap<String, AllocationInfo> borrowedOwnedFields,
+                      IdentityHashMap<AllocationInfo, SnapshotList<AllocationInfo>> retainedBorrows,
+                      IdentityHashMap<AllocationInfo, AllocationInfo> poolOwners, IdentityHashSet<AllocationInfo> exposed,
+                      RejectedFreeEvidence evidence, SemanticAnalysisObserver observer) {
+
+        this.states = new SnapshotIdentityMap<AllocationInfo, AllocationStateSnapshot>(builders.states());
+        this.knownArraySlots = new SnapshotLinkedMap<ArraySlot, AllocationInfo>(knownArraySlots);
+        this.slotKeys = new SnapshotList<ArraySlot>(builders.slotKeys());
+        this.borrowedOwnedFields = new SnapshotLinkedMap<String, AllocationInfo>(borrowedOwnedFields);
+        this.fieldKeys = new SnapshotList<String>(builders.fieldKeys());
+        this.retainedBorrows = new SnapshotIdentityMap<AllocationInfo, SnapshotList<AllocationInfo>>(retainedBorrows);
+        this.retainedKeys = new SnapshotList<AllocationInfo>(builders.retainedKeys());
+        this.poolOwners = new SnapshotIdentityMap<AllocationInfo, AllocationInfo>(poolOwners);
+        this.poolKeys = new SnapshotList<AllocationInfo>(builders.poolKeys());
+        this.exposedContainerContents = new SnapshotIdentitySet<AllocationInfo>(exposed);
+        this.exposedItems = new SnapshotList<AllocationInfo>(builders.exposedItems());
+        this.unfreedLive = new SnapshotIdentitySet<AllocationInfo>(builders.live());
+        this.liveItems = new SnapshotList<AllocationInfo>(builders.liveItems());
+        this.saved = save(evidence);
+        report(evidence, observer, this.saved);
+    }
+
+    // The store's fresh-or-null saved version, or null without a store.
+    private static RejectedFreeEvidence.Saved save(RejectedFreeEvidence evidence) {
+
+        if (evidence == null) return null;
+        return evidence.save();
+    }
+
+    // The tail of Java's snapshotOwnership: report the saved version.
+    private static void report(RejectedFreeEvidence evidence, SemanticAnalysisObserver observer,
+                               RejectedFreeEvidence.Saved saved) {
+
+        if (observer == null) return;
+        if (evidence == null) {
+            observer.evidenceSnapshot(true, true, 0);
+        } else {
+            observer.evidenceSnapshot(true, false, saved == null ? -1 : saved.associations());
+        }
+    }
+
+    @Override public RejectedFreeEvidence.Saved savedEvidence() {
+
+        return this.saved;
+    }
+
+    /** @return the allocation's saved state version, or null when it was not present */
+    public AllocationStateSnapshot state(AllocationInfo allocation) {
+
+        return this.states.get(allocation);
+    }
+
+    /** @return whether the allocation was present */
+    public boolean hasState(AllocationInfo allocation) {
+
+        return this.states.containsKey(allocation);
+    }
+
+    /** @return the number of present allocations */
+    public int stateCount() {
+
+        return this.states.size();
+    }
+
+    /** @return the slot's known allocation, or null */
+    public AllocationInfo knownArraySlot(ArraySlot slot) {
+
+        return this.knownArraySlots.get(slot);
+    }
+
+    /** @return the number of known slots */
+    public int slotCount() {
+
+        return this.slotKeys.size();
+    }
+
+    /** @return a known slot, in D247 current-store order */
+    public ArraySlot slotAt(int index) {
+
+        return this.slotKeys.get(index);
+    }
+
+    /** @return the field's borrowed allocation, or null */
+    public AllocationInfo borrowedOwnedField(String name) {
+
+        return this.borrowedOwnedFields.get(name);
+    }
+
+    /** @return whether the field name was present */
+    public boolean hasBorrowedOwnedField(String name) {
+
+        return this.borrowedOwnedFields.containsKey(name);
+    }
+
+    /** @return the number of borrowed fields */
+    public int fieldCount() {
+
+        return this.fieldKeys.size();
+    }
+
+    /** @return a borrowed field name */
+    public String fieldAt(int index) {
+
+        return this.fieldKeys.get(index);
+    }
+
+    /** @return the owner's shared child version, or null */
+    public SnapshotList<AllocationInfo> retainedBorrows(AllocationInfo owner) {
+
+        return this.retainedBorrows.get(owner);
+    }
+
+    /** @return the number of retaining owners */
+    public int retainedCount() {
+
+        return this.retainedKeys.size();
+    }
+
+    /** @return a retaining owner */
+    public AllocationInfo retainedAt(int index) {
+
+        return this.retainedKeys.get(index);
+    }
+
+    /** @return the value's pool owner, or null */
+    public AllocationInfo poolOwner(AllocationInfo value) {
+
+        return this.poolOwners.get(value);
+    }
+
+    /** @return the number of pooled values */
+    public int poolCount() {
+
+        return this.poolKeys.size();
+    }
+
+    /** @return a pooled value */
+    public AllocationInfo poolAt(int index) {
+
+        return this.poolKeys.get(index);
+    }
+
+    /** @return whether the allocation's container contents were exposed */
+    public boolean exposed(AllocationInfo allocation) {
+
+        return this.exposedContainerContents.contains(allocation);
+    }
+
+    /** @return the number of exposed allocations */
+    public int exposedCount() {
+
+        return this.exposedItems.size();
+    }
+
+    /** @return an exposed allocation */
+    public AllocationInfo exposedAt(int index) {
+
+        return this.exposedItems.get(index);
+    }
+
+    /** @return whether the allocation's missing-free obligation was live */
+    public boolean live(AllocationInfo allocation) {
+
+        return this.unfreedLive.contains(allocation);
+    }
+
+    /** @return the live members, for traversal */
+    public SnapshotList<AllocationInfo> liveMembers() {
+
+        return this.liveItems;
+    }
+
+    destructor {
+
+        free this.saved;
+        free this.liveItems;
+        free this.unfreedLive;
+        free this.exposedItems;
+        free this.exposedContainerContents;
+        free this.poolKeys;
+        free this.poolOwners;
+        free this.retainedKeys;
+        free this.retainedBorrows;
+        free this.fieldKeys;
+        free this.borrowedOwnedFields;
+        free this.slotKeys;
+        free this.knownArraySlots;
+        free this.states;
+    }
+}

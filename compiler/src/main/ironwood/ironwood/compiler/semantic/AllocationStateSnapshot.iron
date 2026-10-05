@@ -1,0 +1,64 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.semantic;
+
+import ironwood.compiler.port.OperationVariants;
+
+/**
+ * An allocation's proof state, blocking reason and detached flag. Ports the
+ * Java record {@code FunctionAnalyzer.AllocationStateSnapshot}: values compare
+ * by component, with a null-safe reason (D258). Versions are immutable and
+ * shared: an allocation holds its current version, snapshots share it, and a
+ * state change installs a new version (D257). Versions are invocation-lived.
+ */
+public final class AllocationStateSnapshot {
+
+    private final OperationVariants.AllocationState state;
+    private final String blockingReason;
+    private final boolean detached;
+
+    /**
+     * @param state the proof state
+     * @param blockingReason the borrowed reason text, or null
+     * @param detached whether the allocation is detached
+     */
+    public AllocationStateSnapshot(OperationVariants.AllocationState state, String blockingReason, boolean detached) {
+
+        this.state = state;
+        this.blockingReason = blockingReason;
+        this.detached = detached;
+    }
+
+    /** @return the proof state */
+    public OperationVariants.AllocationState state() {
+
+        return this.state;
+    }
+
+    /** @return the reason text, or null */
+    public String blockingReason() {
+
+        return this.blockingReason;
+    }
+
+    /** @return whether the allocation is detached */
+    public boolean detached() {
+
+        return this.detached;
+    }
+
+    @Override public boolean equals(Object value) {
+
+        if (!(value instanceof AllocationStateSnapshot)) return false;
+        AllocationStateSnapshot other = (AllocationStateSnapshot) value;
+        if (this.state != other.state || this.detached != other.detached) return false;
+        return this.blockingReason == null ? other.blockingReason == null
+                : other.blockingReason != null && this.blockingReason.equals(other.blockingReason);
+    }
+
+    @Override public int hashCode() {
+
+        int text = this.blockingReason == null ? 0 : this.blockingReason.hashCode();
+        return (this.state.hashCode() * 31 + text) * 31 + (this.detached ? 1 : 0);
+    }
+}

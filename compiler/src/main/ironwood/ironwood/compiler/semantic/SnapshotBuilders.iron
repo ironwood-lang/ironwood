@@ -1,0 +1,121 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.semantic;
+
+import ironwood.compiler.port.SnapshotList;
+import ironwood.ds.ArrayList;
+import ironwood.ds.IdentityHashMap;
+import ironwood.ds.IdentityHashSet;
+import ironwood.ds.LinkedHashMap;
+import ironwood.util.Iterator;
+
+/**
+ * The present states, traversal key lists and live membership a new
+ * {@link OwnershipSnapshot} copies. The caller builds them in its own frame
+ * and frees them after construction: a builder freed in the frame that also
+ * copies it stays lent through the copy (the retained M1 limit). Keys keep
+ * each live container's own order, D247 current-store order for slots.
+ */
+final class SnapshotBuilders {
+
+    private final IdentityHashMap<AllocationInfo, AllocationStateSnapshot> states =
+            new IdentityHashMap<AllocationInfo, AllocationStateSnapshot>();
+    private final ArrayList<ArraySlot> slotKeys = new ArrayList<ArraySlot>();
+    private final ArrayList<String> fieldKeys = new ArrayList<String>();
+    private final ArrayList<AllocationInfo> retainedKeys = new ArrayList<AllocationInfo>();
+    private final ArrayList<AllocationInfo> poolKeys = new ArrayList<AllocationInfo>();
+    private final ArrayList<AllocationInfo> exposedItems = new ArrayList<AllocationInfo>();
+    private final IdentityHashSet<AllocationInfo> live = new IdentityHashSet<AllocationInfo>();
+    private final ArrayList<AllocationInfo> liveItems = new ArrayList<AllocationInfo>();
+
+    /**
+     * Builds the lists from a function's borrowed ownership fields; like the
+     * snapshot, it takes the fields rather than their analyzer.
+     */
+    SnapshotBuilders(ArrayList<AllocationInfo> allocations, LinkedHashMap<ArraySlot, AllocationInfo> knownArraySlots,
+                     LinkedHashMap<String, AllocationInfo> borrowedOwnedFields,
+                     IdentityHashMap<AllocationInfo, SnapshotList<AllocationInfo>> retainedBorrows,
+                     IdentityHashMap<AllocationInfo, AllocationInfo> poolOwners, IdentityHashSet<AllocationInfo> exposed,
+                     UnfreedAllocationTracker<AllocationInfo> unfreed) {
+
+        for (int index = 0; index < allocations.size(); index++) {
+            AllocationInfo allocation = allocations.get(index);
+            if (allocation.present()) this.states.put(allocation, allocation.current());
+        }
+        Iterator<AllocationInfo> slots = knownArraySlots.iterator();
+        while (slots.hasNext()) {
+            slots.next();
+            this.slotKeys.add(knownArraySlots.getCurrIteratorKey());
+        }
+        Iterator<AllocationInfo> fields = borrowedOwnedFields.iterator();
+        while (fields.hasNext()) {
+            fields.next();
+            this.fieldKeys.add(borrowedOwnedFields.getCurrIteratorKey());
+        }
+        Iterator<SnapshotList<AllocationInfo>> retained = retainedBorrows.iterator();
+        while (retained.hasNext()) {
+            retained.next();
+            this.retainedKeys.add(retainedBorrows.getCurrIteratorKey());
+        }
+        Iterator<AllocationInfo> pools = poolOwners.iterator();
+        while (pools.hasNext()) {
+            pools.next();
+            this.poolKeys.add(poolOwners.getCurrIteratorKey());
+        }
+        Iterator<AllocationInfo> members = exposed.iterator();
+        while (members.hasNext()) this.exposedItems.add(members.next());
+        if (unfreed != null) unfreed.copyLive(this.live, this.liveItems);
+    }
+
+    IdentityHashMap<AllocationInfo, AllocationStateSnapshot> states() {
+
+        return this.states;
+    }
+
+    ArrayList<ArraySlot> slotKeys() {
+
+        return this.slotKeys;
+    }
+
+    ArrayList<String> fieldKeys() {
+
+        return this.fieldKeys;
+    }
+
+    ArrayList<AllocationInfo> retainedKeys() {
+
+        return this.retainedKeys;
+    }
+
+    ArrayList<AllocationInfo> poolKeys() {
+
+        return this.poolKeys;
+    }
+
+    ArrayList<AllocationInfo> exposedItems() {
+
+        return this.exposedItems;
+    }
+
+    IdentityHashSet<AllocationInfo> live() {
+
+        return this.live;
+    }
+
+    ArrayList<AllocationInfo> liveItems() {
+
+        return this.liveItems;
+    }
+
+    destructor {
+
+        free this.liveItems;
+        free this.live;
+        free this.exposedItems;
+        free this.poolKeys;
+        free this.retainedKeys;
+        free this.fieldKeys;
+        free this.slotKeys;
+        free this.states;
+    }
+}

@@ -1,0 +1,79 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.ir;
+
+import ironwood.compiler.port.OperationVariants;
+import ironwood.compiler.port.SnapshotList;
+import ironwood.compiler.source.SourceSpan;
+
+/**
+ * A direct call. Ports the Java record {@code IrCallInstruction} for the
+ * pilot's admitted role: the optional result is nullable, the arguments are a
+ * frozen list the instruction borrows, and the devirtualization source and
+ * specialization arguments, always absent and empty in this role, are not
+ * represented.
+ */
+public final class IrCallInstruction implements IrInstruction {
+
+    private final IrValueReference result;
+    private final String targetLinkageName;
+    private final IrType returnType;
+    private final SnapshotList<IrOperand> arguments;
+    private final OperationVariants.CallKind callKind;
+    private final SourceSpan sourceSpan;
+
+    /** Creates the call from its components in record order. */
+    public IrCallInstruction(IrValueReference result, String targetLinkageName, IrType returnType,
+                             SnapshotList<IrOperand> arguments, OperationVariants.CallKind callKind,
+                             SourceSpan sourceSpan) {
+
+        if (arguments == null) throw new NullPointerException();
+        this.result = result;
+        this.targetLinkageName = targetLinkageName;
+        this.returnType = returnType;
+        this.arguments = arguments;
+        this.callKind = callKind;
+        this.sourceSpan = sourceSpan;
+    }
+
+    /** @return the result value, or null */
+    public IrValueReference result() {
+
+        return this.result;
+    }
+
+    /** @return the target's linkage name */
+    public String targetLinkageName() {
+
+        return this.targetLinkageName;
+    }
+
+    /** @return the declared return type */
+    public IrType returnType() {
+
+        return this.returnType;
+    }
+
+    /** @return the borrowed ordered arguments */
+    public SnapshotList<IrOperand> arguments() {
+
+        return this.arguments;
+    }
+
+    /** @return the call kind */
+    public OperationVariants.CallKind callKind() {
+
+        return this.callKind;
+    }
+
+    /** @return the span */
+    public SourceSpan sourceSpan() {
+
+        return this.sourceSpan;
+    }
+
+    @Override public OperationVariants.Instruction instructionVariant() {
+
+        return OperationVariants.Instruction.CALL;
+    }
+}

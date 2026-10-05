@@ -862,6 +862,10 @@ public final class CompilerTests {
         test("frontend pilot retires builders and rejects frees of observed state", FrontendPilotTests::ownership);
         test("frontend pilot matches the Java frontend across artifacts", FrontendPilotTests::artifacts);
         test("frontend pilot unwinds every allocation failure cleanly", FrontendPilotTests::failures);
+        test("ownership pilot retires versions and rejects frees of observed state", OwnershipPilotTests::ownership);
+        test("ownership pilot counts callbacks and rejects frees of captured state", OwnershipPilotTests::callbacks);
+        test("ownership pilot matches the Java kernels across artifacts", OwnershipPilotTests::artifacts);
+        test("ownership pilot unwinds every allocation failure cleanly", OwnershipPilotTests::failures);
         test("private compiler snapshot getter loans survive joins and delegation",
                 this::privateSnapshotGetterJoins);
         test("private compiler snapshot proofs reject publication and unrecognized construction",

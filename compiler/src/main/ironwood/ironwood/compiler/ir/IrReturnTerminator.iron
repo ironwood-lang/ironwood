@@ -1,0 +1,40 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.ir;
+
+import ironwood.compiler.port.OperationVariants;
+import ironwood.compiler.source.SourceSpan;
+
+/** A return. Ports the Java record {@code IrReturnTerminator}; the optional value is nullable and borrowed. */
+public final class IrReturnTerminator implements IrTerminator {
+
+    private final IrOperand value;
+    private final SourceSpan sourceSpan;
+
+    /**
+     * @param value the returned value, or null
+     * @param sourceSpan the span
+     */
+    public IrReturnTerminator(IrOperand value, SourceSpan sourceSpan) {
+
+        this.value = value;
+        this.sourceSpan = sourceSpan;
+    }
+
+    /** @return the returned value, or null */
+    public IrOperand value() {
+
+        return this.value;
+    }
+
+    /** @return the span */
+    public SourceSpan sourceSpan() {
+
+        return this.sourceSpan;
+    }
+
+    @Override public OperationVariants.Terminator terminatorVariant() {
+
+        return OperationVariants.Terminator.RETURN;
+    }
+}

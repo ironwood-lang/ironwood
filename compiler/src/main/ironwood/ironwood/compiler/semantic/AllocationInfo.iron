@@ -1,0 +1,164 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.semantic;
+
+import ironwood.compiler.port.OperationVariants;
+
+/**
+ * One tracked allocation: an identity node. Ports the Java class
+ * {@code FunctionAnalyzer.AllocationInfo} for the pilot's admitted role
+ * (OPERATION_MODEL): origin {@code LOCAL_NEW}, no owned-field name or
+ * constructed type, and empty candidate and final-field membership, which this
+ * role never reads and so are not stored. The mutable state, reason and
+ * detached flag are one immutable {@link AllocationStateSnapshot} version that
+ * each write replaces (D257); {@code present} stays a plain flag. Nodes and
+ * versions are invocation-lived.
+ */
+public final class AllocationInfo {
+
+    /** The state every new allocation starts with; shared and never freed. */
+    public static final AllocationStateSnapshot INITIAL = new AllocationStateSnapshot(
+            OperationVariants.AllocationState.ACTIVE, "compiler could not prove allocation identity", false);
+
+    private final int creationControlFlowDepth;
+    private final OperationVariants.AllocationOrigin origin;
+    private final String ownedFieldName;
+    private boolean present = true;
+    private AllocationStateSnapshot current = INITIAL;
+
+    /**
+     * Creates a {@code LOCAL_NEW} allocation, as Java's one-argument constructor.
+     *
+     * @param creationControlFlowDepth the control-flow depth of the allocation
+     */
+    public AllocationInfo(int creationControlFlowDepth) {
+
+        this.creationControlFlowDepth = creationControlFlowDepth;
+        this.origin = OperationVariants.AllocationOrigin.LOCAL_NEW;
+        this.ownedFieldName = null;
+    }
+
+    /** @return the control-flow depth of the allocation */
+    public int creationControlFlowDepth() {
+
+        return this.creationControlFlowDepth;
+    }
+
+    /** @return the origin */
+    public OperationVariants.AllocationOrigin origin() {
+
+        return this.origin;
+    }
+
+    /** @return the owned field name, or null */
+    public String ownedFieldName() {
+
+        return this.ownedFieldName;
+    }
+
+    /** @return whether the allocation is present on the current path */
+    public boolean present() {
+
+        return this.present;
+    }
+
+    /** @param present whether the allocation is present on the current path */
+    public void setPresent(boolean present) {
+
+        this.present = present;
+    }
+
+    /** @return the current state version, shared with snapshots */
+    public AllocationStateSnapshot current() {
+
+        return this.current;
+    }
+
+    /** @param version the borrowed version to make current */
+    public void install(AllocationStateSnapshot version) {
+
+        this.current = version;
+    }
+
+    /** @return the proof state */
+    public OperationVariants.AllocationState state() {
+
+        return this.current.state();
+    }
+
+    /** @return the blocking reason, or null */
+    public String blockingReason() {
+
+        return this.current.blockingReason();
+    }
+
+    /** @return whether the allocation is detached */
+    public boolean detached() {
+
+        return this.current.detached();
+    }
+
+    /** @param state the new proof state, as Java's field write */
+    public void setState(OperationVariants.AllocationState state) {
+
+        this.current = new AllocationStateSnapshot(state, this.current.blockingReason(), this.current.detached());
+    }
+
+    /** @param detached the new detached flag, as Java's field write */
+    public void setDetached(boolean detached) {
+
+        this.current = new AllocationStateSnapshot(this.current.state(), this.current.blockingReason(), detached);
+    }
+
+    /**
+     * @param state a proof state
+     * @return whether it may already be freed, as Java's {@code mayBeFreed}
+     */
+    public static boolean mayBeFreed(OperationVariants.AllocationState state) {
+
+        return switch (state) {
+            case FREED, MAYBE_FREED -> true;
+            case ACTIVE, UNCERTAIN, ESCAPED -> false;
+        };
+    }
+
+    /**
+     * Java's {@code makeUncertain}: an owned-field identity is never blocked here.
+     *
+     * @param reason the borrowed reason
+     * @return whether the state changed
+     */
+    public boolean makeUncertain(String reason) {
+
+        if (this.origin == OperationVariants.AllocationOrigin.OWNED_FIELD) return false;
+        return this.blockReclamation(reason);
+    }
+
+    /**
+     * Java's {@code blockReclamation}: an active allocation becomes uncertain.
+     *
+     * @param reason the borrowed reason
+     * @return whether the state changed
+     */
+    public boolean blockReclamation(String reason) {
+
+        if (this.current.state() != OperationVariants.AllocationState.ACTIVE) return false;
+        this.current = new AllocationStateSnapshot(OperationVariants.AllocationState.UNCERTAIN, reason,
+                this.current.detached());
+        return true;
+    }
+
+    /**
+     * Java's {@code escape}: an allocation that may not be freed escapes.
+     *
+     * @param reason the borrowed reason
+     * @return whether the state changed
+     */
+    public boolean escape(String reason) {
+
+        if (mayBeFreed(this.current.state())) return false;
+        this.current = new AllocationStateSnapshot(OperationVariants.AllocationState.ESCAPED, reason,
+                this.current.detached());
+        return true;
+    }
+}

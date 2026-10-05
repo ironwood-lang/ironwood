@@ -1,0 +1,67 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.ir;
+
+import ironwood.compiler.port.OperationVariants;
+
+/**
+ * An IR value type. Ports the Java record {@code IrType} for the M2 pilot's
+ * admitted role only: a nominal reference with no type arguments, element
+ * type, erasure or wildcard (OPERATION_MODEL). Other kinds are rejected by the
+ * pilot input factory before analysis; their fields are later-only. Types
+ * compare by value.
+ */
+public final class IrType {
+
+    private final OperationVariants.TypeKind kind;
+    private final String referenceName;
+
+    private IrType(OperationVariants.TypeKind kind, String referenceName) {
+
+        this.kind = kind;
+        this.referenceName = referenceName;
+    }
+
+    /**
+     * @param className the nominal class name
+     * @return a new reference type without type arguments
+     */
+    public static IrType reference(String className) {
+
+        if (className == null) throw new NullPointerException();
+        return new IrType(OperationVariants.TypeKind.REFERENCE, className);
+    }
+
+    /** @return the type kind */
+    public OperationVariants.TypeKind kind() {
+
+        return this.kind;
+    }
+
+    /** @return the nominal class name */
+    public String referenceName() {
+
+        return this.referenceName;
+    }
+
+    /** @return whether values of this type are references, as Java's isReference */
+    public boolean isReference() {
+
+        return switch (this.kind) {
+            case REFERENCE, TYPE_PARAMETER, WILDCARD, ARRAY -> true;
+            case I1, I8, I16, U16, I32, I64, F32, F64, VOID, NULL, EXCEPTION -> false;
+        };
+    }
+
+    @Override public boolean equals(Object value) {
+
+        if (!(value instanceof IrType)) return false;
+        IrType other = (IrType) value;
+        return this.kind == other.kind && this.referenceName.equals(other.referenceName);
+    }
+
+    @Override public int hashCode() {
+
+        return this.kind.hashCode() * 31 + this.referenceName.hashCode();
+    }
+}

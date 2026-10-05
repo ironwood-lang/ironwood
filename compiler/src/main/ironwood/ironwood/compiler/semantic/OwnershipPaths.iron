@@ -1,0 +1,116 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.semantic;
+
+import ironwood.compiler.port.SnapshotList;
+import ironwood.ds.IdentityHashMap;
+import ironwood.ds.IdentityHashSet;
+import ironwood.ds.LinkedHashMap;
+
+/**
+ * The predecessor versions of one ownership join, owned in a private creation
+ * array (D163). Java passes {@code mergeOwnership} a list of snapshots; a
+ * native list or copy passed to an analyzed method exposes its contents, so
+ * no version could be freed afterwards (the retained M1 limit). Here every
+ * version is a fresh snapshot allocated here and recorded exactly once, lent
+ * through direct indexed getters, and retired by the destructor loop.
+ *
+ * <p>{@link FunctionOwnership#captureOwnership} records versions in capture
+ * order; joins visit them in path order, and a capture may be inserted at any
+ * path position, since a join's path order is independent of when each
+ * predecessor was captured. Before freeing the owner, release its versions'
+ * saved evidence with {@link FunctionOwnership#releaseOwnership} (D259).
+ */
+public final class OwnershipPaths implements RejectedFreeEvidence.Paths {
+
+    private OwnershipSnapshot[] versions;
+    private int[] order;
+    private int count;
+
+    /**
+     * @param capacity the initial positive capacity
+     */
+    public OwnershipPaths(int capacity) {
+
+        if (capacity <= 0) throw new IllegalArgumentException("capacity must be positive");
+        this.versions = new OwnershipSnapshot[capacity];
+        this.order = new int[capacity];
+    }
+
+    // Records a new version at a path position; FunctionOwnership.captureOwnership
+    // supplies its fields, builders and services.
+    void capture(SnapshotBuilders builders, LinkedHashMap<ArraySlot, AllocationInfo> knownArraySlots,
+                 LinkedHashMap<String, AllocationInfo> borrowedOwnedFields,
+                 IdentityHashMap<AllocationInfo, SnapshotList<AllocationInfo>> retainedBorrows,
+                 IdentityHashMap<AllocationInfo, AllocationInfo> poolOwners, IdentityHashSet<AllocationInfo> exposed,
+                 RejectedFreeEvidence evidence, SemanticAnalysisObserver observer, int position) {
+
+        if (position < 0 || position > this.count) throw new IndexOutOfBoundsException("path position");
+        if (this.count == this.versions.length) this.grow();
+        OwnershipSnapshot value = new OwnershipSnapshot(builders, knownArraySlots, borrowedOwnedFields, retainedBorrows,
+                poolOwners, exposed, evidence, observer);
+        // Record the version before any loop, so the store sees the fresh allocation itself.
+        int index = this.count;
+        this.versions[index] = value;
+        this.count++;
+        for (int later = index; later > position; later--) this.order[later] = this.order[later - 1];
+        this.order[position] = index;
+    }
+
+    // A full shallow transfer into fresh storage keeps each version recorded once.
+    private void grow() {
+
+        OwnershipSnapshot[] previous = this.versions;
+        this.versions = new OwnershipSnapshot[previous.length * 2];
+        System.arraycopy(previous, 0, this.versions, 0, previous.length);
+        free previous;
+        int[] previousOrder = this.order;
+        this.order = new int[previousOrder.length * 2];
+        System.arraycopy(previousOrder, 0, this.order, 0, previousOrder.length);
+        free previousOrder;
+    }
+
+    /** @return the number of captured versions */
+    public int size() {
+
+        return this.count;
+    }
+
+    /**
+     * @param index a capture index
+     * @return the version lent by this owner
+     */
+    public OwnershipSnapshot version(int index) {
+
+        return this.versions[index];
+    }
+
+    /**
+     * @param position a path position
+     * @return the version at that path position, lent by this owner
+     */
+    public OwnershipSnapshot path(int position) {
+
+        int index = this.order[position];
+        return this.version(index);
+    }
+
+    @Override public int pathCount() {
+
+        return this.count;
+    }
+
+    @Override public RejectedFreeEvidence.Saved savedPath(int position) {
+
+        return this.path(position).savedEvidence();
+    }
+
+    destructor {
+
+        for (int index = 0; index < this.versions.length; index++) {
+            free this.versions[index];
+        }
+        free this.versions;
+        free this.order;
+    }
+}

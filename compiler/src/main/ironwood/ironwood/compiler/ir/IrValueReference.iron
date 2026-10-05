@@ -1,0 +1,49 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.ir;
+
+import ironwood.compiler.port.OperationVariants;
+import ironwood.compiler.source.SourceSpan;
+
+/** A numbered SSA value. Ports the Java record {@code IrValueReference}; the type and span are borrowed. */
+public final class IrValueReference implements IrOperand {
+
+    private final int id;
+    private final IrType type;
+    private final SourceSpan sourceSpan;
+
+    /**
+     * @param id the value number
+     * @param type the borrowed type
+     * @param sourceSpan the borrowed span
+     */
+    public IrValueReference(int id, IrType type, SourceSpan sourceSpan) {
+
+        this.id = id;
+        this.type = type;
+        this.sourceSpan = sourceSpan;
+    }
+
+    /** @return the value number */
+    public int id() {
+
+        return this.id;
+    }
+
+    /** @return the type */
+    @Override public IrType type() {
+
+        return this.type;
+    }
+
+    /** @return the span */
+    public SourceSpan sourceSpan() {
+
+        return this.sourceSpan;
+    }
+
+    @Override public OperationVariants.Operand operandVariant() {
+
+        return OperationVariants.Operand.VALUE_REFERENCE;
+    }
+}

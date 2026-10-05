@@ -1,0 +1,36 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.semantic;
+
+import ironwood.compiler.port.OperationVariants;
+
+/**
+ * Optional analysis instrumentation. Ports the members of the Java interface
+ * {@code SemanticAnalysisObserver} that the pilot's analyzers call; the kind
+ * and phase lists are the closed D260 enums. An observer never changes a
+ * semantic fact. An analyzer that holds one keeps it in a field for its whole
+ * lifetime, so it is the pilot's field-retained callback.
+ */
+public interface SemanticAnalysisObserver {
+
+    /**
+     * @param token the analyzer's token
+     * @param kind the analyzer kind
+     * @param phase the analysis phase
+     */
+    void analyzerCreated(long token, OperationVariants.AnalyzerKind kind, OperationVariants.AnalyzerPhase phase);
+
+    /**
+     * @param token the analyzer's token
+     * @param kind the analyzer kind
+     * @param round the zero-based fixed-point round
+     */
+    void analyzerRound(long token, OperationVariants.AnalyzerKind kind, int round);
+
+    /**
+     * @param saved whether a snapshot was saved rather than restored
+     * @param sharedEmpty whether no evidence store was present
+     * @param associations the saved associations, or a restore outcome
+     */
+    void evidenceSnapshot(boolean saved, boolean sharedEmpty, int associations);
+}

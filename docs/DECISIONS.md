@@ -9927,3 +9927,64 @@ occurrence order. If no
   left by accepted inputs; every allocation failure unwinds cleanly; paired
   ownership controls hold in every mode; and all runs fit the fixed frontend
   budget. See [the frontend record](self-hosting/m2/FRONTEND.md).
+
+## D262 - Port the ownership slice with join owners and invocation-lived payloads
+
+- **Status:** Implemented during M2.2 on 2026-10-05.
+- **Decision:** The selected ownership, explanation and effect operations are
+  ported under `compiler/src/main/ironwood/ironwood/compiler/` (`ir`,
+  `semantic`, and `port/BitRows`). `FunctionOwnership` holds the seven
+  ownership fields with Java's snapshot, restore, join, blocking and
+  array-store rules; `RejectedFreeEvidence` keeps the six maps, budgets,
+  limits and merge intersections on D259 snapshot-owned saved versions;
+  `UnfreedAllocationTracker` keeps registration order and the live set; and
+  `ClosedWorldEffectAnalyzer` computes Java's fixed point over the admitted IR
+  with an ordered `instanceof` chain for its pattern switch. Records become
+  final classes with nullable `Optional` components; streams and lambdas are
+  ordered loops (D258); `PilotInputs` admits only the D260 variants and rejects
+  every other input role before an analyzer exists.
+- **Native lifetime proof:** Allocation nodes, state versions, child versions,
+  evidence payloads (sites, bindings, events, joins and retention keys) and the
+  admitted IR are invocation-lived, as the plan's lifetime table starts shared
+  graphs; nodes, child versions and IR enter the analyzer's live containers,
+  where a later `free` is rejected. Everything else retires by an ordinary
+  local proof: snapshots with their copies, key lists and saved evidence,
+  join owners, builders, the evidence merge's common maps, and the effect
+  analyzer with its summaries and scratch rows. Before a version is freed its
+  saved evidence is released through the analyzer
+  (`FunctionOwnership.releaseOwnership`), so a closed store ends at zero units.
+- **Representation:** Java passes `mergeOwnership` a list of snapshots, but a
+  native list lent to an analyzed method exposes its contents and leaves
+  every listed version unfreeable (the retained M1 limit). A join's
+  predecessors therefore live in an `OwnershipPaths` owner: a private D163
+  creation array of fresh snapshots, recorded once by
+  `FunctionOwnership.captureOwnership`, lent through direct indexed getters,
+  visited in path order (a capture may be inserted at any position) and
+  retired by the destructor loop; the store's merge reads them through the
+  `RejectedFreeEvidence.Paths` interface. The snapshot constructor takes the
+  borrowed fields and services, not the analyzer, and builds from
+  `SnapshotBuilders` made in the caller's frame, since builders freed in the
+  frame that copies them stay lent. The analyzer has no getter for its
+  borrowed services: such a getter, like a helper frame that loops over a
+  holder, leaves every service the holder retains conservatively escaping
+  (the retained D253 summary limit). The effect analyzer keeps three
+  summary rows per function in one analyzer-owned `BitRows` matrix and
+  updates them in place each round instead of allocating vectors.
+- **Boundary:** Nonempty join paths and alternatives, non-`LOCAL_NEW`
+  allocation origins, and every IR role outside the effect fixture remain
+  later-only (OPERATION_MODEL). Retiring nodes and versions individually would
+  need precise loans through the live containers, which no consumer has shown
+  to be worth the analysis; the measured payload is bounded per operation.
+  No analysis, runtime or lowering change is introduced. This establishes
+  M2.2, not S1/G1.
+- **Verification:** Native results are byte-identical to the retained J0
+  kernel results for all 47 configurations (24 ownership, 3 evidence, 10
+  effect chains and 10 effect cycles) from classes and archive. After
+  retirement exactly the derived payload and result text stay live: per
+  ownership iteration 7 state versions, 2 child versions of 4 allocations
+  and, with recorded explanations, 5 events; per evidence iteration one join
+  and one event; zero temporaries otherwise. The input boundary rejects seven
+  effect-input deviations and a freed allocation. Callback counts are
+  recorded separately, paired controls hold in every mode, every allocation
+  failure unwinds cleanly, and all runs fit the fixed budgets within a 32-KiB
+  stack. See [the ownership record](self-hosting/m2/OWNERSHIP.md).

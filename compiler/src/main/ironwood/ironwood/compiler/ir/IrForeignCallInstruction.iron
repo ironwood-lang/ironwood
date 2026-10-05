@@ -1,0 +1,95 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.ir;
+
+import ironwood.compiler.port.OperationVariants;
+import ironwood.compiler.port.SnapshotList;
+import ironwood.compiler.source.SourceSpan;
+
+/**
+ * A compiler-owned foreign call in a hidden bridge proxy; the target is outside
+ * the closed world and may publish inputs, allocate, throw and reenter. Ports
+ * the Java record {@code IrForeignCallInstruction} for the pilot's admitted
+ * role, whose invocation context is absent. The constructor keeps Java's
+ * validation; the target pattern {@code ironwood_bridge_callback_[A-Za-z0-9_]+}
+ * is checked by its characters, without a regex engine.
+ */
+public final class IrForeignCallInstruction implements IrInstruction {
+
+    private static final String TARGET_PREFIX = "ironwood_bridge_callback_";
+
+    private final IrValueReference result;
+    private final String targetLinkageName;
+    private final IrType returnType;
+    private final SnapshotList<IrOperand> arguments;
+    private final SourceSpan sourceSpan;
+
+    /**
+     * Creates the call from its components in record order.
+     *
+     * @throws IllegalArgumentException if the target, result type or an argument type is invalid
+     */
+    public IrForeignCallInstruction(IrValueReference result, String targetLinkageName, IrType returnType,
+                                    SnapshotList<IrOperand> arguments, SourceSpan sourceSpan) {
+
+        if (returnType == null || sourceSpan == null || arguments == null) throw new NullPointerException();
+        if (!callbackTarget(targetLinkageName)) {
+            throw new IllegalArgumentException("foreign call requires a compiler-owned callback target");
+        }
+        if (result != null && !result.type().equals(returnType)) {
+            throw new IllegalArgumentException("foreign call result must match its declared type");
+        }
+        this.result = result;
+        this.targetLinkageName = targetLinkageName;
+        this.returnType = returnType;
+        this.arguments = arguments;
+        this.sourceSpan = sourceSpan;
+    }
+
+    private static boolean callbackTarget(String name) {
+
+        if (name == null || !name.startsWith(TARGET_PREFIX) || name.length() == TARGET_PREFIX.length()) return false;
+        for (int index = TARGET_PREFIX.length(); index < name.length(); index++) {
+            char current = name.charAt(index);
+            boolean word = current >= 'A' && current <= 'Z' || current >= 'a' && current <= 'z'
+                    || current >= '0' && current <= '9' || current == '_';
+            if (!word) return false;
+        }
+        return true;
+    }
+
+    /** @return the result value, or null */
+    public IrValueReference result() {
+
+        return this.result;
+    }
+
+    /** @return the callback target's linkage name */
+    public String targetLinkageName() {
+
+        return this.targetLinkageName;
+    }
+
+    /** @return the declared return type */
+    public IrType returnType() {
+
+        return this.returnType;
+    }
+
+    /** @return the borrowed ordered arguments */
+    public SnapshotList<IrOperand> arguments() {
+
+        return this.arguments;
+    }
+
+    /** @return the span */
+    public SourceSpan sourceSpan() {
+
+        return this.sourceSpan;
+    }
+
+    @Override public OperationVariants.Instruction instructionVariant() {
+
+        return OperationVariants.Instruction.FOREIGN_CALL;
+    }
+}

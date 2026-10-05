@@ -1,0 +1,120 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.semantic;
+
+import ironwood.compiler.ir.IrBasicBlock;
+import ironwood.compiler.ir.IrCallInstruction;
+import ironwood.compiler.ir.IrForeignCallInstruction;
+import ironwood.compiler.ir.IrFunction;
+import ironwood.compiler.ir.IrInstruction;
+import ironwood.compiler.ir.IrOperand;
+import ironwood.compiler.ir.IrReturnTerminator;
+import ironwood.compiler.ir.IrTerminator;
+import ironwood.compiler.ir.IrType;
+import ironwood.compiler.ir.IrValueReference;
+import ironwood.compiler.port.OperationVariants;
+import ironwood.compiler.port.SnapshotList;
+import ironwood.ds.HashSet;
+
+/**
+ * The M2 pilot's private input factories (OPERATION_MODEL, D260). Each check
+ * admits only the selected roles through the exhaustive admission functions of
+ * {@link OperationVariants} and rejects everything else with
+ * {@code IllegalArgumentException} before an analyzer sees it; there is no
+ * permissive fallback.
+ */
+public final class PilotInputs {
+
+    /** The fixed compiler-owned foreign target the effect fixture admits. */
+    public static final String FOREIGN_TARGET = "ironwood_bridge_callback_effect";
+
+    private PilotInputs() {
+
+    }
+
+    /**
+     * Admits an allocation: a {@code LOCAL_NEW} identity with no owned field in
+     * an admitted input state.
+     *
+     * @param allocation the borrowed allocation
+     */
+    public static void admitAllocation(AllocationInfo allocation) {
+
+        require(OperationVariants.admitsOrigin(allocation.origin()) && allocation.ownedFieldName() == null,
+                "allocation origin");
+        require(OperationVariants.admitsInputState(allocation.state()), "allocation state");
+    }
+
+    /**
+     * Admits the effect fixture's functions: unique names, the METHOD kind, a
+     * reference return, reference parameters, one entry block of direct or
+     * fixed foreign calls on nonnegatively numbered reference values, and a
+     * value return.
+     *
+     * @param functions the borrowed functions
+     */
+    public static void admitEffectFunctions(SnapshotList<IrFunction> functions) {
+
+        HashSet<String> names = new HashSet<String>(functions.size() + 1);
+        defer free names;
+        for (int index = 0; index < functions.size(); index++) {
+            IrFunction function = functions.get(index);
+            require(names.add(function.linkageName()), "unique function names");
+            require(OperationVariants.admitsCallableKind(function.kind()), "callable kind");
+            admitType(function.returnType());
+            for (int parameter = 0; parameter < function.parameters().size(); parameter++) {
+                admitOperand(function.parameters().get(parameter).value());
+            }
+            require(function.blocks().size() == 1, "one entry block");
+            IrBasicBlock block = function.blocks().get(0);
+            for (int position = 0; position < block.instructions().size(); position++) {
+                admitInstruction(block.instructions().get(position));
+            }
+            IrTerminator terminator = block.terminator();
+            require(OperationVariants.admitsTerminator(terminator.terminatorVariant()), "terminator");
+            IrReturnTerminator result = (IrReturnTerminator) terminator;
+            require(result.value() != null, "value return");
+            admitOperand(result.value());
+        }
+    }
+
+    private static void admitInstruction(IrInstruction instruction) {
+
+        require(OperationVariants.admitsInstruction(instruction.instructionVariant()), "instruction");
+        if (instruction instanceof IrCallInstruction call) {
+            require(OperationVariants.admitsCallKind(call.callKind()), "call kind");
+            admitType(call.returnType());
+            if (call.result() != null) admitOperand(call.result());
+            admitOperands(call.arguments());
+            return;
+        }
+        IrForeignCallInstruction foreign = (IrForeignCallInstruction) instruction;
+        require(foreign.targetLinkageName().equals(FOREIGN_TARGET), "foreign target");
+        require(foreign.result() != null, "foreign result");
+        admitOperand(foreign.result());
+        admitOperands(foreign.arguments());
+    }
+
+    private static void admitOperands(SnapshotList<IrOperand> operands) {
+
+        for (int index = 0; index < operands.size(); index++) admitOperand(operands.get(index));
+    }
+
+    private static void admitOperand(IrOperand operand) {
+
+        require(OperationVariants.admitsOperand(operand.operandVariant()), "operand");
+        // The analyzer indexes origins by value number; the model's numbers are nonnegative.
+        require(((IrValueReference) operand).id() >= 0, "value number");
+        admitType(operand.type());
+    }
+
+    private static void admitType(IrType type) {
+
+        require(OperationVariants.admitsTypeKind(type.kind()), "type kind");
+    }
+
+    private static void require(boolean admitted, String role) {
+
+        if (!admitted) throw new IllegalArgumentException("pilot input rejects this " + role);
+    }
+}
