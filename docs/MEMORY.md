@@ -697,7 +697,15 @@ proved alias to another constructor requires the argument to remain confined:
 retention in a helper is permitted only through a private encapsulated field.
 This check is mandatory even without an explicit `free` and in every unfreed
 mode. Converted, joined and returned aliases, including possible virtual and
-interface return targets, participate in the check. If construction throws, the
+interface return targets, participate in the check. The typed publication
+check also follows identity stored in fields (D253). A constructor store into
+exactly its own receiver, or into an element of that receiver's compiler-proven
+owned array, is retention rather than publication. A later load of that field
+can return the stored receiver or helper. A constructed helper holds the
+arguments its constructor stored, so publishing the helper, or a helper method
+publishing held contents, publishes those arguments. Every other store, static
+store, outward throw or foreign call publishes everything the value can reach,
+and a locally thrown value reaches its catch variables. If construction throws, the
 `new` expression's exceptional edge invokes a compiler-generated rollback
 callable. It walks compiler-proven owned fields in reverse order, recursively
 destroys completed child allocations through their normal destructor entries,
@@ -881,7 +889,9 @@ additional safe programs without weakening these guarantees.
 
 A destructor is a distinct callable kind in typed IR. It cannot allocate,
 publish or resurrect `this`, or let an exception escape; direct and indirect
-calls contribute effects through a closed-world fixed point. A caught exception
+calls contribute effects through a closed-world fixed point. Resurrection
+includes publishing a field that may hold the dying object or a holder of it,
+and publishing a caught exception that may be `this`. A caught exception
 is permitted when every path handles it locally. If an exception nevertheless
 crosses the backend destructor boundary, the runtime terminates immediately
 instead of deallocating through partially completed cleanup. Reading a field

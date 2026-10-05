@@ -807,6 +807,14 @@ public final class CompilerTests {
                 this::constructorHelpersRejectObservableRollbackOwners);
         test("confined constructor helpers reclaim normal and failed construction",
                 () -> runFixtureAtO3("constructor_confined_helper_rollback.iron", 42));
+        test("receiver field aliases reject constructor and destructor publication",
+                ReceiverPublicationTests::fieldAliasesAreRejected);
+        test("confined receiver field aliases remain accepted",
+                ReceiverPublicationTests::confinedFieldAliasesAreAccepted);
+        test("reconstructed helper links reject receiver field publication",
+                ReceiverPublicationTests::reconstructedHelpersAreChecked);
+        test("receiver field aliases reclaim normal and failed construction",
+                () -> runFixtureAtO3("constructor_field_alias_rollback.iron", 42));
         test("independent set copies survive artifacts and allocation failures",
                 this::setCopiesAcrossArtifacts);
         test("independent map copy proofs reject changed traversal and publication",

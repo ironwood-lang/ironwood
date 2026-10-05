@@ -9601,3 +9601,48 @@ occurrence order. If no
   rejection, direct/converted/joined/loop/returned/dispatch aliases, accepted
   confined counterparts, native normal/failure cleanup and focused shared
   consumers. See [the set-copy correction](self-hosting/m1/SETS.md).
+
+## D253 - Follow receiver identity through constructor-held fields
+
+- **Status:** Implemented during M1.2 on 2026-10-05.
+- **Problem:** After D252, a constructor could store `this` in a private self
+  field and pass, publish or call through that field. The typed effect check
+  exempted constructor stores into the receiver's own fields but gave later
+  loads no origin. It also accepted a store target that only may be `this`,
+  and it lost what helper constructors stored. Ten compile-only probes were
+  admitted, including a static store of a self field, a static or virtual call
+  on it, a helper built in an instance method, a joined store target and a
+  published local helper. Linking a publishing helper from classes or an
+  archive was admitted even under `--unfreed=error`. Destructors could likewise
+  resurrect `this` through a self field or a caught exception. No admitted
+  program was executed.
+- **Decision:** Keep D252's argument check and add a retention-aware
+  publication analysis to the mandatory constructor and destructor checks.
+  Each value tracks the parameters it may be, the parameter identities it may
+  reach through fields, and the parameters whose contents it may reach. Only a
+  constructor store into exactly its receiver, or into an element of that
+  receiver's compiler-proven owned array, is retention. Every other store,
+  static store, outward throw and foreign call publishes everything the value
+  can reach. Locally thrown values reach the function's landing pads.
+- **Proof:** Closed-world field marks only grow. A field a constructor wrote
+  with its receiver or a retainer may return its holder; a field written with
+  parameter-derived data may return what the holder retains. Constructor
+  summaries expose retained parameters, so building a helper records what it
+  holds, publishing the helper publishes those arguments, and a helper method
+  that publishes held content publishes them as well. Callees cannot see
+  retention established by their callers, so content effects resolve at the
+  caller. The existing effect kernel's reclamation, returned-origin and
+  projection facts are unchanged, so relowering, Bridge cleanup and the M0
+  effect workload keep their inputs.
+- **Boundary:** Diagnostics only: valid typed IR and LLVM are byte-identical
+  and no runtime bookkeeping is added. The analysis is conservative: an array
+  element store outside an owned receiver array still publishes its value.
+  Existing escape-summary limits that keep some confined parents unfreeable are
+  unchanged. This completes D252's rollback confinement without superseding it
+  and establishes neither full M1 nor S1/G1.
+- **Verification:** Fourteen unsafe probes are rejected in off/warn/error from
+  source, and publishing helpers are rejected from class and archive links.
+  Safe self fields, confined helpers, self-retaining collections, owned child
+  arrays and a dropped caught `this` keep identical LLVM and native exits. The
+  strict library, all 79 example/project trees, the D252 suite and focused
+  copy/snapshot/pool/Bridge consumers pass. See [the field-alias record](self-hosting/m1/FIELD_ALIAS.md).

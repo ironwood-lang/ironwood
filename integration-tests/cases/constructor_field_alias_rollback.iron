@@ -1,0 +1,95 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// A parent holds itself in a private field and passes that field to a helper
+// that only reads it. Nothing publishes the parent, so normal destruction and
+// rollback after the helper throws reclaim the same three allocations. The
+// preallocated process-lived exception is outside each baseline. Exit 42 after
+// twenty checked attempts.
+class Helper {
+
+    private Parent owner;
+    private int[] scratch = new int[2];
+
+    Helper(Parent owner) {
+
+        this.owner = owner;
+    }
+
+    void check(boolean fail) {
+
+        if (fail && this.owner.marker() == 7) throw Main.failure;
+    }
+
+    destructor {
+
+        free this.scratch;
+    }
+}
+
+class Parent {
+
+    private Parent self;
+    private Helper helper;
+    private int marker = 7;
+    private int seen;
+
+    Parent(boolean fail) {
+
+        this.self = this;
+        this.helper = new Helper(this.self);
+        this.seen = this.self.marker;
+        // Every field is complete, so rollback destroys the owned helper.
+        this.helper.check(fail);
+    }
+
+    int marker() {
+
+        return this.self.marker;
+    }
+
+    int seen() {
+
+        return this.seen;
+    }
+
+    destructor {
+
+        free this.helper;
+    }
+}
+
+class Main {
+
+    static RuntimeException failure = new RuntimeException();
+
+    public static int main(String[] args) {
+
+        RuntimeException original = failure;
+        long baseline = System.liveAllocationCount();
+        for (int attempt = 0; attempt < 20; attempt++) {
+            long before = System.allocationCount();
+            Parent value = new Parent(false);
+            int observed = value.seen();
+            free value;
+            if (observed != 7) return 1;
+            if (System.allocationCount() - before != 3) return 2;
+            if (System.liveAllocationCount() != baseline) return 3;
+
+            before = System.allocationCount();
+            boolean caught = false;
+            try {
+                new Parent(true);
+            }
+
+            catch (RuntimeException expected) {
+                if (expected != original) return 4;
+                caught = true;
+            }
+
+            if (!caught || System.allocationCount() - before != 3) return 5;
+            if (System.liveAllocationCount() != baseline) return 6;
+        }
+
+        return 42;
+    }
+}

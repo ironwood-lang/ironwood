@@ -46,8 +46,14 @@ final class ClosedWorldEffectAnalyzer {
         functions.forEach(function -> summaries.put(function.linkageName(), Summary.empty()));
     }
 
-    void validate(Map<String, TypeSymbol> types, List<Diagnostic> diagnostics) {
+    /** Owned fields are compiler-proven exclusive; their arrays are never shared. */
+    void validate(Map<String, TypeSymbol> types, Set<IrField> ownedFields, List<Diagnostic> diagnostics) {
         analyze();
+        // Receiver identity may also return through fields that a constructor
+        // filled without publishing them; see ReceiverPublicationAnalysis.
+        ReceiverPublicationAnalysis receivers = new ReceiverPublicationAnalysis(
+                this, List.copyOf(functions.values()), ownedFields);
+        receivers.analyze();
         for (IrFunction function : functions.values()) {
             Summary summary = summaries.get(function.linkageName());
             TypeSymbol owner = types.get(function.ownerClass());
@@ -63,12 +69,14 @@ final class ClosedWorldEffectAnalyzer {
                     diagnostics.add(Diagnostic.error(owner.source(), function.sourceSpan(),
                             "an exception may escape this destructor"));
                 }
-                if (summary.publishedParameters().get(0)) {
+                if (summary.publishedParameters().get(0)
+                        || receivers.publishesReceiver(function.linkageName())) {
                     diagnostics.add(Diagnostic.error(owner.source(), function.sourceSpan(),
                             "destructor may publish or resurrect 'this'"));
                 }
             } else if (function.kind() == IrCallableKind.CONSTRUCTOR
-                    && summary.publishedParameters().get(0)) {
+                    && (summary.publishedParameters().get(0)
+                    || receivers.publishesReceiver(function.linkageName()))) {
                 diagnostics.add(Diagnostic.error(owner.source(), function.sourceSpan(),
                         "constructor may publish in-progress 'this' before construction completes"));
             }
@@ -196,7 +204,7 @@ final class ClosedWorldEffectAnalyzer {
     // Cleanup landing pads are emitted before the closed-world throw proof is known.
     // Recompute reachability with each fixed-point iteration; a newly throwing callee
     // makes its unwind path reachable on the next iteration, including recursive calls.
-    private Set<String> reachableBlocks(IrFunction function) {
+    Set<String> reachableBlocks(IrFunction function) {
         Map<String, IrBasicBlock> blocks = new LinkedHashMap<>();
         function.blocks().forEach(block -> blocks.put(block.label(), block));
         Set<String> reachable = new LinkedHashSet<>();
@@ -239,7 +247,7 @@ final class ClosedWorldEffectAnalyzer {
         });
     }
 
-    private static boolean isCatchAllFallback(IrFunction function, IrBasicBlock fallback) {
+    static boolean isCatchAllFallback(IrFunction function, IrBasicBlock fallback) {
         if (!fallback.label().startsWith("catch.next")) {
             return false;
         }
@@ -372,7 +380,7 @@ final class ClosedWorldEffectAnalyzer {
         return result;
     }
 
-    private List<IrFunction> targets(IrInstruction instruction) {
+    List<IrFunction> targets(IrInstruction instruction) {
         if (instruction instanceof IrCallInstruction call) {
             IrFunction target = functions.get(call.targetLinkageName());
             return target == null ? List.of() : List.of(target);
@@ -474,7 +482,7 @@ final class ClosedWorldEffectAnalyzer {
         return parent != null && isSubtype(parent, targetName, visited);
     }
 
-    private static List<IrOperand> callArguments(IrInstruction instruction) {
+    static List<IrOperand> callArguments(IrInstruction instruction) {
         if (instruction instanceof IrCallInstruction call) {
             return call.arguments();
         }
@@ -490,7 +498,7 @@ final class ClosedWorldEffectAnalyzer {
         return List.of();
     }
 
-    private static IrValueReference callResult(IrInstruction instruction) {
+    static IrValueReference callResult(IrInstruction instruction) {
         if (instruction instanceof IrCallInstruction call) {
             return call.result().orElse(null);
         }
@@ -550,7 +558,7 @@ final class ClosedWorldEffectAnalyzer {
     }
 
     /** Each reference conversion's result id mapped to the value it converts. */
-    private static Map<Integer, IrOperand> referenceConversions(IrFunction function) {
+    static Map<Integer, IrOperand> referenceConversions(IrFunction function) {
         Map<Integer, IrOperand> conversions = new LinkedHashMap<>();
         for (IrBasicBlock block : function.blocks()) {
             for (IrInstruction instruction : block.instructions()) {
@@ -567,9 +575,9 @@ final class ClosedWorldEffectAnalyzer {
      * reference conversion keeps identity, so the chain is followed through it; a
      * join or a call result is never exact.
      */
-    private static java.util.OptionalInt exactParameter(IrFunction function,
-                                                        Map<Integer, IrOperand> conversions,
-                                                        IrOperand operand) {
+    static java.util.OptionalInt exactParameter(IrFunction function,
+                                                Map<Integer, IrOperand> conversions,
+                                                IrOperand operand) {
         while (operand instanceof IrValueReference value) {
             for (int index = 0; index < function.parameters().size(); index++) {
                 if (function.parameters().get(index).value().id() == value.id()) {

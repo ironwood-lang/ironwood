@@ -350,14 +350,19 @@ complete, and M1/M2 and every later milestone remain not started.
   [private list/logical-bit helpers](self-hosting/m1/SNAPSHOTS.md) pass;
   [independent map copies](self-hosting/m1/MAPS.md) and
   [set copies](self-hosting/m1/SETS.md), including D252's mandatory helper
-  confinement correction for automatic rollback, also pass. Private keyed wrappers and
-  operation snapshot composition remain.
+  confinement correction for automatic rollback, also pass. A later root review
+  found D252 incomplete: constructor-held fields and helper retention could
+  still publish the in-progress receiver. D253's
+  [field-alias correction](self-hosting/m1/FIELD_ALIAS.md) closes that blocker
+  for source, class and archive inputs in every unfreed mode, with unchanged
+  valid LLVM. Private keyed wrappers and operation snapshot composition remain.
 - [ ] **M1.2: Pilot maps, traversal, and order.** Add the selected map/set copies,
   use local/indexed traversal or copied keys, and preserve identity/value/order
   distinctions. Rewrite pilot stack/FIFO consumers. Bring in B2's list sort or
   sorted-container rewrites only where M0 identified a pilot dependency.
   In progress: the three map-copy and three set-copy families qualify, with
-  publishing helper construction rejected even without explicit caller frees;
+  publishing helper construction rejected even without explicit caller frees,
+  including through constructor-held fields (D253);
   private keyed storage, operation composition and selected FIFO/LIFO work remain.
 - [ ] **M1.3: Pilot language and text helpers.** Prepare record value operations,
   text-block normalization, varargs/factory rewrites, numeric/nullable results,

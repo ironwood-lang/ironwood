@@ -1,0 +1,16 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+class Parent {
+    static Parent saved;
+    private Parent self;
+    private int marker = 7;
+    Parent() { this.self = this; }
+    int value() { return this.marker; }
+    destructor { saved = this.self; }
+}
+class Main {
+    public static int main(String[] args) {
+        Parent parent = new Parent();
+        free parent;
+        return Parent.saved.value();
+    }
+}

@@ -478,10 +478,16 @@ public final class SemanticAnalyzer {
         validatePoolBuilders(types, hierarchy, escapeSummaries, diagnostics);
         OwnedArrayElementAnalyzer.validate(types, functions, ownedArrayFields, escapeSummaries,
                 diagnostics, explainRejectedFree, refinementCompleted);
+        Set<IrField> ownedFields = new LinkedHashSet<>();
+        for (TypeSymbol type : types.values()) {
+            for (FieldSymbol field : type.declaredFields().values()) {
+                if (ownedArrayFields.isOwned(field)) ownedFields.add(field.irField());
+            }
+        }
         new ClosedWorldEffectAnalyzer(functions,
                 types.values().stream().map(TypeSymbol::irClass).toList(),
                 observer, observerToken(), SemanticAnalysisObserver.AnalyzerPhase.FINAL_VALIDATION)
-                .validate(types, diagnostics);
+                .validate(types, ownedFields, diagnostics);
         ownedArrayFields.retireFailureEvidence(observer);
         escapeSummaries.retireWitnessEvidence();
         if (borrowDispatch != null) {

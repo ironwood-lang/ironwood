@@ -100,3 +100,8 @@ The construction-safety correction has a separate [qualification ledger](set-rol
 Its compiler is built from the focused staged sources, preserving the paused
 keyed-snapshot draft outside this increment. The original set evidence and
 admission witness remain historical records.
+
+A later root review found that this correction did not cover receiver identity
+held in constructor fields or retained by helpers. D253's
+[field-alias correction](FIELD_ALIAS.md) closes that gap without changing the
+set copies, their LLVM or the D252 records above.

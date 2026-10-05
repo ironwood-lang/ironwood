@@ -258,3 +258,43 @@ The valid fixture's LLVM module is byte-identical before and after the check.
 The strict library build and focused map/set/list/snapshot/pool consumers pass.
 The old admission log is retained and never used as native execution evidence.
 See D252 and [the correction ledger](set-rollback-evidence/manifest.json).
+
+## Constructor field-alias rollback correction
+
+Root review after aa98ace2 found that the D252 compiler admits a constructor
+that stores `this` in a private self field and passes that field to a
+publishing helper. Compile-only probes with the qualified D252 jar show the
+defect is broader than the helper argument walk. The mandatory typed effect
+check exempts constructor stores into the receiver's own fields, but a later
+field load carries no origin. Its exemption also accepts a receiver that only
+may be `this`. Constructor helper fields have the same blind spot, so these
+paths are admitted under `--unfreed=off`: direct static publication of a self
+field, a static or virtual call on that field, a helper built in an instance
+method called by the constructor, a phi-joined store target and a published
+local helper that retains the receiver. Each lets automatic rollback reclaim
+an observable parent. No admitted program is executed natively.
+
+Preserve D252's argument check and every existing confined construction. Make
+the typed publication check retention-aware instead of adding a second
+argument special case. Track possible identity, retained identities and
+reachable parameter contents separately. Constructor stores into exactly the
+in-progress receiver remain retention, not publication. Every other store,
+static store, throw or foreign call publishes everything the stored value may
+reach. Field marks are closed-world facts: a field written by a constructor
+with its receiver or a retainer may return its holder, and a field written with
+parameter-derived data may return held contents. Constructor summaries expose
+retained parameters, so a published helper publishes its receiver argument, and
+a helper method that publishes held content publishes what the helper retains.
+Reclamation and returned-origin facts of the existing effect kernel stay
+byte-identical, so relowering, Bridge cleanup and the M0 effect workload keep
+their inputs. Destructors use the same identity facts for resurrection.
+
+Consumers are constructor and destructor diagnostics only. Recheck all bundled
+self-retaining iterator constructors through the strict library build, the
+D252 suite, set/map/list copies, private snapshots, pool safety, Bridge effect
+projections and the confined helper native fixture. Paired cases: each admitted
+probe above must fail in off/warn/error from source, class and archive inputs;
+accepted counterparts keep an encapsulated self field, a confined helper whose
+reset does not publish, a local retaining helper that stays local and a helper
+reached through a non-publishing method. Valid LLVM must stay unchanged; no
+runtime bookkeeping, name exemption or weaker free rule is permitted.

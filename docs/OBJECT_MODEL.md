@@ -224,8 +224,11 @@ receiver without running that incomplete receiver's source destructor.
 Publishing in-progress `this` is rejected, and a `this(...)` chain shares one
 rollback obligation. Passing that receiver or a proved alias to a helper
 constructor requires confinement; an observable retained owner could otherwise
-outlive automatic rollback. This is a mandatory construction check independent
-of explicit frees or missing-free diagnostic settings.
+outlive automatic rollback. Publication also follows identity stored in
+fields: storing `this` in its own field, or a helper that holds it, and later
+publishing that field publishes the receiver (D253). This is a mandatory
+construction check independent of explicit frees or missing-free diagnostic
+settings.
 
 An encapsulated reusable helper may remain owned by its containing object while
 a method returns a dependent borrow. This is how `ironwood.ds` collections lend

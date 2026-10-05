@@ -1,0 +1,22 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+class Holder {
+    private Parent owner;
+    Holder(Parent owner) { this.owner = owner; }
+    int peek() { return this.owner.value(); }
+}
+class Parent {
+    private int marker = 7;
+    private int seen;
+    Parent(boolean fail) { Holder holder = new Holder(this); this.seen = holder.peek(); free holder; if (fail) throw Main.failure; }
+    int value() { return this.marker; }
+}
+class Main {
+    static RuntimeException failure = new RuntimeException();
+    public static int main(String[] args) {
+        Parent parent = new Parent(false);
+        int observed = parent.value();
+        free parent;
+        try { new Parent(true); } catch (RuntimeException expected) { return observed + 35; }
+        return 0;
+    }
+}
