@@ -10130,3 +10130,47 @@ occurrence order. If no
   `List.copyOf(subList)`; the generated names equal the Java simple names;
   the allocation-failure sweep covers both; classes and archive at `-O3`. See
   [the helper record](self-hosting/m3/HELPERS.md).
+
+## D267 - Provide the M3.2 numeric, text and SHA-256 helpers
+
+- **Status:** Implemented during M3.2 on 2026-10-05.
+- **Decision:** Add compiler-private S3 prerequisites. `IntegerLiterals`
+  replaces IntegerLiteralDecoder's `BigInteger` with a scan that removes
+  underscores, reads digits with `Character.digit` (so non-ASCII decimal
+  digits count, as `BigInteger` reads them) and keeps an unsigned 64-bit
+  magnitude with a saturating overflow flag, so arbitrarily long spellings
+  are checked without big integers; it reports Java's diagnostics in Java's
+  order (malformed before range). `IntegralConstants` folds in I32 or I64
+  with Java's wrapping arithmetic, which equals J0's exact arithmetic
+  followed by `wrapIntegral` because every operand already lies in its
+  promoted range; `MIN / -1` and `MIN % -1` wrap without native signed
+  division, and division by zero yields no constant. `Texts` supplies
+  StringPool's UTF-8 length (an unpaired surrogate counts as U+FFFD),
+  `toCodePoint`, a literal `replaceFirst` and `join` over lists. `Sha256` is
+  an independent FIPS 180-4 implementation, its constants recomputed from
+  their definition, with a reusable state, no per-block allocation, a
+  caller-supplied or fresh result, reset on finalization, a streaming UTF-8
+  update that matches `getBytes(UTF_8)` (an unpaired surrogate becomes `?`)
+  and a lowercase `hexDigest` for every `HexFormat.formatHex` site. The
+  existing `Double`/`Float` text and parsing already equal Java 21.
+- **Narrowing:** The literal scan treats `+` and `-` as malformed. Every
+  caller passes an INTEGER token's lexeme, and `Lexer.scanNumber` consumes
+  neither sign in an integral literal, so `BigInteger`'s sign grammar is
+  unreachable.
+- **Proof:** No analysis change. Results are fresh; inputs are borrowed for
+  one call. The digest owns its arrays and frees them in its destructor.
+- **Boundary:** No public API, big-integer library, regex engine or locale
+  subsystem. The floating-to-integral casts and constant representation stay
+  with the S2/S3 consumers. J0 (6bde84df) cannot compile the accumulated
+  port: it lacks the M1 library additions and proofs (D248-D254), so S3's
+  capacity tracking needs a newer, recorded seed. Supersedes no decision.
+- **Verification:** 42,058 literal and fold lines equal J0's own
+  IntegerLiteralDecoder and FunctionAnalyzer folds called by reflection;
+  SHA-256 equals `MessageDigest` on the standard vectors, every length 0-300,
+  every byte, surrogate text and 64 MiB streamed, with split, reset, range and
+  allocation checks; UTF-8 lengths equal J0's StringPool over every unit and
+  boundary pair; floating text equals Java on 399,136 conversions; J0 trusts
+  the ByteView declaration from source, class and archive, distrusts four
+  changed copies (comment, rename, CRLF, final newline), and the native digest
+  gives the same digests and verdicts; every allocation failure unwinds. See
+  [the semantic helper record](self-hosting/m3/SEMANTIC.md).

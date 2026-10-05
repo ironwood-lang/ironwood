@@ -849,6 +849,16 @@ public final class CompilerTests {
         test("compiler port helpers match Java stacks values and callbacks across artifacts",
                 PortHelperTests::artifacts);
         test("compiler port helpers unwind every allocation failure", PortHelperTests::failures);
+        test("compiler integral constants match J0 literal decoding and folds across artifacts",
+                SemanticHelperTests::integralConstants);
+        test("compiler SHA-256 matches Java digests across artifacts", SemanticHelperTests::sha256);
+        test("compiler text helpers match J0 UTF-8 lengths and Java text across artifacts",
+                SemanticHelperTests::textHelpers);
+        test("compiler floating text matches Java conversions across artifacts", SemanticHelperTests::floatingText);
+        test("ByteView declaration authority holds for J0 source class and archive contents",
+                SemanticHelperTests::byteViewAuthority);
+        test("compiler semantic helpers borrow inputs and own their results", SemanticHelperTests::ownership);
+        test("compiler semantic helpers unwind every allocation failure", SemanticHelperTests::failures);
         test("compiler work queue keeps queued items alive and its ring private", WorkQueueTests::ownership);
         test("compiler worklists preserve FIFO and retain-filter order across artifacts and failures",
                 WorkQueueTests::artifacts);

@@ -1,0 +1,119 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.port;
+
+import ironwood.compiler.ast.BinaryOperator;
+
+/**
+ * Width-aware integral constant folding that replaces FunctionAnalyzer's and
+ * StaticConstantEvaluator's {@code BigInteger} arithmetic. Every operand of
+ * the Java folds already lies in its promoted type's range, and each result
+ * is wrapped modulo 2^bits ({@code wrapIntegral}), so exact big-integer
+ * arithmetic followed by wrapping equals Java's own int or long arithmetic.
+ * Values travel sign-extended in a long (U16 zero-extended). Division and
+ * remainder by zero are undefined here and the caller reports no constant;
+ * {@code MIN / -1} and {@code MIN % -1} wrap as Java defines them, without
+ * relying on native signed division. Nothing is allocated.
+ */
+public final class IntegralConstants {
+
+    private IntegralConstants() {
+
+    }
+
+    /**
+     * Wraps a value to an integral type: I8, I16 and I32 sign-extend, U16
+     * zero-extends, I64 is unchanged.
+     *
+     * @throws IllegalArgumentException for a non-integral type
+     */
+    public static long wrap(long value, OperationVariants.TypeKind type) {
+
+        return switch (type) {
+            case I8 -> (long) (byte) value;
+            case I16 -> (long) (short) value;
+            case U16 -> value & 0xFFFFL;
+            case I32 -> (long) (int) value;
+            case I64 -> value;
+            case I1, F32, F64, VOID, NULL, EXCEPTION, REFERENCE, TYPE_PARAMETER, WILDCARD, ARRAY ->
+                throw new IllegalArgumentException("not an integral type");
+        };
+    }
+
+    /** @return whether a binary fold defines a constant: false for an operator it does not fold or a zero divisor */
+    public static boolean defines(BinaryOperator operator, long right) {
+
+        return switch (operator) {
+            case ADD, SUBTRACT, MULTIPLY, SHIFT_LEFT, SHIFT_RIGHT, UNSIGNED_SHIFT_RIGHT, BITWISE_AND, BITWISE_XOR,
+                BITWISE_OR -> true;
+            case DIVIDE, REMAINDER -> right != 0;
+            case LOGICAL_AND, LOGICAL_OR, EQUAL, NOT_EQUAL, LESS, LESS_EQUAL, GREATER, GREATER_EQUAL -> false;
+        };
+    }
+
+    /**
+     * Folds a binary operator in the I32 or I64 result type, as
+     * {@code evaluateIntegralBinary} does. Shift distances use the right
+     * operand's low 32 bits masked to 31 or 63.
+     *
+     * @throws IllegalArgumentException if {@link #defines} is false or the type is not I32 or I64
+     */
+    public static long binary(BinaryOperator operator, long left, long right, OperationVariants.TypeKind type) {
+
+        if (!defines(operator, right) || type != OperationVariants.TypeKind.I32 && type != OperationVariants.TypeKind.I64) {
+            throw new IllegalArgumentException("undefined integral fold");
+        }
+        boolean wide = type == OperationVariants.TypeKind.I64;
+        int distance = (int) right & (wide ? 63 : 31);
+        long result = switch (operator) {
+            case ADD -> left + right;
+            case SUBTRACT -> left - right;
+            case MULTIPLY -> left * right;
+            case DIVIDE -> right == -1 ? -left : left / right;
+            case REMAINDER -> right == -1 ? 0 : left % right;
+            case SHIFT_LEFT -> left << distance;
+            case SHIFT_RIGHT -> left >> distance;
+            case UNSIGNED_SHIFT_RIGHT -> wide ? left >>> distance : (left & 0xFFFFFFFFL) >>> distance;
+            case BITWISE_AND -> left & right;
+            case BITWISE_XOR -> left ^ right;
+            case BITWISE_OR -> left | right;
+            case LOGICAL_AND, LOGICAL_OR, EQUAL, NOT_EQUAL, LESS, LESS_EQUAL, GREATER, GREATER_EQUAL ->
+                throw new IllegalArgumentException("undefined integral fold");
+        };
+        return wrap(result, type);
+    }
+
+    /** @return the wrapped negation, as {@code wrapIntegral(value.negate(), type)} */
+    public static long negate(long value, OperationVariants.TypeKind type) {
+
+        return wrap(-value, type);
+    }
+
+    /** @return the wrapped complement, as {@code wrapIntegral(value.not(), type)} */
+    public static long complement(long value, OperationVariants.TypeKind type) {
+
+        return wrap(~value, type);
+    }
+
+    /** @return the signed comparison sign of two constants, as {@code BigInteger.compareTo} */
+    public static int compare(long left, long right) {
+
+        return Long.compare(left, right);
+    }
+
+    /**
+     * {@code constantNarrowingFits}: an I8, I16, U16 or I32 constant converts
+     * to I8, I16 or U16 when its value lies in the target's range.
+     */
+    public static boolean fitsNarrowing(long value, OperationVariants.TypeKind actual, OperationVariants.TypeKind expected) {
+
+        if (actual != OperationVariants.TypeKind.I8 && actual != OperationVariants.TypeKind.I16
+                && actual != OperationVariants.TypeKind.U16 && actual != OperationVariants.TypeKind.I32) return false;
+        return switch (expected) {
+            case I8 -> value >= -128 && value <= 127;
+            case I16 -> value >= -32768 && value <= 32767;
+            case U16 -> value >= 0 && value <= 65535;
+            case I1, I32, I64, F32, F64, VOID, NULL, EXCEPTION, REFERENCE, TYPE_PARAMETER, WILDCARD, ARRAY -> false;
+        };
+    }
+}
