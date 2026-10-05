@@ -1,0 +1,232 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.port;
+
+/**
+ * Closed variant lists for the selected M2 pilot inputs (OPERATION_MODEL),
+ * mirroring the Java sealed IR roots and enums. Every admission function is an
+ * exhaustive switch expression with no default: each rejected variant is named
+ * in an explicit arm, so adding a variant or deleting a treatment fails
+ * compilation. Native input factories must reject any input whose variant is
+ * not admitted before analyzer entry; there is no permissive fallback.
+ */
+public final class OperationVariants {
+
+    /** IrInstruction variants; the effect pilot admits direct and foreign calls. */
+    public enum Instruction {
+        ADD_SECONDARY_EXCEPTION, ALLOCATE, ALLOCATION_COUNT, ARRAY_ALLOCATE,
+        ARRAY_BOUNDS_CHECK, ARRAY_LENGTH, ARRAY_LENGTH_CHECK, ARRAY_LOAD, ARRAY_STORE,
+        ARRAY_TYPE_TEST, BINARY, BRIDGE_ARRAY_COPY, BRIDGE_BATCH_APPEND,
+        BRIDGE_FAILURE_SNAPSHOT, BRIDGE_RESULT_STORE, BRIDGE_SLOT_STORE, BRIDGE_STRING_COPY,
+        BYTE_VIEW, CALL, CHARACTER, DESTROY_ARRAY_ELEMENTS, ENSURE_TYPE_INITIALIZED,
+        EXCEPTION_CAUGHT, EXCEPTION_LANDING_PAD, FIELD_LOAD, FIELD_STORE, FILE, FLOATING_BITS,
+        FLOATING_PARSE, FOREIGN_CALL, FREE, IDENTITY_HASH_CODE, INSTANCE_OF, INTERFACE_CALL,
+        LIVE_ALLOCATION_COUNT, MATH_BINARY, MATH_UNARY, NULL_CHECK, NUMERIC_CONVERSION,
+        OBJECT_HASH_CODE, OBJECT_TO_STRING, PHI, PRINT_STREAM_CHECK_ERROR, PRINT_STREAM_FLUSH,
+        PRINT_STREAM_PRINTLN, PRINT_STREAM_WRITE, RAW_DEALLOCATE, REFERENCE_CONVERSION,
+        RELEASE_OWNED_THROWABLE_MESSAGE, RELEASE_OWNED_TO_STRING_RESULT, ROLLBACK,
+        SECONDARY_EXCEPTION_AT, SECONDARY_EXCEPTION_COUNT, STATIC_FIELD_LOAD,
+        STATIC_FIELD_STORE, STREAM, STRING_CASE, STRING_CHAR_AT, STRING_CONCAT, STRING_COPY,
+        STRING_EQUALS, STRING_EQUALS_IGNORE_CASE, STRING_FROM_CHARACTER, STRING_FROM_CHARS,
+        STRING_FROM_CHAR_RANGE, STRING_FROM_INTEGER, STRING_FROM_RANGE, STRING_FROM_UTF8,
+        STRING_HASH_CODE, STRING_JOIN, STRING_REPEAT, STRING_REPLACE_CHAR, STRING_REPLACE_TEXT,
+        SYSTEM_ARRAY_COPY, SYSTEM_CLOCK, SYSTEM_EXIT, SYSTEM_GETENV, SYSTEM_PROPERTY, TCP,
+        THROWABLE_DESCRIPTION, THROWABLE_TRACE, TLS, TYPE_INITIALIZED, UNARY, VIRTUAL_CALL
+    }
+
+    /** IrTerminator variants; only a value-returning return is admitted. */
+    public enum Terminator {
+        BRANCH, INVOKE, JUMP, RETURN, SWITCH, THROW, UNREACHABLE
+    }
+
+    /** IrOperand variants; only value references are admitted. */
+    public enum Operand {
+        CONSTANT, ENUM_CONSTANT, IMMORTAL_OBJECT, NULL, STRING_CONSTANT, VALUE_REFERENCE
+    }
+
+    /** IrCallKind; only direct calls are admitted. */
+    public enum CallKind {
+        DIRECT, DEVIRTUALIZED_VIRTUAL, DEVIRTUALIZED_INTERFACE
+    }
+
+    /** IrCallableKind; only methods are admitted. */
+    public enum CallableKind {
+        METHOD, CONSTRUCTOR, DESTRUCTOR, CLASS_INITIALIZER, CONSTRUCTOR_ROLLBACK
+    }
+
+    /** IrType.Kind; only nominal references are admitted. */
+    public enum TypeKind {
+        I1, I8, I16, U16, I32, I64, F32, F64, VOID, NULL, EXCEPTION, REFERENCE, TYPE_PARAMETER,
+        WILDCARD, ARRAY
+    }
+
+    /** FunctionAnalyzer.AllocationOrigin; only LOCAL_NEW nodes are admitted. */
+    public enum AllocationOrigin {
+        LOCAL_NEW, FRESH_CALL, OWNED_FIELD, ONE_OF
+    }
+
+    /** FunctionAnalyzer.AllocationState; ACTIVE and ESCAPED inputs, UNCERTAIN only as a join result. */
+    public enum AllocationState {
+        ACTIVE, UNCERTAIN, ESCAPED, FREED, MAYBE_FREED
+    }
+
+    /** RejectedFreeEvidence.EventKind; only REASON events are admitted. */
+    public enum EventKind {
+        REASON, FREE
+    }
+
+    /** SemanticAnalysisObserver.AnalyzerKind; only the effect analyzer is observed. */
+    public enum AnalyzerKind {
+        ESCAPE, SYMBOLIC_RETURN, OWNED_FIELD, EFFECT
+    }
+
+    /** SemanticAnalysisObserver.AnalyzerPhase; only the initial phase is observed. */
+    public enum AnalyzerPhase {
+        INITIAL, REBOUND, REFINEMENT, FINAL_VALIDATION
+    }
+
+    /** UnfreedMode; the snapshot fixture runs in WARN. */
+    public enum UnfreedMode {
+        OFF, WARN, ERROR
+    }
+
+    /** @return whether the variant is admitted by the pilot input factory */
+    public static boolean admitsInstruction(Instruction variant) {
+
+        return switch (variant) {
+            case CALL, FOREIGN_CALL -> true;
+            case ADD_SECONDARY_EXCEPTION, ALLOCATE, ALLOCATION_COUNT, ARRAY_ALLOCATE,
+                ARRAY_BOUNDS_CHECK, ARRAY_LENGTH, ARRAY_LENGTH_CHECK, ARRAY_LOAD, ARRAY_STORE,
+                ARRAY_TYPE_TEST, BINARY, BRIDGE_ARRAY_COPY, BRIDGE_BATCH_APPEND,
+                BRIDGE_FAILURE_SNAPSHOT, BRIDGE_RESULT_STORE, BRIDGE_SLOT_STORE,
+                BRIDGE_STRING_COPY, BYTE_VIEW, CHARACTER, DESTROY_ARRAY_ELEMENTS,
+                ENSURE_TYPE_INITIALIZED, EXCEPTION_CAUGHT, EXCEPTION_LANDING_PAD, FIELD_LOAD,
+                FIELD_STORE, FILE, FLOATING_BITS, FLOATING_PARSE, FREE, IDENTITY_HASH_CODE,
+                INSTANCE_OF, INTERFACE_CALL, LIVE_ALLOCATION_COUNT, MATH_BINARY, MATH_UNARY,
+                NULL_CHECK, NUMERIC_CONVERSION, OBJECT_HASH_CODE, OBJECT_TO_STRING, PHI,
+                PRINT_STREAM_CHECK_ERROR, PRINT_STREAM_FLUSH, PRINT_STREAM_PRINTLN,
+                PRINT_STREAM_WRITE, RAW_DEALLOCATE, REFERENCE_CONVERSION,
+                RELEASE_OWNED_THROWABLE_MESSAGE, RELEASE_OWNED_TO_STRING_RESULT, ROLLBACK,
+                SECONDARY_EXCEPTION_AT, SECONDARY_EXCEPTION_COUNT, STATIC_FIELD_LOAD,
+                STATIC_FIELD_STORE, STREAM, STRING_CASE, STRING_CHAR_AT, STRING_CONCAT,
+                STRING_COPY, STRING_EQUALS, STRING_EQUALS_IGNORE_CASE, STRING_FROM_CHARACTER,
+                STRING_FROM_CHARS, STRING_FROM_CHAR_RANGE, STRING_FROM_INTEGER, STRING_FROM_RANGE,
+                STRING_FROM_UTF8, STRING_HASH_CODE, STRING_JOIN, STRING_REPEAT,
+                STRING_REPLACE_CHAR, STRING_REPLACE_TEXT, SYSTEM_ARRAY_COPY, SYSTEM_CLOCK,
+                SYSTEM_EXIT, SYSTEM_GETENV, SYSTEM_PROPERTY, TCP, THROWABLE_DESCRIPTION,
+                THROWABLE_TRACE, TLS, TYPE_INITIALIZED, UNARY, VIRTUAL_CALL -> false;
+        };
+    }
+
+    /** @return whether the variant is admitted by the pilot input factory */
+    public static boolean admitsTerminator(Terminator variant) {
+
+        return switch (variant) {
+            case RETURN -> true;
+            case BRANCH, INVOKE, JUMP, SWITCH, THROW, UNREACHABLE -> false;
+        };
+    }
+
+    /** @return whether the variant is admitted by the pilot input factory */
+    public static boolean admitsOperand(Operand variant) {
+
+        return switch (variant) {
+            case VALUE_REFERENCE -> true;
+            case CONSTANT, ENUM_CONSTANT, IMMORTAL_OBJECT, NULL, STRING_CONSTANT -> false;
+        };
+    }
+
+    /** @return whether the variant is admitted by the pilot input factory */
+    public static boolean admitsCallKind(CallKind variant) {
+
+        return switch (variant) {
+            case DIRECT -> true;
+            case DEVIRTUALIZED_VIRTUAL, DEVIRTUALIZED_INTERFACE -> false;
+        };
+    }
+
+    /** @return whether the variant is admitted by the pilot input factory */
+    public static boolean admitsCallableKind(CallableKind variant) {
+
+        return switch (variant) {
+            case METHOD -> true;
+            case CONSTRUCTOR, DESTRUCTOR, CLASS_INITIALIZER, CONSTRUCTOR_ROLLBACK -> false;
+        };
+    }
+
+    /** @return whether the variant is admitted by the pilot input factory */
+    public static boolean admitsTypeKind(TypeKind variant) {
+
+        return switch (variant) {
+            case REFERENCE -> true;
+            case I1, I8, I16, U16, I32, I64, F32, F64, VOID, NULL, EXCEPTION, TYPE_PARAMETER,
+                WILDCARD, ARRAY -> false;
+        };
+    }
+
+    /** @return whether the variant is admitted by the pilot input factory */
+    public static boolean admitsOrigin(AllocationOrigin variant) {
+
+        return switch (variant) {
+            case LOCAL_NEW -> true;
+            case FRESH_CALL, OWNED_FIELD, ONE_OF -> false;
+        };
+    }
+
+    /** @return whether the variant is admitted by the pilot input factory */
+    public static boolean admitsInputState(AllocationState variant) {
+
+        return switch (variant) {
+            case ACTIVE, ESCAPED -> true;
+            case UNCERTAIN, FREED, MAYBE_FREED -> false;
+        };
+    }
+
+    /** @return whether the variant is admitted by the pilot input factory */
+    public static boolean admitsEventKind(EventKind variant) {
+
+        return switch (variant) {
+            case REASON -> true;
+            case FREE -> false;
+        };
+    }
+
+    /** @return whether the variant is admitted by the pilot input factory */
+    public static boolean admitsAnalyzerKind(AnalyzerKind variant) {
+
+        return switch (variant) {
+            case EFFECT -> true;
+            case ESCAPE, SYMBOLIC_RETURN, OWNED_FIELD -> false;
+        };
+    }
+
+    /** @return whether the variant is admitted by the pilot input factory */
+    public static boolean admitsAnalyzerPhase(AnalyzerPhase variant) {
+
+        return switch (variant) {
+            case INITIAL -> true;
+            case REBOUND, REFINEMENT, FINAL_VALIDATION -> false;
+        };
+    }
+
+    /** @return whether the variant is admitted by the pilot input factory */
+    public static boolean admitsUnfreedMode(UnfreedMode variant) {
+
+        return switch (variant) {
+            case WARN -> true;
+            case OFF, ERROR -> false;
+        };
+    }
+
+    /** @return whether the state may result from joining admitted inputs */
+    public static boolean admitsJoinedState(AllocationState variant) {
+
+        return switch (variant) {
+            case ACTIVE, ESCAPED, UNCERTAIN -> true;
+            case FREED, MAYBE_FREED -> false;
+        };
+    }
+
+    private OperationVariants() {
+    }
+}

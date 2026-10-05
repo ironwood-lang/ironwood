@@ -1,0 +1,89 @@
+{
+ "schema_version": 1,
+ "increment": "D260 finite pilot input model with exhaustive variant switches",
+ "base_commit": "353268c79d7dedf703f003f2edcc2275cfc883bb",
+ "producing_compiler": {
+  "path": "/Users/developer/workspace-mba-m2/Ironwood/workspace/m1/keyed-final/stage/compiler/build/ironwoodc.jar",
+  "sha256": "ab50fe2c128137005c4dbac8263bc1190ab956c1012bf5a285940709655a54b2",
+  "role": "compiler sources identical to base commit"
+ },
+ "sources": [
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/port/OperationVariants.iron",
+   "sha256": "8dcbda1887037656d2eb45624e889d4d8334df656e65518c2a0da9fc98ec61c1"
+  },
+  {
+   "path": "integration-tests/cases/compiler_operation_variants.iron",
+   "sha256": "902d9bb63cdca6a673d608e7cd7821bb235dd07d81d9c9935156e2e10c3b3ea1"
+  },
+  {
+   "path": "compiler/src/test/java/ironwood/compiler/OperationVariantTests.java",
+   "sha256": "150af7597c4e2e8bb37dfa57b97a88e8ab145f5ff1cf10ed0272cf19319f9f62"
+  }
+ ],
+ "logs": [
+  {
+   "retained": "docs/self-hosting/m1/variants-evidence/logs/compile.log.gz",
+   "sha256": "1df471531351a31f9e0663ebff18d8c80eca5e68a492170c92e0cd4a4c2d61c9",
+   "gzip_sha256": "9f70872503ac5777db805b16c9175d23d905f7e9279fbc2172928cbecb41aef1"
+  },
+  {
+   "retained": "docs/self-hosting/m1/variants-evidence/logs/diff-check.log.gz",
+   "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "gzip_sha256": "f61f27bd17de546264aa58f40f3aafaac7021e0ef69c17f6b1b4cd7664a037ec"
+  },
+  {
+   "retained": "docs/self-hosting/m1/variants-evidence/logs/irondocs.log.gz",
+   "sha256": "32d3b1494a4693e74839f71e521c135a9770e48b4c864337e6e4eda67b264a68",
+   "gzip_sha256": "c9ceef3be3d091f2c69f3b7eebbe92e5cac2f169afd366edf87615fe18e2380b"
+  },
+  {
+   "retained": "docs/self-hosting/m1/variants-evidence/logs/java-variants.log.gz",
+   "sha256": "6fa2042304388aa90bcf1baf9fcdfbdc96bdd3311d7cb96b58bc10f66cad017a",
+   "gzip_sha256": "081a3020604c12edf5159c55d7d9be1ec0f3e83ad3e5ea3feed31295c1098d30"
+  },
+  {
+   "retained": "docs/self-hosting/m1/variants-evidence/logs/licenses.log.gz",
+   "sha256": "baf5804aeb26498337c9c5223c199afeba5c3e2fc36ae219b9bf420e3775f673",
+   "gzip_sha256": "c33bdaafc40ae52137c7119d2922a14fd4f4f340cea86e19094625617947bf77"
+  },
+  {
+   "retained": "docs/self-hosting/m1/variants-evidence/logs/link.log.gz",
+   "sha256": "5d3a0adce636a734637a3b151f49bdd0a8ece8fc5c320520088164255463219e",
+   "gzip_sha256": "497243f59079a3b36a478c0a616ffb0d2b8adf2f5533a393f3f156dcfb162c17"
+  },
+  {
+   "retained": "docs/self-hosting/m1/variants-evidence/logs/run.log.gz",
+   "sha256": "51a8671dfa296f1e2f838be96b0b2f421360865cbd33c5ed063f27d86cef943d",
+   "gzip_sha256": "6292001c19b7d7b9d0af1707b609f45694cd1dd0a325a0ee851556075738f5be"
+  },
+  {
+   "retained": "docs/self-hosting/m1/variants-evidence/logs/tests.log.gz",
+   "sha256": "924be62666081748c0b411a46ffcbd666c2e0488b634c3477a1eeb8295970b60",
+   "gzip_sha256": "0352792ee7e7e39971521cc736b2a0bda7759e502a0cd05c034cfdeb463efb1b"
+  }
+ ],
+ "model_reference": {
+  "path": "docs/self-hosting/m0/operation-model-schema.json",
+  "sha256": "b62f41dd7100d55d6549ceec3ff594e8151ede8f62cb45f43ecd084c79376ff0"
+ },
+ "results": {
+  "tests": "PASS: 3 compiler tests",
+  "java_tie_in": "lists equal reflection of sealed permits and enums",
+  "fails_closed": "3 mutations x 3 modes rejected with exhaustiveness diagnostic",
+  "admission": "native admitted sets equal OPERATION_MODEL",
+  "unfreed_warn": "0 diagnostics",
+  "irondocs": "1 type",
+  "licensing": "passed"
+ },
+ "boundaries": [
+  "M2 factories and consumers call these functions",
+  "frontend AST variants use the same pattern in M2.1",
+  "full M1 open"
+ ],
+ "host_profile": {
+  "host": "macOS 27.0.1, arm64, Apple M5, 32 GiB",
+  "bootstrap": "Java 21.0.1",
+  "backend": "pinned LLVM 23.1.0"
+ }
+}

@@ -9847,3 +9847,33 @@ occurrence order. If no
   alias after its snapshot is freed, a separate free of the owned version and
   use of a freed store; classes/archive at `-O3` with zero `--unfreed=warn`
   diagnostics. See [the evidence store record](self-hosting/m1/EVIDENCE_STORE.md).
+
+## D260 - Enforce the pilot's finite input model with exhaustive variant switches
+
+- **Status:** Implemented during M1.3 on 2026-10-05.
+- **Decision:** Add compiler-private `OperationVariants`, with one closed enum
+  per restricted operation-model declaration: the `IrInstruction`,
+  `IrTerminator` and `IrOperand` sealed roots and the `IrCallKind`,
+  `IrCallableKind`, `IrType.Kind`, `AllocationOrigin`, `AllocationState`,
+  `EventKind`, observer kind/phase and `UnfreedMode` enums. Each admission
+  function is a `switch` expression without `default` whose rejection arm
+  names every non-admitted variant, so the compiler's own exhaustiveness check
+  is the variant coverage check: a new variant or a deleted treatment fails
+  compilation. Native pilot input factories must reject any input whose
+  variant is not admitted before analyzer entry. The effect analyzer's pattern
+  `switch` over instructions becomes an ordered `instanceof` chain that
+  evaluates its selector once and keeps the `null` default.
+- **Admitted:** direct and foreign calls, value-returning returns, value
+  references, DIRECT calls, METHOD callables, REFERENCE types, LOCAL_NEW
+  origins, ACTIVE/ESCAPED inputs with UNCERTAIN as a join result, REASON
+  events, the EFFECT/INITIAL observer and WARN mode, as OPERATION_MODEL states.
+- **Boundary:** M2 writes the factories and consumers that call these
+  functions; the frontend's AST variant treatments use the same exhaustive
+  pattern in M2.1. Later-only roles keep their M3.1 gates. No runtime
+  bookkeeping or lowering change is introduced. This establishes neither full
+  M1 nor S1/G1.
+- **Verification:** A test derives every list from the live Java sealed roots
+  and enums by reflection and requires equality; removing a rejection, adding
+  an untreated variant and dropping an admitted arm each fail compilation in
+  every mode; the native admitted sets equal the model from classes and
+  archive. See [the variant record](self-hosting/m1/VARIANTS.md).

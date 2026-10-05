@@ -376,7 +376,11 @@ complete, and M1/M2 and every later milestone remain not started.
   In progress: [text-block normalization](self-hosting/m1/TEXT.md) (D256)
   matches Java 21 `stripIndent` on 20,012 differential inputs, and the
   [value helpers and port conventions](self-hosting/m1/VALUES.md) (D258) cover
-  escapes, segment counts, singleton/empty lists and record values.
+  escapes, segment counts, singleton/empty lists and record values. The
+  [finite input model](self-hosting/m1/VARIANTS.md) (D260) makes variant
+  coverage a compile-time check, and
+  [snapshot-owned evidence](self-hosting/m1/EVIDENCE_STORE.md) (D259) replaces
+  weak evidence keys.
 
 **Checkpoint:** each selected helper has Java-equivalence evidence, allocation
 measurements, and applicable safe/unsafe and failure-cleanup pairs. List the

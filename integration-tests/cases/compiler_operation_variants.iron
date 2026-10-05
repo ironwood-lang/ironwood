@@ -1,0 +1,84 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// Prints the variants each pilot admission function accepts, in declaration
+// order, one line per closed variant list. The expected lines restate the
+// OPERATION_MODEL boundaries. Exit 42.
+import ironwood.compiler.port.OperationVariants;
+
+class Main {
+
+    public static int main(String[] args) {
+
+        StringBuilder out = new StringBuilder();
+        out.append("instruction:");
+        OperationVariants.Instruction[] instructions = OperationVariants.Instruction.values();
+        for (int index = 0; index < instructions.length; index++) {
+            if (OperationVariants.admitsInstruction(instructions[index])) out.append(' ').append(instructions[index].name());
+        }
+        out.append("\nterminator:");
+        OperationVariants.Terminator[] terminators = OperationVariants.Terminator.values();
+        for (int index = 0; index < terminators.length; index++) {
+            if (OperationVariants.admitsTerminator(terminators[index])) out.append(' ').append(terminators[index].name());
+        }
+        out.append("\noperand:");
+        OperationVariants.Operand[] operands = OperationVariants.Operand.values();
+        for (int index = 0; index < operands.length; index++) {
+            if (OperationVariants.admitsOperand(operands[index])) out.append(' ').append(operands[index].name());
+        }
+        out.append("\ncall kind:");
+        OperationVariants.CallKind[] calls = OperationVariants.CallKind.values();
+        for (int index = 0; index < calls.length; index++) {
+            if (OperationVariants.admitsCallKind(calls[index])) out.append(' ').append(calls[index].name());
+        }
+        out.append("\ncallable kind:");
+        OperationVariants.CallableKind[] callables = OperationVariants.CallableKind.values();
+        for (int index = 0; index < callables.length; index++) {
+            if (OperationVariants.admitsCallableKind(callables[index])) out.append(' ').append(callables[index].name());
+        }
+        out.append("\ntype kind:");
+        OperationVariants.TypeKind[] types = OperationVariants.TypeKind.values();
+        for (int index = 0; index < types.length; index++) {
+            if (OperationVariants.admitsTypeKind(types[index])) out.append(' ').append(types[index].name());
+        }
+        out.append("\norigin:");
+        OperationVariants.AllocationOrigin[] origins = OperationVariants.AllocationOrigin.values();
+        for (int index = 0; index < origins.length; index++) {
+            if (OperationVariants.admitsOrigin(origins[index])) out.append(' ').append(origins[index].name());
+        }
+        out.append("\ninput state:");
+        OperationVariants.AllocationState[] states = OperationVariants.AllocationState.values();
+        for (int index = 0; index < states.length; index++) {
+            if (OperationVariants.admitsInputState(states[index])) out.append(' ').append(states[index].name());
+        }
+        out.append("\njoined state:");
+        for (int index = 0; index < states.length; index++) {
+            if (OperationVariants.admitsJoinedState(states[index])) out.append(' ').append(states[index].name());
+        }
+        out.append("\nevent:");
+        OperationVariants.EventKind[] events = OperationVariants.EventKind.values();
+        for (int index = 0; index < events.length; index++) {
+            if (OperationVariants.admitsEventKind(events[index])) out.append(' ').append(events[index].name());
+        }
+        out.append("\nanalyzer:");
+        OperationVariants.AnalyzerKind[] analyzers = OperationVariants.AnalyzerKind.values();
+        for (int index = 0; index < analyzers.length; index++) {
+            if (OperationVariants.admitsAnalyzerKind(analyzers[index])) out.append(' ').append(analyzers[index].name());
+        }
+        out.append("\nphase:");
+        OperationVariants.AnalyzerPhase[] phases = OperationVariants.AnalyzerPhase.values();
+        for (int index = 0; index < phases.length; index++) {
+            if (OperationVariants.admitsAnalyzerPhase(phases[index])) out.append(' ').append(phases[index].name());
+        }
+        out.append("\nunfreed mode:");
+        OperationVariants.UnfreedMode[] modes = OperationVariants.UnfreedMode.values();
+        for (int index = 0; index < modes.length; index++) {
+            if (OperationVariants.admitsUnfreedMode(modes[index])) out.append(' ').append(modes[index].name());
+        }
+        out.append('\n');
+        System.out.print(out.toString());
+        free out;
+        free modes; free phases; free analyzers; free events; free states; free origins;
+        free types; free callables; free calls; free operands; free terminators; free instructions;
+        return 42;
+    }
+}
