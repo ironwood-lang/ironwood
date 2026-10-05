@@ -1,0 +1,110 @@
+{
+ "schema_version": 1,
+ "increment": "M1 allocation-failure cleanup hardening for value helpers and snapshot saves",
+ "base_commit": "c1aabd9fb539ce386e2bce4d9b809747c448fbad",
+ "producing_compiler": {
+  "path": "/Users/developer/workspace-mba-m2/Ironwood/workspace/m1/keyed-final/stage/compiler/build/ironwoodc.jar",
+  "sha256": "ab50fe2c128137005c4dbac8263bc1190ab956c1012bf5a285940709655a54b2",
+  "role": "compiler sources identical to base commit"
+ },
+ "sources": [
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/port/TextBlocks.iron",
+   "sha256": "77fd587da807ecdbeaadf6f9e94ba6ef5e6bd7a52e37f26d78534e909fe08fa5"
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/port/Lists.iron",
+   "sha256": "511452a05f50bf125e26587b4cd83ad8c5ee1f2ecd87f10bf7558646f12ccaff"
+  },
+  {
+   "path": "integration-tests/cases/compiler_value_helpers_failure.iron",
+   "sha256": "c7f0803b2aba0b356aacee4eacdffd7d842ae0e2c071d3a92d915ca9b4a9bcf3"
+  },
+  {
+   "path": "integration-tests/cases/compiler_ownership_snapshot_failure.iron",
+   "sha256": "7712ff55b9a362d7c1f7a69ee329ee1b442c5659455dab0079a63d2be4571083"
+  },
+  {
+   "path": "integration-tests/cases/compiler_ownership_operations.iron",
+   "sha256": "7c8136040544410820bdd3d379e2d25ceea0bdfb12dea95d023e079d904fdb87"
+  },
+  {
+   "path": "integration-tests/cases/compiler_ownership_snapshot.iron",
+   "sha256": "32075abb9a88f9eaba23c7447ad7f6d220855d2444b9d00138198ea8fa641075"
+  },
+  {
+   "path": "integration-tests/cases/compiler_ownership_snapshot_scaling.iron",
+   "sha256": "ccb07e82e62a6e0608d991c64f6b8f461b8c72d809f4cf6b939805ecaf13564a"
+  },
+  {
+   "path": "integration-tests/cases/compiler_saved_evidence.iron",
+   "sha256": "a741301bffe878897557a89ebff26525224f3adfc430d88830677978f4b460c9"
+  },
+  {
+   "path": "compiler/src/test/java/ironwood/compiler/ValueHelpersTests.java",
+   "sha256": "639eefb72123f0532d558fc81d7d79412d46f52594ee602573146c48969f52fe"
+  },
+  {
+   "path": "compiler/src/test/java/ironwood/compiler/OwnershipSnapshotTests.java",
+   "sha256": "df6ef389701649b2c2f406098200e2893c465cc7101bc2ca9ba6bc907311e8e4"
+  }
+ ],
+ "logs": [
+  {
+   "retained": "docs/self-hosting/m1/hardening-evidence/logs/compile.log.gz",
+   "sha256": "5618316eeddb184dbbbd80bcec29acf59cf916f166b0fc10ee8729943234182f",
+   "gzip_sha256": "fd2bdb6e7af5bc4eebdfd4a66ec8b6bf07b7487deb093ee74922c516584b555e"
+  },
+  {
+   "retained": "docs/self-hosting/m1/hardening-evidence/logs/cs-compile.log.gz",
+   "sha256": "0fd24f499798c48a15d997d82d463a379d5d24b3f957948c2477da5bb8e804f4",
+   "gzip_sha256": "c69bcd701ee3a822a314375c938e82f06c51a9e5e5ac52f8dc680fa8cb516c3a"
+  },
+  {
+   "retained": "docs/self-hosting/m1/hardening-evidence/logs/cs-link.log.gz",
+   "sha256": "eaf8aee78c4180a52715e04099f7330ad373e404d4daddfd953521eb7da4fc64",
+   "gzip_sha256": "156f8db4c346d2dd5da1495d5e0a0d18831d387759a8e73709b5071f29100aaf"
+  },
+  {
+   "retained": "docs/self-hosting/m1/hardening-evidence/logs/diff-check.log.gz",
+   "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "gzip_sha256": "f61f27bd17de546264aa58f40f3aafaac7021e0ef69c17f6b1b4cd7664a037ec"
+  },
+  {
+   "retained": "docs/self-hosting/m1/hardening-evidence/logs/licenses.log.gz",
+   "sha256": "baf5804aeb26498337c9c5223c199afeba5c3e2fc36ae219b9bf420e3775f673",
+   "gzip_sha256": "c33bdaafc40ae52137c7119d2922a14fd4f4f340cea86e19094625617947bf77"
+  },
+  {
+   "retained": "docs/self-hosting/m1/hardening-evidence/logs/link.log.gz",
+   "sha256": "348eef1e11ac90b111026ff92f19049cd30e1d38a6e917c962ea485cd0d9564c",
+   "gzip_sha256": "6c35804caa9d728377025c14e0ffcbc597fab91a7b55834edf1a21f6bed0713f"
+  },
+  {
+   "retained": "docs/self-hosting/m1/hardening-evidence/logs/save-sweep.log.gz",
+   "sha256": "f9c09d1343d3e473326ced4613b134aa44c69a7eddc973c711184609858298f3",
+   "gzip_sha256": "235d0737510d430e5e84aa52b162a28a47da6b5dd8ba3e27f05ace06c43831f5"
+  },
+  {
+   "retained": "docs/self-hosting/m1/hardening-evidence/logs/tests.log.gz",
+   "sha256": "8b1ca53e8adcf6d28cd87d85a5682c47ca36736bc885affe03c235ad5d7f3d20",
+   "gzip_sha256": "5aa1423083b2ef86392e567165d91eb383d6207e9c3922432179246a36db125c"
+  },
+  {
+   "retained": "docs/self-hosting/m1/hardening-evidence/logs/value-sweep.log.gz",
+   "sha256": "c7c5e06af9e8dc44124cdea73a96c6b6a076349acb80a96e2b62748a97659fdb",
+   "gzip_sha256": "5eb787223da737de9409045205b10c56345e6583f0312f00089df5814d7c1ded"
+  }
+ ],
+ "results": {
+  "tests": "PASS: 10 compiler tests",
+  "value_sweep": "limits 0-15 exit 42 with no storage, 16-18 exit 43 (found and fixed leaks at 2 and 6-9)",
+  "save_sweep": "0-130 setup (44), 131-267 exit 42 with live count unchanged, 268-270 exit 43",
+  "licensing": "passed"
+ },
+ "host_profile": {
+  "host": "macOS 27.0.1, arm64, Apple M5, 32 GiB",
+  "bootstrap": "Java 21.0.1",
+  "backend": "pinned LLVM 23.1.0"
+ }
+}

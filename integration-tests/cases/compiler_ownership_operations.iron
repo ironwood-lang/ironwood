@@ -217,35 +217,40 @@ class Main {
     static final int MAYBE_FREED = 3;
     static final int UNCERTAIN = 4;
 
+    // Builders retire on every exit, so a failed allocation leaks nothing.
     static OwnershipSnapshot save(Live state) {
 
         IdentityHashMap<Node, StateValue> states = new IdentityHashMap<Node, StateValue>(8);
+        defer free states;
         for (int index = 0; index < state.allocations.size(); index++) {
             Node node = state.allocations.get(index);
             if (node.present) states.put(node, node.current);
         }
         ArrayList<Slot> slotKeys = new ArrayList<Slot>(8);
+        defer free slotKeys;
         Iterator<Node> slotValues = state.slots.iterator();
         while (slotValues.hasNext()) { slotValues.next(); slotKeys.add(state.slots.getCurrIteratorKey()); }
         ArrayList<String> fieldKeys = new ArrayList<String>(8);
+        defer free fieldKeys;
         Iterator<Node> fieldValues = state.fields.iterator();
         while (fieldValues.hasNext()) { fieldValues.next(); fieldKeys.add(state.fields.getCurrIteratorKey()); }
         ArrayList<Node> retainedKeys = new ArrayList<Node>(8);
+        defer free retainedKeys;
         Iterator<SnapshotList<Node>> retainedValues = state.retained.iterator();
         while (retainedValues.hasNext()) { retainedValues.next(); retainedKeys.add(state.retained.getCurrIteratorKey()); }
         ArrayList<Node> poolKeys = new ArrayList<Node>(8);
+        defer free poolKeys;
         Iterator<Node> poolValues = state.pools.iterator();
         while (poolValues.hasNext()) { poolValues.next(); poolKeys.add(state.pools.getCurrIteratorKey()); }
         ArrayList<Node> exposed = new ArrayList<Node>(8);
+        defer free exposed;
         Iterator<Node> exposedItems = state.exposed.iterator();
         while (exposedItems.hasNext()) exposed.add(exposedItems.next());
         ArrayList<Node> liveItems = new ArrayList<Node>(8);
+        defer free liveItems;
         Iterator<Node> liveValues = state.live.iterator();
         while (liveValues.hasNext()) liveItems.add(liveValues.next());
-        OwnershipSnapshot snapshot = new OwnershipSnapshot(states, state, slotKeys, fieldKeys, retainedKeys,
-                poolKeys, exposed, liveItems);
-        free liveItems; free exposed; free poolKeys; free retainedKeys; free fieldKeys; free slotKeys; free states;
-        return snapshot;
+        return new OwnershipSnapshot(states, state, slotKeys, fieldKeys, retainedKeys, poolKeys, exposed, liveItems);
     }
 
     static void restore(Live state, OwnershipSnapshot snapshot) {

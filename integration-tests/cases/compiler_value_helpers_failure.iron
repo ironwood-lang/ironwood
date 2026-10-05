@@ -1,0 +1,46 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// Inject allocation failure into the M1.3 helpers that allocate: text-block
+// normalization (builder, growth and result), the singleton list (builder and
+// list) and the int sequence (backing array). Each failure must leave no
+// helper storage behind. Exit 42 on OOM, 43 on success, 1 if storage remains.
+import ironwood.ds.IntArrayList;
+import ironwood.compiler.port.*;
+
+class Main {
+
+    static int check() {
+
+        String text = "    alpha\n      beta\n    gamma delta epsilon zeta eta theta iota kappa lambda mu nu xi\n    ";
+        String normalized = TextBlocks.stripIndent(text);
+        int length = normalized.length();
+        free normalized;
+        SnapshotList<String> one = Lists.single(text);
+        length += one.size();
+        free one;
+        IntArrayList builder = new IntArrayList(4);
+        defer free builder;
+        builder.add(1);
+        builder.add(2);
+        SnapshotInts counts = new SnapshotInts(builder);
+        length += counts.sum();
+        free counts;
+        return length;
+    }
+
+    public static int main(String[] args) {
+
+        long baseline = System.liveAllocationCount();
+        boolean failed = false;
+        try {
+            check();
+        }
+
+        catch (OutOfMemoryError ordinary) {
+            failed = true;
+        }
+
+        if (System.liveAllocationCount() != baseline) return 1;
+        return failed ? 42 : 43;
+    }
+}

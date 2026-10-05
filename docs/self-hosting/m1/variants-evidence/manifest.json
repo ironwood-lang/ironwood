@@ -73,7 +73,7 @@
   "fails_closed": "3 mutations x 3 modes rejected with exhaustiveness diagnostic",
   "admission": "native admitted sets equal OPERATION_MODEL",
   "unfreed_warn": "0 diagnostics",
-  "irondocs": "1 type",
+  "irondocs": "13 types (class and 12 enums)",
   "licensing": "passed"
  },
  "boundaries": [

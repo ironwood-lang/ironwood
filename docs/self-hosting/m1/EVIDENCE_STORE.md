@@ -38,5 +38,8 @@ identity is simply the snapshot object.
 | Controls | Off/warn/error: release then free accepted; a saved-version alias used after its snapshot is freed, a separate free of the owned version, and use of a freed store are rejected |
 | Artifacts | Classes and archive at `-O3`, zero `--unfreed=warn` diagnostics, exit 42 |
 
+The store's `save` retires its temporary key list with `defer`, so a failure
+while building the saved version leaks nothing; the port must keep that form.
+
 The real store's six maps, budget formula, merge intersections and limits are
 M2.2 port work on this mechanism. Sites remain invocation-lived.

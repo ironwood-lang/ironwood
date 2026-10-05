@@ -20,6 +20,14 @@ doubles a full ring in head-to-tail order and frees the old ring. The new ring
 is installed before membership changes, so an allocation failure leaves every
 queued item in place. Null items and empty takes fail as `ArrayDeque` does.
 
+WORKLIST_CONTRACTS asks that consumed membership be cleared promptly and that a
+cursor not retain every historical request. A take removes the item from
+membership at once and its slot is reused by later adds, so the ring never
+grows with history. The slot keeps a stale reference until it is overwritten,
+as `ArrayList` removal does; without a tracing collector an unreachable stale
+reference keeps nothing alive, so writing null would add a store without any
+lifetime effect.
+
 Items are borrowed. The existing escape analysis treats a queued item as
 escaped, so freeing it while queued is rejected, and so is freeing it after the
 queue is destroyed. The selected consumer queues IR block labels whose owners

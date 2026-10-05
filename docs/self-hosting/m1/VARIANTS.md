@@ -43,4 +43,4 @@ entry; M2.1 applies the same pattern to the frontend's AST variants.
 | Java tie-in | Every list equals the live sealed permits (normalized names) or enum constants obtained by reflection |
 | Fails closed | Removing `UNREACHABLE` from a rejection arm, adding an untreated `PHANTOM` terminator and deleting the `REASON` arm each fail compilation in off/warn/error with the exhaustiveness diagnostic |
 | Admission | The native fixture prints exactly the admitted sets above from classes and archive at `-O3`, zero `--unfreed=warn` diagnostics, exit 42 |
-| IronDocs | One type generated without diagnostics |
+| IronDocs | Thirteen types (the class and its twelve enums) generated without diagnostics |

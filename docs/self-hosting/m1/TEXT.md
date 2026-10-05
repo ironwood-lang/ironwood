@@ -23,8 +23,8 @@ blank line becomes empty; lines are joined with `\n`. A no-break space is not
 whitespace, matching Java 21.
 
 The input is borrowed. The result is a fresh String the caller owns, and the
-internal builder is freed before return, so each call leaves exactly one live
-allocation.
+internal builder is freed by `defer` on every exit, so each call leaves exactly
+one live allocation and an allocation failure leaves none.
 
 ## Evidence
 

@@ -117,15 +117,14 @@ final class Evidence {
             return null;
         }
         ArrayList<Object> keys = new ArrayList<Object>(this.origins.size() + 1);
+        defer free keys;
         Iterator<Site> values = this.origins.iterator();
         while (values.hasNext()) {
             values.next().references++;
             keys.add(this.origins.getCurrIteratorKey());
         }
         this.liveUnits += units;
-        Saved saved = new Saved(this.origins, keys, units);
-        free keys;
-        return saved;
+        return new Saved(this.origins, keys, units);
     }
 
     // E5 then E4; an absent version clears and reports truncation.

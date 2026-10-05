@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
-// Measures one seven-field snapshot save at the M0 pilot sizes. Each size fills
-// every live field with n entries over n identity nodes, then prints n, the
-// allocations made by save (snapshot storage plus transient key builders) and
-// the storage the snapshot retains. Freeing the snapshot must return exactly to
-// the pre-save live count. Payloads and the live state are invocation-lived.
-// Exit 42.
+// Inject allocation failure into a seven-field snapshot save. Setup builds an
+// invocation-lived live state first; if the limit is reached there the run
+// exits 44 and checks nothing. A failure inside the save must roll back the
+// partially built snapshot and free every temporary key builder, leaving the
+// live count exactly as before the save. Exit 42 on such a failure, 43 when
+// the save completes and the snapshot is freed, 1 if storage remains.
 import ironwood.ds.*;
 import ironwood.util.Iterator;
 import ironwood.compiler.port.*;
@@ -112,13 +112,25 @@ final class Slot {
 final class Live {
 
     final ArrayList<Node> allocations = new ArrayList<Node>();
-    final LinkedHashMap<Slot, Node> slots = new LinkedHashMap<Slot, Node>(8);
-    final LinkedHashMap<String, Node> fields = new LinkedHashMap<String, Node>(8);
-    final IdentityHashMap<Node, SnapshotList<Node>> retained = new IdentityHashMap<Node, SnapshotList<Node>>(8);
-    final IdentityHashMap<Node, Node> pools = new IdentityHashMap<Node, Node>(8);
-    final IdentityHashSet<Node> exposed = new IdentityHashSet<Node>(8);
-    final IdentityHashSet<Node> live = new IdentityHashSet<Node>(8);
-    final IdentityHashSet<Node> blocked = new IdentityHashSet<Node>(8);
+    final LinkedHashMap<Slot, Node> slots;
+    final LinkedHashMap<String, Node> fields;
+    final IdentityHashMap<Node, SnapshotList<Node>> retained;
+    final IdentityHashMap<Node, Node> pools;
+    final IdentityHashSet<Node> exposed;
+    final IdentityHashSet<Node> live;
+    final IdentityHashSet<Node> blocked;
+
+    // Capacity 1 chains every key in one bucket and resizes repeatedly.
+    Live(int capacity) {
+
+        this.slots = new LinkedHashMap<Slot, Node>(capacity);
+        this.fields = new LinkedHashMap<String, Node>(capacity);
+        this.retained = new IdentityHashMap<Node, SnapshotList<Node>>(capacity);
+        this.pools = new IdentityHashMap<Node, Node>(capacity);
+        this.exposed = new IdentityHashSet<Node>(capacity);
+        this.live = new IdentityHashSet<Node>(capacity);
+        this.blocked = new IdentityHashSet<Node>(capacity);
+    }
 }
 
 // The seven fields plus traversal lists. States are read by allocation-list
@@ -230,39 +242,51 @@ class Main {
         return new OwnershipSnapshot(states, state, slotKeys, fieldKeys, retainedKeys, poolKeys, exposed, liveItems);
     }
 
-    static boolean measure(int count, StateValue value) {
+    static Live setup() {
 
-        Live state = new Live();
+        StateValue active = new StateValue(0, "reason", false);
+        Live state = new Live(4);
+        Node container = new Node(-1, active);
         ArrayList<Node> childItems = new ArrayList<Node>(1);
-        Node container = new Node(-1, value);
         childItems.add(container);
         SnapshotList<Node> child = new SnapshotList<Node>(childItems);
         free childItems;
-        for (int index = 0; index < count; index++) {
-            Node node = new Node(index, value);
+        for (int index = 0; index < 6; index++) {
+            Node node = new Node(index, active);
             state.allocations.add(node);
-            state.slots.put(new Slot(container, index * 65537), node);
-            state.fields.put(Integer.toString(index), node);
+            state.slots.put(new Slot(container, index), node);
             state.retained.put(node, child);
             state.pools.put(node, container);
             state.exposed.add(node);
             state.live.add(node);
         }
-        long allocations = System.allocationCount();
-        long before = System.liveAllocationCount();
-        OwnershipSnapshot snapshot = save(state);
-        long made = System.allocationCount() - allocations;
-        long retained = System.liveAllocationCount() - before;
-        boolean complete = snapshot.slotCount() == count && snapshot.liveCount() == count;
-        free snapshot;
-        System.out.println(count + ":" + made + ":" + retained);
-        return complete && System.liveAllocationCount() == before;
+        state.fields.put("a", container);
+        return state;
     }
 
     public static int main(String[] args) {
 
-        StateValue value = new StateValue(0, "reason", false);
-        boolean passed = measure(8, value) && measure(32, value) && measure(128, value);
-        return passed ? 42 : 1;
+        Live state = null;
+        try {
+            state = setup();
+        }
+
+        catch (OutOfMemoryError early) {
+            return 44;
+        }
+
+        long before = System.liveAllocationCount();
+        boolean failed = false;
+        try {
+            OwnershipSnapshot snapshot = save(state);
+            free snapshot;
+        }
+
+        catch (OutOfMemoryError ordinary) {
+            failed = true;
+        }
+
+        if (System.liveAllocationCount() != before) return 1;
+        return failed ? 42 : 43;
     }
 }

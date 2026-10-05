@@ -178,6 +178,37 @@ final class ValueHelpersTests {
         }
     }
 
+    /** Every allocation failure in the helpers leaves no helper storage behind. */
+    static void failures() throws Exception {
+        Path root = Files.createTempDirectory("ironwood-value-failures-");
+        try {
+            Path classes = root.resolve("classes");
+            run(List.of(PORT + "SnapshotList.iron", PORT + "TextBlocks.iron", PORT + "Lists.iron", PORT + "SnapshotInts.iron",
+                    "integration-tests/cases/compiler_value_helpers_failure.iron", "--unfreed=warn", "-d", classes.toString()));
+            Path executable = root.resolve("program");
+            run(List.of("--link", "-cp", classes.toString(), "--main-class", "Main", "--unfreed=warn", "-O3",
+                    "-o", executable.toString()));
+            for (int limit = 0; limit <= 18; limit++) {
+                ProcessBuilder builder = new ProcessBuilder(executable.toString()).redirectErrorStream(true);
+                builder.environment().put("IRONWOOD_ALLOCATION_LIMIT", Integer.toString(limit));
+                Process process = builder.start();
+                process.getInputStream().readAllBytes();
+                if (!process.waitFor(30, TimeUnit.SECONDS)) {
+                    process.destroyForcibly();
+                    throw new AssertionError("value failure program timed out");
+                }
+                int expected = limit < 16 ? 42 : 43;
+                if (process.exitValue() != expected) {
+                    throw new AssertionError("value helper limit " + limit + ": exit " + process.exitValue());
+                }
+            }
+        } finally {
+            try (var paths = Files.walk(root)) {
+                for (Path path : paths.sorted(Comparator.reverseOrder()).toList()) Files.delete(path);
+            }
+        }
+    }
+
     private static void run(List<String> arguments) {
         ByteArrayOutputStream output = new ByteArrayOutputStream();
         try (PrintStream stream = new PrintStream(output, true, StandardCharsets.UTF_8)) {

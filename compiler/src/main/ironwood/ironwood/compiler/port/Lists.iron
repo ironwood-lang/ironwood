@@ -18,7 +18,7 @@ public final class Lists {
 
     /**
      * Returns a fresh immutable list holding one borrowed item. The caller
-     * owns the list, not the item; the temporary builder is freed.
+     * owns the list, not the item; the temporary builder is freed on every exit.
      *
      * @param item the borrowed non-null item
      * @return the new list
@@ -28,9 +28,9 @@ public final class Lists {
 
         if (item == null) throw new NullPointerException();
         ArrayList<E> builder = new ArrayList<E>(1);
+        // Retires the builder even if the list's own allocation fails.
+        defer free builder;
         builder.add(item);
-        SnapshotList<E> result = new SnapshotList<E>(builder);
-        free builder;
-        return result;
+        return new SnapshotList<E>(builder);
     }
 }

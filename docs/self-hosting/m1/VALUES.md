@@ -51,4 +51,5 @@ the pilot rather than skipped silently.
 | Java parity | `compiler_value_helpers` prints the same transcript as the Java 21 [reference](values-evidence/ValueHelpersReference.java) in four fresh JVMs: 15 decoded escapes plus a hash over all 131,072 inputs (via the real `Lexer.decodeSimpleEscape`), 64 generated int sequences, singleton behavior and record semantics (via the real `SourcePosition` and `SourceSpan`) |
 | Ownership | Off/warn/error: freeing builders and results after use accepted; using a freed sequence or list rejected; the singleton's item conservatively stays live |
 | Artifacts | Classes and archive at `-O3` with zero `--unfreed=warn` diagnostics; exit 42 |
+| Allocation failure | `compiler_value_helpers_failure` drives text-block normalization, the singleton list and the int sequence through every allocation limit: 0-15 fail with no helper storage left, 16 onward complete. The sweep first found leaked builders at limits 2 and 6-9; both helpers now retire their builders with `defer` |
 | IronDocs | Three types generated without diagnostics |

@@ -845,8 +845,11 @@ public final class CompilerTests {
         test("seven-field ownership snapshots retire storage and keep payload safety", OwnershipSnapshotTests::controls);
         test("seven-field ownership snapshots match the M0 value contract across artifacts",
                 OwnershipSnapshotTests::artifacts);
+        test("seven-field ownership snapshot saves roll back every allocation failure",
+                OwnershipSnapshotTests::failures);
         test("compiler value helpers keep ownership of results only", ValueHelpersTests::ownership);
         test("compiler value helpers match Java escapes counts lists and records", ValueHelpersTests::artifacts);
+        test("compiler value helpers leave no storage after allocation failure", ValueHelpersTests::failures);
         test("proof snapshots own saved evidence and keep its ownership safe", SavedEvidenceTests::controls);
         test("snapshot-owned evidence retires every unit across budgets and artifacts", SavedEvidenceTests::artifacts);
         test("pilot variant lists match the Java operation model", OperationVariantTests::matchesJavaModel);

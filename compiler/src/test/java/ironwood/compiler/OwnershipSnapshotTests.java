@@ -139,6 +139,40 @@ final class OwnershipSnapshotTests {
         }
     }
 
+    /** A failed allocation inside a save rolls back and frees every temporary. */
+    static void failures() throws Exception {
+        Path root = Files.createTempDirectory("ironwood-ownership-failures-");
+        try {
+            Path classes = root.resolve("classes");
+            List<String> arguments = new ArrayList<>();
+            for (String helper : HELPERS) arguments.add(PORT + helper + ".iron");
+            arguments.addAll(List.of("integration-tests/cases/compiler_ownership_snapshot_failure.iron", "--unfreed=warn",
+                    "-d", classes.toString()));
+            run(arguments, "warning: fresh result of 'setup' leaves scope without being freed");
+            Path executable = root.resolve("program");
+            run(List.of("--link", "-cp", classes.toString(), "--main-class", "Main", "--unfreed=warn", "-O3",
+                    "-o", executable.toString()), "warning: fresh result of 'setup' leaves scope without being freed");
+            for (int limit = 0; limit <= 270; limit++) {
+                ProcessBuilder builder = new ProcessBuilder(executable.toString()).redirectErrorStream(true);
+                builder.environment().put("IRONWOOD_ALLOCATION_LIMIT", Integer.toString(limit));
+                Process process = builder.start();
+                process.getInputStream().readAllBytes();
+                if (!process.waitFor(30, TimeUnit.SECONDS)) {
+                    process.destroyForcibly();
+                    throw new AssertionError("ownership failure program timed out");
+                }
+                int expected = limit < 131 ? 44 : limit < 268 ? 42 : 43;
+                if (process.exitValue() != expected) {
+                    throw new AssertionError("ownership save limit " + limit + ": exit " + process.exitValue());
+                }
+            }
+        } finally {
+            try (var paths = Files.walk(root)) {
+                for (Path path : paths.sorted(Comparator.reverseOrder()).toList()) Files.delete(path);
+            }
+        }
+    }
+
     private static void execute(Path executable, String expected) throws Exception {
         Process process = new ProcessBuilder(executable.toString()).redirectErrorStream(true).start();
         if (!process.waitFor(30, TimeUnit.SECONDS)) {
@@ -152,11 +186,16 @@ final class OwnershipSnapshotTests {
     }
 
     private static void run(List<String> arguments) {
+        run(arguments, "warning: allocation assigned to 'state' leaves scope without being freed");
+    }
+
+    // The single expected diagnostic is the deliberately retained live state.
+    private static void run(List<String> arguments, String expectedWarning) {
         ByteArrayOutputStream output = new ByteArrayOutputStream();
         try (PrintStream stream = new PrintStream(output, true, StandardCharsets.UTF_8)) {
             int exit = Main.run(new ArrayList<>(arguments).toArray(String[]::new), stream, stream);
             String text = output.toString(StandardCharsets.UTF_8);
-            String unexpected = text.replace("warning: allocation assigned to 'state' leaves scope without being freed", "");
+            String unexpected = text.replace(expectedWarning, "");
             if (exit != 0 || unexpected.contains("warning") || unexpected.contains("error")) {
                 throw new AssertionError("ownership snapshot compiler run " + arguments + ": exit " + exit + ": " + text);
             }
