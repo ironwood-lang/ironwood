@@ -1,0 +1,41 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.port;
+
+/**
+ * Compiler-private simple escape conversion for character literals, strings
+ * and cooked text blocks. Java's lexer returns a nullable {@code Character};
+ * this returns the decoded UTF-16 unit as an {@code int}, or {@link #ABSENT}
+ * when the escape is not a simple escape, so no value is boxed or allocated.
+ */
+public final class CharEscapes {
+
+    /** Returned when the character after a backslash is not a simple escape. */
+    public static final int ABSENT = -1;
+
+    private CharEscapes() {
+    }
+
+    /**
+     * Decodes the character after a backslash.
+     *
+     * @param escaped the character following the backslash
+     * @param character whether the escape is inside a character literal, where
+     *        {@code \'} is permitted
+     * @return the decoded unit in 0..65535, or {@link #ABSENT}
+     */
+    public static int decodeSimple(char escaped, boolean character) {
+
+        return switch (escaped) {
+            case 'b' -> '\b';
+            case 'f' -> '\f';
+            case 'n' -> '\n';
+            case 'r' -> '\r';
+            case 't' -> '\t';
+            case '\'' -> character ? '\'' : ABSENT;
+            case '"' -> '"';
+            case '\\' -> '\\';
+            default -> ABSENT;
+        };
+    }
+}

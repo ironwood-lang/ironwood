@@ -9768,3 +9768,50 @@ occurrence order. If no
   exactly 6n+75 allocations at n = 8/32/128 with full retirement; all-mode
   safe/unsafe controls; classes/archive at `-O3` with one classified
   `--unfreed=warn` diagnostic per fixture. See [the composition record](self-hosting/m1/COMPOSITION.md).
+
+## D258 - Provide M1.3 value helpers and fix the pilot port conventions
+
+- **Status:** Implemented during M1.3 on 2026-10-05.
+- **Decision:** Add compiler-private `CharEscapes.decodeSimple` (the lexer's
+  simple escapes as an `int` UTF-16 unit, or `ABSENT`, instead of a nullable
+  boxed `Character`), `SnapshotInts` (an immutable int sequence replacing
+  immutable `List<Integer>` segment counts, with wrapping sum and the
+  specified `List.hashCode`) and `Lists.single` (a null-rejecting immutable
+  one-item list). Ironwood rejects unchecked generic casts, so there is no
+  generic shared empty list: each element type that needs one declares a
+  process-lived static empty `SnapshotList`, which holders borrow and never
+  free. Record value semantics become hand-written `equals`/`hashCode` on final
+  classes, comparing each component as Java's record does: `==` for primitives
+  and for classes without an equality override (allocation nodes, source
+  files, evidence events), value equality for records and Strings, null-safe
+  for nullable components, logical `BitSet` equality for summaries; compact
+  constructor checks keep their order and messages.
+- **Conventions:** The pilot port also applies these source rewrites, none of
+  which needs a helper. `Optional` fields and results become nullable
+  references, presence branches evaluate a fallback or projection exactly once,
+  and the parser's two `orElseThrow` sites keep `NoSuchElementException`;
+  `OptionalInt` becomes an index with -1 for absent. Streams, `forEach`,
+  lambdas and method references become ordered loops with the same
+  short-circuiting and empty-input results. `contiguousKinds(TokenKind...)`
+  becomes fixed two- and three-argument overloads. The keyword table becomes a
+  `switch` on the lexeme with identifier fallback, allocating nothing per
+  token. Evidence counters are primitive. `var` gets its declared type, and
+  each uninitialized local gets an explicit initial value without changing its
+  guarded assignments. Joined and restored states walk the append-only
+  allocation list. `String.matches` in the operation factory admits only its
+  fixed literal target by equality; general regex stays with M3.1.
+- **Boundary:** Ported record classes, the lexer's cooked string assembly and
+  the keyword switch itself are M2.1/M2.2 consumer code. The generic singleton
+  factory conservatively exposes its item. Eight M2.2 RECORD inventory rows
+  whose simple names merely coincide with selected records (Binding, Site,
+  Origin, Summary in Bridge, binder, scope and borrow-analysis classes) are
+  excluded from the pilot. No runtime bookkeeping or lowering change is
+  introduced. This establishes neither full M1 nor S1/G1.
+- **Verification:** A native transcript equal to a Java 21 reference in four
+  fresh JVMs: all 131,072 escape inputs against the real
+  `Lexer.decodeSimpleEscape`, 64 generated sequences against
+  `List.copyOf`/`IntStream.sum`/`List.hashCode`, `List.of(item)` behavior, and
+  record semantics against the real `SourcePosition`/`SourceSpan` plus records
+  with the selected component types. All-mode ownership controls and
+  classes/archive artifacts with zero `--unfreed=warn` diagnostics. See
+  [the value helper record](self-hosting/m1/VALUES.md).

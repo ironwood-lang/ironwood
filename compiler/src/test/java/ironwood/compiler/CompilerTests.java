@@ -845,6 +845,8 @@ public final class CompilerTests {
         test("seven-field ownership snapshots retire storage and keep payload safety", OwnershipSnapshotTests::controls);
         test("seven-field ownership snapshots match the M0 value contract across artifacts",
                 OwnershipSnapshotTests::artifacts);
+        test("compiler value helpers keep ownership of results only", ValueHelpersTests::ownership);
+        test("compiler value helpers match Java escapes counts lists and records", ValueHelpersTests::artifacts);
         test("private compiler snapshot getter loans survive joins and delegation",
                 this::privateSnapshotGetterJoins);
         test("private compiler snapshot proofs reject publication and unrecognized construction",

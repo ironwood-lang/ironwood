@@ -1,0 +1,36 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.port;
+
+import ironwood.ds.ArrayList;
+
+/**
+ * Immutable single-element lists for the compiler's {@code List.of(item)}
+ * sites. Empty lists are not created here: a generic shared empty instance
+ * would need an unchecked cast, which Ironwood rejects. Each element type
+ * that needs one declares a process-lived static empty {@link SnapshotList};
+ * holders borrow it and never free it.
+ */
+public final class Lists {
+
+    private Lists() {
+    }
+
+    /**
+     * Returns a fresh immutable list holding one borrowed item. The caller
+     * owns the list, not the item; the temporary builder is freed.
+     *
+     * @param item the borrowed non-null item
+     * @return the new list
+     * @throws NullPointerException if the item is null
+     */
+    public static <E extends Object> SnapshotList<E> single(E item) {
+
+        if (item == null) throw new NullPointerException();
+        ArrayList<E> builder = new ArrayList<E>(1);
+        builder.add(item);
+        SnapshotList<E> result = new SnapshotList<E>(builder);
+        free builder;
+        return result;
+    }
+}
