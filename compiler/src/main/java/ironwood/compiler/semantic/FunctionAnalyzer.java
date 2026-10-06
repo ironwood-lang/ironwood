@@ -731,6 +731,17 @@ final class FunctionAnalyzer {
                     blocks.values().stream().map(MutableBlock::freeze).toList(), function.span());
         }
 
+        if (isProcessRunIntrinsic()) {
+            IrValueReference result = newValue(IrType.I64, function.span());
+            emitCall(new ironwood.compiler.ir.IrProcessInstruction(result, parameters.get(0).value(),
+                    parameters.get(1).value(), parameters.get(2).value(), function.span()), function.span());
+            currentBlock.terminate(new IrReturnTerminator(Optional.of(result), function.span()));
+            exitScope();
+            return new IrFunction(function.ownerType(), function.sourceName(), function.linkageName(),
+                    function.returnType(), parameters,
+                    blocks.values().stream().map(MutableBlock::freeze).toList(), function.span());
+        }
+
         Optional<IrCharacterInstruction.Operation> characterOperation = characterIntrinsic();
         if (characterOperation.isPresent()) {
             IrValueReference result = newValue(IrType.I32, function.span());
@@ -8606,6 +8617,19 @@ final class FunctionAnalyzer {
         return true;
     }
 
+    // ProcessRunner.runToFile reads the command's Strings only to encode them
+    // before the launch and retains none; String is final, so no element
+    // dispatch can publish them. The exact signature keeps other String[]
+    // parameters conservative.
+    private static boolean isBorrowingProcessCommand(CallableSymbol callable) {
+        IrType path = IrType.reference("ironwood.nio.file.Path");
+        return callable != null && callable.isStatic()
+                && callable.ownerType().equals("ironwood.process.ProcessRunner")
+                && callable.sourceName().equals("runToFile")
+                && callable.parameterTypes().equals(List.of(
+                        IrType.array(IrType.reference("ironwood.lang.String")), path, path));
+    }
+
     private static boolean isPrintStreamObjectRendering(CallableSymbol callable) {
         return !callable.isStatic()
                 && (callable.ownerType().equals("ironwood.io.PrintStream")
@@ -9154,7 +9178,7 @@ final class FunctionAnalyzer {
                     "borrowed call can observe reference-array elements"));
             return;
         }
-        if (!isBorrowingStringJoin(resolved, arguments)) {
+        if (!isBorrowingStringJoin(resolved, arguments) && !isBorrowingProcessCommand(resolved)) {
             exposeArrayElements(receiver, "call to method '" + methodName
                     + "' can observe reference-array elements");
             arguments.forEach(argument -> exposeArrayElements(argument.operand(),
@@ -13928,6 +13952,14 @@ final class FunctionAnalyzer {
             };
         }
         return Optional.empty();
+    }
+
+    private boolean isProcessRunIntrinsic() {
+        return function.ownerType().equals("ironwood.process.ProcessRunner")
+                && function.sourceName().equals("runProcessValue") && function.isStatic()
+                && function.returnType().equals(IrType.I64)
+                && function.parameterTypes().equals(List.of(ironwood.compiler.ir.IrProcessInstruction.COMMAND,
+                ironwood.compiler.ir.IrProcessInstruction.STRING, ironwood.compiler.ir.IrProcessInstruction.STRING));
     }
 
     private Optional<IrType> floatingParseIntrinsic() {

@@ -22,6 +22,7 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <sys/ioctl.h>
+#include <sys/wait.h>
 #include <time.h>
 #include <sys/utsname.h>
 #include <unwind.h>
@@ -2511,6 +2512,180 @@ int32_t ironwood_file_move_exclusive(const void *source, const void *target,
 #endif
     if (storage != stack) { free(storage); }
     return move_result(error);
+}
+
+/* Synchronous process launch (B4). The command, child directory and output
+ * spelling are encoded into one block before forking; the child only
+ * redirects descriptors, changes directory and executes, and reports a
+ * failure before exec through a close-on-exec pipe. The parent always reaps
+ * the child. A result >= 0 is the status: the exit value, or 0x100 plus the
+ * signal number. A negative result is -(stage * 16 + reason). */
+enum ironwood_process_stage {
+    IRONWOOD_PROCESS_OUTPUT = 1,
+    IRONWOOD_PROCESS_INPUT = 2,
+    IRONWOOD_PROCESS_START = 3,
+    IRONWOOD_PROCESS_DIRECTORY = 4,
+    IRONWOOD_PROCESS_EXECUTE = 5
+};
+
+enum ironwood_process_reason {
+    IRONWOOD_PROCESS_NO_SUCH_FILE = 1,
+    IRONWOOD_PROCESS_PERMISSION = 2,
+    IRONWOOD_PROCESS_NOT_DIRECTORY = 3,
+    IRONWOOD_PROCESS_IS_DIRECTORY = 4,
+    IRONWOOD_PROCESS_EXEC_FORMAT = 5,
+    IRONWOOD_PROCESS_TOO_BIG = 6,
+    IRONWOOD_PROCESS_RESOURCE = 7,
+    IRONWOOD_PROCESS_LOOP = 8,
+    IRONWOOD_PROCESS_NAME_TOO_LONG = 9,
+    IRONWOOD_PROCESS_OTHER = 10
+};
+
+struct ironwood_process_report {
+    int32_t stage;
+    int32_t error;
+};
+
+static int64_t process_failure(int stage, int error) {
+    int reason = error == ENOENT ? IRONWOOD_PROCESS_NO_SUCH_FILE
+            : error == EACCES || error == EPERM ? IRONWOOD_PROCESS_PERMISSION
+            : error == ENOTDIR ? IRONWOOD_PROCESS_NOT_DIRECTORY
+            : error == EISDIR ? IRONWOOD_PROCESS_IS_DIRECTORY
+            : error == ENOEXEC ? IRONWOOD_PROCESS_EXEC_FORMAT
+            : error == E2BIG ? IRONWOOD_PROCESS_TOO_BIG
+            : error == EAGAIN || error == ENOMEM || error == EMFILE || error == ENFILE
+                    ? IRONWOOD_PROCESS_RESOURCE
+            : error == ELOOP ? IRONWOOD_PROCESS_LOOP
+            : error == ENAMETOOLONG ? IRONWOOD_PROCESS_NAME_TOO_LONG
+            : IRONWOOD_PROCESS_OTHER;
+    return -(int64_t) (stage * 16 + reason);
+}
+
+/* Keeps a close-on-exec descriptor clear of 0-2, which the child redirects. */
+static int process_descriptor(int descriptor) {
+    if (descriptor < 0 || descriptor > 2) { return descriptor; }
+    int moved = fcntl(descriptor, F_DUPFD_CLOEXEC, 3);
+    int error = errno;
+    close(descriptor);
+    errno = error;
+    return moved;
+}
+
+int64_t ironwood_process_run(const void *command, const void *directory, const void *output,
+                             void *allocation_failure) {
+    const struct ironwood_array *arguments = command;
+    const struct ironwood_string *directory_text = directory;
+    const struct ironwood_string *output_text = output;
+    if (arguments == NULL || output_text == NULL || arguments->element_kind != IRONWOOD_ARRAY_REFERENCE
+            || arguments->length == 0 || arguments->length > (size_t) INT32_MAX) { abort(); }
+    const struct ironwood_string *const *elements = (const struct ironwood_string *const *) arguments->data;
+    size_t count = arguments->length;
+    size_t total = (count + 1U) * sizeof(char *);
+    for (size_t index = 0; index < count; index++) {
+        if (elements[index] == NULL) { abort(); }
+        total += (size_t) elements[index]->utf8_length + 1U;
+    }
+    total += (directory_text == NULL ? 0U : (size_t) directory_text->utf8_length + 1U)
+            + (size_t) output_text->utf8_length + 1U;
+    char *block = malloc(total);
+    if (block == NULL) { raise_allocation_failure(allocation_failure); }
+    char **argv = (char **) block;
+    char *cursor = block + (count + 1U) * sizeof(char *);
+    for (size_t index = 0; index < count; index++) {
+        size_t length = (size_t) elements[index]->utf8_length + 1U;
+        argv[index] = string_to_utf8_buffer(elements[index], cursor, length, allocation_failure);
+        cursor += length;
+    }
+    argv[count] = NULL;
+    char *directory_path = NULL;
+    if (directory_text != NULL) {
+        size_t length = (size_t) directory_text->utf8_length + 1U;
+        directory_path = string_to_utf8_buffer(directory_text, cursor, length, allocation_failure);
+        cursor += length;
+    }
+    char *output_path = string_to_utf8_buffer(output_text, cursor,
+            (size_t) output_text->utf8_length + 1U, allocation_failure);
+    /* The output is opened by the parent, so a relative spelling names a file
+     * in the parent's directory, never in the child's. */
+    int output_descriptor;
+    do {
+        output_descriptor = open(output_path, O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0666);
+    } while (output_descriptor < 0 && errno == EINTR);
+    output_descriptor = process_descriptor(output_descriptor);
+    if (output_descriptor < 0) {
+        int error = errno;
+        free(block);
+        return process_failure(IRONWOOD_PROCESS_OUTPUT, error);
+    }
+    int input_descriptor;
+    do {
+        input_descriptor = open("/dev/null", O_RDONLY | O_CLOEXEC);
+    } while (input_descriptor < 0 && errno == EINTR);
+    input_descriptor = process_descriptor(input_descriptor);
+    if (input_descriptor < 0) {
+        int error = errno;
+        close(output_descriptor);
+        free(block);
+        return process_failure(IRONWOOD_PROCESS_INPUT, error);
+    }
+    int report[2] = {-1, -1};
+    int error = pipe(report) == 0 ? 0 : errno;
+    for (int end = 0; end < 2 && error == 0; end++) {
+        if (fcntl(report[end], F_SETFD, FD_CLOEXEC) != 0) { error = errno; }
+        report[end] = process_descriptor(report[end]);
+        if (report[end] < 0 && error == 0) { error = errno; }
+    }
+    pid_t child = error == 0 ? fork() : -1;
+    if (child < 0) {
+        if (error == 0) { error = errno; }
+        for (int end = 0; end < 2; end++) {
+            if (report[end] >= 0) { close(report[end]); }
+        }
+        close(input_descriptor);
+        close(output_descriptor);
+        free(block);
+        return process_failure(IRONWOOD_PROCESS_START, error);
+    }
+    if (child == 0) {
+        /* Only async-signal-safe calls between fork and exec. */
+        struct ironwood_process_report record = {IRONWOOD_PROCESS_START, 0};
+        if (dup2(input_descriptor, 0) >= 0 && dup2(output_descriptor, 1) >= 0
+                && dup2(output_descriptor, 2) >= 0) {
+            record.stage = IRONWOOD_PROCESS_DIRECTORY;
+            if (directory_path == NULL || chdir(directory_path) == 0) {
+                record.stage = IRONWOOD_PROCESS_EXECUTE;
+                execv(argv[0], argv);
+            }
+        }
+        record.error = errno;
+        ssize_t ignored = write(report[1], &record, sizeof(record));
+        (void) ignored;
+        _exit(127);
+    }
+    close(report[1]);
+    close(input_descriptor);
+    close(output_descriptor);
+    struct ironwood_process_report record;
+    size_t received = 0;
+    while (received < sizeof(record)) {
+        ssize_t count_read = read(report[0], (char *) &record + received, sizeof(record) - received);
+        if (count_read < 0 && errno == EINTR) { continue; }
+        if (count_read <= 0) { break; }
+        received += (size_t) count_read;
+    }
+    close(report[0]);
+    int status = 0;
+    pid_t waited;
+    do {
+        waited = waitpid(child, &status, 0);
+    } while (waited < 0 && errno == EINTR);
+    int wait_error = waited < 0 ? errno : 0;
+    free(block);
+    if (received == sizeof(record)) { return process_failure(record.stage, record.error); }
+    if (waited < 0) { return process_failure(IRONWOOD_PROCESS_START, wait_error); }
+    if (WIFEXITED(status)) { return (int64_t) WEXITSTATUS(status); }
+    if (WIFSIGNALED(status)) { return INT64_C(0x100) | (int64_t) WTERMSIG(status); }
+    return process_failure(IRONWOOD_PROCESS_START, EIO);
 }
 
 struct ironwood_directory_handle {

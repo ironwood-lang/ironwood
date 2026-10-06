@@ -844,7 +844,13 @@ These matter, but they should not delay the first file-capable release:
    pseudorandom tests. A separate secure source waits for native entropy and
    cryptographic contracts.
 4. **Processes:** a reduced `ProcessBuilder`/`Process` design after pipes,
-   environment, cleanup, and native handle ownership are stable.
+   environment, cleanup, and native handle ownership are stable. Delivered
+   separately for self-hosting (M4.3, D272): the narrower synchronous
+   `ironwood.process.ProcessRunner.runToFile` with absolute executables,
+   inherited environment, an optional child directory and merged file output.
+   It does not implement or cancel this item; a later design may reuse its
+   native launch, wait and cleanup but needs its own pipe, environment and
+   handle-ownership review.
 5. **Compression and checksums:** CRC and ZIP/GZIP APIs after streaming I/O;
    they are useful for tooling and distribution but are not prerequisites for
    basic file utilities.

@@ -111,9 +111,14 @@ public record LlvmToolchain(
         return result.output().lines().findFirst().orElse("unavailable: clang --version produced no output");
     }
 
-    private static Optional<Path> discoverHomebrewPrefix() {
+    // Homebrew is optional: without an executable brew on PATH this finds nothing.
+    static Optional<Path> discoverHomebrewPrefix() {
+        Optional<Path> brew = ExecutableSearch.find("brew");
+        if (brew.isEmpty()) {
+            return Optional.empty();
+        }
         for (String formula : List.of("llvm@" + REQUIRED_MAJOR, "llvm")) {
-            CommandResult result = run(List.of("brew", "--prefix", formula));
+            CommandResult result = run(List.of(brew.orElseThrow().toString(), "--prefix", formula));
             if (result.successful() && !result.output().isBlank()) {
                 return Optional.of(Path.of(result.output().strip()).toAbsolutePath().normalize());
             }

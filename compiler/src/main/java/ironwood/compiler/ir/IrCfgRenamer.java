@@ -85,6 +85,8 @@ public final class IrCfgRenamer {
                     operand(i.receiver()), i.field(), operand(i.value()), i.sourceSpan());
             case IrFileInstruction i -> new IrFileInstruction(
                     values.apply(i.result()), i.operation(), i.path().map(this::operand), i.value().map(this::operand), i.sourceSpan());
+            case IrProcessInstruction i -> new IrProcessInstruction(values.apply(i.result()),
+                    operand(i.command()), operand(i.directory()), operand(i.output()), i.sourceSpan());
             case IrFloatingBitsInstruction i -> new IrFloatingBitsInstruction(
                     values.apply(i.result()), i.operation(), operand(i.value()), i.sourceSpan());
             case IrFloatingParseInstruction i -> new IrFloatingParseInstruction(

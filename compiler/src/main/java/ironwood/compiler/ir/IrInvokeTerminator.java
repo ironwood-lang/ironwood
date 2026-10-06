@@ -35,6 +35,7 @@ public record IrInvokeTerminator(IrInstruction call, String normalTarget,
                 && !(call instanceof IrStringConcatInstruction)
                 && !(call instanceof IrSystemGetenvInstruction)
                 && !(call instanceof IrFileInstruction)
+                && !(call instanceof IrProcessInstruction)
                 && !(call instanceof IrStreamInstruction)) {
             throw new IllegalArgumentException("invoke requires a throwing operation");
         }

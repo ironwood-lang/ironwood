@@ -1,7 +1,7 @@
 # Ironwood standard library
 
-Ironwood currently ships a bundled, Java-shaped standard library from 248
-source files. IronDocs covers 166 public and protected types across 14 packages:
+Ironwood currently ships a bundled, Java-shaped standard library from 252
+source files. IronDocs covers 169 public and protected types across 15 packages:
 
 | Package | Documented types | Purpose |
 | --- | ---: | --- |
@@ -15,6 +15,7 @@ source files. IronDocs covers 166 public and protected types across 14 packages:
 | `ironwood.nio` | 5 | Checked heap byte buffers |
 | `ironwood.nio.file` | 17 | POSIX paths, whole-file I/O, directory streams, visitor traversal, metadata, and file failures |
 | `ironwood.nio.file.attribute` | 2 | Millisecond file times and basic attributes |
+| `ironwood.process` | 2 | Synchronous launch of an absolute-path program with merged file output |
 | `ironwood.pool` | 4 | Explicitly built, reusable object pools |
 | `ironwood.ds` | 26 | Low-allocation lists, maps, sets, and primitive collections |
 | `ironwood.bench` | 2 | Native latency measurement, warmup, and percentile reports |
@@ -668,6 +669,43 @@ hidden varargs allocation. Whole-file lengths are limited to Ironwood's signed
 `Files.list` waits for the separately excluded
 Streams/lambda design.
 See also the runnable [`projects/minigrep`](../projects/minigrep) application.
+
+## `ironwood.process`
+
+`ProcessRunner.runToFile(String[] command, Path directory, Path output)` runs
+an external program synchronously and returns a fresh `ProcessResult`. It is a
+narrower facility than Java's `ProcessBuilder`/`Process` (see
+[D272](DECISIONS.md#d272---run-external-programs-synchronously-by-absolute-path)):
+
+- `command[0]` must be an absolute executable path; it is executed directly,
+  with no PATH search and no shell, so every argument (spaces, quotes, `$`,
+  `*`, `;`) reaches the program literally. Bare and relative names, an empty
+  command and NUL fail with IllegalArgumentException before any launch.
+- The program inherits the environment and runs in `directory`, or in the
+  caller's working directory when it is null; the caller's directory never
+  changes. Standard input is empty. Standard output and standard error are
+  merged into `output`, created or truncated first and resolved against the
+  caller's directory, not the program's. Strings are encoded as UTF-8 with
+  U+FFFD for an unpaired surrogate.
+- The call waits and always reaps the program. A program that exits, with any
+  status including 127, or that a signal ends, is a result: `exitValue()` is
+  the exit status or 128 plus the signal number, as Java reports it on POSIX
+  hosts, and `signaled()`/`signal()` tell the two apart. A program that cannot
+  start fails instead: NoSuchFileException or AccessDeniedException naming the
+  executable, the directory or the output, or a FileSystemException such as
+  `Exec format error` (there is no shell fallback).
+- The command array, its Strings and both paths are borrowed for the call and
+  retained by neither the library nor the native launch; the compiler's audited
+  contract lets the caller free a String placed in the command after the call.
+  The result holds only primitive status, never a live process or stream.
+- The launch is `fork`/`execv` on both supported hosts. Descriptors the
+  runtime opens are close-on-exec; a descriptor the caller's process inherited
+  without close-on-exec reaches the program. The program stays in the caller's
+  process group, so a terminal interrupt reaches both; a signal sent to the
+  caller alone does not stop the program.
+
+Environment maps, pipes, asynchronous waits, timeouts and kill APIs are absent;
+the reduced `ProcessBuilder`/`Process` design remains a separate roadmap item.
 
 ## `ironwood.pool`
 

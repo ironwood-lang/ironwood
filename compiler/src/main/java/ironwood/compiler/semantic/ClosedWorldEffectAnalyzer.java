@@ -536,6 +536,7 @@ final class ClosedWorldEffectAnalyzer {
                         && stream.operation() == IrStreamInstruction.Operation.OPEN
                 || instruction instanceof IrFileInstruction file
                         && file.operation() != IrFileInstruction.Operation.LAST_ERROR
+                || instruction instanceof ironwood.compiler.ir.IrProcessInstruction
                 || instruction instanceof IrStringConcatInstruction;
     }
 

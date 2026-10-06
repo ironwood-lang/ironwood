@@ -350,6 +350,7 @@ public final class LlvmEmitter {
         output.append("declare i32 @ironwood_file_move_atomic(ptr, ptr, ptr)\n");
         output.append("declare i32 @ironwood_file_move_replacing(ptr, ptr, ptr)\n");
         output.append("declare i32 @ironwood_file_move_exclusive(ptr, ptr, ptr)\n");
+        output.append("declare i64 @ironwood_process_run(ptr, ptr, ptr, ptr)\n");
         output.append("declare i64 @ironwood_directory_open(ptr, ptr)\n");
         output.append("declare i32 @ironwood_directory_has_next(i64)\n");
         output.append("declare ptr @ironwood_directory_next(i64, ptr, ptr)\n");
@@ -985,6 +986,10 @@ public final class LlvmEmitter {
         }
         if (instruction instanceof IrFileInstruction file) {
             emitFileInstruction(output, file, "call", "");
+            return;
+        }
+        if (instruction instanceof ironwood.compiler.ir.IrProcessInstruction process) {
+            emitProcessInstruction(output, process, "call", "");
             return;
         }
         if (instruction instanceof IrFloatingParseInstruction parse) {
@@ -2046,6 +2051,10 @@ public final class LlvmEmitter {
             emitFileInstruction(output, file, "invoke", suffix);
             return;
         }
+        if (call instanceof ironwood.compiler.ir.IrProcessInstruction process) {
+            emitProcessInstruction(output, process, "invoke", suffix);
+            return;
+        }
         if (call instanceof IrCallInstruction direct) {
             direct.result().ifPresent(result -> output.append(operand(result)).append(" = "));
             output.append("invoke ").append(llvmType(direct.returnType())).append(' ')
@@ -2104,6 +2113,7 @@ public final class LlvmEmitter {
                 || instruction instanceof IrThrowableTraceInstruction trace
                 && trace.operation() == IrThrowableTraceInstruction.Operation.ARRAY
                 || instruction instanceof IrFileInstruction
+                || instruction instanceof ironwood.compiler.ir.IrProcessInstruction
                 || instruction instanceof IrStreamInstruction;
     }
 
@@ -2169,6 +2179,15 @@ public final class LlvmEmitter {
         output.append(operand(tcp.result())).append(" = call ").append(llvmType(tcp.result().type()))
                 .append(" @").append(tcp.operation().runtimeName()).append('(')
                 .append(String.join(", ", parameters)).append(')');
+    }
+
+    private void emitProcessInstruction(StringBuilder output, ironwood.compiler.ir.IrProcessInstruction process,
+                                        String callKind, String suffix) {
+        output.append(operand(process.result())).append(" = ").append(callKind)
+                .append(" i64 @ironwood_process_run(ptr ").append(operand(process.command()))
+                .append(", ptr ").append(operand(process.directory())).append(", ptr ")
+                .append(operand(process.output())).append(", ptr ").append(allocationFailureName())
+                .append(')').append(suffix);
     }
 
     private void emitFileInstruction(StringBuilder output, IrFileInstruction file,

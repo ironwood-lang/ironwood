@@ -61,9 +61,7 @@ record TlsDependency(Path home, List<String> compileFlags, List<String> linkFlag
             if (!pins.getProperty("macos.deployment").equals(build.getProperty("deployment"))) {
                 throw failure("macOS deployment target mismatch");
             }
-            String sdk = System.getenv("SDKROOT");
-            if (sdk == null || sdk.isBlank()) sdk = command(List.of("xcrun", "--show-sdk-path"));
-            compile.addAll(List.of("-isysroot", sdk, "-mmacosx-version-min=" + build.getProperty("deployment")));
+            compile.addAll(List.of("-isysroot", appleSdk(), "-mmacosx-version-min=" + build.getProperty("deployment")));
         } else {
             if (!"2.17".equals(build.getProperty("glibc"))) throw failure("Linux TLS SDK requires glibc 2.17");
             String sysrootRelative = build.getProperty("sysroot.relative", "");
@@ -88,6 +86,13 @@ record TlsDependency(Path home, List<String> compileFlags, List<String> linkFlag
         link.add(home.resolve("lib/libssl.a").toString());
         link.add(home.resolve("lib/libcrypto.a").toString());
         return new TlsDependency(home, List.copyOf(compile), List.copyOf(link), sha256(home.resolve("build.properties")));
+    }
+
+    // SDKROOT when set and nonblank, otherwise the SDK that the fixed
+    // /usr/bin/xcrun selects; a PATH-selected xcrun is never launched.
+    static String appleSdk() throws IOException {
+        String sdk = System.getenv("SDKROOT");
+        return sdk == null || sdk.isBlank() ? command(List.of(MacNativeTools.XCRUN, "--show-sdk-path")) : sdk;
     }
 
     private static Properties read(Path path) throws IOException {

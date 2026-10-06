@@ -10397,3 +10397,78 @@ occurrence order. If no
   competing creators, unsupported and cross-device results and every failure
   of the copy; every allocation failure of a staged publication unwinds
   without leftovers. See [the M4.2 record](self-hosting/m4/PUBLICATION.md).
+
+## D272 - Run external programs synchronously by absolute path
+
+- **Status:** Implemented during M4.3 on 2026-10-06.
+- **Decision:** `ironwood.process` provides B4's narrower synchronous
+  facility, `ProcessRunner.runToFile(String[] command, Path directory, Path
+  output)` returning a primitive-only `ProcessResult`, ahead of roadmap item
+  4's reduced ProcessBuilder/Process, which it neither implements nor
+  cancels.
+  - **Contract.** `command[0]` is an absolute executable executed directly
+    (no PATH search, no shell); the environment is inherited; a null
+    directory keeps the caller's; standard input is empty; standard output
+    and error are merged into `output`, opened by the caller so a relative
+    spelling is the caller's. Empty commands, relative executables and NUL
+    throw IllegalArgumentException before launch. A completed program, any
+    exit status including 127 or a signal, is a result with Java's POSIX
+    `exitValue` (128 plus the signal) and explicit `signaled`/`signal`; a
+    launch failure (executable, directory, output, ENOEXEC without shell
+    fallback, resources) is an exception naming the failing path.
+  - **Native design.** One `fork`/`execv` implementation serves macOS and
+    glibc 2.17: `posix_spawn` lacks a spawn-time `chdir` on that glibc, and
+    one code path is qualified on both hosts. The command, directory and
+    output spellings are encoded into one block before forking; the child
+    only redirects descriptors, changes directory and executes, reporting a
+    pre-exec failure through a close-on-exec pipe; the parent retries EINTR
+    and always reaps. Runtime descriptors are close-on-exec and kept clear of
+    0-2.
+  - **Signals.** The program stays in the caller's process group, so a
+    terminal interrupt reaches both; no global signal machinery is added. A
+    signal sent to the caller alone, or an uncatchable termination, does not
+    stop a running program.
+  - **Caller adaptations.** Executable discovery stays in compiler callers.
+    The Java seed's TlsDependency now launches `/usr/bin/xcrun` (shared
+    with MacNativeTools as `MacNativeTools.XCRUN`) when `SDKROOT` is unset
+    or blank, so a PATH-selected `xcrun` is no longer used, and
+    LlvmToolchain resolves `brew` with the compiler-owned
+    `ExecutableSearch` before launching it by absolute path. The search
+    tries PATH entries in order, skips empty entries (never the working
+    directory), resolves relative entries against the working directory
+    without lexical normalization and takes the first executable regular
+    file; without one, Homebrew discovery finds nothing, as before.
+  - **Compiler.** A typed `IrProcessInstruction` (I64 status; String[],
+    String and String operands) is bound only to the exact
+    `ProcessRunner.runProcessValue` intrinsic and joins closed-world effects,
+    allocation-failure reachability, borrow dispatch, specialization, CFG
+    renaming, invoke and LLVM emission. `runToFile` has an audited borrowing
+    contract for its parameters and, by exact signature, for the command's
+    elements (String is final, and the launch encodes and retains nothing);
+    other `String[]` parameters keep exposing their elements.
+- **Proof:** The element contract is the only analysis change; paired
+  regressions free a Path spelling and a fresh String placed in a command
+  after the call, and reject freeing an element while the array is live,
+  freeing an element of a published array, double free and use after free of
+  the result, and an ordinary method taking `String[]` (the negative
+  control).
+- **Boundary:** Descriptors the caller inherited without close-on-exec reach
+  the program (Java's launcher closes them). Environment maps, pipes,
+  asynchronous waits, timeouts and kill APIs are deferred. Arguments use the
+  runtime's host encoding (U+FFFD for an unpaired surrogate). Supersedes no
+  decision.
+- **Verification:** Twenty-eight cases against a controlled helper from
+  class and archive links (exit codes, signals, literal argv, environment,
+  child and inherited directories, parent-relative output, empty stdin,
+  2 MiB of output, descriptors, missing, non-executable, directory and
+  ENOEXEC executables, scripts, directory and output failures, invalid
+  commands, 300 repeated launches) with a PATH of empty entries and decoys
+  that never run; a native harness injecting open, pipe, fork and encoding
+  failures, interrupting waits with a real signal and checking reaping and
+  descriptors over 200 launches; SIGINT to the job's process group ends the
+  program and its tool, SIGTERM to the program alone leaves the tool; every
+  allocation failure unwinds. ExecutableSearch's candidate rules hold on
+  real trees, a child JVM with empty, non-executable and decoy PATH entries
+  launches the resolved absolute `brew` (and finds no prefix without one),
+  and TLS and Apple tool discovery run only `/usr/bin/xcrun` under a PATH
+  offering another. See [the M4.3 record](self-hosting/m4/PROCESS.md).

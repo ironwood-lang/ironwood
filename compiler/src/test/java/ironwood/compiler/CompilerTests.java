@@ -896,6 +896,20 @@ public final class CompilerTests {
         test("M4.2 native publication survives injected races and failures", PublicationTests::nativeHarness);
         test("M4.2 staged publication unwinds every allocation failure without leftovers",
                 PublicationTests::failures);
+        test("M4.3 process runner lowers to a typed process instruction", ProcessRunnerTests::typedOperations);
+        test("M4.3 process runner borrows its command and paths and owns its result",
+                ProcessRunnerTests::ownership);
+        test("M4.3 process runner launches controlled programs across artifacts", ProcessRunnerTests::launches);
+        test("M4.3 native process launch survives injected failures and interrupted waits",
+                ProcessRunnerTests::nativeHarness);
+        test("M4.3 terminal interrupts reach the tool through the process group", ProcessRunnerTests::processGroup);
+        test("M4.3 process runner unwinds every allocation failure without leftovers",
+                ProcessRunnerTests::failures);
+        test("M4.3 executable search selects PATH candidates without normalizing them",
+                ironwood.compiler.backend.ToolDiscoveryTests::executableSearch);
+        test("M4.3 Homebrew discovery launches the resolved absolute brew",
+                ironwood.compiler.backend.ToolDiscoveryTests::homebrew);
+        test("M4.3 Apple SDK discovery runs only /usr/bin/xcrun", ironwood.compiler.backend.ToolDiscoveryTests::xcrun);
         test("compiler work queue keeps queued items alive and its ring private", WorkQueueTests::ownership);
         test("compiler worklists preserve FIFO and retain-filter order across artifacts and failures",
                 WorkQueueTests::artifacts);

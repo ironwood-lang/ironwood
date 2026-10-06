@@ -140,6 +140,8 @@ int32_t ironwood_file_move_replacing(const void *source, const void *target,
         void *allocation_failure);
 int32_t ironwood_file_move_exclusive(const void *source, const void *target,
         void *allocation_failure);
+int64_t ironwood_process_run(const void *command, const void *directory, const void *output,
+        void *allocation_failure);
 int64_t ironwood_directory_open(const void *path, void *allocation_failure);
 int32_t ironwood_directory_has_next(int64_t handle);
 void *ironwood_directory_next(int64_t handle, const void *string_type,

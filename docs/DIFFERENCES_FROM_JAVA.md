@@ -186,6 +186,18 @@ copies and treats a target that is already the same file as existing, where
 Java's default move copies across file systems and treats the same file as a
 no-op. See D271.
 
+## Process launching
+
+Java's `ProcessBuilder` and `Process` are absent. `ProcessRunner.runToFile`
+covers synchronous launches only: the executable must be an absolute path (no
+PATH search), the environment is inherited without a map, standard input is
+empty, and standard output and standard error are merged into a file. Java
+encodes an unpaired surrogate in an argument as `?`; Ironwood passes U+FFFD,
+its host-string convention. Java's launcher closes every descriptor above 2
+in the child; Ironwood relies on close-on-exec, so a descriptor inherited by
+the caller without that flag reaches the program. `exitValue()` follows Java's
+POSIX convention of 128 plus the signal number. See D272.
+
 ## Generic type parameter bounds
 
 Java treats an omitted type parameter bound as an implicit `extends Object`.

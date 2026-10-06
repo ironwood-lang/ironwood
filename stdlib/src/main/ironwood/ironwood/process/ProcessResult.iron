@@ -1,0 +1,50 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.process;
+
+/**
+ * How a program launched by {@link ProcessRunner} ended. It holds only
+ * primitive status, never a live process or stream handle.
+ */
+public final class ProcessResult {
+
+    private int status;
+
+    ProcessResult(int status) {
+
+        this.status = status;
+    }
+
+    /**
+     * Returns the exit status as Java's {@code Process.exitValue()} reports
+     * it on POSIX hosts: the program's exit status, or 128 plus the signal
+     * number when a signal ended it.
+     *
+     * @return the exit value
+     */
+    public int exitValue() {
+
+        return signaled() ? 128 + signal() : this.status;
+    }
+
+    /**
+     * Tells whether a signal ended the program, which distinguishes it from a
+     * program that exits with a value above 128 itself.
+     *
+     * @return true if a signal ended the program
+     */
+    public boolean signaled() {
+
+        return (this.status & 0x100) != 0;
+    }
+
+    /**
+     * Returns the number of the signal that ended the program.
+     *
+     * @return the signal number, or 0 if the program exited
+     */
+    public int signal() {
+
+        return signaled() ? this.status & 0xff : 0;
+    }
+}

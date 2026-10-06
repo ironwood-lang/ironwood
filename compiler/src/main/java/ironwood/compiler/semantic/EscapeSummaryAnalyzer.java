@@ -414,7 +414,7 @@ final class EscapeSummaryAnalyzer {
             // Entry nodes stay inside the containing structure or escape only
             // through dependent entry/iterator results. Payload effects remain.
             borrowReceiver = true;
-        } else if (isBorrowingFilesFacade(callable)) {
+        } else if (isBorrowingFilesFacade(callable) || isBorrowingProcessFacade(callable)) {
             borrowParameters = true;
         } else if (callable.ownerType().equals("ironwood.io.StreamSupport")
                 && callable.isStatic()) {
@@ -655,7 +655,7 @@ final class EscapeSummaryAnalyzer {
             recordRaw(THIS_ORIGIN, callable.span(),
                     "conservative backing-array publication");
         }
-        if (isBorrowingFilesFacade(callable)) {
+        if (isBorrowingFilesFacade(callable) || isBorrowingProcessFacade(callable)) {
             // These Java-shaped whole-file operations observe their arguments only for the
             // duration of the call. Their implementation crosses typed native intrinsics, so
             // preserve that audited borrowing contract instead of allowing an abstract
@@ -786,6 +786,13 @@ final class EscapeSummaryAnalyzer {
                     "moveReplacing", "moveAtomicNoReplace" -> true;
             default -> false;
         };
+    }
+
+    // The process runner reads its command, directory and output only during the
+    // call: the native launch encodes them before forking and retains nothing.
+    private static boolean isBorrowingProcessFacade(CallableSymbol callable) {
+        return callable.ownerType().equals("ironwood.process.ProcessRunner") && callable.isStatic()
+                && (callable.sourceName().equals("runToFile") || callable.sourceName().equals("failure"));
     }
 
     private static boolean isBorrowingFileConstructor(CallableSymbol callable) {
