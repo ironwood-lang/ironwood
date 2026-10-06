@@ -76,7 +76,8 @@ class Main {
         if (!value.equals("macos-arm64")) throw new IllegalStateException();
     }
 
-    // The checkout supplies the runtime and one library root.
+    // The checkout supplies the runtime and at least one library root (a
+    // checkout staged inside another adds that one's root as an ancestor).
     static void installation() {
 
         Path location = Path.of("compiler/build/classes");
@@ -89,7 +90,7 @@ class Main {
         LibraryRoots roots = new LibraryRoots();
         defer free roots;
         Installation.librarySourceRoots(location, roots);
-        if (roots.size() != 1) throw new IllegalStateException();
+        if (roots.size() == 0) throw new IllegalStateException();
     }
 
     static void exercise() throws IOException {
