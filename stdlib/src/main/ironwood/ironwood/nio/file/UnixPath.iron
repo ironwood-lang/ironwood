@@ -2,6 +2,8 @@
 
 package ironwood.nio.file;
 
+import ironwood.io.IOException;
+
 final class UnixPath implements Path {
 
     private static final int NORMALIZE = 1;
@@ -32,6 +34,20 @@ final class UnixPath implements Path {
     private UnixPath(char[] units) {
 
         this.value = new String(units);
+    }
+
+    // Exclusively creates a temporary entry (a directory when suffix is null)
+    // and adopts its fresh native spelling. This object exists before the
+    // entry, so no managed allocation follows creation.
+    UnixPath(String directory, String stem, String suffix) throws IOException {
+
+        this.value = Files.createdTemporary(directory, stem, suffix);
+    }
+
+    // Adopts the fresh real path of input; see toRealPath.
+    private UnixPath(String input, boolean real) throws IOException {
+
+        this.value = Files.resolvedRealPath(input);
     }
 
     private UnixPath(String input, String other, int operation) {
@@ -249,6 +265,12 @@ final class UnixPath implements Path {
     public Path toAbsolutePath() {
 
         return new UnixPath(this.value, null, ABSOLUTE);
+    }
+
+    @Override
+    public Path toRealPath() throws IOException {
+
+        return new UnixPath(this.value, true);
     }
 
     @Override

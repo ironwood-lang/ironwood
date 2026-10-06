@@ -550,9 +550,9 @@ basic file attributes, and controlled recursive visitor traversal.
 
 | Type | Current surface |
 | --- | --- |
-| `Path` | `Comparable<Path>` interface with one/two-component `of`, text/equality/hash, absolute/root/file-name/parent/name-count/index queries, prefixes, resolution, relativization, normalization, and absolute conversion. Returned path values are caller-owned. |
+| `Path` | `Comparable<Path>` interface with one/two-component `of`, text/equality/hash, absolute/root/file-name/parent/name-count/index queries, prefixes, resolution, relativization, normalization, absolute conversion, and host real-path resolution (`toRealPath`). Returned path values are caller-owned. |
 | `Paths` | Fixed-arity `get(String)` factory corresponding to Java's common one-component varargs call. |
-| `Files` | Existing whole-file/factory/metadata calls plus delete, recursive createDirectories, no-replace copy/move, strict-UTF-8 readAllLines returning `ironwood.ds.ArrayList<String>`, and recursive `walkFileTree`. Calls borrow paths/content and retain no caller reference. |
+| `Files` | Existing whole-file/factory/metadata calls plus delete and `deleteIfExists`, recursive createDirectories, no-replace copy/move, exclusive temporary files and directories, advisory `isReadable`/`isExecutable`, the no-follow `readAttributesNoFollow` helper, strict-UTF-8 readAllLines returning `ironwood.ds.ArrayList<String>`, and recursive `walkFileTree`. Calls borrow paths/content and retain no caller reference. |
 | `DirectoryStream<T>` | Closeable, single-iterator directory view. `hasNext()` performs allocation-free lookahead, and ownership-aware `nextEntry()` returns a fresh caller-owned path. Explicit close releases the native handle. |
 | `FileVisitResult`, `FileVisitor<T>`, `SimpleFileVisitor<T>` | Java-shaped traversal control, callback contract, and default continue/rethrow behavior. |
 | `BasicFileAttributes` | Common size, timestamp, and file-kind queries. The default read follows symbolic links; `fileKey()` is null. |
@@ -580,6 +580,30 @@ because Ironwood has no reflective `Class<A>` token or varargs options. It
 follows links, while `Files.isSymbolicLink(Path)` performs a no-follow query.
 Creation time is epoch zero when the host does not report it. Attribute times
 have millisecond resolution.
+
+`Files.createTempFile` and `createTempDirectory` create the entry exclusively,
+with owner-only permissions (0600 or 0700 before the umask), and never replace
+an existing entry. The name is the prefix, an unsigned decimal value from the
+host's secure random source (`arc4random_buf` on macOS; the `getrandom` system
+call on Linux, or `/dev/urandom` on kernels without it) and the suffix; without
+a secure source the creation fails. A null prefix means none and a null file
+suffix means `.tmp`. NUL fails with `InvalidPathException` and a name that
+would have a parent with `IllegalArgumentException`, as Java decides both from
+the generated name. The overloads without a directory use
+`System.getProperty("java.io.tmpdir")` (a nonempty `TMPDIR`, otherwise `/tmp`)
+and report its failure without trying another directory. The returned path is
+fresh and caller-owned; freeing it never deletes the entry. Attribute-varargs
+overloads are omitted. The path object exists before the entry is created, so
+no managed allocation follows creation; a failed result String removes the new
+entry before the allocation failure propagates.
+
+`Path.toRealPath()` resolves the path's own spelling through the host
+(`realpath`), so `..` after a symbolic link follows the link; the empty path
+resolves the current directory. The `LinkOption` overload is absent.
+`Files.isReadable` and `isExecutable` are advisory `access(2)` checks that
+follow links and return false on any failure. `Files.deleteIfExists` returns
+false only for absence. `Files.readAttributesNoFollow(Path)` stands for Java's
+`readAttributes(path, BasicFileAttributes.class, NOFOLLOW_LINKS)`.
 
 `Files.walkFileTree(Path, FileVisitor<Path>)` performs a no-follow depth-first
 walk. The fixed-arity `(Path, int, boolean, FileVisitor<Path>)` overload selects
@@ -615,7 +639,7 @@ spellings; this adds no new path-length limit.
 
 The fixed-arity factories and write calls preserve Java source calls without a
 hidden varargs allocation. Whole-file lengths are limited to Ironwood's signed
-32-bit array range. Charset overloads, option enums, temporary paths,
+32-bit array range. Charset overloads, option enums,
 `Files.list`, and an `ironwood.io.File` legacy facade remain absent after U5.
 `Files.list` waits for the separately excluded
 Streams/lambda design.

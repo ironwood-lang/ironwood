@@ -297,9 +297,19 @@ final class AllocationResultSemantics {
                 && callable.returnType().equals(IrType.reference(
                 "ironwood.nio.file.DirectoryStream",
                 List.of(IrType.reference("ironwood.nio.file.Path"))))
-                || callable.sourceName().equals("readAttributes")
+                || (callable.sourceName().equals("readAttributes")
+                || callable.sourceName().equals("readAttributesNoFollow"))
                 && callable.returnType().equals(IrType.reference(
                 "ironwood.nio.file.attribute.BasicFileAttributes"))
+                || (callable.sourceName().equals("createTempFile")
+                || callable.sourceName().equals("createTempDirectory"))
+                && callable.returnType().equals(IrType.reference("ironwood.nio.file.Path"))
+                || (callable.sourceName().equals("createTempFileValue")
+                || callable.sourceName().equals("createTempDirectoryValue")
+                || callable.sourceName().equals("realPathValue")
+                || callable.sourceName().equals("createdTemporary")
+                || callable.sourceName().equals("resolvedRealPath"))
+                && callable.returnType().equals(IrType.reference("ironwood.lang.String"))
                 || (callable.ownerType().equals("ironwood.nio.file.DirectoryStream")
                 || callable.ownerType().equals("ironwood.nio.file.UnixDirectoryStream"))
                 && callable.sourceName().equals("nextEntry")
@@ -331,7 +341,7 @@ final class AllocationResultSemantics {
                     || !callable.isStatic() && callable.returnType().equals(path)
                     && switch (callable.sourceName()) {
                         case "getFileName", "getParent", "getRoot", "resolve",
-                                "resolveSibling", "normalize", "toAbsolutePath" -> true;
+                                "resolveSibling", "normalize", "toAbsolutePath", "toRealPath" -> true;
                         default -> false;
                     };
         }
@@ -339,7 +349,7 @@ final class AllocationResultSemantics {
                 && !callable.isStatic() && callable.returnType().equals(path)
                 && switch (callable.sourceName()) {
                     case "getFileName", "getParent", "getRoot", "resolve",
-                            "resolveSibling", "normalize", "toAbsolutePath" -> true;
+                            "resolveSibling", "normalize", "toAbsolutePath", "toRealPath" -> true;
                     default -> false;
                 };
     }

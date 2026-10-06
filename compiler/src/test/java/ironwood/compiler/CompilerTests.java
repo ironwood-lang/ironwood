@@ -875,6 +875,17 @@ public final class CompilerTests {
         test("compiler backend helpers unwind every allocation failure", BackendHelperTests::failures);
         test("native runtime objects compile directly without cross-link reuse",
                 ironwood.compiler.backend.RuntimeObjectTests::directCompilation);
+        test("M4.1 filesystem services lower to typed IR and runtime boundaries",
+                FilesystemServicesTests::typedOperations);
+        test("M4.1 filesystem services borrow inputs and own their results", FilesystemServicesTests::ownership);
+        test("M4.1 filesystem services match Java 21 across artifacts and TMPDIR settings",
+                FilesystemServicesTests::javaDifferential);
+        test("M4.1 filesystem services unwind every allocation failure without leftovers",
+                FilesystemServicesTests::failures);
+        test("M4.1 native temporary creation survives collisions and injected failures",
+                FilesystemServicesTests::nativeHarness);
+        test("compiler tree deletion matches the Java cleanup policies across artifacts",
+                FilesystemServicesTests::treeDeletion);
         test("compiler work queue keeps queued items alive and its ring private", WorkQueueTests::ownership);
         test("compiler worklists preserve FIFO and retain-filter order across artifacts and failures",
                 WorkQueueTests::artifacts);

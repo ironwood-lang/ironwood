@@ -12,6 +12,7 @@
 #include <errno.h>
 #include <dirent.h>
 #include <fcntl.h>
+#include <limits.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdatomic.h>
@@ -31,8 +32,11 @@
 #include <mach-o/getsect.h>
 #include <mach-o/loader.h>
 #elif defined(__linux__)
+#include <sys/syscall.h>
 extern const uint8_t __start_ironwood_trace[] __attribute__((weak));
 extern const uint8_t __stop_ironwood_trace[] __attribute__((weak));
+/* The strict POSIX feature level hides this glibc 2.2.5 declaration. */
+extern long syscall(long number, ...);
 #endif
 
 enum ironwood_type_kind {
@@ -2131,6 +2135,187 @@ int32_t ironwood_file_move(const void *source, const void *target,
     }
     last_file_error = IRONWOOD_FILE_ERROR_NONE;
     return last_file_error;
+}
+
+/* Temporary names follow Java's TempFileHelper spelling: the prefix, an
+ * unsigned decimal 64-bit value and the suffix. The value comes from a secure
+ * source only; without one the creation fails instead of using weaker bits. */
+enum { IRONWOOD_TEMPORARY_ATTEMPTS = 100, IRONWOOD_TEMPORARY_DIGITS = 20 };
+
+#if defined(__linux__)
+#if !defined(SYS_getrandom) && defined(__x86_64__)
+#define SYS_getrandom 318
+#elif !defined(SYS_getrandom) && defined(__aarch64__)
+#define SYS_getrandom 278
+#endif
+#endif
+
+static _Bool temporary_random(uint64_t *value) {
+#if defined(__APPLE__)
+    arc4random_buf(value, sizeof(*value));
+    return 1;
+#else
+#if defined(SYS_getrandom)
+    for (;;) {
+        long count = syscall(SYS_getrandom, value, sizeof(*value), 0);
+        if (count == (long) sizeof(*value)) { return 1; }
+        if (count < 0 && errno == EINTR) { continue; }
+        if (count < 0 && errno == ENOSYS) { break; }
+        if (count < 0) { return 0; }
+    }
+#endif
+    /* Kernels before 3.17 lack getrandom; their urandom device is the source. */
+    int descriptor;
+    do {
+        descriptor = open("/dev/urandom", O_RDONLY | O_CLOEXEC);
+    } while (descriptor < 0 && errno == EINTR);
+    if (descriptor < 0) { return 0; }
+    unsigned char *bytes = (unsigned char *) value;
+    size_t filled = 0;
+    while (filled < sizeof(*value)) {
+        ssize_t count = read(descriptor, bytes + filled, sizeof(*value) - filled);
+        if (count < 0 && errno == EINTR) { continue; }
+        if (count <= 0) {
+            int error = count < 0 ? errno : EIO;
+            close(descriptor);
+            errno = error;
+            return 0;
+        }
+        filled += (size_t) count;
+    }
+    close(descriptor);
+    return 1;
+#endif
+}
+
+static size_t write_unsigned_decimal(char *output, uint64_t value) {
+    char digits[IRONWOOD_TEMPORARY_DIGITS];
+    size_t count = 0;
+    do {
+        digits[count++] = (char) ('0' + (int) (value % UINT64_C(10)));
+        value /= UINT64_C(10);
+    } while (value != 0);
+    for (size_t index = 0; index < count; index++) {
+        output[index] = digits[count - 1 - index];
+    }
+    return count;
+}
+
+/* Exclusively creates the entry before any managed result exists, then builds
+ * its spelling. A failed String allocation removes the new entry first. */
+static void *create_temporary(const struct ironwood_string *stem,
+                              const struct ironwood_string *suffix, _Bool directory,
+                              const void *string_type, void *allocation_failure) {
+    if (stem == NULL || string_type == NULL || (!directory && suffix == NULL)) { abort(); }
+    size_t stem_length = (size_t) stem->utf8_length;
+    size_t suffix_capacity = suffix == NULL ? 1U : (size_t) suffix->utf8_length + 1U;
+    if (stem_length > SIZE_MAX - suffix_capacity - IRONWOOD_TEMPORARY_DIGITS) {
+        raise_allocation_failure(allocation_failure);
+    }
+    size_t capacity = stem_length + IRONWOOD_TEMPORARY_DIGITS + suffix_capacity;
+    if (capacity > SIZE_MAX - suffix_capacity) { raise_allocation_failure(allocation_failure); }
+    char stack[IRONWOOD_PATH_STACK_CAPACITY];
+    char *path = capacity + suffix_capacity <= sizeof(stack) ? stack
+            : malloc(capacity + suffix_capacity);
+    if (path == NULL) { raise_allocation_failure(allocation_failure); }
+    char *suffix_text = path + capacity;
+    string_to_utf8_buffer(stem, path, stem_length + 1U, allocation_failure);
+    size_t suffix_length = 0;
+    if (suffix != NULL) {
+        string_to_utf8_buffer(suffix, suffix_text, suffix_capacity, allocation_failure);
+        suffix_length = suffix_capacity - 1U;
+        /* Java's generated name drops trailing separators before its parent check. */
+        while (suffix_length > 0 && suffix_text[suffix_length - 1U] == '/') { suffix_length--; }
+    }
+    int error = EEXIST;
+    size_t length = 0;
+    for (int attempt = 0; attempt < IRONWOOD_TEMPORARY_ATTEMPTS && error == EEXIST; attempt++) {
+        uint64_t value;
+        if (!temporary_random(&value)) {
+            error = errno == 0 ? EIO : errno;
+            break;
+        }
+        length = stem_length + write_unsigned_decimal(path + stem_length, value);
+        memcpy(path + length, suffix_text, suffix_length);
+        length += suffix_length;
+        path[length] = '\0';
+        if (directory) {
+            error = mkdir(path, 0700) == 0 ? 0 : errno;
+        } else {
+            int descriptor = open(path, O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC, 0600);
+            error = descriptor < 0 ? errno : 0;
+            if (descriptor >= 0 && close(descriptor) != 0) {
+                error = errno;
+                unlink(path);
+            }
+        }
+        if (error == EINTR) { error = EEXIST; }
+    }
+    struct ironwood_string *result = NULL;
+    if (error == 0) {
+        result = try_string_from_valid_utf8_bytes((const unsigned char *) path, length,
+                string_type, allocation_failure);
+        if (result == NULL) {
+            if (directory) { rmdir(path); } else { unlink(path); }
+            if (path != stack) { free(path); }
+            raise_allocation_failure(allocation_failure);
+        }
+        last_file_error = IRONWOOD_FILE_ERROR_NONE;
+    } else {
+        set_file_error_from_errno(error);
+    }
+    if (path != stack) { free(path); }
+    return result;
+}
+
+void *ironwood_file_create_temp_file(const void *stem, const void *suffix,
+                                     const void *string_type, void *allocation_failure) {
+    return create_temporary(stem, suffix, 0, string_type, allocation_failure);
+}
+
+void *ironwood_file_create_temp_directory(const void *stem, const void *string_type,
+                                          void *allocation_failure) {
+    return create_temporary(stem, NULL, 1, string_type, allocation_failure);
+}
+
+/* Resolves the path's own spelling, never a lexically normalized form, so a
+ * '..' after a symbolic link follows the link. The empty path is the current
+ * directory, as Java's toAbsolutePath makes it. */
+void *ironwood_file_real_path(const void *path, const void *string_type,
+                              void *allocation_failure) {
+    const struct ironwood_string *text = path;
+    if (text == NULL || string_type == NULL) { abort(); }
+    char stack[IRONWOOD_PATH_STACK_CAPACITY];
+    char *native_path = string_to_utf8_buffer(text, stack, sizeof(stack), allocation_failure);
+    char resolved[PATH_MAX];
+    char *result = realpath(native_path[0] == '\0' ? "." : native_path, resolved);
+    int error = errno;
+    if (native_path != stack) { free(native_path); }
+    if (result == NULL) {
+        set_file_error_from_errno(error);
+        return NULL;
+    }
+    size_t length = strlen(resolved);
+    if (!valid_utf8((const unsigned char *) resolved, length)) {
+        last_file_error = IRONWOOD_FILE_ERROR_INVALID_UTF8;
+        return NULL;
+    }
+    struct ironwood_string *value = try_string_from_valid_utf8_bytes(
+            (const unsigned char *) resolved, length, string_type, allocation_failure);
+    if (value == NULL) { raise_allocation_failure(allocation_failure); }
+    last_file_error = IRONWOOD_FILE_ERROR_NONE;
+    return value;
+}
+
+/* Advisory access check: 1 for read, 2 for execute; any failure is "no". */
+int32_t ironwood_file_access(const void *path, int32_t mode, void *allocation_failure) {
+    const struct ironwood_string *text = path;
+    if (text == NULL || (mode != 1 && mode != 2)) { abort(); }
+    char stack[IRONWOOD_PATH_STACK_CAPACITY];
+    char *native_path = string_to_utf8_buffer(text, stack, sizeof(stack), allocation_failure);
+    int result = access(native_path, mode == 1 ? R_OK : X_OK);
+    if (native_path != stack) { free(native_path); }
+    return result == 0;
 }
 
 struct ironwood_directory_handle {

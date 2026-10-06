@@ -13889,6 +13889,14 @@ final class FunctionAnalyzer {
                         IrFileInstruction.Operation.FILE_SIZE);
                 case "lastError" -> fileIntrinsic(IrType.I32, List.of(),
                         IrFileInstruction.Operation.LAST_ERROR);
+                case "createTempFileValue" -> fileIntrinsic(string, List.of(string, string),
+                        IrFileInstruction.Operation.CREATE_TEMP_FILE);
+                case "createTempDirectoryValue" -> fileIntrinsic(string, List.of(string),
+                        IrFileInstruction.Operation.CREATE_TEMP_DIRECTORY);
+                case "realPathValue" -> fileIntrinsic(string, List.of(string),
+                        IrFileInstruction.Operation.REAL_PATH);
+                case "accessValue" -> fileIntrinsic(IrType.I32, List.of(string, IrType.I32),
+                        IrFileInstruction.Operation.ACCESS);
                 default -> Optional.empty();
             };
         }

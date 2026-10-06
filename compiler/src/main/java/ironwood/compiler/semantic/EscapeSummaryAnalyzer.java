@@ -781,7 +781,8 @@ final class EscapeSummaryAnalyzer {
                     "walkFileTree", "walkEntry", "createsTraversalLoop", "checkedVisitResult",
                     "releaseVisitedPath", "releaseVisitedAttributes",
                     "releaseVisitedDirectoryStream",
-                    "size" -> true;
+                    "size", "deleteIfExists", "createTempFile", "createTempDirectory", "temporary",
+                    "isReadable", "isExecutable", "readAttributesNoFollow" -> true;
             default -> false;
         };
     }

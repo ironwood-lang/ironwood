@@ -1,0 +1,110 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.port;
+
+import ironwood.io.IOException;
+import ironwood.nio.file.FileVisitResult;
+import ironwood.nio.file.FileVisitor;
+import ironwood.nio.file.Files;
+import ironwood.nio.file.Path;
+import ironwood.nio.file.attribute.BasicFileAttributes;
+
+/**
+ * Post-order deletion of a scratch tree, replacing the Java baseline's
+ * reverse-sorted {@code Files.walk} cleanup (NativeBackend.deleteTree,
+ * BridgeNativeSupport.deliver and BridgeDistributionCommand.distribute). The
+ * no-follow walk deletes each file, link or other entry when it is visited
+ * and each directory after its children, so the root goes last and a link is
+ * removed, never followed. Those consumers observe only child-before-parent
+ * order, not the order among siblings.
+ *
+ * <p>The visitor retains nothing: callback paths are borrowed and each
+ * deletion borrows its path for the call. It implements FileVisitor
+ * directly because Ironwood's SimpleFileVisitor.visitFile does not declare
+ * Java's {@code throws IOException}.
+ */
+public final class TreeDeletion implements FileVisitor<Path> {
+
+    private boolean propagate;
+
+    private TreeDeletion(boolean propagate) {
+
+        this.propagate = propagate;
+    }
+
+    /**
+     * Deletes what it can under {@code root} and ignores every failure, as
+     * NativeBackend's cleanup must not hide the link result. Unlike the Java
+     * stream, an unreadable subdirectory is skipped too. Each ignored failure
+     * keeps its exception, since a caught exception cannot be freed.
+     *
+     * @param root the tree to delete, or null; borrowed for the call
+     */
+    public static void deleteQuietly(Path root) {
+
+        if (root == null || !Files.exists(root)) return;
+        TreeDeletion visitor = new TreeDeletion(false);
+        defer free visitor;
+        try {
+            Files.walkFileTree(root, visitor);
+        } catch (IOException ignored) {
+            // Unreachable: the quiet visitor never rethrows.
+        }
+    }
+
+    /**
+     * Deletes the tree under {@code root} and throws the first failure, as
+     * Bridge staging cleanup does; an absent root is left alone.
+     *
+     * @param root the tree to delete; borrowed for the call
+     * @throws IOException the first entry that cannot be read or deleted
+     */
+    public static void delete(Path root) throws IOException {
+
+        if (!Files.exists(root)) return;
+        TreeDeletion visitor = new TreeDeletion(true);
+        defer free visitor;
+        Files.walkFileTree(root, visitor);
+    }
+
+    @Override
+    public FileVisitResult preVisitDirectory(Path directory, BasicFileAttributes attributes) {
+
+        return FileVisitResult.CONTINUE;
+    }
+
+    @Override
+    public FileVisitResult visitFile(Path file, BasicFileAttributes attributes) throws IOException {
+
+        remove(file);
+        return FileVisitResult.CONTINUE;
+    }
+
+    @Override
+    public FileVisitResult visitFileFailed(Path file, IOException failure) throws IOException {
+
+        if (this.propagate) throw failure;
+        return FileVisitResult.CONTINUE;
+    }
+
+    @Override
+    public FileVisitResult postVisitDirectory(Path directory, IOException failure) throws IOException {
+
+        if (failure != null && this.propagate) throw failure;
+        remove(directory);
+        return FileVisitResult.CONTINUE;
+    }
+
+    private void remove(Path path) throws IOException {
+
+        if (this.propagate) {
+            Files.delete(path);
+            return;
+        }
+        try {
+            Files.delete(path);
+        } catch (IOException ignored) {
+            // Best effort: a remaining entry only keeps its parent too.
+        }
+    }
+}

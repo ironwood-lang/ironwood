@@ -10280,3 +10280,62 @@ occurrence order. If no
   distinct runtime objects and reuses none, a second link reuses all four,
   and direct compilation equals the cached bytes twice. See
   [the backend helper record](self-hosting/m3/BACKEND.md).
+
+## D270 - Provide exclusive temporary paths, real paths and access checks
+
+- **Status:** Implemented during M4.1 on 2026-10-06.
+- **Decision:** `ironwood.nio.file` gains the B3 scratch, cleanup, real-path
+  and access surface, and the compiler port replaces reverse-sorted
+  `Files.walk` cleanup with a post-order visitor.
+  - **Temporary files and directories.** `Files.createTempFile(Path, String,
+    String)`, `createTempFile(String, String)`, `createTempDirectory(Path,
+    String)` and `createTempDirectory(String)` create the entry exclusively
+    (`O_CREAT | O_EXCL | O_CLOEXEC` or `mkdir`) with mode 0600 or 0700 before
+    the umask, retrying a bounded number of existing names. The name is the
+    prefix, an unsigned decimal 64-bit value and the suffix, Java's spelling.
+    The value comes only from a secure source: `arc4random_buf` on macOS, the
+    raw `getrandom` syscall on Linux (guarded numbers, no glibc 2.25 wrapper)
+    or `/dev/urandom` when the kernel lacks it; without one the call fails.
+    Prefix null means empty and a file suffix null means `.tmp`; NUL throws
+    InvalidPathException and a name with a parent IllegalArgumentException,
+    in Java's order. The default-directory overloads use `java.io.tmpdir`
+    (nonempty `TMPDIR`, else `/tmp`) and never fall back further.
+    Attribute-varargs overloads are omitted.
+  - **Real paths.** `Path.toRealPath()` resolves the path's own spelling
+    with `realpath(3)`, the empty path as the current directory; a non-UTF-8
+    result fails. The LinkOption overload is omitted.
+  - **Access, deletion and attributes.** `Files.isReadable` and
+    `isExecutable` are advisory `access(2)` checks; `deleteIfExists` returns
+    false only for absence; `readAttributesNoFollow` is an Ironwood helper for
+    Java's no-follow `readAttributes` call.
+  - **Ownership.** The returned UnixPath is allocated before the native
+    creation and adopts the fresh native String in its constructor, so no
+    managed allocation follows creation; a failed String allocation removes
+    the entry before propagating. Every new facade borrows its parameters
+    (audited `isBorrowingFilesFacade` entries), and temporary paths, real
+    paths and no-follow attributes are fresh results.
+  - **Traversal rewrite.** The port's `TreeDeletion` deletes entries on visit
+    and directories in `postVisitDirectory`, root last, links unfollowed,
+    with NativeBackend's best-effort policy or Bridge staging's propagating
+    one. Unlike the Java stream, the quiet policy also skips an unreadable
+    subtree instead of letting UncheckedIOException escape.
+- **Proof:** New typed `IrFileInstruction` operations (CREATE_TEMP_FILE,
+  CREATE_TEMP_DIRECTORY, REAL_PATH, ACCESS) reuse the existing file
+  machinery; no analysis rule or hot lowering changed. Programs that do not
+  call the new members keep identical function bodies once closed-world and
+  debug numbering is normalized.
+- **Boundary:** Java's per-user Darwin `java.io.tmpdir` and Linux `/tmp` are
+  not reproduced; a creation failure names the directory, not the generated
+  path. Ironwood's SimpleFileVisitor lacks Java's `throws IOException` on
+  `visitFile` and `preVisitDirectory` (a compile-time gap). A caught
+  exception cannot be freed, so each failure ignored by the quiet deletion
+  keeps its exception. Supersedes no decision.
+- **Verification:** A 74-case fixture prints Java 21's lines from class and
+  archive links (links, dangling links and loops, locked and read-only
+  directories, Unicode, NUL and separator names), the created entries' modes
+  match Java's, and six `TMPDIR` settings select Java's directory for the same
+  `java.io.tmpdir`. Every allocation limit unwinds to the baseline without a
+  leftover entry; the native harness covers collisions, exhaustion, a failed
+  close, a failed String after creation, long stems and invalid UTF-8; the
+  tree deletion matches NativeBackend.deleteTree and Bridge staging cleanup on
+  eight trees. See [the M4.1 record](self-hosting/m4/SCRATCH.md).

@@ -1,0 +1,31 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// Runs TreeDeletion on one prepared tree: argument 0 is "quiet" (ignore
+// every failure, as NativeBackend's cleanup) or "propagate" (throw the first
+// failure, as Bridge staging cleanup), argument 1 the root. Prints "ok" or
+// "failed"; the harness then lists what remains and compares it with
+// docs/self-hosting/m4/scratch-evidence/TreeDeletionReference.java. Exit 42.
+import ironwood.compiler.port.TreeDeletion;
+import ironwood.io.IOException;
+import ironwood.nio.file.Path;
+
+class Main {
+
+    public static int main(String[] args) {
+
+        Path root = Path.of(args[1]);
+        defer free root;
+        if (args[0].equals("quiet")) {
+            TreeDeletion.deleteQuietly(root);
+            System.out.println("ok");
+            return 42;
+        }
+        try {
+            TreeDeletion.delete(root);
+            System.out.println("ok");
+        } catch (IOException failure) {
+            System.out.println("failed");
+        }
+        return 42;
+    }
+}

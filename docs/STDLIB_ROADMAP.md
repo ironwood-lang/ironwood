@@ -610,11 +610,13 @@ The first, sufficient for `minigrep`, is complete:
 The second completes basic file manipulation:
 
 - `createFile`, `createDirectory`, and `createDirectories`;
-- `delete` and `deleteIfExists`;
+- `delete` and `deleteIfExists` (the latter added for M4.1, D270);
 - `copy` and `move` with a deliberately selected initial option subset;
-- `getLastModifiedTime` and basic readable/writable checks; and
-- temporary files/directories once secure randomness and permissions have a
-  documented native design.
+- `getLastModifiedTime` and basic readable/writable checks (`isReadable` and
+  `isExecutable` added for M4.1; `isWritable` and `getLastModifiedTime` remain);
+  and
+- temporary files/directories, implemented for M4.1 (D270) with secure random
+  names, exclusive creation and owner-only permissions.
 
 Do not invent booleans to replace Java option enums. `StandardOpenOption`,
 `StandardCopyOption`, and `LinkOption` should follow enum support. Until then,

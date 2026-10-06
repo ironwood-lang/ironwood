@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
 package ironwood.nio.file;
+
+import ironwood.io.IOException;
 /** Defines operations on file-system paths. */
 
 public interface Path extends Comparable<Path> {
@@ -61,6 +63,20 @@ public interface Path extends Comparable<Path> {
     /** Performs the to absolute path operation. */
 
     Path toAbsolutePath();
+
+    /**
+     * Returns the real path of an existing entry: absolute, with every
+     * symbolic link resolved through the host filesystem and no redundant
+     * name elements. The path's own spelling is resolved, so {@code ..} after
+     * a link follows the link rather than being removed lexically; the empty
+     * path resolves the current directory. This fixed overload always follows
+     * links, as Java's call without options does.
+     *
+     * @return a fresh caller-owned path
+     * @throws NoSuchFileException if the entry or a component does not exist
+     * @throws IOException if the path cannot be resolved
+     */
+    Path toRealPath() throws IOException;
     /** Returns a textual representation of this value. */
 
     @Override

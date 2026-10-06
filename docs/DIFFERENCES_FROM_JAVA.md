@@ -166,6 +166,18 @@ the [T4 review](STDLIB_BYTE_STREAM_REVIEW.md). String byte construction
 uses the same replacement decoder; byte export encodes unmatched surrogates as
 `?`, matching Java's UTF-8 encoder.
 
+## Temporary files and directory traversal
+
+`java.io.tmpdir`, and so the default directory of `Files.createTempFile` and
+`createTempDirectory`, is a nonempty `TMPDIR` or else `/tmp` on every supported
+host. Java takes the per-user Darwin temporary directory on macOS and `/tmp` on
+Linux, whatever `TMPDIR` holds. Generated names have Java's shape (prefix,
+unsigned decimal value, suffix), but a creation failure names the directory
+rather than the generated path in its exception. Ironwood's `SimpleFileVisitor`
+declares `throws IOException` only on `visitFileFailed` and
+`postVisitDirectory`; a subclass whose `visitFile` or `preVisitDirectory`
+throws fails to compile and implements `FileVisitor` directly instead. See D270.
+
 ## Generic type parameter bounds
 
 Java treats an omitted type parameter bound as an implicit `extends Object`.
