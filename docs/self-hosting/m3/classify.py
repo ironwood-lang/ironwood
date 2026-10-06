@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
-"""Classify every M3 or M4 call pattern of the M0 source-backed inventory.
+"""Classify every M3, M4 or M5 call pattern of the M0 source-backed inventory.
 
 Usage: classify.py PHASE [--markdown OUT]
 
@@ -9,10 +9,10 @@ gets exactly one class:
   A  an existing Ironwood member with the needed semantics; the rule names
      the stdlib or port file and a declaration regex, which must match;
   B  a recorded port convention (decision or record cited), no new helper;
-  D  a helper delivered in M3 or M4 (decision cited); its file must exist.
+  D  a helper delivered in M3, M4 or M5 (decision cited); its file must exist.
 
 PHASE_RULES holds rules for one phase only, consulted before RULES, so an
-M4 phase can classify a shared Java API for its own consumers without
+M4 or M5 phase can classify a shared Java API for its own consumers without
 changing a recorded M3 table.
 
 The tool fails if a phase pattern has no rule, a rule matches no pattern,
@@ -360,6 +360,164 @@ RULES = [
 OMITTED_CACHE = "B: a runtime-object cache key field; the native port omits the cache (D269)"
 PROCESS_OUTPUT = ("B: B4's runToFile writes a tool's merged output to a log that the probe adapter reads back"
                   " with Files.readString (M4.3)")
+
+# M5 rules (D275, D276): IronClass, IronJar, ClassPayload, StandardLibrary's
+# discovery, SourceSetLoader.locateClass and Main.writeClassOutputs, on the
+# archive services delivered for them.
+ZIP_READ = ("ZipArchive models IronJar's central directory and ZipStream IronClass's local headers; both verify sizes"
+            " and CRC and return fresh entry bytes (D275, D276)")
+ZIP_WRITE = "ZipWriter spells STORED entries in Java's layout, with Java's fixed entry time (D275)"
+WHOLE_ARCHIVE = ("ZipWriter.finish assembles the archive in memory and Files.write stores it: directly for a class"
+                 " artifact, through IronJarArchive's stage for an archive (D275, D276)")
+STAGE = ("IronJarArchive.publish stages with Files.createTempFile in the destination's parent and deletes the stage"
+         " with deleteIfExists on every exit (D270, D276)")
+COLLECTOR = "FileCollector: B3's walkFileTree selection of regular files, in Path order (D276)"
+OWNED_ARTIFACT = ("IronClassArtifact and IronJarArchive own their parsed names and entries in TextList owners;"
+                  " accessors lend or copy them (D276)")
+OWNED_ENTRIES = "ArchiveEntries: names and contents by index, written in String order by writeSorted (D276)"
+STRICT_TEXT = "TextList.wellFormed checks strict UTF-8 before new String decodes it, IronJar.readText's REPORT (D276)"
+LIBRARY = "LibraryTypes owns StandardLibrary's discovered types; LibraryRoots owns its roots (D276)"
+SEPARATOR = "B: '/' on every supported host, as java.io.File.separatorChar reports there"
+INDEXED_PATHS = "IronJarArchive binary-searches its sorted indexed entry paths (TextList.find, D276)"
+M5_ARCHIVE_RULES = [
+    ("Array", r"^clone\(\)$", b("B: ClassPayload's defensive copies disappear: ArchiveEntries.add copies each payload once,"
+                                 " and an archive's payloads are fresh results (D276)")),
+    ("java.io.ByteArrayInputStream", r".", d(ZIP_READ, "ZipStream.iron")),
+    ("java.io.ByteArrayOutputStream", r".", d(ZIP_READ, "ZipStream.iron")),
+    ("java.io.File", r"^separatorChar$", b(SEPARATOR + "; relative names come from FileCollector.relative (D276)")),
+    ("java.io.FilterOutputStream", r"^write\(byte\[\]\)$", d(ZIP_WRITE, "ZipWriter.iron")),
+    ("java.io.IOException", r"^IOException\(java.lang.String,java.lang.Throwable\)$",
+     b("B: the message alone: the strict UTF-8 check is TextList.wellFormed, so no decoder exception exists to chain"
+       " (D276)")),
+    ("java.io.InputStream", r"^readAllBytes", d(ZIP_READ, "ZipArchive.iron")),
+    ("java.lang.Class", r"^getProtectionDomain", d("Installation with the launcher's canonical location (D269); its"
+                                                    " library roots (D276)", "Installation.iron", "LibraryRoots.iron")),
+    ("java.lang.String", r"^String\(byte\[\],java.nio.charset.Charset\)$",
+     a("lang/String.iron", r"public String\(byte\[\] bytes\)") + ("UTF-8 with U+FFFD replacement, as Java's"
+                                                               " new String(bytes, UTF_8)",)),
+    ("java.lang.String", r"^lines\(\)$", b("B: IronClassArtifact's String.lines() loop: LF, CR or CRLF end a line and"
+                                          " no line follows a final terminator (D276)")),
+    ("java.lang.String", r"^trim\(\)$", a("lang/String.iron", r"public String trim\(")),
+    ("java.nio.ByteBuffer", r"^wrap\(byte\[\]\)$", d(STRICT_TEXT, "TextList.iron", "IronJarArchive.iron")),
+    ("java.nio.CharBuffer", r".", d(STRICT_TEXT, "TextList.iron", "IronJarArchive.iron")),
+    ("java.nio.charset.Charset", r"^newDecoder", d(STRICT_TEXT, "TextList.iron", "IronJarArchive.iron")),
+    ("java.nio.charset.CharsetDecoder", r".", d(STRICT_TEXT, "TextList.iron", "IronJarArchive.iron")),
+    ("java.nio.charset.CodingErrorAction", r".", d(STRICT_TEXT, "TextList.iron", "IronJarArchive.iron")),
+    ("java.nio.charset.StandardCharsets", r"^UTF_8$", b("B: UTF-8 is the only charset: String.getBytes() encodes, and"
+                                                       " decoding is new String or TextList.wellFormed's strict check"
+                                                       " (D276)")),
+    ("java.nio.file.Files", r"^(createTempFile|deleteIfExists)\(", d(STAGE, "stdlib:nio/file/Files.iron",
+                                                                    "IronJarArchive.iron")),
+    ("java.nio.file.Files", r"^move\(", d("IronJar.write's atomic attempt with a replacing fallback is"
+                                         " Files.moveReplacing (D271, D276)", "stdlib:nio/file/Files.iron",
+                                         "IronJarArchive.iron")),
+    ("java.nio.file.StandardCopyOption", r"^(ATOMIC_MOVE|REPLACE_EXISTING)$",
+     d("Files.moveReplacing's policy (D271)", "stdlib:nio/file/Files.iron")),
+    ("java.nio.file.Files", r"^newOutputStream\(", d(WHOLE_ARCHIVE, "ZipWriter.iron", "IronClassArtifact.iron",
+                                                    "IronJarArchive.iron")),
+    ("java.nio.file.Files", r"^readAllBytes", a("nio/file/Files.iron", r"public static byte\[\] readAllBytes\(Path path\)")),
+    ("java.nio.file.Files", r"^walk\(", d(COLLECTOR, "FileCollector.iron")),
+    ("java.nio.file.Path", r"^relativize", d("FileCollector.relative (D276)", "FileCollector.iron")),
+    ("java.nio.file.Path", r"^toFile", d("ZipArchive parses the archive's bytes read with Files.readAllBytes (D276)",
+                                        "ZipArchive.iron", "IronJarArchive.iron")),
+    ("java.nio.file.Path", r"^getFileName", a("nio/file/Path.iron", r"Path getFileName\(\);")),
+    ("java.nio.file.Path", r"^toString", a("nio/file/Path.iron", r"String toString\(\);") + ("lent by the path; not"
+                                                                                           " freed",)),
+    ("java.util.AbstractMap", r"^isEmpty", d(OWNED_ENTRIES, "ArchiveEntries.iron")),
+    ("java.util.HashSet", r"^HashSet\(java.util.Collection", d(INDEXED_PATHS, "TextList.iron", "IronJarArchive.iron")),
+    ("java.util.Map", r"^values\(\)$", d(INDEXED_PATHS, "TextList.iron", "IronJarArchive.iron")),
+    ("java.util.List", r"^<E>of\(\)$", b("B: the caller passes an empty TextList of licenses (D276)")),
+    ("java.util.LinkedHashSet", r"^LinkedHashSet\(java.util.Collection", d(LIBRARY, "LibraryTypes.iron")),
+    ("java.util.Set", r"^<E>copyOf", d(LIBRARY, "LibraryTypes.iron")),
+    ("java.util.List", r"^<E>copyOf", d(OWNED_ARTIFACT + "; " + LIBRARY, "IronJarArchive.iron", "LibraryRoots.iron")),
+    ("java.util.Map", r"^<K,V>copyOf", d(OWNED_ARTIFACT, "IronClassArtifact.iron", "IronJarArchive.iron")),
+    ("java.util.Map", r"^keySet", d(OWNED_ARTIFACT, "IronClassArtifact.iron", "IronJarArchive.iron")),
+    ("java.util.Map", r"^entrySet", d(OWNED_ENTRIES, "ArchiveEntries.iron")),
+    ("java.util.Map.Entry", r".", d(OWNED_ENTRIES, "ArchiveEntries.iron")),
+    ("java.util.TreeMap", r".", d(OWNED_ENTRIES, "ArchiveEntries.iron")),
+    ("java.util.stream.Stream", r"^sorted\(\)$", d("FileCollector and the license list sort Paths in TextList code point"
+                                                  " order; collect's single declared-type match needs no order (D276)",
+                                                  "FileCollector.iron", "TextList.iron")),
+    ("java.util.zip.Checksum", r"^update\(byte\[\]\)$", d(ZIP_WRITE + " and CRC32 (D274)", "ZipWriter.iron",
+                                                          "stdlib:util/zip/CRC32.iron")),
+    ("java.util.zip.ZipEntry", r"^(getName|isDirectory)\(", d(ZIP_READ + "; a name ending in '/' is a directory, as"
+                                                               " ZipEntry.isDirectory", "ZipArchive.iron", "ZipStream.iron")),
+    ("java.util.zip.ZipEntry", r".", d(ZIP_WRITE, "ZipWriter.iron")),
+    ("java.util.zip.ZipFile", r".", d(ZIP_READ, "ZipArchive.iron", "IronJarArchive.iron")),
+    ("java.util.zip.ZipInputStream", r".", d(ZIP_READ, "ZipStream.iron", "IronClassArtifact.iron")),
+    ("java.util.zip.ZipOutputStream", r".", d(ZIP_WRITE, "ZipWriter.iron")),
+]
+
+# M5.4 rules (D277): DocComment, DocModel, MarkdownDoclet, IronDoc,
+# IronDocOptions and IronJarMain on the documentation helpers.
+DOC_REGEX = ("DocText's purpose-specific scans: entities, longestBackticks, identifierStart and identifierEnd;"
+             " IronDocOptions' path list is Splits.bounds(value, ':', 0) (D277)")
+VERSION_RESOURCE = "B: IronDoc's VERSION resource is the generated BuildIdentity (D269, D277)"
+FIXED_CASE = "the fixed en_US casing (D117) equals Locale.ROOT for every input (D277)"
+DOC_SOURCES = ("FileCollector at depth 1 or unbounded, in Path order; the TreeSet keeps its real paths in TextList"
+               " code point order (D276, D277)")
+M5_DOC_RULES = [
+    ("java.io.File", r"^pathSeparator$", b("B: ':' on every supported host, as System.getProperty(\"path.separator\")"
+                                          " reports; IronDocOptions' path list is Splits.bounds(value, ':', 0) (D277)")),
+    ("java.io.File", r"^separatorChar$", b(SEPARATOR)),
+    ("java.io.InputStream", r"^readAllBytes", b(VERSION_RESOURCE)),
+    ("java.lang.Class", r"^getResourceAsStream", b(VERSION_RESOURCE)),
+    ("java.lang.String", r"^String\(byte\[\],java.nio.charset.Charset\)$", b(VERSION_RESOURCE)),
+    ("java.io.PrintStream", r"^print\(java.lang.String\)$", a("io/PrintStream.iron", r"public void print\(String")),
+    ("java.lang.AbstractStringBuilder", r"^setLength\(int\)$", a("lang/StringBuilder.iron",
+                                                                 r"public StringBuilder setLength\(int")),
+    ("java.lang.Character", r"^isJavaIdentifierPart", d("JavaIdentifiers.isJavaIdentifierPart, Java 21's ranges (D277)",
+                                                        "JavaIdentifiers.iron")),
+    ("java.lang.Character", r"^isWhitespace\(char\)$", a("lang/Character.iron", r"public static boolean isWhitespace\(char")
+     + ("Unicode 15.0, as Java 21",)),
+    ("java.lang.Character", r"^toChars", d("DocText.entities (D277)", "DocText.iron")),
+    ("java.lang.Integer", r"^parseInt", d("DocText.entities with parseInt's range and diagnostic (D277)", "DocText.iron")),
+    ("java.lang.Integer", r"^toHexString", d("DocText.anchor (D277)", "DocText.iron")),
+    ("java.lang.String", r"^codePoints\(\)$", d("DocText.anchor (D277)", "DocText.iron")),
+    ("java.lang.StringBuilder", r"^appendCodePoint", d("DocText.anchor (D277)", "DocText.iron")),
+    ("java.util.stream.IntStream", r"^forEach", d("DocText.anchor (D277)", "DocText.iron")),
+    ("java.lang.String", r"^formatted\(", b("B: MarkdownDoclet's banner concatenates its literal pieces (D277)")),
+    ("java.lang.String", r"^matches\(", d("DocText.isPackageName, IronDoc's package-name regex (D277)", "DocText.iron")),
+    ("java.lang.String", r"^regionMatches\(boolean", d("DocText.regionMatchesIgnoreCase (D277)", "DocText.iron")),
+    ("java.lang.String", r"^replaceAll\(", d("DocText.removeSpace and collapseLineBreaks (D277)", "DocText.iron")),
+    ("java.lang.String", r"^replaceFirst\(", d("DocText.stripCommentStar and stripCodeTags (D277)", "DocText.iron")),
+    ("java.lang.String", r"^split\(", d("DocText.lineFields, head and tail; IronDocOptions' ':' lists are D266"
+                                       " Splits.bounds with limit -1 (D277)", "DocText.iron", "Splits.iron")),
+    ("java.lang.String", r"^stripLeading\(\)$", d("DocText.stripLeading (D277)", "DocText.iron")),
+    ("java.lang.String", r"^toLowerCase\(java.util.Locale\)$", a("lang/String.iron", r"public String toLowerCase\(\)")
+     + (FIXED_CASE,)),
+    ("java.lang.String", r"^toUpperCase\(java.util.Locale\)$", a("lang/String.iron", r"public String toUpperCase\(\)")
+     + (FIXED_CASE,)),
+    ("java.util.Locale", r"^ROOT$", b("B: " + FIXED_CASE + "; no locale subsystem")),
+    ("java.lang.StringBuilder", r"^StringBuilder\(java.lang.String\)$",
+     b("B: new StringBuilder() then append: a builder made from a String cannot be freed (M5 known limit)")),
+    ("java.lang.StringBuilder", r"^append\(java.lang.CharSequence,int,int\)$",
+     a("lang/StringBuilder.iron", r"public StringBuilder append\(CharSequence text, int start, int end\)")),
+    ("java.nio.charset.StandardCharsets", r"^UTF_8$", b("B: UTF-8 is the only charset: Files.readString and"
+                                                       " writeString are UTF-8, and the version text is BuildIdentity"
+                                                       " (D269)")),
+    ("java.nio.file.Files", r"^walk\(", d(DOC_SOURCES, "FileCollector.iron", "TextList.iron")),
+    ("java.util.TreeSet", r".", d(DOC_SOURCES, "FileCollector.iron", "TextList.iron")),
+    ("java.util.stream.Stream", r"^sorted\(\)$", d(DOC_SOURCES, "FileCollector.iron", "TextList.iron")),
+    ("java.util.TreeMap", r".", d("String keys sorted with StringOrder at each observation (D264); MarkdownDoclet's"
+                                  " Path-keyed pages in TextList code point order (D276, D277)", "StringOrder.iron",
+                                  "TextList.iron")),
+    ("java.nio.file.Path", r"^equals", a("nio/file/UnixPath.iron", r"public boolean equals\(Object other\)")),
+    ("java.nio.file.Path", r"^getFileName", a("nio/file/Path.iron", r"Path getFileName\(\);")
+     + ("DocModel.parse reads SourceFile.fileName",)),
+    ("java.nio.file.Path", r"^relativize", a("nio/file/Path.iron", r"Path relativize\(Path other\);")),
+    ("java.nio.file.Path", r"^toRealPath", d("Path.toRealPath (D270)", "stdlib:nio/file/Path.iron")),
+    ("java.nio.file.Path", r"^toString", a("nio/file/Path.iron", r"String toString\(\);") + ("lent by the path; not"
+                                                                                           " freed",)),
+    ("java.util.ArrayDeque", r".", d("ScopeStack, DocComment.render's list stack (D264, D277)", "ScopeStack.iron")),
+    ("java.util.List", r"^add\(int,E\)$", a("ds/ArrayList.iron", r"public void insert\(int index, E element\)")
+     + ("ArrayList.insert",)),
+    ("java.util.function.BiFunction", r"^apply", d("LinkRenderer.link (D277)", "LinkRenderer.iron")),
+    ("java.util.regex.Pattern", r"^quote", b("B: the literal ':' delimiter of D266 Splits.bounds, the host path"
+                                            " separator")),
+    ("java.util.regex.", r".", d(DOC_REGEX, "DocText.iron", "Splits.iron")),
+]
+
 PHASE_RULES = {
     "M4.1-M4.2": [
         ("java.io.InputStream", r"^readAllBytes", b(PROCESS_OUTPUT)),
@@ -415,6 +573,13 @@ PHASE_RULES = {
         ("javax.tools.", r".", b("B: S7's native producer runs the selected JDK's javac and javadoc by absolute path through"
                                  " runToFile, as BridgeBuildTools.run already launches tools; selecting that JDK is M6.2")),
     ],
+    # M5.1 (D274): IronJar.write's entry checksums.
+    "M5.1": [
+        ("java.util.zip.CRC32", r".", d("the public ironwood.util.zip.CRC32 (D274); ZipWriter computes each STORED entry's"
+                                        " CRC with it (D275)", "stdlib:util/zip/CRC32.iron", "ZipWriter.iron")),
+    ],
+    "M5.2-M5.3": M5_ARCHIVE_RULES,
+    "M5.4": M5_DOC_RULES,
 }
 
 
