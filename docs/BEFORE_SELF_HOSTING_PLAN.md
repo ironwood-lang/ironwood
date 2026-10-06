@@ -504,7 +504,8 @@ the S2-S4 port; they do not replace its integration exits.
   target and trace patterns, Properties, installation discovery and version,
   including trace-root ordering; one link never reuses a runtime object, so the
   native port compiles them directly, and the other SHA-256 consumers are
-  unchanged. The classification and the M3.3 handoff run are pending.
+  unchanged. The [classification](self-hosting/m3/CLASSIFICATION_M3.3.md)
+  covers every M3.3 pattern; the M3.3 handoff run is pending.
 
 **Checkpoints:** M3.1's helpers must be ready for their S2 consumers; M3.2 must
 pass before its S3 consumers, especially ByteView; M3.3 must pass before the
