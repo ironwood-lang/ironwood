@@ -80,7 +80,6 @@ import java.util.Set;
 
 public final class SemanticAnalyzer {
     private final ironwood.compiler.UnfreedMode unfreedMode;
-    private final Set<Path> unfreedSources;
     private final boolean explainRejectedFree;
     private final SemanticAnalysisObserver observer;
     private final RejectedFreeEvidence.Limits evidenceLimits;
@@ -112,34 +111,32 @@ public final class SemanticAnalyzer {
     }
 
     public SemanticAnalyzer() {
-        this(ironwood.compiler.UnfreedMode.WARN, null);
+        this(ironwood.compiler.UnfreedMode.WARN);
     }
 
-    public SemanticAnalyzer(ironwood.compiler.UnfreedMode unfreedMode, Set<Path> unfreedSources) {
-        this(unfreedMode, unfreedSources, false, null);
+    /** Missing-free findings cover every analyzed source, bundled and dependency code included. */
+    public SemanticAnalyzer(ironwood.compiler.UnfreedMode unfreedMode) {
+        this(unfreedMode, false, null);
     }
 
-    public SemanticAnalyzer(ironwood.compiler.UnfreedMode unfreedMode, Set<Path> unfreedSources,
-                            boolean explainRejectedFree) {
-        this(unfreedMode, unfreedSources, explainRejectedFree, null);
+    public SemanticAnalyzer(ironwood.compiler.UnfreedMode unfreedMode, boolean explainRejectedFree) {
+        this(unfreedMode, explainRejectedFree, null);
     }
 
-    SemanticAnalyzer(ironwood.compiler.UnfreedMode unfreedMode, Set<Path> unfreedSources,
-                     boolean explainRejectedFree, SemanticAnalysisObserver observer) {
-        this(unfreedMode, unfreedSources, explainRejectedFree, observer, null);
+    SemanticAnalyzer(ironwood.compiler.UnfreedMode unfreedMode, boolean explainRejectedFree,
+                     SemanticAnalysisObserver observer) {
+        this(unfreedMode, explainRejectedFree, observer, null);
     }
 
-    SemanticAnalyzer(ironwood.compiler.UnfreedMode unfreedMode, Set<Path> unfreedSources,
-                     boolean explainRejectedFree, SemanticAnalysisObserver observer,
-                     RejectedFreeEvidence.Limits evidenceLimits) {
-        this(unfreedMode, unfreedSources, explainRejectedFree, observer, evidenceLimits, -1);
+    SemanticAnalyzer(ironwood.compiler.UnfreedMode unfreedMode, boolean explainRejectedFree,
+                     SemanticAnalysisObserver observer, RejectedFreeEvidence.Limits evidenceLimits) {
+        this(unfreedMode, explainRejectedFree, observer, evidenceLimits, -1);
     }
 
-    SemanticAnalyzer(ironwood.compiler.UnfreedMode unfreedMode, Set<Path> unfreedSources,
-                     boolean explainRejectedFree, SemanticAnalysisObserver observer,
-                     RejectedFreeEvidence.Limits evidenceLimits, int refinementPassLimit) {
+    SemanticAnalyzer(ironwood.compiler.UnfreedMode unfreedMode, boolean explainRejectedFree,
+                     SemanticAnalysisObserver observer, RejectedFreeEvidence.Limits evidenceLimits,
+                     int refinementPassLimit) {
         this.unfreedMode = java.util.Objects.requireNonNull(unfreedMode);
-        this.unfreedSources = unfreedSources == null ? null : Set.copyOf(unfreedSources);
         this.explainRejectedFree = explainRejectedFree;
         this.observer = observer;
         this.evidenceLimits = evidenceLimits;
@@ -610,7 +607,6 @@ public final class SemanticAnalyzer {
         List<IrFunction> functions = new ArrayList<>();
         for (TypeCallable entry : lowerableCallables(types)) {
             ironwood.compiler.UnfreedMode mode = checkUnfreed && refinementCompleted
-                    && (unfreedSources == null || unfreedSources.contains(entry.type().source().path()))
                     ? unfreedMode : ironwood.compiler.UnfreedMode.OFF;
             // A placeholder body is the compiler's own; it must not add diagnostics.
             List<Diagnostic> reported = placeholderImplementations.contains(

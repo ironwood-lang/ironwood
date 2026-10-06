@@ -513,6 +513,8 @@ public final class CompilerTests {
         test("unfreed diagnostics track receiver-retained allocations", UnfreedAllocationTests::receiverRetainedAllocations);
         test("receiver-retained borrows run natively", UnfreedAllocationTests::receiverRetainedNativeOutput);
         test("unfreed options preserve native output and artifact diagnostics", UnfreedAllocationTests::optionsAndNativeOutput);
+        test("unfreed checks cover bundled library code in every entry path",
+                UnfreedAllocationTests::bundledLibraryScope);
         test("@SuppressUnfreed accepts local directives and rejects other forms", SuppressUnfreedTests::parserForms);
         test("@SuppressUnfreed follows allocations through aliases loops and finally", SuppressUnfreedTests::allocationExemptions);
         test("@SuppressUnfreed preserves unrelated allocation findings", SuppressUnfreedTests::suppressionBoundaries);

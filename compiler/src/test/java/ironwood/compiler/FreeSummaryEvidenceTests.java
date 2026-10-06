@@ -176,12 +176,12 @@ final class FreeSummaryEvidenceTests {
                     name.equals("Chain") ? CHAIN : CYCLE);
             SemanticObserverBridge.Counts counts = new SemanticObserverBridge.Counts();
             CompilationArtifact enabled = new CompilerPipeline(UnfreedMode.OFF, true,
-                    (mode, sources, explain) -> SemanticObserverBridge.create(
-                            mode, sources, explain, counts, source.path())).analyze(List.of(source));
+                    (mode, explain) -> SemanticObserverBridge.create(
+                            mode, explain, counts, source.path())).analyze(List.of(source));
             SemanticObserverBridge.Counts disabledCounts = new SemanticObserverBridge.Counts();
             CompilationArtifact disabled = new CompilerPipeline(UnfreedMode.OFF, false,
-                    (mode, sources, explain) -> SemanticObserverBridge.create(
-                            mode, sources, explain, disabledCounts, source.path())).analyze(List.of(source));
+                    (mode, explain) -> SemanticObserverBridge.create(
+                            mode, explain, disabledCounts, source.path())).analyze(List.of(source));
             requireRejected(enabled);
             requireRejected(disabled);
             require(enabled.diagnostics().stream().filter(d -> d.isError()).map(d -> d.message()).toList()
@@ -218,8 +218,8 @@ final class FreeSummaryEvidenceTests {
         SourceFile chain = SourceFile.of("Chain.iron", CHAIN);
         SemanticObserverBridge.Counts chainCounts = new SemanticObserverBridge.Counts();
         CompilationArtifact rejected = new CompilerPipeline(UnfreedMode.OFF, true,
-                (mode, sources, explain) -> SemanticObserverBridge.create(
-                        mode, sources, explain, chainCounts, chain.path())).analyze(List.of(chain));
+                (mode, explain) -> SemanticObserverBridge.create(
+                        mode, explain, chainCounts, chain.path())).analyze(List.of(chain));
         requireRejected(rejected);
         require(chainCounts.selectedSummaryWitnesses().entrySet().stream().anyMatch(entry ->
                         entry.getKey().contains("Chain.third/NON_RETURN_ESCAPE/0/")
@@ -236,8 +236,8 @@ final class FreeSummaryEvidenceTests {
         SourceFile cycle = SourceFile.of("Cycle.iron", CYCLE);
         SemanticObserverBridge.Counts cycleCounts = new SemanticObserverBridge.Counts();
         requireRejected(new CompilerPipeline(UnfreedMode.OFF, true,
-                (mode, sources, explain) -> SemanticObserverBridge.create(
-                        mode, sources, explain, cycleCounts, cycle.path())).analyze(List.of(cycle)));
+                (mode, explain) -> SemanticObserverBridge.create(
+                        mode, explain, cycleCounts, cycle.path())).analyze(List.of(cycle)));
         var cycleWitnesses = cycleCounts.selectedSummaryWitnesses();
         require(cycleWitnesses.entrySet().stream().anyMatch(entry ->
                         entry.getKey().contains("Cycle.pong/NON_RETURN_ESCAPE/0/")
@@ -259,8 +259,8 @@ final class FreeSummaryEvidenceTests {
                 """);
         SemanticObserverBridge.Counts counts = new SemanticObserverBridge.Counts();
         CompilationArtifact enabled = new CompilerPipeline(UnfreedMode.OFF, true,
-                (mode, sources, explain) -> SemanticObserverBridge.create(
-                        mode, sources, explain, counts, returns.path())).analyze(List.of(returns));
+                (mode, explain) -> SemanticObserverBridge.create(
+                        mode, explain, counts, returns.path())).analyze(List.of(returns));
         CompilationArtifact disabled = new CompilerPipeline(UnfreedMode.OFF, false, null)
                 .analyze(List.of(returns));
         requireAccepted(enabled);
@@ -296,8 +296,8 @@ final class FreeSummaryEvidenceTests {
                 """);
         SemanticObserverBridge.Counts counts = new SemanticObserverBridge.Counts();
         requireAccepted(new CompilerPipeline(UnfreedMode.OFF, true,
-                (mode, sources, explain) -> SemanticObserverBridge.create(
-                        mode, sources, explain, counts, source.path())).analyze(List.of(source)));
+                (mode, explain) -> SemanticObserverBridge.create(
+                        mode, explain, counts, source.path())).analyze(List.of(source)));
         var witnesses = counts.selectedSummaryWitnesses();
         for (String effect : List.of("RAW_ESCAPE", "NON_RETURN_ESCAPE")) {
             require(ordinal(witnesses, "Order.keep/" + effect + "/1/")
@@ -327,15 +327,15 @@ final class FreeSummaryEvidenceTests {
         requireRejected(baseline);
         SemanticObserverBridge.Counts complete = new SemanticObserverBridge.Counts();
         requireRejected(new CompilerPipeline(UnfreedMode.OFF, true,
-                (mode, sources, explain) -> SemanticObserverBridge.create(
-                        mode, sources, explain, complete, source.path())).analyze(List.of(source)));
+                (mode, explain) -> SemanticObserverBridge.create(
+                        mode, explain, complete, source.path())).analyze(List.of(source)));
         for (int[] limits : List.of(new int[] { 4, 64, 1_048_576 },
                 new int[] { 2_048, 3, 1_048_576 },
                 new int[] { 2_048, 64, 1 })) {
             SemanticObserverBridge.Counts counts = new SemanticObserverBridge.Counts();
             CompilationArtifact limited = new CompilerPipeline(UnfreedMode.OFF, true,
-                    (mode, sources, explain) -> SemanticObserverBridge.createWithSummaryLimits(
-                            mode, sources, explain, counts, source.path(),
+                    (mode, explain) -> SemanticObserverBridge.createWithSummaryLimits(
+                            mode, explain, counts, source.path(),
                             limits[0], limits[1], limits[2])).analyze(List.of(source));
             requireRejected(limited);
             require(limited.diagnostics().stream().filter(d -> d.isError())
@@ -400,8 +400,8 @@ final class FreeSummaryEvidenceTests {
         SourceFile limitedSource = SourceFile.of("Chain.iron", CHAIN);
         SemanticObserverBridge.Counts limitedCounts = new SemanticObserverBridge.Counts();
         CompilationArtifact limited = new CompilerPipeline(UnfreedMode.OFF, true,
-                (mode, sources, explain) -> SemanticObserverBridge.createWithSummaryLimits(
-                        mode, sources, explain, limitedCounts, limitedSource.path(),
+                (mode, explain) -> SemanticObserverBridge.createWithSummaryLimits(
+                        mode, explain, limitedCounts, limitedSource.path(),
                         2_048, 3, 1_048_576)).analyze(List.of(limitedSource));
         requireRejected(limited);
         var boundary = limited.diagnostics().stream().filter(d -> d.message().startsWith(
@@ -489,15 +489,15 @@ final class FreeSummaryEvidenceTests {
                 """);
         SemanticObserverBridge.Counts baselineCounts = new SemanticObserverBridge.Counts();
         CompilationArtifact baseline = new CompilerPipeline(UnfreedMode.OFF, true,
-                (mode, sources, explain) -> SemanticObserverBridge.create(
-                        mode, sources, explain, baselineCounts, user.path()))
+                (mode, explain) -> SemanticObserverBridge.create(
+                        mode, explain, baselineCounts, user.path()))
                 .analyze(List.of(user));
         var baselineError = baseline.diagnostics().stream().filter(d -> d.message().startsWith(
                 "cannot free 'data':")).findFirst().orElseThrow();
         SemanticObserverBridge.Counts localBaselineCounts = new SemanticObserverBridge.Counts();
         CompilationArtifact localBaseline = new CompilerPipeline(UnfreedMode.OFF, true,
-                (mode, sources, explain) -> SemanticObserverBridge.createWithSummaryLimits(
-                        mode, sources, explain, localBaselineCounts, user.path(),
+                (mode, explain) -> SemanticObserverBridge.createWithSummaryLimits(
+                        mode, explain, localBaselineCounts, user.path(),
                         64, 64, 1_048_576)).analyze(List.of(user));
         var localBaselineError = localBaseline.diagnostics().stream()
                 .filter(d -> d.message().startsWith("cannot free 'data':"))
@@ -509,8 +509,8 @@ final class FreeSummaryEvidenceTests {
                 List.of(user, extra, companion))) {
             SemanticObserverBridge.Counts counts = new SemanticObserverBridge.Counts();
             CompilationArtifact noisy = new CompilerPipeline(UnfreedMode.OFF, true,
-                    (mode, paths, explain) -> SemanticObserverBridge.create(
-                            mode, paths, explain, counts, user.path())).analyze(sources);
+                    (mode, explain) -> SemanticObserverBridge.create(
+                            mode, explain, counts, user.path())).analyze(sources);
             CompilationArtifact disabled = new CompilerPipeline(UnfreedMode.OFF, false, null)
                     .analyze(sources);
             var error = noisy.diagnostics().stream().filter(d -> d.message().startsWith(
@@ -539,8 +539,8 @@ final class FreeSummaryEvidenceTests {
                     "companion import did not load and retain its independent summary facts");
             SemanticObserverBridge.Counts localCounts = new SemanticObserverBridge.Counts();
             CompilationArtifact locallyLimited = new CompilerPipeline(UnfreedMode.OFF, true,
-                    (mode, paths, explain) -> SemanticObserverBridge.createWithSummaryLimits(
-                            mode, paths, explain, localCounts, user.path(),
+                    (mode, explain) -> SemanticObserverBridge.createWithSummaryLimits(
+                            mode, explain, localCounts, user.path(),
                             64, 64, 1_048_576)).analyze(sources);
             var localError = locallyLimited.diagnostics().stream()
                     .filter(d -> d.message().startsWith("cannot free 'data':"))
@@ -560,8 +560,8 @@ final class FreeSummaryEvidenceTests {
                             + localError.notes());
             SemanticObserverBridge.Counts stoppedCounts = new SemanticObserverBridge.Counts();
             CompilationArtifact stopped = new CompilerPipeline(UnfreedMode.OFF, true,
-                    (mode, paths, explain) -> SemanticObserverBridge.createWithSummaryLimits(
-                            mode, paths, explain, stoppedCounts, user.path(),
+                    (mode, explain) -> SemanticObserverBridge.createWithSummaryLimits(
+                            mode, explain, stoppedCounts, user.path(),
                             64, 64, 1)).analyze(sources);
             var stoppedError = stopped.diagnostics().stream()
                     .filter(d -> d.message().startsWith("cannot free 'data':"))
@@ -599,8 +599,8 @@ final class FreeSummaryEvidenceTests {
             CompilationArtifact acceptedOff = new CompilerPipeline(UnfreedMode.OFF, false, null)
                     .analyze(acceptedSources);
             CompilationArtifact acceptedLocal = new CompilerPipeline(UnfreedMode.OFF, true,
-                    (mode, paths, explain) -> SemanticObserverBridge.createWithSummaryLimits(
-                            mode, paths, explain, new SemanticObserverBridge.Counts(),
+                    (mode, explain) -> SemanticObserverBridge.createWithSummaryLimits(
+                            mode, explain, new SemanticObserverBridge.Counts(),
                             acceptedUser.path(), 64, 64, 1_048_576)).analyze(acceptedSources);
             requireAccepted(acceptedOn);
             requireAccepted(acceptedOff);

@@ -114,8 +114,8 @@ final class ExplanationObserverTests {
                 """);
         SemanticObserverBridge.Counts acceptedCounts = new SemanticObserverBridge.Counts();
         CompilationArtifact acceptedOn = new CompilerPipeline(UnfreedMode.OFF, true,
-                (mode, sources, explain) -> SemanticObserverBridge.createWithLimits(
-                        mode, sources, explain, acceptedCounts, accepted.path(), 100, 100, 1))
+                (mode, explain) -> SemanticObserverBridge.createWithLimits(
+                        mode, explain, acceptedCounts, accepted.path(), 100, 100, 1))
                 .compile(List.of(accepted));
         CompilationArtifact acceptedOff = new CompilerPipeline(UnfreedMode.OFF, false, null)
                 .compile(List.of(accepted));
@@ -164,12 +164,12 @@ final class ExplanationObserverTests {
                 .analyze(combined);
         SemanticObserverBridge.Counts combinedCounts = new SemanticObserverBridge.Counts();
         CompilationArtifact combinedOn = new CompilerPipeline(UnfreedMode.OFF, true,
-                (mode, sources, explain) -> SemanticObserverBridge.create(
-                        mode, sources, explain, combinedCounts, chain.path())).analyze(combined);
+                (mode, explain) -> SemanticObserverBridge.create(
+                        mode, explain, combinedCounts, chain.path())).analyze(combined);
         SemanticObserverBridge.Counts stoppedCombinedCounts = new SemanticObserverBridge.Counts();
         CompilationArtifact stoppedCombined = new CompilerPipeline(UnfreedMode.OFF, true,
-                (mode, sources, explain) -> SemanticObserverBridge.createWithLimits(
-                        mode, sources, explain, stoppedCombinedCounts, chain.path(),
+                (mode, explain) -> SemanticObserverBridge.createWithLimits(
+                        mode, explain, stoppedCombinedCounts, chain.path(),
                         65_536, 65_536, 1)).analyze(combined);
         require(!combinedOff.valid()
                         && samePrimaries(combinedOff.diagnostics(), combinedOn.diagnostics())
@@ -208,8 +208,8 @@ final class ExplanationObserverTests {
                                                SemanticObserverBridge.Counts counts,
                                                int local, int snapshots, int invocation) {
         return new CompilerPipeline(UnfreedMode.OFF, explain,
-                (mode, sources, enabled) -> SemanticObserverBridge.createWithLimits(
-                        mode, sources, enabled, counts, source.path(),
+                (mode, enabled) -> SemanticObserverBridge.createWithLimits(
+                        mode, enabled, counts, source.path(),
                         local, snapshots, invocation)).analyze(List.of(source));
     }
 
@@ -225,12 +225,12 @@ final class ExplanationObserverTests {
                 """);
         SemanticObserverBridge.Counts counts = new SemanticObserverBridge.Counts();
         CompilationArtifact observed = new CompilerPipeline(UnfreedMode.OFF, true,
-                (mode, sources, explain) -> SemanticObserverBridge.create(
-                        mode, sources, explain, counts, source.path())).compile(List.of(source));
+                (mode, explain) -> SemanticObserverBridge.create(
+                        mode, explain, counts, source.path())).compile(List.of(source));
         SemanticObserverBridge.Counts disabledCounts = new SemanticObserverBridge.Counts();
         CompilationArtifact disabledObserved = new CompilerPipeline(UnfreedMode.OFF, false,
-                (mode, sources, explain) -> SemanticObserverBridge.create(
-                        mode, sources, explain, disabledCounts, source.path())).compile(List.of(source));
+                (mode, explain) -> SemanticObserverBridge.create(
+                        mode, explain, disabledCounts, source.path())).compile(List.of(source));
         CompilationArtifact plain = new CompilerPipeline(UnfreedMode.OFF, true, null)
                 .compile(List.of(source));
         require(observed.valid() && plain.valid() && disabledObserved.valid(),
@@ -292,8 +292,8 @@ final class ExplanationObserverTests {
         SourceFile source = SourceFile.of("Skip.iron", SKIP);
         SemanticObserverBridge.Counts counts = new SemanticObserverBridge.Counts();
         CompilationArtifact observed = new CompilerPipeline(UnfreedMode.OFF, true,
-                (mode, sources, explain) -> SemanticObserverBridge.create(
-                        mode, sources, explain, counts, source.path())).analyze(List.of(source));
+                (mode, explain) -> SemanticObserverBridge.create(
+                        mode, explain, counts, source.path())).analyze(List.of(source));
         CompilationArtifact plain = new CompilerPipeline(UnfreedMode.OFF, true, null)
                 .analyze(List.of(source));
         require(!observed.valid() && samePrimaries(observed.diagnostics(), plain.diagnostics())
@@ -312,8 +312,8 @@ final class ExplanationObserverTests {
                 "class Skip extends Base {\n    void keep", "class Skip extends Base {\n    @Override void keep"));
         SemanticObserverBridge.Counts counts = new SemanticObserverBridge.Counts();
         CompilationArtifact observed = new CompilerPipeline(UnfreedMode.OFF, true,
-                (mode, sources, explain) -> SemanticObserverBridge.createWithRefinementPassLimit(
-                        mode, sources, explain, counts, source.path(), 0)).analyze(List.of(source));
+                (mode, explain) -> SemanticObserverBridge.createWithRefinementPassLimit(
+                        mode, explain, counts, source.path(), 0)).analyze(List.of(source));
         // Without converged facts only the failure itself is reported.
         require(!observed.valid() && observed.diagnostics().size() == 1
                         && observed.diagnostics().getFirst().message().equals(
@@ -349,8 +349,8 @@ final class ExplanationObserverTests {
                 """);
         SemanticObserverBridge.Counts counts = new SemanticObserverBridge.Counts();
         CompilationArtifact observed = new CompilerPipeline(UnfreedMode.OFF, true,
-                (mode, sources, explain) -> SemanticObserverBridge.create(
-                        mode, sources, explain, counts, source.path())).analyze(List.of(source));
+                (mode, explain) -> SemanticObserverBridge.create(
+                        mode, explain, counts, source.path())).analyze(List.of(source));
         CompilationArtifact plain = new CompilerPipeline(UnfreedMode.OFF, true, null)
                 .analyze(List.of(source));
         require(observed.valid() && plain.valid()

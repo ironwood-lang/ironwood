@@ -4,11 +4,7 @@ package ironwood.compiler;
 
 import ironwood.compiler.semantic.SemanticAnalyzer;
 
-import java.nio.file.Path;
-import java.util.Set;
-
 @FunctionalInterface
 interface SemanticAnalyzerFactory {
-    SemanticAnalyzer create(UnfreedMode mode, Set<Path> originalSources,
-                            boolean explainRejectedFree);
+    SemanticAnalyzer create(UnfreedMode mode, boolean explainRejectedFree);
 }

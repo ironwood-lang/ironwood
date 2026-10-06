@@ -80,8 +80,8 @@ final class FreeBundledSourceTests {
         var prior = off.diagnostics().getFirst();
         SemanticObserverBridge.Counts counts = new SemanticObserverBridge.Counts();
         CompilationArtifact on = new CompilerPipeline(UnfreedMode.OFF, true,
-                (mode, sources, explain) -> SemanticObserverBridge.create(
-                        mode, sources, explain, counts, prior.source().path()))
+                (mode, explain) -> SemanticObserverBridge.create(
+                        mode, explain, counts, prior.source().path()))
                 .analyze(List.of(user));
         require(!on.valid() && on.diagnostics().size() == 1,
                 "bundled explanation changed rejection count: " + on.diagnostics());

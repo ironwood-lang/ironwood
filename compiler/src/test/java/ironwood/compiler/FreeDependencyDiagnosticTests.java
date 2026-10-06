@@ -115,8 +115,8 @@ final class FreeDependencyDiagnosticTests {
                         .analyze(loaded.sources());
                 SemanticObserverBridge.Counts counts = new SemanticObserverBridge.Counts();
                 CompilationArtifact on = new CompilerPipeline(UnfreedMode.OFF, true,
-                        (mode, sources, explain) -> SemanticObserverBridge.create(
-                                mode, sources, explain, counts, Path.of(display)))
+                        (mode, explain) -> SemanticObserverBridge.create(
+                                mode, explain, counts, Path.of(display)))
                         .analyze(loaded.sources());
                 require(!off.valid() && !on.valid()
                                 && off.diagnostics().stream().map(Diagnostic::message).toList().equals(

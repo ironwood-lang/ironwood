@@ -664,8 +664,8 @@ final class FreeAnalysisReadinessTests {
     private static CompilationArtifact unconverged(UnfreedMode mode, boolean explain, String source,
                                                    SemanticObserverBridge.Counts counts) {
         SourceFile file = SourceFile.of("Main.iron", source);
-        return new CompilerPipeline(mode, explain, (selected, sources, explained) ->
-                SemanticObserverBridge.createWithRefinementPassLimit(selected, sources, explained,
+        return new CompilerPipeline(mode, explain, (selected, explained) ->
+                SemanticObserverBridge.createWithRefinementPassLimit(selected, explained,
                         counts, file.path(), 0)).analyze(List.of(file));
     }
 

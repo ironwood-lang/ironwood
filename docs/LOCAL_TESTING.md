@@ -276,6 +276,17 @@ the non-convergence error appears only without earlier errors. The last two run
 the command-line path, which also checks bundled sources for missing frees, for
 a declaration error and for a link whose main class lacks `main`.
 
+For the missing-free scope across entry paths (D280), run:
+
+```sh
+./scripts/test.sh --test 'unfreed checks cover bundled library code in every entry path'
+```
+
+It copies the standard library sources into a temporary root, plants one leak
+in `Throwable`, and compiles an empty program in a child JVM through the command
+line and the in-process pipeline in every `--unfreed` mode. Both paths report
+exactly the planted finding, as a warning or an error, and nothing with `off`.
+
 For the diagnostic baseline of duplicated cleanup, run:
 
 ```sh

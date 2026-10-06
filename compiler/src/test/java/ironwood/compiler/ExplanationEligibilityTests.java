@@ -347,8 +347,8 @@ final class ExplanationEligibilityTests {
                 """);
         SemanticObserverBridge.Counts counts = new SemanticObserverBridge.Counts();
         CompilationArtifact on = new CompilerPipeline(UnfreedMode.OFF, true,
-                (mode, sources, explain) -> SemanticObserverBridge.create(
-                        mode, sources, explain, counts, late.path())).analyze(List.of(late));
+                (mode, explain) -> SemanticObserverBridge.create(
+                        mode, explain, counts, late.path())).analyze(List.of(late));
         CompilationArtifact off = new CompilerPipeline(UnfreedMode.OFF, false, null)
                 .analyze(List.of(late));
         require(!on.valid() && samePrimaries(off, on) && counts.completed(),

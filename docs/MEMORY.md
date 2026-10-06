@@ -54,6 +54,12 @@ files. Linking checks reconstructed source again, so compiling with
 `--unfreed=off` does not silence a later link: pass it to both commands when
 suppression is intended. Warnings are printed to standard error.
 
+Findings cover the whole analyzed program: application sources, class-path and
+archive dependencies, and the bundled standard library, in the same way for a
+command-line compile or link, the language server, and the in-process compiler
+API (D280). A finding in library code is a leak of the final program, which
+user code can cause, for example through an override the library calls.
+
 Every mode preserves mandatory errors for unsafe reclamation, use after free,
 and double free. If the compiler cannot prove a `free` safe, it rejects it.
 These options do not change runtime allocation behavior: unnamed temporaries

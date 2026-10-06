@@ -2294,6 +2294,8 @@ abandonment findings to errors before writing output; `off` disables only this
 check. Repeated selections use the last value. Invalid values are usage errors.
 Class and archive source reconstruction reruns the check at final link, so the
 selection is per invocation and is not stored in `.ironclass` or `.ironjar`.
+The check covers every analyzed source, including dependencies and the bundled
+standard library that `CompilerPipeline` adds, in every entry path (D280).
 The local `@SuppressUnfreed` directive instead survives in preserved source and
 exempts its initializer's tracked allocation at either stage, even in strict
 mode. Its AST flag is consumed only by the diagnostic tracker; it adds no IR,

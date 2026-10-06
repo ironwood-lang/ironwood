@@ -1140,8 +1140,8 @@ final class TemporaryReclamationTests {
                 """);
         SemanticObserverBridge.Counts counts = new SemanticObserverBridge.Counts();
         CompilationArtifact artifact = new CompilerPipeline(UnfreedMode.OFF, false,
-                (mode, sources, explain) -> SemanticObserverBridge.create(
-                        mode, sources, explain, counts, source.path()))
+                (mode, explain) -> SemanticObserverBridge.create(
+                        mode, explain, counts, source.path()))
                 .analyze(List.of(source));
         require(artifact.valid(), "guard program must compile: " + artifact.diagnostics());
         Map<String, String> effects = counts.projections().get("EFFECT");

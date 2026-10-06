@@ -1504,12 +1504,12 @@ and the relevant final analysis. Preserve existing constructor entry points
 with the mode disabled. A small boolean or two-value selection is sufficient;
 do not introduce a general configuration framework for one feature.
 
-Pass explanation selection independently of `UnfreedMode` and `unfreedSources`.
+Pass explanation selection independently of `UnfreedMode`.
 It applies to every eligible rejection in final analysis, including application,
 source-path, class/archive dependency, and pipeline-added bundled-library code.
-`CompilerPipeline` supplies the original input-source set for missing-free checks
-after adding bundled units; `SemanticAnalyzer.lowerFunctions` uses that set to
-filter only those checks. Do not derive explanation enablement from its local
+Since D280 missing-free checks cover the same complete source scope; an earlier
+filter limited them to the pipeline's input sources. Do not derive explanation
+enablement from its local
 `mode`, `checkUnfreed`, or `withUnfreedChecks` decision. Wire the separate selection
 through methods, constructors, destructors, static initializers, and later
 validators. Provisional/final phase readiness remains a separate gate.
@@ -2177,13 +2177,13 @@ and field/layout cost still fall under section 9's normal-mode measurements.
 constructor directly with parsed units. For pipeline tests, allow a narrow
 package-private `SemanticAnalyzerFactory` and constructor overload in
 `ironwood.compiler`: a nullable factory receives the pipeline's actual unfreed
-mode, source selection, and explanation setting and returns a `SemanticAnalyzer`.
+mode and explanation setting and returns a `SemanticAnalyzer`.
 Normal construction leaves that factory null and creates the analyzer directly
 as today. A test-only bridge in the semantic package constructs the observed
 analyzer; a compiler-package test supplies it through the factory. Any public
 bridge needed by the registered test runner lives only under `src/test/java`.
-This preserves the real parser, bundled dependency loading, input filtering,
-and compile/link preparation; do not duplicate those phases or expose the
+This preserves the real parser, bundled dependency loading, and compile/link
+preparation; do not duplicate those phases or expose the
 package-private observer through a production public type to cross packages.
 
 **Observation points and counting rules.** Deliver these lifecycle/round hooks

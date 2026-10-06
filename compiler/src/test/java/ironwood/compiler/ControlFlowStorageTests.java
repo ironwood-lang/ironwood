@@ -255,8 +255,8 @@ final class ControlFlowStorageTests {
     private static CompilationArtifact analyze(SourceFile source, boolean explain,
                                                SemanticObserverBridge.Counts counts) {
         return new CompilerPipeline(UnfreedMode.OFF, explain,
-                counts == null ? null : (mode, paths, enabled) ->
-                        SemanticObserverBridge.create(mode, paths, enabled,
+                counts == null ? null : (mode, enabled) ->
+                        SemanticObserverBridge.create(mode, enabled,
                                 counts, source.path())).analyze(List.of(source));
     }
 
@@ -269,8 +269,8 @@ final class ControlFlowStorageTests {
                                                SemanticObserverBridge.Counts counts,
                                                int[] limit) {
         return new CompilerPipeline(UnfreedMode.OFF, true,
-                (mode, paths, explain) -> SemanticObserverBridge.createWithLimits(
-                        mode, paths, explain, counts, source.path(),
+                (mode, explain) -> SemanticObserverBridge.createWithLimits(
+                        mode, explain, counts, source.path(),
                         limit[0], limit[1], limit[2])).analyze(List.of(source));
     }
 

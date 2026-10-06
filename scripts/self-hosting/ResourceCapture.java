@@ -95,8 +95,8 @@ public final class ResourceCapture {
                         state.diagnostics = List.copyOf(diagnostics);
                     } else {
                         CompilerPipeline pipeline = new CompilerPipeline(UnfreedMode.WARN, explain,
-                                observe ? (mode, paths, enabled) -> SemanticObserverBridge.create(
-                                        mode, paths, enabled, counts, source.path()) : null);
+                                observe ? (mode, enabled) -> SemanticObserverBridge.create(
+                                        mode, enabled, counts, source.path()) : null);
                         state.artifact = pipeline.compile(List.of(source));
                         state.diagnostics = state.artifact.diagnostics();
                         if (state.artifact.successful()) {

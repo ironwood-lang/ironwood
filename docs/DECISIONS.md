@@ -10887,3 +10887,36 @@ occurrence order. If no
   implementation, report exactly one diagnostic each, and 1,120 compiler-test
   fragments give the same output as before this decision, the 187 valid ones
   unchanged from before D278.
+
+## D280 - Check missing frees across the whole analyzed program in every entry path
+
+- **Status:** Accepted and implemented. Amends D140's scope, which its implementation
+  limited to the sources a caller passed to the pipeline.
+- **Context:** The command line loads bundled standard-library and class-path
+  sources as inputs, so its missing-free checks covered them. The in-process
+  compiler API and the language server pass only their own sources and let the
+  pipeline add bundled units, which the check then skipped. The same program could
+  therefore report a leak through one path and not through another. Leaving bundled
+  code out was reasonable while the standard library had unrepaired omissions
+  (D140); it is now built with `--unfreed=error`.
+- **Decision:** `--unfreed` governs proven abandonment in the whole analyzed
+  program: application sources, class-path and archive dependencies, and the
+  bundled standard library, identically in a command-line compile or link, the
+  language server, the bridge producer and the in-process API. The per-source
+  filter is removed from `SemanticAnalyzer` and `CompilerPipeline`.
+- **Analysis:** D140 already re-checks reconstructed dependency bodies at final
+  link, and mandatory safety errors already report closed-world consequences in
+  bundled code, such as a library destructor that a retaining user override makes
+  unprovable. A leak in library code that user code causes is a leak of the final
+  program, so strict mode must not succeed while one is proved. Only definite
+  abandonment is reported (D140), so uncertain library facts produce no finding.
+- **Boundary:** No safety proof, lowering or runtime behavior changes; only which
+  existing findings are reported. The language server publishes a finding to the
+  file that contains it, as it already does for bundled safety errors.
+- **Verification:** A leak planted in a copy of the standard library is reported
+  identically through the command line and the in-process pipeline as a warning
+  or an error, and by neither with `off`; before this change only the command line
+  reported it. Under refined facts, compiling 72 examples, 1,120 compiler-test
+  fragments and 160 stability programs through the command line, which already
+  checked bundled code, produced no bundled missing-free finding, so in-process
+  and language-server results for those programs are unchanged.
