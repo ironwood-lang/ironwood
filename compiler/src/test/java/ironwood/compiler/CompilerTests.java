@@ -929,6 +929,18 @@ public final class CompilerTests {
                 CodecTests::writerInterop);
         test("M5.2 inflate and ZIP writer borrow inputs and own their results", CodecTests::ownership);
         test("M5.2 inflate and ZIP writer unwind every allocation failure", CodecTests::failures);
+        test("M5.3 native readers reproduce the Java verdicts on the archive corpus", ArchiveServiceTests::corpusVerdicts);
+        test("M5.3 native readers decode Java-written class artifacts and archives",
+                ArchiveServiceTests::javaWriterNativeReader);
+        test("M5.3 Java readers decode native-written class artifacts and archives",
+                ArchiveServiceTests::nativeWriterJavaReader);
+        test("M5.3 native archives round-trip and stay deterministic", ArchiveServiceTests::roundTrips);
+        test("M5.3 native archive creation reports Java's diagnostics", ArchiveServiceTests::creationDiagnostics);
+        test("M5.3 staged publication replaces archives and leaves nothing behind", ArchiveServiceTests::publication);
+        test("M5.3 archive services borrow inputs and own their results", ArchiveServiceTests::ownership);
+        test("M5.3 archive services unwind every allocation failure without leftovers", ArchiveServiceTests::failures);
+        test("M5.3 library discovery matches Java's archive class and source roots", ArchiveServiceTests::discovery);
+        test("M5.3 file tree walks unwind allocation failure while opening directories", ArchiveServiceTests::walkFailures);
         test("compiler work queue keeps queued items alive and its ring private", WorkQueueTests::ownership);
         test("compiler worklists preserve FIFO and retain-filter order across artifacts and failures",
                 WorkQueueTests::artifacts);

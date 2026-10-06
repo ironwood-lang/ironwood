@@ -1,0 +1,120 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.port;
+
+import ironwood.io.IOException;
+import ironwood.nio.file.Path;
+
+/**
+ * The canonical types the bundled standard library owns, as
+ * StandardLibrary's constructor discovers them: the four core types, then
+ * every type indexed by a library archive, then every {@code .ironclass} and
+ * {@code .iron} file under the class and source roots, named by its relative
+ * path with the extension removed and separators turned into dots. Blank
+ * names are skipped; names such as {@code ironwood.lang.package-info} are
+ * kept, as Java keeps them. Like Java it ignores an archive or root it cannot read; unlike Java's
+ * stream, a failure part-way through a root skips that root instead of
+ * escaping as an unchecked exception. Each ignored failure keeps its caught
+ * exception. Membership is a hash lookup; the list owns its names.
+ */
+public final class LibraryTypes {
+
+    private TextList types;
+    private int ignored;
+
+    /**
+     * Discovers the owned types. A failure of the discovery itself, such as an
+     * allocation failure, rolls back the partly built list.
+     *
+     * @param archives StandardLibrary's archives; borrowed
+     * @param classRoots its class roots; borrowed
+     * @param sourceRoots its source roots; borrowed
+     * @param inflate the decoder for DEFLATED archive entries; borrowed
+     */
+    public LibraryTypes(LibraryRoots archives, LibraryRoots classRoots, LibraryRoots sourceRoots, Inflate inflate) {
+
+        this.types = new TextList();
+        this.add("ironwood.lang.Object");
+        this.add("ironwood.lang.String");
+        this.add("ironwood.lang.System");
+        this.add("ironwood.io.PrintStream");
+        for (int index = 0; index < archives.size(); index++) this.archive(archives.root(index), inflate);
+        for (int index = 0; index < classRoots.size(); index++) this.files(classRoots.root(index), IronClassArtifact.EXTENSION);
+        for (int index = 0; index < sourceRoots.size(); index++) this.files(sourceRoots.root(index), ".iron");
+    }
+
+    /** @return whether the library owns the canonical type */
+    public boolean owns(String canonical) {
+
+        return this.types.indexOf(canonical) >= 0;
+    }
+
+    /** @return the number of owned types */
+    public int size() {
+
+        return this.types.size();
+    }
+
+    /** @return how many archives and roots were skipped because they could not be read */
+    public int ignored() {
+
+        return this.ignored;
+    }
+
+    /** @return a fresh String holding owned type index, in discovery order */
+    public String type(int index) {
+
+        return this.types.get(index);
+    }
+
+    private void add(String name) {
+
+        if (this.types.indexOf(name) < 0) this.types.add(name);
+    }
+
+    // StandardLibrary.discoverArchiveTypes.
+    private void archive(Path path, Inflate inflate) {
+
+        try {
+            IronJarArchive archive = new IronJarArchive(path, inflate);
+            defer free archive;
+            for (int type = 0; type < archive.typeCount(); type++) {
+                String name = archive.type(type);
+                defer free name;
+                this.add(name);
+            }
+        } catch (IOException skipped) {
+            // locate() reports an actionable error if a requested type needs this archive.
+            this.ignored++;
+        }
+    }
+
+    // StandardLibrary.discoverTypes.
+    private void files(Path root, String extension) {
+
+        try {
+            FileCollector files = new FileCollector(root, extension);
+            defer free files;
+            String spelling = root.toString();
+            for (int index = 0; index < files.size(); index++) {
+                String relative = files.relative(index, spelling);
+                defer free relative;
+                String stem = relative.substring(0, relative.length() - extension.length());
+                defer free stem;
+                String slashed = stem.replace('\\', '/');
+                defer free slashed;
+                String name = slashed.replace('/', '.');
+                defer free name;
+                if (!name.isBlank()) this.add(name);
+            }
+        } catch (IOException skipped) {
+            // A missing individual root is handled by normal bundled-type lookup diagnostics.
+            this.ignored++;
+        }
+    }
+
+    destructor {
+
+        free this.types;
+    }
+}

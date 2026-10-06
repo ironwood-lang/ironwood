@@ -1,0 +1,331 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.port;
+
+import ironwood.io.IOException;
+import ironwood.nio.file.Files;
+import ironwood.nio.file.Path;
+
+/**
+ * The IronClass profile of a format-1 {@code .ironclass} artifact for the
+ * native compiler: Java's IronClass.read and IronClass.write over the
+ * port's local-header reader and STORED writer (D275). Reading keeps Java's
+ * checks, their order and their messages: every entry is read and verified
+ * first (container failures and duplicate names), then the manifest, the
+ * type index, the single {@code source/*.iron} entry, each index line, the
+ * nonempty type set and the entry point. Text decodes with U+FFFD
+ * replacement, as Java's {@code new String(bytes, UTF_8)} does; directories
+ * and unknown entries are ignored.
+ *
+ * <p>Writing takes the fields Java derives from the parsed unit (the artifact
+ * type, whether it is an interface, the entry point and the source file's
+ * name and content) and writes STORED entries in Java's order directly to the
+ * destination, as IronClass.write does: there is no staging. The artifact
+ * owns its strings and type lists; accessors lend them.
+ */
+public final class IronClassArtifact {
+
+    /** The artifact file extension. */
+    public static final String EXTENSION = ".ironclass";
+
+    private static final String MANIFEST = "META-INF/IRONWOOD.MF";
+    private static final String TYPE_INDEX = "META-INF/types.tsv";
+    private static final String ENTRY_POINT = "META-INF/entry-point";
+    private static final String SOURCE_DIRECTORY = "source/";
+    private static final String FORMAT = "Ironwood-Class-Format: 1\n";
+
+    private String display;
+    private TextList types;
+    private TextList kinds;
+    private boolean manifestValid;
+    private String indexText;
+    private String entryText;
+    private String entryPoint;
+    private String sourceEntry;
+    private String source;
+    private int sourceCount;
+
+    /**
+     * Reads an artifact from memory, as IronClass.read(byte[], String) does. A
+     * failure, including an allocation failure, rolls back the partly read
+     * artifact.
+     *
+     * @param artifact the artifact's bytes; borrowed
+     * @param displayPath the name used in messages and source paths; copied
+     * @param inflate the decoder for DEFLATED entries; borrowed
+     * @throws IOException with Java's message if the artifact is invalid
+     */
+    public IronClassArtifact(byte[] artifact, String displayPath, Inflate inflate) throws IOException {
+
+        this.display = new String(displayPath);
+        this.types = new TextList();
+        this.kinds = new TextList();
+        this.entries(artifact, inflate);
+        this.validate();
+    }
+
+    /**
+     * Reads an artifact file, as IronClass.read(Path) does: the display path
+     * is the file's absolute, normalized spelling.
+     *
+     * @param artifact the file; borrowed
+     * @param inflate the decoder for DEFLATED entries; borrowed
+     * @return a fresh artifact, owned by the caller
+     * @throws IOException if the file cannot be read or is invalid
+     */
+    public static IronClassArtifact read(Path artifact, Inflate inflate) throws IOException {
+
+        Path absolute = artifact.toAbsolutePath();
+        defer free absolute;
+        Path normalized = absolute.normalize();
+        defer free normalized;
+        byte[] bytes = Files.readAllBytes(normalized);
+        defer free bytes;
+        return new IronClassArtifact(bytes, normalized.toString(), inflate);
+    }
+
+    // Reads and verifies every entry, keeping only what the profile needs.
+    private void entries(byte[] artifact, Inflate inflate) throws IOException {
+
+        ZipStream stream = new ZipStream();
+        defer free stream;
+        while (true) {
+            byte[] data = stream.next(artifact, inflate, this.display);
+            if (data == null) return;
+            defer free data;
+            int entry = stream.count() - 1;
+            if (!stream.isDirectory()) {
+                if (stream.earlierName(entry) >= 0) {
+                    String name = stream.name(entry);
+                    defer free name;
+                    throw new IOException("duplicate entry '" + name + "' in " + this.display);
+                }
+                this.keep(stream, entry, data);
+            }
+        }
+    }
+
+    private void keep(ZipStream stream, int entry, byte[] data) {
+
+        if (stream.nameEquals(entry, MANIFEST)) {
+            this.manifestValid = asciiEquals(data, FORMAT);
+        } else if (stream.nameEquals(entry, TYPE_INDEX)) {
+            if (this.indexText == null) this.indexText = new String(data);
+        } else if (stream.nameEquals(entry, ENTRY_POINT)) {
+            if (this.entryText == null) this.entryText = new String(data);
+        }
+        if (stream.nameStartsWith(entry, SOURCE_DIRECTORY) && stream.nameEndsWith(entry, ".iron")) {
+            this.sourceCount++;
+            if (this.sourceEntry == null) {
+                this.sourceEntry = stream.name(entry);
+                this.source = new String(data);
+            }
+        }
+    }
+
+    // Java's text comparison of a manifest decoded with replacement: equal
+    // bytes, since the format line is ASCII and a replaced byte cannot match.
+    private static boolean asciiEquals(byte[] data, String text) {
+
+        if (data.length != text.length()) return false;
+        for (int index = 0; index < data.length; index++) {
+            if (data[index] != text.charAt(index)) return false;
+        }
+        return true;
+    }
+
+    private void validate() throws IOException {
+
+        if (!this.manifestValid) throw new IOException("unsupported or missing Ironwood class manifest in " + this.display);
+        if (this.indexText == null) throw new IOException("missing " + TYPE_INDEX + " in " + this.display);
+        if (this.sourceCount != 1) {
+            throw new IOException("Ironwood class must contain exactly one source entry: " + this.display);
+        }
+        // String.lines(): LF, CR or CRLF end a line; no line follows a final terminator.
+        int start = 0;
+        int length = this.indexText.length();
+        while (start < length) {
+            int end = start;
+            while (end < length && this.indexText.charAt(end) != '\n' && this.indexText.charAt(end) != '\r') end++;
+            this.line(start, end);
+            if (end + 1 < length && this.indexText.charAt(end) == '\r' && this.indexText.charAt(end + 1) == '\n') {
+                start = end + 2;
+            } else {
+                start = end + 1;
+            }
+        }
+        if (this.types.size() == 0) throw new IOException("Ironwood class contains no declared types: " + this.display);
+        if (this.entryText != null) this.entryPoint = nonEmptyTrim(this.entryText);
+        if (this.entryPoint != null && this.types.indexOf(this.entryPoint) < 0) {
+            throw new IOException("Ironwood class entry point is not a declared type: " + this.entryPoint);
+        }
+    }
+
+    // The trimmed text as a fresh String, or null when nothing remains.
+    private static String nonEmptyTrim(String text) {
+
+        String trimmed = text.trim();
+        if (!trimmed.isEmpty()) return trimmed;
+        free trimmed;
+        return null;
+    }
+
+    // One String.lines() line of the index, [start, end) of its text.
+    private void line(int start, int end) throws IOException {
+
+        String line = this.indexText.substring(start, end);
+        defer free line;
+        if (line.isBlank()) return;
+        int[] fields = Splits.bounds(line, '\t', -1);
+        defer free fields;
+        if (Splits.count(fields) != 2) throw new IOException("invalid type index entry in " + this.display + ": " + line);
+        String name = Splits.field(line, fields, 0);
+        defer free name;
+        String kind = Splits.field(line, fields, 1);
+        defer free kind;
+        if (name.isBlank() || kind.isBlank()) {
+            throw new IOException("invalid type index entry in " + this.display + ": " + line);
+        }
+        if (!kind.equals("class") && !kind.equals("interface")) {
+            throw new IOException("invalid type kind in " + this.display + ": " + kind);
+        }
+        if (this.types.indexOf(name) >= 0) throw new IOException("duplicate class type '" + name + "' in " + this.display);
+        this.types.add(name);
+        this.kinds.add(kind);
+    }
+
+    /** @return the number of declared types, in index order */
+    public int typeCount() {
+
+        return this.types.size();
+    }
+
+    /** @return a fresh String holding declared type index, owned by the caller */
+    public String type(int index) {
+
+        return this.types.get(index);
+    }
+
+    /** @return whether declared type index is an interface */
+    public boolean isInterface(int index) {
+
+        return this.kinds.equalsText(index, "interface");
+    }
+
+    /** @return whether the artifact declares the canonical type */
+    public boolean declares(String canonical) {
+
+        return this.types.indexOf(canonical) >= 0;
+    }
+
+    /** @return whether declared type index's name after its last '.' equals simpleName */
+    public boolean declaresSimpleName(int index, String simpleName) {
+
+        int length = this.types.length(index);
+        int dot = -1;
+        for (int unit = 0; unit < length; unit++) {
+            if (this.types.charAt(index, unit) == '.') dot = unit;
+        }
+        if (length - dot - 1 != simpleName.length()) return false;
+        for (int unit = 0; unit < simpleName.length(); unit++) {
+            if (this.types.charAt(index, dot + 1 + unit) != simpleName.charAt(unit)) return false;
+        }
+        return true;
+    }
+
+    /** @return the entry-point type, lent by the artifact, or null */
+    public String entryPoint() {
+
+        return this.entryPoint;
+    }
+
+    /** @return the source entry's name, lent by the artifact */
+    public String sourceEntry() {
+
+        return this.sourceEntry;
+    }
+
+    /** @return the decoded source text, lent by the artifact */
+    public String source() {
+
+        return this.source;
+    }
+
+    /** @return a fresh source path, {@code <display>!/<source entry>}, owned by the caller */
+    public String sourcePath() {
+
+        return this.display + "!/" + this.sourceEntry;
+    }
+
+    /**
+     * Writes an artifact as IronClass.write does, with STORED entries:
+     * creates the parent directories and writes the destination directly.
+     *
+     * @param artifact the destination; borrowed
+     * @param artifactType the canonical binary name of the declared type
+     * @param isInterface whether that type is an interface
+     * @param entryPoint the type itself when it declares an entry method, or null
+     * @param sourceName the source file's name
+     * @param content the compilation unit's text
+     * @throws IOException if the file cannot be written
+     */
+    public static void write(Path artifact, String artifactType, boolean isInterface, String entryPoint,
+                             String sourceName, String content) throws IOException {
+
+        Path absolute = artifact.toAbsolutePath();
+        defer free absolute;
+        Path normalized = absolute.normalize();
+        defer free normalized;
+        Path parent = normalized.getParent();
+        if (parent != null) {
+            defer free parent;
+            Files.createDirectories(parent);
+        }
+        byte[] bytes = bytes(artifactType, isInterface, entryPoint, sourceName, content);
+        defer free bytes;
+        Files.write(normalized, bytes);
+    }
+
+    /**
+     * @return a fresh array holding the artifact's STORED archive, owned by the caller
+     * @throws IOException if an entry cannot be encoded
+     */
+    public static byte[] bytes(String artifactType, boolean isInterface, String entryPoint, String sourceName,
+                               String content) throws IOException {
+
+        ZipWriter writer = new ZipWriter();
+        defer free writer;
+        add(writer, MANIFEST, FORMAT);
+        String index = artifactType + "\t" + (isInterface ? "interface" : "class") + "\n";
+        defer free index;
+        add(writer, TYPE_INDEX, index);
+        if (entryPoint != null) {
+            String line = entryPoint + "\n";
+            defer free line;
+            add(writer, ENTRY_POINT, line);
+        }
+        String sourceEntry = SOURCE_DIRECTORY + sourceName;
+        defer free sourceEntry;
+        add(writer, sourceEntry, content);
+        return writer.finish();
+    }
+
+    private static void add(ZipWriter writer, String name, String text) throws IOException {
+
+        byte[] bytes = text.getBytes();
+        defer free bytes;
+        writer.add(name, bytes, 0, bytes.length);
+    }
+
+    destructor {
+
+        free this.display;
+        free this.types;
+        free this.kinds;
+        if (this.indexText != null) free this.indexText;
+        if (this.entryText != null) free this.entryText;
+        if (this.entryPoint != null) free this.entryPoint;
+        if (this.sourceEntry != null) free this.sourceEntry;
+        if (this.source != null) free this.source;
+    }
+}

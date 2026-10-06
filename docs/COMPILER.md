@@ -918,7 +918,9 @@ built from the same class files equals the Java one byte for byte. Every
 reader accepts both methods, including DEFLATED class payloads inside a STORED
 archive, through the compiler-private RFC 1951 decoder in the port; no zlib is
 linked for archives. The frozen container contract is
-[the M5.1 record](self-hosting/m5/ARCHIVES.md).
+[the M5.1 record](self-hosting/m5/ARCHIVES.md); the port's IronClass and
+IronJar services that keep each profile's Java checks and messages, and the
+standard-library discovery they serve, are recorded in D276.
 
 The compiler build also compiles declarations below `stdlib/src/main/ironwood`
 into ordinary format-1 `.ironclass` files and packages them deterministically as

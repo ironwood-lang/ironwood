@@ -10657,3 +10657,80 @@ occurrence order. If no
   JarInputStream, the `jar` tool, `java -jar` and a class loader. Ownership
   pairs hold in every unfreed mode and every allocation failure unwinds. See
   [the M5.2 record](self-hosting/m5/CODEC.md).
+
+## D276 - Give the compiler port its archive services and library discovery
+
+- **Status:** Implemented during M5.3 on 2026-10-06.
+- **Decision:** The compiler port gains the S6 artifact services on D275's
+  profiles, so the ports of IronClass, IronJar, SourceSetLoader,
+  StandardLibrary, Main's class outputs and IronJarMain can use them; the Java
+  seed is unchanged.
+  - **Containers.** `ZipStream` reads local headers in order, as
+    `ZipInputStream` does for IronClass, and `ZipArchive` reads the central
+    directory, as `ZipFile` does for IronJar (end-record search tolerating
+    trailing bytes whose directory checks out, ZIP64 end records and extras,
+    prefixes, iteration by directory size), each with D275's native policies.
+    Archive bytes are passed to each call, never kept by a view.
+  - **Profiles.** `IronClassArtifact` reads with IronClass.read's checks,
+    order and messages and writes STORED entries directly to the destination,
+    from the fields Java derives from the parsed unit (type, kind, entry point,
+    source name and content). `IronJarArchive` reads with IronJar.read's
+    checks, order and messages, looks payloads up lazily through nested class
+    artifacts (DEFLATED or STORED), and creates archives with IronJar.create's
+    input handling and messages, then publishes them staged beside the
+    destination with `Files.moveReplacing` (D271), deleting the stage on
+    every other exit. Inputs and licenses are `TextList` owners: a String
+    array parameter exposes its elements to every analyzed call, so a caller
+    could never free them.
+  - **Helpers.** `TextList` owns many texts in one UTF-16 buffer with String
+    and code point (Java Path) orders, binary search and a String-hash index;
+    `ArchiveEntries` owns names and contents of an archive being built;
+    `FileCollector` is B3's walk replacing `Files.walk` inventories, keeping
+    spellings of regular files (links followed) with an extension, in Path
+    order.
+  - **Discovery.** `Installation.libraryArchives` and `libraryClassRoots` add
+    StandardLibrary.discover's archive and class roots that D269 left to S6,
+    and `LibraryTypes` its owned types: the core types, archive indexes, and
+    class and source root inventories, with Java's names.
+  - **Walk fix.** `Files.walkFileTree` now releases a directory's visited
+    attributes when an allocation failure interrupts building its stream or its
+    traversal-loop check; before, each such failure kept them.
+- **Recorded differences from the Java baseline:** CRC and size are verified
+  for every entry read (Java's `ZipFile` verifies neither); a malformed entry
+  name is an artifact error (Java's `ZipInputStream` lets an unchecked
+  IllegalArgumentException escape `IronClass.read`); container messages are
+  native; when several indexed entries are missing, the first in index order
+  is named (Java names the first in HashSet order); a traversal failure in an
+  archive input or library root is an IOException, so creation reports it and
+  discovery skips the root (Java's stream throws an unchecked exception);
+  native class artifacts are STORED (D275). Profile messages are Java's text.
+- **Proof:** No analysis, runtime or lowering change. Three conservative
+  rejections shaped the code: a field-element store whose value or index comes
+  from a call, which leaves the field's ownership uncertain (computed into a
+  local first); a copy destination freed in the copying frame (copies come
+  from `Bytes.slice` or the decoder's fresh result); and a String array
+  parameter, which exposes its elements (owners instead). Readers and
+  collectors do their work in constructors, whose rollback releases a partly
+  built object on any failure.
+- **Boundary:** Archives and decoded entries are held in memory, limited to
+  the array range; a native archive build holds each input's bytes, the
+  entry contents and the assembled archive at once. The AST-derived class
+  fields, the source file wrapper and `StandardLibrary.locate`'s search order
+  remain S6's port. A caught exception cannot be freed, so each archive or
+  root discovery skips keeps its exception and message. Supersedes no
+  decision.
+- **Verification:** On 144 corpus variants the native readers give the frozen
+  Java verdicts, profile messages exactly, apart from the five recorded policy
+  cases; every Java-built standard-library class artifact and archive and the
+  frozen fixtures read natively with Java's types, entry points, sources and
+  paths; native rewrites of all 252 standard-library class artifacts equal
+  Java's STORED spelling and read back in Java; a native archive of Java's
+  class directory equals Java's standard-library archive byte for byte, and
+  one of the native class directory reads back in Java; repeated, directory
+  and reordered-file builds are byte-identical; 14 invalid creations report
+  Java's messages and publish nothing; publication replaces, keeps the
+  earlier archive on failure, creates parents and leaves no stage; ownership
+  pairs hold in every unfreed mode; every allocation failure unwinds with no
+  stage left; discovery equals Java's in eight layouts; and the walk sweep
+  that leaked before the fix now unwinds. See
+  [the M5.3 record](self-hosting/m5/ARTIFACTS.md).

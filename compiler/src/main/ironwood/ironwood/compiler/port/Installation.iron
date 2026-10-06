@@ -14,9 +14,9 @@ import ironwood.nio.file.Path;
  * checkout) or class directory, canonical as Java's class path entry is;
  * null stands for an unknown location, as when the Java lookup fails. The
  * current directory is searched after it, and IRONWOOD_RUNTIME_HOME and
- * IRONWOOD_STDLIB_HOME keep their Java meaning. Only library source roots
- * are discovered: archive and class roots are S6 facilities, so the
- * source-only route never prefers an installed archive.
+ * IRONWOOD_STDLIB_HOME keep their Java meaning. Library source roots serve
+ * the source-only route; the archive and class roots (M5.3) are the S6
+ * facilities, so that route still never prefers an installed archive.
  *
  * <p>Inputs are borrowed. Every intermediate Path is freed on every exit,
  * including allocation failure.
@@ -93,6 +93,48 @@ public final class Installation {
         Path current = absolute("");
         defer free current;
         roots.addDirectories(current);
+    }
+
+    /**
+     * StandardLibrary.discover's archives, recorded in roots in Java's order
+     * without duplicates: {@code lib/ironwood-stdlib.ironjar} then
+     * {@code compiler/build/ironwood-stdlib.ironjar} regular files under each
+     * root and its ancestors, the roots being IRONWOOD_STDLIB_HOME when it is
+     * set, otherwise the location's root and then the current directory.
+     */
+    public static void libraryArchives(Path location, LibraryRoots roots) {
+
+        discover(location, roots, "lib/ironwood-stdlib.ironjar", "compiler/build/ironwood-stdlib.ironjar", true);
+    }
+
+    /**
+     * StandardLibrary.discover's class roots: {@code lib/stdlib} then
+     * {@code compiler/build/stdlib} directories, found as the archives are.
+     */
+    public static void libraryClassRoots(Path location, LibraryRoots roots) {
+
+        discover(location, roots, "lib/stdlib", "compiler/build/stdlib", false);
+    }
+
+    private static void discover(Path location, LibraryRoots roots, String first, String second, boolean files) {
+
+        String explicit = System.getenv("IRONWOOD_STDLIB_HOME");
+        if (explicit != null && !explicit.isBlank()) {
+            defer free explicit;
+            Path home = absolute(explicit);
+            defer free home;
+            roots.addEach(home, first, second, files);
+            return;
+        }
+        if (explicit != null) free explicit;
+        Path code = codeRoot(location);
+        if (code != null) {
+            defer free code;
+            roots.addEach(code, first, second, files);
+        }
+        Path current = absolute("");
+        defer free current;
+        roots.addEach(current, first, second, files);
     }
 
     // The location if it is a directory, otherwise its parent.

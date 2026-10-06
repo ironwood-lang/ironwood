@@ -172,14 +172,14 @@ jar.index-canonical-unicode error java.io.IOException: invalid canonical type 'q
 jar.index-empty-component error java.io.IOException: invalid canonical type 'p..A' in <root>/jar/index-empty-component.ironjar
 jar.index-path-mismatch error java.io.IOException: type 'p.A' must map to 'p/A.ironclass' in <root>/jar/index-path-mismatch.ironjar
 jar.index-malformed error java.io.IOException: invalid UTF-8 in 'META-INF/types.tsv' in <root>/jar/index-malformed.ironjar
-jar.unsafe ../evil error java.io.IOException: unsafe archive entry path '../evil' in <root>/jar/unsafe_..%evil.ironjar
-jar.unsafe /evil error java.io.IOException: unsafe archive entry path '/evil' in <root>/jar/unsafe_%evil.ironjar
-jar.unsafe a\b error java.io.IOException: unsafe archive entry path 'a\b' in <root>/jar/unsafe_a%b.ironjar
-jar.unsafe a:b error java.io.IOException: unsafe archive entry path 'a:b' in <root>/jar/unsafe_a%b.ironjar
-jar.unsafe a//b error java.io.IOException: unsafe archive entry path 'a//b' in <root>/jar/unsafe_a%%b.ironjar
-jar.unsafe ./a error java.io.IOException: unsafe archive entry path './a' in <root>/jar/unsafe_.%a.ironjar
-jar.unsafe a/../b error java.io.IOException: unsafe archive entry path 'a/../b' in <root>/jar/unsafe_a%..%b.ironjar
-jar.unsafe a/ error java.io.IOException: unsafe archive entry path 'a/' in <root>/jar/unsafe_a%.ironjar
+jar.unsafe ../evil error java.io.IOException: unsafe archive entry path '../evil' in <root>/jar/unsafe_..%2Fevil.ironjar
+jar.unsafe /evil error java.io.IOException: unsafe archive entry path '/evil' in <root>/jar/unsafe_%2Fevil.ironjar
+jar.unsafe a\b error java.io.IOException: unsafe archive entry path 'a\b' in <root>/jar/unsafe_a%5Cb.ironjar
+jar.unsafe a:b error java.io.IOException: unsafe archive entry path 'a:b' in <root>/jar/unsafe_a%3Ab.ironjar
+jar.unsafe a//b error java.io.IOException: unsafe archive entry path 'a//b' in <root>/jar/unsafe_a%2F%2Fb.ironjar
+jar.unsafe ./a error java.io.IOException: unsafe archive entry path './a' in <root>/jar/unsafe_.%2Fa.ironjar
+jar.unsafe a/../b error java.io.IOException: unsafe archive entry path 'a/../b' in <root>/jar/unsafe_a%2F..%2Fb.ironjar
+jar.unsafe a/ error java.io.IOException: unsafe archive entry path 'a/' in <root>/jar/unsafe_a%2F.ironjar
 jar.unsafe-nul error java.io.IOException: unsafe archive entry path 'a\x00b' in <root>/jar/unsafe-nul.ironjar
 jar.unsorted error java.io.IOException: archive entries are not strictly sorted in <root>/jar/unsorted.ironjar
 jar.nested error java.io.IOException: nested Ironwood archive is not permitted in <root>/jar/nested.ironjar: z.ironjar
@@ -187,6 +187,7 @@ jar.unexpected error java.io.IOException: unexpected archive entry 'z.txt' in <r
 jar.unindexed error java.io.IOException: unindexed Ironwood class entry 'z/Z.ironclass' in <root>/jar/unindexed.ironjar
 jar.unindexed-license error java.io.IOException: unindexed Ironwood class entry 'META-INF/LICENSES/x.ironclass' in <root>/jar/unindexed-license.ironjar
 jar.indexed-missing error java.io.IOException: missing indexed Ironwood class entry 'q/C.ironclass' in <root>/jar/indexed-missing.ironjar
+jar.indexed-missing-two error java.io.IOException: missing indexed Ironwood class entry 'q/C.ironclass' in <root>/jar/indexed-missing-two.ironjar
 jar.payload-malformed ok entries=META-INF/IRONWOOD.MF,META-INF/LICENSES/LICENSE,META-INF/types.tsv,p/A.ironclass,q/C.ironclass
   source p.A ok path=<root>/jar/payload-malformed.ironjar!/p/A.ironclass!/source/A.iron source=42b6b004e3180ac2
   source q.C error java.io.IOException: unsupported or missing Ironwood class manifest in <root>/jar/payload-malformed.ironjar!/q/C.ironclass

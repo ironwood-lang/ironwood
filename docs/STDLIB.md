@@ -664,7 +664,9 @@ maximum depth and link following without introducing Java's absent
 skipping, and sibling skipping. Streams close before post-visit callbacks and
 also close on abrupt callback completion. Follow-link traversal compares each
 directory with its ancestors and reports cycles through
-`FileSystemLoopException`.
+`FileSystemLoopException`. An allocation failure anywhere in a walk, including
+while a directory's stream or loop check is being built, releases that
+directory's attributes before it propagates (D276).
 
 Callback paths and attributes are borrowed until the callback returns. The
 compiler checks every possible closed-world visitor target and rejects a walk

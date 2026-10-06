@@ -228,3 +228,20 @@ unfreeable, so inputs travel as parameters and output goes through an owned
 scratch array. The decoder is one-shot over an in-memory range; incremental
 input is covered by offset independence and truncated prefixes and recorded as
 a boundary.
+
+## M5.3 increment (D276)
+
+One existing library contract changed: `Files.walkFileTree` kept a
+directory's attributes when an allocation failure interrupted building that
+directory's stream or traversal-loop check; it now releases them first. The
+consumers rerun were the three U5 traversal tests, the M4.1 failure and tree
+deletion tests and every M5.3 walk consumer. No analysis rule changed. The
+pre-change plan's String array inputs for archive creation were replaced by
+`TextList` owners, because an analyzed call exposes a String array's
+elements; a field-element store whose value or index comes from a call
+proved to leave field ownership uncertain, so such values are computed first.
+The M5.1 corpus generator gave two variants the same file name, so the frozen
+transcript was regenerated with distinct names and one added variant. The
+native IronJar reader names missing indexed entries in index order rather
+than reproducing Java's HashSet order, following M3.3's sort-and-record
+precedent for hash-ordered first failures.

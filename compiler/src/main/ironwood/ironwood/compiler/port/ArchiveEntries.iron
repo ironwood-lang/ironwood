@@ -1,0 +1,114 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.port;
+
+import ironwood.io.IOException;
+
+/**
+ * The entries of an archive being built: names in a TextList and their
+ * contents back to back in one owned buffer. It replaces the Java
+ * baseline's {@code TreeMap<String, byte[]>} and ClassPayload records, whose
+ * native counterparts would expose every array they hold. Names are distinct
+ * by construction of each profile; {@link #contains} checks one before it is
+ * added. Inputs are borrowed for each call.
+ */
+final class ArchiveEntries {
+
+    private TextList names;
+    private byte[] contents;
+    private int used;
+    // Start and length of each entry's contents, by insertion.
+    private int[] extents;
+
+    ArchiveEntries() {
+
+        this.names = new TextList();
+        this.contents = new byte[4096];
+        this.extents = new int[32];
+    }
+
+    int size() {
+
+        return this.names.size();
+    }
+
+    boolean contains(String name) {
+
+        return this.names.indexOf(name) >= 0;
+    }
+
+    // Appends an entry with a copy of data[offset, offset + length).
+    void add(String name, byte[] data, int offset, int length) {
+
+        if (offset < 0 || length < 0 || length > data.length - offset) throw new IndexOutOfBoundsException();
+        if ((long) this.used + length > 0x7FFFFFF0L) throw new IllegalStateException("archive contents exceed the array range");
+        if (this.used + length > this.contents.length) {
+            long capacity = (long) this.contents.length * 2;
+            if (capacity < (long) this.used + length) capacity = (long) this.used + length;
+            if (capacity > 0x7FFFFFF0L) capacity = 0x7FFFFFF0L;
+            byte[] previous = this.contents;
+            this.contents = new byte[(int) capacity];
+            System.arraycopy(previous, 0, this.contents, 0, this.used);
+            free previous;
+        }
+        // Computed before indexing the field, so no call falls between load and store.
+        int slot = this.names.size() * 2;
+        if (slot == this.extents.length) {
+            int[] previous = this.extents;
+            this.extents = new int[previous.length * 2];
+            System.arraycopy(previous, 0, this.extents, 0, previous.length);
+            free previous;
+        }
+        System.arraycopy(data, offset, this.contents, this.used, length);
+        this.extents[slot] = this.used;
+        this.extents[slot + 1] = length;
+        this.used = this.used + length;
+        this.names.add(name);
+    }
+
+    // Appends an entry holding the UTF-8 encoding of text.
+    void addText(String name, String text) {
+
+        byte[] bytes = text.getBytes();
+        defer free bytes;
+        this.add(name, bytes, 0, bytes.length);
+    }
+
+    // IronJar.create's index loop. This list holds the class payloads, one per
+    // canonical type in canonicals (same insertion order); in canonical order
+    // each adds its index line and its entry to target.
+    void appendIndex(TextList canonicals, StringBuilder index, ArchiveEntries target) throws IOException {
+
+        canonicals.sortStrings();
+        for (int position = 0; position < canonicals.size(); position++) {
+            int stored = canonicals.stored(position);
+            canonicals.appendTo(position, index);
+            index.append('\t');
+            this.names.appendTo(stored, index);
+            index.append('\n');
+            String name = this.names.get(stored);
+            defer free name;
+            if (target.contains(name)) throw new IOException("duplicate archive entry '" + name + "'");
+            target.add(name, this.contents, this.extents[stored * 2], this.extents[stored * 2 + 1]);
+        }
+    }
+
+    // Writes every entry, sorted by name in String order, to the writer.
+    void writeSorted(ZipWriter writer) throws IOException {
+
+        this.names.sortStrings();
+        for (int position = 0; position < this.names.size(); position++) {
+            int stored = this.names.stored(position);
+            String name = this.names.get(position);
+            defer free name;
+            writer.add(name, this.contents, this.extents[stored * 2], this.extents[stored * 2 + 1]);
+        }
+    }
+
+    destructor {
+
+        free this.names;
+        free this.contents;
+        free this.extents;
+    }
+}

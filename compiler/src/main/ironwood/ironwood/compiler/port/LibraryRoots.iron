@@ -58,6 +58,34 @@ public final class LibraryRoots {
         }
     }
 
+    // Records, under root and then under each ancestor, the first and then the
+    // second relative candidate that exists as a regular file (files) or a
+    // directory, as StandardLibrary.discover's addFile and addDirectory do.
+    void addEach(Path root, String first, String second, boolean files) {
+
+        this.addCandidate(root, first, files);
+        this.addCandidate(root, second, files);
+        Path parent = root.getParent();
+        if (parent != null) {
+            defer free parent;
+            this.addEach(parent, first, second, files);
+        }
+    }
+
+    private void addCandidate(Path root, String relative, boolean files) {
+
+        if (this.count == this.roots.length) this.grow();
+        Path candidate = Installation.child(root, relative);
+        defer free candidate;
+        boolean exists = files ? Files.isRegularFile(candidate) : Files.isDirectory(candidate);
+        if (exists && !this.contains(candidate)) {
+            // Record a fresh copy that no call has seen; the probe is freed.
+            Path recorded = candidate.normalize();
+            this.roots[this.count] = recorded;
+            this.count++;
+        }
+    }
+
     private boolean contains(Path directory) {
 
         for (int index = 0; index < this.count; index++) {

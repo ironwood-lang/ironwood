@@ -63,8 +63,8 @@ reproduces both Java writer profiles byte for byte, which pins every field:
 ## Accepted-input matrix
 
 [java-verdicts.txt](archive-evidence/java-verdicts.txt) records the Java
-readers' verdict on 143 generated variants: 65 class artifacts read with
-`IronClass.read` and 78 archives read with `IronJar.read` and then
+readers' verdict on 144 generated variants: 65 class artifacts read with
+`IronClass.read` and 79 archives read with `IronJar.read` and then
 `IronJar.source` for each indexed type (decoded sources are identified by
 their SHA-256 prefix; corpus paths are shown under `<root>`). Container-level
 messages are java.util.zip's; profile-level messages are the compiler's. By
@@ -120,6 +120,15 @@ Profile rules frozen by the same transcript, with their exact messages:
   `source` lookup.
 - **Declared types** are unordered: `declaredTypes()` iterates a `Map.copyOf`
   whose order varies between JVM runs, so no consumer may depend on it.
+- **Missing indexed entries** are checked in the order of a HashSet of their
+  paths, so with several missing the one Java names follows String hashes (M0
+  hash origin H0075; the corpus's `jar.indexed-missing-two` names `q/C` before
+  `p/B`).
+
+M5.3 regenerated the transcript once: two variants' file names had collided
+(`a\b` and `a:b` both became `unsafe_a%b`), so names now escape `%`, `/`,
+`\`, `:` and NUL distinctly, and the two-missing-entries variant was added.
+Every verdict other than those file names is unchanged.
 
 ## Serialization fixtures
 

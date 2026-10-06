@@ -1,0 +1,105 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.port;
+
+import ironwood.io.IOException;
+import ironwood.nio.file.FileVisitResult;
+import ironwood.nio.file.FileVisitor;
+import ironwood.nio.file.Files;
+import ironwood.nio.file.Path;
+import ironwood.nio.file.attribute.BasicFileAttributes;
+
+/**
+ * B3's replacement for the Java baseline's {@code Files.walk(root)} inventories
+ * in IronJar.collect and StandardLibrary.discoverTypes: a no-follow walk that
+ * keeps the spelling of every visited entry that {@code Files.isRegularFile}
+ * accepts (following links, as Java's filter does) and whose name ends with
+ * the extension, sorted afterwards in Java's Path order (code point order).
+ * Links to directories are not entered. Callback paths are borrowed and only
+ * their spellings are copied.
+ *
+ * <p>A traversal failure propagates as an IOException; Java's stream would
+ * throw an unchecked UncheckedIOException out of both callers instead.
+ */
+final class FileCollector implements FileVisitor<Path> {
+
+    private String extension;
+    private TextList files;
+
+    /**
+     * Walks root and keeps its matching files, sorted. A failure, including an
+     * allocation failure, rolls back the partly built collector.
+     *
+     * @param root the directory to walk; borrowed
+     * @param extension the file-name suffix to keep, such as {@code .ironclass}; copied
+     * @throws IOException if an entry cannot be read
+     */
+    FileCollector(Path root, String extension) throws IOException {
+
+        this.extension = new String(extension);
+        this.files = new TextList();
+        Files.walkFileTree(root, this);
+        this.files.sortCodePoints();
+    }
+
+    int size() {
+
+        return this.files.size();
+    }
+
+    /** @return a fresh String holding file index's spelling */
+    String file(int index) {
+
+        return this.files.get(index);
+    }
+
+    /**
+     * @return a fresh String holding file index's spelling after the root's,
+     *     as {@code root.relativize(file).toString()} spells a descendant
+     */
+    String relative(int index, String root) {
+
+        String file = this.files.get(index);
+        defer free file;
+        int start = root.length();
+        if (start < file.length() && !root.endsWith("/")) start++;
+        return file.substring(start);
+    }
+
+    @Override
+    public FileVisitResult preVisitDirectory(Path directory, BasicFileAttributes attributes) {
+
+        return FileVisitResult.CONTINUE;
+    }
+
+    @Override
+    public FileVisitResult visitFile(Path file, BasicFileAttributes attributes) throws IOException {
+
+        if (!Files.isRegularFile(file)) return FileVisitResult.CONTINUE;
+        Path name = file.getFileName();
+        if (name != null) {
+            defer free name;
+            if (name.toString().endsWith(this.extension)) this.files.add(file.toString());
+        }
+        return FileVisitResult.CONTINUE;
+    }
+
+    @Override
+    public FileVisitResult visitFileFailed(Path file, IOException failure) throws IOException {
+
+        throw failure;
+    }
+
+    @Override
+    public FileVisitResult postVisitDirectory(Path directory, IOException failure) throws IOException {
+
+        if (failure != null) throw failure;
+        return FileVisitResult.CONTINUE;
+    }
+
+    destructor {
+
+        free this.extension;
+        free this.files;
+    }
+}

@@ -398,6 +398,11 @@ final class ArchiveCorpus {
         jarEntries("jar.unindexed-license", entries -> insertAfter(entries, "META-INF/LICENSES/LICENSE",
                 "META-INF/LICENSES/x.ironclass", utf8("x")));
         jarEntries("jar.indexed-missing", entries -> entries.remove("q/C.ironclass"));
+        // Java names the first missing entry in HashSet order; native readers name the first in index order.
+        jarEntries("jar.indexed-missing-two", entries -> {
+            entries.put("META-INF/types.tsv", utf8("p.A\tp/A.ironclass\np.B\tp/B.ironclass\nq.C\tq/C.ironclass\n"));
+            entries.remove("q/C.ironclass");
+        });
         jarEntries("jar.payload-malformed", entries -> entries.put("q/C.ironclass", new byte[]{1, 2, 3}));
         jarEntries("jar.payload-wrong-type", entries -> entries.put("q/C.ironclass", classA().build()));
         jarEntries("jar.payload-stored", entries -> entries.put("q/C.ironclass", ironClass(false, "Ironwood-Class-Format: 1\n",
@@ -435,6 +440,12 @@ final class ArchiveCorpus {
             throw new java.io.UncheckedIOException(impossible);
         }
         return bytes.toByteArray();
+    }
+
+    /** A jar variant's file name: distinct for every label, with path-special characters escaped. */
+    static String fileName(String label) {
+        return label.substring(4).replace("%", "%25").replace(" ", "_").replace("/", "%2F").replace("\\", "%5C")
+                .replace(":", "%3A").replace("\0", "%00");
     }
 
     static String visible(String text) {
@@ -513,8 +524,7 @@ final class ArchiveCorpus {
             out.append('\n');
         }
         for (Variant variant : JARS) {
-            Path file = root.resolve("jar").resolve(variant.name().substring(4).replace(' ', '_').replace('/', '%')
-                    .replace('\\', '%').replace(':', '%').replace('\0', '%') + ".ironjar");
+            Path file = root.resolve("jar").resolve(fileName(variant.name()) + ".ironjar");
             Files.write(file, variant.bytes());
             String rootText = root.toAbsolutePath().normalize().toString();
             out.append(variant.name()).append(' ');

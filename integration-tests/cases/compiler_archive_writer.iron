@@ -1,0 +1,73 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// The compiler port's IronClass and IronJar writers (D275), driven like the
+// Java baseline's IronClass.write and IronJarMain --create so the test can
+// compare outputs, diagnostics and publication:
+//   --class (<output> <type> <class|interface> <entry type|-> <source name>
+//       <content file>)...   writes each class artifact directly;
+//   --jar <output> [--license <file>]... <input>...   creates an archive with
+//       staged publication.
+// A failure prints `error <message>` and exits 1. Every path, text and
+// artifact is freed after use. Exit 42 on success.
+import ironwood.compiler.port.Inflate;
+import ironwood.compiler.port.IronClassArtifact;
+import ironwood.compiler.port.IronJarArchive;
+import ironwood.compiler.port.TextList;
+import ironwood.io.IOException;
+import ironwood.nio.file.Files;
+import ironwood.nio.file.Path;
+
+class Main {
+
+    static void writeClass(String[] args, int first) throws IOException {
+
+        Path output = Path.of(args[first]);
+        defer free output;
+        Path contentFile = Path.of(args[first + 5]);
+        defer free contentFile;
+        String content = Files.readString(contentFile);
+        defer free content;
+        String entryPoint = args[first + 3].equals("-") ? null : args[first + 3];
+        IronClassArtifact.write(output, args[first + 1], args[first + 2].equals("interface"), entryPoint,
+                args[first + 4], content);
+    }
+
+    // Splits the arguments after the output into licenses and inputs.
+    static void createJar(String[] args, Inflate inflate) throws IOException {
+
+        TextList licenses = new TextList();
+        defer free licenses;
+        TextList inputs = new TextList();
+        defer free inputs;
+        int index = 2;
+        while (index < args.length) {
+            if (args[index].equals("--license")) {
+                licenses.add(args[index + 1]);
+                index = index + 2;
+            } else {
+                inputs.add(args[index]);
+                index++;
+            }
+        }
+        Path output = Path.of(args[1]);
+        defer free output;
+        IronJarArchive.create(output, inputs, licenses, inflate);
+    }
+
+    public static int main(String[] args) {
+
+        Inflate inflate = new Inflate();
+        defer free inflate;
+        try {
+            if (args[0].equals("--class")) {
+                for (int first = 1; first + 5 < args.length; first = first + 6) writeClass(args, first);
+            } else {
+                createJar(args, inflate);
+            }
+        } catch (IOException failure) {
+            System.out.println("error " + failure.getMessage());
+            return 1;
+        }
+        return 42;
+    }
+}

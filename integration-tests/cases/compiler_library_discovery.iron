@@ -1,0 +1,83 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// The standard library's archive, class and source roots and its owned types
+// against the Java baseline's StandardLibrary.discover
+// (docs/self-hosting/m5/artifact-evidence/LibraryReference.java). The
+// argument is the compiler location a launcher passes (canonical, as Java's
+// class path entry is) or "-" for an unknown location; the test runs both
+// programs in each scenario's working directory and environment. Prints the
+// three root lists and the owned types sorted in String order. Every root,
+// type and the decoder are freed, so discovery leaves nothing allocated but
+// the caught exception of each unreadable archive or root it skips. Exit 42.
+import ironwood.compiler.port.Inflate;
+import ironwood.compiler.port.Installation;
+import ironwood.compiler.port.LibraryRoots;
+import ironwood.compiler.port.LibraryTypes;
+import ironwood.compiler.port.TextList;
+import ironwood.nio.file.Path;
+import ironwood.util.zip.CRC32;
+
+class Main {
+
+    static void print(String name, LibraryRoots roots) {
+
+        System.out.println(name + " " + roots.size());
+        for (int index = 0; index < roots.size(); index++) System.out.println("  " + roots.root(index).toString());
+    }
+
+    // Returns how many unreadable archives and roots discovery skipped.
+    static int report(Path location) {
+
+        LibraryRoots archives = new LibraryRoots();
+        defer free archives;
+        LibraryRoots classRoots = new LibraryRoots();
+        defer free classRoots;
+        LibraryRoots sourceRoots = new LibraryRoots();
+        defer free sourceRoots;
+        Installation.libraryArchives(location, archives);
+        Installation.libraryClassRoots(location, classRoots);
+        Installation.librarySourceRoots(location, sourceRoots);
+        print("archives", archives);
+        print("classRoots", classRoots);
+        print("sourceRoots", sourceRoots);
+        Inflate inflate = new Inflate();
+        defer free inflate;
+        LibraryTypes types = new LibraryTypes(archives, classRoots, sourceRoots, inflate);
+        defer free types;
+        TextList sorted = new TextList();
+        defer free sorted;
+        for (int index = 0; index < types.size(); index++) {
+            String type = types.type(index);
+            defer free type;
+            sorted.add(type);
+        }
+        sorted.sortStrings();
+        System.out.println("types " + sorted.size());
+        for (int index = 0; index < sorted.size(); index++) {
+            String type = sorted.get(index);
+            defer free type;
+            System.out.println("  " + type);
+        }
+        return types.ignored();
+    }
+
+    public static int main(String[] args) {
+
+        // The decoder's and checksum's first uses initialize their process-lived tables.
+        Inflate warm = new Inflate();
+        free warm;
+        CRC32 warmCrc = new CRC32();
+        free warmCrc;
+        long live = System.liveAllocationCount();
+        int ignored = 0;
+        if (args[0].equals("-")) {
+            ignored = report(null);
+        } else {
+            Path location = Path.of(args[0]);
+            ignored = report(location);
+            free location;
+        }
+        // Each skipped archive or root keeps its caught exception and message.
+        return System.liveAllocationCount() == live + 2L * ignored ? 42 : 1;
+    }
+}

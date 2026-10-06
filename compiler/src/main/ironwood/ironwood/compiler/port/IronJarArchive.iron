@@ -1,0 +1,543 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.port;
+
+import ironwood.io.IOException;
+import ironwood.nio.file.Files;
+import ironwood.nio.file.Path;
+
+/**
+ * The IronJar profile of a format-1 {@code .ironjar} archive for the native
+ * compiler: Java's IronJar.read, source and create over the port's
+ * central-directory reader and STORED writer (D275). Reading keeps Java's
+ * checks, order and messages: each entry's path safety, duplication, strict
+ * String order and nesting; the manifest and the strict UTF-8 type index
+ * (LF-terminated, sorted, ASCII Java identifiers, each mapped to its
+ * {@code .ironclass} path); and the unexpected, unindexed and missing
+ * entries. Payloads are read lazily, so a malformed payload fails only its
+ * own lookup. One recorded difference: when several indexed entries are
+ * missing, the first in index order is named, where Java names the first in
+ * its HashSet's order.
+ *
+ * <p>Creating keeps IronJar.create's input handling and messages, with B3's
+ * traversal for class directories (a traversal failure is an IOException where
+ * Java's stream throws an unchecked exception), and publishes as IronJar.write
+ * does: STORED entries sorted by name are written to an exclusive temporary
+ * file in the destination's parent, moved over the destination with
+ * {@code Files.moveReplacing} (D271), and the temporary file is deleted on
+ * every other exit. The archive owns its bytes, entry view and index.
+ */
+public final class IronJarArchive {
+
+    /** The archive file extension. */
+    public static final String EXTENSION = ".ironjar";
+
+    private static final String CLASS_EXTENSION = ".ironclass";
+    private static final String MANIFEST = "META-INF/IRONWOOD.MF";
+    private static final String TYPE_INDEX = "META-INF/types.tsv";
+    private static final String LICENSE_DIRECTORY = "META-INF/LICENSES/";
+    private static final String FORMAT = "Ironwood-Jar-Format: 1\n";
+
+    private String path;
+    private byte[] bytes;
+    private ZipArchive archive;
+    // Index order, which validation makes strictly sorted.
+    private TextList types;
+    private TextList paths;
+    // The indexed paths in String order, for membership.
+    private TextList sortedPaths;
+
+    /**
+     * Reads and validates an archive, as IronJar.read does. A failure,
+     * including an allocation failure, rolls back the partly read archive.
+     *
+     * @param artifact the archive file; borrowed
+     * @param inflate the decoder for DEFLATED entries; borrowed
+     * @throws IOException with Java's message if the archive is invalid
+     */
+    public IronJarArchive(Path artifact, Inflate inflate) throws IOException {
+
+        Path absolute = artifact.toAbsolutePath();
+        defer free absolute;
+        Path normalized = absolute.normalize();
+        defer free normalized;
+        this.path = new String(normalized.toString());
+        this.types = new TextList();
+        this.paths = new TextList();
+        this.sortedPaths = new TextList();
+        this.bytes = Files.readAllBytes(normalized);
+        this.archive = new ZipArchive(this.bytes, this.path);
+        this.validateEntries();
+        this.readIndex(inflate);
+        this.checkEntries();
+    }
+
+    /** @return the number of archive entries */
+    public int entryCount() {
+
+        return this.archive.size();
+    }
+
+    /** @return a fresh String holding entry index's name, as IronJar.entries lists it */
+    public String entryName(int index) {
+
+        return this.archive.name(index);
+    }
+
+    /** @return the number of indexed types */
+    public int typeCount() {
+
+        return this.types.size();
+    }
+
+    /** @return a fresh String holding indexed type index, in index order */
+    public String type(int index) {
+
+        return this.types.get(index);
+    }
+
+    /** @return whether the index names the canonical type */
+    public boolean declares(String canonical) {
+
+        return this.types.find(canonical) >= 0;
+    }
+
+    /**
+     * Reads the payload of an indexed type, as IronJar.source does.
+     *
+     * @param canonical the type; borrowed
+     * @param inflate the decoder for DEFLATED entries; borrowed
+     * @return a fresh class artifact owned by the caller, whose source and
+     *     source path are the type's, or null when the type is not indexed
+     * @throws IOException if the payload is missing, invalid or declares another type
+     */
+    public IronClassArtifact payload(String canonical, Inflate inflate) throws IOException {
+
+        int type = this.types.find(canonical);
+        if (type < 0) return null;
+        String entryName = this.paths.get(type);
+        defer free entryName;
+        int entry = this.findEntry(entryName);
+        if (entry < 0) {
+            throw new IOException("missing indexed Ironwood class entry '" + entryName + "' in " + this.path);
+        }
+        byte[] content = this.archive.read(this.bytes, entry, inflate, this.path);
+        defer free content;
+        String display = this.path + "!/" + entryName;
+        defer free display;
+        IronClassArtifact artifact = new IronClassArtifact(content, display, inflate);
+        if (!artifact.declares(canonical)) {
+            free artifact;
+            throw new IOException("indexed Ironwood class entry '" + entryName + "' does not declare type '"
+                    + canonical + "' in " + this.path);
+        }
+        return artifact;
+    }
+
+    private void validateEntries() throws IOException {
+
+        for (int index = 0; index < this.archive.size(); index++) {
+            String name = this.archive.name(index);
+            defer free name;
+            if (unsafePath(name)) throw new IOException("unsafe archive entry path '" + name + "' in " + this.path);
+            if (index > 0 && this.archive.compareNames(index - 1, index) >= 0) {
+                if (this.earlierEqual(index)) {
+                    throw new IOException("duplicate archive entry '" + name + "' in " + this.path);
+                }
+                throw new IOException("archive entries are not strictly sorted in " + this.path);
+            }
+            if (name.endsWith("/")) {
+                throw new IOException("directory entries are not permitted in " + this.path + ": " + name);
+            }
+            if (name.endsWith(EXTENSION)) {
+                throw new IOException("nested Ironwood archive is not permitted in " + this.path + ": " + name);
+            }
+        }
+    }
+
+    // Whether an entry before index, all strictly sorted, has the same name.
+    private boolean earlierEqual(int index) {
+
+        int low = 0;
+        int high = index - 1;
+        while (low <= high) {
+            int middle = (low + high) >>> 1;
+            int difference = this.archive.compareNames(middle, index);
+            if (difference == 0) return true;
+            if (difference < 0) {
+                low = middle + 1;
+            } else {
+                high = middle - 1;
+            }
+        }
+        return false;
+    }
+
+    // The entry with the name, found by binary search over the validated order.
+    private int findEntry(String name) {
+
+        int low = 0;
+        int high = this.archive.size() - 1;
+        while (low <= high) {
+            int middle = (low + high) >>> 1;
+            int difference = this.archive.compareName(middle, name);
+            if (difference == 0) return middle;
+            if (difference < 0) {
+                low = middle + 1;
+            } else {
+                high = middle - 1;
+            }
+        }
+        return -1;
+    }
+
+    // An entry's text decoded as strict UTF-8, as IronJar.readText does.
+    private String text(int entry, Inflate inflate) throws IOException {
+
+        byte[] data = this.archive.read(this.bytes, entry, inflate, this.path);
+        defer free data;
+        if (!TextList.wellFormed(data, 0, data.length)) {
+            String name = this.archive.name(entry);
+            defer free name;
+            throw new IOException("invalid UTF-8 in '" + name + "' in " + this.path);
+        }
+        return new String(data);
+    }
+
+    private void readIndex(Inflate inflate) throws IOException {
+
+        int manifest = this.findEntry(MANIFEST);
+        if (manifest < 0) throw new IOException("unsupported or missing Ironwood archive manifest in " + this.path);
+        String format = this.text(manifest, inflate);
+        defer free format;
+        if (!format.equals(FORMAT)) throw new IOException("unsupported or missing Ironwood archive manifest in " + this.path);
+        int index = this.findEntry(TYPE_INDEX);
+        if (index < 0) throw new IOException("missing " + TYPE_INDEX + " in " + this.path);
+        String text = this.text(index, inflate);
+        defer free text;
+        if (text.indexOf('\r') >= 0 || !text.endsWith("\n")) {
+            throw new IOException("type index must use LF-terminated lines in " + this.path);
+        }
+        String body = text.substring(0, text.length() - 1);
+        defer free body;
+        if (body.isEmpty()) throw new IOException("Ironwood archive contains no indexed types: " + this.path);
+        int[] lines = Splits.bounds(body, '\n', -1);
+        defer free lines;
+        for (int line = 0; line < Splits.count(lines); line++) {
+            String entry = Splits.field(body, lines, line);
+            defer free entry;
+            this.indexLine(entry);
+        }
+        this.sortedPaths.sortStrings();
+    }
+
+    private void indexLine(String line) throws IOException {
+
+        int[] fields = Splits.bounds(line, '\t', -1);
+        defer free fields;
+        if (Splits.count(fields) != 2) throw new IOException("invalid type index entry in " + this.path + ": " + line);
+        String canonical = Splits.field(line, fields, 0);
+        defer free canonical;
+        String entryName = Splits.field(line, fields, 1);
+        defer free entryName;
+        if (canonical.isBlank() || entryName.isBlank()) {
+            throw new IOException("invalid type index entry in " + this.path + ": " + line);
+        }
+        if (!canonicalType(canonical)) throw new IOException("invalid canonical type '" + canonical + "' in " + this.path);
+        if (unsafePath(entryName)) throw new IOException("unsafe archive entry path '" + entryName + "' in " + this.path);
+        String expected = classPath(canonical);
+        defer free expected;
+        if (!entryName.equals(expected)) {
+            throw new IOException("type '" + canonical + "' must map to '" + expected + "' in " + this.path);
+        }
+        if (this.types.indexOf(canonical) >= 0) {
+            throw new IOException("duplicate archive type '" + canonical + "' in " + this.path);
+        }
+        int count = this.types.size();
+        if (count > 0 && this.types.compareText(count - 1, canonical) >= 0) {
+            throw new IOException("archive type index is not strictly sorted in " + this.path);
+        }
+        if (this.paths.indexOf(entryName) >= 0) {
+            throw new IOException("duplicate indexed class path '" + entryName + "' in " + this.path);
+        }
+        this.types.add(canonical);
+        this.paths.add(entryName);
+        this.sortedPaths.add(entryName);
+    }
+
+    private void checkEntries() throws IOException {
+
+        for (int index = 0; index < this.archive.size(); index++) {
+            if (this.archive.nameEquals(index, MANIFEST) || this.archive.nameEquals(index, TYPE_INDEX)) continue;
+            String name = this.archive.name(index);
+            defer free name;
+            if (name.startsWith(LICENSE_DIRECTORY)) {
+                if (name.endsWith(CLASS_EXTENSION)) {
+                    throw new IOException("unindexed Ironwood class entry '" + name + "' in " + this.path);
+                }
+            } else if (!name.endsWith(CLASS_EXTENSION)) {
+                throw new IOException("unexpected archive entry '" + name + "' in " + this.path);
+            } else if (this.sortedPaths.find(name) < 0) {
+                throw new IOException("unindexed Ironwood class entry '" + name + "' in " + this.path);
+            }
+        }
+        for (int type = 0; type < this.paths.size(); type++) {
+            String entryName = this.paths.get(type);
+            defer free entryName;
+            if (this.findEntry(entryName) < 0) {
+                throw new IOException("missing indexed Ironwood class entry '" + entryName + "' in " + this.path);
+            }
+        }
+    }
+
+    /**
+     * IronJar.validateEntryPath: empty, absolute, backslash, NUL, colon, or an
+     * empty, {@code .} or {@code ..} component.
+     */
+    static boolean unsafePath(String name) {
+
+        if (name.isEmpty() || name.startsWith("/") || name.indexOf('\\') >= 0 || name.indexOf(0) >= 0
+                || name.indexOf(':') >= 0) {
+            return true;
+        }
+        int start = 0;
+        while (start <= name.length()) {
+            int end = name.indexOf('/', start);
+            if (end < 0) end = name.length();
+            int length = end - start;
+            if (length == 0 || length == 1 && name.charAt(start) == '.'
+                    || length == 2 && name.charAt(start) == '.' && name.charAt(start + 1) == '.') {
+                return true;
+            }
+            start = end + 1;
+        }
+        return false;
+    }
+
+    /** IronJar.validateCanonicalType: dot-separated ASCII Java identifiers, {@code $} allowed. */
+    static boolean canonicalType(String canonical) {
+
+        int start = 0;
+        while (start <= canonical.length()) {
+            int end = canonical.indexOf('.', start);
+            if (end < 0) end = canonical.length();
+            if (end == start || !identifierStart(canonical.charAt(start))) return false;
+            for (int index = start + 1; index < end; index++) {
+                char unit = canonical.charAt(index);
+                if (!identifierStart(unit) && (unit < '0' || unit > '9')) return false;
+            }
+            start = end + 1;
+        }
+        return true;
+    }
+
+    private static boolean identifierStart(char unit) {
+
+        return unit == '_' || unit == '$' || unit >= 'a' && unit <= 'z' || unit >= 'A' && unit <= 'Z';
+    }
+
+    // canonical.replace('.', '/') + ".ironclass", a fresh String.
+    static String classPath(String canonical) {
+
+        String slashed = canonical.replace('.', '/');
+        defer free slashed;
+        return slashed + CLASS_EXTENSION;
+    }
+
+    /**
+     * Builds and publishes an archive, as IronJar.create does: class inputs
+     * (directories of {@code .ironclass} files or single files), then license
+     * files under {@code META-INF/LICENSES/}.
+     *
+     * @param artifact the destination; borrowed
+     * @param inputs spellings of class directories or {@code .ironclass}
+     *     files, in order; borrowed (a String array would expose its elements
+     *     to every analyzed call, so they could never be freed)
+     * @param licenses spellings of license files; borrowed
+     * @param inflate the decoder for DEFLATED inputs; borrowed
+     * @throws IOException with Java's message if an input is invalid, or if
+     *     the archive cannot be published; an earlier archive is then kept
+     */
+    public static void create(Path artifact, TextList inputs, TextList licenses, Inflate inflate) throws IOException {
+
+        if (inputs.size() == 0) throw new IOException("expected at least one .ironclass file or class directory");
+        ArchiveEntries payloads = new ArchiveEntries();
+        defer free payloads;
+        TextList canonicals = new TextList();
+        defer free canonicals;
+        for (int input = 0; input < inputs.size(); input++) {
+            String spelling = inputs.get(input);
+            defer free spelling;
+            collect(spelling, payloads, canonicals, inflate);
+        }
+        if (canonicals.size() == 0) throw new IOException("archive inputs contain no .ironclass files");
+        ArchiveEntries entries = new ArchiveEntries();
+        defer free entries;
+        entries.addText(MANIFEST, FORMAT);
+        StringBuilder index = new StringBuilder();
+        defer free index;
+        payloads.appendIndex(canonicals, index, entries);
+        String indexText = index.toString();
+        defer free indexText;
+        entries.addText(TYPE_INDEX, indexText);
+        addLicenses(licenses, entries);
+        ZipWriter writer = new ZipWriter();
+        defer free writer;
+        entries.writeSorted(writer);
+        byte[] archive = writer.finish();
+        defer free archive;
+        publish(artifact, archive);
+    }
+
+    // IronJar.collect for one input spelling.
+    private static void collect(String spelling, ArchiveEntries payloads, TextList canonicals, Inflate inflate)
+            throws IOException {
+
+        Path input = Path.of(spelling);
+        defer free input;
+        Path absolute = input.toAbsolutePath();
+        defer free absolute;
+        Path normalized = absolute.normalize();
+        defer free normalized;
+        String root = normalized.toString();
+        if (Files.isDirectory(normalized)) {
+            FileCollector classes = new FileCollector(normalized, CLASS_EXTENSION);
+            defer free classes;
+            for (int file = 0; file < classes.size(); file++) {
+                String relative = classes.relative(file, root);
+                defer free relative;
+                String stem = relative.substring(0, relative.length() - CLASS_EXTENSION.length());
+                defer free stem;
+                String canonical = stem.replace('/', '.');
+                defer free canonical;
+                // Bound first, so a failing Path.of cannot strand the fresh spelling.
+                String spellingOfFile = classes.file(file);
+                defer free spellingOfFile;
+                Path classFile = Path.of(spellingOfFile);
+                defer free classFile;
+                addClass(classFile, canonical, payloads, canonicals, inflate);
+            }
+            return;
+        }
+        if (!Files.isRegularFile(normalized)) {
+            throw new IOException("archive input does not exist or is not a regular file: " + root);
+        }
+        Path name = normalized.getFileName();
+        defer free name;
+        String fileName = name.toString();
+        if (fileName.endsWith(EXTENSION)) throw new IOException("nested Ironwood archives are not accepted as inputs: " + root);
+        if (!fileName.endsWith(CLASS_EXTENSION)) throw new IOException("archive input is not an .ironclass file: " + root);
+        String simple = fileName.substring(0, fileName.length() - CLASS_EXTENSION.length());
+        defer free simple;
+        IronClassArtifact artifact = IronClassArtifact.read(normalized, inflate);
+        defer free artifact;
+        int match = -1;
+        int matches = 0;
+        for (int type = 0; type < artifact.typeCount(); type++) {
+            if (artifact.declaresSimpleName(type, simple)) {
+                match = type;
+                matches++;
+            }
+        }
+        if (matches != 1) {
+            throw new IOException("cannot determine the canonical type for " + root
+                    + "; its filename must match exactly one declared type");
+        }
+        String canonical = artifact.type(match);
+        defer free canonical;
+        addClass(normalized, canonical, payloads, canonicals, inflate);
+    }
+
+    // IronJar.addClass.
+    private static void addClass(Path classFile, String canonical, ArchiveEntries payloads, TextList canonicals,
+                                 Inflate inflate) throws IOException {
+
+        String spelling = classFile.toString();
+        if (!canonicalType(canonical)) throw new IOException("invalid canonical type '" + canonical + "' in " + spelling);
+        IronClassArtifact artifact = IronClassArtifact.read(classFile, inflate);
+        defer free artifact;
+        if (!artifact.declares(canonical)) {
+            throw new IOException("class path '" + spelling + "' implies type '" + canonical
+                    + "', but the artifact does not declare it");
+        }
+        String entryName = classPath(canonical);
+        defer free entryName;
+        byte[] content = Files.readAllBytes(classFile);
+        defer free content;
+        if (canonicals.indexOf(canonical) >= 0) throw new IOException("duplicate archive type '" + canonical + "'");
+        canonicals.add(canonical);
+        payloads.add(entryName, content, 0, content.length);
+    }
+
+    // IronJar.create's license loop: absolute, normalized, in Path order.
+    private static void addLicenses(TextList licenses, ArchiveEntries entries) throws IOException {
+
+        TextList spellings = new TextList();
+        defer free spellings;
+        for (int license = 0; license < licenses.size(); license++) {
+            String given = licenses.get(license);
+            defer free given;
+            Path input = Path.of(given);
+            defer free input;
+            Path absolute = input.toAbsolutePath();
+            defer free absolute;
+            Path normalized = absolute.normalize();
+            defer free normalized;
+            spellings.add(normalized.toString());
+        }
+        spellings.sortCodePoints();
+        for (int position = 0; position < spellings.size(); position++) {
+            String spelling = spellings.get(position);
+            defer free spelling;
+            Path license = Path.of(spelling);
+            defer free license;
+            if (!Files.isRegularFile(license)) {
+                throw new IOException("license input does not exist or is not a regular file: " + spelling);
+            }
+            Path name = license.getFileName();
+            defer free name;
+            String entryName = LICENSE_DIRECTORY + name.toString();
+            defer free entryName;
+            if (unsafePath(entryName)) throw new IOException("unsafe archive entry path '" + entryName + "' in " + spelling);
+            if (entryName.endsWith(CLASS_EXTENSION) || entryName.endsWith(EXTENSION)) {
+                throw new IOException("license metadata cannot use an Ironwood artifact extension: " + spelling);
+            }
+            byte[] content = Files.readAllBytes(license);
+            defer free content;
+            if (entries.contains(entryName)) throw new IOException("duplicate archive entry '" + entryName + "'");
+            entries.add(entryName, content, 0, content.length);
+        }
+    }
+
+    // IronJar.write: stage beside the destination, replace it, delete the stage otherwise.
+    private static void publish(Path artifact, byte[] archive) throws IOException {
+
+        Path absolute = artifact.toAbsolutePath();
+        defer free absolute;
+        Path normalized = absolute.normalize();
+        defer free normalized;
+        Path parent = normalized.getParent();
+        defer free parent;
+        Files.createDirectories(parent);
+        Path stage = Files.createTempFile(parent, ".ironjar-", ".tmp");
+        defer free stage;
+        boolean moved = false;
+        try {
+            Files.write(stage, archive);
+            Files.moveReplacing(stage, normalized);
+            moved = true;
+        } finally {
+            if (!moved) Files.deleteIfExists(stage);
+        }
+    }
+
+    destructor {
+
+        free this.path;
+        if (this.bytes != null) free this.bytes;
+        if (this.archive != null) free this.archive;
+        free this.types;
+        free this.paths;
+        free this.sortedPaths;
+    }
+}

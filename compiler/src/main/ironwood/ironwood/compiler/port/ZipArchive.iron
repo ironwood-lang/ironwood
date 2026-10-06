@@ -1,0 +1,340 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.port;
+
+import ironwood.io.IOException;
+import ironwood.util.zip.CRC32;
+
+/**
+ * The central-directory view of a ZIP archive held in memory: the container
+ * model of the IronJar profile, which the Java baseline reads with
+ * {@code ZipFile} (D275 and docs/self-hosting/m5/ARCHIVES.md). Opening finds
+ * the end record from the end of the file (accepting trailing bytes when the
+ * directory it names checks out), follows ZIP64 end records, treats bytes
+ * before the directory's recorded offset as a prefix, and records each
+ * directory entry in order, iterating by the directory's size as Java does
+ * rather than by its count. It rejects what Java rejects when it opens an
+ * archive: no end record, an empty file, a bad directory signature or offset,
+ * an encrypted entry, a method other than STORED or DEFLATED, and a malformed
+ * UTF-8 name.
+ *
+ * <p>Reading an entry locates its data through the local header's name and
+ * extra lengths, ignoring the local name, method and sizes as Java does, and
+ * then, as a native policy, verifies the decoded size and CRC-32 that Java's
+ * ZipFile leaves unchecked. Container failures are IOExceptions starting
+ * {@code invalid ZIP data in <archive>:}. The archive bytes are passed to
+ * each call and never retained; the view owns only its table and names.
+ */
+public final class ZipArchive {
+
+    private static final int FIELDS = 6;
+
+    // Per entry: method, CRC, compressed size, size, local header offset, flags.
+    private int[] table;
+    private TextList names;
+    private CRC32 checksum;
+    private int count;
+
+    /**
+     * Opens the central directory of an archive. A failure, including an
+     * allocation failure, rolls back the partly built view.
+     *
+     * @param bytes the whole archive; borrowed
+     * @param display the archive's name in messages; borrowed
+     * @throws IOException if the directory cannot be read
+     */
+    public ZipArchive(byte[] bytes, String display) throws IOException {
+
+        this.table = new int[FIELDS * 16];
+        this.names = new TextList();
+        this.checksum = new CRC32();
+        this.parse(bytes, display);
+    }
+
+    /** @return the number of directory entries */
+    public int size() {
+
+        return this.count;
+    }
+
+    /** @return a fresh String holding entry index's name, owned by the caller */
+    public String name(int index) {
+
+        return this.names.get(index);
+    }
+
+    /** @return whether entry index's name equals text */
+    public boolean nameEquals(int index, String text) {
+
+        return this.names.equalsText(index, text);
+    }
+
+    /** @return whether entry index's name starts with prefix */
+    public boolean nameStartsWith(int index, String prefix) {
+
+        return this.names.startsWith(index, prefix);
+    }
+
+    /** @return whether entry index's name ends with suffix */
+    public boolean nameEndsWith(int index, String suffix) {
+
+        return this.names.endsWith(index, suffix);
+    }
+
+    /** @return entry index's name compared with text in String order */
+    public int compareName(int index, String text) {
+
+        return this.names.compareText(index, text);
+    }
+
+    /** @return two entries' names compared in String order */
+    public int compareNames(int first, int second) {
+
+        return this.names.compare(first, second);
+    }
+
+    /** @return entry index's name length in UTF-16 units */
+    public int nameLength(int index) {
+
+        return this.names.length(index);
+    }
+
+    /** @return unit position of entry index's name */
+    public char nameCharAt(int index, int position) {
+
+        return this.names.charAt(index, position);
+    }
+
+    /** @return the first entry with the given name, or -1 */
+    public int find(String name) {
+
+        for (int index = 0; index < this.count; index++) {
+            if (this.names.equalsText(index, name)) return index;
+        }
+        return -1;
+    }
+
+    /** @return entry index's uncompressed size */
+    public int entrySize(int index) {
+
+        return this.table[index * FIELDS + 3];
+    }
+
+    /**
+     * Reads one entry's data.
+     *
+     * @param bytes the archive this view was opened over; borrowed
+     * @param index the entry
+     * @param inflate the decoder for DEFLATED data; borrowed
+     * @param display the archive's name in messages; borrowed
+     * @return a fresh array of the entry's bytes, owned by the caller
+     * @throws IOException if the local header, data, size or CRC is wrong
+     */
+    public byte[] read(byte[] bytes, int index, Inflate inflate, String display) throws IOException {
+
+        int base = index * FIELDS;
+        int method = this.table[base];
+        int size = this.table[base + 3];
+        int compressed = this.table[base + 2];
+        int local = this.table[base + 4];
+        if (local > bytes.length - 30 || u32(bytes, local) != 0x04034b50) {
+            throw this.entryFailure(display, index, "has no local header at its recorded offset");
+        }
+        long data = (long) local + 30 + u16(bytes, local + 26) + u16(bytes, local + 28);
+        if (data + compressed > bytes.length) throw this.entryFailure(display, index, "data extends past the archive");
+        int expected = this.table[base + 1];
+        if (method == 0) {
+            if (compressed != size) throw this.entryFailure(display, index, "is STORED with differing sizes");
+            if (this.crc(bytes, (int) data, size) != expected) throw this.entryFailure(display, index, "fails its CRC-32 check");
+            return Bytes.slice(bytes, (int) data, (int) data + size);
+        }
+        byte[] result = null;
+        try {
+            result = inflate.inflate(bytes, (int) data, compressed, size);
+        } catch (IOException malformed) {
+            throw this.entryFailure(display, index, "has invalid DEFLATE data (" + malformed.getMessage() + ")");
+        }
+        boolean sized = result.length == size;
+        if (!sized || this.crc(result, 0, size) != expected) {
+            free result;
+            throw this.entryFailure(display, index, sized ? "fails its CRC-32 check" : "has the wrong size");
+        }
+        return result;
+    }
+
+    private IOException entryFailure(String display, int index, String problem) {
+
+        StringBuilder message = new StringBuilder();
+        defer free message;
+        message.append("invalid ZIP data in ").append(display).append(": entry '");
+        this.names.appendTo(index, message);
+        message.append("' ").append(problem);
+        return new IOException(message.toString());
+    }
+
+    // The CRC-32 of data[offset, offset + length) as stored in a 32-bit field.
+    int crc(byte[] data, int offset, int length) {
+
+        this.checksum.reset();
+        this.checksum.update(data, offset, length);
+        return (int) this.checksum.getValue();
+    }
+
+    static IOException failure(String display, String problem) {
+
+        return new IOException("invalid ZIP data in " + display + ": " + problem);
+    }
+
+    private void parse(byte[] bytes, String display) throws IOException {
+
+        if (bytes.length == 0) throw failure(display, "the file is empty");
+        int end = findEnd(bytes);
+        if (end < 0) throw failure(display, "no end of central directory record");
+        long directorySize = u32(bytes, end + 12);
+        long directoryOffset = u32(bytes, end + 16);
+        long entries = u16(bytes, end + 10);
+        long anchor = end;
+        // A ZIP64 locator just before the end record names the ZIP64 end record.
+        if (end >= 20 && u32(bytes, end - 20) == 0x07064b50) {
+            long record = u64(bytes, end - 12);
+            if (record < 0 || record > bytes.length - 56 || u32(bytes, (int) record) != 0x06064b50) {
+                throw failure(display, "bad ZIP64 end of central directory record");
+            }
+            entries = u64(bytes, (int) record + 32);
+            directorySize = u64(bytes, (int) record + 40);
+            directoryOffset = u64(bytes, (int) record + 48);
+            anchor = record;
+        }
+        long start = anchor - directorySize;
+        long prefix = start - directoryOffset;
+        if (directorySize < 0 || start < 0 || prefix < 0 || entries < 0) {
+            throw failure(display, "bad central directory offset");
+        }
+        long position = start;
+        while (position < anchor) {
+            if (position > anchor - 46 || u32(bytes, (int) position) != 0x02014b50) {
+                throw failure(display, "bad central directory entry signature");
+            }
+            this.entry(bytes, (int) position, prefix, display);
+            position = position + 46 + u16(bytes, (int) position + 28) + u16(bytes, (int) position + 30)
+                    + u16(bytes, (int) position + 32);
+        }
+        if (position != anchor) throw failure(display, "central directory overruns its recorded size");
+    }
+
+    // Finds the end record searching backwards: one whose comment reaches the
+    // end of the file, or one with trailing bytes whose directory and first
+    // local header both carry their signatures.
+    private static int findEnd(byte[] bytes) {
+
+        int lowest = bytes.length - 22 - 0xFFFF;
+        if (lowest < 0) lowest = 0;
+        for (int position = bytes.length - 22; position >= lowest; position--) {
+            if (u32(bytes, position) != 0x06054b50) continue;
+            if (position + 22 + u16(bytes, position + 20) == bytes.length) return position;
+            long start = position - u32(bytes, position + 12);
+            long first = start - u32(bytes, position + 16);
+            if (start >= 0 && first >= 0 && start <= bytes.length - 4 && first <= bytes.length - 4
+                    && u32(bytes, (int) start) == 0x02014b50 && u32(bytes, (int) first) == 0x04034b50) {
+                return position;
+            }
+        }
+        return -1;
+    }
+
+    private void entry(byte[] bytes, int position, long prefix, String display) throws IOException {
+
+        int flags = u16(bytes, position + 8);
+        int method = u16(bytes, position + 10);
+        long crc = u32(bytes, position + 16);
+        long compressed = u32(bytes, position + 20);
+        long size = u32(bytes, position + 24);
+        int nameLength = u16(bytes, position + 28);
+        int extraLength = u16(bytes, position + 30);
+        long local = u32(bytes, position + 42);
+        int name = position + 46;
+        int extra = name + nameLength;
+        if ((long) extra + extraLength + u16(bytes, position + 32) > bytes.length) {
+            throw failure(display, "central directory entry extends past the archive");
+        }
+        if (!TextList.wellFormed(bytes, name, nameLength)) throw failure(display, "an entry name is not valid UTF-8");
+        if ((flags & 1) != 0) throw failure(display, "an entry is encrypted");
+        if (method != 0 && method != 8) throw failure(display, "an entry uses compression method " + method);
+        // ZIP64 extra values replace the 32-bit fields that are all ones, in order.
+        if (size == 0xFFFFFFFFL || compressed == 0xFFFFFFFFL || local == 0xFFFFFFFFL) {
+            int field = zip64(bytes, extra, extraLength);
+            if (field < 0) throw failure(display, "an entry lacks its ZIP64 extra field");
+            int fieldEnd = field + u16(bytes, field - 2);
+            if (size == 0xFFFFFFFFL) {
+                size = field + 8 <= fieldEnd ? u64(bytes, field) : -1;
+                field = field + 8;
+            }
+            if (compressed == 0xFFFFFFFFL) {
+                compressed = field + 8 <= fieldEnd ? u64(bytes, field) : -1;
+                field = field + 8;
+            }
+            if (local == 0xFFFFFFFFL) local = field + 8 <= fieldEnd ? u64(bytes, field) : -1;
+            if (size < 0 || compressed < 0 || local < 0) throw failure(display, "an entry has a short ZIP64 extra field");
+        }
+        if (size > 0x7FFFFFF0L || compressed > 0x7FFFFFF0L) {
+            throw failure(display, "an entry is larger than the array size limit");
+        }
+        local = local + prefix;
+        if (local > 0x7FFFFFFFL) throw failure(display, "an entry's local header is past the archive");
+        if (this.count * FIELDS == this.table.length) this.grow();
+        int base = this.count * FIELDS;
+        this.table[base] = method;
+        this.table[base + 1] = (int) crc;
+        this.table[base + 2] = (int) compressed;
+        this.table[base + 3] = (int) size;
+        this.table[base + 4] = (int) local;
+        this.table[base + 5] = flags;
+        this.names.addUtf8(bytes, name, nameLength);
+        this.count++;
+    }
+
+    // The data offset of the ZIP64 extra field (id 1) in an extra area, or -1.
+    private static int zip64(byte[] bytes, int extra, int length) {
+
+        int position = extra;
+        while (position + 4 <= extra + length) {
+            int id = u16(bytes, position);
+            int size = u16(bytes, position + 2);
+            if (id == 1) return position + 4 + size <= extra + length ? position + 4 : -1;
+            position = position + 4 + size;
+        }
+        return -1;
+    }
+
+    private void grow() {
+
+        int[] previous = this.table;
+        this.table = new int[previous.length * 2];
+        System.arraycopy(previous, 0, this.table, 0, previous.length);
+        free previous;
+    }
+
+    static int u16(byte[] bytes, int position) {
+
+        return (bytes[position] & 0xFF) | (bytes[position + 1] & 0xFF) << 8;
+    }
+
+    static long u32(byte[] bytes, int position) {
+
+        return (long) u16(bytes, position) | (long) u16(bytes, position + 2) << 16;
+    }
+
+    // A 64-bit field; a value with the sign bit set is reported as -1.
+    static long u64(byte[] bytes, int position) {
+
+        long value = u32(bytes, position) | u32(bytes, position + 4) << 32;
+        return value < 0 ? -1 : value;
+    }
+
+    destructor {
+
+        free this.table;
+        free this.names;
+        free this.checksum;
+    }
+}

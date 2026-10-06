@@ -600,6 +600,10 @@ public final class Files {
             } catch (IOException failure) {
                 releaseVisitedAttributes(attributes);
                 return visitFailed(visitor, path, failure);
+            } catch (OutOfMemoryError failure) {
+                // This visit still owns its attributes when the check cannot allocate.
+                releaseVisitedAttributes(attributes);
+                throw failure;
             }
             if (loop) {
                 releaseVisitedAttributes(attributes);
@@ -614,6 +618,10 @@ public final class Files {
         } catch (IOException failure) {
             releaseVisitedAttributes(attributes);
             return visitFailed(visitor, path, failure);
+        } catch (OutOfMemoryError failure) {
+            // This visit still owns its attributes when the stream cannot be allocated.
+            releaseVisitedAttributes(attributes);
+            throw failure;
         }
 
         boolean closed = false;
