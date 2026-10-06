@@ -34,9 +34,10 @@ ship() {
     git -C "$root" archive "$commit" | ssh -o BatchMode=yes "$1" \
         "rm -rf $2 && mkdir -p $2/tree && tar -xf - -C $2/tree"
 }
+# A single backgrounded command, so no remote subshell keeps the session open.
 launch() {
-    ssh -o BatchMode=yes "$1" "cd $2 && nohup tree/docs/self-hosting/m5/handoff-evidence/linux-evidence.sh $2 \
-        > run.log 2>&1 < /dev/null &"
+    ssh -o BatchMode=yes "$1" "nohup $2/tree/docs/self-hosting/m5/handoff-evidence/linux-evidence.sh $2 \
+        > $2/run.log 2>&1 < /dev/null &"
 }
 hosts=("estonia temp/java_bridge/m5-evidence linux-x86_64" "miami temp/ironwood-m5 linux-arm64")
 for entry in "${hosts[@]}"; do
