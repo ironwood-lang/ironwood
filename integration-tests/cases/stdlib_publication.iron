@@ -1,0 +1,62 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// M4.2 publication moves. Arguments are triples of an operation ("atomic",
+// "replacing" or "exclusive"), a source and a target; each move prints
+// "ok" when it returned the caller's target path, or the failure's kind.
+// The harness prepares every case, compares the lines and the resulting
+// trees with docs/self-hosting/m4/publication-evidence/PublicationReference.java
+// and exits 42 expected.
+import ironwood.io.IOException;
+import ironwood.nio.file.AccessDeniedException;
+import ironwood.nio.file.AtomicMoveNotSupportedException;
+import ironwood.nio.file.DirectoryNotEmptyException;
+import ironwood.nio.file.FileAlreadyExistsException;
+import ironwood.nio.file.FileSystemException;
+import ironwood.nio.file.Files;
+import ironwood.nio.file.NoSuchFileException;
+import ironwood.nio.file.Path;
+
+class Main {
+
+    public static int main(String[] args) {
+
+        for (int index = 0; index + 2 < args.length; index += 3) {
+            Path source = Path.of(args[index + 1]);
+            defer free source;
+            Path target = Path.of(args[index + 2]);
+            defer free target;
+            StringBuilder line = new StringBuilder();
+            defer free line;
+            line.append(args[index]).append(' ').append(args[index + 1]).append(' ').append(args[index + 2])
+                    .append(" -> ");
+            try {
+                Path moved = move(args[index], source, target);
+                line.append(moved == target ? "ok" : "other path");
+            } catch (IOException failure) {
+                line.append('!').append(kind(failure));
+            }
+            String text = line.toString();
+            defer free text;
+            System.out.println(text);
+        }
+        return 42;
+    }
+
+    static Path move(String operation, Path source, Path target) throws IOException {
+
+        if (operation.equals("atomic")) return Files.moveAtomicReplacing(source, target);
+        if (operation.equals("replacing")) return Files.moveReplacing(source, target);
+        return Files.moveAtomicNoReplace(source, target);
+    }
+
+    static String kind(IOException failure) {
+
+        if (failure instanceof AtomicMoveNotSupportedException) return "AtomicMoveNotSupportedException";
+        if (failure instanceof NoSuchFileException) return "NoSuchFileException";
+        if (failure instanceof AccessDeniedException) return "AccessDeniedException";
+        if (failure instanceof FileAlreadyExistsException) return "FileAlreadyExistsException";
+        if (failure instanceof DirectoryNotEmptyException) return "DirectoryNotEmptyException";
+        if (failure instanceof FileSystemException) return "FileSystemException";
+        return "IOException";
+    }
+}

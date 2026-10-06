@@ -8,8 +8,11 @@
 /* M4 native filesystem services under injected host behavior: temporary-name
  * collisions and exhaustion, a failed close after creation, a failed String
  * allocation after creation, long stems, the Linux random-source fallback,
- * real paths with invalid UTF-8 and access checks. Only Ironwood's
- * translation unit is instrumented, not libc. */
+ * real paths with invalid UTF-8 and access checks (M4.1); the check-then-
+ * rename race of Files.move, competing creators, unsupported and
+ * cross-device exclusive renames, and every failure point of the replacing
+ * move's cross-device copy (M4.2). Only Ironwood's translation unit is
+ * instrumented, not libc. */
 #include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
@@ -25,10 +28,15 @@
 #include <unwind.h>
 #if defined(__linux__)
 #include <sys/syscall.h>
+extern long syscall(long number, ...);
 #endif
 
 static int heap_live, descriptors;
 static int fail_calloc, exist_opens, exist_mkdirs, fail_close, opens, mkdirs;
+/* M4.2: injected rename results, a competitor created between a check and a
+ * rename, and failures at each step of the cross-device copy. */
+static int rename_error, exclusive_error, fail_write, fail_unlink_source, fail_second_rename, renames;
+static const char *compete_path;
 #if defined(__linux__)
 static int random_unavailable, urandom_unavailable;
 #endif
@@ -94,7 +102,52 @@ static long test_syscall(long number, ...) {
     unsigned flags = va_arg(arguments, unsigned);
     va_end(arguments);
     if (number == SYS_getrandom && random_unavailable) { errno = ENOSYS; return -1; }
+    if (number == SYS_renameat2) {
+        if (exclusive_error != 0) { errno = exclusive_error; return -1; }
+        va_start(arguments, number);
+        int source_directory = va_arg(arguments, int);
+        const char *source = va_arg(arguments, const char *);
+        int target_directory = va_arg(arguments, int);
+        const char *target = va_arg(arguments, const char *);
+        unsigned rename_flags = va_arg(arguments, unsigned);
+        va_end(arguments);
+        return syscall(number, source_directory, source, target_directory, target, rename_flags);
+    }
     return syscall(number, buffer, length, flags);
+}
+#endif
+static int test_lstat(const char *path, struct stat *status) {
+    int result = lstat(path, status);
+    if (result != 0 && compete_path != NULL && strcmp(path, compete_path) == 0) {
+        /* A competing creator wins the window between the check and the rename. */
+        int descriptor = open(path, O_WRONLY | O_CREAT | O_EXCL, 0600);
+        if (descriptor >= 0) {
+            write(descriptor, "competitor", 10);
+            close(descriptor);
+        }
+        compete_path = NULL;
+        errno = ENOENT;
+    }
+    return result;
+}
+static int test_rename(const char *source, const char *target) {
+    renames++;
+    if (rename_error != 0 && renames == 1) { errno = rename_error; return -1; }
+    if (fail_second_rename && renames == 2) { errno = EIO; return -1; }
+    return rename(source, target);
+}
+static ssize_t test_write(int descriptor, const void *data, size_t length) {
+    if (fail_write) { errno = EIO; return -1; }
+    return write(descriptor, data, length);
+}
+static int test_unlink(const char *path) {
+    if (fail_unlink_source && strstr(path, ".ironwood-move-") == NULL) { errno = EACCES; return -1; }
+    return unlink(path);
+}
+#if defined(__APPLE__)
+static int test_renamex_np(const char *source, const char *target, unsigned int flags) {
+    if (exclusive_error != 0) { errno = exclusive_error; return -1; }
+    return renamex_np(source, target, flags);
 }
 #endif
 static _Unwind_Reason_Code test_unwind(struct _Unwind_Exception *exception) {
@@ -109,6 +162,13 @@ static _Unwind_Reason_Code test_unwind(struct _Unwind_Exception *exception) {
 #define open test_open
 #define close test_close
 #define mkdir test_mkdir
+#define lstat test_lstat
+#define rename test_rename
+#define write test_write
+#define unlink test_unlink
+#if defined(__APPLE__)
+#define renamex_np test_renamex_np
+#endif
 #if defined(__linux__)
 #define syscall test_syscall
 #endif
@@ -121,6 +181,13 @@ static _Unwind_Reason_Code test_unwind(struct _Unwind_Exception *exception) {
 #undef open
 #undef close
 #undef mkdir
+#undef lstat
+#undef rename
+#undef write
+#undef unlink
+#if defined(__APPLE__)
+#undef renamex_np
+#endif
 #if defined(__linux__)
 #undef syscall
 #endif
@@ -292,8 +359,9 @@ static int real_paths(void) {
     /* A resolved name that is not UTF-8 cannot become a String. */
     CHECK(symlink(invalid, "to-bad") == 0);
     struct ironwood_string *to_bad = text("to-bad");
+    int strings = heap_live;
     CHECK(ironwood_file_real_path(to_bad, &string_type, &allocation_error) == NULL);
-    CHECK(last_file_error == IRONWOOD_FILE_ERROR_INVALID_UTF8 && heap_live == baseline);
+    CHECK(last_file_error == IRONWOOD_FILE_ERROR_INVALID_UTF8 && heap_live == strings);
     CHECK(ironwood_file_access(to_bad, 1, &allocation_error) == 1 && ironwood_file_access(to_bad, 2, &allocation_error) == 0);
     unlink("to-bad");
     unlink(invalid);
@@ -307,10 +375,147 @@ static int real_paths(void) {
     return 0;
 }
 
+static int put(const char *path, const char *content) {
+    int descriptor = open(path, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+    if (descriptor < 0) { return -1; }
+    ssize_t written = write(descriptor, content, strlen(content));
+    return close(descriptor) == 0 && written == (ssize_t) strlen(content) ? 0 : -1;
+}
+
+static int holds(const char *path, const char *content) {
+    char buffer[64];
+    int descriptor = open(path, O_RDONLY);
+    if (descriptor < 0) { return 0; }
+    ssize_t count = read(descriptor, buffer, sizeof(buffer) - 1);
+    close(descriptor);
+    if (count < 0) { return 0; }
+    buffer[count] = '\0';
+    return strcmp(buffer, content) == 0;
+}
+
+static int exists(const char *path) {
+    struct stat status;
+    return lstat(path, &status) == 0;
+}
+
+static int moves(void) {
+    struct ironwood_string *source = text("source");
+    struct ironwood_string *target = text("target");
+    struct ironwood_string *nested = text("dir/sub");
+    struct ironwood_string *directory = text("dir");
+    int baseline = heap_live;
+    /* Files.move checks, then renames: a creator in that window is replaced
+     * silently, which is why publication needs the exclusive rename. */
+    CHECK(put("source", "new") == 0);
+    compete_path = "target";
+    CHECK(ironwood_file_move(source, target, &allocation_error) == IRONWOOD_FILE_ERROR_NONE);
+    CHECK(compete_path == NULL && holds("target", "new") && !exists("source"));
+    CHECK(unlink("target") == 0);
+    /* The exclusive rename keeps a competing file, directory or dangling link. */
+    for (int competitor = 0; competitor < 3; competitor++) {
+        CHECK(put("source", "new") == 0);
+        if (competitor == 0) { CHECK(put("target", "competitor") == 0); }
+        else if (competitor == 1) { CHECK(mkdir("target", 0700) == 0); }
+        else { CHECK(symlink("missing", "target") == 0); }
+        CHECK(ironwood_file_move_exclusive(source, target, &allocation_error) == IRONWOOD_FILE_ERROR_ALREADY_EXISTS);
+        CHECK(holds("source", "new") && exists("target"));
+        if (competitor == 0) { CHECK(holds("target", "competitor") && unlink("target") == 0); }
+        else if (competitor == 1) { CHECK(rmdir("target") == 0); }
+        else { CHECK(unlink("target") == 0); }
+    }
+    CHECK(ironwood_file_move_exclusive(source, target, &allocation_error) == IRONWOOD_FILE_ERROR_NONE);
+    CHECK(holds("target", "new") && !exists("source"));
+    /* A name renamed to itself is an existing target on every host. */
+    CHECK(ironwood_file_move_exclusive(target, target, &allocation_error) == IRONWOOD_FILE_ERROR_ALREADY_EXISTS);
+    CHECK(holds("target", "new") && unlink("target") == 0);
+    /* An unsupported host or file system, or another device, changes nothing. */
+    CHECK(put("source", "new") == 0);
+    int unsupported[] = {ENOTSUP, EXDEV
+#if defined(__linux__)
+            , ENOSYS, EINVAL
+#endif
+    };
+    for (size_t index = 0; index < sizeof(unsupported) / sizeof(int); index++) {
+        exclusive_error = unsupported[index];
+        int32_t result = ironwood_file_move_exclusive(source, target, &allocation_error);
+        CHECK(result == (unsupported[index] == EXDEV ? IRONWOOD_FILE_ERROR_CROSS_DEVICE
+                : IRONWOOD_FILE_ERROR_UNSUPPORTED));
+        CHECK(holds("source", "new") && !exists("target"));
+    }
+    exclusive_error = 0;
+    /* A directory moved inside itself stays an invalid move, not unsupported. */
+    CHECK(mkdir("dir", 0700) == 0);
+    CHECK(ironwood_file_move_exclusive(directory, nested, &allocation_error) == IRONWOOD_FILE_ERROR_OTHER);
+    CHECK(rmdir("dir") == 0);
+    /* Atomic replacement: another device fails without effect; a non-empty
+     * directory reported as EEXIST is normalized to ENOTEMPTY. */
+    CHECK(put("target", "old") == 0);
+    renames = 0;
+    rename_error = EXDEV;
+    CHECK(ironwood_file_move_atomic(source, target, &allocation_error) == IRONWOOD_FILE_ERROR_CROSS_DEVICE);
+    CHECK(holds("source", "new") && holds("target", "old"));
+    renames = 0;
+    rename_error = EEXIST;
+    CHECK(ironwood_file_move_atomic(source, target, &allocation_error) == IRONWOOD_FILE_ERROR_DIRECTORY_NOT_EMPTY);
+    /* The replacing move copies only a regular file across devices. */
+    struct stat before, after;
+    CHECK(chmod("source", 0751) == 0 && stat("source", &before) == 0);
+    for (int fault = 0; fault < 4; fault++) {
+        renames = 0;
+        rename_error = EXDEV;
+        fail_write = fault == 1;
+        fail_second_rename = fault == 2;
+        fail_unlink_source = fault == 3;
+        int32_t result = ironwood_file_move_replacing(source, target, &allocation_error);
+        fail_write = fail_second_rename = fail_unlink_source = 0;
+        if (fault == 0) {
+            CHECK(result == IRONWOOD_FILE_ERROR_NONE && holds("target", "new") && !exists("source"));
+            CHECK(stat("target", &after) == 0 && (after.st_mode & 07777) == 0751);
+#if defined(__APPLE__)
+            CHECK(after.st_mtimespec.tv_sec == before.st_mtimespec.tv_sec
+                    && after.st_mtimespec.tv_nsec == before.st_mtimespec.tv_nsec);
+#else
+            CHECK(after.st_mtim.tv_sec == before.st_mtim.tv_sec && after.st_mtim.tv_nsec == before.st_mtim.tv_nsec);
+#endif
+            CHECK(put("source", "new") == 0 && put("target", "old") == 0);
+        } else if (fault < 3) {
+            /* A failure before the replacement keeps both entries and no temporary. */
+            CHECK(result == IRONWOOD_FILE_ERROR_OTHER && holds("source", "new") && holds("target", "old"));
+        } else {
+            /* The target was replaced; the source that remains is reported, not rolled back. */
+            CHECK(result == IRONWOOD_FILE_ERROR_SOURCE_RETAINED && holds("source", "new") && holds("target", "new"));
+            CHECK(put("target", "old") == 0);
+        }
+        CHECK(entries() == 2 && descriptors == 0 && heap_live == baseline);
+    }
+    /* A directory or link across devices has no fallback and stays unchanged. */
+    CHECK(unlink("source") == 0 && mkdir("source", 0700) == 0);
+    renames = 0;
+    rename_error = EXDEV;
+    CHECK(ironwood_file_move_replacing(source, target, &allocation_error) == IRONWOOD_FILE_ERROR_CROSS_DEVICE);
+    CHECK(rmdir("source") == 0 && symlink("target", "source") == 0);
+    renames = 0;
+    CHECK(ironwood_file_move_replacing(source, target, &allocation_error) == IRONWOOD_FILE_ERROR_CROSS_DEVICE);
+    rename_error = 0;
+    CHECK(unlink("source") == 0 && holds("target", "old") && unlink("target") == 0);
+    CHECK(entries() == 0 && descriptors == 0 && heap_live == baseline);
+    ironwood_deallocate(directory);
+    ironwood_deallocate(nested);
+    ironwood_deallocate(target);
+    ironwood_deallocate(source);
+    return 0;
+}
+
+/* Argument 1 is an empty scratch directory; argument 2 selects "temporary"
+ * (M4.1) or "publication" (M4.2), and both run without it. */
 int main(int argc, char **argv) {
-    CHECK(argc == 2 && chdir(argv[1]) == 0 && entries() == 0);
-    CHECK(temporaries() == 0);
-    CHECK(real_paths() == 0);
+    CHECK((argc == 2 || argc == 3) && chdir(argv[1]) == 0 && entries() == 0);
+    _Bool all = argc == 2;
+    if (all || strcmp(argv[2], "temporary") == 0) {
+        CHECK(temporaries() == 0);
+        CHECK(real_paths() == 0);
+    }
+    if (all || strcmp(argv[2], "publication") == 0) { CHECK(moves() == 0); }
     CHECK(entries() == 0 && heap_live == 0 && descriptors == 0);
     return 0;
 }

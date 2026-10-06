@@ -13,7 +13,7 @@ source files. IronDocs covers 166 public and protected types across 14 packages:
 | `ironwood.time` | 2 | Immutable epoch timestamps and date/time failures |
 | `ironwood.time.format` | 1 | ISO timestamp parse failures |
 | `ironwood.nio` | 5 | Checked heap byte buffers |
-| `ironwood.nio.file` | 16 | POSIX paths, whole-file I/O, directory streams, visitor traversal, metadata, and file failures |
+| `ironwood.nio.file` | 17 | POSIX paths, whole-file I/O, directory streams, visitor traversal, metadata, and file failures |
 | `ironwood.nio.file.attribute` | 2 | Millisecond file times and basic attributes |
 | `ironwood.pool` | 4 | Explicitly built, reusable object pools |
 | `ironwood.ds` | 26 | Low-allocation lists, maps, sets, and primitive collections |
@@ -552,7 +552,7 @@ basic file attributes, and controlled recursive visitor traversal.
 | --- | --- |
 | `Path` | `Comparable<Path>` interface with one/two-component `of`, text/equality/hash, absolute/root/file-name/parent/name-count/index queries, prefixes, resolution, relativization, normalization, absolute conversion, and host real-path resolution (`toRealPath`). Returned path values are caller-owned. |
 | `Paths` | Fixed-arity `get(String)` factory corresponding to Java's common one-component varargs call. |
-| `Files` | Existing whole-file/factory/metadata calls plus delete and `deleteIfExists`, recursive createDirectories, no-replace copy/move, exclusive temporary files and directories, advisory `isReadable`/`isExecutable`, the no-follow `readAttributesNoFollow` helper, strict-UTF-8 readAllLines returning `ironwood.ds.ArrayList<String>`, and recursive `walkFileTree`. Calls borrow paths/content and retain no caller reference. |
+| `Files` | Existing whole-file/factory/metadata calls plus delete and `deleteIfExists`, recursive createDirectories, no-replace copy/move, the publication moves `moveAtomicReplacing`, `moveReplacing` and `moveAtomicNoReplace`, exclusive temporary files and directories, advisory `isReadable`/`isExecutable`, the no-follow `readAttributesNoFollow` helper, strict-UTF-8 readAllLines returning `ironwood.ds.ArrayList<String>`, and recursive `walkFileTree`. Calls borrow paths/content and retain no caller reference. |
 | `DirectoryStream<T>` | Closeable, single-iterator directory view. `hasNext()` performs allocation-free lookahead, and ownership-aware `nextEntry()` returns a fresh caller-owned path. Explicit close releases the native handle. |
 | `FileVisitResult`, `FileVisitor<T>`, `SimpleFileVisitor<T>` | Java-shaped traversal control, callback contract, and default continue/rethrow behavior. |
 | `BasicFileAttributes` | Common size, timestamp, and file-kind queries. The default read follows symbolic links; `fileKey()` is null. |
@@ -563,6 +563,7 @@ basic file attributes, and controlled recursive visitor traversal.
 | `FileSystemLoopException` | Checked `FileSystemException` delivered when followed-link traversal reaches an ancestor directory. |
 | `NoSuchFileException` | Checked `FileSystemException` specialization used by missing-path whole-file operations. |
 | `AccessDeniedException`, `FileAlreadyExistsException`, `DirectoryNotEmptyException` | Specific FileSystemException failures for permission, no-replace and non-empty-directory cases. |
+| `AtomicMoveNotSupportedException` | FileSystemException for a publication move that cannot keep its selected guarantee: an atomic rename across file systems, or an exclusive rename the host or file system cannot supply. Nothing has changed. |
 
 Construction and `normalize()` are lexical and perform no filesystem access.
 Each non-null built-in path result allocates only its wrapper and owned String;
@@ -604,6 +605,29 @@ resolves the current directory. The `LinkOption` overload is absent.
 follow links and return false on any failure. `Files.deleteIfExists` returns
 false only for absence. `Files.readAttributesNoFollow(Path)` stands for Java's
 `readAttributes(path, BasicFileAttributes.class, NOFOLLOW_LINKS)`.
+
+Three distinctly named moves publish staged output, each with its own
+guarantee and no silent fallback to a weaker one. `moveAtomicReplacing` is one
+`rename(2)`: an existing target is replaced atomically, a link is renamed (not
+followed), names that already denote the same file are left alone, and a move
+across file systems fails with `AtomicMoveNotSupportedException`.
+`moveReplacing` renames in the same way; only a regular file moved across file
+systems is copied, with its mode and times, into an exclusive temporary beside
+the target that then replaces it atomically before the source is removed, so a
+failure before that replacement keeps the earlier target and the source. A
+source left behind after the replacement is reported with a
+`FileSystemException` whose reason is `Target replaced; source not removed`;
+the target is not rolled back. `moveAtomicNoReplace` renames only if nothing,
+not even a dangling link, exists at the target, deciding and renaming in one
+host operation (`renamex_np` with `RENAME_EXCL` on macOS, the `renameat2`
+system call with `RENAME_NOREPLACE` on Linux), so of competing creators exactly
+one wins. An existing target, including the same file, fails with
+`FileAlreadyExistsException`; a host or file system without exclusive rename,
+or another file system, fails with `AtomicMoveNotSupportedException`. The
+existing `Files.move` keeps Java's default behavior, a check followed by a
+rename, and is not an atomic no-replace primitive under a competing creator.
+Each move borrows both paths and returns the caller's target, not a fresh path.
+Atomic visibility is not a durability guarantee after a crash.
 
 `Files.walkFileTree(Path, FileVisitor<Path>)` performs a no-follow depth-first
 walk. The fixed-arity `(Path, int, boolean, FileVisitor<Path>)` overload selects

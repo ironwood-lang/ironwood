@@ -10339,3 +10339,61 @@ occurrence order. If no
   close, a failed String after creation, long stems and invalid UTF-8; the
   tree deletion matches NativeBackend.deleteTree and Bridge staging cleanup on
   eight trees. See [the M4.1 record](self-hosting/m4/SCRATCH.md).
+
+## D271 - Publish with three distinct move guarantees
+
+- **Status:** Implemented during M4.2 on 2026-10-06.
+- **Decision:** `ironwood.nio.file.Files` gains three distinctly named
+  publication moves, one per B3 policy, and `AtomicMoveNotSupportedException`.
+  None falls back to a weaker guarantee.
+  - **Atomic replacement.** `moveAtomicReplacing(source, target)` is one
+    `rename(2)`: it replaces an existing target atomically, renames a link
+    itself, leaves names that already denote one file alone, and fails across
+    file systems with AtomicMoveNotSupportedException without copying
+    (BridgeJarArchive.publish's policy).
+  - **Permitted fallback.** `moveReplacing(source, target)` renames the same
+    way; only a regular file across file systems is copied, with mode and
+    times, into an exclusive temporary beside the target, which replaces the
+    target atomically before the source is unlinked (IronJar.write's
+    policy). A failure before that replacement keeps the earlier target and
+    the source. A source that cannot be unlinked afterwards is reported as a
+    FileSystemException with the reason `Target replaced; source not
+    removed`, and the target is not rolled back. Directories and links have
+    no fallback.
+  - **No-replace.** `moveAtomicNoReplace(source, target)` decides and renames
+    in one host operation: `renamex_np(RENAME_EXCL)` on macOS (10.12+, within
+    the 11.0 baseline) and the raw `renameat2` syscall with
+    `RENAME_NOREPLACE` on Linux (kernel 3.15+ and filesystem support; the
+    glibc 2.28 wrapper is excluded by the 2.17 baseline; syscall numbers are
+    guarded per architecture). An existing target, including the same file
+    on every host, fails with FileAlreadyExistsException; ENOTSUP, ENOSYS,
+    and an EINVAL that is not a directory moved into itself fail with
+    AtomicMoveNotSupportedException, as does a cross-device move. There is
+    never a check-then-rename fallback (Bridge distribution and support
+    staging's policy). The link-and-unlink alternative is not used: it cannot
+    publish directories.
+  - **Existing move.** `Files.move` keeps Java's default behavior, a check
+    followed by a rename, and is documented as not atomic under a competing
+    creator; no race fix changes it.
+  - **Ownership.** Each move borrows both paths (audited
+    `isBorrowingFilesFacade` entries) and returns the caller's target as an
+    alias, exactly as `Files.move` does.
+- **Proof:** Three new typed `IrFileInstruction` operations (MOVE_ATOMIC,
+  MOVE_REPLACING, MOVE_EXCLUSIVE) reuse the existing file machinery; no
+  analysis rule or hot lowering changed. The runtime's new error categories
+  (cross-device, unsupported, source retained) are set only by these moves.
+- **Boundary:** Atomic visibility is not crash durability; no fsync policy is
+  added. Java's `REPLACE_EXISTING` move also copies links and empty
+  directories across file systems, and Java's default move copies and
+  treats the same file as a no-op; these helpers do not. Supersedes no
+  decision.
+- **Verification:** Sixteen cases per move print Java 21's lines and leave
+  Java's trees from class and archive links, differing only where an
+  exclusive target is the same file; a second real file system (an HFS+
+  image on macOS, tmpfs on Linux) shows the cross-device behavior and the
+  copy's mode and times; eight competing processes over 40 rounds of files
+  and directories admit exactly one winner whose content survives; a native
+  harness demonstrates Files.move's check-then-rename race and covers
+  competing creators, unsupported and cross-device results and every failure
+  of the copy; every allocation failure of a staged publication unwinds
+  without leftovers. See [the M4.2 record](self-hosting/m4/PUBLICATION.md).

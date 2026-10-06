@@ -886,6 +886,16 @@ public final class CompilerTests {
                 FilesystemServicesTests::nativeHarness);
         test("compiler tree deletion matches the Java cleanup policies across artifacts",
                 FilesystemServicesTests::treeDeletion);
+        test("M4.2 publication moves lower to typed IR and return the caller's target",
+                PublicationTests::typedOperations);
+        test("M4.2 publication moves match Java 21 on one file system across artifacts",
+                PublicationTests::javaDifferential);
+        test("M4.2 publication moves keep their guarantees across file systems", PublicationTests::crossDevice);
+        test("M4.2 exclusive publication admits exactly one competing process",
+                PublicationTests::competingCreators);
+        test("M4.2 native publication survives injected races and failures", PublicationTests::nativeHarness);
+        test("M4.2 staged publication unwinds every allocation failure without leftovers",
+                PublicationTests::failures);
         test("compiler work queue keeps queued items alive and its ring private", WorkQueueTests::ownership);
         test("compiler worklists preserve FIFO and retain-filter order across artifacts and failures",
                 WorkQueueTests::artifacts);

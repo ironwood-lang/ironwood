@@ -76,4 +76,4 @@ benchmark applies.
   fixtures append to `new StringBuilder()` instead.
 - A caught exception cannot be freed: each failure ignored by
   `TreeDeletion.deleteQuietly` keeps its exception.
-- Linux evidence for these members is recorded with M4.2's host run.
+- Linux x86-64 results for these members are in [PUBLICATION.md](PUBLICATION.md#hosts).

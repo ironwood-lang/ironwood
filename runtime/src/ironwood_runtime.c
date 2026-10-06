@@ -35,8 +35,9 @@
 #include <sys/syscall.h>
 extern const uint8_t __start_ironwood_trace[] __attribute__((weak));
 extern const uint8_t __stop_ironwood_trace[] __attribute__((weak));
-/* The strict POSIX feature level hides this glibc 2.2.5 declaration. */
+/* The strict POSIX feature level hides these glibc 2.2.5 declarations. */
 extern long syscall(long number, ...);
+extern char *realpath(const char *path, char *resolved);
 #endif
 
 enum ironwood_type_kind {
@@ -186,7 +187,13 @@ enum ironwood_file_error {
     IRONWOOD_FILE_ERROR_TOO_LARGE = 6,
     IRONWOOD_FILE_ERROR_ALREADY_EXISTS = 7,
     IRONWOOD_FILE_ERROR_DIRECTORY_NOT_EMPTY = 8,
-    IRONWOOD_FILE_ERROR_OTHER = 9
+    IRONWOOD_FILE_ERROR_OTHER = 9,
+    /* Set only by the publication moves: a move across file systems, a host or
+     * file system without exclusive rename, and a replacement whose source
+     * could not be removed afterwards. */
+    IRONWOOD_FILE_ERROR_CROSS_DEVICE = 10,
+    IRONWOOD_FILE_ERROR_UNSUPPORTED = 11,
+    IRONWOOD_FILE_ERROR_SOURCE_RETAINED = 12
 };
 
 static _Thread_local int32_t last_file_error;
@@ -2201,6 +2208,31 @@ static size_t write_unsigned_decimal(char *output, uint64_t value) {
     return count;
 }
 
+/* Appends a random name to the stem already in path and creates it
+ * exclusively, retrying a bounded number of existing names; a new file stays
+ * open in *descriptor. Returns 0 or the errno value of the last attempt. */
+static int create_exclusive_name(char *path, size_t stem_length, const char *suffix,
+                                 size_t suffix_length, _Bool directory, int *descriptor,
+                                 size_t *length) {
+    int error = EEXIST;
+    for (int attempt = 0; attempt < IRONWOOD_TEMPORARY_ATTEMPTS && error == EEXIST; attempt++) {
+        uint64_t value;
+        if (!temporary_random(&value)) { return errno == 0 ? EIO : errno; }
+        *length = stem_length + write_unsigned_decimal(path + stem_length, value);
+        memcpy(path + *length, suffix, suffix_length);
+        *length += suffix_length;
+        path[*length] = '\0';
+        if (directory) {
+            error = mkdir(path, 0700) == 0 ? 0 : errno;
+        } else {
+            *descriptor = open(path, O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC, 0600);
+            error = *descriptor < 0 ? errno : 0;
+        }
+        if (error == EINTR) { error = EEXIST; }
+    }
+    return error;
+}
+
 /* Exclusively creates the entry before any managed result exists, then builds
  * its spelling. A failed String allocation removes the new entry first. */
 static void *create_temporary(const struct ironwood_string *stem,
@@ -2227,29 +2259,13 @@ static void *create_temporary(const struct ironwood_string *stem,
         /* Java's generated name drops trailing separators before its parent check. */
         while (suffix_length > 0 && suffix_text[suffix_length - 1U] == '/') { suffix_length--; }
     }
-    int error = EEXIST;
     size_t length = 0;
-    for (int attempt = 0; attempt < IRONWOOD_TEMPORARY_ATTEMPTS && error == EEXIST; attempt++) {
-        uint64_t value;
-        if (!temporary_random(&value)) {
-            error = errno == 0 ? EIO : errno;
-            break;
-        }
-        length = stem_length + write_unsigned_decimal(path + stem_length, value);
-        memcpy(path + length, suffix_text, suffix_length);
-        length += suffix_length;
-        path[length] = '\0';
-        if (directory) {
-            error = mkdir(path, 0700) == 0 ? 0 : errno;
-        } else {
-            int descriptor = open(path, O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC, 0600);
-            error = descriptor < 0 ? errno : 0;
-            if (descriptor >= 0 && close(descriptor) != 0) {
-                error = errno;
-                unlink(path);
-            }
-        }
-        if (error == EINTR) { error = EEXIST; }
+    int descriptor = -1;
+    int error = create_exclusive_name(path, stem_length, suffix_text, suffix_length, directory,
+            &descriptor, &length);
+    if (error == 0 && !directory && close(descriptor) != 0) {
+        error = errno;
+        unlink(path);
     }
     struct ironwood_string *result = NULL;
     if (error == 0) {
@@ -2316,6 +2332,185 @@ int32_t ironwood_file_access(const void *path, int32_t mode, void *allocation_fa
     int result = access(native_path, mode == 1 ? R_OK : X_OK);
     if (native_path != stack) { free(native_path); }
     return result == 0;
+}
+
+/* Publication moves. Each keeps its own guarantee and never falls back to a
+ * weaker one: rename(2) for atomic replacement, an exclusive rename for
+ * no-replace, and a copy only for the replacing move of a regular file across
+ * file systems. */
+static int32_t move_result(int error) {
+    if (error == 0) {
+        last_file_error = IRONWOOD_FILE_ERROR_NONE;
+    } else if (error == EXDEV) {
+        last_file_error = IRONWOOD_FILE_ERROR_CROSS_DEVICE;
+    } else if (error == ENOTSUP || error == EOPNOTSUPP || error == ENOSYS) {
+        last_file_error = IRONWOOD_FILE_ERROR_UNSUPPORTED;
+    } else {
+        set_file_error_from_errno(error);
+    }
+    return last_file_error;
+}
+
+/* POSIX lets a non-empty directory target fail with EEXIST or ENOTEMPTY. */
+static int replacement_error(int error) {
+    return error == EEXIST ? ENOTEMPTY : error;
+}
+
+int32_t ironwood_file_move_atomic(const void *source, const void *target,
+                                  void *allocation_failure) {
+    const struct ironwood_string *source_text = source;
+    const struct ironwood_string *target_text = target;
+    if (source_text == NULL || target_text == NULL) { abort(); }
+    char stack[IRONWOOD_PATH_STACK_CAPACITY * 2];
+    char *source_path, *target_path;
+    char *storage = two_native_paths(source_text, target_text, stack, sizeof(stack),
+            &source_path, &target_path, allocation_failure);
+    int error = rename(source_path, target_path) == 0 ? 0 : replacement_error(errno);
+    if (storage != stack) { free(storage); }
+    return move_result(error);
+}
+
+/* Copies an open regular file into a new exclusive temporary beside target,
+ * keeping its mode and times, then renames that over target. Any failure
+ * before the rename removes the temporary and leaves target unchanged. */
+static int replace_by_copy(int input, const struct stat *status, const char *target_path,
+                           void *allocation_failure) {
+    size_t target_length = strlen(target_path);
+    size_t directory_length = target_length;
+    while (directory_length > 0 && target_path[directory_length - 1U] != '/') { directory_length--; }
+    static const char marker[] = ".ironwood-move-";
+    size_t stem_length = directory_length + sizeof(marker) - 1U;
+    size_t capacity = stem_length + IRONWOOD_TEMPORARY_DIGITS + 1U;
+    char stack[IRONWOOD_PATH_STACK_CAPACITY];
+    char *temporary = capacity <= sizeof(stack) ? stack : malloc(capacity);
+    if (temporary == NULL) { raise_allocation_failure(allocation_failure); }
+    memcpy(temporary, target_path, directory_length);
+    memcpy(temporary + directory_length, marker, sizeof(marker) - 1U);
+    size_t length = 0;
+    int output = -1;
+    int error = create_exclusive_name(temporary, stem_length, "", 0, 0, &output, &length);
+    if (error == 0) {
+        unsigned char buffer[IRONWOOD_IO_CHUNK_CAPACITY];
+        for (;;) {
+            ssize_t count = read(input, buffer, sizeof(buffer));
+            if (count < 0 && errno == EINTR) { continue; }
+            if (count < 0) { error = errno; break; }
+            if (count == 0) { break; }
+            if (!write_native_bytes(output, buffer, (size_t) count)) { error = errno; break; }
+        }
+#if defined(__APPLE__)
+        struct timespec times[2] = {status->st_atimespec, status->st_mtimespec};
+#else
+        struct timespec times[2] = {status->st_atim, status->st_mtim};
+#endif
+        if (error == 0 && fchmod(output, status->st_mode & 07777) != 0) { error = errno; }
+        if (error == 0 && futimens(output, times) != 0) { error = errno; }
+        if (close(output) != 0 && error == 0) { error = errno; }
+        if (error == 0 && rename(temporary, target_path) != 0) { error = errno; }
+        if (error != 0) { unlink(temporary); }
+    }
+    if (temporary != stack) { free(temporary); }
+    return error;
+}
+
+int32_t ironwood_file_move_replacing(const void *source, const void *target,
+                                     void *allocation_failure) {
+    const struct ironwood_string *source_text = source;
+    const struct ironwood_string *target_text = target;
+    if (source_text == NULL || target_text == NULL) { abort(); }
+    char stack[IRONWOOD_PATH_STACK_CAPACITY * 2];
+    char *source_path, *target_path;
+    char *storage = two_native_paths(source_text, target_text, stack, sizeof(stack),
+            &source_path, &target_path, allocation_failure);
+    int error = rename(source_path, target_path) == 0 ? 0 : replacement_error(errno);
+    _Bool retained = 0;
+    if (error == EXDEV) {
+        struct stat status;
+        int input = -1;
+        do {
+            input = open(source_path, O_RDONLY | O_CLOEXEC | O_NOFOLLOW);
+        } while (input < 0 && errno == EINTR);
+        /* A link (ELOOP) or directory has no fallback and stays a cross-device failure. */
+        if (input < 0 && errno != ELOOP) { error = errno; }
+        if (input >= 0 && fstat(input, &status) == 0 && S_ISREG(status.st_mode)) {
+            error = replace_by_copy(input, &status, target_path, allocation_failure);
+            /* The target already holds the content; report the source left behind. */
+            if (error == 0 && unlink(source_path) != 0) { retained = 1; }
+        }
+        if (input >= 0) { close(input); }
+    }
+    if (storage != stack) { free(storage); }
+    if (retained) {
+        last_file_error = IRONWOOD_FILE_ERROR_SOURCE_RETAINED;
+        return last_file_error;
+    }
+    return move_result(error);
+}
+
+#if defined(__linux__)
+#if !defined(SYS_renameat2) && defined(__x86_64__)
+#define SYS_renameat2 316
+#elif !defined(SYS_renameat2) && defined(__aarch64__)
+#define SYS_renameat2 276
+#endif
+#ifndef RENAME_NOREPLACE
+#define RENAME_NOREPLACE 1
+#endif
+
+/* EINVAL means an unsupported flag unless the move puts a directory inside
+ * itself; telling them apart only classifies a failure that already happened. */
+static int exclusive_rename_invalid(const char *source_path, const char *target_path) {
+    char source_real[PATH_MAX], parent_real[PATH_MAX], parent[PATH_MAX];
+    size_t length = strlen(target_path);
+    while (length > 0 && target_path[length - 1U] != '/') { length--; }
+    if (length >= sizeof(parent)) { return EINVAL; }
+    if (length == 0) {
+        parent[0] = '.';
+        parent[1] = '\0';
+    } else {
+        memcpy(parent, target_path, length);
+        parent[length] = '\0';
+    }
+    if (realpath(source_path, source_real) == NULL || realpath(parent, parent_real) == NULL) {
+        return ENOTSUP;
+    }
+    size_t source_length = strlen(source_real);
+    return strncmp(parent_real, source_real, source_length) == 0
+            && (parent_real[source_length] == '\0' || parent_real[source_length] == '/')
+            ? EINVAL : ENOTSUP;
+}
+#endif
+
+int32_t ironwood_file_move_exclusive(const void *source, const void *target,
+                                     void *allocation_failure) {
+    const struct ironwood_string *source_text = source;
+    const struct ironwood_string *target_text = target;
+    if (source_text == NULL || target_text == NULL) { abort(); }
+    char stack[IRONWOOD_PATH_STACK_CAPACITY * 2];
+    char *source_path, *target_path;
+    char *storage = two_native_paths(source_text, target_text, stack, sizeof(stack),
+            &source_path, &target_path, allocation_failure);
+    int error;
+#if defined(__APPLE__)
+    error = renamex_np(source_path, target_path, RENAME_EXCL) == 0 ? 0 : errno;
+    /* macOS accepts a name renamed to itself; Linux reports it as existing.
+     * A source that still names the target's file after success moved nothing. */
+    struct stat source_status, target_status;
+    if (error == 0 && lstat(source_path, &source_status) == 0
+            && lstat(target_path, &target_status) == 0
+            && source_status.st_dev == target_status.st_dev
+            && source_status.st_ino == target_status.st_ino) {
+        error = EEXIST;
+    }
+#elif defined(__linux__) && defined(SYS_renameat2)
+    error = syscall(SYS_renameat2, AT_FDCWD, source_path, AT_FDCWD, target_path,
+            RENAME_NOREPLACE) == 0 ? 0 : errno;
+    if (error == EINVAL) { error = exclusive_rename_invalid(source_path, target_path); }
+#else
+    error = ENOTSUP;
+#endif
+    if (storage != stack) { free(storage); }
+    return move_result(error);
 }
 
 struct ironwood_directory_handle {

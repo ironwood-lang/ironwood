@@ -13897,6 +13897,12 @@ final class FunctionAnalyzer {
                         IrFileInstruction.Operation.REAL_PATH);
                 case "accessValue" -> fileIntrinsic(IrType.I32, List.of(string, IrType.I32),
                         IrFileInstruction.Operation.ACCESS);
+                case "moveAtomicValue" -> fileIntrinsic(IrType.I32, List.of(string, string),
+                        IrFileInstruction.Operation.MOVE_ATOMIC);
+                case "moveReplacingValue" -> fileIntrinsic(IrType.I32, List.of(string, string),
+                        IrFileInstruction.Operation.MOVE_REPLACING);
+                case "moveExclusiveValue" -> fileIntrinsic(IrType.I32, List.of(string, string),
+                        IrFileInstruction.Operation.MOVE_EXCLUSIVE);
                 default -> Optional.empty();
             };
         }

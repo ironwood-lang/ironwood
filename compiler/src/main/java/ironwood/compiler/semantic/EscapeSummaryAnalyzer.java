@@ -782,7 +782,8 @@ final class EscapeSummaryAnalyzer {
                     "releaseVisitedPath", "releaseVisitedAttributes",
                     "releaseVisitedDirectoryStream",
                     "size", "deleteIfExists", "createTempFile", "createTempDirectory", "temporary",
-                    "isReadable", "isExecutable", "readAttributesNoFollow" -> true;
+                    "isReadable", "isExecutable", "readAttributesNoFollow", "moveAtomicReplacing",
+                    "moveReplacing", "moveAtomicNoReplace" -> true;
             default -> false;
         };
     }

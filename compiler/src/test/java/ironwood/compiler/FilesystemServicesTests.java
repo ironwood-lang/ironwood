@@ -216,7 +216,7 @@ final class FilesystemServicesTests {
 
     /** The runtime functions under injected collisions, close, allocation and random-source failures. */
     static void nativeHarness() throws Exception {
-        runtimeHarness("filesystem_services.c");
+        runtimeHarness("filesystem_services.c", "temporary");
     }
 
     /** TreeDeletion against NativeBackend.deleteTree and Bridge staging cleanup on the same trees. */
@@ -399,7 +399,7 @@ final class FilesystemServicesTests {
         }
     }
 
-    static void runtimeHarness(String fixture) throws Exception {
+    static void runtimeHarness(String fixture, String section) throws Exception {
         LlvmToolchain toolchain = LlvmToolchain.discover(null).toolchain().orElseThrow();
         Path root = Files.createTempDirectory("ironwood-runtime-harness-");
         try {
@@ -413,7 +413,7 @@ final class FilesystemServicesTests {
                     "-o", caseObject.toString()));
             tool(List.of(toolchain.clang().toString(), "--driver-mode=g++", object.toString(), caseObject.toString(),
                     "-o", executable.toString()));
-            execute(List.of(executable.toString(), run.toString()), null, Map.of(), null, 0, "");
+            execute(List.of(executable.toString(), run.toString(), section), null, Map.of(), null, 0, "");
         } finally {
             unlock(root);
             delete(root);

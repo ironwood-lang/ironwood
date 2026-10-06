@@ -347,6 +347,9 @@ public final class LlvmEmitter {
         output.append("declare ptr @ironwood_file_create_temp_directory(ptr, ptr, ptr)\n");
         output.append("declare ptr @ironwood_file_real_path(ptr, ptr, ptr)\n");
         output.append("declare i32 @ironwood_file_access(ptr, i32, ptr)\n");
+        output.append("declare i32 @ironwood_file_move_atomic(ptr, ptr, ptr)\n");
+        output.append("declare i32 @ironwood_file_move_replacing(ptr, ptr, ptr)\n");
+        output.append("declare i32 @ironwood_file_move_exclusive(ptr, ptr, ptr)\n");
         output.append("declare i64 @ironwood_directory_open(ptr, ptr)\n");
         output.append("declare i32 @ironwood_directory_has_next(i64)\n");
         output.append("declare ptr @ironwood_directory_next(i64, ptr, ptr)\n");
@@ -2284,6 +2287,11 @@ public final class LlvmEmitter {
                     .append(allocationFailureName()).append(')');
             case ACCESS -> output.append("i32 @ironwood_file_access(ptr ")
                     .append(operand(file.path().orElseThrow())).append(", i32 ")
+                    .append(operand(file.value().orElseThrow())).append(", ptr ")
+                    .append(allocationFailureName()).append(')');
+            case MOVE_ATOMIC, MOVE_REPLACING, MOVE_EXCLUSIVE -> output.append("i32 @ironwood_file_")
+                    .append(file.operation().name().toLowerCase(java.util.Locale.ROOT)).append("(ptr ")
+                    .append(operand(file.path().orElseThrow())).append(", ptr ")
                     .append(operand(file.value().orElseThrow())).append(", ptr ")
                     .append(allocationFailureName()).append(')');
         }

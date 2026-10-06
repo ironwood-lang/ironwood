@@ -581,6 +581,7 @@ final class TypeDependencyScanner {
                     "nextDirectoryEntryValue", "closeDirectoryValue", "readAttributesValue",
                     "fileKind", "fileKindNoFollow", "fileSize",
                     "createTempFileValue", "createTempDirectoryValue", "realPathValue", "accessValue",
+                    "moveAtomicValue", "moveReplacingValue", "moveExclusiveValue",
                     "currentDirectoryValue",
                     "absolutePathValue", "resolveSibling",
                     "normalizeSyntax", "normalizePath", "fileName", "parent", "resolve" -> true;

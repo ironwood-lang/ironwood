@@ -24,6 +24,9 @@ public final class Files {
     private static final int ERROR_FILE_TOO_LARGE = 6;
     private static final int ERROR_ALREADY_EXISTS = 7;
     private static final int ERROR_DIRECTORY_NOT_EMPTY = 8;
+    private static final int ERROR_CROSS_DEVICE = 10;
+    private static final int ERROR_UNSUPPORTED = 11;
+    private static final int ERROR_SOURCE_RETAINED = 12;
     private static final int ACCESS_READ = 1;
     private static final int ACCESS_EXECUTE = 2;
 
@@ -294,6 +297,113 @@ public final class Files {
         int error = moveValue(sourceText, targetText);
         if (error != ERROR_NONE) throwFailure(sourceText, targetText, error);
         return target;
+    }
+
+    /**
+     * Renames {@code source} to {@code target} as one atomic file-system
+     * operation, replacing an existing target: an observer sees either the
+     * earlier target or the moved entry, never a missing or partial one. A
+     * file may replace a file or link, and a directory an empty directory; a
+     * link is renamed itself, and a target link is replaced, not followed. If
+     * both names already denote the same file, nothing changes and both
+     * remain. There is no copy fallback: a move across file systems fails
+     * with {@link AtomicMoveNotSupportedException}, and every failure leaves
+     * source and target unchanged. Atomic visibility is not a durability
+     * guarantee after a crash.
+     *
+     * @param source the entry to move; borrowed for the call
+     * @param target its new name; borrowed for the call
+     * @return {@code target}, the caller's own path
+     * @throws AtomicMoveNotSupportedException if the names are on different
+     *         file systems
+     * @throws IOException if the rename fails, for example for a non-empty
+     *         target directory or a missing source
+     */
+    public static Path moveAtomicReplacing(Path source, Path target) throws IOException {
+
+        String sourceText = source.toString();
+        String targetText = target.toString();
+        int error = moveAtomicValue(sourceText, targetText);
+        if (error != ERROR_NONE) throw moveFailure(sourceText, targetText, error);
+        return target;
+    }
+
+    /**
+     * Moves {@code source} to {@code target}, replacing an existing target,
+     * atomically when the host can rename. Only a regular file moved across
+     * file systems, where no rename exists, is copied instead: into a new
+     * exclusive temporary beside the target, with its mode and times, which
+     * then replaces the target atomically before the source is removed. Any
+     * failure before that replacement leaves the earlier target and the source
+     * unchanged. If the source cannot be removed afterwards, the target
+     * already holds the moved content and the method throws a
+     * {@link FileSystemException} whose reason is
+     * {@code "Target replaced; source not removed"}; it does not roll the
+     * target back. Other entries fail across file systems with
+     * {@link AtomicMoveNotSupportedException}.
+     *
+     * @param source the entry to move; borrowed for the call
+     * @param target its new name; borrowed for the call
+     * @return {@code target}, the caller's own path
+     * @throws AtomicMoveNotSupportedException if a non-regular entry would
+     *         cross file systems
+     * @throws IOException if the move fails or its source remains after the
+     *         replacement
+     */
+    public static Path moveReplacing(Path source, Path target) throws IOException {
+
+        String sourceText = source.toString();
+        String targetText = target.toString();
+        int error = moveReplacingValue(sourceText, targetText);
+        if (error != ERROR_NONE) throw moveFailure(sourceText, targetText, error);
+        return target;
+    }
+
+    /**
+     * Renames {@code source} to {@code target} only if no entry, not even a
+     * dangling link, exists at the target, deciding that and renaming in one
+     * atomic host operation, so a competing creator either wins and keeps its
+     * entry or loses. Files and directories may move. The host primitive is
+     * {@code renamex_np} with {@code RENAME_EXCL} on macOS and the
+     * {@code renameat2} system call with {@code RENAME_NOREPLACE} on Linux;
+     * where the kernel or file system lacks it, the call fails rather than
+     * checking and renaming separately.
+     *
+     * @param source the entry to move; borrowed for the call
+     * @param target its new name, which must not exist; borrowed for the call
+     * @return {@code target}, the caller's own path
+     * @throws FileAlreadyExistsException if the target exists, including when
+     *         both names denote the same file
+     * @throws AtomicMoveNotSupportedException if the host or file system
+     *         cannot rename exclusively, or the names are on different file
+     *         systems
+     * @throws IOException if the rename fails otherwise
+     */
+    public static Path moveAtomicNoReplace(Path source, Path target) throws IOException {
+
+        String sourceText = source.toString();
+        String targetText = target.toString();
+        int error = moveExclusiveValue(sourceText, targetText);
+        if (error != ERROR_NONE) throw moveFailure(sourceText, targetText, error);
+        return target;
+    }
+
+    private static IOException moveFailure(String source, String target, int error) {
+
+        if (error == ERROR_CROSS_DEVICE) {
+            return new AtomicMoveNotSupportedException(source, target, "Move across file systems");
+        }
+        if (error == ERROR_UNSUPPORTED) {
+            return new AtomicMoveNotSupportedException(source, target, "Exclusive rename not supported");
+        }
+        if (error == ERROR_SOURCE_RETAINED) {
+            return new FileSystemException(source, target, "Target replaced; source not removed");
+        }
+        if (error == ERROR_ALREADY_EXISTS) return new FileAlreadyExistsException(target);
+        if (error == ERROR_DIRECTORY_NOT_EMPTY) {
+            return new FileSystemException(source, target, "Directory not empty");
+        }
+        return failure(source, target, error);
     }
 
     /**
@@ -784,6 +894,21 @@ public final class Files {
     private static int accessValue(String path, int mode) {
 
         return 0;
+    }
+
+    private static int moveAtomicValue(String source, String target) {
+
+        return ERROR_NONE;
+    }
+
+    private static int moveReplacingValue(String source, String target) {
+
+        return ERROR_NONE;
+    }
+
+    private static int moveExclusiveValue(String source, String target) {
+
+        return ERROR_NONE;
     }
 
     private static int lastError() {

@@ -178,6 +178,14 @@ declares `throws IOException` only on `visitFileFailed` and
 `postVisitDirectory`; a subclass whose `visitFile` or `preVisitDirectory`
 throws fails to compile and implements `FileVisitor` directly instead. See D270.
 
+The publication moves have no Java counterpart by name. `moveAtomicReplacing`
+behaves as Java's `ATOMIC_MOVE` on POSIX hosts. `moveReplacing` copies only a regular file across file systems, where Java's
+`REPLACE_EXISTING` move also copies links and empty directories and reports a
+non-empty one as DirectoryNotEmptyException. `moveAtomicNoReplace` never
+copies and treats a target that is already the same file as existing, where
+Java's default move copies across file systems and treats the same file as a
+no-op. See D271.
+
 ## Generic type parameter bounds
 
 Java treats an omitted type parameter bound as an implicit `extends Object`.

@@ -1,0 +1,65 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// Inject allocation failure into a staged publication: a temporary file in
+// the scratch directory (argument 0) receives content and replaces the
+// target atomically, a second staging replaces it with the permitted
+// fallback, and the result moves exclusively to a fresh name. Every exit
+// deletes what it created, so the harness also checks that the scratch
+// directory is empty. Exit 42 on allocation failure with the live-allocation
+// baseline restored, 43 on success.
+import ironwood.io.IOException;
+import ironwood.nio.file.Files;
+import ironwood.nio.file.Path;
+
+class Main {
+
+    static void stage(Path scratch, Path target, String content, boolean atomic) throws IOException {
+
+        Path staged = Files.createTempFile(scratch, ".staged-", null);
+        defer free staged;
+        try {
+            Files.writeString(staged, content);
+            if (atomic) Files.moveAtomicReplacing(staged, target);
+            else Files.moveReplacing(staged, target);
+        } finally {
+            // Already moved after success; removed here after any failure.
+            Files.deleteIfExists(staged);
+        }
+    }
+
+    static void publish(String scratchText) throws IOException {
+
+        Path scratch = Path.of(scratchText);
+        defer free scratch;
+        Path target = scratch.resolve("published");
+        defer free target;
+        Path fresh = scratch.resolve("fresh");
+        defer free fresh;
+        try {
+            stage(scratch, target, "first", true);
+            stage(scratch, target, "second", false);
+            Files.moveAtomicNoReplace(target, fresh);
+            String text = Files.readString(fresh);
+            defer free text;
+            if (!text.equals("second") || Files.exists(target)) throw new IllegalStateException();
+        } finally {
+            Files.deleteIfExists(target);
+            Files.deleteIfExists(fresh);
+        }
+    }
+
+    public static int main(String[] args) {
+
+        long baseline = System.liveAllocationCount();
+        boolean failed = false;
+        try {
+            publish(args[0]);
+        } catch (OutOfMemoryError failure) {
+            failed = true;
+        } catch (IOException unexpected) {
+            return 2;
+        }
+        if (System.liveAllocationCount() != baseline) return 1;
+        return failed ? 42 : 43;
+    }
+}

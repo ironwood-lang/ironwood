@@ -41,7 +41,10 @@ public record IrFileInstruction(IrValueReference result, Operation operation,
         CREATE_TEMP_FILE,
         CREATE_TEMP_DIRECTORY,
         REAL_PATH,
-        ACCESS
+        ACCESS,
+        MOVE_ATOMIC,
+        MOVE_REPLACING,
+        MOVE_EXCLUSIVE
     }
 
     public IrFileInstruction {
@@ -57,7 +60,8 @@ public record IrFileInstruction(IrValueReference result, Operation operation,
                     REAL_PATH -> string;
             case WRITE_BYTES, WRITE_STRING, WRITE_CHARS, DELETE, CREATE_DIRECTORIES,
                     COPY, MOVE, DIRECTORY_HAS_NEXT, CLOSE_DIRECTORY, FILE_KIND,
-                    FILE_KIND_NOFOLLOW, LAST_ERROR, SAME_FILE, ACCESS -> IrType.I32;
+                    FILE_KIND_NOFOLLOW, LAST_ERROR, SAME_FILE, ACCESS, MOVE_ATOMIC,
+                    MOVE_REPLACING, MOVE_EXCLUSIVE -> IrType.I32;
             case FILE_SIZE, OPEN_DIRECTORY -> IrType.I64;
         };
         if (!result.type().equals(expectedResult)) {
@@ -76,7 +80,7 @@ public record IrFileInstruction(IrValueReference result, Operation operation,
         IrType expectedValue = switch (operation) {
             case WRITE_BYTES -> bytes;
             case WRITE_STRING, RESOLVE, RESOLVE_SIBLING, SAME_FILE, COPY, MOVE,
-                    CREATE_TEMP_FILE -> string;
+                    CREATE_TEMP_FILE, MOVE_ATOMIC, MOVE_REPLACING, MOVE_EXCLUSIVE -> string;
             case WRITE_CHARS -> IrType.array(IrType.U16);
             case READ_ATTRIBUTES -> IrType.I1;
             case ACCESS -> IrType.I32;
