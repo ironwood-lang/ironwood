@@ -69,6 +69,13 @@ M3.3 tables regenerate unchanged.
   policy) or `moveAtomicReplacing` (BridgeJarArchive's), deleting the stage
   with `deleteIfExists` on every exit; its `walk` consumers use
   `walkFileTree` per B3's table.
+- M5 needs no fsync or durability policy. The Java baseline's publishers
+  (IronJar, BridgeJarArchive, BridgeDistributionCommand, BridgeNativeSupport)
+  stage and move without syncing, and M5's requirement is that a failed build
+  publishes no partial artifact, which staging and these moves already give.
+  After a power loss an artifact may be stale or incomplete and is rebuilt.
+  Crash durability would be a separate, opt-in decision for a caller whose
+  output cannot be regenerated.
 - S4's native driver can own its temporary LLVM file, scratch directory and
   cleanup with these members once M4.3's process adapter is ready; until then
   the shell driver of D269 remains the supported route.
