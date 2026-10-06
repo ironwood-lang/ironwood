@@ -1,0 +1,305 @@
+{
+ "schema_version": 1,
+ "increment": "M4.3 process and driver checkpoint: B4 synchronous launch, caller adaptations and the port's driver adapters ready for the optional native-driver route",
+ "commit": "45e8d76c5cecc10adce7576a3620309f1e362c1b",
+ "host": "macOS 27.0.1 arm64 (this machine); Linux x86-64 estonia (kernel 4.15, glibc 2.27, JDK 21.0.1, LLVM 23.1.0)",
+ "java": "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home",
+ "llvm": "/opt/homebrew/opt/llvm@23",
+ "reproduce": "docs/self-hosting/m4/process-evidence/run-evidence.sh 45e8d76c",
+ "status": [
+  "build exit=0",
+  "javac exit=0",
+  "tests exit=0",
+  "classification exit=0",
+  "classification-recorded exit=0",
+  "classification-M3.1-unchanged exit=0",
+  "classification-M3.2-unchanged exit=0",
+  "classification-M3.3-unchanged exit=0",
+  "classification-M4.1-M4.2-unchanged exit=0",
+  "port-compile exit=0",
+  "port-diagnostics exit=0",
+  "measure-no-leftovers exit=0",
+  "diff-check exit=0",
+  "licenses exit=0",
+  "linux-ship exit=0",
+  "linux: linux-tests exit=0"
+ ],
+ "sources": [
+  {
+   "path": "runtime/src/ironwood_runtime.c",
+   "sha256": "3bd3a5b2adcd0d91d25e2a5e0c9f9e3131f9df35d0e71c2bd426b07e200c3892"
+  },
+  {
+   "path": "runtime/include/ironwood_runtime.h",
+   "sha256": "be24101d77478ab8b578d3820151a4f1b589b72b769ae6b3c558c4f7b8456711"
+  },
+  {
+   "path": "stdlib/src/main/ironwood/ironwood/process/ProcessRunner.iron",
+   "sha256": "6781fceb09ead6adbd0acd8a1d528f0f311fc8dbaa375df0a91452f19d520636"
+  },
+  {
+   "path": "stdlib/src/main/ironwood/ironwood/process/ProcessResult.iron",
+   "sha256": "597c079eb39dfd7f210b1ea9d7db9002ce8229b37ca98aea94e24c43bfaa6d5f"
+  },
+  {
+   "path": "compiler/src/main/java/ironwood/compiler/ir/IrProcessInstruction.java",
+   "sha256": "7be8928041cb73e114004500cfb87b72ead89139321bd737e24652bcbfa50528"
+  },
+  {
+   "path": "compiler/src/main/java/ironwood/compiler/semantic/FunctionAnalyzer.java",
+   "sha256": "aa0ed83756156229528af3da7d2a60f7248d98ab7ef132303f56f54487c2930a"
+  },
+  {
+   "path": "compiler/src/main/java/ironwood/compiler/semantic/OwnedArrayElementAnalyzer.java",
+   "sha256": "6072d0bf9e8f02a4154459f24f685639aafa898686fa63deca0e9fd89fa12d41"
+  },
+  {
+   "path": "compiler/src/main/java/ironwood/compiler/semantic/EscapeSummaryAnalyzer.java",
+   "sha256": "88c972c98bc30aff72bcce0102a95e92a945ca620255847d291a10aaa70fa069"
+  },
+  {
+   "path": "compiler/src/main/java/ironwood/compiler/backend/LlvmEmitter.java",
+   "sha256": "98313106d7c8b392195ba2cde02a36b43539b819e2946a039d6ef86bc9ab61ca"
+  },
+  {
+   "path": "compiler/src/main/java/ironwood/compiler/backend/ExecutableSearch.java",
+   "sha256": "65ac501d5e59b8649fa7ac3a28e28403565c83c58d05f6e2df7c16d865faf45a"
+  },
+  {
+   "path": "compiler/src/main/java/ironwood/compiler/backend/LlvmToolchain.java",
+   "sha256": "34e9be970c535d555f1993d4b5fbd1c6572391e64fcfe7b0b68062579b7a72b2"
+  },
+  {
+   "path": "compiler/src/main/java/ironwood/compiler/backend/MacNativeTools.java",
+   "sha256": "6448c89a6682314b7c68fd4fdb3349aa31307236817b97e2087363fd2b809783"
+  },
+  {
+   "path": "compiler/src/main/java/ironwood/compiler/backend/TlsDependency.java",
+   "sha256": "3007ae42d93e3441c38acca3612a63898496ba7b20b77f583037e9efd0b76d60"
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/port/Command.iron",
+   "sha256": "1966a83e72b0cb29c4bc7a94e0e98908d5c25ce7576c4a373f94c089e030fb68"
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/port/Probes.iron",
+   "sha256": "c67a1505b89af64c4090ba6e0b38e58fb8ff58d0611b134b3ba7020159af9a28"
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/port/ProbeRecord.iron",
+   "sha256": "485fc8d973777913ee1523e6e3eac8ad34dff4fa3180e269acd1eb6619b468c8"
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/port/ExecutableSearch.iron",
+   "sha256": "5c41cc0349843ca3a1be4b6cd27427f068f4e1e97c9f45bbeccb20ccfbddbd1d"
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/port/LlvmPipeline.iron",
+   "sha256": "bcf672bf0b58077867975a0bd1e448787bfb23160785f2750538dc0cd74f4bd2"
+  },
+  {
+   "path": "compiler/src/test/java/ironwood/compiler/ProcessRunnerTests.java",
+   "sha256": "94c4697869c664a56c186af3d8d63740c03d860f01c0754a056f6f08d1a3d8f6"
+  },
+  {
+   "path": "compiler/src/test/java/ironwood/compiler/DriverAdapterTests.java",
+   "sha256": "2e93100e6a896ef1ce8fcac725e574a4253aaed634e5afb35c8559cf7ca727d9"
+  },
+  {
+   "path": "compiler/src/test/java/ironwood/compiler/backend/ToolDiscoveryTests.java",
+   "sha256": "6046d2150a7659de2fbc42f6688409fea19c735c0fc57f5a045ff44ffcb2d13a"
+  },
+  {
+   "path": "integration-tests/runtime/process_helper.c",
+   "sha256": "b5122007cbb576539834bb76e71bf3d0cba7b63a43fdc32cf359b9d02775cc34"
+  },
+  {
+   "path": "integration-tests/runtime/process_services.c",
+   "sha256": "c4f3599a8ab728ea3d61c96426524f50cf04bf7b838a3ed96c9bf1814cad1ea8"
+  },
+  {
+   "path": "integration-tests/cases/stdlib_process_runner.iron",
+   "sha256": "5b2d7ad73b6abdd10f1928f6ee795ee5ffd24181487c72b91ddd3fc6e97cf1aa"
+  },
+  {
+   "path": "integration-tests/cases/stdlib_process_runner_failure.iron",
+   "sha256": "50e18da7378091e9992014e209813f1b53d64b1e7d13b6fc9c28b48becd8bfac"
+  },
+  {
+   "path": "integration-tests/cases/stdlib_process_group.iron",
+   "sha256": "1a0c8268173a0416b3bac75e5a20dab78c7647ca68bc95df495dda0d4bd1146b"
+  },
+  {
+   "path": "integration-tests/cases/compiler_discovery_probes.iron",
+   "sha256": "a8a74f7acdcb324e6f556fd06a225ac03da55d5b6b9759c1c94e938934dbaad3"
+  },
+  {
+   "path": "integration-tests/cases/compiler_llvm_pipeline.iron",
+   "sha256": "3ae6b6127b0906c16054b96f89fe216c3d54925d220d5503d7148d9ba71b098c"
+  },
+  {
+   "path": "integration-tests/cases/compiler_executable_search.iron",
+   "sha256": "4659236e919444d79c9c7f6c84f6c9e0dd843869b3461ebaaa69fc16ea90d45c"
+  },
+  {
+   "path": "integration-tests/cases/compiler_driver_adapters_failure.iron",
+   "sha256": "e2f11722a277a11322e5d1c07eeddd9fd5df5d62ce02bc3c9b3955d199fe7da6"
+  },
+  {
+   "path": "docs/self-hosting/m4/driver-evidence/DiscoveryReference.java",
+   "sha256": "4c2c0bb9b687c40d382cf69f69da4c47cd2a13eb9d9b6587b6ab2a65af8ebe4c"
+  },
+  {
+   "path": "docs/self-hosting/m4/driver-evidence/TraceFinalizer.java",
+   "sha256": "acc39542636b5a0c7da325edac8d02263be9ec8e91f1aebf062a966360415878"
+  },
+  {
+   "path": "docs/self-hosting/m3/classify.py",
+   "sha256": "ac99462dae3d2c515e68a2db791a8b5d08e95a34a34e871fec3921cc6ba45c25"
+  },
+  {
+   "path": "docs/self-hosting/m4/CLASSIFICATION_M4.3.md",
+   "sha256": "0c271d944525519ac68b72c7eaaa59d214df9f7e1b99e32ba8266dc8b4e07a2d"
+  },
+  {
+   "path": "docs/self-hosting/m4/process-evidence/run-evidence.sh",
+   "sha256": "4f62cd39a282ce13d583135d00daadc8d3bd4e2395ed9c846833e62026e46b0e"
+  },
+  {
+   "path": "docs/self-hosting/m4/process-evidence/linux-evidence.sh",
+   "sha256": "15b369cb77f243d45fff0345f230e725227de0c3095f59f9a430e0f414dfb95f"
+  },
+  {
+   "path": "docs/self-hosting/m4/process-evidence/m4.3-tests.txt",
+   "sha256": "e883f996b8c8ca99857385d646c768e18f3b336ed86867a7005dd4a31334d457"
+  }
+ ],
+ "logs": [
+  {
+   "log": "commit.txt",
+   "retained": "docs/self-hosting/m4/process-evidence/logs/commit.txt.gz",
+   "sha256": "87c7d59df4dfbcfccb5b44d97818a8623c1a6b4dcd43adfa4ac5f1e94ecfa9b3",
+   "gzip_sha256": "451894bbf9db8999da4ec63106dac6595b9daf12066d985326cb15efc4ff9bff"
+  },
+  {
+   "log": "status.txt",
+   "retained": "docs/self-hosting/m4/process-evidence/logs/status.txt.gz",
+   "sha256": "b6d7440d7cfe44f759a81af2a1961db4c66a5ce27a3261b2f9cb37032e6f8b45",
+   "gzip_sha256": "7d58ab81aae7cfb7aa02e48e0c78aff2c671c27dcabeba308e69da7d7ae1fc6c"
+  },
+  {
+   "log": "host.txt",
+   "retained": "docs/self-hosting/m4/process-evidence/logs/host.txt.gz",
+   "sha256": "801d48b31bd74253bdd420e242362ec2f5293c04de5f89ff01116ae25d1ff5e9",
+   "gzip_sha256": "8e493918d0b80fac481ba09a63637f157292b45803f1016178535214965bc0c0"
+  },
+  {
+   "log": "build.log",
+   "retained": "docs/self-hosting/m4/process-evidence/logs/build.log.gz",
+   "sha256": "b896aa6b20f3052ee3334355090d7e852034f75a687fcbbba1f12a757415cefd",
+   "gzip_sha256": "9336e29e05422afee11f6098c8bb4538db26f8bd6021ca50e0ba6bce0d41c863"
+  },
+  {
+   "log": "build-identity.txt",
+   "retained": "docs/self-hosting/m4/process-evidence/logs/build-identity.txt.gz",
+   "sha256": "f7856d41c107559e8107c845222272aff9785ed2a62f884582aab216b56cf7b3",
+   "gzip_sha256": "bd55e32af3d968821ba344ce18d5af2be0e989f787dd240d7a81629380838d0f"
+  },
+  {
+   "log": "javac.log",
+   "retained": "docs/self-hosting/m4/process-evidence/logs/javac.log.gz",
+   "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "gzip_sha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64"
+  },
+  {
+   "log": "tests.log",
+   "retained": "docs/self-hosting/m4/process-evidence/logs/tests.log.gz",
+   "sha256": "1c956716d273e12b3423e58bb1986102eeee8523ec050c6685b1f68664e52bb6",
+   "gzip_sha256": "c3f3250fbe6f14705548862b85edb63eef9fd5892db25a926196b814e37c86d0"
+  },
+  {
+   "log": "classification.log",
+   "retained": "docs/self-hosting/m4/process-evidence/logs/classification.log.gz",
+   "sha256": "ed7191ba24b77cc0d6107f834d00633d6e259fddffc2ab79874f5bef7a0673f2",
+   "gzip_sha256": "7eafe194d4073ac3cffaefb37119f1437f7f322bf4c80b873fdcd5c8f285070d"
+  },
+  {
+   "log": "classification.md",
+   "retained": "docs/self-hosting/m4/process-evidence/logs/classification.md.gz",
+   "sha256": "0c271d944525519ac68b72c7eaaa59d214df9f7e1b99e32ba8266dc8b4e07a2d",
+   "gzip_sha256": "3cac67be5a0a5245bde6e09e0808a30d544baad11a0e4a5ee363721c679be9e7"
+  },
+  {
+   "log": "port-sources.txt",
+   "retained": "docs/self-hosting/m4/process-evidence/logs/port-sources.txt.gz",
+   "sha256": "f6a436153b8be5ade49fd21e9ccbd5aa0fe862339dd36fcbd6445395e0acec52",
+   "gzip_sha256": "0fd95ed04ce56d8d22fd09c7960a9f39f8f61cab551b59d9fa4658a5b4b56e96"
+  },
+  {
+   "log": "port-compile.log",
+   "retained": "docs/self-hosting/m4/process-evidence/logs/port-compile.log.gz",
+   "sha256": "5d919322aa96976b1da342b8fee964386855fe71c7620c64840118bc133b1a6a",
+   "gzip_sha256": "684fb5ccb7d20ea9cc635732a1dbcf16428a6247bebded0cec19dc3b098dc82a"
+  },
+  {
+   "log": "port-diagnostics.txt",
+   "retained": "docs/self-hosting/m4/process-evidence/logs/port-diagnostics.txt.gz",
+   "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+   "gzip_sha256": "89ed3b723e0e40d8957a2df55fcb04d57b6d95fa665c5fe67b098df7f29694ae"
+  },
+  {
+   "log": "measure-host.txt",
+   "retained": "docs/self-hosting/m4/process-evidence/logs/measure-host.txt.gz",
+   "sha256": "a7d08f794e5115cde2b077eb52f9d2c5915556820a642e35be2f8d2f8dcd120f",
+   "gzip_sha256": "11b96e4981573719168d0278a108a930318096f97405cc8c57215cfebda19cc9"
+  },
+  {
+   "log": "measure-stdout.txt",
+   "retained": "docs/self-hosting/m4/process-evidence/logs/measure-stdout.txt.gz",
+   "sha256": "59be812b4c2e9c1683c61f132be5d8d5e29550406898dd47df8a6c8ee50d9a39",
+   "gzip_sha256": "6dacfa89f5a8732904df4169316d65019c4116f2847935cc9281189ac95279c4"
+  },
+  {
+   "log": "measure-stderr.txt",
+   "retained": "docs/self-hosting/m4/process-evidence/logs/measure-stderr.txt.gz",
+   "sha256": "58c693250cb423b73f25ca95c8fcaee6b95432d2eb3c76694d6281e459661e55",
+   "gzip_sha256": "5263a06fa9d9722b36d2500a4224b781100c4017dd0e56798a19f53fed0b1bfa"
+  },
+  {
+   "log": "diff-check.log",
+   "retained": "docs/self-hosting/m4/process-evidence/logs/diff-check.log.gz",
+   "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "gzip_sha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64"
+  },
+  {
+   "log": "licenses.log",
+   "retained": "docs/self-hosting/m4/process-evidence/logs/licenses.log.gz",
+   "sha256": "baf5804aeb26498337c9c5223c199afeba5c3e2fc36ae219b9bf420e3775f673",
+   "gzip_sha256": "21fd3bcaf61e87e10822dd63176f2751a3282de06861c556f8ea5cb4d913c689"
+  },
+  {
+   "log": "linux-status.txt",
+   "retained": "docs/self-hosting/m4/process-evidence/logs/linux-status.txt.gz",
+   "sha256": "a42da6289ec655a0f67ec836a4ac839978d4e4abeb9b52ec6b5a6e75cdd26b3d",
+   "gzip_sha256": "7c70b39c0465b50169324b8c31ce75c2e5fc008b8832c50f934d04313e7788b3"
+  },
+  {
+   "log": "linux-host.txt",
+   "retained": "docs/self-hosting/m4/process-evidence/logs/linux-host.txt.gz",
+   "sha256": "fc3ce47f08ccfa29a0876858223cc1a810e0a005764db1233f068bc7368731cf",
+   "gzip_sha256": "a1f24783cb5f906861bd30e3d0c04d2b7f5048d26ba7d4f8ddb77b4b1d210841"
+  },
+  {
+   "log": "linux-tests.log",
+   "retained": "docs/self-hosting/m4/process-evidence/logs/linux-tests.log.gz",
+   "sha256": "08869c2300ecf192ed82bcd9093dd22f37facc111cffe0cc8c249c5a0955f6b5",
+   "gzip_sha256": "919b80c81c6a0f73747bed78195b064dfd637c79da75387fe30c054c618992f6"
+  }
+ ],
+ "macos_tests": 36,
+ "linux_tests": 15,
+ "m4_3_patterns": 11,
+ "m4_3_calls": 35,
+ "port_sources": 174,
+ "port_diagnostics": 0
+}

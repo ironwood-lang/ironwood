@@ -215,3 +215,46 @@ compile-only.
 
 Status: initial review recorded before implementation. Each increment below
 adds the review made as its phase advances.
+
+## M4.1 increment (D270)
+
+Existing limits found while writing the fixtures: `new StringBuilder(String)`
+cannot be freed (its constructor calls an unaudited append), a caught
+exception cannot be freed, and Ironwood's SimpleFileVisitor lacks Java's
+`throws IOException` on `visitFile` and `preVisitDirectory`; the fixtures and
+TreeDeletion work within those limits, which are recorded rather than
+changed. The temporary-file design changed once: `mkstemps` would have
+altered a prefix ending in `X` on macOS, so the runtime generates names from a
+secure source itself. No analysis rule changed; the new operations needed
+only fresh-result and borrowing entries. Two programs that call none of the
+new members keep identical function bodies once closed-world and debug
+numbering is normalized.
+
+## M4.2 increment (D271)
+
+The macOS `renamex_np(RENAME_EXCL)` accepts a name renamed to itself while
+Linux reports EEXIST, so a successful exclusive rename whose source still
+names the target's file reports an existing target on both hosts. The first
+Linux build showed glibc hides `realpath` at the runtime's strict feature
+level, like `syscall`; both are declared explicitly. No real file system
+without exclusive rename was available, so that path is qualified by
+injection. No analysis rule changed.
+
+## M4.3 increment (D272, D273)
+
+Two shared-analysis changes were needed, each with paired regressions. (1)
+Any analyzed call that receives a `String[]` exposes its elements, so every
+String placed in a command would have been unreclaimable; `runToFile` gains
+an exact-signature contract that borrows the elements (String is final, and
+the launch encodes and retains nothing), and an ordinary `String[]` method
+keeps the rule. (2) The creation-array proof rejected passing an owner's
+storage to any call; it now admits exactly `runToFile`'s command argument, and
+`String.join` stays rejected. Probe recording first kept separate key and
+output strings, which an allocation failure between them could strand; each
+probe is now one ProbeRecord whose constructor owns both. A probe directory
+removed by a tree walk allocated during OOM unwinding, which the runtime
+treats as fatal; every log is deleted on its own path, so the empty scratch
+and staging directories are removed without allocating. On Linux the test
+JVM ran under `nohup ... &` and so ignored SIGINT, which its children
+inherit; the process-group helper resets the interrupt dispositions as a
+shell's foreground job does.
