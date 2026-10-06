@@ -1,0 +1,26 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// Frozen M5.1 serialization fixture: an entry-point class, a nested type and
+// a second top-level interface in one unit, with non-ASCII text (café, 中文,
+// and a supplementary character in a comment: 😀). The Java compiler writes
+// one .ironclass per type, each carrying this whole source.
+package p;
+
+public class A {
+
+    static class Nested {
+
+        int value;
+    }
+
+    public static int main(String[] args) {
+
+        System.out.println("café 中文");
+        return 0;
+    }
+}
+
+interface Shape {
+
+    int sides();
+}

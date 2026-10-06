@@ -198,3 +198,18 @@ compile-only.
 
 Status: initial review recorded before implementation. Each increment below
 adds the review made as its phase advances.
+
+## M5.1 increment (D274)
+
+No analysis rule changed: the ordinary analysis already accepts freeing an
+array after a CRC32 update, also beside a retaining subclass, and rejects it
+after an update through that subclass. The first CRC32 loop kept sixteen bounds
+checks per eight bytes at `-O3`; a once-per-call table length test and a
+last-byte-first read leave one. Freezing the archive contract found three Java
+baseline facts that M5.2 must decide on explicitly: `ZipFile` returns entries
+without checking their CRC or sizes, a malformed entry name escapes
+`IronClass.read` as an unchecked IllegalArgumentException, and
+`declaredTypes()` iterates a `Map.copyOf` whose order varies between JVM runs.
+A pre-existing, unrelated diagnostic was noticed and left to a separate task:
+an unresolved import under `--unfreed=error` also reports ownership errors
+inside the bundled `Throwable`.

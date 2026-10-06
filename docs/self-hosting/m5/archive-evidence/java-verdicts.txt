@@ -1,0 +1,206 @@
+class.java ok types=p.A,p.B entry=p.A path=corpus/java.ironclass!/source/A.iron source=42b6b004e3180ac2
+class.stored ok types=p.A,p.B entry=p.A path=corpus/stored.ironclass!/source/A.iron source=42b6b004e3180ac2
+class.deflated-sizes ok types=p.A,p.B entry=p.A path=corpus/deflated-sizes.ironclass!/source/A.iron source=42b6b004e3180ac2
+class.descriptor-unsigned ok types=p.A,p.B entry=p.A path=corpus/descriptor-unsigned.ironclass!/source/A.iron source=42b6b004e3180ac2
+class.mixed ok types=p.A,p.B entry=p.A path=corpus/mixed.ironclass!/source/A.iron source=42b6b004e3180ac2
+class.level-0 ok types=p.A,p.B entry=p.A path=corpus/level-0.ironclass!/source/A.iron source=42b6b004e3180ac2
+class.level-1 ok types=p.A,p.B entry=p.A path=corpus/level-1.ironclass!/source/A.iron source=42b6b004e3180ac2
+class.level-9 ok types=p.A,p.B entry=p.A path=corpus/level-9.ironclass!/source/A.iron source=42b6b004e3180ac2
+class.huffman-only ok types=p.A,p.B entry=p.A path=corpus/huffman-only.ironclass!/source/A.iron source=42b6b004e3180ac2
+class.filtered ok types=p.A,p.B entry=p.A path=corpus/filtered.ironclass!/source/A.iron source=42b6b004e3180ac2
+class.large-source ok types=p.A,p.B entry=p.A path=corpus/large-source.ironclass!/source/A.iron source=f3a306c759c597b1
+class.empty-entries ok types=p.A,p.B entry=p.A path=corpus/empty-entries.ironclass!/source/A.iron source=42b6b004e3180ac2
+class.comments ok types=p.A,p.B entry=p.A path=corpus/comments.ironclass!/source/A.iron source=42b6b004e3180ac2
+class.extra-fields ok types=p.A,p.B entry=p.A path=corpus/extra-fields.ironclass!/source/A.iron source=42b6b004e3180ac2
+class.attributes ok types=p.A,p.B entry=p.A path=corpus/attributes.ironclass!/source/A.iron source=42b6b004e3180ac2
+class.no-utf8-flag ok types=p.A,p.B entry=p.A path=corpus/no-utf8-flag.ironclass!/source/A.iron source=42b6b004e3180ac2
+class.utf8-name ok types=p.A,p.B entry=p.A path=corpus/utf8-name.ironclass!/source/A.iron source=42b6b004e3180ac2
+class.utf8-name-no-flag ok types=p.A,p.B entry=p.A path=corpus/utf8-name-no-flag.ironclass!/source/A.iron source=42b6b004e3180ac2
+class.directory ok types=p.A,p.B entry=p.A path=corpus/directory.ironclass!/source/A.iron source=42b6b004e3180ac2
+class.duplicate error java.io.IOException: duplicate entry 'META-INF/types.tsv' in corpus/duplicate.ironclass
+class.zip64-end ok types=p.A,p.B entry=p.A path=corpus/zip64-end.ironclass!/source/A.iron source=42b6b004e3180ac2
+class.zip64-local ok types=p.A,p.B entry=p.A path=corpus/zip64-local.ironclass!/source/A.iron source=42b6b004e3180ac2
+class.zip64-descriptor error java.util.zip.ZipException: invalid entry size (expected 0 but got 25 bytes)
+class.stored-descriptor error java.util.zip.ZipException: only DEFLATED entries can have EXT descriptor
+class.method-12 error java.util.zip.ZipException: only DEFLATED entries can have EXT descriptor
+class.method-12-sizes error java.util.zip.ZipException: invalid compression method
+class.encrypted error java.util.zip.ZipException: encrypted ZIP entry not supported
+class.crc-mismatch error java.util.zip.ZipException: invalid entry CRC (expected 0x96fcc479 but got 0x96fcc478)
+class.size-mismatch error java.util.zip.ZipException: invalid entry size (expected 138 but got 137 bytes)
+class.local-crc-mismatch error java.util.zip.ZipException: invalid entry CRC (expected 0x96fcc479 but got 0x96fcc478)
+class.no-central ok types=p.A,p.B entry=p.A path=corpus/no-central.ironclass!/source/A.iron source=42b6b004e3180ac2
+class.prefix error java.io.IOException: unsupported or missing Ironwood class manifest in corpus/prefix.ironclass
+class.trailer ok types=p.A,p.B entry=p.A path=corpus/trailer.ironclass!/source/A.iron source=42b6b004e3180ac2
+class.invalid-block-type error java.util.zip.ZipException: invalid block type
+class.deflate-trailing error java.util.zip.ZipException: invalid entry compressed size (expected 120 but got 117 bytes)
+class.malformed-name error java.lang.IllegalArgumentException: malformed input off : 1, length : 1
+class.truncated error java.io.EOFException: Unexpected end of ZLIB input stream
+class.empty-archive error java.io.IOException: unsupported or missing Ironwood class manifest in corpus/empty-archive.ironclass
+class.empty-file error java.io.IOException: unsupported or missing Ironwood class manifest in corpus/empty-file.ironclass
+class.manifest-missing error java.io.IOException: unsupported or missing Ironwood class manifest in corpus/manifest-missing.ironclass
+class.manifest-format-2 error java.io.IOException: unsupported or missing Ironwood class manifest in corpus/manifest-format-2.ironclass
+class.manifest-crlf error java.io.IOException: unsupported or missing Ironwood class manifest in corpus/manifest-crlf.ironclass
+class.manifest-malformed error java.io.IOException: unsupported or missing Ironwood class manifest in corpus/manifest-malformed.ironclass
+class.index-missing error java.io.IOException: missing META-INF/types.tsv in corpus/index-missing.ironclass
+class.index-blank-lines ok types=p.A entry=p.A path=corpus/index-blank-lines.ironclass!/source/A.iron source=42b6b004e3180ac2
+class.index-crlf ok types=p.A,p.B entry=p.A path=corpus/index-crlf.ironclass!/source/A.iron source=42b6b004e3180ac2
+class.index-cr ok types=p.A,p.B entry=p.A path=corpus/index-cr.ironclass!/source/A.iron source=42b6b004e3180ac2
+class.index-three-fields error java.io.IOException: invalid type index entry in corpus/index-three-fields.ironclass: p.A	class	x
+class.index-blank-field error java.io.IOException: invalid type index entry in corpus/index-blank-field.ironclass: p.A	 
+class.index-kind error java.io.IOException: invalid type kind in corpus/index-kind.ironclass: enum
+class.index-duplicate error java.io.IOException: duplicate class type 'p.A' in corpus/index-duplicate.ironclass
+class.index-empty error java.io.IOException: Ironwood class contains no declared types: corpus/index-empty.ironclass
+class.index-unicode ok types=p.Été entry=- path=corpus/index-unicode.ironclass!/source/A.iron source=42b6b004e3180ac2
+class.entry-missing ok types=p.A,p.B entry=- path=corpus/entry-missing.ironclass!/source/A.iron source=42b6b004e3180ac2
+class.entry-whitespace ok types=p.A,p.B entry=p.A path=corpus/entry-whitespace.ironclass!/source/A.iron source=42b6b004e3180ac2
+class.entry-blank ok types=p.A,p.B entry=- path=corpus/entry-blank.ironclass!/source/A.iron source=42b6b004e3180ac2
+class.entry-undeclared error java.io.IOException: Ironwood class entry point is not a declared type: p.Z
+class.entry-interface ok types=p.A,p.B entry=p.B path=corpus/entry-interface.ironclass!/source/A.iron source=42b6b004e3180ac2
+class.source-missing error java.io.IOException: Ironwood class must contain exactly one source entry: corpus/source-missing.ironclass
+class.source-two error java.io.IOException: Ironwood class must contain exactly one source entry: corpus/source-two.ironclass
+class.source-extension error java.io.IOException: Ironwood class must contain exactly one source entry: corpus/source-extension.ironclass
+class.source-outside error java.io.IOException: Ironwood class must contain exactly one source entry: corpus/source-outside.ironclass
+class.source-nested ok types=p.A,p.B entry=p.A path=corpus/source-nested.ironclass!/source/p/A.iron source=42b6b004e3180ac2
+class.source-directory-name ok types=p.A,p.B entry=p.A path=corpus/source-directory-name.ironclass!/source/A.iron source=42b6b004e3180ac2
+class.source-malformed ok types=p.A,p.B entry=p.A path=corpus/source-malformed.ironclass!/source/A.iron source=a2aed18a5f831926
+jar.java ok entries=META-INF/IRONWOOD.MF,META-INF/LICENSES/LICENSE,META-INF/types.tsv,p/A.ironclass,q/C.ironclass
+  source p.A ok path=<root>/jar/java.ironjar!/p/A.ironclass!/source/A.iron source=42b6b004e3180ac2
+  source q.C ok path=<root>/jar/java.ironjar!/q/C.ironclass!/source/C.iron source=5023cb3cd2285296
+jar.deflated ok entries=META-INF/IRONWOOD.MF,META-INF/LICENSES/LICENSE,META-INF/types.tsv,p/A.ironclass,q/C.ironclass
+  source p.A ok path=<root>/jar/deflated.ironjar!/p/A.ironclass!/source/A.iron source=42b6b004e3180ac2
+  source q.C ok path=<root>/jar/deflated.ironjar!/q/C.ironclass!/source/C.iron source=5023cb3cd2285296
+jar.deflated-sizes ok entries=META-INF/IRONWOOD.MF,META-INF/LICENSES/LICENSE,META-INF/types.tsv,p/A.ironclass,q/C.ironclass
+  source p.A ok path=<root>/jar/deflated-sizes.ironjar!/p/A.ironclass!/source/A.iron source=42b6b004e3180ac2
+  source q.C ok path=<root>/jar/deflated-sizes.ironjar!/q/C.ironclass!/source/C.iron source=5023cb3cd2285296
+jar.descriptor-unsigned ok entries=META-INF/IRONWOOD.MF,META-INF/LICENSES/LICENSE,META-INF/types.tsv,p/A.ironclass,q/C.ironclass
+  source p.A ok path=<root>/jar/descriptor-unsigned.ironjar!/p/A.ironclass!/source/A.iron source=42b6b004e3180ac2
+  source q.C ok path=<root>/jar/descriptor-unsigned.ironjar!/q/C.ironclass!/source/C.iron source=5023cb3cd2285296
+jar.empty-license error java.io.IOException: archive entries are not strictly sorted in <root>/jar/empty-license.ironjar
+jar.empty-licenses ok entries=META-INF/IRONWOOD.MF,META-INF/LICENSES/EMPTY,META-INF/LICENSES/LICENSE,META-INF/types.tsv,p/A.ironclass,q/C.ironclass
+  source p.A ok path=<root>/jar/empty-licenses.ironjar!/p/A.ironclass!/source/A.iron source=42b6b004e3180ac2
+  source q.C ok path=<root>/jar/empty-licenses.ironjar!/q/C.ironclass!/source/C.iron source=5023cb3cd2285296
+jar.empty-deflated-license ok entries=META-INF/IRONWOOD.MF,META-INF/LICENSES/LICENSE,META-INF/types.tsv,p/A.ironclass,q/C.ironclass
+  source p.A ok path=<root>/jar/empty-deflated-license.ironjar!/p/A.ironclass!/source/A.iron source=42b6b004e3180ac2
+  source q.C ok path=<root>/jar/empty-deflated-license.ironjar!/q/C.ironclass!/source/C.iron source=5023cb3cd2285296
+jar.comments ok entries=META-INF/IRONWOOD.MF,META-INF/LICENSES/LICENSE,META-INF/types.tsv,p/A.ironclass,q/C.ironclass
+  source p.A ok path=<root>/jar/comments.ironjar!/p/A.ironclass!/source/A.iron source=42b6b004e3180ac2
+  source q.C ok path=<root>/jar/comments.ironjar!/q/C.ironclass!/source/C.iron source=5023cb3cd2285296
+jar.extra-fields ok entries=META-INF/IRONWOOD.MF,META-INF/LICENSES/LICENSE,META-INF/types.tsv,p/A.ironclass,q/C.ironclass
+  source p.A ok path=<root>/jar/extra-fields.ironjar!/p/A.ironclass!/source/A.iron source=42b6b004e3180ac2
+  source q.C ok path=<root>/jar/extra-fields.ironjar!/q/C.ironclass!/source/C.iron source=5023cb3cd2285296
+jar.attributes ok entries=META-INF/IRONWOOD.MF,META-INF/LICENSES/LICENSE,META-INF/types.tsv,p/A.ironclass,q/C.ironclass
+  source p.A ok path=<root>/jar/attributes.ironjar!/p/A.ironclass!/source/A.iron source=42b6b004e3180ac2
+  source q.C ok path=<root>/jar/attributes.ironjar!/q/C.ironclass!/source/C.iron source=5023cb3cd2285296
+jar.no-utf8-flag ok entries=META-INF/IRONWOOD.MF,META-INF/LICENSES/LICENSE,META-INF/types.tsv,p/A.ironclass,q/C.ironclass
+  source p.A ok path=<root>/jar/no-utf8-flag.ironjar!/p/A.ironclass!/source/A.iron source=42b6b004e3180ac2
+  source q.C ok path=<root>/jar/no-utf8-flag.ironjar!/q/C.ironclass!/source/C.iron source=5023cb3cd2285296
+jar.utf8-name ok entries=META-INF/IRONWOOD.MF,META-INF/LICENSES/LICENSE,META-INF/LICENSES/café.txt,META-INF/types.tsv,p/A.ironclass,q/C.ironclass
+  source p.A ok path=<root>/jar/utf8-name.ironjar!/p/A.ironclass!/source/A.iron source=42b6b004e3180ac2
+  source q.C ok path=<root>/jar/utf8-name.ironjar!/q/C.ironclass!/source/C.iron source=5023cb3cd2285296
+jar.utf8-name-no-flag ok entries=META-INF/IRONWOOD.MF,META-INF/LICENSES/LICENSE,META-INF/LICENSES/café.txt,META-INF/types.tsv,p/A.ironclass,q/C.ironclass
+  source p.A ok path=<root>/jar/utf8-name-no-flag.ironjar!/p/A.ironclass!/source/A.iron source=42b6b004e3180ac2
+  source q.C ok path=<root>/jar/utf8-name-no-flag.ironjar!/q/C.ironclass!/source/C.iron source=5023cb3cd2285296
+jar.directory error java.io.IOException: unsafe archive entry path 'META-INF/LICENSES/' in <root>/jar/directory.ironjar
+jar.duplicate error java.io.IOException: duplicate archive entry 'q/C.ironclass' in <root>/jar/duplicate.ironjar
+jar.zip64-end ok entries=META-INF/IRONWOOD.MF,META-INF/LICENSES/LICENSE,META-INF/types.tsv,p/A.ironclass,q/C.ironclass
+  source p.A ok path=<root>/jar/zip64-end.ironjar!/p/A.ironclass!/source/A.iron source=42b6b004e3180ac2
+  source q.C ok path=<root>/jar/zip64-end.ironjar!/q/C.ironclass!/source/C.iron source=5023cb3cd2285296
+jar.zip64-local ok entries=META-INF/IRONWOOD.MF,META-INF/LICENSES/LICENSE,META-INF/types.tsv,p/A.ironclass,q/C.ironclass
+  source p.A ok path=<root>/jar/zip64-local.ironjar!/p/A.ironclass!/source/A.iron source=42b6b004e3180ac2
+  source q.C ok path=<root>/jar/zip64-local.ironjar!/q/C.ironclass!/source/C.iron source=5023cb3cd2285296
+jar.zip64-central ok entries=META-INF/IRONWOOD.MF,META-INF/LICENSES/LICENSE,META-INF/types.tsv,p/A.ironclass,q/C.ironclass
+  source p.A ok path=<root>/jar/zip64-central.ironjar!/p/A.ironclass!/source/A.iron source=42b6b004e3180ac2
+  source q.C ok path=<root>/jar/zip64-central.ironjar!/q/C.ironclass!/source/C.iron source=5023cb3cd2285296
+jar.stored-descriptor ok entries=META-INF/IRONWOOD.MF,META-INF/LICENSES/LICENSE,META-INF/types.tsv,p/A.ironclass,q/C.ironclass
+  source p.A ok path=<root>/jar/stored-descriptor.ironjar!/p/A.ironclass!/source/A.iron source=42b6b004e3180ac2
+  source q.C ok path=<root>/jar/stored-descriptor.ironjar!/q/C.ironclass!/source/C.iron source=5023cb3cd2285296
+jar.method-12-payload error java.util.zip.ZipException: invalid CEN header (bad compression method: 12)
+jar.method-12-manifest error java.util.zip.ZipException: invalid CEN header (bad compression method: 12)
+jar.encrypted-payload error java.util.zip.ZipException: invalid CEN header (encrypted entry)
+jar.crc-mismatch-payload ok entries=META-INF/IRONWOOD.MF,META-INF/LICENSES/LICENSE,META-INF/types.tsv,p/A.ironclass,q/C.ironclass
+  source p.A ok path=<root>/jar/crc-mismatch-payload.ironjar!/p/A.ironclass!/source/A.iron source=42b6b004e3180ac2
+  source q.C ok path=<root>/jar/crc-mismatch-payload.ironjar!/q/C.ironclass!/source/C.iron source=5023cb3cd2285296
+jar.crc-mismatch-index ok entries=META-INF/IRONWOOD.MF,META-INF/LICENSES/LICENSE,META-INF/types.tsv,p/A.ironclass,q/C.ironclass
+  source p.A ok path=<root>/jar/crc-mismatch-index.ironjar!/p/A.ironclass!/source/A.iron source=42b6b004e3180ac2
+  source q.C ok path=<root>/jar/crc-mismatch-index.ironjar!/q/C.ironclass!/source/C.iron source=5023cb3cd2285296
+jar.central-size-short error java.io.IOException: type index must use LF-terminated lines in <root>/jar/central-size-short.ironjar
+jar.central-size-long error java.io.IOException: type index must use LF-terminated lines in <root>/jar/central-size-long.ironjar
+jar.local-name-mismatch ok entries=META-INF/IRONWOOD.MF,META-INF/LICENSES/LICENSE,META-INF/types.tsv,p/A.ironclass,q/C.ironclass
+  source p.A ok path=<root>/jar/local-name-mismatch.ironjar!/p/A.ironclass!/source/A.iron source=42b6b004e3180ac2
+  source q.C ok path=<root>/jar/local-name-mismatch.ironjar!/q/C.ironclass!/source/C.iron source=5023cb3cd2285296
+jar.local-method-mismatch ok entries=META-INF/IRONWOOD.MF,META-INF/LICENSES/LICENSE,META-INF/types.tsv,p/A.ironclass,q/C.ironclass
+  source p.A ok path=<root>/jar/local-method-mismatch.ironjar!/p/A.ironclass!/source/A.iron source=42b6b004e3180ac2
+  source q.C ok path=<root>/jar/local-method-mismatch.ironjar!/q/C.ironclass!/source/C.iron source=5023cb3cd2285296
+jar.local-offset-wrong ok entries=META-INF/IRONWOOD.MF,META-INF/LICENSES/LICENSE,META-INF/types.tsv,p/A.ironclass,q/C.ironclass
+  source p.A ok path=<root>/jar/local-offset-wrong.ironjar!/p/A.ironclass!/source/A.iron source=42b6b004e3180ac2
+  source q.C error java.util.zip.ZipException: ZipFile invalid LOC header (bad signature)
+jar.count-short ok entries=META-INF/IRONWOOD.MF,META-INF/LICENSES/LICENSE,META-INF/types.tsv,p/A.ironclass,q/C.ironclass
+  source p.A ok path=<root>/jar/count-short.ironjar!/p/A.ironclass!/source/A.iron source=42b6b004e3180ac2
+  source q.C ok path=<root>/jar/count-short.ironjar!/q/C.ironclass!/source/C.iron source=5023cb3cd2285296
+jar.count-long ok entries=META-INF/IRONWOOD.MF,META-INF/LICENSES/LICENSE,META-INF/types.tsv,p/A.ironclass,q/C.ironclass
+  source p.A ok path=<root>/jar/count-long.ironjar!/p/A.ironclass!/source/A.iron source=42b6b004e3180ac2
+  source q.C ok path=<root>/jar/count-long.ironjar!/q/C.ironclass!/source/C.iron source=5023cb3cd2285296
+jar.central-offset-wrong error java.util.zip.ZipException: ZipFile invalid LOC header (bad signature)
+jar.no-central error java.io.IOException: unsupported or missing Ironwood archive manifest in <root>/jar/no-central.ironjar
+jar.prefix ok entries=META-INF/IRONWOOD.MF,META-INF/LICENSES/LICENSE,META-INF/types.tsv,p/A.ironclass,q/C.ironclass
+  source p.A ok path=<root>/jar/prefix.ironjar!/p/A.ironclass!/source/A.iron source=42b6b004e3180ac2
+  source q.C ok path=<root>/jar/prefix.ironjar!/q/C.ironclass!/source/C.iron source=5023cb3cd2285296
+jar.trailer ok entries=META-INF/IRONWOOD.MF,META-INF/LICENSES/LICENSE,META-INF/types.tsv,p/A.ironclass,q/C.ironclass
+  source p.A ok path=<root>/jar/trailer.ironjar!/p/A.ironclass!/source/A.iron source=42b6b004e3180ac2
+  source q.C ok path=<root>/jar/trailer.ironjar!/q/C.ironclass!/source/C.iron source=5023cb3cd2285296
+jar.invalid-deflate-payload ok entries=META-INF/IRONWOOD.MF,META-INF/LICENSES/LICENSE,META-INF/types.tsv,p/A.ironclass,q/C.ironclass
+  source p.A ok path=<root>/jar/invalid-deflate-payload.ironjar!/p/A.ironclass!/source/A.iron source=42b6b004e3180ac2
+  source q.C error java.util.zip.ZipException: invalid block type
+jar.malformed-name error java.util.zip.ZipException: invalid CEN header (bad entry name or comment)
+jar.truncated error java.io.IOException: unsupported or missing Ironwood archive manifest in <root>/jar/truncated.ironjar
+jar.empty-archive error java.io.IOException: unsupported or missing Ironwood archive manifest in <root>/jar/empty-archive.ironjar
+jar.empty-file error java.util.zip.ZipException: zip file is empty
+jar.manifest-wrong error java.io.IOException: unsupported or missing Ironwood archive manifest in <root>/jar/manifest-wrong.ironjar
+jar.manifest-missing error java.io.IOException: unsupported or missing Ironwood archive manifest in <root>/jar/manifest-missing.ironjar
+jar.manifest-malformed error java.io.IOException: invalid UTF-8 in 'META-INF/IRONWOOD.MF' in <root>/jar/manifest-malformed.ironjar
+jar.index-missing error java.io.IOException: missing META-INF/types.tsv in <root>/jar/index-missing.ironjar
+jar.index-crlf error java.io.IOException: type index must use LF-terminated lines in <root>/jar/index-crlf.ironjar
+jar.index-no-final-lf error java.io.IOException: type index must use LF-terminated lines in <root>/jar/index-no-final-lf.ironjar
+jar.index-empty error java.io.IOException: Ironwood archive contains no indexed types: <root>/jar/index-empty.ironjar
+jar.index-zero error java.io.IOException: type index must use LF-terminated lines in <root>/jar/index-zero.ironjar
+jar.index-blank-line error java.io.IOException: invalid type index entry in <root>/jar/index-blank-line.ironjar: 
+jar.index-three-fields error java.io.IOException: invalid type index entry in <root>/jar/index-three-fields.ironjar: p.A	p/A.ironclass	x
+jar.index-duplicate error java.io.IOException: duplicate archive type 'p.A' in <root>/jar/index-duplicate.ironjar
+jar.index-unsorted error java.io.IOException: archive type index is not strictly sorted in <root>/jar/index-unsorted.ironjar
+jar.index-canonical error java.io.IOException: invalid canonical type 'q.1C' in <root>/jar/index-canonical.ironjar
+jar.index-canonical-unicode error java.io.IOException: invalid canonical type 'q.É' in <root>/jar/index-canonical-unicode.ironjar
+jar.index-empty-component error java.io.IOException: invalid canonical type 'p..A' in <root>/jar/index-empty-component.ironjar
+jar.index-path-mismatch error java.io.IOException: type 'p.A' must map to 'p/A.ironclass' in <root>/jar/index-path-mismatch.ironjar
+jar.index-malformed error java.io.IOException: invalid UTF-8 in 'META-INF/types.tsv' in <root>/jar/index-malformed.ironjar
+jar.unsafe ../evil error java.io.IOException: unsafe archive entry path '../evil' in <root>/jar/unsafe_..%evil.ironjar
+jar.unsafe /evil error java.io.IOException: unsafe archive entry path '/evil' in <root>/jar/unsafe_%evil.ironjar
+jar.unsafe a\b error java.io.IOException: unsafe archive entry path 'a\b' in <root>/jar/unsafe_a%b.ironjar
+jar.unsafe a:b error java.io.IOException: unsafe archive entry path 'a:b' in <root>/jar/unsafe_a%b.ironjar
+jar.unsafe a//b error java.io.IOException: unsafe archive entry path 'a//b' in <root>/jar/unsafe_a%%b.ironjar
+jar.unsafe ./a error java.io.IOException: unsafe archive entry path './a' in <root>/jar/unsafe_.%a.ironjar
+jar.unsafe a/../b error java.io.IOException: unsafe archive entry path 'a/../b' in <root>/jar/unsafe_a%..%b.ironjar
+jar.unsafe a/ error java.io.IOException: unsafe archive entry path 'a/' in <root>/jar/unsafe_a%.ironjar
+jar.unsafe-nul error java.io.IOException: unsafe archive entry path 'a\x00b' in <root>/jar/unsafe-nul.ironjar
+jar.unsorted error java.io.IOException: archive entries are not strictly sorted in <root>/jar/unsorted.ironjar
+jar.nested error java.io.IOException: nested Ironwood archive is not permitted in <root>/jar/nested.ironjar: z.ironjar
+jar.unexpected error java.io.IOException: unexpected archive entry 'z.txt' in <root>/jar/unexpected.ironjar
+jar.unindexed error java.io.IOException: unindexed Ironwood class entry 'z/Z.ironclass' in <root>/jar/unindexed.ironjar
+jar.unindexed-license error java.io.IOException: unindexed Ironwood class entry 'META-INF/LICENSES/x.ironclass' in <root>/jar/unindexed-license.ironjar
+jar.indexed-missing error java.io.IOException: missing indexed Ironwood class entry 'q/C.ironclass' in <root>/jar/indexed-missing.ironjar
+jar.payload-malformed ok entries=META-INF/IRONWOOD.MF,META-INF/LICENSES/LICENSE,META-INF/types.tsv,p/A.ironclass,q/C.ironclass
+  source p.A ok path=<root>/jar/payload-malformed.ironjar!/p/A.ironclass!/source/A.iron source=42b6b004e3180ac2
+  source q.C error java.io.IOException: unsupported or missing Ironwood class manifest in <root>/jar/payload-malformed.ironjar!/q/C.ironclass
+jar.payload-wrong-type ok entries=META-INF/IRONWOOD.MF,META-INF/LICENSES/LICENSE,META-INF/types.tsv,p/A.ironclass,q/C.ironclass
+  source p.A ok path=<root>/jar/payload-wrong-type.ironjar!/p/A.ironclass!/source/A.iron source=42b6b004e3180ac2
+  source q.C error java.io.IOException: indexed Ironwood class entry 'q/C.ironclass' does not declare type 'q.C' in <root>/jar/payload-wrong-type.ironjar
+jar.payload-stored ok entries=META-INF/IRONWOOD.MF,META-INF/LICENSES/LICENSE,META-INF/types.tsv,p/A.ironclass,q/C.ironclass
+  source p.A ok path=<root>/jar/payload-stored.ironjar!/p/A.ironclass!/source/A.iron source=42b6b004e3180ac2
+  source q.C ok path=<root>/jar/payload-stored.ironjar!/q/C.ironclass!/source/C.iron source=5023cb3cd2285296
+jar.index-dollar ok entries=META-INF/IRONWOOD.MF,META-INF/LICENSES/LICENSE,META-INF/types.tsv,p/A$I.ironclass,p/A.ironclass,q/C.ironclass
+  source p.A ok path=<root>/jar/index-dollar.ironjar!/p/A.ironclass!/source/A.iron source=42b6b004e3180ac2
+  source p.A$I ok path=<root>/jar/index-dollar.ironjar!/p/A$I.ironclass!/source/A.iron source=42b6b004e3180ac2
+  source q.C ok path=<root>/jar/index-dollar.ironjar!/q/C.ironclass!/source/C.iron source=5023cb3cd2285296
+jar.zip64-count ok entries=65545 names=0b879554d7937b82
+  source p.A ok path=<root>/jar/zip64-count.ironjar!/p/A.ironclass!/source/A.iron source=42b6b004e3180ac2
+  source q.C ok path=<root>/jar/zip64-count.ironjar!/q/C.ironclass!/source/C.iron source=5023cb3cd2285296
+jar.license-ironjar error java.io.IOException: nested Ironwood archive is not permitted in <root>/jar/license-ironjar.ironjar: META-INF/LICENSES/x.ironjar

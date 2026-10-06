@@ -1,0 +1,39 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// Hashes each file named on the command line with the compiler port's
+// SHA-256 (D267) and prints `<hex>  <path>` lines, the shasum format of
+// docs/self-hosting/m5/archive-evidence/fixtures/fixtures.sha256: the frozen
+// archive fixtures' identities come from the existing digest, not a second
+// facility. Each file's bytes and hexadecimal text are freed after use.
+// Exit 42 when every file was read, 1 on an I/O failure.
+import ironwood.compiler.port.Sha256;
+import ironwood.io.IOException;
+import ironwood.nio.file.Files;
+import ironwood.nio.file.Path;
+
+class Main {
+
+    static void line(Sha256 digest, String name) throws IOException {
+
+        Path path = Path.of(name);
+        defer free path;
+        byte[] bytes = Files.readAllBytes(path);
+        defer free bytes;
+        digest.update(bytes, 0, bytes.length);
+        String hex = digest.hexDigest();
+        defer free hex;
+        System.out.println(hex + "  " + name);
+    }
+
+    public static int main(String[] args) {
+
+        Sha256 digest = new Sha256();
+        defer free digest;
+        try {
+            for (int index = 0; index < args.length; index++) line(digest, args[index]);
+        } catch (IOException failure) {
+            return 1;
+        }
+        return 42;
+    }
+}
