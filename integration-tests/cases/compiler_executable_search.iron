@@ -1,0 +1,26 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// The port's ExecutableSearch on argument pairs after the working directory
+// (argument 0): each pair is a tool name and a PATH value; prints the found
+// path or <none>, as DiscoveryReference.java prints the Java seed's. Exit 42.
+import ironwood.compiler.port.ExecutableSearch;
+import ironwood.nio.file.Path;
+
+class Main {
+
+    public static int main(String[] args) {
+
+        Path working = Path.of(args[0]);
+        defer free working;
+        for (int index = 1; index + 1 < args.length; index += 2) {
+            Path found = ExecutableSearch.find(args[index], args[index + 1], working);
+            if (found == null) {
+                System.out.println("<none>");
+            } else {
+                System.out.println(found.toString());
+                free found;
+            }
+        }
+        return 42;
+    }
+}

@@ -2,12 +2,15 @@
 
 # M4.3 synchronous launch and discovery adapters
 
-Status: the process facility passes
-([D272](../../DECISIONS.md#d272---run-external-programs-synchronously-by-absolute-path)).
+Status: passes
+([D272](../../DECISIONS.md#d272---run-external-programs-synchronously-by-absolute-path),
+[D273](../../DECISIONS.md#d273---drive-native-tools-through-invocation-scoped-port-adapters)).
 `ironwood.process.ProcessRunner.runToFile` runs a program by absolute path
 with inherited environment, an optional child directory and merged file
-output, and returns a primitive-only `ProcessResult`. All sources are
-original and use the default license.
+output, and returns a primitive-only `ProcessResult`; the Java seed's two
+bare launches are gone; and the compiler port's adapters (Command, Probes,
+ExecutableSearch, LlvmPipeline) drive discovery and the actual LLVM pipeline
+through it. All sources are original and use the default license.
 
 ## Launch design
 
@@ -80,3 +83,73 @@ conservative rule.
 | Allocation failure | Every limit from 0 to 6 around a launch and its read-back unwinds to the baseline and leaves no output file; limit 7 succeeds. |
 | Typed IR | One process instruction remains for an unused result; a destructor may not launch (allocation effect). |
 | Caller adaptations | ExecutableSearch takes the first executable regular file over a non-executable file and a directory, skips empty entries even when the working directory holds the tool, resolves relative entries and keeps `link/../bin` unnormalized. A child JVM with PATH `::decoy:fake:/usr/bin:/bin` launches `fake/brew` by absolute path and returns its prefix, and finds none without brew; TLS and Apple discovery under a PATH offering a decoy `xcrun` return `/usr/bin/xcrun`'s SDK and never run the decoy. |
+
+## Port adapters (D273)
+
+| Java demand | Native treatment | First consumers |
+| --- | --- | --- |
+| `new ProcessBuilder(List<String>)` with a command built from Paths and literals | `Command`: a creation array of exact length, each argument a fresh copy, lent to `runToFile` | NativeBackend.run, LlvmToolchain.run, MacNativeTools.run, TlsDependency.command (S4), BridgeBuildTools.run (S7) |
+| `readAllBytes` of a probe's output, `new String(..., UTF_8)`, `strip()` | `Probes.output`: a fresh log per uncached probe under one lazily created scratch directory, read back within 1 MiB, decoded with replacement, stripped and deleted on every path | LlvmToolchain version and Clang probes, MacNativeTools SDK, linker and version probes, TlsDependency's SDK query |
+| Repeated discovery within one compiler run | `Probes` reuses a successful answer for the same command, PATH, SDKROOT and DEVELOPER_DIR; failures are never reused; a new invocation probes again | the same |
+| `brew` and `llvm-config` found on PATH | `ExecutableSearch.find`, equal to the Java seed's | LlvmToolchain.discoverHomebrewPrefix and locateOnPath (S4) |
+| NativeBackend.linkImage's stage commands, temporary directory and `deleteTree` | `LlvmPipeline.link` with stage logs and allocation-free staged cleanup | the native driver (S4 optional route) |
+
+The creation-array proof (D163) admits exactly one consumer of an owner's
+storage, `ProcessRunner.runToFile`, because D272's audited contract borrows
+the array and its Strings for the call only. A probe is one `ProbeRecord`
+whose constructor runs it and owns its key and output, so an allocation
+failure after the launch rolls back with the record; a failed record is kept
+but never reused. Trace finalization between `opt` and the second `llvm-as`
+is S4's native mode; the pipeline takes it as an executable, which the test
+supplies as the Java baseline's own `OptimizedTraceMetadata.inject`.
+
+## Adapter results
+
+| Check | Result |
+| --- | --- |
+| Ownership | In every unfreed mode a caller frees its own Strings after adding them to a Command; freeing a lent argument, using a Command after free, freeing a probe output and using it after its context is freed are rejected; an owner passing its creation array to `String.join` stays rejected. |
+| Port search | On one tree the port's `ExecutableSearch` prints the Java seed's eight answers (candidate order, empty entries with a tool in the working directory, relative and `link/../bin` entries, an empty PATH, missing and separator names) from class and archive links. |
+| Discovery probes | The six macOS probes (two on Linux) answer as LlvmToolchain and MacNativeTools: LLVM 23.1.0, the Clang version line, the SDK, the linker and their versions. A repeated pass launches nothing; a new invocation probes again; a missing tool, a failing probe run twice (two launches) and 1.2 MB of output (an explicit failure) leave every log deleted and the scratch directory removed. |
+| Actual pipeline | The Java compiler's emitted module of a program that prints a computed line and a caught exception's trace is linked by the port's pipeline, from class and archive links, into an executable whose exit status, output and resolved stack trace equal the Java link's; no output staging or probe scratch remains. |
+| Pipeline failures | A malformed module (`LLVM IR assembly failed with exit code 1:` and llvm-as's diagnostic), a missing LLVM home (`cannot run native target discovery: /no/llvm/bin/clang`) and a failing finalizer (`stack-trace metadata finalization failed with exit code 1:` and its output) produce no executable and leave no staging. |
+| Allocation failure | Every limit from 0 to 63 across a Command, two probes (one reused) and a search unwinds to the baseline with no log or scratch directory; limit 64 succeeds. |
+
+## Measurements
+
+Discovery on this macOS arm64 host (seven serial runs, load below 3, LLVM
+from Homebrew, Xcode SDK), from `compiler_discovery_probes.iron`:
+
+| Pass | Launches | Logs created/deleted | Bytes written and read | Elapsed |
+| --- | --- | --- | --- | --- |
+| Cold, six probes | 6 | 6/6 | 771 | median 43.6 ms (42.6 to 49.8) |
+| Repeated in the same invocation | 0 | 0/0 | 0 | median 37 µs |
+| New invocation | 6 | 6/6 | 771 | as cold |
+
+The context retains 27 live allocations after the cold pass (six records with
+their keys and outputs, the arrays and Paths) and 5,097 UTF-16 units of keys
+and outputs, mostly the PATH value held in each key. File output adds one
+exclusive log creation, one read-back and one deletion per uncached probe;
+pipe capture would have needed neither but risks pipe-capacity stalls and
+unbounded buffering. Distinct probes still need their own capture.
+
+## Hosts
+
+| Host | Result |
+| --- | --- |
+| macOS 27.0.1 arm64 | all fifteen M4.3 tests |
+| Linux x86-64 (`estonia`, kernel 4.15, glibc 2.27) | all fifteen M4.3 tests, including the process-group interrupt, the actual pipeline with `llvm-objcopy` and the conda LLVM 23.1.0 toolchain; the Apple discovery test checks nothing there |
+| Linux arm64 | unresolved: no host |
+
+## Boundaries
+
+- Descriptors the compiler inherited without close-on-exec reach its tools.
+- A signal sent to the compiler alone, or an uncatchable termination, leaves
+  a running tool; a terminal interrupt reaches both through the process group.
+  A job started with interrupts ignored passes that disposition to its tools,
+  as Unix does.
+- An allocation failure inside the pipeline's own cleanup ends the process
+  through the runtime's emergency path and leaves its staging directory.
+- Trace finalization is an external step until S4's native mode.
+- The shell-driver route of D269 remains available; these adapters are
+  prerequisites for S4's NativeBackend, LlvmToolchain and MacNativeTools
+  ports and S7's BridgeBuildTools, not those ports.

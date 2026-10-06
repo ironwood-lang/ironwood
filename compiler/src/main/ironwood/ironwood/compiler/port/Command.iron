@@ -1,0 +1,103 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.port;
+
+import ironwood.io.IOException;
+import ironwood.nio.file.Path;
+import ironwood.process.ProcessResult;
+import ironwood.process.ProcessRunner;
+
+/**
+ * One tool invocation's argument vector, replacing the Java baseline's
+ * {@code List<String>} commands (NativeBackend, LlvmToolchain,
+ * MacNativeTools, TlsDependency). The arguments live in a private creation
+ * array of exactly the command's length (D163): each slot is written once
+ * with a fresh copy, lent through an indexed getter and retired by the
+ * destructor loop. A run lends the storage to ProcessRunner.runToFile, the
+ * one call the creation-array proof admits, because the runner's audited
+ * contract borrows the array and its Strings for the call only; no caller
+ * frees an argument.
+ */
+public final class Command {
+
+    private String[] arguments;
+    private int count;
+
+    /**
+     * @param length the number of arguments, the executable included
+     */
+    public Command(int length) {
+
+        this.arguments = new String[length];
+    }
+
+    /**
+     * Appends a copy of {@code argument}; the executable comes first and must
+     * be an absolute path when the command runs.
+     *
+     * @param argument the next argument; borrowed
+     * @return this command
+     */
+    public Command add(String argument) {
+
+        if (this.count == this.arguments.length) throw new IllegalStateException("command is full");
+        String copy = copyOf(argument);
+        this.arguments[this.count] = copy;
+        this.count++;
+        return this;
+    }
+
+    // A fresh owned copy that no call has seen, as a creation-array entry needs.
+    private static String copyOf(String text) {
+
+        return new String(text);
+    }
+
+    /**
+     * Appends a path's spelling.
+     *
+     * @param path the next argument; borrowed
+     * @return this command
+     */
+    public Command add(Path path) {
+
+        return add(path.toString());
+    }
+
+    /** @return the number of arguments added */
+    public int size() {
+
+        return this.count;
+    }
+
+    /**
+     * @param index a position below {@link #size()}
+     * @return the argument at that position, lent by this command
+     */
+    public String argument(int index) {
+
+        return this.arguments[index];
+    }
+
+    /**
+     * Runs the complete command with ProcessRunner.runToFile.
+     *
+     * @param directory the program's working directory, or null
+     * @param output the file receiving the merged output
+     * @return a fresh caller-owned result
+     * @throws IOException if the program cannot start
+     */
+    public ProcessResult run(Path directory, Path output) throws IOException {
+
+        if (this.count != this.arguments.length) throw new IllegalStateException("command is incomplete");
+        return ProcessRunner.runToFile(this.arguments, directory, output);
+    }
+
+    destructor {
+
+        for (int index = 0; index < this.arguments.length; index++) {
+            free this.arguments[index];
+        }
+        free this.arguments;
+    }
+}

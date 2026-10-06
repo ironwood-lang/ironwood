@@ -1,0 +1,334 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.port;
+
+import ironwood.io.IOException;
+import ironwood.nio.file.Files;
+import ironwood.nio.file.Path;
+import ironwood.process.ProcessResult;
+
+/**
+ * The native driver's LLVM pipeline for an O3 executable, with NativeBackend's
+ * commands: the configured Clang's target, `llvm-as`, `opt`, trace
+ * finalization, `llvm-as` again, `llc`, the Linux trace-section rename, the
+ * four runtime objects compiled directly (D269) and the Clang link. Every
+ * stage runs through ProcessRunner by absolute path with its merged output in
+ * a log under one scratch directory beside the output. Each staged file is
+ * deleted as its scope ends and the empty directory afterwards, without
+ * allocating, so the directory also goes when an allocation failure unwinds;
+ * an allocation failure inside that cleanup ends the process and leaves it.
+ * Apple SDK and linker selection go through the invocation's Probes, so they
+ * are discovered once.
+ *
+ * <p>Trace finalization between `opt` and the second `llvm-as` is S4's native
+ * mode; until then the caller supplies it as an executable that reads the
+ * optimized module and writes the finalized one.
+ */
+public final class LlvmPipeline {
+
+    private static final String[] RUNTIME = {"ironwood_runtime", "ironwood_case", "ironwood_tcp", "ironwood_host"};
+
+    private LlvmPipeline() {
+
+    }
+
+    /**
+     * Links {@code llvmIr} into the executable {@code output}.
+     *
+     * @param probes the invocation's discovery context; borrowed
+     * @param llvmHome the LLVM 23 installation; borrowed
+     * @param runtimeSources the directory holding the runtime's C sources
+     * @param llvmIr the emitted module
+     * @param finalizer an executable taking the optimized and finalized module paths
+     * @param output the executable to write
+     * @return null on success, or a fresh message naming the failing stage
+     */
+    public static String link(Probes probes, Path llvmHome, Path runtimeSources, Path llvmIr, Path finalizer,
+                              Path output) {
+
+        try {
+            return linkChecked(probes, llvmHome, runtimeSources, llvmIr, finalizer, output);
+        } catch (IOException failure) {
+            String message = failure.getMessage();
+            StringBuilder text = new StringBuilder();
+            defer free text;
+            text.append("cannot prepare native backend: ").append(message == null ? "I/O error" : message);
+            return text.toString();
+        }
+    }
+
+    private static String linkChecked(Probes probes, Path llvmHome, Path runtimeSources, Path llvmIr,
+                                      Path finalizer, Path output) throws IOException {
+
+        Path absolute = output.toAbsolutePath();
+        defer free absolute;
+        Path parent = absolute.getParent();
+        defer free parent;
+        Files.createDirectories(parent);
+        Path work = Files.createTempDirectory(parent, ".ironwoodc-native-");
+        defer free work;
+        try {
+            if (!isMac()) return stages(llvmHome, runtimeSources, llvmIr, finalizer, absolute, work, false, "", "");
+            StringBuilder failure = new StringBuilder();
+            defer free failure;
+            String sdk = appleSdk(probes, failure);
+            if (sdk == null) return message("macOS native tooling", failure);
+            defer free sdk;
+            String linker = appleTool(probes, failure, "ld");
+            if (linker == null) return message("macOS native tooling", failure);
+            defer free linker;
+            return stages(llvmHome, runtimeSources, llvmIr, finalizer, absolute, work, true, sdk, linker);
+        } finally {
+            // Each stage file is already gone, so the empty directory goes
+            // without allocating; anything left takes the tree walk.
+            try {
+                Files.deleteIfExists(work);
+            } catch (IOException leftover) {
+                TreeDeletion.deleteQuietly(work);
+            }
+        }
+    }
+
+    // Deletes a staged file if present; a failure leaves it to the tree walk.
+    private static void discard(Path path) {
+
+        try {
+            Files.deleteIfExists(path);
+        } catch (IOException ignored) {
+            // The directory removal reports nothing either; cleanup is best effort.
+        }
+    }
+
+    private static String stages(Path llvmHome, Path runtimeSources, Path llvmIr, Path finalizer, Path output,
+                                 Path work, boolean mac, String sdk, String linker) throws IOException {
+
+        Path bin = llvmHome.resolve("bin");
+        defer free bin;
+        Path clang = bin.resolve("clang");
+        defer free clang;
+        // The configured Clang's target, before assembling the program.
+        Path targetSource = work.resolve("target.c");
+        defer free targetSource;
+        defer discard(targetSource);
+        Path targetLlvm = work.resolve("target.ll");
+        defer free targetLlvm;
+        defer discard(targetLlvm);
+        Files.writeString(targetSource, "");
+        Command probe = new Command(mac ? 11 : 9);
+        defer free probe;
+        probe.add(clang).add("-std=c11").add("-S").add("-emit-llvm").add("-x").add("c");
+        if (mac) probe.add("-isysroot").add(sdk);
+        probe.add(targetSource).add("-o").add(targetLlvm);
+        String failed = stage("native target discovery", probe, work);
+        if (failed != null) return failed;
+        String targetText = Files.readString(targetLlvm);
+        defer free targetText;
+        String triple = LlvmScan.specification(targetText, "triple");
+        defer free triple;
+        String layout = LlvmScan.specification(targetText, "datalayout");
+        defer free layout;
+        Path targeted = work.resolve("program.target.ll");
+        defer free targeted;
+        defer discard(targeted);
+        writeTargeted(llvmIr, targeted, triple, layout);
+        boolean tuned = triple.startsWith("x86_64-");
+        Path bitcode = work.resolve("program.bc");
+        defer free bitcode;
+        defer discard(bitcode);
+        failed = assemble(bin, targeted, bitcode, work, "LLVM IR assembly");
+        if (failed != null) return failed;
+        Path optimized = work.resolve("program.opt.ll");
+        defer free optimized;
+        defer discard(optimized);
+        Path opt = bin.resolve("opt");
+        defer free opt;
+        Command optimize = new Command(tuned ? 9 : 8);
+        defer free optimize;
+        optimize.add(opt).add("-passes=default<O3>").add("-inline-threshold=1000").add("-enable-partial-inlining");
+        if (tuned) optimize.add("-mattr=-slow-unaligned-mem-16");
+        optimize.add("-S").add(bitcode).add("-o").add(optimized);
+        failed = stage("LLVM optimization", optimize, work);
+        if (failed != null) return failed;
+        Path traced = work.resolve("program.traced.ll");
+        defer free traced;
+        defer discard(traced);
+        Command finalize = new Command(3);
+        defer free finalize;
+        finalize.add(finalizer).add(optimized).add(traced);
+        failed = stage("stack-trace metadata finalization", finalize, work);
+        if (failed != null) return failed;
+        Path optimizedBitcode = work.resolve("program.opt.bc");
+        defer free optimizedBitcode;
+        defer discard(optimizedBitcode);
+        failed = assemble(bin, traced, optimizedBitcode, work, "LLVM stack-trace metadata assembly");
+        if (failed != null) return failed;
+        Path object = work.resolve("program.o");
+        defer free object;
+        defer discard(object);
+        Path llc = bin.resolve("llc");
+        defer free llc;
+        Command generate = new Command(tuned ? 8 : 7);
+        defer free generate;
+        generate.add(llc).add("-filetype=obj").add("--relocation-model=pic").add("-O=3");
+        if (tuned) generate.add("-mattr=-slow-unaligned-mem-16");
+        generate.add(optimizedBitcode).add("-o").add(object);
+        failed = stage("LLVM object generation", generate, work);
+        if (failed != null) return failed;
+        if (!mac) {
+            Path objcopy = bin.resolve("llvm-objcopy");
+            defer free objcopy;
+            Command rename = new Command(4);
+            defer free rename;
+            rename.add(objcopy).add("--rename-section")
+                    .add(".pseudo_probe=ironwood_trace,alloc,load,readonly,data,contents").add(object);
+            failed = stage("LLVM stack-trace section preparation", rename, work);
+            if (failed != null) return failed;
+        }
+        String targetFlag = "--target=" + triple;
+        defer free targetFlag;
+        for (int index = 0; index < RUNTIME.length; index++) {
+            failed = runtimeObject(clang, runtimeSources, RUNTIME[index], work, mac, sdk, targetFlag);
+            if (failed != null) return failed;
+        }
+        Command link = new Command(mac ? 14 : 11);
+        defer free link;
+        link.add(clang).add("--driver-mode=g++").add(targetFlag).add(object);
+        for (int index = 0; index < RUNTIME.length; index++) {
+            Path runtimeObject = objectPath(work, RUNTIME[index]);
+            defer free runtimeObject;
+            link.add(runtimeObject);
+        }
+        if (mac) {
+            String linkerFlag = "--ld-path=" + linker;
+            defer free linkerFlag;
+            link.add("-isysroot").add(sdk).add(linkerFlag);
+        }
+        link.add(mac ? "-Wl,-dead_strip" : "-Wl,--gc-sections").add("-o").add(output);
+        String linked = stage("native link", link, work);
+        for (int index = 0; index < RUNTIME.length; index++) {
+            Path runtimeObject = objectPath(work, RUNTIME[index]);
+            defer free runtimeObject;
+            discard(runtimeObject);
+        }
+        return linked;
+    }
+
+    private static String assemble(Path bin, Path input, Path output, Path work, String name) throws IOException {
+
+        Path tool = bin.resolve("llvm-as");
+        defer free tool;
+        Command command = new Command(4);
+        defer free command;
+        command.add(tool).add(input).add("-o").add(output);
+        return stage(name, command, work);
+    }
+
+    private static String runtimeObject(Path clang, Path sources, String name, Path work, boolean mac, String sdk,
+                                        String targetFlag) throws IOException {
+
+        String fileName = name + ".c";
+        defer free fileName;
+        Path source = sources.resolve(fileName);
+        defer free source;
+        Path object = objectPath(work, name);
+        defer free object;
+        Command command = new Command(mac ? 13 : 11);
+        defer free command;
+        command.add(clang).add("-std=c11").add("-fPIC").add("-O3").add("-ffunction-sections")
+                .add("-fdata-sections");
+        if (mac) command.add("-isysroot").add(sdk);
+        command.add(targetFlag).add("-c").add(source).add("-o").add(object);
+        return stage("bootstrap runtime compilation", command, work);
+    }
+
+    private static Path objectPath(Path work, String name) {
+
+        String fileName = name + ".o";
+        defer free fileName;
+        return work.resolve(fileName);
+    }
+
+    // The module with the configured target attached, as NativeTarget.applyTo does.
+    private static void writeTargeted(Path llvmIr, Path targeted, String triple, String layout) throws IOException {
+
+        String module = Files.readString(llvmIr);
+        defer free module;
+        String withTriple = LlvmScan.attach(module, "triple", triple);
+        defer free withTriple;
+        String withLayout = LlvmScan.attach(withTriple, "datalayout", layout);
+        defer free withLayout;
+        Files.writeString(targeted, withLayout);
+    }
+
+    // Runs one stage with its output in a fresh log, deleted on every exit;
+    // null on success, else a fresh message as NativeBackend.run reports it.
+    private static String stage(String name, Command command, Path work) throws IOException {
+
+        Path log = Files.createTempFile(work, "stage-", ".log");
+        defer free log;
+        try {
+            ProcessResult result = command.run(null, log);
+            defer free result;
+            if (result.exitValue() == 0) return null;
+            StringBuilder text = new StringBuilder();
+            defer free text;
+            text.append(name).append(" failed with exit code ").append(result.exitValue());
+            if (Files.size(log) <= Probes.OUTPUT_LIMIT) {
+                byte[] bytes = Files.readAllBytes(log);
+                defer free bytes;
+                String output = new String(bytes);
+                defer free output;
+                String stripped = output.strip();
+                defer free stripped;
+                if (!stripped.isEmpty()) text.append(":\n").append(stripped);
+            }
+            return text.toString();
+        } catch (IOException failure) {
+            String message = failure.getMessage();
+            StringBuilder text = new StringBuilder();
+            defer free text;
+            text.append("cannot run ").append(name).append(": ").append(message == null ? "I/O error" : message);
+            return text.toString();
+        } finally {
+            Files.deleteIfExists(log);
+        }
+    }
+
+    // SDKROOT when set and nonblank, otherwise /usr/bin/xcrun's macOS SDK, as
+    // MacNativeTools selects it; a fresh copy, or null with the reason.
+    private static String appleSdk(Probes probes, StringBuilder failure) {
+
+        String override = System.getenv("SDKROOT");
+        if (override != null && !override.isBlank()) return override;
+        if (override != null) free override;
+        Command command = new Command(4);
+        defer free command;
+        command.add("/usr/bin/xcrun").add("--sdk").add("macosx").add("--show-sdk-path");
+        String sdk = probes.output(command, failure);
+        return sdk == null ? null : new String(sdk);
+    }
+
+    private static String appleTool(Probes probes, StringBuilder failure, String tool) {
+
+        Command command = new Command(5);
+        defer free command;
+        command.add("/usr/bin/xcrun").add("--sdk").add("macosx").add("--find").add(tool);
+        String found = probes.output(command, failure);
+        return found == null ? null : new String(found);
+    }
+
+    private static String message(String prefix, StringBuilder failure) {
+
+        StringBuilder text = new StringBuilder();
+        defer free text;
+        text.append(prefix).append(": ").append(failure);
+        return text.toString();
+    }
+
+    private static boolean isMac() {
+
+        String system = System.getProperty("os.name");
+        defer free system;
+        return system.startsWith("Mac");
+    }
+}

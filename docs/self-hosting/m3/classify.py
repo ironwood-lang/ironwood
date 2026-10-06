@@ -392,6 +392,29 @@ PHASE_RULES = {
         ("java.util.stream.Stream", r"^sorted\(\)$", b("B: the sorted runtime-header walk is a cache key field; the native port"
                                                      " omits the cache (D269)")),
     ],
+    # M4.3 (D272, D273): the synchronous process facility and the port's adapters.
+    "M4.3": [
+        ("java.lang.ProcessBuilder", r"^ProcessBuilder\(java.util.List", d("Command owns the argument vector (D273) and"
+                                                                          " ProcessRunner.runToFile launches it by absolute"
+                                                                          " path (D272)", "Command.iron",
+                                                                          "stdlib:process/ProcessRunner.iron")),
+        ("java.lang.ProcessBuilder", r"^directory\(", d("runToFile's directory argument (D272)",
+                                                       "stdlib:process/ProcessRunner.iron")),
+        ("java.lang.ProcessBuilder", r"^redirectErrorStream\(", d("runToFile merges standard output and error into its"
+                                                                 " output file (D272)", "stdlib:process/ProcessRunner.iron")),
+        ("java.lang.ProcessBuilder", r"^redirectOutput\(", d("runToFile's output file (D272)",
+                                                            "stdlib:process/ProcessRunner.iron")),
+        ("java.lang.ProcessBuilder", r"^start\(", d("ProcessRunner.runToFile (D272)", "stdlib:process/ProcessRunner.iron")),
+        ("java.lang.Process", r"^waitFor\(", d("runToFile waits and always reaps (D272)",
+                                              "stdlib:process/ProcessRunner.iron")),
+        ("java.lang.Process", r"^getInputStream\(", d("Probes reads a probe's log back within 1 MiB and LlvmPipeline a"
+                                                     " failed stage's (D273)", "Probes.iron", "LlvmPipeline.iron")),
+        ("java.lang.Process", r"^destroyForcibly\(", b("B: only BridgeBuildTools' thread interruption kills a tool; the"
+                                                      " native producer has no interruption, and a terminal interrupt"
+                                                      " reaches the tool through its process group (D272)")),
+        ("javax.tools.", r".", b("B: S7's native producer runs the selected JDK's javac and javadoc by absolute path through"
+                                 " runToFile, as BridgeBuildTools.run already launches tools; selecting that JDK is M6.2")),
+    ],
 }
 
 

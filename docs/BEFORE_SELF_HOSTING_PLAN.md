@@ -544,11 +544,19 @@ slice. Follow [B3](#6-b3-filesystem-operations-and-publication-guarantees) and
   competing processes, fail unsupported or cross-device exclusive renames
   explicitly, and pass on macOS arm64 and Linux x86-64 with a glibc 2.17
   symbol baseline. Linux arm64 is unresolved.
-- [ ] **M4.3: Synchronous launch and discovery adapters.** After M4.1, implement
+- [x] **M4.3: Synchronous launch and discovery adapters.** After M4.1, implement
   B4's absolute executable, inherited environment, optional child cwd, and
   merged-file output contract. Normalize bare launch sites in compiler callers.
   Test temp-log read/delete behavior, invocation-scoped discovery reuse, failure
   cleanup, and the actual LLVM pipeline.
+  Complete: [`ProcessRunner.runToFile`](self-hosting/m4/PROCESS.md) (D272)
+  launches by absolute path through one `fork`/`execv` runtime path with a
+  typed process instruction; the Java seed now runs `/usr/bin/xcrun` and a
+  `brew` resolved by its own PATH search; and the port's Command, Probes,
+  ExecutableSearch and LlvmPipeline adapters (D273) reuse discovery within an
+  invocation, delete every probe log, clean up failing stages and link the
+  Java compiler's emitted module into an executable equal to the Java link's,
+  on macOS arm64 and Linux x86-64. Linux arm64 is unresolved.
 
 **Checkpoints:** M4.1 plus M4.2 establish filesystem readiness for M5 publication;
 M4.3 separately establishes native driver/process readiness. Record qualified

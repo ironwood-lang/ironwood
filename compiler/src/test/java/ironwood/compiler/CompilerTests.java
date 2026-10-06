@@ -910,6 +910,14 @@ public final class CompilerTests {
         test("M4.3 Homebrew discovery launches the resolved absolute brew",
                 ironwood.compiler.backend.ToolDiscoveryTests::homebrew);
         test("M4.3 Apple SDK discovery runs only /usr/bin/xcrun", ironwood.compiler.backend.ToolDiscoveryTests::xcrun);
+        test("M4.3 driver adapters own arguments and lend probe outputs", DriverAdapterTests::ownership);
+        test("M4.3 port executable search matches the Java seed", DriverAdapterTests::executableSearch);
+        test("M4.3 discovery probes match Java answers and reuse results within one invocation",
+                DriverAdapterTests::discoveryProbes);
+        test("M4.3 native LLVM pipeline links programs equal to the Java link", DriverAdapterTests::pipeline);
+        test("M4.3 native LLVM pipeline reports failing stages and leaves nothing behind",
+                DriverAdapterTests::pipelineFailures);
+        test("M4.3 driver adapters unwind every allocation failure without leftovers", DriverAdapterTests::failures);
         test("compiler work queue keeps queued items alive and its ring private", WorkQueueTests::ownership);
         test("compiler worklists preserve FIFO and retain-filter order across artifacts and failures",
                 WorkQueueTests::artifacts);

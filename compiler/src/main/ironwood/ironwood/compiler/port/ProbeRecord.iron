@@ -1,0 +1,37 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.port;
+
+/**
+ * One probe of an invocation (see Probes): its key and, when it succeeded,
+ * its stripped output. The constructor runs the probe and owns both Strings,
+ * so an allocation failure after the launch is rolled back with the record.
+ * A failed record keeps a null output and is never reused.
+ */
+final class ProbeRecord {
+
+    private String key;
+    private String output;
+
+    ProbeRecord(Probes probes, Command command) {
+
+        this.key = Probes.keyOf(command);
+        this.output = probes.launch(command);
+    }
+
+    String key() {
+
+        return this.key;
+    }
+
+    String output() {
+
+        return this.output;
+    }
+
+    destructor {
+
+        free this.key;
+        if (this.output != null) free this.output;
+    }
+}

@@ -10472,3 +10472,60 @@ occurrence order. If no
   launches the resolved absolute `brew` (and finds no prefix without one),
   and TLS and Apple tool discovery run only `/usr/bin/xcrun` under a PATH
   offering another. See [the M4.3 record](self-hosting/m4/PROCESS.md).
+
+## D273 - Drive native tools through invocation-scoped port adapters
+
+- **Status:** Implemented during M4.3 on 2026-10-06.
+- **Decision:** The compiler port gains the native driver's process adapters
+  that S4 and S7 consumers use in place of the Java baseline's
+  `ProcessBuilder` readers; the Java seed is unchanged by this decision.
+  - **Command.** One tool invocation's arguments in a private creation array
+    of exactly the command's length (D163): each slot receives a fresh copy,
+    an indexed getter lends it, the destructor loop retires it, and a run
+    lends the storage to `ProcessRunner.runToFile`. The creation-array proof
+    admits exactly that call as the storage's one consumer, because D272's
+    audited contract borrows the array and its Strings for the call only;
+    every other call still may not receive creation-array storage.
+  - **Probes.** One invocation's discovery context. An uncached probe writes
+    its merged output to a fresh log in one lazily created scratch directory
+    (B3 temporary paths), is read back within 1 MiB (more is an explicit
+    failure, never a truncated answer), decoded with replacement as Java
+    decodes tool output, stripped, and its log deleted on every path. Each
+    probe is a `ProbeRecord` whose constructor runs it and owns its key and
+    output, so no allocation failure strands either; a successful record is
+    reused for the same command, PATH, SDKROOT and DEVELOPER_DIR, a failed
+    one never. `close()` removes the empty scratch directory without
+    allocating, falling back to TreeDeletion only for leftovers; outputs are
+    lent until the context is freed. No static cache, process handle or log
+    outlives the invocation.
+  - **ExecutableSearch.** The port's PATH search equals the Java seed's
+    (D272), for brew and other caller-owned discovery.
+  - **LlvmPipeline.** NativeBackend's O3 executable pipeline (target probe,
+    `LlvmScan` target application, `llvm-as`, `opt`, finalization, `llvm-as`,
+    `llc`, Linux section rename, four runtime objects compiled directly per
+    D269, Clang link) with every stage launched by absolute path, logged in
+    a scratch directory beside the output and reported as NativeBackend
+    reports it. Staged files are deleted as their scopes end and the empty
+    directory afterwards, without allocating. Trace finalization stays an
+    explicit executable step until S4's native mode exists.
+- **Proof:** The creation-array admission of `runToFile` is the only analysis
+  change; paired cases accept an owner lending its storage to that call and
+  reject the same storage passed to `String.join`, freeing a lent argument,
+  using an argument or probe output after its owner is freed, and double
+  free.
+- **Boundary:** An allocation failure inside the pipeline's own cleanup ends
+  the process through the runtime's emergency path and leaves its staging
+  directory. The reuse key holds the full PATH, so retained memory grows
+  with the environment. The shell driver of D269 remains available; these
+  adapters are prerequisites, not S4's port of NativeBackend, LlvmToolchain
+  or MacNativeTools. Supersedes no decision.
+- **Verification:** The adapters own and lend as specified in every unfreed
+  mode; the port search equals the Java seed on the same trees; the probes
+  answer as LlvmToolchain and MacNativeTools do, launch nothing when
+  repeated, probe again in a new invocation, never keep a failure, fail
+  explicitly on oversized output and leave no log or scratch directory; the
+  pipeline links the Java compiler's emitted module into an executable whose
+  output, status and stack trace equal the Java link's, from class and
+  archive links, and names a failing stage with the tool's output without
+  leaving output or staging; every allocation failure of the adapters
+  unwinds without leftovers. See [the M4.3 record](self-hosting/m4/PROCESS.md).

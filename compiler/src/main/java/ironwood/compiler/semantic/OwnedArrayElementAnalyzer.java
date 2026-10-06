@@ -218,7 +218,7 @@ final class OwnedArrayElementAnalyzer {
                 }
                 List<IrOperand> callArguments = arguments(instruction);
                 for (int index = 0; index < callArguments.size(); index++) {
-                    if (isArray(callArguments.get(index))) {
+                    if (isArray(callArguments.get(index)) && !(index == 0 && isProcessCommand(instruction))) {
                         String detail = !failed && explainRejectedFree && refinementCompleted
                                 && functionSource != null
                                 ? "this call receives the creation-array storage as argument "
@@ -483,6 +483,21 @@ final class OwnedArrayElementAnalyzer {
             if (instruction instanceof IrReferenceConversionInstruction value) { return value.result(); }
             return null;
         }
+        // ProcessRunner.runToFile's audited contract borrows its command array
+        // and the array's Strings for the call only, so lending the storage to
+        // that exact call keeps every element owned here. No other call may
+        // receive creation-array storage.
+        private boolean isProcessCommand(IrInstruction instruction) {
+            if (!(instruction instanceof IrCallInstruction call)) return false;
+            CallableSymbol target = summaries.callable(call.targetLinkageName());
+            IrType path = IrType.reference("ironwood.nio.file.Path");
+            return target != null && target.isStatic()
+                    && target.ownerType().equals("ironwood.process.ProcessRunner")
+                    && target.sourceName().equals("runToFile")
+                    && target.parameterTypes().equals(List.of(
+                            IrType.array(IrType.reference("ironwood.lang.String")), path, path));
+        }
+
         private static List<IrOperand> arguments(IrInstruction instruction) {
             if (instruction instanceof IrCallInstruction call) { return call.arguments(); }
             if (instruction instanceof IrInterfaceCallInstruction call) { return call.arguments(); }

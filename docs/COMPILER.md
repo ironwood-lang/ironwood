@@ -2090,6 +2090,20 @@ constructor rollback therefore reclaims only the final owner's completed
 storage. File/path operations remain visible to allocation-effect analysis,
 including native fallback allocation, and cannot bypass destructor restrictions.
 
+M4 adds `IrFileInstruction` operations for exclusive temporary files and
+directories, real paths, access checks and the three publication moves (D270,
+D271), with the same audited borrowing and fresh-result classification. A
+temporary or real path is adopted inside its UnixPath constructor, so no
+managed allocation follows the native creation. `ProcessRunner.runToFile`
+lowers its private launch to `IrProcessInstruction` (D272): an I64 status from
+a String[] command, a nullable directory String and an output String, emitted
+as `ironwood_process_run` with an unwind edge for argument-encoding allocation
+failure and counted as a closed-world effect, so an unused result still
+launches. Two audited contracts admit the command's elements: by exact
+signature, `runToFile` borrows the array's Strings without exposing them, and
+the creation-array proof (D163) lets an owner lend its storage to that one
+call (D273). Every other call keeps the conservative array rules.
+
 `Float.parseFloat` and `Double.parseDouble` validate Java-shaped syntax in the
 library facade, then lower the private conversion step to
 `IrFloatingParseInstruction`. The typed operation borrows a String and returns

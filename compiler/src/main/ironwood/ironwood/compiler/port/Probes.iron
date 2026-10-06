@@ -1,0 +1,252 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.port;
+
+import ironwood.io.IOException;
+import ironwood.nio.file.Files;
+import ironwood.nio.file.Path;
+import ironwood.process.ProcessResult;
+
+/**
+ * One invocation's tool discovery (B4), replacing the Java baseline's
+ * in-memory probe readers (LlvmToolchain.run, MacNativeTools.run,
+ * TlsDependency.command). Each uncached probe writes its merged output to a
+ * fresh log in one scratch directory, created on first use; the log is read
+ * back within {@link #OUTPUT_LIMIT} bytes and deleted on every path, success,
+ * launch failure, oversized output or allocation failure alike. A successful
+ * probe (exit 0) keeps its stripped output, keyed by its full command and the
+ * inherited PATH, SDKROOT and DEVELOPER_DIR, so a repeated probe in this
+ * invocation launches nothing; a failure is never kept. {@link #close()}
+ * removes the scratch directory at invocation end.
+ *
+ * <p>Each probe is one ProbeRecord in a private creation array (D163): its
+ * constructor runs the probe and owns its key and output, so no allocation
+ * failure can strand either. A failed record is kept but never reused; an
+ * output is lent through {@link #output(Command, StringBuilder)} until this
+ * context is freed. Probes run with the invocation's working directory.
+ */
+public final class Probes {
+
+    /** The most output a probe may produce; more is an explicit failure. */
+    public static final long OUTPUT_LIMIT = 1048576L;
+
+    private Path parent;
+    // The reason of the latest failed launch, copied to the caller's builder.
+    private StringBuilder reason;
+    // One slot, written once when the first uncached probe needs it.
+    private Path[] scratch;
+    private boolean created;
+    private ProbeRecord[] records;
+    private int count;
+    private int launches;
+    private int logsCreated;
+    private int logsDeleted;
+    private long bytesRead;
+
+    /**
+     * @param scratchParent the directory that receives the scratch
+     *        directory, or null for the default temporary directory; borrowed
+     */
+    public Probes(Path scratchParent) {
+
+        this.parent = Path.of(scratchParent == null ? "" : scratchParent.toString());
+        this.scratch = new Path[1];
+        this.records = new ProbeRecord[4];
+        this.reason = new StringBuilder();
+    }
+
+    /**
+     * Returns the stripped output of {@code command}, a probe that must exit
+     * with status 0, running it only if this invocation has not already run
+     * the same probe successfully.
+     *
+     * @param command the probe; borrowed
+     * @param failure receives the reason when the probe fails
+     * @return the output, lent by this context, or null on failure
+     */
+    public String output(Command command, StringBuilder failure) {
+
+        String key = keyOf(command);
+        defer free key;
+        for (int index = 0; index < this.count; index++) {
+            ProbeRecord kept = record(index);
+            if (kept.output() != null && kept.key().equals(key)) return kept.output();
+        }
+        if (this.count == this.records.length) grow();
+        this.reason.setLength(0);
+        ProbeRecord fresh = new ProbeRecord(this, command);
+        this.records[this.count] = fresh;
+        this.count++;
+        String result = record(this.count - 1).output();
+        if (result == null) failure.append(this.reason);
+        return result;
+    }
+
+    // Runs one probe into a fresh log, reads it back and always deletes it.
+    // Returns the fresh stripped output of a successful probe, or null.
+    String launch(Command command) {
+
+        try {
+            return capture(command);
+        } catch (IOException launchFailure) {
+            String message = launchFailure.getMessage();
+            this.reason.append(message == null ? "I/O error" : message);
+            return null;
+        }
+    }
+
+    private String capture(Command command) throws IOException {
+
+        Path log = Files.createTempFile(scratchDirectory(), "probe-", ".log");
+        defer free log;
+        this.logsCreated++;
+        try {
+            ProcessResult result = command.run(null, log);
+            defer free result;
+            this.launches++;
+            long size = Files.size(log);
+            if (size > OUTPUT_LIMIT) {
+                this.reason.append("tool output exceeds ").append(OUTPUT_LIMIT).append(" bytes: ")
+                        .append(command.argument(0));
+                return null;
+            }
+            byte[] bytes = Files.readAllBytes(log);
+            defer free bytes;
+            this.bytesRead += bytes.length;
+            // Java decodes tool output with replacement, never failing on bytes.
+            String text = new String(bytes);
+            defer free text;
+            String stripped = text.strip();
+            if (result.exitValue() == 0) return stripped;
+            defer free stripped;
+            this.reason.append(stripped);
+            return null;
+        } finally {
+            if (Files.deleteIfExists(log)) this.logsDeleted++;
+        }
+    }
+
+    // The scratch directory, created exclusively on the first uncached probe.
+    private Path scratchDirectory() throws IOException {
+
+        if (!this.created && this.parent.toString().isEmpty()) {
+            Path directory = Files.createTempDirectory("ironwoodc-probes-");
+            this.scratch[0] = directory;
+            this.created = true;
+        } else if (!this.created) {
+            Path directory = Files.createTempDirectory(this.parent, ".ironwoodc-probes-");
+            this.scratch[0] = directory;
+            this.created = true;
+        }
+        return scratchSlot(0);
+    }
+
+    private Path scratchSlot(int index) {
+
+        return this.scratch[index];
+    }
+
+    // The command's arguments and the inherited configuration that can change
+    // a probe's answer, separated by NUL, which no argument contains.
+    static String keyOf(Command command) {
+
+        StringBuilder key = new StringBuilder();
+        defer free key;
+        for (int index = 0; index < command.size(); index++) key.append(command.argument(index)).append((char) 0);
+        appendVariable(key, "PATH");
+        appendVariable(key, "SDKROOT");
+        appendVariable(key, "DEVELOPER_DIR");
+        return key.toString();
+    }
+
+    private static void appendVariable(StringBuilder key, String name) {
+
+        key.append(name).append('=');
+        String value = System.getenv(name);
+        if (value != null) {
+            defer free value;
+            key.append(value);
+        }
+        key.append((char) 0);
+    }
+
+    private ProbeRecord record(int index) {
+
+        return this.records[index];
+    }
+
+    // A full shallow transfer into fresh storage keeps each record once.
+    private void grow() {
+
+        ProbeRecord[] previous = this.records;
+        this.records = new ProbeRecord[previous.length * 2];
+        System.arraycopy(previous, 0, this.records, 0, previous.length);
+        free previous;
+    }
+
+    /** @return the number of probes launched */
+    public int launches() {
+
+        return this.launches;
+    }
+
+    /** @return the number of probe logs created */
+    public int logsCreated() {
+
+        return this.logsCreated;
+    }
+
+    /** @return the number of probe logs deleted */
+    public int logsDeleted() {
+
+        return this.logsDeleted;
+    }
+
+    /** @return the bytes read back from probe logs */
+    public long bytesRead() {
+
+        return this.bytesRead;
+    }
+
+    /** @return the UTF-16 units of the recorded keys and outputs */
+    public long retainedUnits() {
+
+        long units = 0L;
+        for (int index = 0; index < this.count; index++) {
+            ProbeRecord kept = record(index);
+            units += kept.key().length() + (kept.output() == null ? 0 : kept.output().length());
+        }
+        return units;
+    }
+
+    /**
+     * Removes the scratch directory, ignoring failures, as NativeBackend's
+     * cleanup does. Every log is deleted by its own probe, so the empty
+     * directory goes without any allocation, even while an allocation
+     * failure unwinds; only an unexpected leftover needs the tree walk. Kept
+     * outputs stay readable; a probe after closing is not supported.
+     */
+    public void close() {
+
+        if (!this.created) return;
+        try {
+            Files.deleteIfExists(scratchSlot(0));
+        } catch (IOException leftover) {
+            TreeDeletion.deleteQuietly(scratchSlot(0));
+        }
+    }
+
+    destructor {
+
+        for (int index = 0; index < this.records.length; index++) {
+            free this.records[index];
+        }
+        free this.records;
+        for (int index = 0; index < this.scratch.length; index++) {
+            free this.scratch[index];
+        }
+        free this.scratch;
+        free this.parent;
+        free this.reason;
+    }
+}
