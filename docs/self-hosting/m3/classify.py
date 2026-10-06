@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
-"""Classify every M3 call pattern of the M0 source-backed inventory.
+"""Classify every M3 or M4 call pattern of the M0 source-backed inventory.
 
 Usage: classify.py PHASE [--markdown OUT]
 
@@ -9,7 +9,11 @@ gets exactly one class:
   A  an existing Ironwood member with the needed semantics; the rule names
      the stdlib or port file and a declaration regex, which must match;
   B  a recorded port convention (decision or record cited), no new helper;
-  D  a helper delivered in M3 (decision cited); its file must exist.
+  D  a helper delivered in M3 or M4 (decision cited); its file must exist.
+
+PHASE_RULES holds rules for one phase only, consulted before RULES, so an
+M4 phase can classify a shared Java API for its own consumers without
+changing a recorded M3 table.
 
 The tool fails if a phase pattern has no rule, a rule matches no pattern,
 an A declaration is missing, a D file is missing, or a row is still marked
@@ -350,6 +354,47 @@ RULES = [
 ]
 
 
+# M4 rules (D270, D271): the native driver's consumers (NativeBackend,
+# LlvmToolchain, MacNativeTools, ToolchainDiscovery) and the filesystem
+# services delivered for them.
+OMITTED_CACHE = "B: a runtime-object cache key field; the native port omits the cache (D269)"
+PROCESS_OUTPUT = ("B: B4's runToFile writes a tool's merged output to a log that the probe adapter reads back"
+                  " with Files.readString (M4.3)")
+PHASE_RULES = {
+    "M4.1-M4.2": [
+        ("java.io.InputStream", r"^readAllBytes", b(PROCESS_OUTPUT)),
+        ("java.lang.String", r"^String\(byte\[\],java.nio.charset.Charset\)$", b(PROCESS_OUTPUT)),
+        ("java.lang.Thread", r".", b("B: no interruption: a launch is B4's synchronous runner (M4.3), and a signal"
+                                     " reaches the tool through the compiler's process group")),
+        ("java.lang.Integer", r"^parseInt\(java.lang.String\)$", a("lang/Integer.iron", r"public static int parseInt\(String text\)")),
+        ("java.lang.String", r"^lines\(\)$", b("B: the first line ends at the first '\\n' or '\\r', String.lines' terminators"
+                                              " (indexOf and substring)")),
+        ("java.nio.file.Files", r"^createTempDirectory", d("Files.createTempDirectory, explicit and default directory (D270)",
+                                                          "stdlib:nio/file/Files.iron")),
+        ("java.nio.file.Files", r"^deleteIfExists", d("Files.deleteIfExists (D270)", "stdlib:nio/file/Files.iron")),
+        ("java.nio.file.Files", r"^isExecutable", d("Files.isExecutable (D270)", "stdlib:nio/file/Files.iron")),
+        ("java.nio.file.Files", r"^isReadable", d("Files.isReadable (D270)", "stdlib:nio/file/Files.iron")),
+        ("java.nio.file.Files", r"^walk\(", d("TreeDeletion replaces deleteTree's reverse-sorted walk; the runtime-header"
+                                             " walk belongs to the omitted runtime-object cache (D269, D270)",
+                                             "TreeDeletion.iron")),
+        ("java.nio.file.Files", r"^(getLastModifiedTime|size)\(", b(OMITTED_CACHE)),
+        ("java.nio.file.attribute.FileTime", r"^toMillis", b(OMITTED_CACHE)),
+        ("java.nio.file.Files", r"^readAllBytes", a("nio/file/Files.iron", r"public static byte\[\] readAllBytes\(Path path\)")),
+        ("java.nio.file.Files", r"^write\(java.nio.file.Path,byte\[\]", a("nio/file/Files.iron",
+                                                                           r"public static Path write\(Path path, byte\[\] bytes\)")),
+        ("java.nio.file.Path", r"^toRealPath", d("Path.toRealPath (D270)", "stdlib:nio/file/Path.iron")),
+        ("java.nio.file.Path", r"^getFileName", a("nio/file/Path.iron", r"Path getFileName\(\);")),
+        ("java.nio.file.Path", r"^toString", a("nio/file/Path.iron", r"String toString\(\);")),
+        ("java.util.Comparator", r"^<T>reverseOrder", d("TreeDeletion's post-order walk replaces deleteTree's reverse sort"
+                                                       " (D270)", "TreeDeletion.iron")),
+        ("java.util.stream.Stream", r"^sorted\(java.util.Comparator", d("TreeDeletion's post-order walk replaces deleteTree's"
+                                                                       " reverse sort (D270)", "TreeDeletion.iron")),
+        ("java.util.stream.Stream", r"^sorted\(\)$", b("B: the sorted runtime-header walk is a cache key field; the native port"
+                                                     " omits the cache (D269)")),
+    ],
+}
+
+
 def load(phase):
     calls = json.load(gzip.open(ROOT / "docs/self-hosting/m0/deferred/calls.json.gz"))
     api = {row["id"]: row for row in json.load(gzip.open(ROOT / "docs/self-hosting/m0/deferred/api.json.gz"))}
@@ -364,8 +409,8 @@ def member(signature):
     return signature
 
 
-def classify(owner, signature):
-    for rule_owner, regex, verdict in RULES:
+def classify(owner, signature, phase=None):
+    for rule_owner, regex, verdict in PHASE_RULES.get(phase, []) + RULES:
         if (owner == rule_owner or rule_owner.endswith(".") and owner.startswith(rule_owner)) and re.search(regex, signature):
             return (rule_owner, regex), verdict
     return None, None
@@ -415,7 +460,7 @@ def main():
     counts, pattern_counts = Counter(), Counter()
     for pattern_id, calls in sorted(patterns.items(), key=lambda item: (api[item[0]]["owner"], api[item[0]]["signature"])):
         row = api[pattern_id]
-        rule, verdict = classify(row["owner"], row["signature"])
+        rule, verdict = classify(row["owner"], row["signature"], phase)
         if verdict is None:
             failures.append(f"{pattern_id} {row['owner']} {row['signature']}: no rule")
             continue
