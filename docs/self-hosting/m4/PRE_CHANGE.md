@@ -258,3 +258,14 @@ and staging directories are removed without allocating. On Linux the test
 JVM ran under `nohup ... &` and so ignored SIGINT, which its children
 inherit; the process-group helper resets the interrupt dispositions as a
 shell's foreground job does.
+
+## Linux arm64 qualification
+
+The boundary recorded above as unresolved closed on the `miami` guest
+(Ubuntu 22.04 aarch64): the twelve M4.1/M4.2 and fifteen M4.3 tests and the
+glibc 2.17 symbol check pass ([run](arm64-evidence/manifest.json)). The
+first attempt stopped in `scripts/jdk.sh`: that guest's kernel reports SVE2
+without SVE, HotSpot warns on stderr at every start, and the javac version
+check compared the merged output exactly. The check now compares javac's own
+line, and the discovery test's Java reference keeps only stdout. No runtime,
+library or analysis code changed.

@@ -1,0 +1,31 @@
+{
+ "evidence": "docs/self-hosting/m4/arm64-evidence",
+ "run": "workspace/m4/arm64-evidence",
+ "increment": "M4 Linux arm64 qualification: the twelve M4.1/M4.2 and fifteen M4.3 tests and the glibc 2.17 symbol baseline on an aarch64 guest",
+ "reproduce": "docs/self-hosting/m4/arm64-evidence/run-evidence.sh 00f5554f",
+ "host": "Linux arm64 miami (Ubuntu 22.04 aarch64 guest on Apple silicon, kernel 5.15, glibc 2.35, 4 vCPUs, 3.8 GiB, ext4 /tmp with tmpfs /dev/shm)",
+ "sources": [
+  "runtime/src/ironwood_runtime.c",
+  "runtime/include/ironwood_runtime.h",
+  "scripts/jdk.sh",
+  "compiler/src/test/java/ironwood/compiler/FilesystemServicesTests.java",
+  "compiler/src/test/java/ironwood/compiler/PublicationTests.java",
+  "compiler/src/test/java/ironwood/compiler/ProcessRunnerTests.java",
+  "compiler/src/test/java/ironwood/compiler/DriverAdapterTests.java",
+  "compiler/src/test/java/ironwood/compiler/backend/ToolDiscoveryTests.java",
+  "integration-tests/runtime/filesystem_services.c",
+  "integration-tests/runtime/process_helper.c",
+  "integration-tests/runtime/process_services.c",
+  "docs/self-hosting/m4/process-evidence/m4.3-tests.txt",
+  "docs/self-hosting/m4/arm64-evidence/run-evidence.sh",
+  "docs/self-hosting/m4/arm64-evidence/linux-arm64-evidence.sh"
+ ],
+ "logs": ["commit.txt", "status.txt", "host.txt", "tests.log", "abi-build.log", "runtime-undefined.txt",
+  "glibc-versions.txt"],
+ "extra": {
+  "java": "/usr/java/java21 on the guest (Temurin 21.0.12.1+1, linux-aarch64)",
+  "llvm": "IDK 0.2.5 linux-arm64 toolchain on the guest (conda LLVM 23.1.0, aarch64 glibc 2.17 sysroot)",
+  "linux_arm64_tests": 27,
+  "glibc_max": "GLIBC_2.17"
+ }
+}

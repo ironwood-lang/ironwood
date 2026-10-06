@@ -138,7 +138,7 @@ unbounded buffering. Distinct probes still need their own capture.
 | --- | --- |
 | macOS 27.0.1 arm64 | all fifteen M4.3 tests |
 | Linux x86-64 (`estonia`, kernel 4.15, glibc 2.27) | all fifteen M4.3 tests, including the process-group interrupt, the actual pipeline with `llvm-objcopy` and the conda LLVM 23.1.0 toolchain; the Apple discovery test checks nothing there |
-| Linux arm64 | unresolved: no host |
+| Linux arm64 (`miami`, Ubuntu 22.04 guest, kernel 5.15, glibc 2.35) | all fifteen M4.3 tests with the IDK's conda LLVM 23.1.0, including the process-group interrupt and the actual pipeline ([run](arm64-evidence/manifest.json)) |
 
 ## Boundaries
 

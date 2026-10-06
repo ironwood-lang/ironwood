@@ -5,10 +5,12 @@
 Status: the process and driver checkpoint passes. B4's synchronous process
 facility, the Java seed's caller adaptations and the port's driver adapters
 are ready for the optional native-driver route of S4 and for S7's tool
-launches, on macOS arm64 and Linux x86-64. The handoff run is recorded in
-[process-evidence/manifest.json](process-evidence/manifest.json) and
-reproduced by [run-evidence.sh](process-evidence/run-evidence.sh), whose
-Linux part is [linux-evidence.sh](process-evidence/linux-evidence.sh). The
+launches, on macOS arm64, Linux x86-64 and Linux arm64. The handoff run is
+recorded in [process-evidence/manifest.json](process-evidence/manifest.json)
+and reproduced by [run-evidence.sh](process-evidence/run-evidence.sh), whose
+Linux part is [linux-evidence.sh](process-evidence/linux-evidence.sh); the
+later Linux arm64 run is recorded in
+[arm64-evidence/manifest.json](arm64-evidence/manifest.json). The
 shell-driver route of D269 stays available: S4 has not started, and its
 NativeBackend, LlvmToolchain and MacNativeTools ports are what replace it.
 
@@ -45,7 +47,7 @@ this adapter as their convention; it is now delivered.
 | --- | --- |
 | macOS 27.0.1 arm64 | the fifteen M4.3 tests and the consumers of the changed machinery; discovery measured serially below load 3 |
 | Linux x86-64 (`estonia`, kernel 4.15, glibc 2.27, conda LLVM 23.1.0) | the fifteen M4.3 tests, including process-group interrupts and the actual pipeline with `llvm-objcopy` |
-| Linux arm64 | unresolved: no host |
+| Linux arm64 (`miami`: Ubuntu 22.04 guest, kernel 5.15, glibc 2.35, conda LLVM 23.1.0) | the fifteen M4.3 tests, including process-group interrupts and the actual pipeline with `llvm-objcopy` |
 
 - Descriptors the compiler inherited without close-on-exec reach its tools
   (Java's launcher closes them).
@@ -92,3 +94,9 @@ pass, 27 retained allocations and 5,097 retained units. The cold pass took a
 median of 44.7 ms (43.9 to 74.1, the first two runs slowest) and the repeated
 pass a median of 39 µs (36 to 43). After the failure cases the four kept
 failure records add their keys (8,003 units); none is reused.
+
+Linux arm64 was qualified afterwards by
+[arm64-evidence/run-evidence.sh](arm64-evidence/run-evidence.sh) on 00f5554f:
+these fifteen tests, the twelve M4.1/M4.2 tests and the glibc 2.17 symbol
+check passed on the `miami` guest, after the JDK check and the discovery
+reference stopped reading that guest's JVM startup warning as output.

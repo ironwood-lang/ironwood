@@ -70,7 +70,7 @@ benchmark applies.
 | --- | --- |
 | macOS 27.0.1 arm64 (this machine), APFS with an HFS+ image | every M4.1 and M4.2 test passes; the runtime compiles warning-free (beyond two existing notes) for the 11.0 deployment target with `-Wunguarded-availability` |
 | Linux x86-64 (`estonia`: kernel 4.15, glibc 2.27 host, ext4 with tmpfs `/dev/shm`) | every M4.1 and M4.2 test passes, including the `getrandom` and `/dev/urandom` paths, a non-UTF-8 real path, the raw `renameat2` syscall and its EINVAL classification, and the cross-device copy onto tmpfs; built against the toolchain's glibc 2.17 sysroot, the native harness requires at most `GLIBC_2.17`, references `syscall` but neither `renameat2` nor `getrandom`, and runs on the 2.27 host |
-| Linux arm64 | unresolved: no host was available; the guarded syscall numbers (276 and 278) compile but have not run |
+| Linux arm64 (`miami`: Ubuntu 22.04 guest, kernel 5.15, glibc 2.35, ext4 with tmpfs `/dev/shm`) | every M4.1 and M4.2 test passes, including the `getrandom` (278) and raw `renameat2` (276) syscalls and the cross-device copy onto tmpfs; built against the toolchain's aarch64 glibc 2.17 sysroot, the native harness requires at most `GLIBC_2.17` and references `syscall` but neither `renameat2` nor `getrandom` ([run](arm64-evidence/manifest.json)) |
 
 The first Linux build exposed that glibc hides `realpath` at the runtime's
 strict POSIX feature level, as it hides `syscall`; both are declared
