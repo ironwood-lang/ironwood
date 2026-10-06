@@ -30,6 +30,12 @@ public final class SemanticObserverBridge {
                 new RejectedFreeEvidence.Limits(local, snapshots, invocation));
     }
 
+    /** Observes an analyzer whose refinement gives up after {@code passes} passes. */
+    public static SemanticAnalyzer createWithRefinementPassLimit(UnfreedMode mode,
+            Set<Path> sources, boolean explain, Counts counts, Path watchedSource, int passes) {
+        return create(mode, sources, explain, counts, watchedSource, null, passes);
+    }
+
     public static SemanticAnalyzer createWithSummaryLimits(UnfreedMode mode,
             Set<Path> sources, boolean explain, Counts counts, Path watchedSource,
             int method, int fact, int invocation) {
@@ -40,6 +46,12 @@ public final class SemanticObserverBridge {
     private static SemanticAnalyzer create(UnfreedMode mode, Set<Path> sources,
                                            boolean explain, Counts counts, Path watchedSource,
                                            RejectedFreeEvidence.Limits limits) {
+        return create(mode, sources, explain, counts, watchedSource, limits, -1);
+    }
+
+    private static SemanticAnalyzer create(UnfreedMode mode, Set<Path> sources,
+                                           boolean explain, Counts counts, Path watchedSource,
+                                           RejectedFreeEvidence.Limits limits, int passes) {
         SemanticAnalysisObserver observer = new SemanticAnalysisObserver() {
             @Override
             public void analyzerCreated(long token, AnalyzerKind kind, AnalyzerPhase phase) {
@@ -196,7 +208,7 @@ public final class SemanticObserverBridge {
                 counts.liveCollectors--;
             }
         };
-        return new SemanticAnalyzer(mode, sources, explain, observer, limits);
+        return new SemanticAnalyzer(mode, sources, explain, observer, limits, passes);
     }
 
     public static final class Counts {

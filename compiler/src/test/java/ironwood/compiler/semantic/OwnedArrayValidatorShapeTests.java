@@ -148,9 +148,9 @@ public final class OwnedArrayValidatorShapeTests {
             List<Diagnostic> plain = new ArrayList<>();
             List<Diagnostic> explained = new ArrayList<>();
             new OwnedArrayElementAnalyzer.Checker(owner, field, function, null, plain,
-                    false, true, null).check();
+                    false, null).check();
             new OwnedArrayElementAnalyzer.Checker(owner, field, function, null, explained,
-                    true, true, source).check();
+                    true, source).check();
             require(plain.size() == 1 && explained.size() == 1,
                     "defensive checker changed diagnostic multiplicity: " + explained);
             Diagnostic prior = plain.getFirst(), current = explained.getFirst();

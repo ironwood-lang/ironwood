@@ -261,6 +261,7 @@ final class FunctionAnalyzer {
     private ClosedWorldEffectAnalyzer reclamationEffects;
     private boolean explainRejectedFree;
     private boolean explanationReady;
+    private boolean ownershipVerdicts = true;
     private RejectedFreeEvidence rejectedFreeEvidence;
     private SemanticAnalysisObserver observer;
     private final Set<IrOperand> unfreedFreshResults = new LinkedHashSet<>();
@@ -307,6 +308,12 @@ final class FunctionAnalyzer {
         if (mode != ironwood.compiler.UnfreedMode.OFF) {
             unfreed = new UnfreedAllocationTracker<>(source, mode);
         }
+        return this;
+    }
+
+    /** Lowers without reporting ownership verdicts, which need converged closed-world facts. */
+    FunctionAnalyzer withoutOwnershipVerdicts() {
+        ownershipVerdicts = false;
         return this;
     }
 
@@ -2166,7 +2173,7 @@ final class FunctionAnalyzer {
                         + "is not proved", load.source(), load.span()));
                 appendFieldNotes(notes, fieldFailureNotes(load.field()));
             }
-            diagnostics.add(error(targetSpan, message).withNotes(notes));
+            ownershipVerdict(error(targetSpan, message).withNotes(notes));
         } else {
             rejectedFree(targetSpan, message, RejectedFreeExplanation.Missing.IDENTITY);
         }
@@ -2194,7 +2201,7 @@ final class FunctionAnalyzer {
                         + "Returning an external object is unsupported and does not promise pool cleanup"
                         : "lends this checked-out object here; return it to the same pool with release, "
                         + "or successfully destroy the pool to reclaim it";
-                diagnostics.add(error(targetSpan, message).withNotes(
+                ownershipVerdict(error(targetSpan, message).withNotes(
                         ownerNotes("pool", poolOwner, site.source(), site.span(), action)));
             }
         } else if (explainRejectedFree && explanationReady && rejectedFreeEvidence != null
@@ -2203,7 +2210,7 @@ final class FunctionAnalyzer {
                 && operand.sourceSpan() != null
                 && retainedBorrows.values().stream().noneMatch(children ->
                 children.contains(helperOwner))) {
-            diagnostics.add(error(targetSpan, message).withNotes(
+            ownershipVerdict(error(targetSpan, message).withNotes(
                     ownerNotes(isKnownContainer(helperOwner) ? "container" : "owner",
                             helperOwner, source, operand.sourceSpan(),
                             "lends a dependent helper acquired or propagated here; "
@@ -2222,7 +2229,7 @@ final class FunctionAnalyzer {
         RejectedFreeEvidence.Site site = rejectedFreeEvidence == null ? null
                 : rejectedFreeEvidence.retention(retainingOwner, allocation);
         if (explainRejectedFree && explanationReady && site != null) {
-            diagnostics.add(error(targetSpan, message).withNotes(
+            ownershipVerdict(error(targetSpan, message).withNotes(
                     ownerNotes(kind, retainingOwner, site.source(), site.span(),
                             "retains this allocation through this operation")));
         } else {
@@ -2240,7 +2247,7 @@ final class FunctionAnalyzer {
         if (pending == null) {
             rejectedFree(targetSpan, message, RejectedFreeExplanation.Missing.YIELD);
         } else {
-            diagnostics.add(error(targetSpan, message).withNotes(List.of(
+            ownershipVerdict(error(targetSpan, message).withNotes(List.of(
                     new DiagnosticNote("this pending yield result still observes "
                             + "the allocation during cleanup", source, pending.span()))));
         }
@@ -2252,11 +2259,11 @@ final class FunctionAnalyzer {
         RejectedFreeEvidence.Event event = rejectedFreeEvidence == null
                 ? null : rejectedFreeEvidence.event(allocation);
         if (joined != null) {
-            diagnostics.add(error(targetSpan, "cannot free " + targetName
+            ownershipVerdict(error(targetSpan, "cannot free " + targetName
                     + ": allocation was already freed").withNotes(joinNotes(allocation, joined)));
         } else if (explainRejectedFree && explanationReady && event != null
                 && event.kind() == RejectedFreeEvidence.EventKind.FREE) {
-            diagnostics.add(error(targetSpan, "cannot free " + targetName
+            ownershipVerdict(error(targetSpan, "cannot free " + targetName
                     + ": allocation was already freed")
                     .withNotes(List.of(new DiagnosticNote(
                             "the same allocation was freed here",
@@ -2275,7 +2282,7 @@ final class FunctionAnalyzer {
         RejectedFreeEvidence.Event event = rejectedFreeEvidence == null
                 ? null : rejectedFreeEvidence.event(allocation);
         if (joined != null) {
-            diagnostics.add(error(targetSpan, message).withNotes(joinNotes(allocation, joined)));
+            ownershipVerdict(error(targetSpan, message).withNotes(joinNotes(allocation, joined)));
         } else if (explainRejectedFree && explanationReady && event != null
                 && event.kind() == RejectedFreeEvidence.EventKind.REASON
                 && event.reason().equals(allocation.blockingReason)
@@ -2303,7 +2310,7 @@ final class FunctionAnalyzer {
                     }
                 }
             }
-            diagnostics.add(error(targetSpan, message).withNotes(notes));
+            ownershipVerdict(error(targetSpan, message).withNotes(notes));
         } else {
             rejectedFree(targetSpan, message, RejectedFreeExplanation.Missing.SELECTED_REASON);
         }
@@ -2326,7 +2333,7 @@ final class FunctionAnalyzer {
             if (load != null) {
                 appendFieldNotes(notes, fieldFailureNotes(load.field()));
             }
-            diagnostics.add(error(targetSpan, message).withNotes(notes));
+            ownershipVerdict(error(targetSpan, message).withNotes(notes));
         } else {
             rejectedFree(targetSpan, message, RejectedFreeExplanation.Missing.ATTACHED_FIELD);
         }
@@ -2340,7 +2347,7 @@ final class FunctionAnalyzer {
         RejectedFreeEvidence.Site store = rejectedFreeEvidence == null
                 ? null : rejectedFreeEvidence.arrayStore(storedAlias);
         if (explainRejectedFree && explanationReady && store != null) {
-            diagnostics.add(error(targetSpan, message).withNotes(List.of(new DiagnosticNote(
+            ownershipVerdict(error(targetSpan, message).withNotes(List.of(new DiagnosticNote(
                     "array element [" + storedAlias.index()
                             + "] receives a reference to this allocation here",
                     store.source(), store.span()))));
@@ -2356,7 +2363,7 @@ final class FunctionAnalyzer {
                 ? null : rejectedFreeEvidence.binding(alias);
         if (explainRejectedFree && explanationReady && binding != null
                 && binding.allocation() == allocation) {
-            diagnostics.add(error(targetSpan, "cannot free " + targetName + ": " + reason)
+            ownershipVerdict(error(targetSpan, "cannot free " + targetName + ": " + reason)
                     .withNotes(List.of(new DiagnosticNote(
                             "local '" + alias.name()
                                     + "' receives a reference to the same allocation here",
@@ -2496,7 +2503,7 @@ final class FunctionAnalyzer {
             List<DiagnosticNote> failure = explainRejectedFree && explanationReady
                     ? fieldFailureNotes(field) : List.of();
             if (!failure.isEmpty()) {
-                diagnostics.add(error(statement.value().span(), message)
+                ownershipVerdict(error(statement.value().span(), message)
                         .withNotes(failure));
             } else {
                 rejectedFree(statement.value().span(), message,
@@ -5521,7 +5528,7 @@ final class FunctionAnalyzer {
             AllocationInfo allocation = allocationOf(operand);
             AllocationInfo freed = allocation == null ? null : mayBeFreedIdentity(allocation);
             if (freed != null) {
-                diagnostics.add(useAfterFree(expression.span(), "cannot use '" + expression.name()
+                ownershipVerdict(useAfterFree(expression.span(), "cannot use '" + expression.name()
                         + "' after its allocation was freed", freed));
             }
             return new TypedValue(symbol.type(), operand);
@@ -6110,7 +6117,7 @@ final class FunctionAnalyzer {
         for (ConstructorHelperArgument argument : constructorHelperArguments) {
             if (isConstructingThisAlias(argument.value(), new LinkedHashSet<>())
                     && !escapeSummaries.constructorArgumentIsConfined(argument.constructor(), argument.index())) {
-                diagnostics.add(error(argument.span(),
+                ownershipVerdict(error(argument.span(),
                         "constructor may publish in-progress 'this' through an unconfined helper argument"));
             }
         }
@@ -8543,7 +8550,7 @@ final class FunctionAnalyzer {
                                          List<TypedValue> arguments, SourceSpan span) {
         if (isFileTreeWalk(callable) && !function.ownerType().equals("ironwood.nio.file.Files")
                 && !fileVisitorCallbacksBorrow(arguments.getLast().type())) {
-            diagnostics.add(error(span, "Files.walkFileTree visitor callbacks "
+            ownershipVerdict(error(span, "Files.walkFileTree visitor callbacks "
                     + "must not retain callback paths or attributes"));
         }
     }
@@ -12043,7 +12050,7 @@ final class FunctionAnalyzer {
         String detail = capture.role() + " of this deferred call captured the allocation here"
                 + (capture.bindingName() == null ? "" : ", when '"
                 + capture.bindingName() + "' still referred to it");
-        diagnostics.add(error(span, message).withNotes(List.of(
+        ownershipVerdict(error(span, message).withNotes(List.of(
                 new DiagnosticNote(detail, source, capture.span()))));
     }
 
@@ -12073,7 +12080,7 @@ final class FunctionAnalyzer {
                 + "' and already schedules reclamation of the same allocation"
                 : "this deferred free is bound to '" + action.target().name()
                 + "' and schedules reclamation of the same allocation at block exit";
-        diagnostics.add(error(span, message).withNotes(List.of(
+        ownershipVerdict(error(span, message).withNotes(List.of(
                 new DiagnosticNote(detail, source, action.targetSpan()))));
     }
 
@@ -12085,14 +12092,14 @@ final class FunctionAnalyzer {
             return;
         }
         if (missing == RejectedFreeExplanation.Missing.IDENTITY) {
-            diagnostics.add(error(span, message).withNotes(List.of(new DiagnosticNote(
+            ownershipVerdict(error(span, message).withNotes(List.of(new DiagnosticNote(
                     "this local has no compiler-proven allocation identity at deferred-free "
                             + "registration", source, span))));
             return;
         }
         if (missing == RejectedFreeExplanation.Missing.BORROW_OWNER
                 && operand.sourceSpan() != null) {
-            diagnostics.add(error(span, message).withNotes(List.of(new DiagnosticNote(
+            ownershipVerdict(error(span, message).withNotes(List.of(new DiagnosticNote(
                     "this dependent helper was acquired here; it is borrowed from its owner "
                             + "and cannot be deferred for independent reclamation",
                     source, operand.sourceSpan()))));
@@ -12102,12 +12109,12 @@ final class FunctionAnalyzer {
             RejectedFreeEvidence.Join joined = selectedJoin(allocation);
             RejectedFreeEvidence.Event event = rejectedFreeEvidence.event(allocation);
             if (joined != null) {
-                diagnostics.add(error(span, message).withNotes(joinNotes(allocation, joined)));
+                ownershipVerdict(error(span, message).withNotes(joinNotes(allocation, joined)));
                 return;
             }
             if (event != null && event.kind() == RejectedFreeEvidence.EventKind.FREE
                     && event.source() != null && event.span() != null) {
-                diagnostics.add(error(span, message).withNotes(List.of(new DiagnosticNote(
+                ownershipVerdict(error(span, message).withNotes(List.of(new DiagnosticNote(
                         "the same allocation was already freed here",
                         event.source(), event.span()))));
                 return;
@@ -12118,7 +12125,7 @@ final class FunctionAnalyzer {
 
     private boolean rejectPendingFreeWrite(LocalSymbol symbol, SourceSpan span) {
         if (pendingDeferredFrees().noneMatch(action -> action.target().equals(symbol))) return false;
-        diagnostics.add(error(span, "cannot assign to or update local '" + symbol.name()
+        ownershipVerdict(error(span, "cannot assign to or update local '" + symbol.name()
                 + "' while its deferred free is pending"));
         return true;
     }
@@ -12570,7 +12577,7 @@ final class FunctionAnalyzer {
             if (owner == null) {
                 markEscaped(transfer.value(), "pooled object returned through an unknown pool");
             } else {
-                diagnostics.add(error(transfer.value().sourceSpan(),
+                ownershipVerdict(error(transfer.value().sourceSpan(),
                         "cannot transfer an object owned by another pool or containing object; "
                                 + "release must return a value checked out from this pool"));
             }
@@ -13113,7 +13120,7 @@ final class FunctionAnalyzer {
                                 ? "this incoming loop path may carry a freed allocation; "
                                 + "a unique earlier free is unavailable"
                                 : "the earlier free on this incoming loop path was not retained");
-                        diagnostics.add(error(flow.block().span, message).withNotes(List.of(note)));
+                        ownershipVerdict(error(flow.block().span, message).withNotes(List.of(note)));
                     }
                 }
             }
@@ -13162,7 +13169,7 @@ final class FunctionAnalyzer {
                         notes.add(new DiagnosticNote("this free was reached during cleanup; "
                                 + "its exit detail was omitted by the evidence storage limit"));
                     }
-                    diagnostics.add(error(reclamation.span(), message).withNotes(notes));
+                    ownershipVerdict(error(reclamation.span(), message).withNotes(notes));
                 }
             }
         }
@@ -13212,7 +13219,7 @@ final class FunctionAnalyzer {
         if (allocation == null) return;
         AllocationInfo freed = mayBeFreedIdentity(allocation);
         if (freed != null) {
-            diagnostics.add(useAfterFree(span,
+            ownershipVerdict(useAfterFree(span,
                     "cannot use evaluated reference after its allocation was freed", freed));
         }
     }
@@ -13658,12 +13665,18 @@ final class FunctionAnalyzer {
         }
     }
 
+    private void ownershipVerdict(Diagnostic diagnostic) {
+        if (ownershipVerdicts) {
+            diagnostics.add(diagnostic);
+        }
+    }
+
     private void rejectedFree(SourceSpan span, String message,
                               RejectedFreeExplanation.Missing missing) {
         if (explainRejectedFree && explanationReady && rejectedFreeEvidence != null
                 && (rejectedFreeEvidence.localTruncated()
                 || rejectedFreeEvidence.invocationStopped())) {
-            diagnostics.add(error(span, message).withNotes(List.of(new DiagnosticNote(
+            ownershipVerdict(error(span, message).withNotes(List.of(new DiagnosticNote(
                     rejectedFreeEvidence.invocationStopped()
                             ? "the invocation evidence storage limit was reached; detailed "
                             + "source evidence was omitted for this rejection"
@@ -13671,8 +13684,8 @@ final class FunctionAnalyzer {
                             + "source evidence was omitted for this rejection"))));
             return;
         }
-        diagnostics.add(RejectedFreeExplanation.attach(error(span, message),
-                explainRejectedFree, explanationReady, missing));
+        ownershipVerdict(RejectedFreeExplanation.attach(error(span, message),
+                explainRejectedFree, missing));
     }
 
     private boolean isPrintStreamWriteIntrinsic() {

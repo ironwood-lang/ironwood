@@ -251,8 +251,9 @@ gets supported detail or an explicit boundary note naming the unavailable proof
 or context. Unsupported selected causes must not be replaced by another blocker's
 better-documented history. This includes interim milestone coverage: until M3
 provides cleanup exits, acknowledge that missing context. If collection is
-truncated, apply the storage-omission rules in section 6.2. Skipped refinement
-instead follows section 6.4's readiness gate. Section 3.4 owns eligibility.
+truncated, apply the storage-omission rules in section 6.2. Since D278 every shown
+rejection follows converged refinement, also after earlier errors; section 6.4
+describes the unconverged case. Section 3.4 owns eligibility.
 
 Do not suggest deleting `free`, suppressing missing-free warnings, or adding
 arbitrary scopes as a general fix. A remedy is appropriate only if it follows
@@ -481,34 +482,26 @@ old variants and record the stabilized selection at a named revision. A remainin
 unstable case blocks exact-message parity for that case until separately resolved;
 do not silently exclude it from the feature's required coverage.
 
-### 3.3 Known limitation: refinement skipped after earlier errors
+### 3.3 Resolved limitation: refinement after earlier errors
 
-`SemanticAnalyzer.analyze` builds initial conservative escape/owned-field
-summaries, then enters provisional lowering and closed-world ownership
-refinement only when no errors have been reported so far. A missing mandatory
-`@Override`, for example, prevents this phase from running. Final lowering still
-runs with the initial summaries and can reject otherwise-safe reclamations in
-user code and bundled library code. This is existing error-recovery behavior,
-not an effect of the proposed option.
+Before [D278](DECISIONS.md#d278---refine-ownership-facts-after-declaration-errors),
+`SemanticAnalyzer.analyze` entered provisional lowering and closed-world
+ownership refinement only when no errors had been reported. After a declaration
+error such as a missing mandatory `@Override`, final lowering ran with the
+initial summaries and rejected otherwise-safe reclamations in user and bundled
+library code. Section 5.6's fixture then reported a conservative rejection of
+`free data` and two rejections of the library's deferred `free printer` in
+`Throwable.printStackTrace`, each with a limited-analysis note.
 
-Consequently, "final analysis" alone does not mean refined summaries are
-available. The section 5.6 example currently produces the missing-annotation
-error, a conservative rejection of `free data`, and two rejections of the
-library's deferred `free printer` in `Throwable.printStackTrace`. Adding the
-annotation makes the same program compile cleanly. Those three secondary errors
-are not evidence of unsafe reclamation in this particular corrected program.
-
-Keep this limitation distinct from ordinary uncertainty after completed
-refinement. The feature must carry explicit phase readiness into explanation
-emission and report skipped refinement honestly. Do not reconstruct an apparent
-ownership history from fallback assumptions. Also do not claim every rejection
-after an earlier error is false: a program can contain an independent unsafe
-`free` as well.
-
-Suppressing or reclassifying these existing secondary errors needs a separate
-error-recovery decision and verification, since it changes default diagnostics.
-It is not part of this explanation feature. For now, preserve primary messages,
-ordering, counts, rejection outcomes, and the absence of output on failure.
+D278 runs refinement after declaration errors and reports ownership verdicts only
+from converged facts, so explanations always describe refined evidence and the
+limited-analysis note no longer exists. Verdicts for code that does not use an
+erroneous declaration equal those of the corrected program. A failing
+compilation's ownership diagnostics are not exhaustive: verdicts that depend on
+an erroneous declaration or on an unconverged analysis appear once the errors are
+fixed, and a polymorphic call whose candidate class lacks the called
+implementation can still leave rejections next to that error. Milestone history
+below that mentions skipped refinement describes the behavior before D278.
 
 ### 3.4 Rejection-site inventory and scope
 
@@ -707,7 +700,7 @@ silently reorder proof work or substitute a different causal event for its note.
 | Parameter, mixed identity, unknown factory result, or non-fresh return | Which required ownership fact is missing | Parameter/result binding and an honest analysis-boundary note; no invented allocation or escape site. | D005/D027 |
 | Throw, catch, return, or closure capture | Which outward use keeps the allocation observable | Throw/return/capture site and retained identity, including enclosing-instance capture where applicable. | D005, D090/D091 |
 | Source recovered from a class or archive | Where the same blocking event is in the code actually analyzed | Artifact display path and preserved source excerpt, not an assumed local checkout of that library. | D096, D170 |
-| Refinement skipped after earlier errors | Fix earlier errors before investigating a potentially secondary rejection | Phase readiness under section 6.4; example 5.6 fixes the expected output. | D096, D170; section 3.3 limitation |
+| Rejection beside earlier errors | The same reason as in the corrected program | Refined evidence as for any rejection; example 5.6 fixes the expected output. | D096, D170, D278 |
 
 If evidence is unavailable, stop at a verified boundary for the selected reason.
 A note such as
@@ -908,7 +901,7 @@ The general "conflicting ownership" family needs a different explanation from
 maybe-freed state. Section 5.8 covers differing escapes, escape on just one
 incoming branch, and equal escape reasons with distinct source locations.
 
-### 5.6 Earlier errors prevented refinement
+### 5.6 Earlier errors leave refinement in place
 
 This complete negative fixture intentionally omits `@Override` on `Quiet.accept`.
 Use `--unfreed=off` to isolate mandatory safety diagnostics; the unreclaimed
@@ -943,29 +936,19 @@ class Main {
 }
 ```
 
-Proposed output with `--explain-rejected-free`, omitting excerpts/carets here
-for brevity (the formatter still prints the existing primary locations):
+Output with `--explain-rejected-free`, omitting the excerpt and caret:
 
 ```text
 error: method 'accept(byte[])' overrides or implements an inherited method and must be declared @Override
   --> Main.iron:9:10
-error: cannot free 'data': cannot prove argument 1 of polymorphic method 'accept' does not escape
-  --> Main.iron:19:14
-note: ownership analysis was limited because of earlier errors; fix those first and recompile; this rejection may be secondary
-error: cannot free 'printer': allocation escapes through receiver of method 'print'
-  --> ironwood-stdlib.ironjar!/ironwood/lang/Throwable.ironclass!/source/Throwable.iron:93:24
-note: ownership analysis was limited because of earlier errors; fix those first and recompile; this rejection may be secondary
-error: cannot free 'printer': allocation has conflicting ownership across exceptional paths
-  --> ironwood-stdlib.ironjar!/ironwood/lang/Throwable.ironclass!/source/Throwable.iron:93:24
-note: ownership analysis was limited because of earlier errors; fix those first and recompile; this rejection may be secondary
 ```
 
-The library path and line above reflect the current bundled artifact. Use the
-loaded source identity in actual diagnostics. Do not add an ownership chain or
-suggest changes to the library. Adding `@Override` above `Quiet.accept` accepts
-this fixture with no diagnostics. Changing the annotated implementation to
-publish the argument must still reject its reclamation. The limited-analysis
-note is advice to retry after fixing earlier errors, not a safety verdict.
+Refinement runs over the declarations as written (D278), so the non-retaining
+override still proves `free data` safe, and bundled library code reports
+nothing. Adding `@Override` above `Quiet.accept` accepts this fixture with no
+diagnostics. If the implementation instead publishes the argument, the rejection
+of `free data` appears beside the missing-annotation error with the same message
+and notes as in the corrected program.
 
 ### 5.7 A rejected cleanup on one return path
 
@@ -1269,12 +1252,11 @@ refinement proves the caller's `item` need not remain retained by that helper.
 It compiles without notes. Its constructor store must not appear as a stale
 escape witness merely because an earlier analyzer treated it as retaining.
 
-Add the test's separate `OverrideError.iron` source to skip refinement. Today's
-two cleanup rejections for `item` both point at `Case.iron:33:20` and name argument
-1 of `use`. Apply section 6.4's skipped-refinement gate to this fixture, including
-secondary library diagnostics, and verify section 5.6's expected note. Adding
-`@Override` restores acceptance; a variant that actually publishes `item` remains rejected
-after completed refinement and receives an ordinary supported explanation.
+Adding the test's separate `OverrideError.iron` source, an unrelated missing
+`@Override`, leaves this proof in place (D278): the compilation reports only that
+error. Before D278 it also reported two cleanup rejections for `item` at
+`Case.iron:33:20`. Adding `@Override` restores acceptance; a variant that actually
+publishes `item` remains rejected and receives an ordinary supported explanation.
 
 ### 5.12 A library free rejected by an application override
 
@@ -1509,8 +1491,8 @@ path by searching for the user's store or guessing an uncalled method.
 Removing `kept = buffer;` accepts the same class and bundled destructor. These
 results hold with `--unfreed=off`, `warn`, and `error`; the explanation option
 adds the chain to the bundled rejection independently of those settings.
-Compare section 5.6's library errors to test source scope independently of
-section 6.4's phase-readiness gate.
+Unlike the secondary library errors that section 5.6 reported before D278, this
+bundled rejection is genuine and keeps its explanation beside earlier errors.
 
 ## 6. Implementation approach
 
@@ -1595,7 +1577,7 @@ and M4 summary witness maps outside `FunctionAnalyzer`, for equivalent guarded
 construction. A null collector alone does not prove that a helper did not already
 allocate evidence. Test the lifecycle using section 6.7's package-private observer:
 off means null, while on plus final/completed analysis creates the collector;
-on during provisional lowering or skipped refinement leaves it null. Exercise
+on during provisional lowering or unconverged refinement leaves it null. Exercise
 snapshot/restore/merge with shared empty evidence while disabled. Do not add a
 public debug API or always-on production instrumentation for these tests. The
 explicitly allowed nullable observer reports the actual collector field while
@@ -1869,44 +1851,33 @@ This extends the explanation of D090/D091 behavior without changing their proof.
 
 ### 6.4 Final analysis and bounded call evidence
 
-Pass explicit diagnostic-only phase readiness from `SemanticAnalyzer` through
-final lowering and later owned-element validation to every eligible explanation
-site in section 3.4. A small flag or two-value state is sufficient: refinement
-completed, or refinement skipped due to earlier errors. Set completion only
-after successful convergence of the
+Pass explicit diagnostic-only phase readiness from `SemanticAnalyzer` to final
+lowering. Since D278 refinement runs after earlier errors too, so readiness means
+that refinement converged. Set it only after successful convergence of the
 existing provisional binding and ownership-refinement phase. Do not infer it
 from whether the final diagnostic list contains errors, whether a summary map
 is empty, or whether a helper happens to be non-null.
 
-Apply this readiness policy to section 6.1's complete source scope. Note emission
-must not depend on function-local collector presence: the skipped case below
-emits its fixed note directly.
+Apply this readiness policy to section 6.1's complete source scope.
 
 - With the option disabled, preserve current diagnostics and collect no
   explanation evidence, regardless of readiness.
 - With the option enabled and refinement completed, collect function-local
   evidence during final lowering and applicable later checks, and emit supported
   explanations using only the final selected analyzers' summary witnesses.
-  A later unrelated body error does not retroactively turn this into skipped
-  refinement. Completed refinement can still produce conservative results;
-  label those honestly.
-- With the option enabled and refinement skipped, keep the function-local
-  collector absent, expose no summary witnesses, and attach exactly the
-  limited-analysis note in section 5.6 to each
-  existing rejected reclamation. Apply this to ordinary, deferred, destructor,
-  both loop-validation errors, and owned-element validation rejections, including
-  those in library sources. Excluded type/name branches remain excluded even
-  when their primary wording is shared with an eligible ownership branch.
-  Do not mix that note with allocation/alias/escape chains or substitute it for
-  the primary error. Unrelated errors receive no rejected-free notes.
+  Earlier declaration errors and later body errors do not change this.
+  Completed refinement can still produce conservative results; label those
+  honestly. Unrelated errors receive no rejected-free notes.
+- If refinement does not converge, keep the function-local collector absent and
+  expose no summary witnesses. Final lowering then reports no ownership verdict
+  (D278), so there is no rejection to explain.
 
 This readiness state controls explanation only. It must not permit a `free`,
-alter conservative summaries, suppress existing errors, or enter proof equality.
-Provisional lowering failures remain non-final; do not collect or publish their
-diagnostic history. M4 summary construction uses the separate policy below.
-The current nonconvergence path reports its own error and returns before final
-lowering, so it must not manufacture rejected-free diagnostics or notes. Adding
-notes must not trigger another semantic run automatically.
+alter conservative summaries, or enter proof equality; D278 separately withholds
+ownership verdicts after non-convergence. Provisional lowering failures remain
+non-final; do not collect or publish their diagnostic history. M4 summary
+construction uses the separate policy below. Adding notes must not trigger
+another semantic run automatically.
 
 Call-site notes can use final selected summaries without explaining their
 internals. M4 adds a separate optional evidence map owned by each
@@ -1915,9 +1886,8 @@ internals. M4 adds a separate optional evidence map owned by each
 the final analyzer for diagnostics. Do not add provenance to `EscapeSummary`,
 `ReturnSummary`, or their comparison/convergence inputs.
 
-**Collection lifetime.** When the option is enabled and earlier errors have not
-already ruled out refinement, eligible summary constructions record bounded
-witnesses as part of their existing work. This includes constructions that later
+**Collection lifetime.** When the option is enabled, eligible summary
+constructions record bounded witnesses as part of their existing work. This includes constructions that later
 turn out to be provisional. No caller needs to predict which instance will be
 last. `SemanticAnalyzer` stops at the start of an outer pass when the proofs are
 stable; final lowering consumes the analyzer already stored in `escapeSummaries`,
@@ -1926,11 +1896,8 @@ summary-evidence root exposed to final diagnostics.
 
 Discard superseded analyzers' evidence when no longer needed. Do not union maps
 across instances by method name or carry a witness forward merely because its
-message matches. If refinement is skipped, discard any staged evidence and apply
-the readiness gate above; if it does not converge, expose no chains.
-When earlier errors already establish that refinement will be skipped, do not
-enable summary collection in the first place. With the option off, allocate no
-summary witness maps/nodes. Apply the method/fact limits across live retained
+message matches. If refinement does not converge, expose no chains. With the
+option off, allocate no summary witness maps/nodes. Apply the method/fact limits across live retained
 versions and count all simultaneously retained analyzers for the aggregate
 safety stop under section 6.2. Retired rounds must not permanently consume a
 cumulative invocation allowance. Measure total enabled allocations and time
@@ -2647,7 +2614,7 @@ M1 CLI tests must use the actual `Main.run` parser and separate output streams:
 | Branches and loops | Equivalent live states; body-local allocation each iteration | Maybe-freed join or loop back edge observing old storage |
 | Exceptions and cleanup | Existing safe cleanup across independent exits | Publication or a still-observed allocation on an exit |
 | Dispatch and artifacts | Known non-retaining targets from source/classes/archive | Retaining target or unresolved flow through the same paths |
-| Phase readiness | Section 5.6 with the required annotation | Missing annotation skips refinement; retaining target remains unsafe after annotation fix |
+| Phase readiness | Section 5.6 with or without the required annotation | Retaining target remains unsafe beside the missing annotation and after its fix |
 
 For M1d local-alias coverage, exercise declaration initialization, ordinary
 statement assignment through `lowerAssignment`, and an assignment expression
@@ -2658,15 +2625,12 @@ common-operand and phi paths: M1d must avoid stale or arbitrary predecessor
 locations; M3a adds the supported alternative labels under section 6.3.
 
 For section 5.6, preserve every existing primary across option modes and assert
-section 6.4's readiness gate against the example's exact note, including both
-deferred library rejections and the excluded missing-`@Override` diagnostic.
-The corrected fixture compiles without notes. A retaining implementation still
-fails after annotation repair.
+that the missing-`@Override` error is the only diagnostic. The corrected fixture
+compiles without notes. A retaining implementation fails beside the missing
+annotation with the explanation it has after the repair (D278).
 Also test an unrelated final-body error with refinement completed, both with a
 safe free and with an independent unsafe free: the latter must receive its
-ordinary supported explanation, not the skipped-refinement note. No failure may
-produce a program/artifact. Keep current secondary-error counts as a recorded
-baseline, not an intended permanent error-recovery contract.
+ordinary supported explanation. No failure may produce a program/artifact.
 
 Make eligibility coverage explicit: each row of section 3.4 needs a test for its
 promised milestone. A safety-parity case is not automatically entitled to notes.

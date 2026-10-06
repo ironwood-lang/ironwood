@@ -2306,7 +2306,9 @@ D140 adds diagnostic severity to the compiler API and IDE transport. A
 `OFF` or `ERROR`. Warnings preserve `CompilationArtifact.valid()` and
 `successful()` when the corresponding program/LLVM outputs exist. Allocation
 findings use source spans and are collected only during final semantic lowering,
-after provisional call binding has refined escape and ownership summaries.
+after provisional call binding has refined escape and ownership summaries. Since
+D278 that refinement also runs after earlier errors; when it does not converge,
+final lowering still reports other errors but no ownership verdict or finding.
 
 D184 adds immutable `DiagnosticNote` entries to the shared `Diagnostic` API.
 The existing constructors and primary accessors remain available, while full
@@ -2325,8 +2327,9 @@ additional compile time even when compilation succeeds, but success prints no
 explanation report. M1c provides eligibility and boundary notes at each
 rejected `free`, deferred registration, destructor field, loop back
 edge, or owned-element validation site. Completed refinement reports a
-category-specific unsupported-detail boundary; skipped refinement reports
-the fixed limited-analysis note. Parser, name, type, wrong-pool, pending-write,
+category-specific unsupported-detail boundary. Since D278 every shown rejection
+follows completed refinement, so the former limited-analysis note for skipped
+refinement no longer exists. Parser, name, type, wrong-pool, pending-write,
 and standalone use-after-free errors remain note-free. M1d adds located local
 alias and earlier-free notes where a unique current path supports them.
 M2a adds selected direct field/static/array store sites, a conditional-reference

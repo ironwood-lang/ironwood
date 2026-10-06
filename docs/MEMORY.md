@@ -252,11 +252,16 @@ free after an external
 D104 does not promise cleanup of an external object. The compiler also attaches
 a boundary note to eligible ordinary/deferred frees, destructor field cleanup,
 loop back-edge checks, and owned-array element validation when its selected cause
-cannot be located. Skipped ownership refinement instead reports a
-limited-analysis note and asks for earlier errors to be fixed first.
-Refinement is skipped only after declaration or entry-point errors. Import
-checks only report, and every use of an imported name is diagnosed where it
-resolves, so import and method-body errors keep refined ownership facts.
+cannot be located. Ownership refinement also runs after earlier errors (D278),
+so these explanations always describe refined evidence, and the verdicts for
+code that does not use an erroneous declaration are those of the corrected
+program. If refinement does not converge, no ownership verdict is reported; the
+non-convergence error itself appears only when there is no earlier error. A
+failing compilation's ownership diagnostics are therefore not exhaustive:
+verdicts that depend on an erroneous declaration or on an unconverged analysis
+appear once the errors are fixed, and no program is built from unconverged facts.
+A polymorphic call whose candidate class lacks the called implementation still
+leaves its target unknown, so frees around it can be rejected next to that error.
 Bounded incoming-path alternatives, deferred actions, cleanup exits, and loop
 back edges have their own supported notes. The late owned-element validator
 locates the selected failed load, store, copy, call, or exit when its source is

@@ -10787,3 +10787,56 @@ occurrence order. If no
   and recursive walks select and order Java's files; the table regenerates
   exactly; ownership pairs hold in every unfreed mode; every allocation
   failure unwinds. See [the M5.4 record](self-hosting/m5/DOC.md).
+
+## D278 - Refine ownership facts after declaration errors
+
+- **Status:** Accepted and implemented. Supersedes the readiness rule of D184's
+  M1c milestone, which attached a limited-analysis note to every ownership
+  rejection after an earlier error, and resolves the limitation recorded in
+  [EXPLAIN_REJECTED_FREE.md](EXPLAIN_REJECTED_FREE.md) section 3.3.
+- **Context:** Closed-world ownership refinement ran only when no error had been
+  reported before it. After any declaration error, final lowering still ran with
+  the initial facts, without borrow dispatch, temporary-borrow or reclamation
+  effects, and reported their consequences as final rejections and missing-free
+  findings, contrary to D096 and D140. One unrelated declaration error gave every
+  program false rejections in bundled `Throwable`, gave about a quarter of the
+  examples false errors in their own code, reported genuine errors with vaguer
+  messages, and could hide them behind a conservative rejection probed first.
+- **Decision:** Refinement runs whenever analysis reaches it; only an inheritance
+  cycle still stops earlier. Ownership verdicts are reported only from converged
+  facts: rejected and deferred frees, destructor, loop and owned-element proofs,
+  use after free, pool transfer, publication and effect validation, and
+  missing-free findings. When refinement does not converge, final lowering still
+  reports other errors but no ownership verdict, and the non-convergence error is
+  reported only when no earlier error exists, because earlier errors may cause it.
+  A program is built only from converged facts. The limited-analysis note is
+  removed; explanations always describe refined evidence.
+- **Analysis:** Refinement already tolerated method-body errors. Over declaration
+  errors it describes the declarations as written: erroneous declarations are
+  omitted, substituted or left without targets, so verdicts for code that does not
+  use them equal those of the corrected program. A failing compilation's ownership
+  diagnostics are therefore not exhaustive: verdicts that depend on an erroneous
+  declaration or on an unconverged analysis appear once the errors are fixed. A
+  failing compilation never certifies ownership.
+- **Boundary:** A polymorphic call whose candidate class lacks the called
+  implementation, from a missing interface or abstract method implementation,
+  leaves its target unknown, so frees around that call and in callers whose
+  summaries depend on it can still be rejected next to the declaration error;
+  suppressing those cascades is a separate change. No safety proof, reclamation,
+  runtime or lowering of a valid program changes, and error-free compilations are
+  identical. No unfreed mode or explanation setting can produce output after an
+  error.
+- **Verification:** 72 examples, each compiled with one of 11 kinds of unrelated
+  declaration error, report nothing outside the file holding that error; the old
+  gate added 74 errors in the examples' own code and 472 in bundled code for every
+  kind that reached it. 1,120 source fragments from the compiler's tests compile
+  without a crash or non-convergence, the 187 valid ones unchanged, and each
+  diagnostic the change adds equals the output of the same program without its
+  declaration error, including two leaks the old path missed. 160 programs with
+  genuine ownership errors keep identical diagnostics beside two kinds of
+  unrelated error. 51 examples linked with a main class lacking `main` report
+  only that error, where the gate added 200. Focused tests cover unrelated and
+  used declaration errors in `off` and `error` modes, the command-line and link
+  paths, non-convergence through an injected pass budget, and the explanation,
+  dependency, bundled-source and observer contracts; the standard library still
+  builds with `--unfreed=error`.

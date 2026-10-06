@@ -80,6 +80,8 @@ public final class SemanticAnalyzer {
     private final boolean explainRejectedFree;
     private final SemanticAnalysisObserver observer;
     private final RejectedFreeEvidence.Limits evidenceLimits;
+    // Tests force non-convergence with a fixed pass budget; negative derives it from the program.
+    private final int refinementPassLimit;
     private RejectedFreeEvidence.Budget evidenceBudget;
     private long nextObserverToken;
 
@@ -124,11 +126,18 @@ public final class SemanticAnalyzer {
     SemanticAnalyzer(ironwood.compiler.UnfreedMode unfreedMode, Set<Path> unfreedSources,
                      boolean explainRejectedFree, SemanticAnalysisObserver observer,
                      RejectedFreeEvidence.Limits evidenceLimits) {
+        this(unfreedMode, unfreedSources, explainRejectedFree, observer, evidenceLimits, -1);
+    }
+
+    SemanticAnalyzer(ironwood.compiler.UnfreedMode unfreedMode, Set<Path> unfreedSources,
+                     boolean explainRejectedFree, SemanticAnalysisObserver observer,
+                     RejectedFreeEvidence.Limits evidenceLimits, int refinementPassLimit) {
         this.unfreedMode = java.util.Objects.requireNonNull(unfreedMode);
         this.unfreedSources = unfreedSources == null ? null : Set.copyOf(unfreedSources);
         this.explainRejectedFree = explainRejectedFree;
         this.observer = observer;
         this.evidenceLimits = evidenceLimits;
+        this.refinementPassLimit = refinementPassLimit;
     }
 
     private long observerToken() {
@@ -242,10 +251,7 @@ public final class SemanticAnalyzer {
         TypeResolver resolver = new TypeResolver(types, lexicalTypeScopes);
         genericTypes = new GenericTypeSystem(types, resolver);
         initializeLexicalCallableTypeVariables(types, new ArrayList<>());
-        Set<Diagnostic> importDiagnostics = Collections.newSetFromMap(new IdentityHashMap<>());
-        int importStart = diagnostics.size();
         validateImports(units, resolver, diagnostics);
-        importDiagnostics.addAll(diagnostics.subList(importStart, diagnostics.size()));
         genericTypes.initializeDeclaredBounds(diagnostics);
         ClassHierarchy hierarchy = new ClassHierarchy(types, resolver, genericTypes);
         genericTypes.attachHierarchy(hierarchy);
@@ -272,9 +278,7 @@ public final class SemanticAnalyzer {
         }
         validateEnumBaseUsage(types, hierarchy, diagnostics);
         computeInterfaceClosures(types);
-        importStart = diagnostics.size();
         validateStaticImportMembers(units, resolver, hierarchy, diagnostics);
-        importDiagnostics.addAll(diagnostics.subList(importStart, diagnostics.size()));
         validateGenericSupertypeConsistency(types, hierarchy, diagnostics);
         validateThrowableTraceLayout(types, diagnostics);
         validateStackTraceElementLayout(types, diagnostics);
@@ -305,12 +309,7 @@ public final class SemanticAnalyzer {
         hierarchy.setDispatchSlots(slotsByKey);
 
         CallableSymbol main = findAndValidateMain(types, diagnostics, requireMain, mainClass);
-        // Ownership refinement needs complete declarations. Import checks only
-        // report: every use of an imported name resolves again and is diagnosed
-        // there, so import errors alone leave the declarations complete.
-        boolean declarationsComplete = diagnostics.stream().filter(Diagnostic::isError)
-                .allMatch(importDiagnostics::contains);
-        if (explainRejectedFree && declarationsComplete) {
+        if (explainRejectedFree) {
             evidenceBudget = new RejectedFreeEvidence.Budget(
                     evidenceLimits == null ? RejectedFreeEvidence.DEFAULT_INVOCATION_LIMIT
                             : evidenceLimits.invocation());
@@ -333,121 +332,110 @@ public final class SemanticAnalyzer {
         initialOwnedFields.retireFailureEvidence(observer);
         initialEscapeSummaries.retireWitnessEvidence();
         buildIrTypes(types, hierarchy, dispatchSlots, escapeSummaries);
-        boolean refinementCompleted = false;
-        BorrowDispatchAnalysis borrowDispatch = null;
-        if (declarationsComplete) {
-            // Bind calls before granting ownership. Provisional ownership failures
-            // are reconsidered after receiver flow; final lowering validates all
-            // source diagnostics and emits the actual reclamation instructions.
-            List<IrFunction> boundFunctions = lowerFunctions(types, hierarchy, escapeSummaries,
-                    ownedArrayFields, stringPool, new ArrayList<>(), new LinkedHashMap<>(), false, false);
-            // Typed IR distinguishes allocating concatenations from expressions
-            // folded into immortal literals before return provenance is refined.
-            Map<String, Set<SourceSpan>> dynamicStringConcatenationSpans =
-                    dynamicStringConcatenationSpans(boundFunctions);
-            reclamationEffects = new ClosedWorldEffectAnalyzer(boundFunctions,
-                    types.values().stream().map(TypeSymbol::irClass).toList(),
-                    observer, observerToken(), SemanticAnalysisObserver.AnalyzerPhase.REBOUND);
-            reclamationEffects.analyze();
-            // The first pass could not know which callees may reclaim an argument,
-            // so a temporary passed to one was freed there although final lowering
-            // withholds that free. Lower those callers again with the effects
-            // known, so every analysis over provisional IR sees the frees final
-            // lowering will emit and never a free it will not.
-            boundFunctions = relowerArgumentReclaimingCallers(boundFunctions, types, hierarchy,
-                    escapeSummaries, ownedArrayFields, stringPool);
-            borrowDispatch = new BorrowDispatchAnalysis(types, hierarchy,
-                    boundFunctions, staticFields, main != null, evidenceBudget);
-            if (observer != null) {
-                observer.dispatchEvidenceLifecycle(borrowDispatch.observerEvidencePresent(), false);
-            }
-            EscapeSummaryAnalyzer provisionalEscapes = escapeSummaries;
-            initialEscapeSummaries = new EscapeSummaryAnalyzer(types, resolver, null,
-                    borrowDispatch, dynamicStringConcatenationSpans, Map.of(), Map.of(),
-                    observer, observerToken(), SemanticAnalysisObserver.AnalyzerPhase.REBOUND,
-                    evidenceBudget, evidenceLimits);
-            initialOwnedFields = new OwnedArrayFieldAnalyzer(types, hierarchy,
-                    initialEscapeSummaries, observer, observerToken(),
-                    SemanticAnalysisObserver.AnalyzerPhase.REBOUND, evidenceBudget);
-            escapeSummaries = new EscapeSummaryAnalyzer(types, resolver, initialOwnedFields,
-                    borrowDispatch, dynamicStringConcatenationSpans, Map.of(), Map.of(),
-                    observer, observerToken(), SemanticAnalysisObserver.AnalyzerPhase.REBOUND,
-                    evidenceBudget, evidenceLimits);
-            OwnedArrayFieldAnalyzer provisionalFields = ownedArrayFields;
-            ownedArrayFields = new OwnedArrayFieldAnalyzer(types, hierarchy, escapeSummaries,
-                    observer, observerToken(), SemanticAnalysisObserver.AnalyzerPhase.REBOUND,
-                    evidenceBudget);
-            provisionalFields.retireFailureEvidence(observer);
-            initialOwnedFields.retireFailureEvidence(observer);
-            provisionalEscapes.retireWitnessEvidence();
-            initialEscapeSummaries.retireWitnessEvidence();
-            // A facade may own a delegate which owns another delegate and views.
-            // Refine ordinary field and return proofs to convergence instead of
-            // imposing a fixed two-layer limit on otherwise identical graphs.
-            int refinementLimit = types.values().stream()
-                    .mapToInt(type -> type.declaredFields().size()).sum() + boundFunctions.size() + 1;
-            boolean converged = false;
-            boolean fieldsStable = false;
-            Map<String, Set<SourceSpan>> temporaryBorrows = Map.of();
-            Map<String, Map<SourceSpan, TemporaryListBorrowAnalysis.Site>> temporaryLists = Map.of();
-            for (int pass = 0; pass < refinementLimit; pass++) {
-                if (observer != null) {
-                    observer.refinementEntered(pass);
-                }
-                Map<String, Set<SourceSpan>> refinedBorrows = TemporaryBorrowAnalysis.prove(
-                        types, boundFunctions, escapeSummaries, reclamationEffects);
-                Map<String, Map<SourceSpan, TemporaryListBorrowAnalysis.Site>> refinedLists =
-                        TemporaryListBorrowAnalysis.prove(types, boundFunctions, escapeSummaries,
-                                ownedArrayFields, reclamationEffects);
-                if (fieldsStable && refinedBorrows.equals(temporaryBorrows) && refinedLists.equals(temporaryLists)) {
-                    converged = true;
-                    if (observer != null) {
-                        observer.refinementOutcome(pass, true, fieldsStable);
-                    }
-                    break;
-                }
-                EscapeSummaryAnalyzer refinedEscapes = new EscapeSummaryAnalyzer(types, resolver,
-                        ownedArrayFields, borrowDispatch, dynamicStringConcatenationSpans,
-                        refinedBorrows, refinedLists, observer, observerToken(),
-                        SemanticAnalysisObserver.AnalyzerPhase.REFINEMENT, evidenceBudget,
-                        evidenceLimits);
-                OwnedArrayFieldAnalyzer refinedFields = new OwnedArrayFieldAnalyzer(types, hierarchy,
-                        refinedEscapes, observer, observerToken(),
-                        SemanticAnalysisObserver.AnalyzerPhase.REFINEMENT, evidenceBudget);
-                fieldsStable = refinedFields.sameProofsAs(ownedArrayFields);
-                if (observer != null) {
-                    observer.fieldProofCompared(pass, fieldsStable);
-                }
-                temporaryBorrows = refinedBorrows;
-                temporaryLists = refinedLists;
-                EscapeSummaryAnalyzer priorEscapes = escapeSummaries;
-                OwnedArrayFieldAnalyzer priorFields = ownedArrayFields;
-                escapeSummaries = refinedEscapes;
-                ownedArrayFields = refinedFields;
-                priorFields.retireFailureEvidence(observer);
-                priorEscapes.retireWitnessEvidence();
-                if (observer != null) {
-                    observer.refinementOutcome(pass, false, fieldsStable);
-                }
-            }
-            if (!converged) {
-                ownedArrayFields.retireFailureEvidence(observer);
-                escapeSummaries.retireWitnessEvidence();
-                borrowDispatch.retireFallbackEvidence();
-                if (observer != null) {
-                    observer.dispatchEvidenceLifecycle(borrowDispatch.observerEvidencePresent(), true);
-                }
-                reportFinishedEvidenceBudget();
-                if (observer != null) {
-                    observer.refinementFinished(false);
-                }
-                TypeSymbol context = types.values().iterator().next();
-                diagnostics.add(new Diagnostic("cannot prove ownership: field and return analysis did not converge",
-                        context.source(), context.declaration().nameSpan()));
-                return new SemanticResult(Optional.empty(), diagnostics);
-            }
-            refinementCompleted = true;
+        // Bind calls before granting ownership, also after declaration errors:
+        // refinement describes the declarations as written, so verdicts for code
+        // do not depend on errors in declarations it does not use. Provisional
+        // ownership failures are reconsidered after receiver flow; final lowering
+        // validates all source diagnostics and emits the actual reclamation instructions.
+        List<IrFunction> boundFunctions = lowerFunctions(types, hierarchy, escapeSummaries,
+                ownedArrayFields, stringPool, new ArrayList<>(), new LinkedHashMap<>(), false, false);
+        // Typed IR distinguishes allocating concatenations from expressions
+        // folded into immortal literals before return provenance is refined.
+        Map<String, Set<SourceSpan>> dynamicStringConcatenationSpans =
+                dynamicStringConcatenationSpans(boundFunctions);
+        reclamationEffects = new ClosedWorldEffectAnalyzer(boundFunctions,
+                types.values().stream().map(TypeSymbol::irClass).toList(),
+                observer, observerToken(), SemanticAnalysisObserver.AnalyzerPhase.REBOUND);
+        reclamationEffects.analyze();
+        // The first pass could not know which callees may reclaim an argument,
+        // so a temporary passed to one was freed there although final lowering
+        // withholds that free. Lower those callers again with the effects
+        // known, so every analysis over provisional IR sees the frees final
+        // lowering will emit and never a free it will not.
+        boundFunctions = relowerArgumentReclaimingCallers(boundFunctions, types, hierarchy,
+                escapeSummaries, ownedArrayFields, stringPool);
+        BorrowDispatchAnalysis borrowDispatch = new BorrowDispatchAnalysis(types, hierarchy,
+                boundFunctions, staticFields, main != null, evidenceBudget);
+        if (observer != null) {
+            observer.dispatchEvidenceLifecycle(borrowDispatch.observerEvidencePresent(), false);
         }
+        EscapeSummaryAnalyzer provisionalEscapes = escapeSummaries;
+        initialEscapeSummaries = new EscapeSummaryAnalyzer(types, resolver, null,
+                borrowDispatch, dynamicStringConcatenationSpans, Map.of(), Map.of(),
+                observer, observerToken(), SemanticAnalysisObserver.AnalyzerPhase.REBOUND,
+                evidenceBudget, evidenceLimits);
+        initialOwnedFields = new OwnedArrayFieldAnalyzer(types, hierarchy,
+                initialEscapeSummaries, observer, observerToken(),
+                SemanticAnalysisObserver.AnalyzerPhase.REBOUND, evidenceBudget);
+        escapeSummaries = new EscapeSummaryAnalyzer(types, resolver, initialOwnedFields,
+                borrowDispatch, dynamicStringConcatenationSpans, Map.of(), Map.of(),
+                observer, observerToken(), SemanticAnalysisObserver.AnalyzerPhase.REBOUND,
+                evidenceBudget, evidenceLimits);
+        OwnedArrayFieldAnalyzer provisionalFields = ownedArrayFields;
+        ownedArrayFields = new OwnedArrayFieldAnalyzer(types, hierarchy, escapeSummaries,
+                observer, observerToken(), SemanticAnalysisObserver.AnalyzerPhase.REBOUND,
+                evidenceBudget);
+        provisionalFields.retireFailureEvidence(observer);
+        initialOwnedFields.retireFailureEvidence(observer);
+        provisionalEscapes.retireWitnessEvidence();
+        initialEscapeSummaries.retireWitnessEvidence();
+        // A facade may own a delegate which owns another delegate and views.
+        // Refine ordinary field and return proofs to convergence instead of
+        // imposing a fixed two-layer limit on otherwise identical graphs.
+        int refinementLimit = refinementPassLimit >= 0 ? refinementPassLimit : types.values().stream()
+                .mapToInt(type -> type.declaredFields().size()).sum() + boundFunctions.size() + 1;
+        boolean converged = false;
+        boolean fieldsStable = false;
+        Map<String, Set<SourceSpan>> temporaryBorrows = Map.of();
+        Map<String, Map<SourceSpan, TemporaryListBorrowAnalysis.Site>> temporaryLists = Map.of();
+        for (int pass = 0; pass < refinementLimit; pass++) {
+            if (observer != null) {
+                observer.refinementEntered(pass);
+            }
+            Map<String, Set<SourceSpan>> refinedBorrows = TemporaryBorrowAnalysis.prove(
+                    types, boundFunctions, escapeSummaries, reclamationEffects);
+            Map<String, Map<SourceSpan, TemporaryListBorrowAnalysis.Site>> refinedLists =
+                    TemporaryListBorrowAnalysis.prove(types, boundFunctions, escapeSummaries,
+                            ownedArrayFields, reclamationEffects);
+            if (fieldsStable && refinedBorrows.equals(temporaryBorrows) && refinedLists.equals(temporaryLists)) {
+                converged = true;
+                if (observer != null) {
+                    observer.refinementOutcome(pass, true, fieldsStable);
+                }
+                break;
+            }
+            EscapeSummaryAnalyzer refinedEscapes = new EscapeSummaryAnalyzer(types, resolver,
+                    ownedArrayFields, borrowDispatch, dynamicStringConcatenationSpans,
+                    refinedBorrows, refinedLists, observer, observerToken(),
+                    SemanticAnalysisObserver.AnalyzerPhase.REFINEMENT, evidenceBudget,
+                    evidenceLimits);
+            OwnedArrayFieldAnalyzer refinedFields = new OwnedArrayFieldAnalyzer(types, hierarchy,
+                    refinedEscapes, observer, observerToken(),
+                    SemanticAnalysisObserver.AnalyzerPhase.REFINEMENT, evidenceBudget);
+            fieldsStable = refinedFields.sameProofsAs(ownedArrayFields);
+            if (observer != null) {
+                observer.fieldProofCompared(pass, fieldsStable);
+            }
+            temporaryBorrows = refinedBorrows;
+            temporaryLists = refinedLists;
+            EscapeSummaryAnalyzer priorEscapes = escapeSummaries;
+            OwnedArrayFieldAnalyzer priorFields = ownedArrayFields;
+            escapeSummaries = refinedEscapes;
+            ownedArrayFields = refinedFields;
+            priorFields.retireFailureEvidence(observer);
+            priorEscapes.retireWitnessEvidence();
+            if (observer != null) {
+                observer.refinementOutcome(pass, false, fieldsStable);
+            }
+        }
+        if (!converged && !Diagnostic.hasErrors(diagnostics)) {
+            // Unconverged facts yield no ownership verdict. Earlier errors may cause
+            // the failure itself, so it is reported only without them.
+            TypeSymbol context = types.values().iterator().next();
+            diagnostics.add(new Diagnostic("cannot prove ownership: field and return analysis did not converge",
+                    context.source(), context.declaration().nameSpan()));
+        }
+        boolean refinementCompleted = converged;
         if (observer != null) {
             observer.refinementFinished(refinementCompleted);
             observer.analyzerSelected(escapeSummaries.observerToken(),
@@ -485,30 +473,31 @@ public final class SemanticAnalyzer {
         functions.addAll(lowerFunctions(types, hierarchy, escapeSummaries, ownedArrayFields,
                 stringPool, diagnostics, constructorDelegations, true, refinementCompleted));
         validateConstructorDelegationCycles(types, constructorDelegations, diagnostics);
-        validatePoolBuilders(types, hierarchy, escapeSummaries, diagnostics);
-        OwnedArrayElementAnalyzer.validate(types, functions, ownedArrayFields, escapeSummaries,
-                diagnostics, explainRejectedFree, refinementCompleted);
-        Set<IrField> ownedFields = new LinkedHashSet<>();
-        for (TypeSymbol type : types.values()) {
-            for (FieldSymbol field : type.declaredFields().values()) {
-                if (ownedArrayFields.isOwned(field)) ownedFields.add(field.irField());
+        if (refinementCompleted) {
+            validatePoolBuilders(types, hierarchy, escapeSummaries, diagnostics);
+            OwnedArrayElementAnalyzer.validate(types, functions, ownedArrayFields, escapeSummaries,
+                    diagnostics, explainRejectedFree);
+            Set<IrField> ownedFields = new LinkedHashSet<>();
+            for (TypeSymbol type : types.values()) {
+                for (FieldSymbol field : type.declaredFields().values()) {
+                    if (ownedArrayFields.isOwned(field)) ownedFields.add(field.irField());
+                }
             }
+            new ClosedWorldEffectAnalyzer(functions,
+                    types.values().stream().map(TypeSymbol::irClass).toList(),
+                    observer, observerToken(), SemanticAnalysisObserver.AnalyzerPhase.FINAL_VALIDATION)
+                    .validate(types, ownedFields, diagnostics);
         }
-        new ClosedWorldEffectAnalyzer(functions,
-                types.values().stream().map(TypeSymbol::irClass).toList(),
-                observer, observerToken(), SemanticAnalysisObserver.AnalyzerPhase.FINAL_VALIDATION)
-                .validate(types, ownedFields, diagnostics);
         ownedArrayFields.retireFailureEvidence(observer);
         escapeSummaries.retireWitnessEvidence();
-        if (borrowDispatch != null) {
-            borrowDispatch.retireFallbackEvidence();
-            if (observer != null) {
-                observer.dispatchEvidenceLifecycle(borrowDispatch.observerEvidencePresent(), true);
-            }
+        borrowDispatch.retireFallbackEvidence();
+        if (observer != null) {
+            observer.dispatchEvidenceLifecycle(borrowDispatch.observerEvidencePresent(), true);
         }
         reportFinishedEvidenceBudget();
 
-        if (Diagnostic.hasErrors(diagnostics) || requireMain && main == null) {
+        // A program is built only from converged ownership facts.
+        if (!refinementCompleted || Diagnostic.hasErrors(diagnostics) || requireMain && main == null) {
             return new SemanticResult(Optional.empty(), diagnostics);
         }
         Optional<IrFunction> entryPoint = main == null ? Optional.empty() : functions.stream()
@@ -610,7 +599,7 @@ public final class SemanticAnalyzer {
                                              boolean checkUnfreed, boolean refinementCompleted) {
         List<IrFunction> functions = new ArrayList<>();
         for (TypeCallable entry : lowerableCallables(types)) {
-            ironwood.compiler.UnfreedMode mode = checkUnfreed
+            ironwood.compiler.UnfreedMode mode = checkUnfreed && refinementCompleted
                     && (unfreedSources == null || unfreedSources.contains(entry.type().source().path()))
                     ? unfreedMode : ironwood.compiler.UnfreedMode.OFF;
             functions.add(lowerCallable(entry.type(), entry.callable(), hierarchy, escapeSummaries,
@@ -674,6 +663,9 @@ public final class SemanticAnalyzer {
                 constructorDelegations).withUnfreedChecks(mode, reclamationEffects)
                 .withRejectedFreeExplanations(explainRejectedFree && finalPhase,
                         refinementCompleted, budget, evidenceLimits, observer);
+        if (finalPhase && !refinementCompleted) {
+            analyzer.withoutOwnershipVerdicts();
+        }
         if (observer != null) {
             observer.lowering(callable.linkageName(), type.source(), finalPhase,
                     refinementCompleted, analyzer.hasRejectedFreeEvidence());

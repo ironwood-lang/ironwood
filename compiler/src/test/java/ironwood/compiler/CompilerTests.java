@@ -647,6 +647,18 @@ public final class CompilerTests {
                 FreeReasonSelectionTests::loopJoinExplanations);
         test("safe free distinguishes earlier errors from refined dispatch",
                 FreeAnalysisReadinessTests::earlierErrorsAndRefinement);
+        test("ownership diagnostics are independent of unrelated declaration errors",
+                FreeAnalysisReadinessTests::unrelatedDeclarationErrors);
+        test("genuine ownership errors are reported beside earlier errors",
+                FreeAnalysisReadinessTests::genuineErrorsBesideEarlierErrors);
+        test("declaration errors used around frees leave only known cascades",
+                FreeAnalysisReadinessTests::declarationErrorsUsedAroundFrees);
+        test("unconverged ownership analysis reports no ownership verdicts",
+                FreeAnalysisReadinessTests::unconvergedAnalysis);
+        test("command line reports only the declaration error after earlier errors",
+                FreeAnalysisReadinessTests::commandLineAfterDeclarationErrors);
+        test("link without an entry point reports only its own error",
+                FreeAnalysisReadinessTests::linkWithoutEntryPoint);
         test("safe free rejects unknown identities and uncertain control flow", this::safeFreeRejectsUncertainIdentity);
         test("safe free tracks ownership independently across duplicated finally paths",
                 this::safeFreeTracksDuplicatedFinallyPaths);
@@ -1225,7 +1237,7 @@ public final class CompilerTests {
         test("structured diagnostic notes preserve primary and related blocks", DiagnosticNoteTests::runAll);
         test("explain-rejected-free CLI parses and transports the invocation option",
                 ExplainRejectedFreeCliTests::runAll);
-        test("explanation observer records completed and skipped refinement", ExplanationObserverTests::runAll);
+        test("explanation observer records completed and unconverged refinement", ExplanationObserverTests::runAll);
         test("rejected-free evidence limits preserve pipeline safety and truthful fallback",
                 ExplanationObserverTests::forcedEvidenceLimits);
         test("control-flow evidence stays bounded across generated joins and cleanup",

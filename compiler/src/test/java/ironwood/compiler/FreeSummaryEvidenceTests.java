@@ -153,15 +153,9 @@ final class FreeSummaryEvidenceTests {
         require(earlyError.diagnostics().stream().anyMatch(d -> d.isError()
                         && d.message().contains("must be declared @Override")),
                 "missing override error: " + earlyError.diagnostics());
-        String reason = "cannot free 'item': allocation escapes through argument 1 of method 'use'";
-        var secondary = earlyError.diagnostics().stream()
-                .filter(d -> d.isError() && d.message().equals(reason)).toList();
-        require(secondary.size() == 2, "expected two fallback cleanup rejections: " + earlyError.diagnostics());
-        for (var error : secondary) {
-            require(error.source().path().toString().equals("Case.iron")
-                            && error.span().start().line() == 33 && error.span().start().column() == 20,
-                    "fallback primary moved: " + error);
-        }
+        // The unrelated error leaves the temporary-borrow proof in place.
+        require(earlyError.diagnostics().size() == 1,
+                "unrelated error rejected the temporary borrow: " + earlyError.diagnostics());
         CompilationArtifact corrected = analyze("Case", TEMPORARY_BORROW,
                 SourceFile.of("OverrideError.iron", MISSING_OVERRIDE.replace(
                         "class Child extends Parent {", "class Child extends Parent {\n    @Override")));
@@ -171,6 +165,7 @@ final class FreeSummaryEvidenceTests {
                 .replace("wrapper.touch();", "wrapper.touch();\n        saved = item;");
         CompilationArtifact unsafe = analyze("Case", retaining);
         requireRejected(unsafe);
+        String reason = "cannot free 'item': allocation escapes through argument 1 of method 'use'";
         require(unsafe.diagnostics().stream().anyMatch(d -> d.isError() && d.message().equals(reason)),
                 "retaining helper was not rejected: " + unsafe.diagnostics());
     }
@@ -418,14 +413,12 @@ final class FreeSummaryEvidenceTests {
                 "exhausted callee evidence invented a source chain: " + boundary);
         SourceFile safe = SourceFile.of("Case.iron", TEMPORARY_BORROW);
         requireAccepted(new CompilerPipeline(UnfreedMode.OFF, true, null).analyze(List.of(safe)));
-        CompilationArtifact skipped = new CompilerPipeline(UnfreedMode.OFF, true, null)
+        CompilationArtifact earlyError = new CompilerPipeline(UnfreedMode.OFF, true, null)
                 .analyze(List.of(safe, SourceFile.of("OverrideError.iron", MISSING_OVERRIDE)));
-        var secondary = skipped.diagnostics().stream().filter(d -> d.message().equals(
-                "cannot free 'item': allocation escapes through argument 1 of method 'use'"))
-                .toList();
-        require(secondary.size() == 2 && secondary.stream().allMatch(d -> d.notes().size() == 1
-                        && d.notes().getFirst().message().contains("analysis was limited")),
-                "skipped refinement exposed a discarded temporary-borrow chain");
+        require(earlyError.diagnostics().size() == 1
+                        && earlyError.diagnostics().getFirst().message().contains("@Override"),
+                "unrelated error exposed a discarded temporary-borrow chain: "
+                        + earlyError.diagnostics());
         String publishing = TEMPORARY_BORROW
                 .replace("class Case {", "class Case {\n    static Item saved;")
                 .replace("wrapper.touch();", "wrapper.touch();\n        saved = item;");

@@ -220,13 +220,23 @@ final class ExplainRejectedFreeCliTests {
                     }
                 }
                 """);
-        Result limited = run("--unfreed=off", "--explain-rejected-free", skipped.toString(),
+        Result afterError = run("--unfreed=off", "--explain-rejected-free", skipped.toString(),
                 "-d", root.resolve("skipped-classes").toString());
-        require(limited.status == 1 && limited.stdout.isEmpty()
-                        && limited.stderr.contains("ownership analysis was limited because of earlier errors")
-                        && limited.stderr.contains("@Override")
+        // The missing directive leaves refinement in place, so the rejection is
+        // explained exactly as in the corrected file.
+        Path corrected = write(root.resolve("corrected/Skipped.iron"), Files.readString(skipped)
+                .replace("extends Base {\n    void keep", "extends Base {\n    @Override void keep"));
+        Result fixed = run("--unfreed=off", "--explain-rejected-free", corrected.toString(),
+                "-d", root.resolve("corrected-classes").toString());
+        int rejection = afterError.stderr.indexOf("error: cannot free");
+        require(afterError.status == 1 && afterError.stdout.isEmpty()
+                        && afterError.stderr.contains("@Override") && rejection > 0
+                        && fixed.status == 1 && fixed.stderr.startsWith("error: cannot free")
+                        && afterError.stderr.substring(rejection).replace(skipped.toString(), "Skipped.iron")
+                        .equals(fixed.stderr.replace(corrected.toString(), "Skipped.iron"))
+                        && !afterError.stderr.contains("ownership analysis was limited")
                         && !Files.exists(root.resolve("skipped-classes")),
-                "skipped refinement lost its limited-analysis note: " + limited);
+                "earlier error changed the command-line explanation: " + afterError + " / " + fixed);
     }
 
     private static Path write(Path path, String content) throws IOException {

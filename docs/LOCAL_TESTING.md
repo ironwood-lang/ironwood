@@ -52,8 +52,9 @@ For M1e's public parser, source/link transport, and output contract, run:
 This uses `Main.run` with separate streams and checks both help aliases,
 valued and misspelled options, duplicate bare flags, artifact absence on misuse
 or rejection, source and native-link output, a class-path library rejection,
-a rejected link from independently safe earlier-version class builds, and the
-limited-analysis note after skipped refinement. It compares the
+a rejected link from independently safe earlier-version class builds, and a
+rejection beside an earlier error explained exactly as in the corrected file.
+It compares the
 complete usage text and selected enabled/disabled output. Use the adjacent
 off/off harness for selected class, archive, LLVM, and native parity against
 the pre-change base; the CLI test compares LLVM with a fixed output path because
@@ -77,7 +78,7 @@ whole-executable byte equality as a parity oracle.
 For the M1c nullable observer and local explanation readiness seam, run:
 
 ```sh
-./scripts/test.sh --test 'explanation observer records completed and skipped refinement'
+./scripts/test.sh --test 'explanation observer records completed and unconverged refinement'
 ./scripts/test.sh --test 'explanation readiness gives local boundaries without changing primaries'
 ./scripts/test.sh --test 'explanation readiness and exclusions preserve eligible note boundaries'
 ./scripts/test.sh --test 'explanation eligibility covers deferred destructor loop and owned elements'
@@ -86,28 +87,30 @@ For the M1c nullable observer and local explanation readiness seam, run:
 ```
 
 These check actual pipeline construction, analyzer instances and inner-round
-callbacks, completed and skipped refinement, and local enabled-note boundaries.
+callbacks, completed refinement after an earlier error, unconverged refinement
+under an injected pass limit, and local enabled-note boundaries.
 Observed and null-observer runs keep identical primaries and accepted LLVM.
 The local note test also compares disabled/enabled primaries across all
 `--unfreed` modes, including `@SuppressUnfreed`, and checks the selected
-static-store source site and the exact limited-analysis note after a skip.
-The additional readiness selection covers
-a later body error, skipped deferred/destructor/loop/owned-element checks,
+static-store source site, which keeps its corrected-program explanation beside
+an earlier error. The additional readiness selection covers
+a later body error, deferred/destructor/loop/owned-element checks beside an
+earlier error,
 parser/name/type errors, pending writes, use after free, and wrong-pool transfer.
 The final selection checks deferred registration, destructor fields, both loop
 diagnostics, and late owned-element validation, including excluded type guards.
 The source-scope selections retain dependency source, class, archive, and
 bundled Writer identities while checking final lowering and note placement.
 The observer selection also checks selected proof projections and all four
-user callable kinds. The dependency and bundled selections check the exact
-limited-analysis boundary in those sources when refinement is skipped.
+user callable kinds. The dependency and bundled selections check that genuine
+rejections in those sources keep their explanations beside an earlier error.
 Detailed evidence remains pending.
 
 For M1d's first nullable collector and snapshot-storage step, run:
 
 ```sh
 ./scripts/test.sh --test 'rejected-free evidence snapshots retain identity and enforce storage limits'
-./scripts/test.sh --test 'explanation observer records completed and skipped refinement'
+./scripts/test.sh --test 'explanation observer records completed and unconverged refinement'
 ```
 
 The first selection checks equal-proof/different-evidence snapshots, restore,
@@ -238,20 +241,34 @@ paths, omitted and incomplete source evidence, and the identity boundary for
 an allocation absent on one predecessor. Loop and cleanup routes remain
 separate M3 selections.
 
-For ownership analysis after earlier errors, run:
+For ownership analysis after earlier errors (D278), run:
 
 ```sh
 ./scripts/test.sh --test 'safe free distinguishes earlier errors from refined dispatch'
+./scripts/test.sh --test 'ownership diagnostics are independent of unrelated declaration errors'
+./scripts/test.sh --test 'genuine ownership errors are reported beside earlier errors'
+./scripts/test.sh --test 'declaration errors used around frees leave only known cascades'
+./scripts/test.sh --test 'unconverged ownership analysis reports no ownership verdicts'
+./scripts/test.sh --test 'command line reports only the declaration error after earlier errors'
+./scripts/test.sh --test 'link without an entry point reports only its own error'
 ```
 
-This records the current conservative rejection after a missing `@Override`,
-acceptance after adding the annotation, rejection of a genuinely retaining
-implementation, and preserved dispatch refinement after an unrelated body error.
-Unresolved single-type and static imports also keep refinement: in every
-unfreed mode the import error is the only diagnostic, with no secondary
-rejection in bundled library source such as `Throwable`.
-It is a baseline for the planned explanation gate, not a test of implemented
-explanation notes. Removing secondary diagnostics remains a separate change.
+The first checks that a missing `@Override` is the only diagnostic while the
+non-retaining override stays accepted, that a retaining implementation is
+rejected identically with or without the error, that a body error keeps refined
+dispatch, and that unresolved single-type and static imports are their only
+diagnostic in every unfreed mode. The second compiles a program with genuine
+and safe frees and missing-free findings alone and beside eight kinds of
+unrelated declaration error, in `off` and `error` modes, and requires identical
+diagnostics for the program and none outside the erroneous file. The third
+removes the directive from the retaining override itself and compares every
+verdict and note with the corrected program. The fourth uses 13 kinds of broken
+declaration around a `free`, each with a corrected twin that compiles cleanly;
+only a missing implementation leaves its known dispatch cascade. The fifth
+forces non-convergence: no ownership verdict is reported, a body error still is,
+and the non-convergence error appears only without earlier errors. The last two
+run the command-line path, which also checks bundled sources for missing frees,
+for a declaration error and for a link whose main class lacks `main`.
 
 For the diagnostic baseline of duplicated cleanup, run:
 
@@ -400,9 +417,9 @@ For call-summary evidence baselines, run:
 
 This checks a retaining call chain, retaining and non-retaining recursive cycles,
 and a temporary constructor borrower accepted after refinement. An unrelated
-missing `@Override` preserves today's two secondary cleanup rejections; fixing
-it accepts, while actual helper publication remains rejected. These are current
-diagnostic baselines, not tests of the planned witness chains or option.
+missing `@Override` leaves that proof in place and is the only diagnostic;
+actual helper publication remains rejected. These are diagnostic baselines,
+not tests of the planned witness chains or option.
 The summary storage selection checks first-discovery identity, immutable
 dependency retention, method/fact caps, an independent method after local
 exhaustion, the aggregate stop, and retirement of live charges.
@@ -444,7 +461,7 @@ selections together:
 
 ```sh
 ./scripts/test.sh \
-  --test 'explanation observer records completed and skipped refinement' \
+  --test 'explanation observer records completed and unconverged refinement' \
   --test 'rejected-free evidence limits preserve pipeline safety and truthful fallback' \
   --test 'summary witness method fact and aggregate exhaustion preserve safety' \
   --test 'summary call notes cap four hops and ignore unrelated imports' \
