@@ -10174,3 +10174,109 @@ occurrence order. If no
   changed copies (comment, rename, CRLF, final newline), and the native digest
   gives the same digests and verdicts; every allocation failure unwinds. See
   [the semantic helper record](self-hosting/m3/SEMANTIC.md).
+
+## D268 - Provide the M3.3 backend helpers
+
+- **Status:** Implemented during M3.3 on 2026-10-05.
+- **Decision:** Add compiler-private S4 prerequisites. `Md5` is an
+  independent RFC 1321 implementation whose sine table is computed from its
+  definition; `linkageGuid` returns the little-endian first eight digest
+  bytes of a linkage name's UTF-8 encoding, as OptimizedTraceMetadata and
+  LlvmEmitter's TracePlan compute pseudo-probe GUIDs, with no allocation.
+  `Bytes` supplies unsigned widening, Java's unsigned byte-array order, a
+  bounded range copy, a US-ASCII name comparison without decoding, and
+  little-endian short, int and long reads. `LlvmText` spells
+  `0x%016X` raw bits, `%.17e` (Java's Formatter pads the `Double.toString`
+  digits to eighteen), LlvmEmitter's byte escapes and
+  OptimizedTraceMetadata's symbol decoding (each UTF-16 unit encoded alone,
+  so every surrogate becomes `?`, then UTF-8 decoding with U+FFFD).
+  `LlvmScan` replaces NativeTarget's and OptimizedTraceMetadata's three
+  regexes with scanners that keep java.util.regex's multiline anchors and
+  line terminators; the quoted-symbol alternative's greedy backtracking
+  depends only on its position, so it is evaluated right to left over the
+  reachable span. `PropertiesText` parses the admitted `key=value` format of
+  the pinned and generated inventories with `Properties.load`'s whitespace,
+  separator, comment, terminator and duplicate rules, and owns a copy of its
+  text. `HeaderScan.defines` is the sysroot check's two `String.matches`
+  patterns. `Double.doubleToRawLongBits` is added to the standard library
+  with Java's contract: the binary64 layout, NaN sign and payload included;
+  it inlines to a bit move.
+- **Narrowing:** `Bytes.slice` never zero-pads, since all three callers
+  validate their extents; `PropertiesText` rejects any backslash (an escape
+  or continuation), which no admitted file contains; `LlvmText.scientific`
+  rejects NaN and infinities, which the emitter spells as bits; the scanners
+  and `decodeSymbol` return fresh Strings where Java may return its input,
+  and `decodeSymbol` of the bare prefix `@"`, which no FUNCTION match yields,
+  returns an empty name where Java throws.
+- **Proof:** No analysis change. Inputs are borrowed for one call; results
+  are fresh; a digest owns its arrays and a parse its copy and bounds. Two
+  conservative limits shape the API: a wrapping `ByteBuffer` keeps its array
+  from being freed, so SharedTraceOrder reads the object bytes directly, and
+  a parse that borrowed its text would keep the text from being freed.
+- **Boundary:** No regex engine, format or locale subsystem, Properties
+  class or ByteBuffer change. `stringPropertyNames()` iterates in hash
+  order; a consumer whose report depends on the first failing entry must
+  establish that order itself. Supersedes no decision.
+- **Verification:** MD5 equals `MessageDigest` on the RFC suite, every length
+  0-300, every byte, surrogate text and 64 MiB streamed, and 2,018 GUIDs equal
+  both Java implementations, called by reflection; the binary helpers,
+  little-endian reads and the trace-root sort of 600 groups equal Java 21;
+  100,030 floating constants, 2,257 escapes and 3,014 decoded symbols equal
+  the Java emitter's own methods; the scanners equal the Java patterns on
+  663 corpus files (Clang and opt output, five line-terminator variants and
+  adversarial and seeded texts); the Properties subset equals
+  `Properties.load` on 445 files; the header check equals `String.matches`
+  on 4,013 texts; every allocation failure unwinds. See
+  [the backend helper record](self-hosting/m3/BACKEND.md).
+
+## D269 - Give the source-only route explicit installation and identity inputs
+
+- **Status:** Implemented during M3.3 on 2026-10-05.
+- **Decision:** The native compiler takes its installation from the launcher
+  and its version from generated source, and links without the
+  runtime-object cache.
+  - **Installation.** The launcher passes the compiler's canonical location
+    (its executable or directory), which stands where Java reads its jar or
+    class directory through the code source. `Installation.runtimeSource`
+    and `librarySourceRoots` repeat RuntimeLibrary.discover and
+    StandardLibrary.discover's source roots: the IRONWOOD_RUNTIME_HOME and
+    IRONWOOD_STDLIB_HOME overrides, the location's root and then the current
+    directory with their ancestors, and Java's messages. `LibraryRoots` owns
+    the roots in a D163 creation array. Archive and class roots stay S6
+    facilities, so the source-only route never prefers an installed archive.
+  - **Build identity.** `scripts/self-hosting/build-identity.sh` generates
+    `BuildIdentity.version()` from IRONWOOD_VERSION or VERSION with
+    scripts/build.sh's own whitespace removal, validation and messages, so it
+    equals `CompilerVersion.current()` of a jar built from the same input. The
+    output is byte-identical across runs and needs no Java tool. Java's
+    `unknown` fallback has no native counterpart: without a valid version the
+    build fails, as build.sh does.
+  - **Runtime objects.** The native port compiles each runtime object
+    directly and omits `RUNTIME_OBJECTS` with its key, including the
+    SHA-256 of every runtime header. A link prepares each object once under a
+    distinct key (four, five with TLS, since the key holds the source path),
+    so a process that links once never reuses one. The Java bootstrap keeps
+    its cache. ByteView's, the TLS SDK's and Bridge's SHA-256 consumers are
+    unchanged; the TLS file hash streams `Files.newInputStream` into
+    `Sha256`.
+  - **Shell driver.** In the source-only route the shell driver owns a
+    link's temporary LLVM file and output alias check and supplies SDKROOT in
+    place of the xcrun probe. Linux Bridge support delivery runs only after a
+    shared link, which only Bridge production (S7) makes. Their native forms
+    remain M4.1-M4.3 and S7 work.
+- **Proof:** No analysis change. Every intermediate Path is freed on every
+  exit, including allocation failure; recorded roots are fresh copies that
+  no call has seen, as the creation-array proof requires.
+- **Boundary:** Implements B5's proposed cache omission and B7's
+  installation and build identity rows for the native port only. The
+  launcher must canonicalize the location, as Java's class path entry is.
+  Supersedes no decision.
+- **Verification:** Ten scenarios (checkout classes and jar, installed and
+  bare layouts, two roots, valid, invalid, blank and relative overrides, an
+  unknown location) print the Java baseline's discovery results (those
+  sources are unchanged since J0) from classes and archive links; generation is reproducible, honors IRONWOOD_VERSION and
+  fails with build.sh's messages, and the generated version equals
+  `CompilerVersion.current()`; a fresh process's first link inserts four
+  distinct runtime objects and reuses none, a second link reuses all four,
+  and direct compilation equals the cached bytes twice. See
+  [the backend helper record](self-hosting/m3/BACKEND.md).

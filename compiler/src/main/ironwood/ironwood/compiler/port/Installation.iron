@@ -1,0 +1,144 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.port;
+
+import ironwood.nio.file.Files;
+import ironwood.nio.file.Path;
+
+/**
+ * Explicit installation inputs for the source-only route (D269), in place of
+ * the Java code-source location that RuntimeLibrary.discover and
+ * StandardLibrary.discover read. The launcher passes the compiler's
+ * location, its executable or the directory holding it, where the Java
+ * classes see their jar (lib/ in an installation, compiler/build in a
+ * checkout) or class directory, canonical as Java's class path entry is;
+ * null stands for an unknown location, as when the Java lookup fails. The
+ * current directory is searched after it, and IRONWOOD_RUNTIME_HOME and
+ * IRONWOOD_STDLIB_HOME keep their Java meaning. Only library source roots
+ * are discovered: archive and class roots are S6 facilities, so the
+ * source-only route never prefers an installed archive.
+ *
+ * <p>Inputs are borrowed. Every intermediate Path is freed on every exit,
+ * including allocation failure.
+ */
+public final class Installation {
+
+    private static final String RUNTIME_SOURCE = "runtime/src/ironwood_runtime.c";
+    static final String LIBRARY_SOURCE = "stdlib/src/main/ironwood";
+
+    private Installation() {
+
+    }
+
+    /**
+     * RuntimeLibrary.discover: the absolute, normalized runtime source, owned
+     * by the caller, or null after appending Java's message to {@code error}.
+     */
+    public static Path runtimeSource(Path location, StringBuilder error) {
+
+        String explicit = System.getenv("IRONWOOD_RUNTIME_HOME");
+        if (explicit != null && !explicit.isBlank()) {
+            defer free explicit;
+            Path home = absolute(explicit);
+            defer free home;
+            Path source = child(home, RUNTIME_SOURCE);
+            if (Files.isRegularFile(source)) return source;
+            free source;
+            error.append("IRONWOOD_RUNTIME_HOME does not contain ").append(RUNTIME_SOURCE).append(": ")
+                    .append(home.toString());
+            return null;
+        }
+        if (explicit != null) free explicit;
+        Path found = null;
+        Path code = codeRoot(location);
+        if (code != null) {
+            defer free code;
+            found = ancestorFile(code, RUNTIME_SOURCE);
+        }
+        if (found == null) {
+            Path current = absolute("");
+            defer free current;
+            found = ancestorFile(current, RUNTIME_SOURCE);
+        }
+        if (found == null) {
+            error.append("cannot locate ").append(RUNTIME_SOURCE)
+                    .append("; set IRONWOOD_RUNTIME_HOME to the Ironwood distribution root");
+        }
+        return found;
+    }
+
+    /**
+     * StandardLibrary.discover's source roots, recorded in {@code roots} in
+     * Java's order without duplicates: every {@code stdlib/src/main/ironwood}
+     * directory under IRONWOOD_STDLIB_HOME or its ancestors when that is set,
+     * otherwise under the location's root, the current directory and their
+     * ancestors. The owner keeps whatever was recorded if this fails.
+     */
+    public static void librarySourceRoots(Path location, LibraryRoots roots) {
+
+        String explicit = System.getenv("IRONWOOD_STDLIB_HOME");
+        if (explicit != null && !explicit.isBlank()) {
+            defer free explicit;
+            Path home = absolute(explicit);
+            defer free home;
+            roots.addDirectories(home);
+            return;
+        }
+        if (explicit != null) free explicit;
+        Path code = codeRoot(location);
+        if (code != null) {
+            defer free code;
+            roots.addDirectories(code);
+        }
+        Path current = absolute("");
+        defer free current;
+        roots.addDirectories(current);
+    }
+
+    // The location if it is a directory, otherwise its parent.
+    private static Path codeRoot(Path location) {
+
+        if (location == null) return null;
+        Path code = location.toAbsolutePath();
+        defer free code;
+        Path normalized = code.normalize();
+        if (Files.isDirectory(normalized)) return normalized;
+        defer free normalized;
+        return normalized.getParent();
+    }
+
+    // The first regular file at relative under root or one of its ancestors.
+    private static Path ancestorFile(Path root, String relative) {
+
+        Path file = child(root, relative);
+        if (Files.isRegularFile(file)) return file;
+        free file;
+        Path found = null;
+        Path parent = root.getParent();
+        if (parent != null) {
+            defer free parent;
+            found = ancestorFile(parent, relative);
+        }
+        return found;
+    }
+
+    // base.resolve(relative).toAbsolutePath().normalize()
+    static Path child(Path base, String relative) {
+
+        Path resolved = base.resolve(relative);
+        defer free resolved;
+        Path absolute = resolved.toAbsolutePath();
+        defer free absolute;
+        return absolute.normalize();
+    }
+
+    // Path.of(text).toAbsolutePath().normalize()
+    private static Path absolute(String text) {
+
+        Path path = Path.of(text);
+        defer free path;
+        Path absolute = path.toAbsolutePath();
+        defer free absolute;
+        return absolute.normalize();
+    }
+}

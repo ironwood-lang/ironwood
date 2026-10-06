@@ -44,6 +44,16 @@ public class Double {
 
         return isNaN(value) ? 9221120237041090560L : rawBits(value);
     }
+
+    /**
+     * Returns the value's IEEE 754 binary64 bit layout. Unlike
+     * {@link #doubleToLongBits(double)}, which collapses every NaN to
+     * {@code 0x7ff8000000000000L}, a NaN keeps its sign and payload bits.
+     */
+    public static long doubleToRawLongBits(double value) {
+
+        return rawBits(value);
+    }
     /** Performs the long bits to double operation. */
 
     public static double longBitsToDouble(long bits) {

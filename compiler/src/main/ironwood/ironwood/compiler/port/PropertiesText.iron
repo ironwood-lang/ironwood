@@ -1,0 +1,162 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.port;
+
+import ironwood.ds.IntArrayList;
+
+/**
+ * Java {@code Properties.load(Reader)} for the admitted pin and SDK manifest
+ * format: packaging/tls-dependencies.properties and the generated
+ * dependencies.properties and build.properties, which are plain
+ * {@code key=value} lines with {@code #} comments. Lines end at {@code \n},
+ * {@code \r} or {@code \r\n}; leading spaces, tabs and form feeds are skipped;
+ * blank lines and lines starting with {@code #} or {@code !} are comments; a
+ * key ends at the first {@code =}, {@code :} or whitespace, after which
+ * whitespace, one {@code =} or {@code :} and more whitespace are skipped, and
+ * the rest of the line, trailing whitespace included, is the value; a later
+ * duplicate key replaces the value. A backslash (an escape or a line
+ * continuation) is outside the admitted format and fails closed.
+ *
+ * <p>The parsed set owns a copy of its text and an index of entry bounds, so
+ * the caller keeps ownership of the text it passes (a set that borrowed it
+ * would retain it, and the text could not be freed); lookups return fresh
+ * Strings. Entries keep their first-occurrence order. Java iterates
+ * {@code stringPropertyNames()} in hash order, so a consumer whose report
+ * depends on iteration order must establish that order itself.
+ */
+public final class PropertiesText {
+
+    private final String text;
+    // Four ints per entry: key start, key end, value start, value end.
+    private final IntArrayList bounds;
+
+    private PropertiesText(String source) {
+
+        this.text = source.substring(0);
+        this.bounds = new IntArrayList();
+        // The scan reads the source, whose positions are the copy's.
+        String text = source;
+        int length = text.length();
+        int line = 0;
+        while (line < length) {
+            int end = line;
+            while (end < length && text.charAt(end) != '\n' && text.charAt(end) != '\r') end++;
+            int index = line;
+            while (index < end && blank(text.charAt(index))) index++;
+            if (index < end && text.charAt(index) != '#' && text.charAt(index) != '!') {
+                int keyStart = index;
+                while (index < end && !blank(text.charAt(index)) && text.charAt(index) != '='
+                        && text.charAt(index) != ':') index++;
+                int keyEnd = index;
+                while (index < end && blank(text.charAt(index))) index++;
+                if (index < end && (text.charAt(index) == '=' || text.charAt(index) == ':')) index++;
+                while (index < end && blank(text.charAt(index))) index++;
+                record(keyStart, keyEnd, index, end);
+            }
+            line = end < length && text.charAt(end) == '\r' && end + 1 < length && text.charAt(end + 1) == '\n'
+                    ? end + 2 : end + 1;
+        }
+    }
+
+    /**
+     * @return the parsed entries of a copy of the text, which stays the caller's
+     * @throws IllegalArgumentException if the text contains a backslash
+     */
+    public static PropertiesText parse(String text) {
+
+        if (text.indexOf('\\') >= 0) throw new IllegalArgumentException("properties escape or continuation");
+        return new PropertiesText(text);
+    }
+
+    /** @return the number of distinct keys */
+    public int size() {
+
+        return this.bounds.size() / 4;
+    }
+
+    /** @return a fresh String holding the key of entry {@code index}, in first-occurrence order */
+    public String key(int index) {
+
+        return this.text.substring(this.bounds.get(index * 4), this.bounds.get(index * 4 + 1));
+    }
+
+    /** @return a fresh String holding the value for the key, or null when absent */
+    public String value(String key) {
+
+        int entry = find(this.text, this.bounds, key, 0, key.length());
+        if (entry < 0) return null;
+        return this.text.substring(this.bounds.get(entry * 4 + 2), this.bounds.get(entry * 4 + 3));
+    }
+
+    /** @return whether the key is present */
+    public boolean containsKey(String key) {
+
+        return find(this.text, this.bounds, key, 0, key.length()) >= 0;
+    }
+
+    /** {@code Properties.equals}: the same keys with equal values, in any order. */
+    public boolean sameEntries(PropertiesText other) {
+
+        if (size() != other.size()) return false;
+        for (int entry = 0; entry < size(); entry++) {
+            int keyStart = this.bounds.get(entry * 4);
+            int keyEnd = this.bounds.get(entry * 4 + 1);
+            int match = find(other.text, other.bounds, this.text, keyStart, keyEnd);
+            if (match < 0) return false;
+            int valueStart = this.bounds.get(entry * 4 + 2);
+            int valueLength = this.bounds.get(entry * 4 + 3) - valueStart;
+            int otherStart = other.bounds.get(match * 4 + 2);
+            if (other.bounds.get(match * 4 + 3) - otherStart != valueLength
+                    || !same(other.text, otherStart, this.text, valueStart, valueLength)) return false;
+        }
+        return true;
+    }
+
+    private void record(int keyStart, int keyEnd, int valueStart, int valueEnd) {
+
+        int existing = find(this.text, this.bounds, this.text, keyStart, keyEnd);
+        if (existing >= 0) {
+            this.bounds.set(existing * 4 + 2, valueStart);
+            this.bounds.set(existing * 4 + 3, valueEnd);
+            return;
+        }
+        this.bounds.add(keyStart);
+        this.bounds.add(keyEnd);
+        this.bounds.add(valueStart);
+        this.bounds.add(valueEnd);
+    }
+
+    // The entry whose key equals key[start, end), or -1.
+    private static int find(String text, IntArrayList bounds, String key, int start, int end) {
+
+        int length = end - start;
+        for (int entry = 0; entry < bounds.size() / 4; entry++) {
+            int keyStart = bounds.get(entry * 4);
+            if (bounds.get(entry * 4 + 1) - keyStart == length && same(text, keyStart, key, start, length)) {
+                return entry;
+            }
+        }
+        return -1;
+    }
+
+    // first[firstStart, firstStart + length) equals second[secondStart, secondStart + length).
+    private static boolean same(String first, int firstStart, String second, int secondStart, int length) {
+
+        for (int index = 0; index < length; index++) {
+            if (first.charAt(firstStart + index) != second.charAt(secondStart + index)) return false;
+        }
+        return true;
+    }
+
+    // Properties whitespace: space, tab and form feed.
+    private static boolean blank(char character) {
+
+        return character == ' ' || character == '\t' || character == '\f';
+    }
+
+    destructor {
+
+        free this.bounds;
+        free this.text;
+    }
+}

@@ -859,6 +859,22 @@ public final class CompilerTests {
                 SemanticHelperTests::byteViewAuthority);
         test("compiler semantic helpers borrow inputs and own their results", SemanticHelperTests::ownership);
         test("compiler semantic helpers unwind every allocation failure", SemanticHelperTests::failures);
+        test("compiler MD5 matches Java digests and both trace GUIDs across artifacts", BackendHelperTests::md5);
+        test("compiler binary helpers match Java unsigned order and trace roots across artifacts",
+                BackendHelperTests::binary);
+        test("compiler LLVM text matches the Java emitter across artifacts", BackendHelperTests::llvmText);
+        test("compiler LLVM scans match the Java target and trace patterns across artifacts",
+                BackendHelperTests::llvmScan);
+        test("compiler properties subset matches Java Properties across artifacts", BackendHelperTests::properties);
+        test("compiler header scan matches the Java sysroot patterns across artifacts", BackendHelperTests::headerScan);
+        test("compiler installation inputs match Java discovery across layouts and artifacts",
+                BackendHelperTests::installation);
+        test("compiler build identity matches the embedded compiler version across artifacts",
+                BackendHelperTests::buildIdentity);
+        test("compiler backend helpers borrow inputs and own their results", BackendHelperTests::ownership);
+        test("compiler backend helpers unwind every allocation failure", BackendHelperTests::failures);
+        test("native runtime objects compile directly without cross-link reuse",
+                ironwood.compiler.backend.RuntimeObjectTests::directCompilation);
         test("compiler work queue keeps queued items alive and its ring private", WorkQueueTests::ownership);
         test("compiler worklists preserve FIFO and retain-filter order across artifacts and failures",
                 WorkQueueTests::artifacts);

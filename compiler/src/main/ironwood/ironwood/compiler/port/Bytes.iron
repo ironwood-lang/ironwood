@@ -1,0 +1,112 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.port;
+
+/**
+ * Compiler-local binary helpers for trace ordering, GUID assembly and object
+ * inspection: unsigned widening, Java's unsigned lexicographic byte-array
+ * comparison, a bounded range copy, an ASCII name comparison and
+ * little-endian reads. Arrays are borrowed for the call; only {@link #slice}
+ * allocates, and its result belongs to the caller.
+ *
+ * <p>The reads replace {@code ByteBuffer.wrap(bytes).order(LITTLE_ENDIAN)}
+ * in SharedTraceOrder: a wrapping buffer retains its array, so the object
+ * bytes could not be freed after it, while these reads only borrow them.
+ */
+public final class Bytes {
+
+    private Bytes() {
+
+    }
+
+    /** {@code Byte.toUnsignedInt}: the byte's bits as 0-255. */
+    public static int toUnsignedInt(byte value) {
+
+        return value & 0xFF;
+    }
+
+    /** {@code Short.toUnsignedInt}: the short's bits as 0-65535. */
+    public static int toUnsignedInt(short value) {
+
+        return value & 0xFFFF;
+    }
+
+    /** {@code Integer.toUnsignedLong}: the int's bits as 0 to 2^32 - 1. */
+    public static long toUnsignedLong(int value) {
+
+        return value & 0xFFFFFFFFL;
+    }
+
+    /**
+     * {@code Arrays.compareUnsigned(byte[], byte[])}: at the first differing
+     * index, the difference of the unsigned byte values; otherwise the length
+     * difference. A null array is less than any array; two nulls are equal.
+     */
+    public static int compareUnsigned(byte[] first, byte[] second) {
+
+        if (first == second) return 0;
+        if (first == null) return -1;
+        if (second == null) return 1;
+        int common = first.length < second.length ? first.length : second.length;
+        for (int index = 0; index < common; index++) {
+            if (first[index] != second[index]) return (first[index] & 0xFF) - (second[index] & 0xFF);
+        }
+        return first.length - second.length;
+    }
+
+    /**
+     * A fresh copy of {@code source[from, to)}, for the
+     * {@code Arrays.copyOfRange} sites that validate their extents first.
+     * Unlike Java's method it never zero-pads past the end: every compiler
+     * caller copies an in-bounds range.
+     *
+     * @throws IndexOutOfBoundsException unless {@code 0 <= from <= to <= source.length}
+     */
+    public static byte[] slice(byte[] source, int from, int to) {
+
+        if (from < 0 || from > to || to > source.length) throw new IndexOutOfBoundsException();
+        byte[] result = new byte[to - from];
+        System.arraycopy(source, from, result, 0, to - from);
+        return result;
+    }
+
+    /**
+     * {@code new String(bytes, from, to - from, US_ASCII).equals(text)} without
+     * decoding: each byte below 0x80 must equal its unit of the text, and each
+     * other byte must meet U+FFFD, which the US-ASCII decoder substitutes.
+     *
+     * @throws IndexOutOfBoundsException unless {@code 0 <= from <= to <= bytes.length}
+     */
+    public static boolean asciiEquals(byte[] bytes, int from, int to, String text) {
+
+        if (from < 0 || from > to || to > bytes.length) throw new IndexOutOfBoundsException();
+        if (to - from != text.length()) return false;
+        for (int index = from; index < to; index++) {
+            char decoded = bytes[index] >= 0 ? (char) bytes[index] : '\uFFFD';
+            if (text.charAt(index - from) != decoded) return false;
+        }
+        return true;
+    }
+
+    /** {@code ByteBuffer.wrap(bytes).order(LITTLE_ENDIAN).getShort(index)}. */
+    public static short littleShort(byte[] bytes, int index) {
+
+        if (index < 0 || index > bytes.length - 2) throw new IndexOutOfBoundsException();
+        return (short) (bytes[index] & 0xFF | (bytes[index + 1] & 0xFF) << 8);
+    }
+
+    /** {@code ByteBuffer.wrap(bytes).order(LITTLE_ENDIAN).getInt(index)}. */
+    public static int littleInt(byte[] bytes, int index) {
+
+        if (index < 0 || index > bytes.length - 4) throw new IndexOutOfBoundsException();
+        return bytes[index] & 0xFF | (bytes[index + 1] & 0xFF) << 8 | (bytes[index + 2] & 0xFF) << 16
+                | (bytes[index + 3] & 0xFF) << 24;
+    }
+
+    /** {@code ByteBuffer.wrap(bytes).order(LITTLE_ENDIAN).getLong(index)}. */
+    public static long littleLong(byte[] bytes, int index) {
+
+        if (index < 0 || index > bytes.length - 8) throw new IndexOutOfBoundsException();
+        return littleInt(bytes, index) & 0xFFFFFFFFL | (long) littleInt(bytes, index + 4) << 32;
+    }
+}

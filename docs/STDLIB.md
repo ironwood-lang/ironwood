@@ -228,6 +228,11 @@ objects.
 | `Float`, `Double` | Range/size/minimum-normal/infinity/NaN constants; Java-shaped parsing and shortest text; finite predicates, ordered comparison and canonical/raw bit/hash conversion. |
 | `Math` | Common min/max/round/floor/ceil/pow and trigonometric, exponential, logarithmic, cube-root and hypot functions; checked arithmetic; floor division/modulus; sign, clamp, random, rint, angles and constants. Platform math does not claim `StrictMath` cross-platform reproducibility. |
 
+`Double.doubleToRawLongBits(double)` returns the binary64 layout with a NaN's
+sign and payload intact, while `doubleToLongBits` collapses every NaN to
+`0x7ff8000000000000L`; `Float` has the canonical `floatToIntBits` only. The
+raw conversion inlines to a plain bit move at `-O3` (D268).
+
 `Float.parseFloat(String)` and `Double.parseDouble(String)` accept Java 21
 decimal and hexadecimal syntax, exponents, suffixes, whitespace, NaN, and
 infinities. Successful parsing borrows its String and creates no managed

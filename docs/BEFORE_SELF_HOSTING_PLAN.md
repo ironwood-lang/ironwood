@@ -499,6 +499,12 @@ the S2-S4 port; they do not replace its integration exits.
   preserve all other SHA-256 consumers. Cover native output and trace ordering,
   and use the existing hot-lowering checks for changed paths, including
   `SelectiveInlining` consumers.
+  In progress: the [backend helpers and source-only inputs](self-hosting/m3/BACKEND.md)
+  (D268, D269) pass against the Java baseline's own MD5 GUIDs, emitter text,
+  target and trace patterns, Properties, installation discovery and version,
+  including trace-root ordering; one link never reuses a runtime object, so the
+  native port compiles them directly, and the other SHA-256 consumers are
+  unchanged. The classification and the M3.3 handoff run are pending.
 
 **Checkpoints:** M3.1's helpers must be ready for their S2 consumers; M3.2 must
 pass before its S3 consumers, especially ByteView; M3.3 must pass before the

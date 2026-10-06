@@ -1,0 +1,164 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.port;
+
+import ironwood.io.ByteArrayOutputStream;
+
+/**
+ * Deterministic LLVM text that LlvmEmitter and OptimizedTraceMetadata build
+ * with {@code String.format(Locale.ROOT, ...)}, {@code Integer.toHexString}
+ * and a UTF-8 byte stream, without a format-string or locale subsystem.
+ * Inputs are borrowed; each String result is fresh and owned by the caller.
+ */
+public final class LlvmText {
+
+    private static final String UPPER = "0123456789ABCDEF";
+
+    private LlvmText() {
+
+    }
+
+    /** {@code String.format(Locale.ROOT, "0x%016X", bits)}: 16 uppercase digits. */
+    public static String hexBits(long bits) {
+
+        char[] text = new char[18];
+        defer free text;
+        text[0] = '0';
+        text[1] = 'x';
+        for (int nibble = 0; nibble < 16; nibble++) {
+            text[2 + nibble] = UPPER.charAt((int) (bits >>> (60 - nibble * 4)) & 15);
+        }
+        return new String(text);
+    }
+
+    /**
+     * {@code String.format(Locale.ROOT, "%.17e", value)} for a finite value:
+     * the significant digits of {@code Double.toString}, zero-padded to 18,
+     * as {@code d.ddddddddddddddddde+XX} with a signed exponent of at least
+     * two digits. Signed zero keeps its sign.
+     *
+     * @throws IllegalArgumentException for NaN or an infinity, which the
+     *     emitter spells as hexadecimal bits instead
+     */
+    public static String scientific(double value) {
+
+        if (Double.isNaN(value) || Double.isInfinite(value)) throw new IllegalArgumentException("not finite");
+        boolean negative = value < 0 || value == 0 && 1 / value < 0;
+        String text = Double.toString(negative ? -value : value);
+        defer free text;
+        StringBuilder digits = new StringBuilder();
+        defer free digits;
+        int exponent = 0;
+        int mark = text.indexOf('E');
+        int end = mark < 0 ? text.length() : mark;
+        int point = text.indexOf('.');
+        boolean leading = true;
+        int integerDigits = 0;
+        int leadingZeros = 0;
+        for (int index = 0; index < end; index++) {
+            char character = text.charAt(index);
+            if (character == '.') continue;
+            if (leading && character == '0') {
+                if (index > point) leadingZeros++;
+                continue;
+            }
+            leading = false;
+            digits.append(character);
+        }
+        if (mark >= 0) {
+            exponent = Integer.parseInt(text.substring(mark + 1));
+        } else if (digits.length() == 0) {
+            exponent = 0;
+        } else {
+            for (int index = 0; index < point; index++) {
+                if (text.charAt(index) != '0' || integerDigits > 0) integerDigits++;
+            }
+            exponent = integerDigits > 0 ? integerDigits - 1 : -(leadingZeros + 1);
+        }
+        while (digits.length() > 1 && digits.charAt(digits.length() - 1) == '0') digits.setLength(digits.length() - 1);
+        if (digits.length() == 0) digits.append('0');
+        StringBuilder out = new StringBuilder();
+        defer free out;
+        if (negative) out.append('-');
+        out.append(digits.charAt(0)).append('.');
+        for (int index = 1; index < 18; index++) out.append(index < digits.length() ? digits.charAt(index) : '0');
+        out.append('e').append(exponent < 0 ? '-' : '+');
+        int magnitude = exponent < 0 ? -exponent : exponent;
+        if (magnitude < 10) out.append('0');
+        out.append(magnitude);
+        return out.toString();
+    }
+
+    /**
+     * LlvmEmitter.escapeBytes: printable ASCII other than {@code "} and
+     * {@code \} is kept; every other byte becomes a backslash and two
+     * uppercase hexadecimal digits.
+     */
+    public static String escapeBytes(byte[] bytes) {
+
+        StringBuilder out = new StringBuilder();
+        defer free out;
+        for (int index = 0; index < bytes.length; index++) {
+            int value = bytes[index] & 0xFF;
+            if (value >= 0x20 && value <= 0x7e && value != '"' && value != '\\') {
+                out.append((char) value);
+            } else {
+                out.append('\\').append(UPPER.charAt(value >> 4)).append(UPPER.charAt(value & 15));
+            }
+        }
+        return out.toString();
+    }
+
+    /**
+     * OptimizedTraceMetadata.decodeSymbol: {@code @name} is the name; a quoted
+     * {@code @"..."} name turns each backslash and two hexadecimal digits into
+     * that byte and every other unit, one at a time, into its UTF-8 bytes (so
+     * each surrogate, paired or not, becomes {@code '?'}, as Java's per-unit
+     * {@code getBytes} does), then decodes the bytes as UTF-8.
+     */
+    public static String decodeSymbol(String symbol) {
+
+        if (!symbol.startsWith("@\"")) return symbol.substring(1);
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream(symbol.length());
+        defer free bytes;
+        int last = symbol.length() - 1;
+        int index = 2;
+        while (index < last) {
+            char character = symbol.charAt(index);
+            if (character == '\\' && index + 2 < last && hex(symbol.charAt(index + 1)) >= 0
+                    && hex(symbol.charAt(index + 2)) >= 0) {
+                bytes.write(hex(symbol.charAt(index + 1)) * 16 + hex(symbol.charAt(index + 2)));
+                index = index + 3;
+            } else {
+                writeUnit(bytes, character);
+                index++;
+            }
+        }
+        return bytes.toString();
+    }
+
+    // The UTF-8 bytes of one unit on its own, with '?' for any surrogate.
+    private static void writeUnit(ByteArrayOutputStream bytes, char unit) {
+
+        if (unit < 0x80) {
+            bytes.write(unit);
+        } else if (unit < 0x800) {
+            bytes.write(0xC0 | (unit >> 6));
+            bytes.write(0x80 | (unit & 0x3F));
+        } else if (unit >= 0xD800 && unit <= 0xDFFF) {
+            bytes.write('?');
+        } else {
+            bytes.write(0xE0 | (unit >> 12));
+            bytes.write(0x80 | ((unit >> 6) & 0x3F));
+            bytes.write(0x80 | (unit & 0x3F));
+        }
+    }
+
+    private static int hex(char character) {
+
+        if (character >= '0' && character <= '9') return character - '0';
+        if (character >= 'a' && character <= 'f') return character - 'a' + 10;
+        if (character >= 'A' && character <= 'F') return character - 'A' + 10;
+        return -1;
+    }
+}

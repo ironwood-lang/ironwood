@@ -1,0 +1,223 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.port;
+
+/**
+ * Compiler-private MD5 (RFC 1321), written independently from the RFC's
+ * algorithm description; the sine-derived table holds
+ * floor(2^32 * |sin(i + 1)|), computed from that definition at high precision
+ * rather than copied. It is LLVM's established
+ * pseudo-probe identity calculation, not a security primitive, and it is
+ * never replaced by another hash.
+ *
+ * <p>A digest owns its state, message words and one block buffer; updates,
+ * {@link #digest(byte[], int)} and {@link #linkageGuid(String)} allocate
+ * nothing. Finishing pads and processes the final block, produces the result
+ * and resets the state, so one object serves every function of a module.
+ */
+public final class Md5 {
+
+    private static final int[] SINE = {
+        0xd76aa478, 0xe8c7b756, 0x242070db, 0xc1bdceee, 0xf57c0faf, 0x4787c62a, 0xa8304613, 0xfd469501,
+        0x698098d8, 0x8b44f7af, 0xffff5bb1, 0x895cd7be, 0x6b901122, 0xfd987193, 0xa679438e, 0x49b40821,
+        0xf61e2562, 0xc040b340, 0x265e5a51, 0xe9b6c7aa, 0xd62f105d, 0x02441453, 0xd8a1e681, 0xe7d3fbc8,
+        0x21e1cde6, 0xc33707d6, 0xf4d50d87, 0x455a14ed, 0xa9e3e905, 0xfcefa3f8, 0x676f02d9, 0x8d2a4c8a,
+        0xfffa3942, 0x8771f681, 0x6d9d6122, 0xfde5380c, 0xa4beea44, 0x4bdecfa9, 0xf6bb4b60, 0xbebfbc70,
+        0x289b7ec6, 0xeaa127fa, 0xd4ef3085, 0x04881d05, 0xd9d4d039, 0xe6db99e5, 0x1fa27cf8, 0xc4ac5665,
+        0xf4292244, 0x432aff97, 0xab9423a7, 0xfc93a039, 0x655b59c3, 0x8f0ccc92, 0xffeff47d, 0x85845dd1,
+        0x6fa87e4f, 0xfe2ce6e0, 0xa3014314, 0x4e0811a1, 0xf7537e82, 0xbd3af235, 0x2ad7d2bb, 0xeb86d391
+    };
+    // Per-round rotation amounts, four per round in step order.
+    private static final int[] SHIFT = {7, 12, 17, 22, 5, 9, 14, 20, 4, 11, 16, 23, 6, 10, 15, 21};
+
+    private final int[] state;
+    private final int[] words;
+    private final byte[] block;
+    private int buffered;
+    private long total;
+
+    /** Creates a reset digest: the object, its state, words and block buffer. */
+    public Md5() {
+
+        this.state = new int[4];
+        this.words = new int[16];
+        this.block = new byte[64];
+        reset();
+    }
+
+    /** Discards any partial input and restores the initial state. */
+    public void reset() {
+
+        this.state[0] = 0x67452301;
+        this.state[1] = 0xefcdab89;
+        this.state[2] = 0x98badcfe;
+        this.state[3] = 0x10325476;
+        this.buffered = 0;
+        this.total = 0;
+    }
+
+    /** Appends one byte, the low eight bits of the argument. */
+    public void update(int value) {
+
+        this.block[this.buffered] = (byte) value;
+        this.buffered++;
+        this.total++;
+        if (this.buffered == 64) compress();
+    }
+
+    /**
+     * Appends {@code count} bytes of {@code data} starting at {@code offset}.
+     *
+     * @throws NullPointerException if data is null
+     * @throws IndexOutOfBoundsException if the range is outside data
+     */
+    public void update(byte[] data, int offset, int count) {
+
+        if (data == null) throw new NullPointerException();
+        if (offset < 0 || count < 0 || count > data.length - offset) throw new IndexOutOfBoundsException();
+        for (int index = 0; index < count; index++) update(data[offset + index]);
+    }
+
+    /**
+     * Appends the UTF-8 encoding of the text, as Java's
+     * {@code getBytes(StandardCharsets.UTF_8)} produces it: a surrogate pair
+     * becomes four bytes and an unpaired surrogate becomes {@code '?'}.
+     *
+     * @throws NullPointerException if text is null
+     */
+    public void updateUtf8(String text) {
+
+        if (text == null) throw new NullPointerException();
+        int length = text.length();
+        int index = 0;
+        while (index < length) {
+            char unit = text.charAt(index);
+            index++;
+            if (unit < 0x80) {
+                update(unit);
+            } else if (unit < 0x800) {
+                update(0xC0 | (unit >> 6));
+                update(0x80 | (unit & 0x3F));
+            } else if (unit >= 0xD800 && unit <= 0xDBFF && index < length
+                    && text.charAt(index) >= 0xDC00 && text.charAt(index) <= 0xDFFF) {
+                int point = 0x10000 + ((unit - 0xD800) << 10) + (text.charAt(index) - 0xDC00);
+                index++;
+                update(0xF0 | (point >> 18));
+                update(0x80 | ((point >> 12) & 0x3F));
+                update(0x80 | ((point >> 6) & 0x3F));
+                update(0x80 | (point & 0x3F));
+            } else if (unit >= 0xD800 && unit <= 0xDFFF) {
+                update('?');
+            } else {
+                update(0xE0 | (unit >> 12));
+                update(0x80 | ((unit >> 6) & 0x3F));
+                update(0x80 | (unit & 0x3F));
+            }
+        }
+    }
+
+    /**
+     * Finishes the digest into {@code result[offset..offset + 16)}, then resets.
+     *
+     * @throws NullPointerException if result is null
+     * @throws IndexOutOfBoundsException if fewer than 16 bytes remain at offset
+     */
+    public void digest(byte[] result, int offset) {
+
+        if (result == null) throw new NullPointerException();
+        if (offset < 0 || result.length - offset < 16) throw new IndexOutOfBoundsException();
+        finish();
+        for (int word = 0; word < 4; word++) {
+            int value = this.state[word];
+            result[offset + word * 4] = (byte) value;
+            result[offset + word * 4 + 1] = (byte) (value >>> 8);
+            result[offset + word * 4 + 2] = (byte) (value >>> 16);
+            result[offset + word * 4 + 3] = (byte) (value >>> 24);
+        }
+        reset();
+    }
+
+    /** @return a fresh 16-byte digest, owned by the caller; the digest resets */
+    public byte[] digest() {
+
+        byte[] result = new byte[16];
+        digest(result, 0);
+        return result;
+    }
+
+    /**
+     * The LLVM pseudo-probe GUID of a linkage name, as OptimizedTraceMetadata
+     * and LlvmEmitter compute it: the MD5 of the name's UTF-8 bytes, whose
+     * first eight bytes form a little-endian long. Any partial input is
+     * discarded first; nothing is allocated.
+     *
+     * @throws NullPointerException if the name is null
+     */
+    public long linkageGuid(String linkageName) {
+
+        reset();
+        updateUtf8(linkageName);
+        finish();
+        long guid = (this.state[0] & 0xFFFFFFFFL) | ((long) this.state[1] << 32);
+        reset();
+        return guid;
+    }
+
+    // Pads with 0x80, zeros and the 64-bit little-endian bit length.
+    private void finish() {
+
+        long bits = this.total * 8;
+        update(0x80);
+        while (this.buffered != 56) update(0);
+        for (int shift = 0; shift < 64; shift = shift + 8) update((int) (bits >>> shift));
+    }
+
+    private void compress() {
+
+        for (int word = 0; word < 16; word++) {
+            this.words[word] = this.block[word * 4] & 0xFF | (this.block[word * 4 + 1] & 0xFF) << 8
+                    | (this.block[word * 4 + 2] & 0xFF) << 16 | (this.block[word * 4 + 3] & 0xFF) << 24;
+        }
+        int a = this.state[0];
+        int b = this.state[1];
+        int c = this.state[2];
+        int d = this.state[3];
+        for (int step = 0; step < 64; step++) {
+            int round = step >> 4;
+            int mixed = 0;
+            int index = 0;
+            if (round == 0) {
+                mixed = (b & c) | (~b & d);
+                index = step;
+            } else if (round == 1) {
+                mixed = (d & b) | (~d & c);
+                index = (5 * step + 1) & 15;
+            } else if (round == 2) {
+                mixed = b ^ c ^ d;
+                index = (3 * step + 5) & 15;
+            } else {
+                mixed = c ^ (b | ~d);
+                index = (7 * step) & 15;
+            }
+            int sum = a + mixed + SINE[step] + this.words[index];
+            int distance = SHIFT[round * 4 + (step & 3)];
+            int next = b + ((sum << distance) | (sum >>> (32 - distance)));
+            a = d;
+            d = c;
+            c = b;
+            b = next;
+        }
+        this.state[0] = this.state[0] + a;
+        this.state[1] = this.state[1] + b;
+        this.state[2] = this.state[2] + c;
+        this.state[3] = this.state[3] + d;
+        this.buffered = 0;
+    }
+
+    destructor {
+
+        free this.block;
+        free this.words;
+        free this.state;
+    }
+}

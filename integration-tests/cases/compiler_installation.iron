@@ -1,0 +1,52 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// Explicit installation inputs against the Java baseline's own discovery
+// (docs/self-hosting/m3/backend-evidence/InstallationReference.java prints
+// RuntimeLibrary.discover and StandardLibrary.discover's source roots). The
+// argument is the compiler location a launcher passes, the Java jar or class
+// directory of the same scenario, or "-" for an unknown location; the test
+// runs both programs in each scenario's working directory and environment
+// (checkout, installed and bare layouts, valid, invalid, blank and relative
+// IRONWOOD_RUNTIME_HOME and IRONWOOD_STDLIB_HOME). Java's class path entry is
+// canonical, so the location passed here is too. Prints the runtime source
+// or Java's error, then every library source root. The roots' owner retires
+// them, so discovery leaves nothing allocated. Exit 42.
+import ironwood.compiler.port.Installation;
+import ironwood.compiler.port.LibraryRoots;
+import ironwood.nio.file.Path;
+
+class Main {
+
+    static void report(Path location) {
+
+        StringBuilder error = new StringBuilder();
+        defer free error;
+        Path runtime = Installation.runtimeSource(location, error);
+        if (runtime != null) {
+            System.out.println("runtime " + runtime.toString());
+            free runtime;
+        } else {
+            String message = error.toString();
+            System.out.println("error " + message);
+            free message;
+        }
+        LibraryRoots roots = new LibraryRoots();
+        defer free roots;
+        Installation.librarySourceRoots(location, roots);
+        System.out.println("roots " + roots.size());
+        for (int index = 0; index < roots.size(); index++) System.out.println("root " + roots.root(index).toString());
+    }
+
+    public static int main(String[] args) {
+
+        long live = System.liveAllocationCount();
+        if (args[0].equals("-")) {
+            report(null);
+        } else {
+            Path location = Path.of(args[0]);
+            report(location);
+            free location;
+        }
+        return System.liveAllocationCount() == live ? 42 : 1;
+    }
+}

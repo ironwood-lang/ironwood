@@ -115,3 +115,48 @@ wrong: adding a method that references `Comparator` renumbers closed-world
 type IDs, dispatch slots and string constants. The corrected check compares
 function sets and bodies with exactly those numberings normalized, and they
 are identical. Focused results are in [SORT.md](SORT.md).
+
+## M3.3 increment (D268, D269)
+
+**Second public library addition.** The emitter's static initializers spell
+`Double.doubleToRawLongBits`, whose NaN sign and payload reach the LLVM text
+(a negated NaN constant has the sign bit set on every host). The raw-bit
+intrinsic is private to `ironwood.lang.Double`, so the port cannot reach it,
+and `doubleToLongBits` collapses NaNs. `Double.doubleToRawLongBits(double)`
+is added as a wrapper over that intrinsic. Behavioral contract review:
+
+1. Java has the one `double` overload; every Java-valid call, including
+   widened `float`, integral and `char` arguments, widens identically in
+   Ironwood. A widened float NaN keeps the host conversion's payload in both
+   languages. The related `doubleToLongBits` and `longBitsToDouble` are
+   unchanged.
+2. No native-model constraint applies; the whole Java contract is provided.
+3. Nothing is reduced. `Float.floatToRawIntBits` is not added and stays a
+   visible compile-time absence.
+4. `numeric_helpers` checks signed zero, one, a signaling NaN payload and a
+   negative quiet NaN payload at `-O3`; the LLVM text fixture compares the
+   raw bits of 100,030 values, NaN payloads from seeded bits and widened
+   floats included, with Java.
+5. The implementation is original: one call of the existing intrinsic.
+
+No analysis, runtime or lowering changes. The `-O3` inspection is recorded in
+[BACKEND.md](BACKEND.md); the IronDocs test covers the new comment.
+
+**Findings that shaped the helpers.** A wrapping `ByteBuffer` makes its
+array escape, so SharedTraceOrder's object bytes could never be freed:
+`Bytes` reads little-endian values directly. A Properties parse that borrowed
+its text would retain it: `PropertiesText` owns a copy. A list of discovered
+Paths handed to an analyzed method would expose them, and a failed append
+would leak the candidate: `LibraryRoots` is a D163 creation-array owner that
+reserves a slot before creating a Path and records a fresh copy no call has
+seen, as that proof requires. Java's class path entry is canonical, so the
+launcher passes a canonical location.
+
+**Verification selection.** The eleven M3.3 tests (MD5, binary helpers, LLVM
+text, LLVM scans, Properties, header scan, installation, build identity,
+ownership, failure and the runtime-object evidence); `numeric standard-library
+helpers run at O3` and the IronDocs test for the public addition; the
+reference-bound audit over every port source; the four SelectiveInlining
+tests and the native target, shared trace order and version tests as
+unchanged Java consumers; the M3.3 classification; `git diff --check` and
+`./scripts/check-licenses.sh`.

@@ -1,0 +1,69 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// The sysroot features.h check of TlsDependency and BridgeNativeSupport
+// against Java 21 String.matches with their two DOTALL patterns
+// (docs/self-hosting/m3/backend-evidence/HeaderScanReference.java): fixed
+// glibc headers and near misses, then 4,000 seeded texts over the tokens the
+// patterns distinguish (the \s set, U+00A0 and U+2028 outside it, prefixes
+// and other values). Ironwood string literals have no \u escape, so both
+// sides spell vertical tab, form feed, U+2028 and U+00A0 as ~, |, ^ and `
+// and replace them before scanning. The scan allocates nothing. Prints the
+// shared transcript; exit 42.
+import ironwood.compiler.port.HeaderScan;
+
+class Main {
+
+    static long seed = 244948L;
+    static String[] tokens = {"#define", "#define ", " ", "\t", "\n", "\r", "~", "|", "__GLIBC__",
+        "__GLIBC_MINOR__", "2", "17", "27", "x", "#", "define", "__GLIBC_", "_", "^", "`", "#define\t__GLIBC__ 2",
+        "#define __GLIBC_MINOR__~17"};
+    static String[] fixed = {"#define __GLIBC__ 2\n#define __GLIBC_MINOR__ 17\n",
+        "#define\t__GLIBC__\t2\t\n#define\t__GLIBC_MINOR__\t17\t",
+        "#define __GLIBC__ 2", "#define __GLIBC__ 27\n", "#define  __GLIBC__\n\n2\r", "#  define __GLIBC__ 2\n",
+        "#define __GLIBC__ 2`", "#define__GLIBC__ 2 ", "#define __GLIBC_MINOR__ 17 #define __GLIBC__ 2 ",
+        "", "#define __GLIBC_MINOR__ 170\n", "x#define|__GLIBC_MINOR__~17\r", "#define __GLIBC__^2 "};
+
+    static int next() {
+
+        seed = seed * 6364136223846793005L + 1442695040888963407L;
+        return (int) (seed >>> 33);
+    }
+
+    // The text with its placeholders replaced.
+    static String spelled(String text) {
+
+        String vertical = text.replace('~', '\u000b');
+        String feed = vertical.replace('|', '\f');
+        free vertical;
+        String separator = feed.replace('^', '\u2028');
+        free feed;
+        String result = separator.replace('`', '\u00a0');
+        free separator;
+        return result;
+    }
+
+    static void line(String label, String placeholders) {
+
+        String text = spelled(placeholders);
+        System.out.println(label + " " + HeaderScan.defines(text, "__GLIBC__", "2") + " "
+                + HeaderScan.defines(text, "__GLIBC_MINOR__", "17"));
+        free text;
+    }
+
+    public static int main(String[] args) {
+
+        for (int index = 0; index < fixed.length; index++) line("fixed " + index, fixed[index]);
+        for (int index = 0; index < 4000; index++) {
+            StringBuilder text = new StringBuilder();
+            int count = next() % 30;
+            for (int token = 0; token < count; token++) text.append(tokens[next() % tokens.length]);
+            String built = text.toString();
+            free text;
+            line("seeded " + index, built);
+            free built;
+        }
+        long before = System.allocationCount();
+        boolean found = HeaderScan.defines(fixed[0], "__GLIBC__", "2") && HeaderScan.defines(fixed[1], "__GLIBC_MINOR__", "17");
+        return found && System.allocationCount() == before ? 42 : 1;
+    }
+}
