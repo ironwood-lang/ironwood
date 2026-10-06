@@ -10529,3 +10529,53 @@ occurrence order. If no
   archive links, and names a failing stage with the tool's output without
   leaving output or staging; every allocation failure of the adapters
   unwinds without leftovers. See [the M4.3 record](self-hosting/m4/PROCESS.md).
+
+## D274 - Provide the public CRC32 slice of compression and checksums
+
+- **Status:** Implemented during M5.1 on 2026-10-06.
+- **Decision:** `ironwood.util.zip.CRC32` is the first public slice of
+  STDLIB_ROADMAP item 5, ahead of its ZIP and GZIP APIs, which it neither
+  implements nor cancels. B5's archive services and the compiler port consume
+  it; MD5 and SHA-256 stay compiler-private (D267, D268).
+  - **Surface.** `CRC32()`, `reset()`, `update(int)`, `update(byte[])`,
+    `update(byte[], int, int)` and `getValue()`, with Java 21's behavior for
+    every admitted call: a new or reset value is 0; the integer update uses the
+    argument's low eight bits, including widened byte, short, char and
+    negative values; `getValue()` is the unsigned 32-bit value in a `long` and
+    does not disturb further updates. A null array throws
+    NullPointerException, and a negative offset or length, or a range past
+    the end, throws ArrayIndexOutOfBoundsException with Java's
+    `Range [off, off + len) out of bounds for length n` text before any byte
+    is consumed.
+  - **Dispatch.** The class is not final, as Java's is not. `update(byte[])`
+    is declared on the class instead of inherited from `Checksum`, and calls
+    `update(b, 0, b.length)` dynamically as Java's default method does, so a
+    subclass overriding the range update observes whole-array updates; the
+    range update never calls `update(int)`.
+  - **Omissions.** The `Checksum` interface and `update(ByteBuffer)` are
+    absent, so a Java call using either fails to compile rather than failing
+    at run time.
+  - **Implementation.** Original code from the CRC-32/ISO-HDLC definition
+    (reflected polynomial `0xEDB88320`, initial and final value
+    `0xFFFFFFFF`), processing eight bytes per step with eight 256-entry tables
+    built at class initialization. The tables are one process-lived
+    allocation on first use; updates, reads and resets allocate nothing and
+    borrow their array for the call. One length test before the loop lets the
+    optimizer drop every table bounds check, and reading each group's last
+    byte first leaves one array bounds check per eight bytes at `-O3`. No
+    hardware CRC instruction is used.
+- **Proof:** No analysis, runtime or lowering change. The ordinary analysis
+  accepts freeing an array after an update, also in a program that has a
+  retaining subclass, and rejects freeing it after an update through a
+  retaining override, reached directly, through whole-array delegation or
+  through a CRC32 reference.
+- **Boundary:** A null whole-array argument reports a NullPointerException
+  without Java's helpful-message text. Supersedes no decision.
+- **Verification:** A 675-line transcript equals Java 21's from class and
+  archive links: the check value, every length 0-300 and byte value, widened
+  and negative integers, 81 offset and length pairs, every two-piece split,
+  repeated reads, reset, 64 MiB streamed through one buffer, null and range
+  failures with Java's types and text, and the dispatch of three subclasses.
+  The ownership pairs hold in every unfreed mode, omitted members fail to
+  compile, updates allocate nothing, and every allocation failure unwinds.
+  See [the M5.1 record](self-hosting/m5/CRC32.md).

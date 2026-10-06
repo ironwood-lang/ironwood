@@ -853,7 +853,12 @@ These matter, but they should not delay the first file-capable release:
    handle-ownership review.
 5. **Compression and checksums:** CRC and ZIP/GZIP APIs after streaming I/O;
    they are useful for tooling and distribution but are not prerequisites for
-   basic file utilities.
+   basic file utilities. Partial: the CRC32 slice is implemented for
+   self-hosting (M5.1, D274): `ironwood.util.zip.CRC32` with Java 21's
+   constructor, reset, byte, array and range updates and `getValue()`. The
+   `Checksum` interface, `update(ByteBuffer)`, Adler-32, CRC-32C and every
+   public ZIP, GZIP, Deflater and Inflater API remain open; the compiler's
+   private archive services (M5.2, M5.3) do not implement them.
 6. **Networking, pending for the near future:** sockets, DNS, HTTP, and
    single-threaded event-loop integration, built on streaming, deterministic
    resources, error mapping, and cross-platform validation. **Accepted

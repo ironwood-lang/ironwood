@@ -1,0 +1,8 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+/**
+ * Checksums for compressed formats. This first slice provides only {@link CRC32}; the
+ * {@code Checksum} interface, buffer updates and the ZIP and GZIP stream APIs are not yet
+ * part of the library.
+ */
+package ironwood.util.zip;

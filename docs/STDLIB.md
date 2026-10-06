@@ -1,13 +1,14 @@
 # Ironwood standard library
 
-Ironwood currently ships a bundled, Java-shaped standard library from 252
-source files. IronDocs covers 169 public and protected types across 15 packages:
+Ironwood currently ships a bundled, Java-shaped standard library from 254
+source files. IronDocs covers 170 public and protected types across 16 packages:
 
 | Package | Documented types | Purpose |
 | --- | ---: | --- |
 | `ironwood.lang` | 38 | Object model, text, iteration, resource cleanup, numeric helpers, system services, and exceptions |
 | `ironwood.io` | 32 | Synchronous byte and character streams, standard input/output/error, and checked I/O failures |
 | `ironwood.util` | 10 | Iteration, object and array helpers, comparators, randomness, optionals, joins, and bit sets |
+| `ironwood.util.zip` | 1 | CRC-32 checksums |
 | `ironwood.net` | 26 | Blocking sockets, addresses, host interfaces and explicit proxies |
 | `ironwood.net.tls` | 1 | Verified TLS clients with optional static dependency |
 | `ironwood.time` | 2 | Immutable epoch timestamps and date/time failures |
@@ -520,6 +521,32 @@ There is no `forEachRemaining` default or spliterator surface. Enhanced `for`
 and explicit iteration borrow the reusable iterator returned by current
 collections rather than allocating one iterator per traversal; see the
 collection rules below and [Owned Helper Borrows](OWNED_HELPER_BORROWS.md).
+
+## `ironwood.util.zip`
+
+`CRC32` computes the checksum that ZIP entries and GZIP members record for
+their uncompressed bytes, with Java 21's `java.util.zip.CRC32` behavior for
+every call its surface admits (see
+[D274](DECISIONS.md#d274---provide-the-public-crc32-slice-of-compression-and-checksums)):
+
+- `CRC32()`, `reset()`, `update(int)`, `update(byte[])`,
+  `update(byte[], int, int)` and `getValue()`. A new or reset checksum is 0;
+  `update(int)` adds the argument's low eight bits, so widened bytes, chars,
+  shorts and negative ints behave as in Java; `getValue()` returns the
+  unsigned 32-bit value and leaves the checksum ready for further updates.
+- A null array throws NullPointerException; a negative offset or length, or a
+  range past the end, throws ArrayIndexOutOfBoundsException with Java's range
+  text before any byte is added.
+- The class is not final. `update(byte[])` delegates to the dynamically
+  selected range update, as Java's `Checksum` default does, so an override of
+  the range update also sees whole-array updates.
+- Updates, reads and resets allocate nothing and borrow the array only for the
+  call, so a caller may free it afterwards. An override that retains the array
+  makes that free a compile-time error. The first use allocates the
+  process-lived tables once.
+
+The `Checksum` interface, `update(ByteBuffer)` and the ZIP and GZIP stream APIs
+are not provided; calls to them fail to compile.
 
 ## `ironwood.nio`
 

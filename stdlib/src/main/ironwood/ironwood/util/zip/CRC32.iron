@@ -1,0 +1,133 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.util.zip;
+
+/**
+ * Computes the CRC-32 checksum of a byte stream: the checksum that ZIP entries and GZIP
+ * members record for their uncompressed bytes (reflected polynomial {@code 0xEDB88320},
+ * initial and final value {@code 0xFFFFFFFF}).
+ *
+ * <p>A new or reset checksum has the value 0. Updates consume bytes in order, so updating
+ * with a range in several pieces gives the same value as one update with the whole range.
+ * {@link #getValue()} only reads the current value; further updates continue from it.
+ * Updates allocate nothing and borrow their array only for the duration of the call.
+ *
+ * <p>This first slice of the Java {@code java.util.zip.CRC32} API omits the
+ * {@code Checksum} interface and the {@code ByteBuffer} update. The class is not final:
+ * as in Java, {@link #update(byte[])} delegates to the dynamically selected
+ * {@link #update(byte[], int, int)}, so a subclass that overrides the range update also
+ * observes whole-array updates.
+ */
+public class CRC32 {
+
+    // Eight 256-entry tables for slice-by-8 updates; table k maps a byte to its
+    // contribution k bytes before the end of an 8-byte group. Built once per process.
+    private static final int[] TABLES = tables();
+
+    private int crc;
+
+    /** Creates a checksum whose value is 0. */
+    public CRC32() {
+
+    }
+
+    /** Resets the checksum to its initial value, 0. */
+    public void reset() {
+
+        this.crc = 0;
+    }
+
+    /**
+     * Updates the checksum with one byte: the low eight bits of {@code b}. Higher bits,
+     * including the sign of a widened negative value, are ignored.
+     *
+     * @param b the byte to add, in the low eight bits
+     */
+    public void update(int b) {
+
+        int value = ~this.crc;
+        value = TABLES[(value ^ b) & 0xFF] ^ (value >>> 8);
+        this.crc = ~value;
+    }
+
+    /**
+     * Updates the checksum with {@code len} bytes of {@code b} starting at {@code off}.
+     *
+     * @param b the bytes to add; borrowed for the call
+     * @param off the first byte to add
+     * @param len the number of bytes to add
+     * @throws NullPointerException if {@code b} is null
+     * @throws ArrayIndexOutOfBoundsException if {@code off} or {@code len} is negative or
+     *     {@code off + len} is greater than {@code b.length}
+     */
+    public void update(byte[] b, int off, int len) {
+
+        if (b == null) throw new NullPointerException();
+        if (off < 0 || len < 0 || off > b.length - len) {
+            throw new ArrayIndexOutOfBoundsException("Range [" + off + ", " + off + " + " + len
+                    + ") out of bounds for length " + b.length);
+        }
+        int[] tables = TABLES;
+        // Never true. The known length lets the optimizer drop every table bounds check.
+        if (tables.length != 2048) throw new IllegalStateException();
+        int value = ~this.crc;
+        int index = off;
+        int end = off + len;
+        while (end - index >= 8) {
+            // Reading the group's last byte first leaves one bounds check per group.
+            int last = b[index + 7] & 0xFF;
+            int low = value ^ ((b[index] & 0xFF) | (b[index + 1] & 0xFF) << 8
+                    | (b[index + 2] & 0xFF) << 16 | (b[index + 3] & 0xFF) << 24);
+            value = tables[1792 + (low & 0xFF)] ^ tables[1536 + ((low >>> 8) & 0xFF)]
+                    ^ tables[1280 + ((low >>> 16) & 0xFF)] ^ tables[1024 + (low >>> 24)]
+                    ^ tables[768 + (b[index + 4] & 0xFF)] ^ tables[512 + (b[index + 5] & 0xFF)]
+                    ^ tables[256 + (b[index + 6] & 0xFF)] ^ tables[last];
+            index = index + 8;
+        }
+        while (index < end) {
+            value = tables[(value ^ b[index]) & 0xFF] ^ (value >>> 8);
+            index++;
+        }
+        this.crc = ~value;
+    }
+
+    /**
+     * Updates the checksum with every byte of {@code b}, as
+     * {@code update(b, 0, b.length)} does.
+     *
+     * @param b the bytes to add; borrowed for the call
+     * @throws NullPointerException if {@code b} is null
+     */
+    public void update(byte[] b) {
+
+        if (b == null) throw new NullPointerException();
+        update(b, 0, b.length);
+    }
+
+    /**
+     * Returns the checksum of the bytes added since creation or the last reset.
+     *
+     * @return the unsigned 32-bit checksum, from 0 to {@code 0xFFFFFFFF}
+     */
+    public long getValue() {
+
+        return this.crc & 0xFFFFFFFFL;
+    }
+
+    private static int[] tables() {
+
+        int[] tables = new int[2048];
+        for (int value = 0; value < 256; value++) {
+            int remainder = value;
+            for (int bit = 0; bit < 8; bit++) {
+                remainder = (remainder & 1) != 0 ? (remainder >>> 1) ^ 0xEDB88320 : remainder >>> 1;
+            }
+            tables[value] = remainder;
+        }
+        for (int index = 256; index < 2048; index++) {
+            int previous = tables[index - 256];
+            tables[index] = (previous >>> 8) ^ tables[previous & 0xFF];
+        }
+        return tables;
+    }
+}

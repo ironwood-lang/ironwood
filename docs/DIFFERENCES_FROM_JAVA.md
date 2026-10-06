@@ -186,6 +186,16 @@ copies and treats a target that is already the same file as existing, where
 Java's default move copies across file systems and treats the same file as a
 no-op. See D271.
 
+## Checksums
+
+`ironwood.util.zip` provides only `CRC32`. Its constructor, `reset`, the byte,
+whole-array and range updates and `getValue` behave as Java 21's, including
+widened arguments, range failures and subclass dispatch of the whole-array
+update. The `Checksum` interface and `update(ByteBuffer)` are absent, so code
+naming them fails to compile; a null whole-array argument throws
+NullPointerException without the JVM's helpful-message text. Java's ZIP, GZIP,
+Deflater and Inflater APIs are absent. See D274.
+
 ## Process launching
 
 Java's `ProcessBuilder` and `Process` are absent. `ProcessRunner.runToFile`

@@ -918,6 +918,10 @@ public final class CompilerTests {
         test("M4.3 native LLVM pipeline reports failing stages and leaves nothing behind",
                 DriverAdapterTests::pipelineFailures);
         test("M4.3 driver adapters unwind every allocation failure without leftovers", DriverAdapterTests::failures);
+        test("M5.1 CRC32 matches Java 21 across artifacts", Crc32Tests::javaDifferential);
+        test("M5.1 CRC32 borrows its arrays and rejects retaining overrides", Crc32Tests::ownership);
+        test("M5.1 CRC32 omits the Checksum interface and buffer updates", Crc32Tests::omissions);
+        test("M5.1 CRC32 unwinds every allocation failure", Crc32Tests::failures);
         test("compiler work queue keeps queued items alive and its ring private", WorkQueueTests::ownership);
         test("compiler worklists preserve FIFO and retain-filter order across artifacts and failures",
                 WorkQueueTests::artifacts);
