@@ -241,13 +241,14 @@ paths, omitted and incomplete source evidence, and the identity boundary for
 an allocation absent on one predecessor. Loop and cleanup routes remain
 separate M3 selections.
 
-For ownership analysis after earlier errors (D278), run:
+For ownership analysis after earlier errors (D278, D279), run:
 
 ```sh
 ./scripts/test.sh --test 'safe free distinguishes earlier errors from refined dispatch'
 ./scripts/test.sh --test 'ownership diagnostics are independent of unrelated declaration errors'
 ./scripts/test.sh --test 'genuine ownership errors are reported beside earlier errors'
-./scripts/test.sh --test 'declaration errors used around frees leave only known cascades'
+./scripts/test.sh --test 'declaration errors used around frees report only their own errors'
+./scripts/test.sh --test 'missing implementations add no ownership diagnostics of their own'
 ./scripts/test.sh --test 'unconverged ownership analysis reports no ownership verdicts'
 ./scripts/test.sh --test 'command line reports only the declaration error after earlier errors'
 ./scripts/test.sh --test 'link without an entry point reports only its own error'
@@ -258,17 +259,22 @@ non-retaining override stays accepted, that a retaining implementation is
 rejected identically with or without the error, that a body error keeps refined
 dispatch, and that unresolved single-type and static imports are their only
 diagnostic in every unfreed mode. The second compiles a program with genuine
-and safe frees and missing-free findings alone and beside eight kinds of
+and safe frees and missing-free findings alone and beside nine kinds of
 unrelated declaration error, in `off` and `error` modes, and requires identical
 diagnostics for the program and none outside the erroneous file. The third
 removes the directive from the retaining override itself and compares every
 verdict and note with the corrected program. The fourth uses 13 kinds of broken
-declaration around a `free`, each with a corrected twin that compiles cleanly;
-only a missing implementation leaves its known dispatch cascade. The fifth
-forces non-convergence: no ownership verdict is reported, a body error still is,
-and the non-convergence error appears only without earlier errors. The last two
-run the command-line path, which also checks bundled sources for missing frees,
-for a declaration error and for a link whose main class lacks `main`.
+declaration around a `free`, each with a corrected twin that compiles cleanly,
+and requires only the declaration errors. The fifth covers D279's placeholders:
+frees around calls that reach a missing implementation, also two calls away, a
+genuine error in the same body, a leak reported only once the implementation
+exists, a retaining sibling implementation, freed, deferred, wrapped, published
+and discarded results, generic, anonymous and primitive-returning requirements,
+and destructor checks equal to the corrected program's. The sixth forces
+non-convergence: no ownership verdict is reported, a body error still is, and
+the non-convergence error appears only without earlier errors. The last two run
+the command-line path, which also checks bundled sources for missing frees, for
+a declaration error and for a link whose main class lacks `main`.
 
 For the diagnostic baseline of duplicated cleanup, run:
 

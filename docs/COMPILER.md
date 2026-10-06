@@ -2309,6 +2309,9 @@ findings use source spans and are collected only during final semantic lowering,
 after provisional call binding has refined escape and ownership summaries. Since
 D278 that refinement also runs after earlier errors; when it does not converge,
 final lowering still reports other errors but no ownership verdict or finding.
+Since D279 a reported missing implementation is completed by a placeholder that
+the closed-world effect analysis treats as possibly reclaiming its reference
+arguments, so no finding depends on how the method is eventually written.
 
 D184 adds immutable `DiagnosticNote` entries to the shared `Diagnostic` API.
 The existing constructors and primary accessors remain available, while full

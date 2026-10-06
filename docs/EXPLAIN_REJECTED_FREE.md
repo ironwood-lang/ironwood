@@ -499,9 +499,10 @@ limited-analysis note no longer exists. Verdicts for code that does not use an
 erroneous declaration equal those of the corrected program. A failing
 compilation's ownership diagnostics are not exhaustive: verdicts that depend on
 an erroneous declaration or on an unconverged analysis appear once the errors are
-fixed, and a polymorphic call whose candidate class lacks the called
-implementation can still leave rejections next to that error. Milestone history
-below that mentions skipped refinement describes the behavior before D278.
+fixed. D279 completes a reported missing implementation with a permissive
+placeholder, so calls that reach it add no rejection of their own. Milestone
+history below that mentions skipped refinement describes the behavior before
+D278.
 
 ### 3.4 Rejection-site inventory and scope
 

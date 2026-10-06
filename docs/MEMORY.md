@@ -260,8 +260,11 @@ non-convergence error itself appears only when there is no earlier error. A
 failing compilation's ownership diagnostics are therefore not exhaustive:
 verdicts that depend on an erroneous declaration or on an unconverged analysis
 appear once the errors are fixed, and no program is built from unconverged facts.
-A polymorphic call whose candidate class lacks the called implementation still
-leaves its target unknown, so frees around it can be rejected next to that error.
+A reported missing implementation is completed by a compiler placeholder (D279)
+that retains, allocates and throws nothing and whose reference result counts as
+a fresh allocation the caller may free; it may also reclaim its arguments and
+return null, which only suppresses missing-free findings that would depend on
+the eventual implementation. Rejections that remain hold for every correction.
 Bounded incoming-path alternatives, deferred actions, cleanup exits, and loop
 back edges have their own supported notes. The late owned-element validator
 locates the selected failed load, store, copy, call, or exit when its source is

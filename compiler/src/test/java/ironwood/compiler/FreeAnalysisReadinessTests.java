@@ -272,22 +272,16 @@ final class FreeAnalysisReadinessTests {
     }
 
     static void declarationErrorsUsedAroundFrees() {
-        String polymorphicArgument = "cannot free 'd': cannot prove argument 1 of polymorphic "
-                + "method 'run' does not escape";
         String[][] families = {
                 {"interface Runner { void run(byte[] d); }\nclass Impl implements Runner { }\n",
                         "interface Runner { void run(byte[] d); }\n"
                                 + "class Impl implements Runner { @Override public void run(byte[] d) { } }\n",
                         "Runner r = new Impl(); byte[] d = new byte[4]; r.run(d); free d; free r;",
-                        "class 'Impl' does not implement interface method 'run(byte[])'",
-                        polymorphicArgument,
-                        "cannot free 'r': cannot prove receiver of polymorphic method 'run' does not escape"},
+                        "class 'Impl' does not implement interface method 'run(byte[])'"},
                 {"class C { abstract void run(byte[] d); }\n", "class C { void run(byte[] d) { } }\n",
                         "C c = new C(); byte[] d = new byte[4]; c.run(d); free d; free c;",
                         "abstract method 'run' may only be declared in an abstract class",
-                        "concrete class 'C' does not implement abstract method 'run(byte[])' inherited from 'C'",
-                        polymorphicArgument,
-                        "cannot free 'c': cannot prove receiver of polymorphic method 'run' does not escape"},
+                        "concrete class 'C' does not implement abstract method 'run(byte[])' inherited from 'C'"},
                 {"class Util { static void m(MissingType x, byte[] d) { } }\n",
                         "class Util { static void m(Object x, byte[] d) { } }\n",
                         "byte[] d = new byte[4]; Util.m(null, d); free d;",
@@ -351,14 +345,200 @@ final class FreeAnalysisReadinessTests {
             CompilationArtifact fixed = analyze(family[1] + main);
             require(fixed.valid() && fixed.diagnostics().isEmpty(),
                     "fixed declaration was rejected: " + fixed.diagnostics());
-            // Only the declaration errors remain, except where a missing
-            // implementation leaves the dispatch target unknown: the frees
-            // around that call stay conservatively rejected next to it.
+            // Only the declaration errors remain.
             CompilationArtifact broken = analyze(family[0] + main);
             rejected(broken);
             require(messages(broken).equals(List.of(family).subList(3, family.length)),
                     "declaration error cascaded: " + broken.diagnostics());
         }
+    }
+
+    static void missingImplementationPlaceholders() {
+        String runner = "interface Runner { void run(byte[] d); }\n";
+        String missing = runner + "class Impl implements Runner { }\n";
+        String fixed = runner + "class Impl implements Runner { @Override public void run(byte[] d) { } }\n";
+        String runError = "class 'Impl' does not implement interface method 'run(byte[])'";
+        // The placeholder retains nothing, so frees around a call that reaches
+        // it, also through other methods, are proved; a genuine error in the
+        // same body is still reported.
+        expect(missing + """
+                class Helper {
+                    static void pass(Runner r, byte[] d) { r.run(d); }
+                    static void passTwice(Runner r, byte[] d) { pass(r, d); }
+                }
+                class Main {
+                    static byte[] kept;
+                    static void interprocedural(Runner r) {
+                        byte[] d = new byte[4];
+                        Helper.passTwice(r, d);
+                        free d;
+                    }
+                    static void unrelatedInSameBody(Runner r) {
+                        byte[] d = new byte[4];
+                        r.run(d);
+                        byte[] e = new byte[4];
+                        kept = e;
+                        free e;
+                    }
+                    public static int main(String[] args) {
+                        Runner r = new Impl();
+                        interprocedural(r);
+                        unrelatedInSameBody(r);
+                        free r;
+                        return 0;
+                    }
+                }
+                """, runError, "cannot free 'e': allocation escapes through static field 'Main.kept'");
+        // A leak is reported once the implementation exists, but not while
+        // the missing one might still retain the argument.
+        String leak = """
+                class Main {
+                    static void pass(Runner r) {
+                        byte[] d = new byte[4];
+                        r.run(d);
+                    }
+                    public static int main(String[] args) {
+                        Runner r = new Impl();
+                        pass(r);
+                        free r;
+                        return 0;
+                    }
+                }
+                """;
+        expect(missing + leak, runError);
+        expect(fixed + leak, "allocation assigned to 'd' leaves scope without being freed");
+        // A real retaining implementation beside the missing one still rejects.
+        expect(runner + """
+                class Keeper implements Runner { static byte[] kept; @Override public void run(byte[] d) { kept = d; } }
+                class Impl implements Runner { }
+                class Main {
+                    static void use(Runner r) {
+                        byte[] d = new byte[4];
+                        r.run(d);
+                        free d;
+                    }
+                    public static int main(String[] args) {
+                        Runner a = new Keeper();
+                        Runner b = new Impl();
+                        use(a);
+                        use(b);
+                        free a;
+                        free b;
+                        return 0;
+                    }
+                }
+                """, runError, "cannot free 'd': allocation escapes through argument 1 of method 'run'");
+        // A result counts as a fresh allocation the caller owns, directly or
+        // through another method, but never as an abandoned one. Publishing it
+        // is still rejected, as it would be for every implementation.
+        String factory = "interface Factory { byte[] make(); }\nclass Impl implements Factory { }\n";
+        String makeError = "class 'Impl' does not implement interface method 'make()'";
+        expect(factory + """
+                class Main {
+                    static byte[] kept;
+                    static byte[] build(Factory f) { return f.make(); }
+                    static void drop(Factory f) { f.make(); byte[] unused = f.make(); unused[0] = 1; }
+                    public static int main(String[] args) {
+                        Factory f = new Impl();
+                        byte[] direct = f.make();
+                        free direct;
+                        byte[] wrapped = build(f);
+                        free wrapped;
+                        byte[] deferred = f.make();
+                        defer free deferred;
+                        byte[] published = f.make();
+                        kept = published;
+                        free published;
+                        drop(f);
+                        free f;
+                        return 0;
+                    }
+                }
+                """, makeError, "cannot free 'published': allocation escapes through static field 'Main.kept'");
+        expect("""
+                interface Factory { byte[] make(byte[] seed); }
+                class First implements Factory { }
+                class Second implements Factory { }
+                class Main {
+                    static void use(Factory f) {
+                        byte[] seed = new byte[4];
+                        byte[] d = f.make(seed);
+                        free d;
+                        free seed;
+                    }
+                    public static int main(String[] args) {
+                        Factory a = new First();
+                        Factory b = new Second();
+                        use(a);
+                        use(b);
+                        free a;
+                        free b;
+                        return 0;
+                    }
+                }
+                """, "class 'First' does not implement interface method 'make(byte[])'",
+                "class 'Second' does not implement interface method 'make(byte[])'");
+        // Generic, anonymous, and primitive-returning requirements.
+        expect("""
+                interface Sink<T> { void put(T value); }
+                class Impl implements Sink<byte[]> { }
+                interface Mirror { <T> T reflect(T value); }
+                class Glass implements Mirror { }
+                interface Counter { long count(byte[] d); char letter(); boolean ok(); }
+                class Tally implements Counter { }
+                class Main {
+                    public static int main(String[] args) {
+                        Sink<byte[]> sink = new Impl();
+                        Mirror mirror = new Glass();
+                        Counter counter = new Tally();
+                        Runnable task = new Runnable() { };
+                        byte[] d = new byte[4];
+                        sink.put(d);
+                        mirror.reflect(d);
+                        long n = counter.count(d);
+                        task.run();
+                        free d;
+                        free sink;
+                        free mirror;
+                        free counter;
+                        free task;
+                        return (int) n;
+                    }
+                }
+                """, "class 'Impl' does not implement interface method 'put(byte[])'",
+                "class 'Glass' does not implement interface method 'reflect(T)'",
+                "class 'Tally' does not implement interface method 'count(byte[])'",
+                "class 'Tally' does not implement interface method 'letter()'",
+                "class 'Tally' does not implement interface method 'ok()'",
+                "class 'Main$1' does not implement interface method 'run()'");
+        // Destructor checks keep exactly the verdicts of the corrected program.
+        String holder = """
+                class Holder {
+                    private Runner runner;
+                    Holder(Runner runner) { this.runner = runner; }
+                    destructor { runner.run(null); }
+                }
+                class Main {
+                    public static int main(String[] args) {
+                        Runner r = new Impl();
+                        Holder h = new Holder(r);
+                        free h;
+                        free r;
+                        return 0;
+                    }
+                }
+                """;
+        List<String> corrected = messages(analyze(UnfreedMode.ERROR, false, fixed + holder));
+        require(!corrected.isEmpty(), "destructor fixture lost its genuine verdicts");
+        List<String> expected = new java.util.ArrayList<>(List.of(runError));
+        expected.addAll(corrected);
+        expect(missing + holder, expected.toArray(String[]::new));
+    }
+
+    private static void expect(String source, String... messages) {
+        CompilationArtifact artifact = analyze(UnfreedMode.ERROR, false, source);
+        require(!artifact.valid() && messages(artifact).equals(List.of(messages)),
+                "unexpected diagnostics: " + artifact.diagnostics());
     }
 
     static void unconvergedAnalysis() {
@@ -464,6 +644,8 @@ final class FreeAnalysisReadinessTests {
         files.put("incompatible override", "class BrokenGetter { Object get() { return null; } }\n"
                 + "class BrokenNarrow extends BrokenGetter { @Override long get() { return 0; } }\n");
         files.put("unknown bound", "class BrokenBound<T extends MissingBound> { }\n");
+        files.put("missing implementation", "interface BrokenRunner { void run(byte[] d); }\n"
+                + "class BrokenImpl implements BrokenRunner { }\n");
         return files;
     }
 

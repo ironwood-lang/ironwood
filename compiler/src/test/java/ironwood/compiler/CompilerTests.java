@@ -651,8 +651,10 @@ public final class CompilerTests {
                 FreeAnalysisReadinessTests::unrelatedDeclarationErrors);
         test("genuine ownership errors are reported beside earlier errors",
                 FreeAnalysisReadinessTests::genuineErrorsBesideEarlierErrors);
-        test("declaration errors used around frees leave only known cascades",
+        test("declaration errors used around frees report only their own errors",
                 FreeAnalysisReadinessTests::declarationErrorsUsedAroundFrees);
+        test("missing implementations add no ownership diagnostics of their own",
+                FreeAnalysisReadinessTests::missingImplementationPlaceholders);
         test("unconverged ownership analysis reports no ownership verdicts",
                 FreeAnalysisReadinessTests::unconvergedAnalysis);
         test("command line reports only the declaration error after earlier errors",

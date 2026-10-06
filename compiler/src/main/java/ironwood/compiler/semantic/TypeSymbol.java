@@ -53,6 +53,7 @@ final class TypeSymbol {
     private final Map<String, FieldSymbol> declaredFields = new LinkedHashMap<>();
     private final Map<String, CallableSymbol> declaredMethods = new LinkedHashMap<>();
     private final Map<String, List<CallableSymbol>> declaredMethodsByName = new LinkedHashMap<>();
+    private final Set<String> placeholderLinkages = new LinkedHashSet<>();
     private List<CallableSymbol> constructors = List.of();
     private Optional<CallableSymbol> destructor = Optional.empty();
     private Optional<String> constructorRollback = Optional.empty();
@@ -516,6 +517,26 @@ final class TypeSymbol {
 
     List<CallableSymbol> declaredMethodsNamed(String name) {
         return declaredMethodsByName.getOrDefault(name, List.of());
+    }
+
+    /** Marks a compiler placeholder that completes a reported missing implementation. */
+    void markPlaceholder(CallableSymbol method) {
+        placeholderLinkages.add(method.linkageName());
+    }
+
+    /** Also recognizes generic substitutions of a placeholder, which keep its linkage. */
+    boolean isPlaceholder(CallableSymbol method) {
+        return placeholderLinkages.contains(method.linkageName());
+    }
+
+    /** Substitutes a method in place, keeping its position among same-named overloads. */
+    void replaceMethod(CallableSymbol existing, CallableSymbol replacement) {
+        declaredMethods.remove(existing.overrideSignatureKey());
+        declaredMethods.put(replacement.overrideSignatureKey(), replacement);
+        List<CallableSymbol> named = new java.util.ArrayList<>(
+                declaredMethodsByName.getOrDefault(existing.sourceName(), List.of()));
+        named.replaceAll(candidate -> candidate == existing ? replacement : candidate);
+        declaredMethodsByName.put(existing.sourceName(), List.copyOf(named));
     }
 
     void addMethod(CallableSymbol method) {

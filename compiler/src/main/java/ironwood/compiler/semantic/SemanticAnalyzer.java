@@ -9,15 +9,19 @@ import ironwood.compiler.ast.AssignmentStatement;
 import ironwood.compiler.ast.BinaryExpression;
 import ironwood.compiler.ast.BinaryOperator;
 import ironwood.compiler.ast.Block;
+import ironwood.compiler.ast.BooleanLiteralExpression;
 import ironwood.compiler.ast.CallExpression;
+import ironwood.compiler.ast.CastExpression;
 import ironwood.compiler.ast.ClassDeclaration;
 import ironwood.compiler.ast.CompilationUnit;
 import ironwood.compiler.ast.ConstructorDeclaration;
 import ironwood.compiler.ast.EnumConstantInitialization;
 import ironwood.compiler.ast.DeclaredType;
 import ironwood.compiler.ast.DeclaredTypes;
+import ironwood.compiler.ast.Expression;
 import ironwood.compiler.ast.FieldDeclaration;
 import ironwood.compiler.ast.IfStatement;
+import ironwood.compiler.ast.IntegerLiteralExpression;
 import ironwood.compiler.ast.InterfaceDeclaration;
 import ironwood.compiler.ast.InterfaceMethodDeclaration;
 import ironwood.compiler.ast.ImportDeclaration;
@@ -99,6 +103,8 @@ public final class SemanticAnalyzer {
     private final Map<String, List<TypeVariableSymbol>> callableTypeVariablesById =
             new LinkedHashMap<>();
     private final Set<String> overrideDirectiveDeclarationIds = new LinkedHashSet<>();
+    private final List<MissingImplementation> missingImplementations = new ArrayList<>();
+    private final Set<String> placeholderImplementations = new LinkedHashSet<>();
 
     public SemanticAnalyzer(SourceFile source) {
         this();
@@ -247,6 +253,8 @@ public final class SemanticAnalyzer {
         lexicalTypesRequireFunctionLowering = false;
         callableTypeVariablesById.clear();
         overrideDirectiveDeclarationIds.clear();
+        missingImplementations.clear();
+        placeholderImplementations.clear();
         Map<String, TypeSymbol> types = collectTypeHeaders(units, diagnostics);
         TypeResolver resolver = new TypeResolver(types, lexicalTypeScopes);
         genericTypes = new GenericTypeSystem(types, resolver);
@@ -298,6 +306,7 @@ public final class SemanticAnalyzer {
             }
         }
         validateOverridesAndInterfaces(types, hierarchy, diagnostics);
+        completeMissingImplementations();
         types.values().stream().filter(type -> !type.isInterface()).forEach(type ->
                 new FinalFieldAssignmentAnalyzer(type.source(), type, diagnostics).analyze());
         types.values().forEach(type ->
@@ -345,7 +354,8 @@ public final class SemanticAnalyzer {
                 dynamicStringConcatenationSpans(boundFunctions);
         reclamationEffects = new ClosedWorldEffectAnalyzer(boundFunctions,
                 types.values().stream().map(TypeSymbol::irClass).toList(),
-                observer, observerToken(), SemanticAnalysisObserver.AnalyzerPhase.REBOUND);
+                observer, observerToken(), SemanticAnalysisObserver.AnalyzerPhase.REBOUND,
+                placeholderImplementations);
         reclamationEffects.analyze();
         // The first pass could not know which callees may reclaim an argument,
         // so a temporary passed to one was freed there although final lowering
@@ -485,8 +495,8 @@ public final class SemanticAnalyzer {
             }
             new ClosedWorldEffectAnalyzer(functions,
                     types.values().stream().map(TypeSymbol::irClass).toList(),
-                    observer, observerToken(), SemanticAnalysisObserver.AnalyzerPhase.FINAL_VALIDATION)
-                    .validate(types, ownedFields, diagnostics);
+                    observer, observerToken(), SemanticAnalysisObserver.AnalyzerPhase.FINAL_VALIDATION,
+                    placeholderImplementations).validate(types, ownedFields, diagnostics);
         }
         ownedArrayFields.retireFailureEvidence(observer);
         escapeSummaries.retireWitnessEvidence();
@@ -602,8 +612,11 @@ public final class SemanticAnalyzer {
             ironwood.compiler.UnfreedMode mode = checkUnfreed && refinementCompleted
                     && (unfreedSources == null || unfreedSources.contains(entry.type().source().path()))
                     ? unfreedMode : ironwood.compiler.UnfreedMode.OFF;
+            // A placeholder body is the compiler's own; it must not add diagnostics.
+            List<Diagnostic> reported = placeholderImplementations.contains(
+                    entry.callable().linkageName()) ? new ArrayList<>() : diagnostics;
             functions.add(lowerCallable(entry.type(), entry.callable(), hierarchy, escapeSummaries,
-                    ownedArrayFields, stringPool, diagnostics, constructorDelegations, mode,
+                    ownedArrayFields, stringPool, reported, constructorDelegations, mode,
                     checkUnfreed, refinementCompleted, entry.kind()));
         }
         return functions;
@@ -2380,6 +2393,7 @@ public final class SemanticAnalyzer {
                     diagnostics.add(error(type.declaration().nameSpan(), "class '" + type.name()
                             + "' does not implement interface method '"
                             + requirements.getFirst().signatureKey() + "'"));
+                    missingImplementations.add(new MissingImplementation(type, requirements.getFirst()));
                 }
                 continue;
             }
@@ -2426,8 +2440,82 @@ public final class SemanticAnalyzer {
                 diagnostics.add(error(type.declaration().nameSpan(), "concrete class '" + type.name()
                         + "' does not implement abstract method '" + requirement.signatureKey()
                         + "' inherited from '" + requirement.ownerType() + "'"));
+                missingImplementations.add(new MissingImplementation(type, requirement));
             }
         }
+    }
+
+    private record MissingImplementation(TypeSymbol type, CallableSymbol requirement) {
+    }
+
+    /**
+     * Completes each reported missing implementation with a placeholder, the most
+     * permissive behavior a correction could have: it retains, allocates, and throws
+     * nothing, and its reference result counts as a fresh allocation the caller may
+     * free. Rejections and effect checks only grow with what a callee does, so those
+     * that remain hold for every correction. Missing-free findings shrink with it, so
+     * the placeholder may also reclaim its arguments and return null, which only
+     * suppresses such findings. The program already has an error and is never built.
+     */
+    private void completeMissingImplementations() {
+        Set<String> completed = new LinkedHashSet<>();
+        for (MissingImplementation missing : missingImplementations) {
+            TypeSymbol type = missing.type();
+            CallableSymbol requirement = missing.requirement();
+            SourceSpan span = type.declaration().nameSpan();
+            Optional<Block> body = placeholderBody(requirement.returnType(), span);
+            if (body.isEmpty() || !completed.add(type.name() + "#" + requirement.overrideSignatureKey())) {
+                continue;
+            }
+            String name = requirement.sourceName();
+            CallableSymbol placeholder = new CallableSymbol(type.name(), name, AccessModifier.PUBLIC,
+                    false, IrCallableKind.METHOD, requirement.returnType(),
+                    requirement.parameterTypes(), requirement.parameters(), body, Optional.empty(),
+                    Optional.empty(), false, false, true, span, span,
+                    linkageName("ironwood." + type.name() + "." + name + "$missing",
+                            requirement.parameterTypes(), true), Optional.empty(), null,
+                    callableDeclarationId(type, name + "$missing", span),
+                    requirement.typeVariables(), List.of());
+            CallableSymbol declared = type.declaredMethods().get(placeholder.overrideSignatureKey());
+            if (declared == null) {
+                type.addMethod(placeholder);
+            } else if (declared.isAbstract()) {
+                type.replaceMethod(declared, placeholder);
+            } else {
+                continue;
+            }
+            type.markPlaceholder(placeholder);
+            placeholderImplementations.add(placeholder.linkageName());
+        }
+    }
+
+    private static Optional<Block> placeholderBody(IrType returnType, SourceSpan span) {
+        if (returnType.equals(IrType.VOID)) {
+            return Optional.of(new Block(List.of(), span));
+        }
+        Expression value;
+        if (returnType.isReference()) {
+            value = new NullLiteralExpression(span);
+        } else if (returnType.equals(IrType.I1)) {
+            value = new BooleanLiteralExpression(false, span);
+        } else {
+            TypeName.Kind kind = switch (returnType.kind()) {
+                case I8 -> TypeName.Kind.BYTE;
+                case I16 -> TypeName.Kind.SHORT;
+                case U16 -> TypeName.Kind.CHAR;
+                case I32 -> TypeName.Kind.INT;
+                case I64 -> TypeName.Kind.LONG;
+                case F32 -> TypeName.Kind.FLOAT;
+                case F64 -> TypeName.Kind.DOUBLE;
+                default -> null;
+            };
+            if (kind == null) {
+                return Optional.empty();
+            }
+            value = new CastExpression(TypeName.primitive(kind, span),
+                    new IntegerLiteralExpression("0", span), span);
+        }
+        return Optional.of(new Block(List.of(new ReturnStatement(Optional.of(value), span)), span));
     }
 
     private void validateThrowableTraceLayout(Map<String, TypeSymbol> types, List<Diagnostic> diagnostics) {

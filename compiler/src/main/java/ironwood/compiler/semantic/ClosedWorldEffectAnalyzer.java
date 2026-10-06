@@ -26,6 +26,9 @@ final class ClosedWorldEffectAnalyzer {
     // Targets depend only on this analysis's immutable IR and class snapshot.
     // Cache the graph, never the evolving allocation/publication summaries.
     private final Map<IrInstruction, List<IrFunction>> targetCache = new IdentityHashMap<>();
+    // Placeholders for missing implementations: their real behavior is unknown, so
+    // they may reclaim their reference arguments, which only suppresses findings.
+    private final Set<String> placeholders;
 
     ClosedWorldEffectAnalyzer(List<IrFunction> functions, List<IrClass> classes) {
         this(functions, classes, null, 0,
@@ -35,6 +38,14 @@ final class ClosedWorldEffectAnalyzer {
     ClosedWorldEffectAnalyzer(List<IrFunction> functions, List<IrClass> classes,
                               SemanticAnalysisObserver observer, long observerToken,
                               SemanticAnalysisObserver.AnalyzerPhase phase) {
+        this(functions, classes, observer, observerToken, phase, Set.of());
+    }
+
+    ClosedWorldEffectAnalyzer(List<IrFunction> functions, List<IrClass> classes,
+                              SemanticAnalysisObserver observer, long observerToken,
+                              SemanticAnalysisObserver.AnalyzerPhase phase,
+                              Set<String> placeholders) {
+        this.placeholders = Set.copyOf(placeholders);
         this.observer = observer;
         this.observerToken = observerToken;
         if (observer != null) {
@@ -196,6 +207,11 @@ final class ClosedWorldEffectAnalyzer {
                 reclaimed.or(effect.reclaimed());
                 // The exceptional edge is handled inside this function. Any eventual escape
                 // appears as an IrThrowTerminator without another local unwind target.
+            }
+        }
+        if (placeholders.contains(function.linkageName())) {
+            for (int index = 0; index < function.parameters().size(); index++) {
+                if (function.parameters().get(index).value().type().isReference()) reclaimed.set(index);
             }
         }
         return new Summary(allocates, throwsOutward, published, returned, reclaimed);

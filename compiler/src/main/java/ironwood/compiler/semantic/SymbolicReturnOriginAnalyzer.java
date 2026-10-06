@@ -181,6 +181,12 @@ final class SymbolicReturnOriginAnalyzer {
             return new ReturnSummary(reference ? inputs : Set.of(), Set.of(), inputs,
                     reference, reference, reference, reference);
         }
+        if (owner != null && owner.isPlaceholder(candidate)) {
+            // A missing implementation's correction may return a fresh object the
+            // caller owns, or null; the latter keeps its result out of leak findings.
+            boolean reference = candidate.returnType().isReference();
+            return new ReturnSummary(Set.of(), Set.of(), Set.of(), false, reference, reference, false);
+        }
         ReturnSummary poolContract = PoolSemantics.symbolic(candidate);
         if (poolContract != null) { return poolContract; }
         if (AllocationResultSemantics.returnsOwnedFresh(candidate)) {

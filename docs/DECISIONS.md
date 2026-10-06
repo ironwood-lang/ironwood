@@ -10790,7 +10790,8 @@ occurrence order. If no
 
 ## D278 - Refine ownership facts after declaration errors
 
-- **Status:** Accepted and implemented. Supersedes the readiness rule of D184's
+- **Status:** Accepted and implemented; its boundary for missing
+  implementations is superseded by D279. Supersedes the readiness rule of D184's
   M1c milestone, which attached a limited-analysis note to every ownership
   rejection after an earlier error, and resolves the limitation recorded in
   [EXPLAIN_REJECTED_FREE.md](EXPLAIN_REJECTED_FREE.md) section 3.3.
@@ -10840,3 +10841,49 @@ occurrence order. If no
   paths, non-convergence through an injected pass budget, and the explanation,
   dependency, bundled-source and observer contracts; the standard library still
   builds with `--unfreed=error`.
+
+## D279 - Complete missing implementations with permissive placeholders
+
+- **Status:** Accepted and implemented. Supersedes D278's boundary for missing
+  implementations.
+- **Context:** A class missing an implementation is omitted from a call's target
+  set. When every candidate lacked it, the empty set meant an unknown call that may
+  retain its arguments, so frees around the call, and in callers whose summaries
+  depend on it, were rejected next to the declaration error with messages that do
+  not name it, such as "allocation escapes through argument 2 of method
+  'passTwice'". Suppressing rejections by function or by message would also hide
+  genuine errors in the same body.
+- **Decision:** After a missing interface or abstract method implementation is
+  reported, the class gets a compiler placeholder for it; an abstract method
+  declared in a concrete class is replaced by one. Ownership analysis treats a
+  placeholder as the most permissive implementation a correction could have: it
+  retains, allocates and throws nothing, and its reference result counts as a fresh
+  allocation the caller may free. It may also reclaim its reference arguments and
+  return null, which only suppresses missing-free findings, including through
+  callers. Placeholder bodies add no diagnostics.
+- **Analysis:** Rejections and effect checks only grow with what a callee does,
+  so those that remain hold for every correction. Missing-free findings shrink with
+  it, so the possible reclamation and null result keep them from depending on the
+  correction. The placeholder applies the
+  completion that mixed target sets already had to every analyzer, without new rules
+  in ownership analysis: D140's nullable fresh results never justify an abandonment
+  finding, and the closed-world may-reclaim effect suppresses such findings without
+  permitting or rejecting a free.
+- **Boundary:** A class that already declares a static or private method with the
+  required signature, or that inherits unrelated default methods, gets no
+  placeholder for that requirement; its declaration error remains, and no cascade
+  from those cases has been observed. Valid programs never contain placeholders, so their compilation is
+  unchanged, and no program with a placeholder is built.
+- **Verification:** Of 13 kinds of broken declaration used around a `free`, each
+  with a corrected twin that compiles cleanly, all now report only their
+  declaration errors; the two missing-implementation kinds previously added
+  rejections. Calls that reach a placeholder two methods away are proved while a
+  genuine error in the same body remains; a leak is reported only once the
+  implementation exists; a retaining sibling implementation still rejects; freed,
+  deferred, wrapped and discarded results add nothing, and a published one is
+  rejected for its publication; generic, anonymous and primitive-returning
+  requirements and destructor checks behave as their corrections do. 72 examples
+  with three kinds of unrelated declaration error, including a missing
+  implementation, report exactly one diagnostic each, and 1,120 compiler-test
+  fragments give the same output as before this decision, the 187 valid ones
+  unchanged from before D278.
