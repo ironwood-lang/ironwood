@@ -9,8 +9,9 @@
 # with every earlier table regenerated unchanged, one compilation of every
 # port source with the pilot adapters (no diagnostics), the diff and license
 # audits, and linux-evidence.sh from the same archive on the estonia (Linux
-# x86-64) and miami (Linux arm64) hosts. Logs land in
-# workspace/m5/handoff-evidence.
+# x86-64) and miami (Linux arm64) hosts, which start first. The macOS part
+# waits for a one-minute load below 3 so that no competing job stretches its
+# process timeouts. Logs land in workspace/m5/handoff-evidence.
 set -u
 root=/Users/developer/workspace-mba-m2/Ironwood
 commit=${1:?usage: run-evidence.sh COMMIT}
@@ -26,6 +27,25 @@ git -C "$root" rev-parse "$commit" > "$ev/commit.txt"
 git -C "$root" archive "$commit" | tar -xf - -C "$stage"
 status() { echo "$1 exit=$2" >> "$ev/status.txt"; }
 { sw_vers; uname -m; "$JAVA_HOME/bin/java" -version 2>&1 | head -1; "$IRONWOOD_LLVM_HOME/bin/llvm-config" --version; } > "$ev/host.txt"
+# Linux x86-64 on estonia and Linux arm64 on miami, from the same archive.
+# The first ssh after the miami VM wakes can fail with "No route to host".
+retry() { for attempt in 1 2 3 4 5 6; do "$@" && return 0; sleep 10; done; return 1; }
+ship() {
+    git -C "$root" archive "$commit" | ssh -o BatchMode=yes "$1" \
+        "rm -rf $2 && mkdir -p $2/tree && tar -xf - -C $2/tree"
+}
+launch() {
+    ssh -o BatchMode=yes "$1" "cd $2 && nohup tree/docs/self-hosting/m5/handoff-evidence/linux-evidence.sh $2 \
+        > run.log 2>&1 < /dev/null &"
+}
+hosts=("estonia temp/java_bridge/m5-evidence linux-x86_64" "miami temp/ironwood-m5 linux-arm64")
+for entry in "${hosts[@]}"; do
+    set -- $entry
+    retry ship "$1" "$2"; status "$3-ship" $?
+    retry launch "$1" "$2"; status "$3-launch" $?
+done
+until [ "$(sysctl -n vm.loadavg | awk '{print ($2 < 3)}')" = 1 ]; do sleep 10; done
+{ uptime; ps -A -o %cpu,etime,comm -r | head -6; } > "$ev/load.txt"
 cd "$stage"
 scripts/build.sh > "$ev/build.log" 2>&1; status build $?
 shasum -a 256 compiler/build/ironwoodc.jar compiler/build/ironwood-stdlib.ironjar > "$ev/build-identity.txt"
@@ -82,23 +102,7 @@ rm -rf "$ev/port-classes"
 cd "$root"
 git diff --check "$start" "$commit" > "$ev/diff-check.log" 2>&1; status diff-check $?
 ./scripts/check-licenses.sh > "$ev/licenses.log" 2>&1; status licenses $?
-# Linux x86-64 on estonia and Linux arm64 on miami, from the same archive.
-# The first ssh after the miami VM wakes can fail with "No route to host".
-retry() { for attempt in 1 2 3 4 5 6; do "$@" && return 0; sleep 10; done; return 1; }
-ship() {
-    git -C "$root" archive "$commit" | ssh -o BatchMode=yes "$1" \
-        "rm -rf $2 && mkdir -p $2/tree && tar -xf - -C $2/tree"
-}
-launch() {
-    ssh -o BatchMode=yes "$1" "cd $2 && nohup tree/docs/self-hosting/m5/handoff-evidence/linux-evidence.sh $2 \
-        > run.log 2>&1 < /dev/null &"
-}
-hosts=("estonia temp/java_bridge/m5-evidence linux-x86_64" "miami temp/ironwood-m5 linux-arm64")
-for entry in "${hosts[@]}"; do
-    set -- $entry
-    retry ship "$1" "$2"; status "$3-ship" $?
-    retry launch "$1" "$2"; status "$3-launch" $?
-done
+# Collect the Linux runs.
 for entry in "${hosts[@]}"; do
     set -- $entry
     # The remote script marks its end whatever its statuses; a dropped
