@@ -245,3 +245,14 @@ transcript was regenerated with distinct names and one added variant. The
 native IronJar reader names missing indexed entries in index order rather
 than reproducing Java's HashSet order, following M3.3's sort-and-record
 precedent for hash-ordered first failures.
+
+## M5.4 increment (D277)
+
+No analysis rule changed. FileCollector became public and gained a bounded
+depth for IronDoc's depth-one selection; its M5.3 consumers were rerun. The
+identifier-part data were generated from JDK 21's observed answers, following
+the project's treatment of observed Character data, with the Unicode notice;
+the M5.4 record names the reclassification a maintainer could choose instead.
+Two control forms needed care: a concatenation of constants is an immortal
+literal, and an interface-typed alias kept in scope holds its object, so the
+link callback is invoked through a parameter.

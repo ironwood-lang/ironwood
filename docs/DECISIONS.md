@@ -10734,3 +10734,56 @@ occurrence order. If no
   stage left; discovery equals Java's in eight layouts; and the walk sweep
   that leaked before the fix now unwinds. See
   [the M5.3 record](self-hosting/m5/ARTIFACTS.md).
+
+## D277 - Provide the S6 documentation and command-line helpers
+
+- **Status:** Implemented during M5.4 on 2026-10-06.
+- **Decision:** The compiler port gains B7's S6 helpers for the ports of
+  DocComment, DocModel, MarkdownDoclet, IronDoc, IronDocOptions and
+  IronJarMain; the Java seed is unchanged.
+  - **DocText.** Purpose-specific scans with Java 21's semantics for exactly
+    the expressions they replace: `split("\\R", -1)` (CRLF one break; LF, VT,
+    FF, CR, U+0085, U+2028, U+2029), the `split("\\s+", 2)` head and tail
+    (unflagged `\s` only), `replaceFirst("^\\s*\\* ?", "")`, the
+    `(?i)^<code>` and `(?i)</code>$` strips (ASCII-only case, `$` before one
+    final terminator), the entity replacement with `parseInt` and
+    `Character.toChars` semantics and its diagnostic, the backtick run,
+    `replaceAll("\\s+", "")`, `replaceAll("\\s*\\R\\s*", " ")`, the
+    identifier-run matcher, IronDoc's package-name regex, `stripLeading`,
+    `regionMatches(true, ...)`, DocModel's member anchors and DocComment's tag
+    scan, which keeps the UTF-16 `char` scan with the part predicate at the
+    first position and never pairs surrogates.
+  - **JavaIdentifiers.** Java 21's `Character.isJavaIdentifierPart` for chars
+    and code points, as 798 ranges generated from JDK 21's answer for every
+    code point and checked by regeneration; S7's qualified-name validator
+    (M6.1) shares it and adds the start predicate and keyword rules.
+  - **LinkRenderer.** DocComment.render's link callback, with a primitive
+    boolean instead of `BiFunction<String, Boolean, String>`.
+  - **FileCollector.** Public, with a bounded depth for IronDoc's depth-one
+    package selection.
+  - **Conventions.** IronDoc's version resource is the generated
+    BuildIdentity (D269); IronDocOptions' `splitAsStream` path list is
+    `Splits.bounds(value, ':', 0)` and its `split(":", -1)` lists keep -1;
+    MarkdownDoclet's banner `formatted` concatenates its literal pieces;
+    `Locale.ROOT` casing is the fixed en_US casing (D117), equal to ROOT;
+    `ArrayDeque` lists are ScopeStack (D264); Path-keyed TreeMaps and
+    TreeSets sort in TextList code point order (D276); the remaining calls
+    follow the M3 conventions.
+- **Proof:** No analysis, runtime or lowering change. A concatenation of
+  constants is an immortal literal and is not freed; an interface-typed alias
+  kept in scope holds its object, so callbacks are invoked through a parameter.
+- **Boundary:** The scans implement their call sites' expressions, not a
+  regular-expression engine. `regionMatchesIgnoreCase` compares UTF-16 units,
+  which equals Java for the ASCII literals its callers pass. Supersedes no
+  decision.
+- **Provenance:** Original code under the default license. The identifier
+  ranges are Unicode 15.0 character data observed through JDK 21's
+  `Character` with no OpenJDK source consulted, treated as the project
+  treats observed Character data, and carry the Unicode notice in
+  `LICENSES/Unicode-15.0.txt` (SOURCE_PROVENANCE and THIRD_PARTY_NOTICES).
+- **Verification:** For 3,083 corpus inputs, 438 tag suffixes, every char and
+  every code point, the 47,935-line transcript equals the Java tools' own
+  methods and expressions from class and archive links; IronDoc's depth-one
+  and recursive walks select and order Java's files; the table regenerates
+  exactly; ownership pairs hold in every unfreed mode; every allocation
+  failure unwinds. See [the M5.4 record](self-hosting/m5/DOC.md).

@@ -1,0 +1,456 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.port;
+
+/**
+ * Compiler-local scans replacing the regular expressions, splits and missing
+ * String members of the documentation tools (B7 10.1, S6): DocComment,
+ * MarkdownDoclet, DocModel and IronDoc. Each method names the Java expression
+ * it replaces and keeps Java 21's semantics for exactly that expression:
+ * {@code \R} is CRLF as one break, or one of LF, VT, FF, CR, U+0085, U+2028
+ * and U+2029; unflagged {@code \s} is only space, HT, LF, VT, FF and CR, not
+ * {@code Character.isWhitespace}; {@code (?i)} without UNICODE_CASE folds
+ * ASCII letters only; {@code $} also matches before one final line
+ * terminator. Scans index UTF-16 units, as Java's do.
+ *
+ * <p>Inputs are borrowed for the call. Every String result is fresh and owned
+ * by the caller, also when it equals the input; split results are
+ * {@link Splits} bounds arrays. Nothing else is allocated, apart from the
+ * IllegalArgumentException of an invalid entity.
+ */
+public final class DocText {
+
+    private DocText() {
+
+    }
+
+    /** @return whether the unit is in unflagged {@code \s}: space, HT, LF, VT, FF or CR */
+    public static boolean regexSpace(char unit) {
+
+        return unit == ' ' || unit >= '\t' && unit <= '\r';
+    }
+
+    /** @return the length of the {@code \R} break at index: 2 for CRLF, 1 for another break, else 0 */
+    public static int lineBreak(String text, int index) {
+
+        if (index >= text.length()) return 0;
+        char unit = text.charAt(index);
+        if (unit == '\r') return index + 1 < text.length() && text.charAt(index + 1) == '\n' ? 2 : 1;
+        return unit == '\n' || unit == 0x0B || unit == '\f' || unit == 0x85 || unit == 0x2028 || unit == 0x2029 ? 1 : 0;
+    }
+
+    /**
+     * {@code text.split("\\R", -1)}: every field, empty ones included.
+     *
+     * @return a fresh {@link Splits} bounds array owned by the caller
+     */
+    public static int[] lineFields(String text) {
+
+        int fields = 1;
+        int index = 0;
+        while (index < text.length()) {
+            int length = lineBreak(text, index);
+            if (length > 0) {
+                fields++;
+                index = index + length;
+            } else {
+                index++;
+            }
+        }
+        int[] bounds = new int[fields * 2];
+        int field = 0;
+        int start = 0;
+        index = 0;
+        while (index < text.length()) {
+            int length = lineBreak(text, index);
+            if (length > 0) {
+                bounds[field * 2] = start;
+                bounds[field * 2 + 1] = index;
+                field++;
+                index = index + length;
+                start = index;
+            } else {
+                index++;
+            }
+        }
+        bounds[field * 2] = start;
+        bounds[field * 2 + 1] = text.length();
+        return bounds;
+    }
+
+    // The index of the first unflagged \s unit, or -1.
+    private static int firstSpace(String value) {
+
+        for (int index = 0; index < value.length(); index++) {
+            if (regexSpace(value.charAt(index))) return index;
+        }
+        return -1;
+    }
+
+    /** @return {@code value.split("\\s+", 2)[0]}: the text before the first space run */
+    public static String head(String value) {
+
+        int space = firstSpace(value);
+        return value.substring(0, space < 0 ? value.length() : space);
+    }
+
+    /**
+     * @return the second element of {@code value.split("\\s+", 2)}, or an
+     *     empty String when there is none: the text after the first space run
+     */
+    public static String tail(String value) {
+
+        int space = firstSpace(value);
+        if (space < 0) return value.substring(value.length());
+        int end = space;
+        while (end < value.length() && regexSpace(value.charAt(end))) end++;
+        return value.substring(end);
+    }
+
+    /** @return {@code line.replaceFirst("^\\s*\\* ?", "")} */
+    public static String stripCommentStar(String line) {
+
+        int index = 0;
+        while (index < line.length() && regexSpace(line.charAt(index))) index++;
+        if (index == line.length() || line.charAt(index) != '*') return line.substring(0);
+        index++;
+        if (index < line.length() && line.charAt(index) == ' ') index++;
+        return line.substring(index);
+    }
+
+    /** @return {@code code.replaceFirst("(?i)^<code>", "").replaceFirst("(?i)</code>$", "")} */
+    public static String stripCodeTags(String code) {
+
+        int length = code.length();
+        int start = asciiMatches(code, 0, "<code>") ? 6 : 0;
+        // The leftmost "</code>" that ends the text or precedes its final terminator.
+        int found = -1;
+        if (length - 9 >= start && code.charAt(length - 2) == '\r' && code.charAt(length - 1) == '\n'
+                && asciiMatches(code, length - 9, "</code>")) {
+            found = length - 9;
+        } else if (length - 8 >= start && finalTerminator(code.charAt(length - 1))
+                && asciiMatches(code, length - 8, "</code>")) {
+            found = length - 8;
+        } else if (length - 7 >= start && asciiMatches(code, length - 7, "</code>")) {
+            found = length - 7;
+        }
+        if (found < 0) return code.substring(start);
+        StringBuilder result = new StringBuilder();
+        defer free result;
+        result.append(code, start, found).append(code, found + 7, length);
+        return result.toString();
+    }
+
+    private static boolean finalTerminator(char unit) {
+
+        return unit == '\n' || unit == '\r' || unit == 0x85 || unit == 0x2028 || unit == 0x2029;
+    }
+
+    // Whether pattern occurs at offset, ASCII letters compared without case.
+    private static boolean asciiMatches(String text, int offset, String pattern) {
+
+        if (offset < 0 || offset > text.length() - pattern.length()) return false;
+        for (int index = 0; index < pattern.length(); index++) {
+            char left = text.charAt(offset + index);
+            char right = pattern.charAt(index);
+            if (left >= 'A' && left <= 'Z') left = (char) (left + 32);
+            if (right >= 'A' && right <= 'Z') right = (char) (right + 32);
+            if (left != right) return false;
+        }
+        return true;
+    }
+
+    /**
+     * DocComment.entities: each match of
+     * {@code &(#x[0-9a-fA-F]+|#[0-9]+|lt|gt|amp|quot|apos|nbsp);} becomes its
+     * character (nbsp a plain space); a numeric value becomes one UTF-16 unit
+     * up to U+FFFF, surrogates included, or a surrogate pair above it, as
+     * {@code Character.toChars} gives.
+     *
+     * @return a fresh String owned by the caller
+     * @throws IllegalArgumentException {@code invalid IronDocs character entity:
+     *     &<entity>;} when a value exceeds the int range or U+10FFFF, as Java's
+     *     parseInt and toChars reject it
+     */
+    public static String entities(String text) {
+
+        StringBuilder result = new StringBuilder();
+        defer free result;
+        int index = 0;
+        while (index < text.length()) {
+            char unit = text.charAt(index);
+            int end = unit == '&' ? entityEnd(text, index) : -1;
+            if (end < 0) {
+                result.append(unit);
+                index++;
+            } else {
+                entity(text, index + 1, end, result);
+                index = end + 1;
+            }
+        }
+        return result.toString();
+    }
+
+    // The index of the ';' ending an entity that starts at '&', or -1.
+    private static int entityEnd(String text, int ampersand) {
+
+        int start = ampersand + 1;
+        int length = text.length();
+        if (start + 1 < length && text.charAt(start) == '#' && text.charAt(start + 1) == 'x') {
+            int end = start + 2;
+            while (end < length && hexValue(text.charAt(end)) >= 0) end++;
+            if (end > start + 2 && end < length && text.charAt(end) == ';') return end;
+        }
+        if (start < length && text.charAt(start) == '#') {
+            int end = start + 1;
+            while (end < length && text.charAt(end) >= '0' && text.charAt(end) <= '9') end++;
+            if (end > start + 1 && end < length && text.charAt(end) == ';') return end;
+        }
+        int end = nameEnd(text, start, "lt");
+        if (end < 0) end = nameEnd(text, start, "gt");
+        if (end < 0) end = nameEnd(text, start, "amp");
+        if (end < 0) end = nameEnd(text, start, "quot");
+        if (end < 0) end = nameEnd(text, start, "apos");
+        if (end < 0) end = nameEnd(text, start, "nbsp");
+        return end;
+    }
+
+    // The index of the ';' after a named entity at start, or -1.
+    private static int nameEnd(String text, int start, String name) {
+
+        int end = start + name.length();
+        return end < text.length() && text.startsWith(name, start) && text.charAt(end) == ';' ? end : -1;
+    }
+
+    private static int hexValue(char unit) {
+
+        if (unit >= '0' && unit <= '9') return unit - '0';
+        if (unit >= 'a' && unit <= 'f') return unit - 'a' + 10;
+        if (unit >= 'A' && unit <= 'F') return unit - 'A' + 10;
+        return -1;
+    }
+
+    // Appends the replacement of entity text[start, end), its ';' excluded.
+    private static void entity(String text, int start, int end, StringBuilder result) {
+
+        char first = text.charAt(start);
+        if (first != '#') {
+            char second = text.charAt(start + 1);
+            if (first == 'l') {
+                result.append('<');
+            } else if (first == 'g') {
+                result.append('>');
+            } else if (first == 'q') {
+                result.append('"');
+            } else if (first == 'n') {
+                result.append(' ');
+            } else if (second == 'm') {
+                result.append('&');
+            } else {
+                result.append('\'');
+            }
+            return;
+        }
+        boolean hex = text.charAt(start + 1) == 'x';
+        long value = 0;
+        boolean valid = true;
+        for (int index = start + (hex ? 2 : 1); index < end; index++) {
+            int digit = hex ? hexValue(text.charAt(index)) : text.charAt(index) - '0';
+            value = value * (hex ? 16 : 10) + digit;
+            if (value > 0x7FFFFFFFL) valid = false;
+            if (value > 0x7FFFFFFFL) value = 0x80000000L;
+        }
+        if (!valid || value > 0x10FFFF) {
+            throw new IllegalArgumentException("invalid IronDocs character entity: &" + text.substring(start, end) + ";");
+        }
+        int point = (int) value;
+        if (point < 0x10000) {
+            result.append((char) point);
+        } else {
+            result.append((char) (0xD800 + ((point - 0x10000) >> 10)));
+            result.append((char) (0xDC00 + ((point - 0x10000) & 0x3FF)));
+        }
+    }
+
+    /** @return the longest run of backticks, as DocComment.longestTicks finds it */
+    public static int longestBackticks(String text) {
+
+        int longest = 0;
+        int run = 0;
+        for (int index = 0; index < text.length(); index++) {
+            run = text.charAt(index) == '`' ? run + 1 : 0;
+            if (run > longest) longest = run;
+        }
+        return longest;
+    }
+
+    /** @return {@code value.replaceAll("\\s+", "")} */
+    public static String removeSpace(String value) {
+
+        StringBuilder result = new StringBuilder();
+        defer free result;
+        for (int index = 0; index < value.length(); index++) {
+            char unit = value.charAt(index);
+            if (!regexSpace(unit)) result.append(unit);
+        }
+        return result.toString();
+    }
+
+    /**
+     * {@code text.replaceAll("\\s*\\R\\s*", " ")}: each space run that holds a
+     * break, together with a U+0085, U+2028 or U+2029 directly after it and
+     * the space run after that, becomes one space; a run without a break is
+     * kept.
+     *
+     * @return a fresh String owned by the caller
+     */
+    public static String collapseLineBreaks(String text) {
+
+        StringBuilder result = new StringBuilder();
+        defer free result;
+        int index = 0;
+        int length = text.length();
+        while (index < length) {
+            int run = index;
+            while (run < length && regexSpace(text.charAt(run))) run++;
+            int end = -1;
+            if (run < length && (text.charAt(run) == 0x85 || text.charAt(run) == 0x2028 || text.charAt(run) == 0x2029)) {
+                // Greedy \s* reaches the break after the run; the next \s* takes the run after it.
+                end = run + 1;
+                while (end < length && regexSpace(text.charAt(end))) end++;
+            } else {
+                for (int unit = index; unit < run; unit++) {
+                    char value = text.charAt(unit);
+                    if (value == '\n' || value == 0x0B || value == '\f' || value == '\r') end = run;
+                }
+            }
+            if (end >= 0) {
+                result.append(' ');
+                index = end;
+            } else if (run > index) {
+                result.append(text, index, run);
+                index = run;
+            } else {
+                result.append(text.charAt(index));
+                index++;
+            }
+        }
+        return result.toString();
+    }
+
+    /** @return the next index from {@code from} holding {@code [A-Za-z_$]}, or -1 */
+    public static int identifierStart(String text, int from) {
+
+        for (int index = from; index < text.length(); index++) {
+            if (identifierFirst(text.charAt(index))) return index;
+        }
+        return -1;
+    }
+
+    /** @return the end of the {@code [A-Za-z_$][A-Za-z0-9_$.]*} run starting at start */
+    public static int identifierEnd(String text, int start) {
+
+        int end = start + 1;
+        while (end < text.length() && (identifierPart(text.charAt(end)) || text.charAt(end) == '.')) end++;
+        return end;
+    }
+
+    private static boolean identifierFirst(char unit) {
+
+        return unit >= 'A' && unit <= 'Z' || unit >= 'a' && unit <= 'z' || unit == '_' || unit == '$';
+    }
+
+    private static boolean identifierPart(char unit) {
+
+        return identifierFirst(unit) || unit >= '0' && unit <= '9';
+    }
+
+    /** @return {@code name.matches("[A-Za-z_$][A-Za-z0-9_$]*(\\.[A-Za-z_$][A-Za-z0-9_$]*)*")} */
+    public static boolean isPackageName(String name) {
+
+        int index = 0;
+        while (true) {
+            if (index >= name.length() || !identifierFirst(name.charAt(index))) return false;
+            index++;
+            while (index < name.length() && identifierPart(name.charAt(index))) index++;
+            if (index == name.length()) return true;
+            if (name.charAt(index) != '.') return false;
+            index++;
+        }
+    }
+
+    /** @return {@code text.stripLeading()}: without its leading {@code Character.isWhitespace} units */
+    public static String stripLeading(String text) {
+
+        int index = 0;
+        while (index < text.length() && Character.isWhitespace(text.charAt(index))) index++;
+        return text.substring(index);
+    }
+
+    /**
+     * {@code text.regionMatches(true, offset, other, 0, other.length())}: units
+     * equal, or equal after {@code Character.toUpperCase}, or after that and
+     * {@code Character.toLowerCase}.
+     */
+    public static boolean regionMatchesIgnoreCase(String text, int offset, String other) {
+
+        if (offset < 0 || offset > text.length() - other.length()) return false;
+        for (int index = 0; index < other.length(); index++) {
+            char left = text.charAt(offset + index);
+            char right = other.charAt(index);
+            if (left == right) continue;
+            char upperLeft = Character.toUpperCase(left);
+            char upperRight = Character.toUpperCase(right);
+            if (upperLeft == upperRight) continue;
+            if (Character.toLowerCase(upperLeft) != Character.toLowerCase(upperRight)) return false;
+        }
+        return true;
+    }
+
+    /**
+     * DocModel.Member.anchor: {@code member-} followed, per code point, by an
+     * ASCII letter, digit or underscore itself, or by {@code -<lowercase hex>-}.
+     *
+     * @return a fresh String owned by the caller
+     */
+    public static String anchor(String reference) {
+
+        StringBuilder result = new StringBuilder();
+        defer free result;
+        result.append("member-");
+        int index = 0;
+        while (index < reference.length()) {
+            char unit = reference.charAt(index);
+            int point = unit;
+            index++;
+            if (unit >= 0xD800 && unit <= 0xDBFF && index < reference.length()
+                    && reference.charAt(index) >= 0xDC00 && reference.charAt(index) <= 0xDFFF) {
+                point = 0x10000 + ((unit - 0xD800) << 10) + (reference.charAt(index) - 0xDC00);
+                index++;
+            }
+            if (point < 0x80 && (identifierPart((char) point) && point != '$')) {
+                result.append((char) point);
+            } else {
+                String hex = Integer.toHexString(point);
+                defer free hex;
+                result.append('-').append(hex).append('-');
+            }
+        }
+        return result.toString();
+    }
+
+    /**
+     * DocComment.parse's tag scan in a stripped line that starts with
+     * {@code @}: the units from index 1 that {@code
+     * Character.isJavaIdentifierPart(char)} accepts, the first one included,
+     * without combining surrogate pairs.
+     *
+     * @return the index after the tag name
+     */
+    public static int tagEnd(String trimmed) {
+
+        int end = 1;
+        while (end < trimmed.length() && JavaIdentifiers.isJavaIdentifierPart(trimmed.charAt(end))) end++;
+        return end;
+    }
+}

@@ -1,0 +1,264 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// The compiler port's documentation scans (DocText) and identifier-part
+// predicate (JavaIdentifiers) against the Java documentation tools
+// (docs/self-hosting/m5/doc-evidence/DocTextReference.java). `program <corpus>`
+// reads the reference's corpus (one input per line as UTF-16 hex, then the
+// tag suffixes) and prints the reference's transcript: \R line fields, the
+// \s+ head and tail, the comment-star and code-tag prefixes, entities (or the
+// entity diagnostic), the longest backtick run, \s+ removal, the \R collapse,
+// identifier runs, the package-name check, stripLeading, case-insensitive
+// region matches at every offset, member anchors, the first tag of a comment
+// with each suffix (DocComment.parse's char scan and unsupported-tag
+// diagnostic), and the identifier-part ranges over every char and code
+// point. Every result is freed after it is printed; the caught entity
+// diagnostics are the only allocations left. Exit 42.
+import ironwood.compiler.port.DocText;
+import ironwood.compiler.port.JavaIdentifiers;
+import ironwood.compiler.port.Splits;
+import ironwood.io.IOException;
+import ironwood.nio.file.Files;
+import ironwood.nio.file.Path;
+
+class Main {
+
+    static String hex(String text) {
+
+        if (text.isEmpty()) return new String("-");
+        StringBuilder out = new StringBuilder();
+        defer free out;
+        for (int index = 0; index < text.length(); index++) {
+            int unit = text.charAt(index);
+            for (int shift = 12; shift >= 0; shift = shift - 4) out.append("0123456789abcdef".charAt((unit >>> shift) & 15));
+        }
+        return out.toString();
+    }
+
+    static String decode(String line) {
+
+        if (line.equals("-")) return new String("");
+        char[] units = new char[line.length() / 4];
+        defer free units;
+        for (int index = 0; index < units.length; index++) {
+            int value = 0;
+            for (int digit = 0; digit < 4; digit++) value = value * 16 + Character.digit(line.charAt(index * 4 + digit), 16);
+            units[index] = (char) value;
+        }
+        return new String(units);
+    }
+
+    static void print(String label, String value) {
+
+        String encoded = hex(value);
+        defer free encoded;
+        System.out.println(label + " " + encoded);
+    }
+
+    static void lines(String input) {
+
+        int[] fields = DocText.lineFields(input);
+        defer free fields;
+        StringBuilder out = new StringBuilder();
+        defer free out;
+        out.append("lines");
+        for (int field = 0; field < Splits.count(fields); field++) {
+            String text = Splits.field(input, fields, field);
+            defer free text;
+            String encoded = hex(text);
+            defer free encoded;
+            out.append(' ').append(encoded);
+        }
+        System.out.println(out.toString());
+    }
+
+    static void runs(String input) {
+
+        StringBuilder out = new StringBuilder();
+        defer free out;
+        int last = 0;
+        int start = DocText.identifierStart(input, 0);
+        while (start >= 0) {
+            int end = DocText.identifierEnd(input, start);
+            out.append(input, last, start).append('<').append(input, start, end).append('>');
+            last = end;
+            start = DocText.identifierStart(input, end);
+        }
+        out.append(input, last, input.length());
+        String text = out.toString();
+        defer free text;
+        print("runs", text);
+    }
+
+    static void regions(String input) {
+
+        StringBuilder out = new StringBuilder();
+        defer free out;
+        out.append("region");
+        String[] literals = {"<pre>", "</pre>", "<code>"};
+        defer free literals;
+        for (int literal = 0; literal < literals.length; literal++) {
+            for (int offset = -1; offset <= input.length(); offset++) {
+                out.append(DocText.regionMatchesIgnoreCase(input, offset, literals[literal]) ? '1' : '0');
+            }
+            out.append(' ');
+        }
+        System.out.println(out.toString());
+    }
+
+    // Returns whether the input holds an invalid entity.
+    static boolean entities(String input) {
+
+        try {
+            String text = DocText.entities(input);
+            defer free text;
+            print("entities", text);
+            return false;
+        } catch (IllegalArgumentException failure) {
+            print("entities error", failure.getMessage());
+            return true;
+        }
+    }
+
+    // Prints one input's block; returns whether it holds an invalid entity.
+    static boolean input(String input) {
+
+        print("in", input);
+        lines(input);
+        String head = DocText.head(input);
+        defer free head;
+        print("head", head);
+        String tail = DocText.tail(input);
+        defer free tail;
+        print("tail", tail);
+        String star = DocText.stripCommentStar(input);
+        defer free star;
+        print("star", star);
+        String code = DocText.stripCodeTags(input);
+        defer free code;
+        print("code", code);
+        boolean error = entities(input);
+        System.out.println("ticks " + DocText.longestBackticks(input));
+        String nospace = DocText.removeSpace(input);
+        defer free nospace;
+        print("nospace", nospace);
+        String collapse = DocText.collapseLineBreaks(input);
+        defer free collapse;
+        print("collapse", collapse);
+        runs(input);
+        System.out.println("package " + DocText.isPackageName(input));
+        String strip = DocText.stripLeading(input);
+        defer free strip;
+        print("strip", strip);
+        regions(input);
+        String anchor = DocText.anchor(input);
+        defer free anchor;
+        print("anchor", anchor);
+        return error;
+    }
+
+    static boolean blockTag(String name) {
+
+        return name.equals("param") || name.equals("return") || name.equals("throws") || name.equals("exception")
+                || name.equals("see") || name.equals("since") || name.equals("deprecated") || name.equals("author")
+                || name.equals("version");
+    }
+
+    // DocComment.parse's first tag: \R lines, the comment star, stripLeading, the char scan.
+    static void tag(String suffix) {
+
+        String encodedSuffix = hex(suffix);
+        defer free encodedSuffix;
+        String raw = "/**\n * @" + suffix + " value\n */";
+        defer free raw;
+        String body = raw.substring(3, raw.length() - 2);
+        defer free body;
+        int[] fields = DocText.lineFields(body);
+        defer free fields;
+        for (int field = 0; field < Splits.count(fields); field++) {
+            String rawLine = Splits.field(body, fields, field);
+            defer free rawLine;
+            String line = DocText.stripCommentStar(rawLine);
+            defer free line;
+            String trimmed = DocText.stripLeading(line);
+            defer free trimmed;
+            if (trimmed.startsWith("@")) {
+                String name = trimmed.substring(1, DocText.tagEnd(trimmed));
+                defer free name;
+                if (blockTag(name)) {
+                    String encoded = hex(name);
+                    defer free encoded;
+                    System.out.println("tag " + encodedSuffix + " name " + encoded);
+                } else {
+                    String message = "unsupported IronDocs tag @" + name;
+                    defer free message;
+                    String encoded = hex(message);
+                    defer free encoded;
+                    System.out.println("tag " + encodedSuffix + " error " + encoded);
+                }
+                return;
+            }
+        }
+        System.out.println("tag " + encodedSuffix + " none");
+    }
+
+    static void ranges(String label, int limit, boolean chars) {
+
+        System.out.println(label);
+        int code = 0;
+        while (code <= limit) {
+            boolean part = chars ? JavaIdentifiers.isJavaIdentifierPart((char) code) : JavaIdentifiers.isJavaIdentifierPart(code);
+            if (!part) {
+                code++;
+            } else {
+                int start = code;
+                while (code <= limit && (chars ? JavaIdentifiers.isJavaIdentifierPart((char) code)
+                        : JavaIdentifiers.isJavaIdentifierPart(code))) {
+                    code++;
+                }
+                String first = Integer.toHexString(start);
+                defer free first;
+                String last = Integer.toHexString(code - 1);
+                defer free last;
+                System.out.println(first + " " + last);
+            }
+        }
+    }
+
+    public static int main(String[] args) {
+
+        // The identifier table is process-lived after its first use.
+        if (!JavaIdentifiers.isJavaIdentifierPart(0x4e2d)) return 3;
+        long live = System.liveAllocationCount();
+        int errors = 0;
+        try {
+            Path path = Path.of(args[0]);
+            defer free path;
+            String corpus = Files.readString(path);
+            defer free corpus;
+            int[] lines = Splits.bounds(corpus, '\n', 0);
+            defer free lines;
+            boolean tags = false;
+            for (int line = 0; line < Splits.count(lines); line++) {
+                String text = Splits.field(corpus, lines, line);
+                defer free text;
+                if (text.equals("tags")) {
+                    tags = true;
+                } else {
+                    String value = decode(text);
+                    defer free value;
+                    if (tags) {
+                        tag(value);
+                    } else if (input(value)) {
+                        errors++;
+                    }
+                }
+            }
+        } catch (IOException failure) {
+            return 1;
+        }
+        ranges("char ranges", 0xFFFF, true);
+        ranges("code point ranges", 0x10FFFF, false);
+        // Each caught entity diagnostic keeps its exception and message.
+        return System.liveAllocationCount() == live + 2L * errors ? 42 : 2;
+    }
+}

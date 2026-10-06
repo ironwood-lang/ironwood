@@ -1,0 +1,41 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// IronDoc's source selection walks on the port's FileCollector (B3, D277):
+// `program <root>` prints the regular .iron files under root for depth 1
+// (IronDoc.selectPackage's non-recursive walk) and for unlimited depth
+// (sources and -subpackages), in Java's Path order, as `Files.walk(root,
+// depth)` filtered by `Files.isRegularFile` and `toString().endsWith(".iron")`
+// and sorted gives them. Links are listed, not entered; a link to a regular
+// file is kept. Every collector and spelling is freed. Exit 42.
+import ironwood.compiler.port.FileCollector;
+import ironwood.io.IOException;
+import ironwood.nio.file.Path;
+
+class Main {
+
+    static void list(Path root, int depth) throws IOException {
+
+        FileCollector files = new FileCollector(root, ".iron", depth);
+        defer free files;
+        System.out.println("depth " + depth + " " + files.size());
+        for (int index = 0; index < files.size(); index++) {
+            String file = files.file(index);
+            defer free file;
+            System.out.println("  " + file);
+        }
+    }
+
+    public static int main(String[] args) {
+
+        long live = System.liveAllocationCount();
+        try {
+            Path root = Path.of(args[0]);
+            defer free root;
+            list(root, 1);
+            list(root, Integer.MAX_VALUE);
+        } catch (IOException failure) {
+            return 1;
+        }
+        return System.liveAllocationCount() == live ? 42 : 2;
+    }
+}

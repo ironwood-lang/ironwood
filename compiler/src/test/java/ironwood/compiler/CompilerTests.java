@@ -941,6 +941,11 @@ public final class CompilerTests {
         test("M5.3 archive services unwind every allocation failure without leftovers", ArchiveServiceTests::failures);
         test("M5.3 library discovery matches Java's archive class and source roots", ArchiveServiceTests::discovery);
         test("M5.3 file tree walks unwind allocation failure while opening directories", ArchiveServiceTests::walkFailures);
+        test("M5.4 documentation scans match the Java documentation tools", DocHelperTests::javaDifferential);
+        test("M5.4 Java identifier-part table regenerates from JDK 21", DocHelperTests::tableRegenerates);
+        test("M5.4 IronDoc source walks match Java's Files.walk selection", DocHelperTests::walks);
+        test("M5.4 documentation helpers borrow inputs and own their results", DocHelperTests::ownership);
+        test("M5.4 documentation helpers unwind every allocation failure", DocHelperTests::failures);
         test("compiler work queue keeps queued items alive and its ring private", WorkQueueTests::ownership);
         test("compiler worklists preserve FIFO and retain-filter order across artifacts and failures",
                 WorkQueueTests::artifacts);
