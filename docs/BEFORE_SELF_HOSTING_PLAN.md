@@ -82,7 +82,7 @@ roadmap schedules them without replacing their detailed exit criteria.
 | [M0](#m0-baseline-and-contract-inventory) | Freeze the baseline and evidence contract: B0a | Current Java compiler and source audit | S0 baseline, ordering inventory, fixtures, budgets, and selected pilot scope recorded | Complete on qualified macOS arm64 profile: M0.1/M0.2/M0.3 and S0 passed |
 | [M1](#m1-minimum-pilot-prerequisites) | Build the minimum pilot dependencies: selected B1/B2/B7 slices | M0 | Required copies, traversal, ordering, and syntax/helpers have focused evidence | Complete on the qualified macOS arm64 profile; [checkpoint](self-hosting/m1/CHECKPOINT.md), [pre-change review](self-hosting/m1/PRE_CHANGE.md) |
 | [M2](#m2-portability-and-ownership-pilot) | Run B0b's frontend and ownership pilots | Required M1 phases | G1, the existing S1 gate, passes before broad translation | Complete: G1 passed on the qualified macOS arm64 profile ([checkpoint](self-hosting/m2/CHECKPOINT.md)) |
-| [M3](#m3-semantic-and-backend-preparation) | Complete core B1/B2/B7 helpers and early B5 digests | M2 for broad port work; reuse M1 outputs | Staged readiness for S2, S3 with ByteView SHA-256, and S4 with MD5/native-link policy | In progress: [M3.1 handoff](self-hosting/m3/HANDOFF_M3.1.md) passes, ready for S2 ([pre-change review](self-hosting/m3/PRE_CHANGE.md)); [M3.2 handoff](self-hosting/m3/HANDOFF_M3.2.md) passes, ready for S3 and ByteView; M3.3 in progress |
+| [M3](#m3-semantic-and-backend-preparation) | Complete core B1/B2/B7 helpers and early B5 digests | M2 for broad port work; reuse M1 outputs | Staged readiness for S2, S3 with ByteView SHA-256, and S4 with MD5/native-link policy | Complete: [M3.1 handoff](self-hosting/m3/HANDOFF_M3.1.md) ready for S2, [M3.2 handoff](self-hosting/m3/HANDOFF_M3.2.md) ready for S3 and ByteView, [M3.3 handoff](self-hosting/m3/HANDOFF_M3.3.md) ready for the source-only S4 exit ([pre-change review](self-hosting/m3/PRE_CHANGE.md)) |
 | [M4](#m4-native-filesystem-and-process-services) | Deliver B3 filesystem and B4 process services | M2; audited helper dependencies | Filesystem checkpoint first, native process/driver checkpoint second | Not started |
 | [M5](#m5-artifacts-and-command-line-helpers) | Deliver public CRC32, B6 archives, and S6 B7 helpers | M2; required M3 helpers; M4 filesystem checkpoint for publication | Artifact and documentation/CLI prerequisites ready for S6 | Not started |
 | [M6](#m6-bridge-preparation-and-final-handoff) | Qualify remaining Bridge consumers of B3-B7 | Required M3 helpers, M4 process checkpoint, and M5 artifact facilities | Preparation evidence and remaining S7/S8 integration obligations handed off | Not started |
@@ -457,7 +457,8 @@ Status: passed on the qualified macOS arm64 M5/32-GiB profile. The
 [G1 checkpoint](self-hosting/m2/CHECKPOINT.md) maps every S1 evidence item to
 its record, lists the consumers that retained conservative limits block and
 the forms that avoid them, and names what M3 needs. No new ownership
-semantics or analysis change was required. M3 is in progress.
+semantics or analysis change was required. M3 has since recorded its three
+handoffs.
 
 ### M3. Semantic and backend preparation
 
@@ -492,20 +493,21 @@ the S2-S4 port; they do not replace its integration exits.
   records the pinned capacity evidence and readiness for the S3 consumers.
   J0 cannot compile the accumulated port, so S3 qualifies capacity on a newer
   recorded seed.
-- [ ] **M3.3: S4 backend prerequisites.** Complete MD5 GUID generation, unsigned
+- [x] **M3.3: S4 backend prerequisites.** Complete MD5 GUID generation, unsigned
   comparison/widening, binary slices, and remaining emission/text helpers.
   Prepare explicit installation/build identity inputs for the source-only route.
   Record the runtime-object cache omission or prove retained invalidation;
   preserve all other SHA-256 consumers. Cover native output and trace ordering,
   and use the existing hot-lowering checks for changed paths, including
   `SelectiveInlining` consumers.
-  In progress: the [backend helpers and source-only inputs](self-hosting/m3/BACKEND.md)
+  Complete: the [backend helpers and source-only inputs](self-hosting/m3/BACKEND.md)
   (D268, D269) pass against the Java baseline's own MD5 GUIDs, emitter text,
   target and trace patterns, Properties, installation discovery and version,
   including trace-root ordering; one link never reuses a runtime object, so the
   native port compiles them directly, and the other SHA-256 consumers are
   unchanged. The [classification](self-hosting/m3/CLASSIFICATION_M3.3.md)
-  covers every M3.3 pattern; the M3.3 handoff run is pending.
+  covers every M3.3 pattern, and the [M3.3 handoff](self-hosting/m3/HANDOFF_M3.3.md)
+  records readiness for the source-only S4 exit.
 
 **Checkpoints:** M3.1's helpers must be ready for their S2 consumers; M3.2 must
 pass before its S3 consumers, especially ByteView; M3.3 must pass before the
