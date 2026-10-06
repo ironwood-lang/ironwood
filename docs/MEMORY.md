@@ -254,6 +254,9 @@ a boundary note to eligible ordinary/deferred frees, destructor field cleanup,
 loop back-edge checks, and owned-array element validation when its selected cause
 cannot be located. Skipped ownership refinement instead reports a
 limited-analysis note and asks for earlier errors to be fixed first.
+Refinement is skipped only after declaration or entry-point errors. Import
+checks only report, and every use of an imported name is diagnosed where it
+resolves, so import and method-body errors keep refined ownership facts.
 Bounded incoming-path alternatives, deferred actions, cleanup exits, and loop
 back edges have their own supported notes. The late owned-element validator
 locates the selected failed load, store, copy, call, or exit when its source is

@@ -242,7 +242,10 @@ public final class SemanticAnalyzer {
         TypeResolver resolver = new TypeResolver(types, lexicalTypeScopes);
         genericTypes = new GenericTypeSystem(types, resolver);
         initializeLexicalCallableTypeVariables(types, new ArrayList<>());
+        Set<Diagnostic> importDiagnostics = Collections.newSetFromMap(new IdentityHashMap<>());
+        int importStart = diagnostics.size();
         validateImports(units, resolver, diagnostics);
+        importDiagnostics.addAll(diagnostics.subList(importStart, diagnostics.size()));
         genericTypes.initializeDeclaredBounds(diagnostics);
         ClassHierarchy hierarchy = new ClassHierarchy(types, resolver, genericTypes);
         genericTypes.attachHierarchy(hierarchy);
@@ -269,7 +272,9 @@ public final class SemanticAnalyzer {
         }
         validateEnumBaseUsage(types, hierarchy, diagnostics);
         computeInterfaceClosures(types);
+        importStart = diagnostics.size();
         validateStaticImportMembers(units, resolver, hierarchy, diagnostics);
+        importDiagnostics.addAll(diagnostics.subList(importStart, diagnostics.size()));
         validateGenericSupertypeConsistency(types, hierarchy, diagnostics);
         validateThrowableTraceLayout(types, diagnostics);
         validateStackTraceElementLayout(types, diagnostics);
@@ -300,7 +305,12 @@ public final class SemanticAnalyzer {
         hierarchy.setDispatchSlots(slotsByKey);
 
         CallableSymbol main = findAndValidateMain(types, diagnostics, requireMain, mainClass);
-        if (explainRejectedFree && !Diagnostic.hasErrors(diagnostics)) {
+        // Ownership refinement needs complete declarations. Import checks only
+        // report: every use of an imported name resolves again and is diagnosed
+        // there, so import errors alone leave the declarations complete.
+        boolean declarationsComplete = diagnostics.stream().filter(Diagnostic::isError)
+                .allMatch(importDiagnostics::contains);
+        if (explainRejectedFree && declarationsComplete) {
             evidenceBudget = new RejectedFreeEvidence.Budget(
                     evidenceLimits == null ? RejectedFreeEvidence.DEFAULT_INVOCATION_LIMIT
                             : evidenceLimits.invocation());
@@ -325,7 +335,7 @@ public final class SemanticAnalyzer {
         buildIrTypes(types, hierarchy, dispatchSlots, escapeSummaries);
         boolean refinementCompleted = false;
         BorrowDispatchAnalysis borrowDispatch = null;
-        if (!Diagnostic.hasErrors(diagnostics)) {
+        if (declarationsComplete) {
             // Bind calls before granting ownership. Provisional ownership failures
             // are reconsidered after receiver flow; final lowering validates all
             // source diagnostics and emits the actual reclamation instructions.

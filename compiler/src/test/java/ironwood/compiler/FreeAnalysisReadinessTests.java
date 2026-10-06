@@ -71,10 +71,46 @@ final class FreeAnalysisReadinessTests {
                 "body error not found: " + bodyError.diagnostics());
         require(!hasError(bodyError, "cannot free 'data':"),
                 "body error lost refined dispatch: " + bodyError.diagnostics());
+
+        // Import checks only report, so an unresolved import must not skip
+        // refinement. Bundled Throwable stays provable in every mode, and the
+        // import error is the only diagnostic.
+        String emptyMain = "class Main { public static int main(String[] args) { return 0; } }\n";
+        List<String> missingImports = List.of("import ironwood.util.Missing;\n",
+                "import static ironwood.util.Missing.value;\n");
+        for (UnfreedMode mode : UnfreedMode.values()) {
+            for (String missingImport : missingImports) {
+                CompilationArtifact importOnly = analyze(mode, false, missingImport + emptyMain);
+                rejected(importOnly);
+                require(importOnly.diagnostics().size() == 1
+                                && hasError(importOnly, "type 'ironwood.util.Missing' does not exist"),
+                        mode + " unresolved import reported secondary diagnostics: "
+                                + importOnly.diagnostics());
+            }
+        }
+        // The refined dispatch facts are complete: the non-retaining override
+        // stays accepted, and a retaining one is still rejected without the
+        // limited-analysis note used after skipped refinement.
+        for (String missingImport : missingImports) {
+            CompilationArtifact importSafe = analyze(missingImport + corrected);
+            rejected(importSafe);
+            require(importSafe.diagnostics().size() == 1 && !hasError(importSafe, "cannot free 'data':"),
+                    "unresolved import lost refined dispatch: " + importSafe.diagnostics());
+            CompilationArtifact importUnsafe = analyze(UnfreedMode.OFF, true, missingImport + retaining);
+            rejected(importUnsafe);
+            require(importUnsafe.diagnostics().size() == 2 && hasError(importUnsafe, "cannot free 'data':")
+                            && importUnsafe.diagnostics().stream().flatMap(d -> d.notes().stream())
+                                    .noneMatch(note -> note.message().contains("earlier errors")),
+                    "unresolved import changed retaining dispatch rejection: " + importUnsafe.diagnostics());
+        }
     }
 
     private static CompilationArtifact analyze(String source) {
-        return new CompilerPipeline(UnfreedMode.OFF).analyze(List.of(SourceFile.of("Main.iron", source)));
+        return analyze(UnfreedMode.OFF, false, source);
+    }
+
+    private static CompilationArtifact analyze(UnfreedMode mode, boolean explain, String source) {
+        return new CompilerPipeline(mode, explain, null).analyze(List.of(SourceFile.of("Main.iron", source)));
     }
 
     private static void rejected(CompilationArtifact artifact) {

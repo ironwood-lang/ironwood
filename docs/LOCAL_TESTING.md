@@ -247,6 +247,9 @@ For ownership analysis after earlier errors, run:
 This records the current conservative rejection after a missing `@Override`,
 acceptance after adding the annotation, rejection of a genuinely retaining
 implementation, and preserved dispatch refinement after an unrelated body error.
+Unresolved single-type and static imports also keep refinement: in every
+unfreed mode the import error is the only diagnostic, with no secondary
+rejection in bundled library source such as `Throwable`.
 It is a baseline for the planned explanation gate, not a test of implemented
 explanation notes. Removing secondary diagnostics remains a separate change.
 
