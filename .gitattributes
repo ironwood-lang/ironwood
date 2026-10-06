@@ -1,3 +1,6 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 
 *.iron linguist-language=Java
+
+# Java's exact reader diagnostics, some ending in whitespace; byte-exact data.
+docs/self-hosting/m5/archive-evidence/java-verdicts.txt -whitespace
