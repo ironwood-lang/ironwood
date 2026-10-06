@@ -84,7 +84,7 @@ roadmap schedules them without replacing their detailed exit criteria.
 | [M2](#m2-portability-and-ownership-pilot) | Run B0b's frontend and ownership pilots | Required M1 phases | G1, the existing S1 gate, passes before broad translation | Complete: G1 passed on the qualified macOS arm64 profile ([checkpoint](self-hosting/m2/CHECKPOINT.md)) |
 | [M3](#m3-semantic-and-backend-preparation) | Complete core B1/B2/B7 helpers and early B5 digests | M2 for broad port work; reuse M1 outputs | Staged readiness for S2, S3 with ByteView SHA-256, and S4 with MD5/native-link policy | Complete: [M3.1 handoff](self-hosting/m3/HANDOFF_M3.1.md) ready for S2, [M3.2 handoff](self-hosting/m3/HANDOFF_M3.2.md) ready for S3 and ByteView, [M3.3 handoff](self-hosting/m3/HANDOFF_M3.3.md) ready for the source-only S4 exit ([pre-change review](self-hosting/m3/PRE_CHANGE.md)) |
 | [M4](#m4-native-filesystem-and-process-services) | Deliver B3 filesystem and B4 process services | M2; audited helper dependencies | Filesystem checkpoint first, native process/driver checkpoint second | Complete: [M4.1/M4.2 handoff](self-hosting/m4/HANDOFF_M4.1-M4.2.md) ready for M5 publication, [M4.3 handoff](self-hosting/m4/HANDOFF_M4.3.md) ready for the optional native-driver route, both on macOS arm64, Linux x86-64 and Linux arm64 ([Linux arm64 run](self-hosting/m4/arm64-evidence/manifest.json), [pre-change review](self-hosting/m4/PRE_CHANGE.md)) |
-| [M5](#m5-artifacts-and-command-line-helpers) | Deliver public CRC32, B6 archives, and S6 B7 helpers | M2; required M3 helpers; M4 filesystem checkpoint for publication | Artifact and documentation/CLI prerequisites ready for S6 | In progress: [pre-change review](self-hosting/m5/PRE_CHANGE.md) recorded; M5.1 complete ([CRC32](self-hosting/m5/CRC32.md), D274; [archive contract](self-hosting/m5/ARCHIVES.md)); M5.2 complete ([codec and writer profiles](self-hosting/m5/CODEC.md), D275); M5.3 complete ([artifact services](self-hosting/m5/ARTIFACTS.md), D276); M5.4 complete ([documentation helpers](self-hosting/m5/DOC.md), D277); checkpoint pending |
+| [M5](#m5-artifacts-and-command-line-helpers) | Deliver public CRC32, B6 archives, and S6 B7 helpers | M2; required M3 helpers; M4 filesystem checkpoint for publication | Artifact and documentation/CLI prerequisites ready for S6 | Complete: [M5 handoff](self-hosting/m5/HANDOFF_M5.md) ready for S6 on macOS arm64, Linux x86-64 and Linux arm64: public [CRC32](self-hosting/m5/CRC32.md) (D274), the [archive contract](self-hosting/m5/ARCHIVES.md), [codec and writer profiles](self-hosting/m5/CODEC.md) (D275), [artifact services](self-hosting/m5/ARTIFACTS.md) (D276) and [documentation helpers](self-hosting/m5/DOC.md) (D277) ([pre-change review](self-hosting/m5/PRE_CHANGE.md)) |
 | [M6](#m6-bridge-preparation-and-final-handoff) | Qualify remaining Bridge consumers of B3-B7 | Required M3 helpers, M4 process checkpoint, and M5 artifact facilities | Preparation evidence and remaining S7/S8 integration obligations handed off | Not started |
 
 ### Dependency and scheduling rules
@@ -624,6 +624,12 @@ M4 filesystem checkpoint; M5.1/M5.2 can proceed earlier. Use
 selected profiles and supported hosts. Public CRC32, private archive services,
 and the remaining public ZIP/GZIP roadmap work have separate status. Passing
 this milestone does not itself claim the full native CLI has passed S6.
+Complete: [the M5 handoff](self-hosting/m5/HANDOFF_M5.md) records one run on
+macOS arm64, Linux x86-64 and Linux arm64 and gives each of the 312 M5
+inventory patterns one class. Public CRC32 is implemented (D274); the
+compiler's private archive services are complete for the selected profiles
+(D275, D276); the remaining public ZIP/GZIP work stays open in roadmap item 5.
+S6 has not started.
 
 ### M6. Bridge preparation and final handoff
 

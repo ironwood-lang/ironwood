@@ -256,3 +256,13 @@ the M5.4 record names the reclassification a maintainer could choose instead.
 Two control forms needed care: a concatenation of constants is an immortal
 literal, and an interface-typed alias kept in scope holds its object, so the
 link callback is invoked through a parameter.
+
+## Checkpoint increment
+
+No analysis rule changed. The checkpoint run works from a clean `git archive`,
+and its first attempt exposed two gaps that the working tree had hidden: the
+frozen class fixtures were ignored and never committed, and the frozen
+verdict transcript holds two Java diagnostics that end in whitespace. Both
+are fixed and recorded in the [handoff](HANDOFF_M5.md#handoff-run). The
+range also carries a separate task's ownership-refinement fix (f50038c0),
+which the M5 tests ran with.
