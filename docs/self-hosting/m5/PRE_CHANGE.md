@@ -213,3 +213,18 @@ without checking their CRC or sizes, a malformed entry name escapes
 A pre-existing, unrelated diagnostic was noticed and left to a separate task:
 an unresolved import under `--unfreed=error` also reports ownership errors
 inside the bundled `Throwable`.
+
+## M5.2 increment (D275)
+
+The STORED option met B6's contracts, so no dependency decision was needed and
+no zlib was evaluated beyond recording the existing pin as the candidate. Two
+conservative ownership rejections shaped the port code without an analysis
+change: the destructor proof treats a field-element store whose value comes
+from a call on the same object as uncertain field ownership (the decoder reads
+the value into a local first), and an array used as a `System.arraycopy`
+destination cannot be freed in that frame (fixtures return such copies from a
+helper). Storing a caller's array in a decoder field would have made it
+unfreeable, so inputs travel as parameters and output goes through an owned
+scratch array. The decoder is one-shot over an in-memory range; incremental
+input is covered by offset independence and truncated prefixes and recorded as
+a boundary.

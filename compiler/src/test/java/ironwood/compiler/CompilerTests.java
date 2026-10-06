@@ -924,6 +924,11 @@ public final class CompilerTests {
         test("M5.1 CRC32 unwinds every allocation failure", Crc32Tests::failures);
         test("M5.1 archive corpus reproduces the frozen Java reader verdicts", ArchiveContractTests::javaVerdicts);
         test("M5.1 Java archive writers keep the frozen serialization fixtures", ArchiveContractTests::fixtures);
+        test("M5.2 inflate matches Java 21's Inflater on legacy and malformed streams", CodecTests::inflateDifferential);
+        test("M5.2 STORED writer equals Java's bytes and opens in Java readers and JAR tools",
+                CodecTests::writerInterop);
+        test("M5.2 inflate and ZIP writer borrow inputs and own their results", CodecTests::ownership);
+        test("M5.2 inflate and ZIP writer unwind every allocation failure", CodecTests::failures);
         test("compiler work queue keeps queued items alive and its ring private", WorkQueueTests::ownership);
         test("compiler worklists preserve FIFO and retain-filter order across artifacts and failures",
                 WorkQueueTests::artifacts);

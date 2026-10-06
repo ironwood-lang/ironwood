@@ -910,6 +910,16 @@ preserves complete closed-world analysis and avoids promising a stable typed-IR
 ABI before that representation has been designed. There is no runtime class
 path or class loading.
 
+The ZIP entry method is a writer profile, not part of the format (D275). The
+Java bootstrap writes `.ironclass` entries DEFLATED and `.ironjar` entries
+STORED; the compiler port's native writers store every entry, spelled as
+Java's ZipOutputStream writes a STORED entry with time 0, so a native archive
+built from the same class files equals the Java one byte for byte. Every
+reader accepts both methods, including DEFLATED class payloads inside a STORED
+archive, through the compiler-private RFC 1951 decoder in the port; no zlib is
+linked for archives. The frozen container contract is
+[the M5.1 record](self-hosting/m5/ARCHIVES.md).
+
 The compiler build also compiles declarations below `stdlib/src/main/ironwood`
 into ordinary format-1 `.ironclass` files and packages them deterministically as
 `compiler/build/ironwood-stdlib.ironjar`; installed distributions place that

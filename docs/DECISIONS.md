@@ -10579,3 +10579,81 @@ occurrence order. If no
   The ownership pairs hold in every unfreed mode, omitted members fail to
   compile, updates allocate nothing, and every allocation failure unwinds.
   See [the M5.1 record](self-hosting/m5/CRC32.md).
+
+## D275 - Read legacy archives with Ironwood inflate and write STORED entries natively
+
+- **Status:** Accepted during M5.2 on 2026-10-06. The decoder and writer are
+  implemented in the compiler port; the reader policies below take effect in
+  M5.3's archive services. The Java bootstrap's writers are unchanged.
+- **Decision:** B6's reader and writer profiles for every native archive
+  consumer, chosen against the frozen [M5.1 contract](self-hosting/m5/ARCHIVES.md).
+  - **Reader profile.** Native readers accept STORED and DEFLATED entries in
+    all three profiles, including DEFLATED class payloads nested in STORED
+    `.ironjar` entries and wholly DEFLATED legacy archives. DEFLATE data is
+    decoded by the port's `Inflate`, an original RFC 1951 decoder that admits
+    exactly the code sets Java's zlib-based Inflater admits. Each profile keeps
+    its Java container model: IronClass reads local headers in order, as
+    `ZipInputStream` does, and IronJar reads the central directory, as
+    `ZipFile` does, with the contract's verdicts, apart from four explicit
+    native policies: every entry read has its CRC-32 and size verified in both
+    models (Java's `ZipFile` verifies neither); a malformed UTF-8 entry name is
+    an artifact error rather than an unchecked exception escaping the reader;
+    an archive or decoded entry beyond the array range fails with a size-policy
+    message, the same bound Java's byte-array readers have; and
+    container-level messages are native and name the artifact, while
+    profile-level messages keep Java's text.
+  - **Writer profile.** Native `.ironclass`, `.ironjar` and Bridge `.jar`
+    output use STORED entries spelled exactly as Java's ZipOutputStream writes
+    a STORED entry with explicit size and CRC and time 0: version 10, the
+    UTF-8 name flag, DOS date 1980-01-01 at 00:00, the 9-byte extended
+    timestamp with time 0, no descriptor, zero attributes, no comments, and
+    ZIP64 end records from 65,535 entries. Each profile's entry order is
+    unchanged: IronClass's fixed order, IronJar's sorted order, and Bridge's
+    manifest first, then sorted. A STORED writer never narrows a reader.
+  - **Options.** (a) Ironwood inflate with STORED writers, chosen: no codec
+    dependency and no compressor. (b) A pinned zlib behind a typed runtime
+    boundary, with the existing 1.3.1 Bridge support source pin as the
+    candidate: not needed once (a) met the contract, so no zlib release, build
+    flags or notices are selected. (c) Ironwood inflate and deflate: compressor
+    work that no requirement justifies. The existing delivery of zlib source
+    with the Linux Bridge support files is unaffected.
+  - **Byte and identity effects.** A native `.ironjar` built from the same
+    `.ironclass` payloads equals the Java archive byte for byte. Native
+    `.ironclass` and Bridge JAR bytes differ from the Java bootstrap's
+    DEFLATED output while their decoded entries, names, order and timestamps
+    agree; archives that embed native class artifacts therefore differ too, and
+    any identity computed over those bytes changes with the writer, which
+    M6.2 records for Bridge. Cross-writer byte equality is required only for
+    `.ironjar` from equal payloads; every writer stays deterministic. STORED
+    output makes the standard library's 252 class artifacts 3.0 times larger
+    (431,739 to 1,312,492 bytes) and its archive about 2.0 times (887,851 to
+    about 1,768,604 bytes); reading and writing it does no compression work.
+  - **Boundary of the package.** `Inflate` and `ZipWriter` are compiler-private
+    (`ironwood.compiler.port`); the public surface stays CRC32 (D274), and no
+    public ZIP, GZIP, Deflater or Inflater API is added or implied. No runtime,
+    native library, build or packaging change is made; programs that use no
+    archive code keep none of it.
+- **Proof:** No analysis, runtime or lowering change. Two conservative
+  rejections were met in source form: a field-element store whose value comes
+  from a call on the same object is uncertain to the destructor proof, so the
+  value is read first; and an array used as a copy destination cannot be freed
+  in that frame, so such copies are returned from a helper.
+- **Boundary:** Decoding is one-shot over an in-memory range, not a stream
+  that arrives in pieces; the writer builds the archive in memory and so never
+  needs ZIP64 sizes or offsets; the writer does not check distinct names,
+  which each profile guarantees. This refines D023's and D024's container
+  description and supersedes no decision.
+- **Verification:** The decoder gives Java 21's Inflater verdict on 194
+  streams: 160 from eight inputs at six levels, three strategies and two
+  flush modes, four trailing, truncated and empty inputs, and 30 hand-built
+  stored, fixed and dynamic blocks covering each defect zlib rejects; 171 are
+  accepted with Java's bytes and consumed lengths and 23 rejected. Natively
+  each accepted stream also decodes at an offset inside other bytes and into
+  an exact-size array, and fails with an off-by-one size or a truncated
+  prefix. The writer reproduces the
+  frozen `lib.ironjar`, equals Java's STORED bytes for a class artifact,
+  Unicode, empty and missing entries and 65,534 to 65,536 entries, and its
+  STORED class artifact and JAR open in IronClass.read, ZipFile, JarFile,
+  JarInputStream, the `jar` tool, `java -jar` and a class loader. Ownership
+  pairs hold in every unfreed mode and every allocation failure unwinds. See
+  [the M5.2 record](self-hosting/m5/CODEC.md).
