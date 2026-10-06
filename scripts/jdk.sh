@@ -40,7 +40,9 @@ ironwood_require_jdk() {
             return 1
         fi
     done
-    version=$("$JAVA_HOME/bin/javac" -version 2>&1)
+    # A JVM may print startup warnings on stderr (for example when it cannot
+    # read a guest's SVE vector length); only javac's own line is compared.
+    version=$("$JAVA_HOME/bin/javac" -version 2>&1 | grep -v ' VM warning: ' || true)
     if [[ "$version" != "javac $IRONWOOD_JAVA_FEATURE" && "$version" != "javac $IRONWOOD_JAVA_FEATURE."* ]]; then
         echo "error: selected java/javac versions differ: Java $IRONWOOD_JAVA_FEATURE, $version ($JAVA_HOME)" >&2
         return 1

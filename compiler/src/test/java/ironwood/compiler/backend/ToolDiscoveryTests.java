@@ -115,11 +115,12 @@ public final class ToolDiscoveryTests {
         return tool;
     }
 
+    // The reference answers on stdout; stderr carries only JVM startup warnings.
     private static String reference(String mode, Map<String, String> environment) throws Exception {
         Path java = Path.of(System.getProperty("java.home"), "bin", "java");
         ProcessBuilder builder = new ProcessBuilder(java.toString(), "-cp",
                 Path.of("compiler/build/classes").toAbsolutePath().toString(),
-                Path.of(REFERENCE).toAbsolutePath().toString(), mode).redirectErrorStream(true);
+                Path.of(REFERENCE).toAbsolutePath().toString(), mode).redirectError(ProcessBuilder.Redirect.DISCARD);
         for (String variable : List.of("JAVA_TOOL_OPTIONS", "JDK_JAVA_OPTIONS", "_JAVA_OPTIONS", "SDKROOT")) {
             builder.environment().remove(variable);
         }
