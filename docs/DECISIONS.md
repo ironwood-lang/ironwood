@@ -11324,3 +11324,45 @@ occurrence order. If no
   `--unfreed=error`, 79 examples and projects compile with identical diagnostics, 69
   examples emit identical LLVM, and the standard library compiles in slightly more
   CPU time.
+
+## D291 - Validate Bridge export names with Java 21's qualified-name rules in the port
+
+- **Status:** Implemented during M6.1 on 2026-10-07.
+- **Decision:** The compiler port gains B7's Java 21 qualified-name validation
+  for the S7 ports of BridgePackageInputs and BridgeExportSurface; the Java seed
+  keeps `SourceVersion.isName`.
+  - **JavaIdentifiers.** Adds `isJavaIdentifierStart(int)`: 683 ranges generated,
+    like D277's 798 part ranges, from JDK 21's answer for every code point by the
+    same generator and checked by the same regeneration test.
+  - **JavaNames.** `isName` splits at every dot, empty components included, and
+    accepts a component when its first code point is an identifier start, every
+    later one an identifier part (surrogates paired as `codePointAt` pairs them,
+    an unpaired surrogate neither) and it is not a keyword: JLS 21's reserved
+    keywords, `_` included, and `true`, `false` and `null`. Contextual keywords
+    are identifiers. The Ironwood lexer's narrower grammar is not used, and
+    DocComment's UTF-16 tag scan is unchanged.
+  - **BridgeExports.** Both callers' export loops: request order for
+    diagnostics, `invalid Java Bridge export package: '<name>'`, the export
+    surface's separate `ironwood.bridge` reservation, the package inputs'
+    `Java Bridge requires at least one exact export package`, and accepted
+    packages kept once each in String order. A native request list has no null
+    element, so the callers' null branch has no native input.
+- **Proof:** No analysis, runtime or lowering change. The selection is built in
+  its constructor, so any failure rolls it back; names and diagnostics are
+  handed out as fresh Strings.
+- **Boundary:** The validator needs no `javax.lang.model` API or JDK at run
+  time. Callers that stop on a diagnostic ignore the accepted packages, as the
+  Java callers do. Supersedes no decision.
+- **Provenance:** Original code under the default license; the start ranges are
+  Unicode 15.0 character data observed through JDK 21's `Character` with no
+  OpenJDK source consulted, carrying the Unicode notice like D277's part ranges.
+  The keyword list comes from JLS 21 sections 3.9 and 3.10.
+- **Verification:** For 4,245 names (every reserved and contextual keyword,
+  keyword-qualified forms, empty, leading, trailing and repeated dots,
+  non-ASCII letters and digits, identifier-ignorable characters, combining
+  marks, letter numbers, paired and isolated surrogates, and 4,000 seeded
+  mixes), 70 export groups for both callers, and the start and part predicates
+  over every code point, the 6,224-line transcript equals JDK 21's
+  `SourceVersion` and the callers' loops from class and archive links; the
+  ownership pairs hold in every unfreed mode and every allocation failure
+  unwinds. See [the M6.1 names record](self-hosting/m6/NAMES.md).

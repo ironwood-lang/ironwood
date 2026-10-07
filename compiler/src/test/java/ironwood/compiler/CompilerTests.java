@@ -1000,6 +1000,10 @@ public final class CompilerTests {
         test("M5.4 IronDoc source walks match Java's Files.walk selection", DocHelperTests::walks);
         test("M5.4 documentation helpers borrow inputs and own their results", DocHelperTests::ownership);
         test("M5.4 documentation helpers unwind every allocation failure", DocHelperTests::failures);
+        test("M6.1 Java name validation matches SourceVersion.isName and both export loops",
+                BridgeHelperTests::namesDifferential);
+        test("M6.1 Bridge helpers borrow inputs and own their results", BridgeHelperTests::ownership);
+        test("M6.1 Bridge helpers unwind every allocation failure", BridgeHelperTests::failures);
         test("compiler work queue keeps queued items alive and its ring private", WorkQueueTests::ownership);
         test("compiler worklists preserve FIFO and retain-filter order across artifacts and failures",
                 WorkQueueTests::artifacts);

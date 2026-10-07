@@ -1,0 +1,59 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// Inject allocation failure into the M6.1 Bridge helpers: the export
+// selection's request copy, package set and diagnostics. Every failure
+// unwinds to the live-allocation baseline. Exit 42 on allocation failure with
+// every check intact, 43 on success.
+import ironwood.compiler.port.BridgeExports;
+import ironwood.compiler.port.JavaNames;
+import ironwood.compiler.port.TextList;
+
+class Main {
+
+    static void exports() {
+
+        TextList requested = new TextList();
+        defer free requested;
+        requested.add("b.c");
+        requested.add("ironwood.bridge");
+        requested.add("a.int");
+        requested.add("b.c");
+        requested.add("a");
+        BridgeExports inputs = new BridgeExports(requested, false);
+        defer free inputs;
+        BridgeExports surface = new BridgeExports(requested, true);
+        defer free surface;
+        String first = surface.packageName(0);
+        defer free first;
+        String message = surface.diagnostic(0);
+        defer free message;
+        if (inputs.packageCount() != 3 || surface.packageCount() != 2 || inputs.diagnosticCount() != 1
+                || !first.equals("a") || !message.startsWith("ironwood.bridge is reserved")) {
+            throw new IllegalStateException();
+        }
+    }
+
+    static void exercise() {
+
+        exports();
+    }
+
+    public static int main(String[] args) {
+
+        // The identifier tables and keyword list are process-lived after their first use.
+        try {
+            if (!JavaNames.isName("a.b")) return 3;
+        } catch (OutOfMemoryError failure) {
+            return 42;
+        }
+        long baseline = System.liveAllocationCount();
+        boolean failed = false;
+        try {
+            exercise();
+        } catch (OutOfMemoryError failure) {
+            failed = true;
+        }
+        if (System.liveAllocationCount() != baseline) return 1;
+        return failed ? 42 : 43;
+    }
+}

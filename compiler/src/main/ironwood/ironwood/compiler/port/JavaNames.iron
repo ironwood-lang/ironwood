@@ -1,0 +1,108 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.port;
+
+/**
+ * Java 21's {@code SourceVersion.isName(name, RELEASE_21)}, with its
+ * {@code isIdentifier} and {@code isKeyword} parts, for the Bridge export
+ * package checks of BridgePackageInputs and BridgeExportSurface (B7, S7). No
+ * {@code javax.lang.model} API or JDK is needed at run time.
+ *
+ * <p>A name is valid when every dot-separated component, empty components
+ * included, is an identifier and not a keyword. An identifier's first code
+ * point is a Java identifier start and every later one a Java identifier part,
+ * as {@link JavaIdentifiers} reports them; surrogates pair as
+ * {@code String.codePointAt} pairs them, and an unpaired surrogate is neither.
+ * The keywords are JLS 21's reserved keywords, {@code _} included, and the
+ * literals {@code true}, {@code false} and {@code null}; contextual keywords
+ * such as {@code record}, {@code var} or {@code yield} are identifiers. The
+ * Ironwood lexer's narrower identifier grammar is not used. Inputs are
+ * borrowed and nothing is allocated.
+ */
+public final class JavaNames {
+
+    // JLS 21 section 3.9's reserved keywords, then the three literals.
+    private static final String[] KEYWORDS = {
+        "abstract", "assert", "boolean", "break", "byte", "case", "catch", "char", "class", "const", "continue",
+        "default", "do", "double", "else", "enum", "extends", "final", "finally", "float", "for", "goto", "if",
+        "implements", "import", "instanceof", "int", "interface", "long", "native", "new", "package", "private",
+        "protected", "public", "return", "short", "static", "strictfp", "super", "switch", "synchronized", "this",
+        "throw", "throws", "transient", "try", "void", "volatile", "while", "_", "true", "false", "null"
+    };
+
+    private JavaNames() {
+
+    }
+
+    /**
+     * @param name the qualified name; borrowed
+     * @return whether Java 21's {@code SourceVersion.isName(name, RELEASE_21)}
+     *     accepts it
+     */
+    public static boolean isName(String name) {
+
+        int start = 0;
+        int length = name.length();
+        while (true) {
+            int end = name.indexOf('.', start);
+            if (end < 0) end = length;
+            if (!isIdentifier(name, start, end) || isKeyword(name, start, end)) return false;
+            if (end == length) return true;
+            start = end + 1;
+        }
+    }
+
+    /**
+     * @param text the text; borrowed
+     * @param start the first unit of the candidate
+     * @param end the unit after its last
+     * @return whether {@code text[start, end)} is a Java identifier, as
+     *     {@code SourceVersion.isIdentifier} decides
+     */
+    public static boolean isIdentifier(String text, int start, int end) {
+
+        if (start < 0 || start > end || end > text.length()) throw new IndexOutOfBoundsException();
+        if (start == end) return false;
+        int index = start;
+        while (index < end) {
+            int point = text.charAt(index);
+            int size = 1;
+            if (Character.isHighSurrogate((char) point) && index + 1 < end
+                    && Character.isLowSurrogate(text.charAt(index + 1))) {
+                point = 0x10000 + ((point - 0xD800) << 10) + (text.charAt(index + 1) - 0xDC00);
+                size = 2;
+            }
+            boolean accepted = index == start ? JavaIdentifiers.isJavaIdentifierStart(point)
+                    : JavaIdentifiers.isJavaIdentifierPart(point);
+            if (!accepted) return false;
+            index = index + size;
+        }
+        return true;
+    }
+
+    /**
+     * @param text the text; borrowed
+     * @param start the first unit of the candidate
+     * @param end the unit after its last
+     * @return whether {@code text[start, end)} is a Java 21 keyword or
+     *     literal, as {@code SourceVersion.isKeyword(s, RELEASE_21)} decides
+     */
+    public static boolean isKeyword(String text, int start, int end) {
+
+        if (start < 0 || start > end || end > text.length()) throw new IndexOutOfBoundsException();
+        for (int keyword = 0; keyword < KEYWORDS.length; keyword++) {
+            if (equalsRange(KEYWORDS[keyword], text, start, end)) return true;
+        }
+        return false;
+    }
+
+    // Whether text[start, end) spells word.
+    private static boolean equalsRange(String word, String text, int start, int end) {
+
+        if (word.length() != end - start) return false;
+        for (int index = 0; index < word.length(); index++) {
+            if (word.charAt(index) != text.charAt(start + index)) return false;
+        }
+        return true;
+    }
+}
