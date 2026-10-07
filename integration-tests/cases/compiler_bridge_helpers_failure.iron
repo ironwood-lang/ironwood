@@ -3,12 +3,15 @@
 // Inject allocation failure into the M6.1 Bridge helpers: the export
 // selection's request copy, package set and diagnostics; text map growth and
 // replacement; identity, byte and content digests; pairing-manifest
-// serialization, loading and the canonical check; and JAR manifest writing,
-// reading and lookup. Every failure unwinds to the live-allocation baseline.
+// serialization, loading and the canonical check; JAR manifest writing,
+// reading and lookup; and the generators' hex floats, escapes and stripped
+// text. Every failure unwinds to the live-allocation baseline.
 // Exit 42 on allocation failure with every check intact, 43 on success.
 import ironwood.compiler.port.BridgeExports;
 import ironwood.compiler.port.BridgeIdentity;
+import ironwood.compiler.port.BridgePatterns;
 import ironwood.compiler.port.BridgeProperties;
+import ironwood.compiler.port.BridgeText;
 import ironwood.compiler.port.JarManifest;
 import ironwood.compiler.port.JavaNames;
 import ironwood.compiler.port.TextList;
@@ -82,10 +85,29 @@ class Main {
         if (!version.equals("1.0") || !module.equals(content) || digest.length() != 64) throw new IllegalStateException();
     }
 
+    static void text() {
+
+        String floatText = BridgeText.floatHex(1.4e-45f);
+        defer free floatText;
+        String doubleText = BridgeText.doubleHex(-0.1);
+        defer free doubleText;
+        StringBuilder escapes = new StringBuilder();
+        defer free escapes;
+        BridgeText.appendOctalEscape(escapes, 7);
+        BridgeText.appendUnicodeEscape(escapes, 0x4e2d);
+        String stripped = BridgeText.stripTrailing("state \n\t ");
+        defer free stripped;
+        if (!floatText.equals("0x0.000002p-126") || !doubleText.equals("-0x1.999999999999ap-4")
+                || escapes.length() != 10 || !stripped.equals("state") || !BridgePatterns.isMavenGroup("org.example")) {
+            throw new IllegalStateException();
+        }
+    }
+
     static void exercise() throws IOException {
 
         exports();
         inventories();
+        text();
     }
 
     public static int main(String[] args) {

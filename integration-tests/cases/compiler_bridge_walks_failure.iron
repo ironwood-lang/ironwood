@@ -1,0 +1,66 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// Inject allocation failure into the Bridge runtime source inventory:
+// `program <runtime>` walks the directory with SourceFiles and builds its
+// digest inventory and content identity. Every failure unwinds to the
+// live-allocation baseline. Exit 42 on allocation failure with every check
+// intact, 43 on success.
+import ironwood.compiler.port.BridgeIdentity;
+import ironwood.compiler.port.SourceFiles;
+import ironwood.compiler.port.TextMap;
+import ironwood.io.IOException;
+import ironwood.nio.file.Files;
+import ironwood.nio.file.Path;
+
+class Main {
+
+    static void exercise(String directory) throws IOException {
+
+        Path root = Path.of(directory);
+        defer free root;
+        SourceFiles files = new SourceFiles(root);
+        defer free files;
+        TextMap inventory = new TextMap();
+        defer free inventory;
+        for (int index = 0; index < files.size(); index++) {
+            String name = files.relative(index);
+            defer free name;
+            String spelling = files.file(index);
+            defer free spelling;
+            Path file = Path.of(spelling);
+            defer free file;
+            byte[] bytes = Files.readAllBytes(file);
+            defer free bytes;
+            String digest = BridgeIdentity.bytesDigest(bytes, 0, bytes.length);
+            defer free digest;
+            inventory.put(name, digest);
+        }
+        String identity = BridgeIdentity.contentIdentity(inventory);
+        defer free identity;
+        if (files.size() < 3 || identity.length() != 64) throw new IllegalStateException();
+    }
+
+    public static int main(String[] args) {
+
+        // The SHA-256 round constants are process-lived after their first use.
+        try {
+            byte[] empty = new byte[0];
+            String warm = BridgeIdentity.bytesDigest(empty, 0, 0);
+            free warm;
+            free empty;
+        } catch (OutOfMemoryError failure) {
+            return 42;
+        }
+        long baseline = System.liveAllocationCount();
+        boolean failed = false;
+        try {
+            exercise(args[0]);
+        } catch (OutOfMemoryError failure) {
+            failed = true;
+        } catch (IOException failure) {
+            return 4;
+        }
+        if (System.liveAllocationCount() != baseline) return 1;
+        return failed ? 42 : 43;
+    }
+}

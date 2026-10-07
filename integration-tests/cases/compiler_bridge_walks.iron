@@ -1,0 +1,100 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// The Bridge consumers' file inventories on B3's traversal replacements:
+// `program <runtime> <package> <stage> <classes>` prints the runtime source
+// inventory of BridgeDistributionInputs.read and BridgeProducerInputs.read
+// (SourceFiles: relative names, byte digests and the content identity), the
+// export package's .iron and .ironclass listings of BridgePackageInputs.files
+// and the regular files of BridgeDistributionCommand's stage listing
+// (FileCollector at depth 1), and the classes BridgeAssembler finds under its
+// compiler output (FileCollector, relative names). The expected text is
+// Java's Files.walk and Files.list selections. Every result is freed. Exit 42.
+import ironwood.compiler.port.BridgeIdentity;
+import ironwood.compiler.port.FileCollector;
+import ironwood.compiler.port.SourceFiles;
+import ironwood.compiler.port.TextMap;
+import ironwood.io.IOException;
+import ironwood.nio.file.Files;
+import ironwood.nio.file.Path;
+
+class Main {
+
+    static void runtime(Path root) throws IOException {
+
+        SourceFiles files = new SourceFiles(root);
+        defer free files;
+        TextMap inventory = new TextMap();
+        defer free inventory;
+        System.out.println("runtime " + files.size());
+        for (int index = 0; index < files.size(); index++) {
+            String name = files.relative(index);
+            defer free name;
+            String spelling = files.file(index);
+            defer free spelling;
+            Path file = Path.of(spelling);
+            defer free file;
+            byte[] bytes = Files.readAllBytes(file);
+            defer free bytes;
+            String digest = BridgeIdentity.bytesDigest(bytes, 0, bytes.length);
+            defer free digest;
+            System.out.println("  " + name + " " + digest);
+            inventory.put(name, digest);
+        }
+        String identity = BridgeIdentity.contentIdentity(inventory);
+        defer free identity;
+        System.out.println("identity " + identity);
+    }
+
+    // A depth-one listing: names after the directory, in Path order.
+    static void listing(String label, Path directory, String extension) throws IOException {
+
+        FileCollector files = new FileCollector(directory, extension, 1);
+        defer free files;
+        System.out.println(label + " " + files.size());
+        for (int index = 0; index < files.size(); index++) {
+            String name = files.relative(index, directory.toString());
+            defer free name;
+            System.out.println("  " + name);
+        }
+    }
+
+    static void classes(Path root) throws IOException {
+
+        FileCollector files = new FileCollector(root, "");
+        defer free files;
+        System.out.println("classes " + files.size());
+        for (int index = 0; index < files.size(); index++) {
+            String name = files.relative(index, root.toString());
+            defer free name;
+            System.out.println("  " + name);
+        }
+    }
+
+    public static int main(String[] args) {
+
+        // The SHA-256 round constants are process-lived after their first use.
+        byte[] empty = new byte[0];
+        String warm = BridgeIdentity.bytesDigest(empty, 0, 0);
+        free warm;
+        free empty;
+        long live = System.liveAllocationCount();
+        try {
+            Path runtime = Path.of(args[0]);
+            defer free runtime;
+            Path exports = Path.of(args[1]);
+            defer free exports;
+            Path stage = Path.of(args[2]);
+            defer free stage;
+            Path compiled = Path.of(args[3]);
+            defer free compiled;
+            runtime(runtime);
+            listing("sources", exports, ".iron");
+            listing("artifacts", exports, ".ironclass");
+            listing("stage", stage, "");
+            classes(compiled);
+        } catch (IOException failure) {
+            return 1;
+        }
+        return System.liveAllocationCount() == live ? 42 : 2;
+    }
+}

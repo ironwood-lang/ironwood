@@ -11421,3 +11421,47 @@ occurrence order. If no
   methods and JDK 21's `Properties` and `Manifest` from class and archive
   links; the ownership pairs hold in every unfreed mode and every allocation
   failure unwinds. See [the M6.1 inventories record](self-hosting/m6/INVENTORIES.md).
+
+## D293 - Give the port the Bridge generators' text conversions, patterns and file inventories
+
+- **Status:** Implemented during M6.1 on 2026-10-07.
+- **Decision:** The compiler port gains B7's last Bridge text helpers and B3's
+  Bridge file-inventory selection for S7; the Java seed is unchanged.
+  - **BridgeText.** `Float.toHexString` and `Double.toHexString` from the
+    binary layout as Java 21 documents them (subnormal floats keep `p-126`,
+    every other float prints as its exact double), `String.format`'s
+    `\%03o` and `\u%04x` escapes as unsigned 32-bit values, and
+    `stripTrailing` with Java's white-space set.
+  - **BridgePatterns.** The Bridge's `String.matches` patterns as scans: the
+    Maven group, Maven artifact and version, the C root name, the macOS
+    minimum version, the extracted dependency path and the ensure method;
+    `[0-9a-f]{64}` is D292's `BridgeIdentity.isHash`.
+  - **SourceFiles.** BridgeDistributionInputs' and BridgeProducerInputs'
+    runtime selection, `Files.walk` filtered to regular `.c` and `.h` files in
+    Path order with `/`-spelled relative names, as two D276 `FileCollector`
+    walks merged in code point order. The other Bridge walks and listings use
+    `FileCollector` directly: export package directories and the distribution
+    stage at depth one, the assembler's compiled classes recursively; staging
+    cleanups use M4.1's `TreeDeletion`.
+  - **Conventions.** `BridgeGeneration.constant` hashes a float constant's raw
+    bits; the native constant representation keeps those bits (an `int`
+    payload, as D268 kept double payloads) instead of adding a public
+    `Float.floatToRawIntBits`. Generated Java and C stay byte for byte;
+    `Character.toUpperCase` only capitalizes a primitive type name for JNI's
+    `Get<Kind>ArrayRegion`, which is ASCII casing.
+- **Proof:** No analysis, runtime or lowering change.
+- **Boundary:** The scans implement exactly their call sites' patterns, not a
+  regular-expression engine. A public `Float.floatToRawIntBits`, like D268's
+  double method, remains a separate public API decision. Supersedes no
+  decision.
+- **Provenance:** Original code under the default license, from Java 21's API
+  documentation and observed results; no OpenJDK source was consulted.
+- **Verification:** For 4,523 float and 4,518 double bit patterns (zeros,
+  subnormals, normal boundaries, extremes, infinities, NaN payloads and seeded
+  patterns), 810 integers and 3,353 strings, the 13,204-line transcript equals
+  JDK 21's conversions and patterns and the baseline's own `quote` and
+  `cString`; on a tree with links to files, directories and nothing,
+  directories named like sources and Unicode names, the runtime inventory,
+  identity, listings and class walk equal Java's `Files.walk` and
+  `Files.list`; the ownership pairs hold and every allocation failure unwinds.
+  See [the M6.1 text and inventories record](self-hosting/m6/TEXT.md).

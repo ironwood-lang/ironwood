@@ -1,0 +1,141 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.port;
+
+/**
+ * The Java baseline's Bridge {@code String.matches} patterns as
+ * purpose-specific scans (B7, S7), each a whole-string match with ASCII
+ * classes, as Java's regular expressions read them. The SHA-256 text pattern
+ * {@code [0-9a-f]{64}} is {@link BridgeIdentity#isHash}. No regular-expression
+ * engine is added. Inputs are borrowed; nothing is allocated.
+ */
+public final class BridgePatterns {
+
+    private BridgePatterns() {
+
+    }
+
+    /**
+     * @return whether text matches BridgeDistributionCommand's Maven group
+     *     pattern {@code [A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+)*}: nonempty
+     *     dot-separated components of letters, digits, {@code _} and {@code -}
+     */
+    public static boolean isMavenGroup(String text) {
+
+        int run = 0;
+        for (int index = 0; index < text.length(); index++) {
+            char unit = text.charAt(index);
+            if (unit == '.') {
+                if (run == 0) return false;
+                run = 0;
+            } else if (alphanumeric(unit) || unit == '_' || unit == '-') {
+                run++;
+            } else {
+                return false;
+            }
+        }
+        return run > 0;
+    }
+
+    /**
+     * @return whether text matches the Maven artifact and version pattern
+     *     {@code [A-Za-z0-9_][A-Za-z0-9_.+-]*} of BridgeDistributionCommand and
+     *     BridgeValuesLibrary
+     */
+    public static boolean isMavenCoordinate(String text) {
+
+        if (text.isEmpty()) return false;
+        char first = text.charAt(0);
+        if (!alphanumeric(first) && first != '_') return false;
+        for (int index = 1; index < text.length(); index++) {
+            char unit = text.charAt(index);
+            if (!alphanumeric(unit) && unit != '_' && unit != '.' && unit != '+' && unit != '-') return false;
+        }
+        return true;
+    }
+
+    /**
+     * @return whether text matches BridgeCallbackGuardSources' root-name
+     *     pattern {@code [A-Za-z_$][A-Za-z0-9_$]*}
+     */
+    public static boolean isRootName(String text) {
+
+        if (text.isEmpty()) return false;
+        char first = text.charAt(0);
+        if (!letter(first) && first != '_' && first != '$') return false;
+        for (int index = 1; index < text.length(); index++) {
+            char unit = text.charAt(index);
+            if (!alphanumeric(unit) && unit != '_' && unit != '$') return false;
+        }
+        return true;
+    }
+
+    /**
+     * @return whether text matches BridgeLoaderSources' minimum OS version
+     *     pattern {@code [0-9]+(?:\.[0-9]+){0,2}}: one to three nonempty
+     *     dot-separated runs of digits
+     */
+    public static boolean isMinimumVersion(String text) {
+
+        int components = 1;
+        int run = 0;
+        for (int index = 0; index < text.length(); index++) {
+            char unit = text.charAt(index);
+            if (unit == '.') {
+                if (run == 0 || components == 3) return false;
+                components++;
+                run = 0;
+            } else if (unit >= '0' && unit <= '9') {
+                run++;
+            } else {
+                return false;
+            }
+        }
+        return run > 0;
+    }
+
+    /**
+     * @return whether text matches BridgeLoaderSources' extracted dependency
+     *     path pattern {@code [A-Za-z0-9_.+-]+(?:/[A-Za-z0-9_.+-]+)*}
+     */
+    public static boolean isDependencyPath(String text) {
+
+        int run = 0;
+        for (int index = 0; index < text.length(); index++) {
+            char unit = text.charAt(index);
+            if (unit == '/') {
+                if (run == 0) return false;
+                run = 0;
+            } else if (alphanumeric(unit) || unit == '_' || unit == '.' || unit == '+' || unit == '-') {
+                run++;
+            } else {
+                return false;
+            }
+        }
+        return run > 0;
+    }
+
+    /**
+     * @return whether text matches BridgeLoaderSources' ensure-method pattern
+     *     {@code \$ironwood\$ensure\$*}: {@code $ironwood$ensure} followed by
+     *     any number of {@code $}
+     */
+    public static boolean isEnsureMethod(String text) {
+
+        if (!text.startsWith("$ironwood$ensure")) return false;
+        for (int index = 16; index < text.length(); index++) {
+            if (text.charAt(index) != '$') return false;
+        }
+        return true;
+    }
+
+    private static boolean letter(char unit) {
+
+        return unit >= 'a' && unit <= 'z' || unit >= 'A' && unit <= 'Z';
+    }
+
+    private static boolean alphanumeric(char unit) {
+
+        return letter(unit) || unit >= '0' && unit <= '9';
+    }
+}

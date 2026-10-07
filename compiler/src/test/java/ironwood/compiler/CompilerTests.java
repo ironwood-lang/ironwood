@@ -1004,6 +1004,9 @@ public final class CompilerTests {
                 BridgeHelperTests::namesDifferential);
         test("M6.1 Bridge identities properties and manifests match the Java baseline and JDK 21",
                 BridgeHelperTests::inventoriesDifferential);
+        test("M6.1 Bridge text conversions and patterns match JDK 21 and the generators",
+                BridgeHelperTests::textDifferential);
+        test("M6.1 Bridge inventories walk and list as Java does", BridgeHelperTests::walks);
         test("M6.1 Bridge helpers borrow inputs and own their results", BridgeHelperTests::ownership);
         test("M6.1 Bridge helpers unwind every allocation failure", BridgeHelperTests::failures);
         test("compiler work queue keeps queued items alive and its ring private", WorkQueueTests::ownership);
