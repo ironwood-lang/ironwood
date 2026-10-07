@@ -24,6 +24,8 @@ import java.util.Map;
  * conversions, or a final field of one receiver that the function cannot store. A
  * destructor that tests a field before calling it therefore neither allocates nor lets
  * a NullPointerException escape, while every path that can reach null keeps its check.
+ * A value merged at a join or loop header is covered when every value it merges is
+ * non-null on its edge (D288).
  */
 final class NullGuardTests {
     private static final Map<String, String> KINDS = Map.of(
@@ -78,6 +80,107 @@ final class NullGuardTests {
         expect("loop condition after the guard of a freed field", """
                 class Holder { private final Part part; Holder() { part = new Part(); } destructor { if (part != null) { while (part.ready()) { free part; } } } }
                 """, "allocates 2", "throws 2");
+    }
+
+    /** Guards reach through joins and loop headers when every merged value keeps them. */
+    static void destructorsTrustGuardsThroughMerges() {
+        expect("local guarded before a loop", """
+                class Holder { private Part part; destructor { Part current = part; if (current != null) { int i = 0; while (i < 2) { current.touch(); i++; } } } }
+                """);
+        expect("fallback merged from a guarded final field", """
+                class Holder { private Part first; private final Part spare; Holder(Part p) { spare = p; } destructor { if (spare != null) { Part current = first; if (current == null) { current = spare; } current.touch(); } } }
+                """);
+        expect("guarded local used after an inner loop", """
+                class Holder { private Part part; destructor { Part current = part; if (current != null) { int i = 0; while (i < 2) { i++; } current.touch(); } } }
+                """);
+        expect("local advanced inside the loop", """
+                class Holder { private Part part; private Part other; destructor { Part current = part; if (current != null) { int i = 0; while (i < 2) { current.touch(); current = other; i++; } } } }
+                """, "allocates 2", "throws 2");
+        expect("fallback merged from an unguarded field", """
+                class Holder { private Part first; private Part second; destructor { Part current = first; if (current == null) { current = second; } current.touch(); } }
+                """, "allocates 2", "throws 2");
+    }
+
+    private static final String MERGES = """
+            class Node {
+                int value;
+                Node next;
+                Node(int value, Node next) { this.value = value; this.next = next; }
+                int get() { return value; }
+            }
+            class Main {
+                static Node none() { return null; }
+                static int loopAfterGuard(Node x) { if (x == null) { return -1; } int s = 0; for (int i = 0; i < 3; i++) { s += x.get(); } return s; }
+                static int nestedLoops(Node x) { if (x == null) { return -1; } int s = 0; for (int i = 0; i < 2; i++) { for (int j = 0; j < 2; j++) { s += x.get(); } } return s; }
+                static int loopWithBreak(Node x) { if (x == null) { return -1; } int s = 0; while (true) { s += x.get(); if (s > 5) { break; } } return s + x.get(); }
+                static int joinOfGuarded(Node a, Node b) { Node x = null; if (a != null) { x = a; } else { if (b == null) { return -1; } x = b; } return x.get(); }
+                static int joinWithAllocation(Node a) { Node x = a; if (x == null) { x = new Node(7, null); } return x.get(); }
+                static int conditionalJoin(Node a) { Node x = a != null ? a : new Node(8, null); return x.get(); }
+                static int loopAdvance(Node x) { if (x == null) { return -1; } int s = 0; for (int i = 0; i < 3; i++) { s += x.get(); x = x.next; } return s; }
+                static int loopNulled(Node x) { if (x == null) { return -1; } int s = 0; for (int i = 0; i < 3; i++) { s += x.get(); if (i == 1) { x = none(); } } return s; }
+                static int joinWithNull(Node a) { Node x = a; if (a == null) { x = none(); } return x.get(); }
+                static int joinUnguarded(Node a, Node b) { Node x = null; if (a != null) { x = a; } else { x = b; } return x.get(); }
+                static void run(String name, int value) { System.out.println(name + " " + value); }
+                static void npe(String name) { System.out.println(name + " NPE"); }
+                public static int main(String[] args) {
+                    Node list = new Node(1, new Node(2, null));
+                    run("loopAfterGuard", loopAfterGuard(list));
+                    run("nestedLoops", nestedLoops(list));
+                    run("loopWithBreak", loopWithBreak(list));
+                    run("joinOfGuarded", joinOfGuarded(null, list));
+                    run("joinWithAllocation", joinWithAllocation(null));
+                    run("conditionalJoin", conditionalJoin(null));
+                    try { run("loopAdvance", loopAdvance(list)); } catch (NullPointerException e) { npe("loopAdvance"); }
+                    try { run("loopNulled", loopNulled(list)); } catch (NullPointerException e) { npe("loopNulled"); }
+                    try { run("joinWithNull", joinWithNull(null)); } catch (NullPointerException e) { npe("joinWithNull"); }
+                    try { run("joinUnguarded", joinUnguarded(null, null)); } catch (NullPointerException e) { npe("joinUnguarded"); }
+                    return 0;
+                }
+            }
+            """;
+
+    private static final String MERGES_EXPECTED = """
+            loopAfterGuard 3
+            nestedLoops 4
+            loopWithBreak 7
+            joinOfGuarded 1
+            joinWithAllocation 7
+            conditionalJoin 8
+            loopAdvance NPE
+            loopNulled NPE
+            joinWithNull NPE
+            joinUnguarded NPE
+            """;
+
+    /** Merged values lose their checks only when every merged value is non-null. */
+    static void mergesOmitOnlyRedundantChecks() {
+        IrProgram program = compile(MERGES).program().orElseThrow();
+        for (String merged : List.of("Main.loopAfterGuard", "Main.nestedLoops", "Main.loopWithBreak",
+                "Main.joinOfGuarded", "Main.joinWithAllocation", "Main.conditionalJoin")) {
+            require(nullChecks(program, merged) == 0, merged + " kept a redundant null check");
+        }
+        for (String reachable : List.of("Main.loopAdvance", "Main.loopNulled", "Main.joinWithNull",
+                "Main.joinUnguarded")) {
+            require(nullChecks(program, reachable) > 0, reachable + " lost a needed null check");
+        }
+    }
+
+    /** A `throw new` whose fresh object is no longer null-checked still calls the cold helper. */
+    static void explicitThrowsStayOutlined() {
+        IrProgram program = compile("""
+                class Main {
+                    static int check(int value) { if (value < 0) { throw new IllegalStateException(); } return value; }
+                    public static int main(String[] args) { return check(args.length); }
+                }
+                """).program().orElseThrow();
+        require(nullChecks(program, "Main.check") == 0, "the thrown allocation kept its null check");
+        String llvm = new LlvmEmitter().emit(program);
+        int start = llvm.indexOf("@\"ironwood.Main.check\"(");
+        require(start >= 0, "missing Main.check in LLVM");
+        String body = llvm.substring(start, llvm.indexOf("\n}\n", start));
+        require(body.contains("call void @\"ironwood.throw.ironwood.ironwood.lang.IllegalStateException.<init>"),
+                "throw new was not outlined:\n" + body);
+        require(!body.contains("@ironwood_allocate"), "throw new allocates inline:\n" + body);
     }
 
     private static final String PROGRAM = """
@@ -183,7 +286,7 @@ final class NullGuardTests {
 
     /** Guarded uses lose their checks; uses that a null can reach keep them. */
     static void guardsOmitOnlyRedundantChecks() {
-        IrProgram program = compile().program().orElseThrow();
+        IrProgram program = compile(PROGRAM).program().orElseThrow();
         for (String guarded : List.of("Box.guarded", "Main.earlyOr", "Main.walk", "Main.pattern",
                 "Main.ternary", "Main.afterLoop")) {
             require(nullChecks(program, guarded) == 0, guarded + " kept a guarded null check");
@@ -197,27 +300,32 @@ final class NullGuardTests {
 
     /** Every path that reaches null still throws a catchable NullPointerException. */
     static void nullsStillThrowAtRuntime() throws Exception {
-        CompilationArtifact artifact = compile();
+        run("guards", PROGRAM, EXPECTED);
+        run("merges", MERGES, MERGES_EXPECTED);
+    }
+
+    private static void run(String name, String program, String expected) throws Exception {
+        CompilationArtifact artifact = compile(program);
         Path root = Path.of("integration-tests/target/null-guards").toAbsolutePath();
         Files.createDirectories(root);
-        Path llvm = root.resolve("guards.ll");
+        Path llvm = root.resolve(name + ".ll");
         Files.writeString(llvm, new LlvmEmitter().emit(artifact.program().orElseThrow()));
         for (OptimizationLevel level : List.of(OptimizationLevel.O0, OptimizationLevel.O3)) {
-            Path binary = root.resolve("guards-" + level);
+            Path binary = root.resolve(name + "-" + level);
             var linked = new NativeBackend().link(
                     LlvmToolchain.discover(null).toolchain().orElseThrow(), llvm, binary, level);
             require(linked.success(), linked.output());
             Process process = new ProcessBuilder(binary.toString()).redirectErrorStream(true).start();
             String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
             int exit = process.waitFor();
-            require(exit == 0 && output.equals(EXPECTED),
+            require(exit == 0 && output.equals(expected),
                     binary + " exited " + exit + " with:\n" + output);
         }
     }
 
-    private static CompilationArtifact compile() {
+    private static CompilationArtifact compile(String program) {
         CompilationArtifact artifact = new CompilerPipeline(UnfreedMode.OFF)
-                .compile(SourceFile.of("Main.iron", PROGRAM));
+                .compile(SourceFile.of("Main.iron", program));
         require(artifact.successful(), artifact.diagnostics().toString());
         return artifact;
     }

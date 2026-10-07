@@ -11199,3 +11199,52 @@ occurrence order. If no
   paths and run within noise. The standard library builds with `--unfreed=error`,
   79 examples and projects compile with identical diagnostics, and the 72 linked
   examples run with identical output.
+
+## D288 - Omit null checks that every merged value makes redundant
+
+- **Status:** Accepted and implemented. Extends D287 to values merged at joins and
+  loop headers; D287's omission under a dominating test is unchanged.
+- **Context:** D287 omits a null check only where one null test dominates it.
+  Lowering gives every local a new phi at each loop header and merges differing
+  values at joins, so a local guarded before a loop was checked again inside it, and
+  a value merged from guarded values or an allocation, such as
+  `a != null ? a : new Node(...)`, kept its check with its `NullPointerException`
+  allocation and throw. A destructor that guarded a local and then used it in a loop
+  was still reported as allocating and throwing. A loop header's back edges are not
+  known while its body is lowered, so lowering cannot decide these checks without
+  speculating.
+- **Decision:** After lowering, `RedundantNullChecks` solves the references known
+  non-null at each block entry over the finished graph of the function, as the
+  greatest fixed point of a must analysis. A block keeps what every reached
+  predecessor knows on its edge into it; an edge adds what its null comparison,
+  `instanceof` test, null check or recorded D287 condition proves; a phi is non-null
+  when each incoming value is non-null on its edge. Allocation results and the
+  references lowering proves are never null, facts follow reference conversions and
+  D287's final-field loads, and a store to a final field ends that field's facts. A
+  null check whose reference is known becomes a jump to its valid path, and the
+  failure blocks that only it reached are removed with their phi entries. The
+  emitter outlines `throw new X(...)` with or without the null check of the fresh
+  object.
+- **Analysis:** Loop headers start from every fact and keep only what each back edge
+  preserves, so a value reassigned in a loop to anything not proven non-null is still
+  checked. The greatest fixed point is sound because a merged value is always one of
+  its incoming values. Facts name SSA values, which never change, and final fields,
+  which change only through a destructor free whose store the analysis sees. The
+  pass runs after ownership analysis, so it weakens no proof and affects only
+  typed-IR consumers and LLVM. `NullPointerException` behavior and its throwing site
+  are unchanged, and nothing is added on valid paths (D132, D133). Without the
+  emitter change, omitting the check in `throw new` stopped its outlining, so the
+  throw sequences of `Integer.parseInt` were emitted inline and changed inlining
+  and register allocation enough for a deterministic benchmark's hot loop to reload
+  its array from the stack. With it, the benchmark programs compile to the same
+  machine code as under D287 apart from fewer trace sites and cold helpers.
+- **Verification:** Guarded locals used in or after loops, nested loops, a loop exit
+  after a break, joins of guarded values, a join and a conditional with an
+  allocation, and a destructor fallback merged from a guarded final field lose their
+  checks. A loop that advances or nulls the value, a join with a possibly-null
+  value and a destructor that advances its local keep them, and the D287 cases are
+  unchanged. Native programs at `-O0` and `-O3` throw the same catchable
+  `NullPointerException`s, and an explicit throw stays outlined. The standard
+  library builds with `--unfreed=error`, 79 examples and projects compile with
+  identical diagnostics, every linked example program runs with identical output,
+  and build time is unchanged.

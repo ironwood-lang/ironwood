@@ -777,6 +777,12 @@ public final class CompilerTests {
                 NullGuardTests::guardsOmitOnlyRedundantChecks);
         test("omitted null checks keep NullPointerException behavior at O0 and O3",
                 NullGuardTests::nullsStillThrowAtRuntime);
+        test("destructors trust null tests through joins and loop headers",
+                NullGuardTests::destructorsTrustGuardsThroughMerges);
+        test("merges omit only the null checks every merged value makes redundant",
+                NullGuardTests::mergesOmitOnlyRedundantChecks);
+        test("explicit throws stay outlined without the null check of the fresh object",
+                NullGuardTests::explicitThrowsStayOutlined);
         test("array types and indices are checked", this::arrayTypesAndIndicesAreChecked);
         test("multidimensional arrays and exact tests preserve invariant typing",
                 this::multidimensionalArrayTypesAndExactTestsAreChecked);

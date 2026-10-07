@@ -1940,6 +1940,19 @@ checked again on the finished function graph, including that no store to a
 guarded field lies between the guard and the use, and a failure is an internal
 compiler error.
 
+A value merged at a join or loop header is a phi that no single test dominates, and
+a loop header's back edges are unknown while its body is lowered. After lowering,
+`RedundantNullChecks` therefore solves the references known non-null at each block
+entry over the finished graph (D288): a block keeps what every reached predecessor
+knows on its edge into it, an edge adds what its null test, `instanceof` test, null
+check or recorded condition proves, and a phi is non-null when each incoming value
+is non-null on its edge. Loop headers start from every fact and keep only what each
+back edge preserves, a store to a final field ends that field's facts, and
+allocation results are never null. A null check whose reference is known non-null
+becomes a jump to its valid path, and failure blocks that only it reached are
+removed with their phi entries. Ownership analysis has already run, so only
+typed-IR consumers and LLVM see the shorter graph.
+
 Both allocators are declared `noalias nonnull`, the receiver parameter of every
 instance callable is `nonnull noundef`, and `ironwood_throw` is `noreturn cold`,
 so LLVM folds redundant null checks on fresh objects and receivers and lays out
@@ -1949,8 +1962,9 @@ from the runtime string layout rather than calling the runtime.
 Failure paths are outlined. A block that allocates an exception, runs its
 constructor and throws with no local handler, and the lowering of
 `throw new X(...)` outside any local handler (type-initialization barrier,
-allocation, constructor invoke with rollback landing pad, null check and throw),
-each become one call to a shared `ironwood.throw.<constructor>` helper marked
+allocation, constructor invoke with rollback landing pad, and throw, with or
+without the null check of the fresh object that D288 omits), each become one
+call to a shared `ironwood.throw.<constructor>` helper marked
 `cold noinline noreturn`, followed by `unreachable`. The helper takes the
 constructor arguments, performs the same allocation, construction, rollback and
 throw sequence, and carries no trace probes, so on-demand traces skip its frame

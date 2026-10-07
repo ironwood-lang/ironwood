@@ -3378,7 +3378,8 @@ public final class LlvmEmitter {
      * Matches the lowering of `throw new X(...)` outside any local handler:
      * optional type-initialization barrier and allocation, a constructor invoke
      * whose unwind edge rolls the allocation back and rethrows, and a normal
-     * edge that null-checks the fresh object before throwing it.
+     * edge that throws the fresh object, after a null check of it unless the
+     * typed IR has omitted that check (D288).
      */
     private ExplicitThrow matchExplicitThrow(IrBasicBlock block, Map<String, IrBasicBlock> blocks,
                                              Map<String, Integer> references) {
@@ -3410,25 +3411,32 @@ public final class LlvmEmitter {
                 || !sameValue(rethrow.exception(), landing.exceptionObject())) {
             return null;
         }
-        if (continuation.instructions().size() != 1
-                || !(continuation.instructions().getFirst() instanceof IrNullCheckInstruction check)
-                || !sameValue(check.receiver(), allocate.result())
-                || !(continuation.terminator() instanceof IrBranch branch)
-                || !sameValue(branch.condition(), check.result())) {
+        IrBasicBlock valid;
+        List<String> absorbed;
+        if (continuation.instructions().isEmpty() && continuation.terminator() instanceof IrJump jump) {
+            // The typed IR omits the null check of the fresh object (D288).
+            valid = blocks.get(jump.target());
+            absorbed = List.of(rollback.label(), continuation.label(), jump.target());
+        } else if (continuation.instructions().size() == 1
+                && continuation.instructions().getFirst() instanceof IrNullCheckInstruction check
+                && sameValue(check.receiver(), allocate.result())
+                && continuation.terminator() instanceof IrBranch branch
+                && sameValue(branch.condition(), check.result())
+                && blocks.get(branch.falseTarget()) != null
+                && matchBundledThrow(blocks.get(branch.falseTarget())) != null) {
+            valid = blocks.get(branch.trueTarget());
+            absorbed = List.of(rollback.label(), continuation.label(),
+                    branch.trueTarget(), branch.falseTarget());
+        } else {
             return null;
         }
-        IrBasicBlock valid = blocks.get(branch.trueTarget());
-        IrBasicBlock failure = blocks.get(branch.falseTarget());
-        if (valid == null || failure == null
+        if (valid == null
                 || !valid.instructions().isEmpty()
                 || !(valid.terminator() instanceof IrThrowTerminator thrown)
                 || thrown.unwindTarget().isPresent()
-                || !sameValue(thrown.exception(), allocate.result())
-                || matchBundledThrow(failure) == null) {
+                || !sameValue(thrown.exception(), allocate.result())) {
             return null;
         }
-        List<String> absorbed = List.of(rollback.label(), continuation.label(),
-                valid.label(), failure.label());
         for (String label : absorbed) {
             if (references.getOrDefault(label, 0) != 1) {
                 return null;

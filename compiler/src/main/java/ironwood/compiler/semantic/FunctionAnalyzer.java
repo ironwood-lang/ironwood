@@ -1072,7 +1072,9 @@ final class FunctionAnalyzer {
             diagnostics.addAll(unfreed.diagnostics());
         }
         nullGuards.verify(controlFlow(), fieldStores(), function.linkageName());
-        List<IrBasicBlock> frozenBlocks = blocks.values().stream().map(MutableBlock::freeze).toList();
+        List<IrBasicBlock> frozenBlocks = RedundantNullChecks.omit(
+                blocks.values().stream().map(MutableBlock::freeze).toList(),
+                provenNonNullOperands, nullGuards);
         return new IrFunction(function.ownerType(), function.sourceName(), function.linkageName(),
                 function.returnType(), parameters, frozenBlocks, function.span());
     }

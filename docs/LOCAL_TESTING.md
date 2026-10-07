@@ -354,19 +354,28 @@ implementation only when such an implementation is passed in; the second keeps
 the exact-class verdict for an unused constructor and for a base constructor that
 only subclasses run.
 
-For null checks omitted under a dominating null test (D287), run:
+For null checks omitted under a dominating null test or a merge of guarded
+values (D287, D288), run:
 
 ```sh
 ./scripts/test.sh --test 'destructors trust the null tests that guard their calls' \
   --test 'null tests omit only the null checks they make redundant' \
-  --test 'omitted null checks keep NullPointerException behavior at O0 and O3'
+  --test 'omitted null checks keep NullPointerException behavior at O0 and O3' \
+  --test 'destructors trust null tests through joins and loop headers' \
+  --test 'merges omit only the null checks every merged value makes redundant' \
+  --test 'explicit throws stay outlined without the null check of the fresh object'
 ```
 
 The first accepts destructors whose calls are guarded and keeps both reports for
 unguarded calls, mutable fields, reassigned locals, uses after the guarded branch
 and owned fields freed before or around the use; the second checks which typed-IR
-null checks remain; the third runs a native program at `-O0` and `-O3` and expects
-every path that reaches null to throw a catchable `NullPointerException`.
+null checks remain; the third runs native programs at `-O0` and `-O3` and expects
+every path that reaches null to throw a catchable `NullPointerException`. The
+fourth and fifth cover values merged at joins and loop headers (D288): a guarded
+local used in or after a loop and a fallback merged from guarded values are
+accepted, while a value advanced or nulled in a loop, or merged with a
+possibly-null value, keeps its check. The sixth expects `throw new` to stay a call
+to its cold helper once the null check of the fresh object is gone.
 
 For the diagnostic baseline of duplicated cleanup, run:
 

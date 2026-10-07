@@ -9,6 +9,7 @@ import ironwood.compiler.ast.UnaryExpression;
 import ironwood.compiler.ast.UnaryOperator;
 import ironwood.compiler.ir.IrBranch;
 import ironwood.compiler.ir.IrField;
+import ironwood.compiler.ir.IrFieldStoreInstruction;
 import ironwood.compiler.ir.IrInvokeTerminator;
 import ironwood.compiler.ir.IrJump;
 import ironwood.compiler.ir.IrOperand;
@@ -128,7 +129,14 @@ final class NullGuards {
         }
     }
 
-    private record FinalField(IrOperand receiver, String owner, String name, boolean mayStore) {
+    /** A final instance field read from one receiver value. */
+    record FinalField(IrOperand receiver, String owner, String name, boolean mayStore) {
+        boolean storedBy(IrFieldStoreInstruction store) {
+            return store.field().ownerClass().equals(owner) && store.field().name().equals(name);
+        }
+    }
+
+    private record Link(String from, String to) {
     }
 
     private record Edge(String test, String target, List<Integer> loops) {
@@ -139,6 +147,7 @@ final class NullGuards {
 
     private final IdentityHashMap<Expression, Facts> tests = new IdentityHashMap<>();
     private final Map<Object, List<Edge>> guards = new HashMap<>();
+    private final Map<Link, List<Object>> edgeFacts = new HashMap<>();
     private final Map<IrOperand, IrOperand> conversions = new HashMap<>();
     private final Map<IrOperand, FinalField> finalFieldLoads = new HashMap<>();
     private final List<Omitted> omitted = new ArrayList<>();
@@ -211,7 +220,18 @@ final class NullGuards {
         Edge edge = new Edge(test, target, List.copyOf(loops));
         for (Object fact : facts(reference)) {
             guards.computeIfAbsent(fact, ignored -> new ArrayList<>()).add(edge);
+            edgeFacts.computeIfAbsent(new Link(test, target), ignored -> new ArrayList<>()).add(fact);
         }
+    }
+
+    /** Every fact recorded on the edge from {@code from} to {@code to}, for the finished graph. */
+    List<Object> edgeFacts(String from, String to) {
+        return edgeFacts.getOrDefault(new Link(from, to), List.of());
+    }
+
+    /** The final field that a load reads, or null when the load is not named. */
+    FinalField finalField(IrOperand load) {
+        return finalFieldLoads.get(load);
     }
 
     /**
