@@ -771,6 +771,12 @@ public final class CompilerTests {
                 PublicationObjectTests::argumentObjectsDecidePublication);
         test("constructors that build no object keep their exact-class publication verdict",
                 PublicationObjectTests::constructorsWithoutObjectsKeepTheirVerdict);
+        test("destructors trust the null tests that guard their calls",
+                NullGuardTests::destructorsTrustTheirGuards);
+        test("null tests omit only the null checks they make redundant",
+                NullGuardTests::guardsOmitOnlyRedundantChecks);
+        test("omitted null checks keep NullPointerException behavior at O0 and O3",
+                NullGuardTests::nullsStillThrowAtRuntime);
         test("array types and indices are checked", this::arrayTypesAndIndicesAreChecked);
         test("multidimensional arrays and exact tests preserve invariant typing",
                 this::multidimensionalArrayTypesAndExactTestsAreChecked);

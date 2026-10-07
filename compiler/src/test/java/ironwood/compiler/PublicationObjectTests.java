@@ -62,7 +62,7 @@ final class PublicationObjectTests {
                     }
                 }
                 """, "constructs 6");
-        // The listener call keeps its null-check allocation and exception either way.
+        // The listener test guards the call, so it needs no null check (D287).
         exactly("destructor holding only quiet listeners", LISTENERS + """
                 class Main {
                     public static int main(String[] args) {
@@ -72,7 +72,7 @@ final class PublicationObjectTests {
                         return 0;
                     }
                 }
-                """, "allocates 8", "throws 8");
+                """);
         exactly("destructor holding a storing listener", LISTENERS + """
                 class Main {
                     public static int main(String[] args) {
@@ -81,7 +81,7 @@ final class PublicationObjectTests {
                         return 0;
                     }
                 }
-                """, "allocates 8", "publishes 8", "throws 8");
+                """, "publishes 8");
     }
 
     /** A constructor that builds no object keeps the verdict for any exact instance (D282). */

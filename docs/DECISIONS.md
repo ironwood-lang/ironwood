@@ -11146,3 +11146,56 @@ occurrence order. If no
   run only by subclasses keep their verdicts, and the D282 to D285 cases are
   unchanged. The standard library builds with `--unfreed=error` without diagnostics,
   and 74 examples compile identically.
+
+## D287 - Omit null checks that a dominating null test makes redundant
+
+- **Status:** Accepted and implemented. Narrows the nullable-receiver effect of
+  destructor validation (D283 to D286) without changing any proof.
+- **Context:** Lowering checked every explicit dereference for null unless the
+  reference was `this` or a conversion of it. A destructor written the Java way,
+  `if (listener != null) { listener.closed(this); }`, kept the receiver check: the
+  test and the call load the final field separately, and even a local tested for
+  null was checked again. The check's failure path allocates and throws a
+  `NullPointerException`, so the closed-world validation reported "destructor may
+  allocate" and "an exception may escape this destructor" for a destructor that can
+  do neither. Ordinary bodies carried the same infeasible paths into the typed IR
+  that ownership analysis and the effect summaries read.
+- **Decision:** A reference compared with `null`, tested with `instanceof` or checked
+  for null is non-null on the branch edge that the outcome selects, through `!`,
+  `&&` and `||` as for pattern variables. Lowering records that edge's target,
+  whose only predecessor is the test, and omits a later null check of the same
+  reference wherever the target dominates it in the control-flow graph built so
+  far. A reference is an SSA value, a reference conversion of one, or a final
+  instance field loaded again from the same receiver value. Constructors may store
+  final fields, so their loads are not named. A destructor that frees an owned
+  field of its class stores null into it, so the field's guards end where the free
+  is lowered and do not cover a loop entered after the guard. The use-after-free
+  check still runs where a null check is omitted.
+- **Analysis:** SSA values never change, and outside constructors a final field
+  changes only through such a destructor free. Lowering places code in a block only
+  after every forward edge into it exists; later edges are loop back edges, which do
+  not change dominance, and the only way a later free can reach an earlier use. At
+  the end of each function every omission is checked again on the finished graph:
+  the guard edge must still be its target's only entry, the target must dominate the
+  check, and no store to a guarded field may lie between them. A failure is an
+  internal compiler error, never emitted code. Only checks that cannot fail are
+  removed, so `NullPointerException` behavior and its throwing site are unchanged,
+  and nothing is added on valid paths (D132, D133); infeasible failure paths no
+  longer reach ownership analysis or the effect summaries. A value merged at a join
+  or loop header is not covered by a guard of its inputs, and an unguarded call on
+  an owned field that is never null keeps the null-check effects.
+- **Verification:** Destructors that guard a final field, a local, an `&&` or `||`
+  operand, a conditional arm or a pattern binding, an owned field before its free,
+  or a field inside the loop that frees it are accepted, as is the destructor
+  holding quiet listeners (D286). An unguarded field, a guarded mutable field, a
+  local reassigned after its guard, a use after the guarded branch, an owned field
+  freed before its use, a free in a loop entered after the guard and a loop
+  condition after the guard keep both reports. Typed IR loses only guarded checks,
+  and a native program at `-O0` and `-O3` throws the same catchable
+  `NullPointerException`s for reassigned values, merges, loops, catch handlers,
+  labeled breaks, switch fallthrough and `finally`. At `-O3` LLVM had already folded
+  the guarded checks of the inspected code, whose machine code is unchanged apart
+  from fewer trace sites; the deterministic benchmarks lose unreachable failure
+  paths and run within noise. The standard library builds with `--unfreed=error`,
+  79 examples and projects compile with identical diagnostics, and the 72 linked
+  examples run with identical output.

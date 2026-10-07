@@ -864,8 +864,10 @@ exception that can escape. Each destructor is checked for an exact instance of
 its own class, so a subclass override is reported at that subclass. Calls that may throw are permitted only when the
 exception is handled inside the destructor. A runtime-observed destructor
 escape is a fatal invariant violation. Field reads through `this` or its direct
-SSA aliases introduce no nullable-receiver failure path; reads through a
-genuinely nullable receiver retain their ordinary null exception effect.
+SSA aliases introduce no nullable-receiver failure path, nor does a dereference
+of a local, value or final field that a dominating `!= null`, `== null` or
+`instanceof` test or an earlier dereference proves non-null (D287); reads through
+a genuinely nullable receiver retain their ordinary null exception effect.
 
 If construction throws, the incomplete receiver's source destructor does not
 run. The compiler emits a separate rollback callable that releases zero-or-more

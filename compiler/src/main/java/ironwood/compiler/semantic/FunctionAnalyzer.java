@@ -228,6 +228,9 @@ final class FunctionAnalyzer {
     private IrOperand enclosingInstanceOperand;
     private IrOperand forwardedSuperEnclosingOperand;
     private final Set<IrOperand> provenNonNullOperands = new LinkedHashSet<>();
+    private final NullGuards nullGuards = new NullGuards();
+    private final Deque<Integer> openLoops = new ArrayDeque<>();
+    private int nextLoopId;
     private final Map<String, IrOperand> captureParameterOperands = new LinkedHashMap<>();
     private int nextValueId;
     private int nextSymbolId;
@@ -1068,6 +1071,7 @@ final class FunctionAnalyzer {
         if (unfreed != null && !Diagnostic.hasErrors(diagnostics.subList(diagnosticStart, diagnostics.size()))) {
             diagnostics.addAll(unfreed.diagnostics());
         }
+        nullGuards.verify(controlFlow(), fieldStores(), function.linkageName());
         List<IrBasicBlock> frozenBlocks = blocks.values().stream().map(MutableBlock::freeze).toList();
         return new IrFunction(function.ownerType(), function.sourceName(), function.linkageName(),
                 function.returnType(), parameters, frozenBlocks, function.span());
@@ -1582,10 +1586,12 @@ final class FunctionAnalyzer {
             return lowerPathSensitiveFlow(() -> lowerIf(ifStatement));
         }
         if (statement instanceof WhileStatement whileStatement) {
-            return lowerPathSensitiveFlow(() -> lowerWhile(whileStatement, null));
+            return lowerPathSensitiveFlow(() -> lowerOpenLoop(
+                    () -> lowerWhile(whileStatement, null)));
         }
         if (statement instanceof DoWhileStatement doWhileStatement) {
-            return lowerPathSensitiveFlow(() -> lowerDoWhile(doWhileStatement, null));
+            return lowerPathSensitiveFlow(() -> lowerOpenLoop(
+                    () -> lowerDoWhile(doWhileStatement, null)));
         }
         if (statement instanceof ForStatement forStatement) {
             FieldSymbol ownedElements = function.isDestructor()
@@ -1599,10 +1605,11 @@ final class FunctionAnalyzer {
                 currentBlock.addInstruction(new IrDestroyArrayElementsInstruction(array, statement.span()));
                 return true;
             }
-            return lowerPathSensitiveFlow(() -> lowerFor(forStatement, null));
+            return lowerPathSensitiveFlow(() -> lowerOpenLoop(() -> lowerFor(forStatement, null)));
         }
         if (statement instanceof EnhancedForStatement enhancedForStatement) {
-            return lowerPathSensitiveFlow(() -> lowerEnhancedFor(enhancedForStatement, null));
+            return lowerPathSensitiveFlow(() -> lowerOpenLoop(
+                    () -> lowerEnhancedFor(enhancedForStatement, null)));
         }
         if (statement instanceof LabeledStatement labeledStatement) {
             return lowerPathSensitiveFlow(() -> lowerLabeled(labeledStatement));
@@ -2531,6 +2538,7 @@ final class FunctionAnalyzer {
                 field.irField(), statement.value().span()));
         currentBlock.addInstruction(new IrFieldStoreInstruction(thisOperand, field.irField(),
                 defaultValue(field.type(), statement.value().span()), statement.value().span()));
+        nullGuards.stored(field.irField());
         currentBlock.addInstruction(new IrFreeInstruction(value, statement.span()));
     }
 
@@ -3319,6 +3327,7 @@ final class FunctionAnalyzer {
                 statement.elseBranch().map(Statement::span).orElse(statement.span()));
         MutableBlock mergeBlock = createBlock("if.merge", statement.span());
         currentBlock.terminate(new IrBranch(conditionOperand, thenBlock.label, elseBlock.label, statement.span()));
+        guardBranch(currentBlock, statement.condition());
 
         BranchFlow thenFlow = lowerBranch(thenBlock, statement.thenBranch(), before,
                 patternFlow.whenTrue());
@@ -4634,6 +4643,7 @@ final class FunctionAnalyzer {
         conditionEnd.terminate(alwaysTrue
                 ? new IrJump(body.label, statement.span())
                 : new IrBranch(conditionOperand, body.label, exit.label, statement.span()));
+        guardBranch(conditionEnd, statement.condition());
 
         LoopContext loop = new LoopContext(exit.label, header.label, List.copyOf(finallyContexts));
         breakContexts.push(loop);
@@ -4764,6 +4774,7 @@ final class FunctionAnalyzer {
             conditionEnd.terminate(alwaysTrue
                     ? new IrJump(body.label, statement.span())
                     : new IrBranch(conditionOperand, body.label, exit.label, statement.span()));
+            guardBranch(conditionEnd, statement.condition());
             conditionFlow = new BranchFlow(true, conditionEnd, conditionEnvironment, conditionOwnership);
             if (!(conditionOperand instanceof IrConstant constant && constant.value().intValue() == 0)) {
                 backEdges.add(conditionFlow);
@@ -4857,6 +4868,7 @@ final class FunctionAnalyzer {
         conditionEnd.terminate(alwaysTrue
                 ? new IrJump(body.label, statement.span())
                 : new IrBranch(condition, body.label, exit.label, statement.span()));
+        statement.condition().ifPresent(test -> guardBranch(conditionEnd, test));
 
         LoopContext loop = new LoopContext(exit.label, update.label, List.copyOf(finallyContexts));
         breakContexts.push(loop);
@@ -5168,19 +5180,19 @@ final class FunctionAnalyzer {
     private boolean lowerLabeled(LabeledStatement statement) {
         if (statement.body() instanceof WhileStatement loop) {
             diagnoseDuplicateLabel(statement);
-            return lowerWhile(loop, statement);
+            return lowerOpenLoop(() -> lowerWhile(loop, statement));
         }
         if (statement.body() instanceof DoWhileStatement loop) {
             diagnoseDuplicateLabel(statement);
-            return lowerDoWhile(loop, statement);
+            return lowerOpenLoop(() -> lowerDoWhile(loop, statement));
         }
         if (statement.body() instanceof ForStatement loop) {
             diagnoseDuplicateLabel(statement);
-            return lowerFor(loop, statement);
+            return lowerOpenLoop(() -> lowerFor(loop, statement));
         }
         if (statement.body() instanceof EnhancedForStatement loop) {
             diagnoseDuplicateLabel(statement);
-            return lowerEnhancedFor(loop, statement);
+            return lowerOpenLoop(() -> lowerEnhancedFor(loop, statement));
         }
 
         diagnoseDuplicateLabel(statement);
@@ -5557,6 +5569,7 @@ final class FunctionAnalyzer {
             currentBlock.addInstruction(new IrFieldLoadInstruction(result, thisOperand,
                     field.irField(), expression.span()));
             trackOwnedFieldLoad(result, thisOperand, field);
+            noteFinalFieldLoad(result, thisOperand, field);
             return new TypedValue(field.type(), result);
         }
         LocalClassSemantics.VariableIdentity captured = currentClass.variableAt(expression.span())
@@ -5581,6 +5594,7 @@ final class FunctionAnalyzer {
             currentBlock.addInstruction(new IrFieldLoadInstruction(result, lexical.receiver(),
                     lexical.field().irField(), expression.span()));
             trackOwnedFieldLoad(result, lexical.receiver(), lexical.field());
+            noteFinalFieldLoad(result, lexical.receiver(), lexical.field());
             return new TypedValue(lexical.field().type(), result);
         }
         FieldSymbol imported = resolveStaticImportedField(expression.name(), expression.span(), true);
@@ -5601,6 +5615,7 @@ final class FunctionAnalyzer {
             currentBlock.addInstruction(new IrFieldLoadInstruction(result, target.receiver(),
                     target.field().irField(), expression.span()));
             trackOwnedFieldLoad(result, target.receiver(), target.field());
+            noteFinalFieldLoad(result, target.receiver(), target.field());
             return new TypedValue(target.field().type(), result);
         }
         ClassFieldResolution qualified = resolveClassField(expression);
@@ -5644,6 +5659,7 @@ final class FunctionAnalyzer {
         currentBlock.addInstruction(new IrFieldLoadInstruction(result, target.receiver(),
                 target.field().irField(), expression.span()));
         trackOwnedFieldLoad(result, target.receiver(), target.field());
+        noteFinalFieldLoad(result, target.receiver(), target.field());
         return new TypedValue(target.field().type(), result);
     }
 
@@ -6522,6 +6538,7 @@ final class FunctionAnalyzer {
             IrValueReference result = newValue(IrType.I1, expression.span());
             currentBlock.addInstruction(new IrArrayTypeTestInstruction(result, operand,
                     targetType.erasure(), expression.span()));
+            nullGuards.tested(expression, operand, true);
             bindPattern(expression, targetType, operand);
             return new TypedValue(IrType.I1, result);
         }
@@ -6593,6 +6610,7 @@ final class FunctionAnalyzer {
         IrValueReference result = newValue(IrType.I1, expression.span());
         currentBlock.addInstruction(new IrInstanceOfInstruction(result, operand,
                 target.name(), target.typeId(), expression.span()));
+        nullGuards.tested(expression, operand, true);
         bindPattern(expression, resolveType(expression.targetType()), operand);
         return new TypedValue(IrType.I1, result);
     }
@@ -6737,8 +6755,19 @@ final class FunctionAnalyzer {
         }
         TypedValue left = lowerExpression(expression.left());
         TypedValue right = lowerExpression(expression.right());
-        return emitBinary(expression.operator(), left, right, expression.left().span(),
+        TypedValue result = emitBinary(expression.operator(), left, right, expression.left().span(),
                 expression.right().span(), expression.operatorSpan(), expression.span());
+        if ((expression.operator() == BinaryOperator.EQUAL
+                || expression.operator() == BinaryOperator.NOT_EQUAL)
+                && (isNullValue(left) || isNullValue(right))) {
+            nullGuards.tested(expression, isNullValue(right) ? left.operand() : right.operand(),
+                    expression.operator() == BinaryOperator.NOT_EQUAL);
+        }
+        return result;
+    }
+
+    private static boolean isNullValue(TypedValue value) {
+        return value.type().equals(IrType.NULL) || value.operand() instanceof IrNull;
     }
 
     private TypedValue emitBinary(BinaryOperator operator, TypedValue left, TypedValue right,
@@ -7427,6 +7456,7 @@ final class FunctionAnalyzer {
         currentBlock.terminate(new IrBranch(condition,
                 and ? rightBlock.label : shortBlock.label,
                 and ? shortBlock.label : rightBlock.label, expression.operatorSpan()));
+        guardBranch(currentBlock, expression.left());
 
         currentBlock = rightBlock;
         environment = new LinkedHashMap<>(before);
@@ -7520,6 +7550,7 @@ final class FunctionAnalyzer {
         MutableBlock merge = createBlock("conditional.merge", expression.span());
         currentBlock.terminate(new IrBranch(condition, trueBlock.label, falseBlock.label,
                 expression.questionSpan()));
+        guardBranch(currentBlock, expression.condition());
 
         currentBlock = trueBlock;
         environment = new LinkedHashMap<>(before);
@@ -8044,6 +8075,7 @@ final class FunctionAnalyzer {
             currentBlock.addInstruction(new IrFieldLoadInstruction(result, receiver,
                     field.irField(), span));
             trackOwnedFieldLoad(result, receiver, field);
+            noteFinalFieldLoad(result, receiver, field);
             return result;
         }, (value, writeSpan, valueSpan) -> {
             if (validateReceiverOnWrite) {
@@ -8110,13 +8142,62 @@ final class FunctionAnalyzer {
 
     private void emitNullCheck(IrOperand reference, SourceSpan span) {
         checkNotFreed(reference, span);
-        if (provenNonNullOperands.contains(reference)) {
+        if (provenNonNullOperands.contains(reference)
+                || nullGuards.guarded(reference, currentBlock.label, currentBlock.instructions.size(),
+                List.copyOf(openLoops), this::controlFlow)) {
             return;
         }
         IrValueReference valid = newValue(IrType.I1, span);
+        MutableBlock test = currentBlock;
         currentBlock.addInstruction(new IrNullCheckInstruction(valid, reference, span));
         emitRuntimeSafetyBranch(valid, "null.valid", "null.failure",
                 "ironwood.lang.NullPointerException", "null checks", span);
+        nullGuards.guard(reference, test.label, currentBlock.label, List.copyOf(openLoops));
+    }
+
+    /** Registers the null facts of a lowered condition at the targets of the branch ending {@code test}. */
+    private void guardBranch(MutableBlock test, Expression condition) {
+        if (!(test.terminator instanceof IrBranch branch)
+                || branch.trueTarget().equals(branch.falseTarget())) {
+            return;
+        }
+        NullGuards.Facts facts = nullGuards.facts(condition);
+        List<Integer> loops = List.copyOf(openLoops);
+        facts.whenTrue().forEach(reference ->
+                nullGuards.guard(reference, test.label, branch.trueTarget(), loops));
+        facts.whenFalse().forEach(reference ->
+                nullGuards.guard(reference, test.label, branch.falseTarget(), loops));
+    }
+
+    /** Lowers a loop as open, so guards met before it do not cover fields it may free (D287). */
+    private boolean lowerOpenLoop(java.util.function.BooleanSupplier loop) {
+        openLoops.push(nextLoopId++);
+        try {
+            return loop.getAsBoolean();
+        } finally {
+            openLoops.pop();
+        }
+    }
+
+    private List<NullGuards.Store> fieldStores() {
+        List<NullGuards.Store> stores = new ArrayList<>();
+        for (MutableBlock block : blocks.values()) {
+            for (int index = 0; index < block.instructions.size(); index++) {
+                if (block.instructions.get(index) instanceof IrFieldStoreInstruction store) {
+                    stores.add(new NullGuards.Store(block.label, index,
+                            store.field().ownerClass(), store.field().name()));
+                }
+            }
+        }
+        return stores;
+    }
+
+    private NullGuards.Graph controlFlow() {
+        Map<String, List<String>> successors = new LinkedHashMap<>();
+        for (MutableBlock block : blocks.values()) {
+            successors.put(block.label, NullGuards.successors(block.terminator));
+        }
+        return new NullGuards.Graph(blocks.keySet().iterator().next(), successors);
     }
 
     private void emitArrayBoundsCheck(IrOperand array, IrOperand index, SourceSpan span) {
@@ -9971,6 +10052,7 @@ final class FunctionAnalyzer {
         if (provenNonNullOperands.contains(value)) {
             provenNonNullOperands.add(result);
         }
+        nullGuards.converted(result, value);
         AllocationInfo allocation = allocationOf(value);
         if (allocation != null) {
             allocationsByOperand.put(result, allocation);
@@ -12649,6 +12731,22 @@ final class FunctionAnalyzer {
         if (rejectedFreeEvidence == null) return;
         RejectedFreeEvidence.Site site = rejectedFreeEvidence.origin(source);
         if (site != null) rejectedFreeEvidence.origin(target, site.source(), site.span());
+    }
+
+    /**
+     * Names a load of a final instance field by its receiver and field, so a null test of
+     * one load guards the others (D287). Constructors store final fields, so their loads
+     * stay unnamed; a destructor stores null when it frees an owned field of its class.
+     */
+    private void noteFinalFieldLoad(IrOperand loaded, IrOperand receiver, FieldSymbol field) {
+        if (!field.isFinal() || field.isStatic() || !loaded.type().isReference()
+                || function.isConstructor()) {
+            return;
+        }
+        boolean mayStore = function.isDestructor()
+                && field.ownerClass().equals(currentClass.name())
+                && ownedArrayFields.isOwned(field);
+        nullGuards.loadedFinalField(loaded, receiver, field.irField(), mayStore);
     }
 
     private void trackOwnedFieldLoad(IrOperand loaded, IrOperand receiver, FieldSymbol field) {

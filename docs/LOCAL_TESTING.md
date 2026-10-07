@@ -354,6 +354,20 @@ implementation only when such an implementation is passed in; the second keeps
 the exact-class verdict for an unused constructor and for a base constructor that
 only subclasses run.
 
+For null checks omitted under a dominating null test (D287), run:
+
+```sh
+./scripts/test.sh --test 'destructors trust the null tests that guard their calls' \
+  --test 'null tests omit only the null checks they make redundant' \
+  --test 'omitted null checks keep NullPointerException behavior at O0 and O3'
+```
+
+The first accepts destructors whose calls are guarded and keeps both reports for
+unguarded calls, mutable fields, reassigned locals, uses after the guarded branch
+and owned fields freed before or around the use; the second checks which typed-IR
+null checks remain; the third runs a native program at `-O0` and `-O3` and expects
+every path that reaches null to throw a catchable `NullPointerException`.
+
 For the diagnostic baseline of duplicated cleanup, run:
 
 ```sh

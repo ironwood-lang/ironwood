@@ -1927,6 +1927,19 @@ object when storage is unavailable. Field operations become typed
 typed null predicate and exceptional branch; successful paths then access or
 dispatch without a separate runtime check call.
 
+`FunctionAnalyzer` omits a null check that cannot fail (D287). A reference
+compared with `null`, tested with `instanceof` or already checked is non-null on
+the branch edge that outcome selects, through `!`, `&&` and `||`; `NullGuards`
+records that edge's target, whose only predecessor is the test, and a later check
+of the same SSA value, of a reference conversion of it, or of a final instance
+field loaded again from the same receiver value is omitted where the target
+dominates it in the graph built so far. Constructor loads of final fields are not
+named; in a destructor, freeing an owned field of its class ends that field's
+guards and a guard does not cover a loop entered after it. Each omission is
+checked again on the finished function graph, including that no store to a
+guarded field lies between the guard and the use, and a failure is an internal
+compiler error.
+
 Both allocators are declared `noalias nonnull`, the receiver parameter of every
 instance callable is `nonnull noundef`, and `ironwood_throw` is `noreturn cold`,
 so LLVM folds redundant null checks on fresh objects and receivers and lays out
