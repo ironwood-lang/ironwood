@@ -17,6 +17,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Pattern;
 
 /**
  * M6.2's JDK selection for the native Bridge producer (D295): the port's
@@ -30,6 +31,8 @@ final class BridgeJdkTests {
     private static final List<String> SOURCES = List.of(PORT + "JdkSelection.iron", PORT + "Command.iron",
             PORT + "ExecutableSearch.iron", PORT + "TextList.iron");
     private static final boolean MACOS = System.getProperty("os.name").startsWith("Mac");
+    // A JVM startup warning, which a Linux arm64 guest without SVE prints at every start (00f5554f).
+    private static final Pattern JVM_WARNING = Pattern.compile("(?m)^[^\n]* VM warning: [^\n]*\n");
 
     private BridgeJdkTests() { }
 
@@ -334,7 +337,7 @@ final class BridgeJdkTests {
             List<String> javac = new ArrayList<>(List.of(program.toString(), "javac", scratch.toString(), work.toString(),
                     nativeClasses.toString()));
             files.forEach(path -> javac.add(path.toString()));
-            requireOutput(run(javac, null, home, "/usr/bin:/bin"), "exit 0 " + hex(diagnostics.toString(StandardCharsets.UTF_8)));
+            requireTool(run(javac, null, home, "/usr/bin:/bin"), 0, diagnostics.toString(StandardCharsets.UTF_8));
             if (!BridgeJarTests.sameTree(BridgeJarTests.tree(javaClasses), BridgeJarTests.tree(nativeClasses))) {
                 throw new AssertionError("javac class files differ");
             }
@@ -344,7 +347,7 @@ final class BridgeJdkTests {
             List<String> javadoc = new ArrayList<>(List.of(program.toString(), "javadoc", scratch.toString(), work.toString(),
                     nativeClasses.toString(), nativeDocs.toString()));
             files.forEach(path -> javadoc.add(path.toString()));
-            requireOutput(run(javadoc, null, home, "/usr/bin:/bin"), "exit 0 -");
+            requireTool(run(javadoc, null, home, "/usr/bin:/bin"), 0, "");
             if (!BridgeJarTests.sameTree(BridgeJarTests.tree(javaDocs), BridgeJarTests.tree(nativeDocs))) {
                 throw new AssertionError("javadoc pages differ");
             }
@@ -358,9 +361,9 @@ final class BridgeJdkTests {
             } catch (IOException expected) {
                 if (!expected.getMessage().equals("generated Java Bridge facade compilation failed")) throw expected;
             }
-            requireOutput(run(List.of(program.toString(), "javac", scratch.toString(), work.toString(),
+            requireTool(run(List.of(program.toString(), "javac", scratch.toString(), work.toString(),
                     Files.createDirectories(root.resolve("native-raw")).toString(), failing.toString()), null, home, "/usr/bin:/bin"),
-                    "exit 1 " + hex(failure.toString(StandardCharsets.UTF_8)));
+                    1, failure.toString(StandardCharsets.UTF_8));
             for (Path directory : List.of(scratch, work)) {
                 try (var left = Files.list(directory)) {
                     if (left.anyMatch(path -> path.getFileName().toString().endsWith(".log"))) {
@@ -373,11 +376,29 @@ final class BridgeJdkTests {
         }
     }
 
-    static void requireOutput(Outcome outcome, String expected) {
-        if (outcome.exit() != 43 || !outcome.output().equals(expected + "\n")) {
-            throw new AssertionError("exit " + outcome.exit() + ": " + outcome.output().substring(0, Math.min(2000,
-                    outcome.output().length())) + outcome.error());
+    /**
+     * The fixture's tool exit and diagnostics. A separate tool process can
+     * print JVM startup warnings, which the in-process tools never do; they
+     * are not diagnostics and are left out of the comparison.
+     */
+    static void requireTool(Outcome outcome, int exit, String diagnostics) {
+        String prefix = "exit " + exit + " ";
+        String output = outcome.output();
+        if (outcome.exit() == 43 && output.startsWith(prefix) && output.endsWith("\n")) {
+            String text = unhex(output.substring(prefix.length(), output.length() - 1));
+            if (JVM_WARNING.matcher(text).replaceAll("").equals(diagnostics)) return;
         }
+        throw new AssertionError("exit " + outcome.exit() + ": " + output.substring(0, Math.min(2000, output.length()))
+                + outcome.error());
+    }
+
+    static String unhex(String text) {
+        StringBuilder out = new StringBuilder();
+        if (text.equals("-")) return "";
+        for (int index = 0; index + 4 <= text.length(); index += 4) {
+            out.append((char) Integer.parseInt(text.substring(index, index + 4), 16));
+        }
+        return out.toString();
     }
 
     /** A selection owns its values; the copies it hands out belong to the caller. */

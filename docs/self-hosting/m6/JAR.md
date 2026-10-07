@@ -88,7 +88,10 @@ gates.
 
 Empty `PATH` entries are skipped, as the native driver's ExecutableSearch does,
 where `command -v` would search the working directory; a selected program that
-cannot start reports ProcessRunner's failure.
+cannot start reports ProcessRunner's failure. A tool process's JVM can print
+startup warnings that the in-process tools never print, such as the Linux
+arm64 guest's SVE warning; they reach the merged diagnostics, and the tool
+comparison leaves them out.
 
 ## Producer identity (S7, tracked)
 

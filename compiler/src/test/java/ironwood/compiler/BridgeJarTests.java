@@ -172,9 +172,20 @@ final class BridgeJarTests {
     static String tool(String name, List<String> arguments) throws Exception {
         List<String> command = new ArrayList<>(List.of(Path.of(System.getProperty("java.home"), "bin", name).toString()));
         command.addAll(arguments);
-        Process process = new ProcessBuilder(command).redirectErrorStream(true).start();
+        Process process = new ProcessBuilder(command).start();
+        // Standard error stays apart: a JVM startup warning is not the tool's output.
+        var error = new ByteArrayOutputStream();
+        Thread drain = Thread.ofVirtual().start(() -> {
+            try {
+                process.getErrorStream().transferTo(error);
+            } catch (IOException ignored) {
+                // The failure message shows what arrived.
+            }
+        });
         String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
-        if (process.waitFor() != 0) throw new AssertionError(name + " " + arguments + ": " + output);
+        int exit = process.waitFor();
+        drain.join();
+        if (exit != 0) throw new AssertionError(name + " " + arguments + ": " + output + error.toString(StandardCharsets.UTF_8));
         return output;
     }
 
