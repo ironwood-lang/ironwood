@@ -811,6 +811,10 @@ public final class CompilerTests {
                 this::ownedBufferFieldsRequireFreshFactoryResults);
         test("private backing arrays are freed only after proven detachment",
                 this::privateBackingArraysRequireProvenDetachment);
+        test("field loans reject reentry through implicit code loops handlers and cleanup",
+                OwnedFieldReentryTests::reentryRoutes);
+        test("field loans admit runtime checks conversions and own-class statics",
+                OwnedFieldReentryTests::fixedOperationsInsideLoan);
         test("independent list copies preserve membership iterator and allocation scaling",
                 this::listCopiesRunNatively);
         test("independent map copies preserve keys values and callback loan safety",

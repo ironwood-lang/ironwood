@@ -18,6 +18,7 @@ import ironwood.compiler.ast.ContinueStatement;
 import ironwood.compiler.ast.DoWhileStatement;
 import ironwood.compiler.ast.EmptyStatement;
 import ironwood.compiler.ast.EnhancedForStatement;
+import ironwood.compiler.ast.EnumConstantInitialization;
 import ironwood.compiler.ast.Expression;
 import ironwood.compiler.ast.ExpressionStatement;
 import ironwood.compiler.ast.DeferStatement;
@@ -85,6 +86,7 @@ final class OwnedArrayFieldAnalyzer {
     private final Map<String, TypeSymbol> types;
     private final ClassHierarchy hierarchy;
     private final EscapeSummaryAnalyzer escapeSummaries;
+    private final ReentrantOperations reentrant;
     private final long observerToken;
     private final Set<String> ownedFields = new LinkedHashSet<>();
     private final Map<String, FieldSymbol> borrowedReturnFields = new LinkedHashMap<>();
@@ -114,6 +116,17 @@ final class OwnedArrayFieldAnalyzer {
                             SemanticAnalysisObserver observer, long observerToken,
                             SemanticAnalysisObserver.AnalyzerPhase phase,
                             RejectedFreeEvidence.Budget evidenceBudget) {
+        this(types, hierarchy, escapeSummaries, observer, observerToken, phase, evidenceBudget,
+                ReentrantOperations.NONE);
+    }
+
+    OwnedArrayFieldAnalyzer(Map<String, TypeSymbol> types, ClassHierarchy hierarchy,
+                            EscapeSummaryAnalyzer escapeSummaries,
+                            SemanticAnalysisObserver observer, long observerToken,
+                            SemanticAnalysisObserver.AnalyzerPhase phase,
+                            RejectedFreeEvidence.Budget evidenceBudget,
+                            ReentrantOperations reentrant) {
+        this.reentrant = reentrant;
         this.observerToken = observerToken;
         if (observer != null) {
             observer.analyzerCreated(observerToken,
@@ -267,6 +280,17 @@ final class OwnedArrayFieldAnalyzer {
         return field.ownerClass() + "#" + field.declaration().name();
     }
 
+    /** Lowering places instance initializers in every constructor of their class. */
+    private static Set<String> constructorFunctions(TypeSymbol type) {
+        Set<String> functions = new LinkedHashSet<>();
+        type.constructors().forEach(constructor -> functions.add(constructor.linkageName()));
+        return functions;
+    }
+
+    /** A scope's deferred actions and the locals declared outside it. */
+    private record DeferredScope(Set<String> outer, java.util.List<Expression> actions) {
+    }
+
     private final class Checker {
         private final TypeSymbol owner;
         private final FieldSymbol candidate;
@@ -278,6 +302,10 @@ final class OwnedArrayFieldAnalyzer {
         private boolean staticFunction;
         private CallableSymbol currentCallable;
         private SourceFile currentSource;
+        /** The lowered functions that contain the code being scanned. */
+        private Set<String> currentFunctions = Set.of();
+        /** Per enclosing scope, the deferred actions that run when it exits. */
+        private final Deque<DeferredScope> deferredScopes = new ArrayDeque<>();
         private FieldSymbol constructionTarget;
         private final Set<String> borrowedReturnMethods = new LinkedHashSet<>();
         private final Set<String> nonBorrowedReturnMethods = new LinkedHashSet<>();
@@ -308,6 +336,7 @@ final class OwnedArrayFieldAnalyzer {
                 }
             });
             staticFunction = false;
+            currentFunctions = constructorFunctions(owner);
             Map<String, Boolean> initializerEnvironment = new LinkedHashMap<>();
             for (InstanceInitialization initialization
                     : ((ironwood.compiler.ast.ClassDeclaration) owner.declaration())
@@ -327,6 +356,10 @@ final class OwnedArrayFieldAnalyzer {
             }
             owner.constructors().forEach(this::scanCallable);
             owner.declaredMethods().values().forEach(this::scanCallable);
+            // Static initialization and destruction run nest code too: either could
+            // publish the field or reenter while holding an alias of it.
+            owner.staticInitializer().ifPresent(this::scanCallable);
+            owner.destructor().ifPresent(this::scanCallable);
             for (TypeSymbol nestMate : types.values()) {
                 if (nestMate == owner || !owner.sameNest(nestMate)) {
                     continue;
@@ -334,8 +367,10 @@ final class OwnedArrayFieldAnalyzer {
                 if (!nestMate.isInterface()) {
                     scanNestMateInitializers(nestMate);
                     nestMate.constructors().forEach(this::scanCallable);
+                    nestMate.destructor().ifPresent(this::scanCallable);
                 }
                 nestMate.declaredMethods().values().forEach(this::scanCallable);
+                nestMate.staticInitializer().ifPresent(this::scanCallable);
             }
             borrowedReturnMethods.removeAll(nonBorrowedReturnMethods);
             return owned;
@@ -345,6 +380,7 @@ final class OwnedArrayFieldAnalyzer {
             staticFunction = false;
             SourceFile previousSource = currentSource;
             currentSource = nestMate.source();
+            currentFunctions = constructorFunctions(nestMate);
             Map<String, Boolean> environment = new LinkedHashMap<>();
             for (InstanceInitialization initialization
                     : ((ironwood.compiler.ast.ClassDeclaration) nestMate.declaration())
@@ -366,8 +402,10 @@ final class OwnedArrayFieldAnalyzer {
         private void scanCallable(CallableSymbol callable) {
             CallableSymbol previousCallable = currentCallable;
             SourceFile previousSource = currentSource;
+            Set<String> previousFunctions = currentFunctions;
             currentCallable = callable;
             currentSource = types.get(callable.ownerType()).source();
+            currentFunctions = Set.of(callable.linkageName());
             Map<String, Boolean> environment = new LinkedHashMap<>();
             callable.parameters().forEach(parameter -> environment.put(parameter.name(), false));
             staticFunction = callable.isStatic();
@@ -386,19 +424,37 @@ final class OwnedArrayFieldAnalyzer {
             callable.body().ifPresent(body -> scanBlock(body, environment, false));
             currentCallable = previousCallable;
             currentSource = previousSource;
+            currentFunctions = previousFunctions;
         }
 
         private void scanBlock(Block block, Map<String, Boolean> environment, boolean scoped) {
             Set<String> existing = Set.copyOf(environment.keySet());
+            deferredScopes.push(new DeferredScope(existing, new java.util.ArrayList<>()));
             for (Statement statement : block.statements()) {
                 scanStatement(statement, environment);
             }
+            deferredScopes.pop();
             if (scoped) {
                 environment.keySet().removeIf(name -> !existing.contains(name));
             }
         }
 
         private void scanStatement(Statement statement, Map<String, Boolean> environment) {
+            scanStatementKind(statement, environment);
+            // A deferred action runs when its scope exits, also early through an
+            // exception. Locals of that scope are dead by then, but an alias held in
+            // an outer local is live then and may be used afterwards.
+            for (DeferredScope scope : deferredScopes) {
+                if (!scope.actions().isEmpty() && scope.outer().stream()
+                        .anyMatch(name -> Boolean.TRUE.equals(environment.get(name)))) {
+                    rejectAt("this deferred action can run while a local alias of the "
+                            + "field's allocation remains active", scope.actions().getFirst());
+                    return;
+                }
+            }
+        }
+
+        private void scanStatementKind(Statement statement, Map<String, Boolean> environment) {
             if (statement instanceof Block block) {
                 scanBlock(block, environment, true);
                 return;
@@ -417,10 +473,14 @@ final class OwnedArrayFieldAnalyzer {
             }
             if (statement instanceof DeferStatement deferred) {
                 origin(deferred.call(), environment);
+                deferredScopes.peek().actions().add(deferred.call());
                 return;
             }
             if (statement instanceof DeferredFreeStatement deferred) {
-                origin(deferred.target(), environment);
+                if (!origin(deferred.target(), environment)
+                        && !reentrant.inertFree(currentFunctions, statement.span())) {
+                    deferredScopes.peek().actions().add(deferred.target());
+                }
                 return;
             }
             if (statement instanceof ExpressionStatement expression) {
@@ -428,7 +488,12 @@ final class OwnedArrayFieldAnalyzer {
                 return;
             }
             if (statement instanceof FreeStatement free) {
-                origin(free.value(), environment);
+                // Freeing anything but a field alias may run a destructor.
+                if (!origin(free.value(), environment) && environment.containsValue(true)
+                        && !reentrant.inertFree(currentFunctions, statement.span())) {
+                    rejectAt("this free can run a destructor while a local alias of the "
+                            + "field's allocation remains active", free.value());
+                }
                 return;
             }
             if (statement instanceof ReturnStatement returned) {
@@ -486,35 +551,45 @@ final class OwnedArrayFieldAnalyzer {
                 return;
             }
             if (statement instanceof WhileStatement loop) {
-                origin(loop.condition(), environment);
-                Map<String, Boolean> body = copy(environment);
-                scanScopedStatement(loop.body(), body);
-                merge(environment, environment, body);
+                iterate(environment, iteration -> {
+                    origin(loop.condition(), iteration);
+                    Map<String, Boolean> body = copy(iteration);
+                    scanScopedStatement(loop.body(), body);
+                    merge(iteration, iteration, body);
+                });
                 return;
             }
             if (statement instanceof DoWhileStatement loop) {
-                Map<String, Boolean> body = copy(environment);
-                scanScopedStatement(loop.body(), body);
-                origin(loop.condition(), body);
-                merge(environment, environment, body);
+                iterate(environment, iteration -> {
+                    Map<String, Boolean> body = copy(iteration);
+                    scanScopedStatement(loop.body(), body);
+                    origin(loop.condition(), body);
+                    merge(iteration, iteration, body);
+                });
                 return;
             }
             if (statement instanceof ForStatement loop) {
                 Map<String, Boolean> loopEnvironment = copy(environment);
                 loop.initializer().ifPresent(initializer -> scanStatement(initializer, loopEnvironment));
-                loop.condition().ifPresent(condition -> origin(condition, loopEnvironment));
-                Map<String, Boolean> body = copy(loopEnvironment);
-                scanScopedStatement(loop.body(), body);
-                loop.updates().forEach(update -> origin(update, body));
-                merge(environment, environment, body);
+                iterate(loopEnvironment, iteration -> {
+                    loop.condition().ifPresent(condition -> origin(condition, iteration));
+                    Map<String, Boolean> body = copy(iteration);
+                    scanScopedStatement(loop.body(), body);
+                    loop.updates().forEach(update -> origin(update, body));
+                    merge(iteration, iteration, body);
+                });
+                merge(environment, environment, loopEnvironment);
                 return;
             }
             if (statement instanceof EnhancedForStatement loop) {
-                origin(loop.iterable(), environment);
-                Map<String, Boolean> body = copy(environment);
-                body.put(loop.variableName(), false);
-                scanScopedStatement(loop.body(), body);
-                merge(environment, environment, body);
+                iterate(environment, iteration -> {
+                    // The source is evaluated once, but its iterator runs in every pass.
+                    origin(loop.iterable(), iteration);
+                    Map<String, Boolean> body = copy(iteration);
+                    body.put(loop.variableName(), false);
+                    scanScopedStatement(loop.body(), body);
+                    merge(iteration, iteration, body);
+                });
                 return;
             }
             if (statement instanceof LabeledStatement labeled) {
@@ -556,13 +631,26 @@ final class OwnedArrayFieldAnalyzer {
             if (statement instanceof BreakStatement || statement instanceof ContinueStatement) {
                 return;
             }
+            if (statement instanceof EnumConstantInitialization initialization) {
+                // Inserted before any static initializer statement, so no local alias
+                // exists yet; only an argument can publish the field's allocation.
+                initialization.constant().arguments().forEach(argument -> {
+                    if (origin(argument, environment)) {
+                        rejectAt("this enum constant argument can publish the field's "
+                                + "allocation", argument);
+                    }
+                });
+                return;
+            }
             TryStatement guarded = (TryStatement) statement;
             Map<String, Boolean> merged = copy(environment);
             Map<String, Boolean> body = copy(environment);
             scanBlock(guarded.body(), body, true);
             merge(merged, merged, body);
+            // An exception can leave the body anywhere, with any alias it made live.
+            Map<String, Boolean> thrown = copy(merged);
             guarded.catches().forEach(caught -> {
-                Map<String, Boolean> caughtEnvironment = copy(environment);
+                Map<String, Boolean> caughtEnvironment = copy(thrown);
                 caughtEnvironment.put(caught.variableName(), false);
                 scanBlock(caught.body(), caughtEnvironment, true);
                 merge(merged, merged, caughtEnvironment);
@@ -600,11 +688,47 @@ final class OwnedArrayFieldAnalyzer {
 
         private void scanScopedStatement(Statement statement, Map<String, Boolean> environment) {
             Set<String> existing = Set.copyOf(environment.keySet());
+            deferredScopes.push(new DeferredScope(existing, new java.util.ArrayList<>()));
             scanStatement(statement, environment);
+            deferredScopes.pop();
             environment.keySet().removeIf(name -> !existing.contains(name));
         }
 
+        /**
+         * Scans loop iterations until the environment at the start of one stops gaining
+         * aliases: a later iteration starts with those an earlier one left live, and its
+         * condition, iteration and body run while they are. The environment becomes the
+         * join of every iteration's start and end.
+         */
+        private void iterate(Map<String, Boolean> environment,
+                             java.util.function.Consumer<Map<String, Boolean>> iteration) {
+            while (true) {
+                Map<String, Boolean> next = copy(environment);
+                iteration.accept(next);
+                merge(next, environment, next);
+                if (next.equals(environment)) {
+                    return;
+                }
+                environment.clear();
+                environment.putAll(next);
+            }
+        }
+
         private boolean origin(Expression expression, Map<String, Boolean> environment) {
+            boolean attached = originOf(expression, environment);
+            // Typed IR also shows code that the source does not spell as a call, such
+            // as string conversion, class initialization and enhanced-for iteration.
+            // Exact System.arraycopy copies references and runs no other code.
+            if (environment.containsValue(true)
+                    && !(expression instanceof CallExpression call && isSystemArrayCopy(call, environment))
+                    && reentrant.runsCodeWithin(currentFunctions, expression.span())) {
+                rejectAt("this expression can run other code while a local alias of the "
+                        + "field's allocation remains active", expression);
+            }
+            return attached;
+        }
+
+        private boolean originOf(Expression expression, Map<String, Boolean> environment) {
             if (expression instanceof SwitchExpression switched) {
                 origin(switched.selector(), environment);
                 Map<String, Boolean> merged = copy(environment);
@@ -1248,7 +1372,8 @@ final class OwnedArrayFieldAnalyzer {
         }
 
         private boolean containsReentrantExpression(Expression expression) {
-            if (expression instanceof CallExpression || expression instanceof NewExpression) {
+            if (expression instanceof CallExpression || expression instanceof NewExpression
+                    || reentrant.runsCodeWithin(currentFunctions, expression.span())) {
                 return true;
             }
             if (expression instanceof SwitchExpression) {

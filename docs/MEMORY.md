@@ -892,7 +892,13 @@ live aliases, incompatible identities, and partial frees remain rejected.
 Fresh factory results participate in those joins and generated finally snapshots
 on the same basis as source allocations.
 
-An attached field loan cannot cross a retaining or unresolved reentrant call.
+An attached field loan cannot cross code that may run while a local alias of it
+is live: a call or construction, class initialization, string conversion of an
+object, enhanced-for iteration over an `Iterable`, a destructor, or a pending
+deferred action. Later loop iterations, catch handlers, and the static
+initializers and destructors of the owning nest count too (D281). Runtime-check
+failures, String and primitive conversion, exact `System.arraycopy`, and the
+owning class's own statics run no other code.
 The compiler rejects unproven consumed parameters, arbitrary field-loaded
 references outside their declaring destructor, live aliases, published
 or conditionally replaced fields, escaping constructors or calls, uncertain

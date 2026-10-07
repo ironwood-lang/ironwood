@@ -5969,8 +5969,7 @@ final class FunctionAnalyzer {
     private TypedValue lowerSelectedConstructor(NewExpression expression,
                                                 InvocationPlan invocation) {
         planningContext.commitCaptures();
-        markAttachedOwnedFieldLoansUncertain(
-                "cannot prove object construction before private-field detachment is non-reentrant");
+        forgetUnaliasedOwnedFieldLoans();
         InvocationPlan.CandidatePlan selected = invocation.selected();
         CallableSymbol constructor = selected.candidate().callable()
                 .substitute(selected.inference().substitutions());
@@ -6184,8 +6183,7 @@ final class FunctionAnalyzer {
     }
 
     private TypedValue lowerNew(NewExpression expression) {
-        markAttachedOwnedFieldLoansUncertain(
-                "cannot prove object construction before private-field detachment is non-reentrant");
+        forgetUnaliasedOwnedFieldLoans();
         TypedValue explicitEnclosing = expression.enclosingInstance()
                 .map(this::lowerExpression).orElse(null);
         if (explicitEnclosing != null && explicitEnclosing.type().isNominalReference()) {
@@ -8425,8 +8423,7 @@ final class FunctionAnalyzer {
         SourceSpan span = prepared.span();
         IrOperand receiver = prepared.receiver();
         List<TypedValue> arguments = prepared.arguments();
-        markAttachedOwnedFieldLoansUncertain(
-                "cannot prove a call made before private-field detachment is non-reentrant");
+        forgetUnaliasedOwnedFieldLoans();
         if (prepared.nullCheckSpan() != null && receiver != null) {
             emitNullCheck(receiver, prepared.nullCheckSpan());
         }
@@ -12714,7 +12711,6 @@ final class FunctionAnalyzer {
             if (rejectionReason != null) {
                 AllocationInfo allocation = AllocationInfo.borrowedField(controlFlowDepth,
                         field.declaration().name());
-                selectUncertain(allocation, rejectionReason);
                 allocations.add(allocation);
                 recordAllocationOrigin(allocation, loaded.sourceSpan());
                 allocationsByOperand.put(loaded, allocation);
@@ -12749,19 +12745,16 @@ final class FunctionAnalyzer {
         borrowedOwnedFields.remove(key);
     }
 
-    private void markAttachedOwnedFieldLoansUncertain(String reason) {
-        var fields = borrowedOwnedFields.entrySet().iterator();
-        while (fields.hasNext()) {
-            Map.Entry<String, AllocationInfo> field = fields.next();
-            AllocationInfo allocation = field.getValue();
-            boolean liveLocalAlias = java.util.stream.Stream.concat(environment.values().stream(),
-                    pendingDeferredOperands()).anyMatch(value -> allocationOf(value) == allocation);
-            if (!liveLocalAlias) {
-                fields.remove();
-            } else if (!allocation.detached) {
-                selectUncertain(allocation, reason);
-            }
-        }
+    /**
+     * Before code that may replace an owned field runs, forgets each loan that no local
+     * still holds, so a later load starts a new one. An attached loan with a live alias
+     * cannot reach here: owned-field analysis rejects the field when code may run while
+     * one exists (D041, D281).
+     */
+    private void forgetUnaliasedOwnedFieldLoans() {
+        borrowedOwnedFields.values().removeIf(allocation -> java.util.stream.Stream.concat(
+                environment.values().stream(), pendingDeferredOperands())
+                .noneMatch(value -> allocationOf(value) == allocation));
     }
 
     private static String ownedFieldKey(FieldSymbol field) {

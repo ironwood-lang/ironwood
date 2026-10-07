@@ -287,6 +287,21 @@ in `Throwable`, and compiles an empty program in a child JVM through the command
 line and the in-process pipeline in every `--unfreed` mode. Both paths report
 exactly the planted finding, as a warning or an error, and nothing with `off`.
 
+For private field loans that must not cross code that may run (D041, D281), run:
+
+```sh
+./scripts/test.sh --test 'field loans reject reentry through implicit code loops handlers and cleanup' \
+  --test 'field loans admit runtime checks conversions and own-class statics' \
+  --test 'private backing arrays are freed only after proven detachment'
+```
+
+The first test pairs 13 reentry routes without a source call (string conversion,
+class initialization, enhanced-for iteration, an element store, a loop
+condition, a catch handler, a deferred call, a static initializer and a
+destructor) with safe twins; each unsafe route must fail the field's ownership
+proof for its own reason. The second keeps runtime checks, String and primitive
+conversion, `System.arraycopy` and the owner's statics admitted inside a loan.
+
 For the diagnostic baseline of duplicated cleanup, run:
 
 ```sh

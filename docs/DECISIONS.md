@@ -10920,3 +10920,54 @@ occurrence order. If no
   fragments and 160 stability programs through the command line, which already
   checked bundled code, produced no bundled missing-free finding, so in-process
   and language-server results for those programs are unchanged.
+
+## D281 - A field loan cannot cross any code that may run while it is aliased
+
+- **Status:** Accepted and implemented. Amends D041's reentrancy rule, which its
+  implementation applied only to source calls and constructions.
+- **Context:** D041 lets a method free a private field's superseded storage after
+  detaching it, provided an attached loan cannot cross a potentially reentrant call.
+  The owned-field proof checked that syntactically, so code that runs without a
+  source call went unseen; a reentrant free of the field then left a live local
+  alias dangling. Thirteen shapes compiled and, at run time, freed an array twice or
+  wrote into a freed one: string conversion of an object (`"x" + hook`,
+  `text += hook`), the first use of another class's non-constant static field, enum
+  constant or interface field (class initialization), enhanced-for iteration over an
+  `Iterable`, an element store whose value runs such code, a loop condition that runs
+  after the body made an alias, a catch handler entered while the try body's alias
+  is live, a deferred call that runs at scope exit while an alias is live, a static
+  initializer that holds an alias across a call, and a destructor that publishes the
+  field before freeing it. The per-loan check in function lowering that seemed to
+  cover calls never applied: uncertainty is not recorded for owned-field loans.
+- **Decision:** While a local alias of an attached field allocation is live, no code
+  other than fixed runtime operations may run. The proof takes the operations that
+  may run code from the provisional typed IR, where implicit ones are explicit:
+  calls of every kind, class initialization of a type with an initializer,
+  destructors of a freed value or element, construction rollback and foreign calls.
+  An audited list names the operations that run only fixed runtime code; a new kind
+  of operation counts as running code until it is classified. Three operations stay
+  fixed: constructing the six exception types that lowering emits for failed runtime
+  checks, whose constructors reach only `Throwable()` or `Throwable(String)`; class
+  initialization of the running code's own class or superclasses, which has already
+  started; and exact `System.arraycopy`, as before. Loops are scanned until the
+  aliases live at the start of an iteration stop growing; catch handlers start with
+  any alias the try body may have made; while a deferred action is pending, no
+  local declared outside its scope may hold a live alias, since that local outlives
+  the action; and the static initializers and destructors of the owning nest are
+  scanned like its methods. Freeing anything but the alias may run a
+  destructor unless typed IR shows that the value has none. Function lowering's
+  no-op check is removed; it only forgets loans that no local holds.
+- **Analysis:** The rule keeps its kind: D041 already rejected every source call
+  while an alias is attached. Each new rejection is the field's ownership-proof
+  failure, which `--explain-rejected-free` shows for the free that needed it. Safe
+  forms stay accepted, among them the same code before the load or after the
+  detaching store, element reads, casts, division, String and primitive
+  concatenation and the owner's own statics inside a loan. Implicit code that cannot
+  in fact reach the field is rejected like an explicit call that cannot. No runtime
+  instruction, check or cost changes.
+- **Verification:** Each of the 13 shapes now fails the field's proof for its own
+  reason and its safe twin compiles; the previous compiler accepted all 13, and
+  probes of them crashed under Guard Malloc while a safe control ran cleanly. The
+  standard library builds with `--unfreed=error`, its owned-field facts (161 owned
+  fields and every borrow and rejection entry) are identical before and after, and
+  74 examples compile identically.

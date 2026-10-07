@@ -361,6 +361,10 @@ public final class SemanticAnalyzer {
         // lowering will emit and never a free it will not.
         boundFunctions = relowerArgumentReclaimingCallers(boundFunctions, types, hierarchy,
                 escapeSummaries, ownedArrayFields, stringPool);
+        // Typed IR shows where code may run without a source call, so the field
+        // proofs below, which final lowering uses, see every possible reentry.
+        ReentrantOperations reentrant = ReentrantOperations.of(boundFunctions, types,
+                reclamationEffects);
         BorrowDispatchAnalysis borrowDispatch = new BorrowDispatchAnalysis(types, hierarchy,
                 boundFunctions, staticFields, main != null, evidenceBudget);
         if (observer != null) {
@@ -373,7 +377,7 @@ public final class SemanticAnalyzer {
                 evidenceBudget, evidenceLimits);
         initialOwnedFields = new OwnedArrayFieldAnalyzer(types, hierarchy,
                 initialEscapeSummaries, observer, observerToken(),
-                SemanticAnalysisObserver.AnalyzerPhase.REBOUND, evidenceBudget);
+                SemanticAnalysisObserver.AnalyzerPhase.REBOUND, evidenceBudget, reentrant);
         escapeSummaries = new EscapeSummaryAnalyzer(types, resolver, initialOwnedFields,
                 borrowDispatch, dynamicStringConcatenationSpans, Map.of(), Map.of(),
                 observer, observerToken(), SemanticAnalysisObserver.AnalyzerPhase.REBOUND,
@@ -381,7 +385,7 @@ public final class SemanticAnalyzer {
         OwnedArrayFieldAnalyzer provisionalFields = ownedArrayFields;
         ownedArrayFields = new OwnedArrayFieldAnalyzer(types, hierarchy, escapeSummaries,
                 observer, observerToken(), SemanticAnalysisObserver.AnalyzerPhase.REBOUND,
-                evidenceBudget);
+                evidenceBudget, reentrant);
         provisionalFields.retireFailureEvidence(observer);
         initialOwnedFields.retireFailureEvidence(observer);
         provisionalEscapes.retireWitnessEvidence();
@@ -418,7 +422,7 @@ public final class SemanticAnalyzer {
                     evidenceLimits);
             OwnedArrayFieldAnalyzer refinedFields = new OwnedArrayFieldAnalyzer(types, hierarchy,
                     refinedEscapes, observer, observerToken(),
-                    SemanticAnalysisObserver.AnalyzerPhase.REFINEMENT, evidenceBudget);
+                    SemanticAnalysisObserver.AnalyzerPhase.REFINEMENT, evidenceBudget, reentrant);
             fieldsStable = refinedFields.sameProofsAs(ownedArrayFields);
             if (observer != null) {
                 observer.fieldProofCompared(pass, fieldsStable);
