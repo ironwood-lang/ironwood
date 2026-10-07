@@ -194,15 +194,43 @@ final class NullGuardTests {
         expect("field freed inside a loop", """
                 class Holder { private final Part part = new Part(); destructor { int i = 0; while (i < 2) { part.touch(); free part; i++; } } }
                 """, "allocates 2", "throws 2");
-        // A subclass destructor runs first and may free its own fields.
+        // A subclass destructor runs first and may free its own fields, so the superclass
+        // destructor alone does not know them; destroying the subclass, whose destructor
+        // leaves the field in place, carries it to the superclass destructor (D290).
         expect("subclass field in a superclass destructor", """
                 class Holder { destructor { if (this instanceof Leaf leaf) { leaf.part.touch(); } } }
                 class Leaf extends Holder { final Part part = new Part(); }
-                """, "allocates 2", "allocates 3", "throws 2", "throws 3");
-        // A method may also run during construction or after the free.
-        expect("field used by a method the destructor calls", """
-                class Holder { private final Part part = new Part(); destructor { use(); free part; } void use() { part.touch(); } }
                 """, "allocates 2", "throws 2");
+    }
+
+    /** Calls on the destroyed object keep the fields still known where they are made (D290). */
+    static void destructorsTrustConstructedFieldsThroughCalls() {
+        expect("method called before the free", """
+                class Holder { private final Part part = new Part(); destructor { use(); free part; } void use() { part.touch(); } }
+                """);
+        expect("nested methods called before the free", """
+                class Holder { private final Part part = new Part(); destructor { outer(); free part; } void outer() { inner(); } void inner() { part.touch(); } }
+                """);
+        expect("static method given the object", """
+                class Holder { private final Part part = new Part(); destructor { visit(this); free part; } static void visit(Holder holder) { holder.part.touch(); } }
+                """);
+        expect("subclass method called before the subclass free", """
+                class Base { private final Part part = new Part(); destructor { hook(); free part; } void hook() { } }
+                class Holder extends Base { private final Part kept = new Part(); destructor { touchKept(); free kept; } void touchKept() { kept.touch(); } }
+                """);
+        expect("method called after the free", """
+                class Holder { private final Part part = new Part(); destructor { free part; use(); } void use() { part.touch(); } }
+                """, "allocates 2", "throws 2");
+        // The subclass destructor frees its field before the superclass destructor runs.
+        expect("override reached from the superclass destructor after the subclass free", """
+                class Base { private final Part part = new Part(); destructor { hook(); free part; } void hook() { } }
+                class Holder extends Base { private final Part extra = new Part(); destructor { free extra; } @Override void hook() { extra.touch(); } }
+                """, "allocates 3", "throws 3");
+        // Only the destroyed object's fields are known; another object's method keeps its check.
+        expect("method of another object", """
+                class Other { private final Part part = new Part(); destructor { free part; } void use() { part.touch(); } }
+                class Holder { private final Other other = new Other(); destructor { other.use(); free other; } }
+                """, "allocates 3", "throws 3");
     }
 
     /** A `throw new` whose fresh object is no longer null-checked still calls the cold helper. */
@@ -351,6 +379,7 @@ final class NullGuardTests {
             class Guarded { private final Part part; Guarded(Part p) { if (p == null) { throw new IllegalArgumentException(); } part = p; } destructor { part.touch(); } }
             class Base { protected final Part shared = new Part(); }
             class Derived extends Base { destructor { shared.touch(); } }
+            class Helped { private final Part part = new Part(); destructor { use(); free part; } void use() { part.touch(); } }
             class Main {
                 public static int main(String[] args) {
                     Initialized initialized = new Initialized();
@@ -365,6 +394,8 @@ final class NullGuardTests {
                     }
                     Derived derived = new Derived();
                     free derived;
+                    Helped helped = new Helped();
+                    free helped;
                     System.out.println("touched " + Part.touched);
                     return 0;
                 }
@@ -373,7 +404,7 @@ final class NullGuardTests {
 
     private static final String CONSTRUCTED_EXPECTED = """
             rejected null
-            touched 3
+            touched 4
             """;
 
     private static void run(String name, String program, String expected) throws Exception {

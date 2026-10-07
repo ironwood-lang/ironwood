@@ -32,6 +32,9 @@ final class ClosedWorldEffectAnalyzer {
     private Map<String, IrClass> classesByName;
     // Possible classes of released values; only validation has the final owned fields.
     private ValueClasses valueClasses;
+    // Fields constructed non-null, and bodies viewed with an object's fields known (D290).
+    private ConstructedFields constructedFields;
+    private final Map<Entry<String>, View> views = new java.util.HashMap<>();
 
     ClosedWorldEffectAnalyzer(List<IrFunction> functions, List<IrClass> classes) {
         this(functions, classes, null, 0,
@@ -71,6 +74,16 @@ final class ClosedWorldEffectAnalyzer {
      */
     void validate(Map<String, TypeSymbol> types, Set<IrField> ownedFields, String entryPoint,
                   List<Diagnostic> diagnostics) {
+        validate(types, ownedFields, entryPoint, null, diagnostics);
+    }
+
+    /**
+     * @param constructed the fields that construction leaves non-null, which a destructor
+     *        and the bodies it runs on its object may trust until it frees them (D289, D290)
+     */
+    void validate(Map<String, TypeSymbol> types, Set<IrField> ownedFields, String entryPoint,
+                  ConstructedFields constructed, List<Diagnostic> diagnostics) {
+        constructedFields = constructed;
         analyze();
         // Receiver identity may also return through fields that a constructor
         // filled without publishing them; see ReceiverPublicationAnalysis.
@@ -151,16 +164,26 @@ final class ClosedWorldEffectAnalyzer {
      * exact class is {@code type}: a call whose receiver is exactly that object dispatches
      * on {@code type} and takes its callee's summary from {@code objectSummaries}. With a
      * {@code pair}, the body runs in that value-flow context instead, and every call takes
-     * the bodies value flow recorded for it, with summaries from {@code pairSummaries}.
+     * the bodies value flow recorded for it, with summaries from {@code pairSummaries}. A
+     * call on the object passes on the object's fields that {@code callFields} knows
+     * non-null there (D290).
      */
     private record ObjectContext(String type,
-                                 java.util.function.Function<String, Summary> objectSummaries,
+                                 java.util.function.Function<Entry<String>, Summary> objectSummaries,
                                  ValueClasses.Pair pair,
-                                 java.util.function.Function<ValueClasses.Pair, Summary> pairSummaries) {
-        private ObjectContext(String type,
-                              java.util.function.Function<String, Summary> objectSummaries) {
-            this(type, objectSummaries, null, null);
-        }
+                                 java.util.function.Function<Entry<ValueClasses.Pair>, Summary> pairSummaries,
+                                 Map<IrInstruction, Set<ConstructedFields.Field>> callFields) {
+    }
+
+    /** A body, or a value-flow pair, entered with the object's fields known non-null. */
+    private record Entry<T>(T target, Set<ConstructedFields.Field> fields) {
+    }
+
+    /**
+     * A body as it runs on an object whose fields are known non-null at entry: the null
+     * checks those fields prove removed, and the fields still known at each call.
+     */
+    private record View(IrFunction function, Map<IrInstruction, Set<ConstructedFields.Field>> callFields) {
     }
 
     /** A body a call runs, with the summary that applies to that call. */
@@ -174,25 +197,28 @@ final class ClosedWorldEffectAnalyzer {
      */
     private Summary objectsSummary(IrFunction root, List<ValueClasses.Pair> objects) {
         if (objects.isEmpty()) return objectSummary(root);
-        Map<ValueClasses.Pair, Summary> values = new LinkedHashMap<>();
-        objects.forEach(pair -> values.put(pair, Summary.empty()));
+        Map<Entry<ValueClasses.Pair>, Summary> values = new LinkedHashMap<>();
+        Set<ConstructedFields.Field> fields = rootFields(root);
+        objects.forEach(pair -> values.put(new Entry<>(pair, fields), Summary.empty()));
         boolean changed;
         do {
             changed = false;
-            for (ValueClasses.Pair pair : List.copyOf(values.keySet())) {
-                IrFunction function = functions.get(pair.function());
+            for (Entry<ValueClasses.Pair> entry : List.copyOf(values.keySet())) {
+                IrFunction function = functions.get(entry.target().function());
                 if (function == null) continue;
                 int known = values.size();
-                Summary next = summarize(function, new ObjectContext(null, null, pair,
-                        callee -> values.computeIfAbsent(callee, ignored -> Summary.empty())));
-                changed |= !next.equals(values.put(pair, next)) || values.size() != known;
+                View view = view(function, entry.fields());
+                Summary next = summarize(view.function(), new ObjectContext(null, null, entry.target(),
+                        callee -> values.computeIfAbsent(callee, ignored -> Summary.empty()),
+                        view.callFields()));
+                changed |= !next.equals(values.put(entry, next)) || values.size() != known;
             }
         } while (changed);
         boolean allocates = false;
         boolean throwsOutward = false;
         BitSet published = new BitSet();
         for (ValueClasses.Pair pair : objects) {
-            Summary summary = values.get(pair);
+            Summary summary = values.get(new Entry<>(pair, fields));
             allocates |= summary.allocates();
             throwsOutward |= summary.throwsOutward();
             published.or(summary.publishedParameters());
@@ -218,16 +244,24 @@ final class ClosedWorldEffectAnalyzer {
         if (context != null && context.pair() != null) {
             List<ValueClasses.Pair> pairs = valueClasses.callees(context.pair(), instruction);
             if (pairs != null) {
+                List<IrOperand> arguments = callArguments(instruction);
+                Set<ConstructedFields.Field> fields = !arguments.isEmpty()
+                        && exactParameter(function, conversions, arguments.getFirst()).orElse(-1) == 0
+                        ? context.callFields().getOrDefault(instruction, Set.of()) : Set.of();
                 List<Callee> result = new ArrayList<>();
                 for (ValueClasses.Pair pair : pairs) {
                     IrFunction target = functions.get(pair.function());
-                    if (target != null) result.add(new Callee(target, context.pairSummaries().apply(pair)));
+                    if (target != null) {
+                        result.add(new Callee(target, context.pairSummaries().apply(new Entry<>(pair, fields))));
+                    }
                 }
                 return result;
             }
         } else if (onObject(function, conversions, instruction, context)) {
+            Set<ConstructedFields.Field> fields = context.callFields().getOrDefault(instruction, Set.of());
             return exactTargets(instruction, context.type()).stream()
-                    .map(target -> new Callee(target, context.objectSummaries().apply(target.linkageName())))
+                    .map(target -> new Callee(target,
+                            context.objectSummaries().apply(new Entry<>(target.linkageName(), fields))))
                     .toList();
         }
         return targets.stream()
@@ -243,21 +277,82 @@ final class ClosedWorldEffectAnalyzer {
      * context; every other call keeps its ordinary summary.
      */
     private Summary objectSummary(IrFunction root) {
-        Map<String, Summary> values = new LinkedHashMap<>();
-        values.put(root.linkageName(), Summary.empty());
+        Map<Entry<String>, Summary> values = new LinkedHashMap<>();
+        Entry<String> start = new Entry<>(root.linkageName(), rootFields(root));
+        values.put(start, Summary.empty());
         boolean changed;
         do {
             changed = false;
-            for (String name : List.copyOf(values.keySet())) {
-                IrFunction function = functions.get(name);
+            for (Entry<String> entry : List.copyOf(values.keySet())) {
+                IrFunction function = functions.get(entry.target());
                 if (function == null) continue;
                 int known = values.size();
-                Summary next = summarize(function, new ObjectContext(root.ownerClass(),
-                        callee -> values.computeIfAbsent(callee, ignored -> Summary.empty())));
-                changed |= !next.equals(values.put(name, next)) || values.size() != known;
+                View view = view(function, entry.fields());
+                Summary next = summarize(view.function(), new ObjectContext(root.ownerClass(),
+                        callee -> values.computeIfAbsent(callee, ignored -> Summary.empty()),
+                        null, null, view.callFields()));
+                changed |= !next.equals(values.put(entry, next)) || values.size() != known;
             }
         } while (changed);
-        return values.get(root.linkageName());
+        return values.get(start);
+    }
+
+    /**
+     * The fields a constructor or destructor's object has non-null at its entry: none
+     * during construction, and those construction leaves non-null for destruction.
+     */
+    private Set<ConstructedFields.Field> rootFields(IrFunction root) {
+        return root.kind() == IrCallableKind.DESTRUCTOR && constructedFields != null
+                ? Set.copyOf(constructedFields.objectFields(root.ownerClass())) : Set.of();
+    }
+
+    /**
+     * The body as it runs on an object whose fields are known non-null at entry. The
+     * object is the first parameter; the fields hold for the whole call, since only
+     * constructors and the object's own destructor store them (D290).
+     */
+    private View view(IrFunction function, Set<ConstructedFields.Field> fields) {
+        if (fields.isEmpty() || function.parameters().isEmpty() || function.blocks().isEmpty()) {
+            return new View(function, Map.of());
+        }
+        return views.computeIfAbsent(new Entry<>(function.linkageName(), fields), ignored -> {
+            IrValueReference object = function.parameters().getFirst().value();
+            Set<RedundantNullChecks.FieldKey> entry = new LinkedHashSet<>();
+            fields.forEach(field -> entry.add(
+                    new RedundantNullChecks.FieldKey(object, field.owner(), field.name())));
+            RedundantNullChecks facts = RedundantNullChecks.solve(function.blocks(), Set.of(object), entry);
+            Map<IrInstruction, Set<ConstructedFields.Field>> calls = new IdentityHashMap<>();
+            for (IrBasicBlock block : function.blocks()) {
+                List<Set<RedundantNullChecks.FieldKey>> positions = facts.fieldsByPosition(block.label());
+                if (positions.isEmpty()) continue;
+                for (int index = 0; index < block.instructions().size(); index++) {
+                    IrInstruction instruction = block.instructions().get(index);
+                    if (!callArguments(instruction).isEmpty()) {
+                        calls.put(instruction, objectFields(positions.get(index), object));
+                    }
+                }
+                if (block.terminator() instanceof IrInvokeTerminator invoke) {
+                    calls.put(invoke.call(), objectFields(positions.getLast(), object));
+                }
+            }
+            List<IrBasicBlock> blocks = facts.rewritten();
+            IrFunction body = blocks == function.blocks() ? function
+                    : new IrFunction(function.ownerClass(), function.sourceName(), function.linkageName(),
+                    function.returnType(), function.parameters(), blocks, function.sourceSpan(),
+                    function.sourceFileName(), function.kind());
+            return new View(body, calls);
+        });
+    }
+
+    private static Set<ConstructedFields.Field> objectFields(Set<RedundantNullChecks.FieldKey> keys,
+                                                             IrOperand object) {
+        Set<ConstructedFields.Field> result = new LinkedHashSet<>();
+        for (RedundantNullChecks.FieldKey key : keys) {
+            if (key.object().equals(object)) {
+                result.add(new ConstructedFields.Field(key.owner(), key.name()));
+            }
+        }
+        return Set.copyOf(result);
     }
 
     /** Whether a call's receiver is exactly the object a context describes. */

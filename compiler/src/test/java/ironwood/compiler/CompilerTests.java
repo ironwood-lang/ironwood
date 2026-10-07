@@ -785,6 +785,8 @@ public final class CompilerTests {
                 NullGuardTests::explicitThrowsStayOutlined);
         test("destructors trust fields every constructor sets until they free them",
                 NullGuardTests::destructorsTrustConstructedFields);
+        test("methods a destructor calls on its object trust the fields not yet freed",
+                NullGuardTests::destructorsTrustConstructedFieldsThroughCalls);
         test("array types and indices are checked", this::arrayTypesAndIndicesAreChecked);
         test("multidimensional arrays and exact tests preserve invariant typing",
                 this::multidimensionalArrayTypesAndExactTestsAreChecked);

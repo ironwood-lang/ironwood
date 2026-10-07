@@ -110,18 +110,52 @@ final class RedundantNullChecks {
         if (blocks.stream().noneMatch(block -> nullCheck(block) != null)) {
             return blocks;
         }
-        RedundantNullChecks pass = new RedundantNullChecks(blocks, proven, null);
-        pass.solve(entry);
-        return pass.rewrite();
+        return solve(blocks, proven, entry).rewrite();
     }
 
-    /** The facts of the finished IR alone, for {@link #knownBefore} queries. */
-    static RedundantNullChecks solved(List<IrBasicBlock> blocks, Set<IrOperand> proven) {
+    /** The facts of the finished IR alone, from the entry facts, for queries and rewriting. */
+    static RedundantNullChecks solve(List<IrBasicBlock> blocks, Set<IrOperand> proven,
+                                     Set<FieldKey> entry) {
         RedundantNullChecks pass = new RedundantNullChecks(blocks, proven, null);
         if (!blocks.isEmpty()) {
-            pass.solve(Set.of());
+            pass.solve(entry);
         }
         return pass;
+    }
+
+    /** The blocks with every null check the solved facts prove redundant removed. */
+    List<IrBasicBlock> rewritten() {
+        return blocks.isEmpty() || blocks.stream().noneMatch(block -> nullCheck(block) != null)
+                ? blocks : rewrite();
+    }
+
+    /**
+     * The final fields known non-null before each instruction of the block and after its
+     * last one, or an empty list while the block is not reached.
+     */
+    List<Set<FieldKey>> fieldsByPosition(String label) {
+        Set<Object> facts = entries.get(label);
+        if (facts == null) {
+            return List.of();
+        }
+        List<Set<FieldKey>> result = new ArrayList<>();
+        facts = new HashSet<>(facts);
+        for (IrInstruction instruction : byLabel.get(label).instructions()) {
+            result.add(fields(facts));
+            step(facts, instruction);
+        }
+        result.add(fields(facts));
+        return result;
+    }
+
+    private static Set<FieldKey> fields(Set<Object> facts) {
+        Set<FieldKey> result = new HashSet<>();
+        for (Object fact : facts) {
+            if (fact instanceof FieldKey field) {
+                result.add(field);
+            }
+        }
+        return result;
     }
 
     /** Whether the value is known non-null before the instruction at the index of the block. */
@@ -274,16 +308,20 @@ final class RedundantNullChecks {
     private Set<Object> after(List<IrInstruction> instructions, Set<Object> facts) {
         Set<Object> result = new HashSet<>(facts);
         for (IrInstruction instruction : instructions) {
-            if (instruction instanceof IrFieldStoreInstruction store) {
-                boolean stored = store.field().isFinal() && known(store.value(), result);
-                result.removeIf(fact -> fact instanceof FieldKey field && field.storedBy(store));
-                if (stored) {
-                    result.add(new FieldKey(root(store.receiver()), store.field().ownerClass(),
-                            store.field().name()));
-                }
-            }
+            step(result, instruction);
         }
         return result;
+    }
+
+    private void step(Set<Object> facts, IrInstruction instruction) {
+        if (instruction instanceof IrFieldStoreInstruction store) {
+            boolean stored = store.field().isFinal() && known(store.value(), facts);
+            facts.removeIf(fact -> fact instanceof FieldKey field && field.storedBy(store));
+            if (stored) {
+                facts.add(new FieldKey(root(store.receiver()), store.field().ownerClass(),
+                        store.field().name()));
+            }
+        }
     }
 
     /** Whether the facts prove the value non-null. */

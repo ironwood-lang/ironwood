@@ -1962,8 +1962,17 @@ stores when it frees an owned field. Definite assignment makes every completed
 construction store each such field. Each destructor is then solved again with those
 fields of its object, from its own class and its superclasses, known non-null at
 entry; its own free ends the fact where it stores null. Subclass fields are not
-trusted, because a subclass destructor runs first and may free them, and methods are
-not covered, because one may run during construction or after the free.
+trusted, because a subclass destructor runs first and may free them.
+
+A method may run during construction or after a free, so its own code keeps its
+checks; the destructor verdict judges the methods it runs on its object instead
+(D290). `ClosedWorldEffectAnalyzer` summarizes a flagged destructor with its object's
+constructed fields known at entry, and each call whose first argument is the object
+passes on the fields that the caller still knows there, so a field freed before the
+call is not passed. The callee is summarized as a view of its body with the checks
+those fields prove removed, in the exact-class and value-flow contexts alike, and the
+superclass destructor chain carries the fields a subclass destructor left in place.
+The emitted code does not change.
 
 Both allocators are declared `noalias nonnull`, the receiver parameter of every
 instance callable is `nonnull noundef`, and `ironwood_throw` is `noreturn cold`,

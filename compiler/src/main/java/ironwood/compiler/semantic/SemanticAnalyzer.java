@@ -483,7 +483,8 @@ public final class SemanticAnalyzer {
         buildIrTypes(types, hierarchy, dispatchSlots, escapeSummaries);
         functions.addAll(lowerFunctions(types, hierarchy, escapeSummaries, ownedArrayFields,
                 stringPool, diagnostics, constructorDelegations, true, refinementCompleted));
-        ConstructedFields.omitDestructorChecks(functions, types);
+        ConstructedFields constructedFields = ConstructedFields.of(functions, types);
+        constructedFields.omitDestructorChecks(functions);
         validateConstructorDelegationCycles(types, constructorDelegations, diagnostics);
         if (refinementCompleted) {
             validatePoolBuilders(types, hierarchy, escapeSummaries, diagnostics);
@@ -499,7 +500,8 @@ public final class SemanticAnalyzer {
                     types.values().stream().map(TypeSymbol::irClass).toList(),
                     observer, observerToken(), SemanticAnalysisObserver.AnalyzerPhase.FINAL_VALIDATION,
                     placeholderImplementations).validate(types, ownedFields,
-                    main != null && !bridgeAnalysis ? main.linkageName() : null, diagnostics);
+                    main != null && !bridgeAnalysis ? main.linkageName() : null,
+                    constructedFields, diagnostics);
         }
         ownedArrayFields.retireFailureEvidence(observer);
         escapeSummaries.retireWitnessEvidence();

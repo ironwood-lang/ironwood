@@ -943,8 +943,10 @@ listener.closed(); }` on a final field (D287), or on a value merged at a join or
 loop header from values that are each non-null, such as a guarded local used in a
 loop (D288). A destructor also trusts each final field of its object, declared by
 its class or a superclass, that every constructor sets to a value proven non-null,
-such as `private final Part part = new Part();` (D289). Freeing an owned field
-stores null into it, so neither a guard nor that trust covers uses after the free.
+such as `private final Part part = new Part();` (D289), and so do the methods it
+calls on its object while those fields are still in place (D290). Freeing an owned
+field stores null into it, so neither a guard nor that trust covers uses after the
+free.
 Nullable receivers remain checked and retain those effects.
 
 The compiler may later replace a source `new` with stack allocation or scalar

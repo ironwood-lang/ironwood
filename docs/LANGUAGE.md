@@ -870,8 +870,8 @@ of a local, value or final field that a dominating `!= null`, `== null` or
 value merged at a join or loop from values that are each non-null (D288), or a
 final field of the destroyed object, declared by its class or a superclass, that
 every constructor sets to a proven non-null value and the destructor has not yet
-freed (D289); reads through a genuinely nullable receiver retain their ordinary
-null exception effect.
+freed (D289), also in the methods it calls on that object (D290); reads through a
+genuinely nullable receiver retain their ordinary null exception effect.
 
 If construction throws, the incomplete receiver's source destructor does not
 run. The compiler emits a separate rollback callable that releases zero-or-more

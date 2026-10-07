@@ -11288,3 +11288,39 @@ occurrence order. If no
   standard library builds with `--unfreed=error`, 79 examples and projects compile
   with identical diagnostics, every linked example program runs with identical
   output, and build time is unchanged.
+
+## D290 - Judge the methods a destructor runs on its object with its constructed fields
+
+- **Status:** Accepted and implemented. Extends D289 from the destructor body to the
+  methods it calls on its object.
+- **Context:** D289 trusts constructed non-null fields only in destructor bodies. A
+  destructor written `destructor { flush(); free buffer; }`, where `flush` uses
+  `buffer`, was still reported as allocating and throwing, because `flush` keeps its
+  null check: a method may also run during construction, before the field is
+  assigned, or after the free.
+- **Decision:** The destructor verdict judges the methods it runs on its object with
+  the fields known there, and their code keeps its checks. `ClosedWorldEffectAnalyzer`
+  summarizes a flagged destructor with its object's constructed fields known at
+  entry. A call whose first argument is the object passes on the fields the caller's
+  dataflow still knows at that call, and the callee is summarized, in the exact-class
+  and value-flow contexts alike, as a view of its body with the null checks those
+  fields prove removed. Summaries are kept per body and set of known fields.
+- **Analysis:** Only constructors and the object's own destructors store its final
+  fields, so the fields known at a call stay non-null for the whole call, through
+  nested calls on the object. A field freed before the call is no longer known there,
+  and the superclass destructor chain receives only the fields a subclass destructor
+  left in place, so an override reached after a subclass free keeps its report. Calls
+  on other objects, or with the object in another position, pass no fields. The
+  views only exclude failure paths that cannot run during that destruction, so no
+  allocation, escaping exception or publication goes unreported; emitted code and
+  ownership proofs are unchanged (D132, D133). A superclass destructor is now also
+  judged with the fields a subclass destructor leaves in place, so destroying a
+  subclass that never frees a field no longer reports the superclass's use of it.
+- **Verification:** Destructors calling a method, nested methods or a static method
+  given the object before the free are accepted, as is a subclass destructor calling
+  its own method before its free. A method called after the free, an override that
+  the superclass destructor reaches after the subclass freed the field, and a method
+  of another object keep both reports. The standard library builds with
+  `--unfreed=error`, 79 examples and projects compile with identical diagnostics, 69
+  examples emit identical LLVM, and the standard library compiles in slightly more
+  CPU time.

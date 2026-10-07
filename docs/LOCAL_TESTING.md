@@ -355,7 +355,7 @@ the exact-class verdict for an unused constructor and for a base constructor tha
 only subclasses run.
 
 For null checks omitted under a dominating null test, a merge of guarded values or
-a constructed non-null field (D287 to D289), run:
+a constructed non-null field (D287 to D290), run:
 
 ```sh
 ./scripts/test.sh --test 'destructors trust the null tests that guard their calls' \
@@ -364,7 +364,8 @@ a constructed non-null field (D287 to D289), run:
   --test 'destructors trust null tests through joins and loop headers' \
   --test 'merges omit only the null checks every merged value makes redundant' \
   --test 'explicit throws stay outlined without the null check of the fresh object' \
-  --test 'destructors trust fields every constructor sets until they free them'
+  --test 'destructors trust fields every constructor sets until they free them' \
+  --test 'methods a destructor calls on its object trust the fields not yet freed'
 ```
 
 The first accepts destructors whose calls are guarded and keeps both reports for
@@ -379,8 +380,11 @@ possibly-null value, keeps its check. The sixth expects `throw new` to stay a ca
 to its cold helper once the null check of the fresh object is gone. The seventh
 covers final fields that every constructor sets to a non-null value (D289): a
 destructor may use them, and those of its superclasses, until it frees them, but
-not a field a constructor may set from an unchecked parameter or to null, a
-subclass field, or a field used through a method.
+not a field a constructor may set from an unchecked parameter or to null, or a
+subclass field the destructor cannot know. The eighth covers methods the destructor
+calls on its object (D290): they may use the fields before the free, also through
+nested and static calls, but not after it, not through an override reached after a
+subclass freed its field, and not on another object.
 
 For the diagnostic baseline of duplicated cleanup, run:
 

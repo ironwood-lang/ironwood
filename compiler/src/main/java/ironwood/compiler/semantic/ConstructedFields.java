@@ -7,7 +7,6 @@ import ironwood.compiler.ir.IrCallableKind;
 import ironwood.compiler.ir.IrFieldStoreInstruction;
 import ironwood.compiler.ir.IrFunction;
 import ironwood.compiler.ir.IrNull;
-import ironwood.compiler.ir.IrParameter;
 import ironwood.compiler.ir.IrValueReference;
 
 import java.util.LinkedHashSet;
@@ -32,56 +31,24 @@ import java.util.Set;
  * subclasses that run before it cannot store the fields of its class or of its
  * superclasses. At its entry each such field of its object is non-null until its own
  * free stores null, so each destructor is solved again from those entry facts, which
- * can only remove checks. Methods are not covered, since one may run during
- * construction or after the free.
+ * can only remove checks. The methods a destructor calls on its object are judged in
+ * the destructor's verdict with the fields still known at each call (D290).
  */
 final class ConstructedFields {
-    private record Field(String owner, String name) {
+    /** A field by its declaring class and name. */
+    record Field(String owner, String name) {
     }
 
-    private ConstructedFields() {
-    }
+    private final Set<Field> fields;
+    private final Map<String, TypeSymbol> types;
 
-    /** Replaces each destructor with one that omits the checks its constructed fields prove. */
-    static void omitDestructorChecks(List<IrFunction> functions, Map<String, TypeSymbol> types) {
-        if (functions.stream().noneMatch(function -> function.kind() == IrCallableKind.DESTRUCTOR)) {
-            return;
-        }
-        Set<Field> constructed = constructedFields(functions, types);
-        if (constructed.isEmpty()) {
-            return;
-        }
-        for (int index = 0; index < functions.size(); index++) {
-            IrFunction function = functions.get(index);
-            IrValueReference self = self(function);
-            if (function.kind() != IrCallableKind.DESTRUCTOR || self == null) {
-                continue;
-            }
-            Set<RedundantNullChecks.FieldKey> entry = new LinkedHashSet<>();
-            for (TypeSymbol type = types.get(function.ownerClass()); type != null;
-                 type = type.superclass().orElse(null)) {
-                for (FieldSymbol field : type.declaredFields().values()) {
-                    if (field.irField() != null && constructed.contains(
-                            new Field(field.irField().ownerClass(), field.irField().name()))) {
-                        entry.add(new RedundantNullChecks.FieldKey(self,
-                                field.irField().ownerClass(), field.irField().name()));
-                    }
-                }
-            }
-            if (entry.isEmpty()) {
-                continue;
-            }
-            List<IrBasicBlock> blocks = RedundantNullChecks.omit(function.blocks(), Set.of(self), entry);
-            if (blocks != function.blocks()) {
-                functions.set(index, new IrFunction(function.ownerClass(), function.sourceName(),
-                        function.linkageName(), function.returnType(), function.parameters(), blocks,
-                        function.sourceSpan(), function.sourceFileName(), function.kind()));
-            }
-        }
+    private ConstructedFields(Set<Field> fields, Map<String, TypeSymbol> types) {
+        this.fields = fields;
+        this.types = types;
     }
 
     /** The final reference instance fields whose every store keeps them non-null after construction. */
-    private static Set<Field> constructedFields(List<IrFunction> functions, Map<String, TypeSymbol> types) {
+    static ConstructedFields of(List<IrFunction> functions, Map<String, TypeSymbol> types) {
         Set<Field> result = new LinkedHashSet<>();
         for (TypeSymbol type : types.values()) {
             for (FieldSymbol field : type.declaredFields().values()) {
@@ -110,7 +77,7 @@ final class ConstructedFields {
                     IrValueReference self = self(function);
                     if (own && function.kind() == IrCallableKind.CONSTRUCTOR && self != null) {
                         if (facts == null) {
-                            facts = RedundantNullChecks.solved(function.blocks(), Set.of(self));
+                            facts = RedundantNullChecks.solve(function.blocks(), Set.of(self), Set.of());
                         }
                         if (facts.sameObject(store.receiver(), self)
                                 && facts.knownBefore(block.label(), index, store.value())) {
@@ -121,7 +88,50 @@ final class ConstructedFields {
                 }
             }
         }
+        return new ConstructedFields(result, types);
+    }
+
+    /** The constructed fields of an object of the class: its own and its superclasses'. */
+    Set<Field> objectFields(String className) {
+        Set<Field> result = new LinkedHashSet<>();
+        for (TypeSymbol type = types.get(className); type != null; type = type.superclass().orElse(null)) {
+            for (FieldSymbol field : type.declaredFields().values()) {
+                if (field.irField() != null) {
+                    Field id = new Field(field.irField().ownerClass(), field.irField().name());
+                    if (fields.contains(id)) {
+                        result.add(id);
+                    }
+                }
+            }
+        }
         return result;
+    }
+
+    /** Replaces each destructor with one that omits the checks its constructed fields prove. */
+    void omitDestructorChecks(List<IrFunction> functions) {
+        if (fields.isEmpty()) {
+            return;
+        }
+        for (int index = 0; index < functions.size(); index++) {
+            IrFunction function = functions.get(index);
+            IrValueReference self = self(function);
+            if (function.kind() != IrCallableKind.DESTRUCTOR || self == null) {
+                continue;
+            }
+            Set<RedundantNullChecks.FieldKey> entry = new LinkedHashSet<>();
+            for (Field field : objectFields(function.ownerClass())) {
+                entry.add(new RedundantNullChecks.FieldKey(self, field.owner(), field.name()));
+            }
+            if (entry.isEmpty()) {
+                continue;
+            }
+            List<IrBasicBlock> blocks = RedundantNullChecks.omit(function.blocks(), Set.of(self), entry);
+            if (blocks != function.blocks()) {
+                functions.set(index, new IrFunction(function.ownerClass(), function.sourceName(),
+                        function.linkageName(), function.returnType(), function.parameters(), blocks,
+                        function.sourceSpan(), function.sourceFileName(), function.kind()));
+            }
+        }
     }
 
     private static IrValueReference self(IrFunction function) {
