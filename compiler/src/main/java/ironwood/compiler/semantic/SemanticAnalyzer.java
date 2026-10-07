@@ -497,7 +497,8 @@ public final class SemanticAnalyzer {
             new ClosedWorldEffectAnalyzer(functions,
                     types.values().stream().map(TypeSymbol::irClass).toList(),
                     observer, observerToken(), SemanticAnalysisObserver.AnalyzerPhase.FINAL_VALIDATION,
-                    placeholderImplementations).validate(types, ownedFields, diagnostics);
+                    placeholderImplementations).validate(types, ownedFields,
+                    main != null && !bridgeAnalysis ? main.linkageName() : null, diagnostics);
         }
         ownedArrayFields.retireFailureEvidence(observer);
         escapeSummaries.retireWitnessEvidence();

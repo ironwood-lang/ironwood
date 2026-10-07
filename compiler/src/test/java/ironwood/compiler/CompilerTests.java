@@ -761,6 +761,10 @@ public final class CompilerTests {
                 DestructorEffectTests::attributedToDestroyedClass);
         test("destructor calls on a receiver that may be another object keep every override",
                 DestructorEffectTests::uncertainReceiverKeepsEveryOverride);
+        test("released values run only the destructors of the classes they may be",
+                FreedValueClassTests::releasedValuesFollowTheirClasses);
+        test("every path that can release a misbehaving class keeps its holder reported",
+                FreedValueClassTests::reachableValuesStayReported);
         test("array types and indices are checked", this::arrayTypesAndIndicesAreChecked);
         test("multidimensional arrays and exact tests preserve invariant typing",
                 this::multidimensionalArrayTypesAndExactTestsAreChecked);

@@ -11039,3 +11039,40 @@ occurrence order. If no
   report as before, a safe override is accepted, and the D282 constructor cases are
   unchanged on the shared summary. The standard library builds with
   `--unfreed=error` without diagnostics, and 74 examples compile identically.
+
+## D284 - Release only the classes a freed value may be
+
+- **Status:** Accepted and implemented. Supersedes D283's limitation that `free` of a
+  field whose declared type has subclasses considers every subclass destructor.
+- **Context:** A `free` or owned-element destruction was taken to run the destructor
+  of every subclass of the operand's static type. Pooled objects are erased to
+  `Object`, so one user class with an allocating destructor made the bundled
+  `ArrayObjectPool`, `HashMap` and `HashSet` destructors report it, although none of
+  them can hold that class; a destructor freeing an owned field that only ever holds
+  an exact class was blamed for every subclass the same way.
+- **Decision:** For the destructor and constructor verdicts, a free or element
+  destruction runs only the destructors of the classes its value may be, as a
+  closed-world, context-insensitive value flow over typed IR proves them. An object
+  allocation gives its class and an array allocation its own site; fields join what
+  is stored into them, calls what their targets return, and each array site what is
+  stored into arrays that may be it. A store into an array of unknown origin joins
+  every site whose element type it fits. Parameters join their call arguments where
+  every caller is visible: for private methods and constructors, and for all
+  callables of an executable with an entry point and no foreign calls; the entry
+  point, destructors and rollbacks keep unknown parameters, as does every other
+  source. `System.arraycopy` is modeled at its calls as a copy.
+- **Analysis:** The flow is a sound over-approximation: reference fields are written
+  only by field stores, since immortal objects carry primitive field values and the
+  runtime keeps traces and secondary exceptions in its own tables; arrays reach code
+  only through tracked values or as arrays of unknown origin; and unknown values keep
+  every subclass. Precision is per class and allocation site, not per instance, so a
+  pool that really holds a misbehaving class still makes every holder of that pool
+  class report it. Provisional analyses keep their targets; no safety proof, lowering
+  or runtime behavior changes. A small program compiles about 8 percent slower.
+- **Verification:** A user map subclass with an allocating destructor beside
+  `HashSet` reports one error instead of four, also in a library without an entry
+  point; an owned field of the base class leaves its holder unreported. A holder of
+  the misbehaving class, a pool built with it, an array of unknown origin and a
+  builder handing out an array element of it all stay reported. The standard library
+  builds with `--unfreed=error` without diagnostics and identical timing, and 74
+  examples compile identically.

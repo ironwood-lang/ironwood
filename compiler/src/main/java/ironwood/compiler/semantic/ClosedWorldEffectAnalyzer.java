@@ -30,6 +30,8 @@ final class ClosedWorldEffectAnalyzer {
     // they may reclaim their reference arguments, which only suppresses findings.
     private final Set<String> placeholders;
     private Map<String, IrClass> classesByName;
+    // Possible classes of released values; only validation has the final owned fields.
+    private ValueClasses valueClasses;
 
     ClosedWorldEffectAnalyzer(List<IrFunction> functions, List<IrClass> classes) {
         this(functions, classes, null, 0,
@@ -60,6 +62,31 @@ final class ClosedWorldEffectAnalyzer {
 
     /** Owned fields are compiler-proven exclusive; their arrays are never shared. */
     void validate(Map<String, TypeSymbol> types, Set<IrField> ownedFields, List<Diagnostic> diagnostics) {
+        validate(types, ownedFields, null, diagnostics);
+    }
+
+    /**
+     * @param entryPoint the linkage name of a closed executable's entry point, or
+     *        {@code null} when other callers may exist
+     */
+    void validate(Map<String, TypeSymbol> types, Set<IrField> ownedFields, String entryPoint,
+                  List<Diagnostic> diagnostics) {
+        if (!analyzed && valueClasses == null) {
+            Set<String> privateCallables = new java.util.HashSet<>();
+            for (TypeSymbol type : types.values()) {
+                java.util.stream.Stream.concat(type.declaredMethods().values().stream(),
+                                type.constructors().stream())
+                        .filter(callable -> callable.accessModifier()
+                                == ironwood.compiler.ast.AccessModifier.PRIVATE)
+                        .forEach(callable -> privateCallables.add(callable.linkageName()));
+            }
+            valueClasses = new ValueClasses(functions.values(), entryPoint, privateCallables,
+                    this::targets,
+                    (subclass, superclass) -> {
+                        IrClass type = classByName(subclass);
+                        return type != null && isSubtype(type, superclass);
+                    });
+        }
         analyze();
         // Receiver identity may also return through fields that a constructor
         // filled without publishing them; see ReceiverPublicationAnalysis.
@@ -143,15 +170,19 @@ final class ClosedWorldEffectAnalyzer {
                 && exactParameter(function, conversions, arguments.getFirst()).orElse(-1) == 0;
     }
 
-    /** The targets of a call whose receiver is an object of exact class {@code type}. */
-    List<IrFunction> exactTargets(IrInstruction instruction, String type) {
-        IrDispatchSlot slot = instruction instanceof IrVirtualCallInstruction call ? call.slot()
-                : instruction instanceof IrInterfaceCallInstruction call ? call.slot() : null;
+    private IrClass classByName(String name) {
         if (classesByName == null) {
             classesByName = new LinkedHashMap<>();
             classes.forEach(irClass -> classesByName.put(irClass.name(), irClass));
         }
-        IrClass exact = classesByName.get(type);
+        return classesByName.get(name);
+    }
+
+    /** The targets of a call whose receiver is an object of exact class {@code type}. */
+    List<IrFunction> exactTargets(IrInstruction instruction, String type) {
+        IrDispatchSlot slot = instruction instanceof IrVirtualCallInstruction call ? call.slot()
+                : instruction instanceof IrInterfaceCallInstruction call ? call.slot() : null;
+        IrClass exact = classByName(type);
         if (slot == null || exact == null) return targets(instruction);
         return exact.dispatchEntries().stream()
                 .filter(entry -> entry.slot().index() == slot.index())
@@ -525,8 +556,10 @@ final class ClosedWorldEffectAnalyzer {
             slot = call.slot().index();
         } else if (instruction instanceof IrDestroyArrayElementsInstruction destroy) {
             IrType elementType = destroy.array().type().elementType().erasure();
+            Set<String> possible = valueClasses == null ? null : valueClasses.released(destroy);
             return classes.stream().filter(type -> elementType.isNominalReference()
-                            && isSubtype(type, elementType.referenceName()))
+                            && isSubtype(type, elementType.referenceName())
+                            && (possible == null || possible.contains(type.name())))
                     .flatMap(type -> type.destructorChain().stream())
                     .map(functions::get).filter(java.util.Objects::nonNull).distinct().toList();
         } else if (instruction instanceof IrFreeInstruction free) {
@@ -535,7 +568,9 @@ final class ClosedWorldEffectAnalyzer {
                 return List.of();
             }
             LinkedHashSet<IrFunction> destructors = new LinkedHashSet<>();
-            classes.stream().filter(type -> isSubtype(type, staticType.referenceName()))
+            Set<String> possible = valueClasses == null ? null : valueClasses.released(free);
+            classes.stream().filter(type -> isSubtype(type, staticType.referenceName())
+                            && (possible == null || possible.contains(type.name())))
                     .flatMap(type -> type.destructorChain().stream())
                     .map(functions::get).filter(java.util.Objects::nonNull)
                     .forEach(destructors::add);

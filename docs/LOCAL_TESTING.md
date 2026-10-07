@@ -326,6 +326,19 @@ only at the overriding subclass, also under `finally`, and a base destructor's
 own allocation at the base and each subclass; the second keeps every override
 for a receiver that may be another object.
 
+For the destructors a released value may run (D284), run:
+
+```sh
+./scripts/test.sh --test 'released values run only the destructors of the classes they may be' \
+  --test 'every path that can release a misbehaving class keeps its holder reported'
+```
+
+The first expects a user class with an allocating destructor to be the only one
+reported beside bundled pools and collections, also without an entry point, and an
+owned field of the base class to leave its holder unreported; the second keeps the
+holder, the pool and an array of unknown origin reported wherever the class can be
+released.
+
 For the diagnostic baseline of duplicated cleanup, run:
 
 ```sh

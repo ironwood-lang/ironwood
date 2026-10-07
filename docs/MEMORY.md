@@ -919,7 +919,10 @@ publish or resurrect `this`, or let an exception escape; direct and indirect
 calls contribute effects through a closed-world fixed point. Each destructor is
 checked for destroying an exact instance of its own class: calls on that object
 dispatch on the class, so an override that allocates, throws or publishes is
-reported at the subclass whose destruction runs it (D283). Resurrection
+reported at the subclass whose destruction runs it (D283). A `free` or owned-element
+destruction inside such code runs the destructors of the classes its value may be,
+as closed-world value flow proves them, so a misbehaving class is reported only
+where its objects can be released (D284). Resurrection
 includes publishing a field that may hold the dying object or a holder of it,
 and publishing a caught exception that may be `this`. A caught exception
 is permitted when every path handles it locally. If an exception nevertheless

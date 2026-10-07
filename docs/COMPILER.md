@@ -1623,7 +1623,11 @@ destructor resurrection/publication, and constructor publication. A locally
 caught exceptional call remains permitted. Those verdicts use a summary for an
 exact instance of the checked constructor's or destructor's own class: calls
 whose receiver is exactly that object dispatch on the class and reuse the same
-exact summaries for their callees and exceptional edges (D282, D283).
+exact summaries for their callees and exceptional edges (D282, D283). For the
+same verdicts, `ValueClasses` limits the destructors a `free` or owned-element
+destruction may run to the classes its value may be: a closed-world,
+context-insensitive union of allocations, fields, returns, array allocation sites
+and, where every caller is visible, parameters (D284).
 
 Within one effect analysis, instruction targets are cached against its fixed IR
 and class snapshot. Virtual/interface implementations, initializer prerequisites,
