@@ -72,11 +72,22 @@ final class OwnedArrayExplanationTests {
                 "static void observe(Item value) {}",
                 "a fresh creation-array object cannot escape through a call",
                 "observe(value)", "call receives the recorded object");
-        recordedRejectedText(recordedSource("Item value = new Item(this); items[0] = value;", "")
-                        .replace("class Item extends RuntimeException {}",
-                                "class Item extends RuntimeException { Owner back; Item() {} Item(Owner owner) { back = owner; } }"),
+        String backlink = "class Item extends RuntimeException { Owner back; Item() {} Item(Owner owner) { back = owner; } }";
+        // A method records the backlink so D252 constructor publication does not also apply.
+        recordedRejectedText(recordedSource("", "void refill() { Item value = new Item(this); items[0] = value; }")
+                        .replace("class Item extends RuntimeException {}", backlink),
                 "an owned element must keep its storage-owner backlink encapsulated",
                 "new Item(this)", "backlink confinement was not proved");
+        List<String> constructing = new CompilerPipeline(UnfreedMode.OFF, true, null)
+                .analyze(List.of(SourceFile.of("RecordedEvidence.iron",
+                        recordedSource("Item value = new Item(this); items[0] = value;", "")
+                                .replace("class Item extends RuntimeException {}", backlink))))
+                .diagnostics().stream().map(diagnostic -> diagnostic.message()).toList();
+        require(constructing.size() == 2
+                        && constructing.contains("constructor may publish in-progress 'this' through an unconfined helper argument")
+                        && constructing.contains("cannot prove owned elements of 'items' safe: "
+                        + "an owned element must keep its storage-owner backlink encapsulated"),
+                "constructor backlink lost its publication or owned-element rejection: " + constructing);
         recordedRejected("", "Item produce() { Item value = new Item(); items[0] = value; return value; }",
                 "returning a creation-array object requires a proved dependent-borrow contract",
                 "return value;", "return has no proved dependent-borrow contract");
