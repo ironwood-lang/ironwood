@@ -72,25 +72,29 @@ final class ClosedWorldEffectAnalyzer {
             if (owner == null) {
                 continue;
             }
+            boolean mayPublish = summary.publishedParameters().get(0)
+                    || receivers.publishesReceiver(function.linkageName());
             if (function.kind() == IrCallableKind.DESTRUCTOR) {
-                if (summary.allocates()) {
+                // Context-free facts select the destructors to check; the verdict is for
+                // destroying an exact instance of the destructor's class (D283).
+                Summary exact = summary.allocates() || summary.throwsOutward() || mayPublish
+                        ? objectSummary(function) : summary;
+                if (exact.allocates()) {
                     diagnostics.add(Diagnostic.error(owner.source(), function.sourceSpan(),
                             "destructor may allocate; destructor cleanup must be allocation-free"));
                 }
-                if (summary.throwsOutward()) {
+                if (exact.throwsOutward()) {
                     diagnostics.add(Diagnostic.error(owner.source(), function.sourceSpan(),
                             "an exception may escape this destructor"));
                 }
-                if (summary.publishedParameters().get(0)
-                        || receivers.publishesReceiver(function.linkageName())) {
+                if (mayPublish && (exact.publishedParameters().get(0)
+                        || receivers.objectPublishes(function))) {
                     diagnostics.add(Diagnostic.error(owner.source(), function.sourceSpan(),
                             "destructor may publish or resurrect 'this'"));
                 }
-            } else if (function.kind() == IrCallableKind.CONSTRUCTOR
-                    && (summary.publishedParameters().get(0)
-                    || receivers.publishesReceiver(function.linkageName()))
-                    && (constructionPublishes(function)
-                    || receivers.constructionPublishes(function))) {
+            } else if (function.kind() == IrCallableKind.CONSTRUCTOR && mayPublish
+                    && (objectSummary(function).publishedParameters().get(0)
+                    || receivers.objectPublishes(function))) {
                 diagnostics.add(Diagnostic.error(owner.source(), function.sourceSpan(),
                         "constructor may publish in-progress 'this' before construction completes"));
             }
@@ -98,95 +102,45 @@ final class ClosedWorldEffectAnalyzer {
     }
 
     /**
-     * Whether building an exact instance of a constructor's class through it publishes the
-     * object before construction completes (D282). Calls on the object dispatch on that
-     * class, so a subclass override counts for the subclass's construction, not for the
-     * superclass constructor that calls it.
+     * A summary taken while the summarized function's first argument is an object whose
+     * exact class is {@code type}: a call whose receiver is exactly that object dispatches
+     * on {@code type} and takes its callee's summary from {@code objectSummaries}.
      */
-    private boolean constructionPublishes(IrFunction constructor) {
-        String type = constructor.ownerClass();
-        LinkedHashSet<String> reached = new LinkedHashSet<>();
-        java.util.ArrayDeque<String> pending = new java.util.ArrayDeque<>(
-                List.of(constructor.linkageName()));
-        while (!pending.isEmpty()) {
-            String name = pending.removeFirst();
-            if (reached.add(name)) {
-                publishesObject(name, type, callee -> {
-                    pending.add(callee);
-                    return false;
-                });
-            }
-        }
-        Map<String, Boolean> answers = new LinkedHashMap<>();
-        reached.forEach(name -> answers.put(name, false));
-        boolean changed;
-        do {
-            changed = false;
-            for (String name : reached) {
-                if (!answers.get(name) && publishesObject(name, type, answers::get)) {
-                    answers.put(name, true);
-                    changed = true;
-                }
-            }
-        } while (changed);
-        return answers.get(constructor.linkageName());
+    private record ObjectContext(String type,
+                                 java.util.function.Function<String, Summary> objectSummaries) {
     }
 
     /**
-     * Whether a function publishes its first argument, an object under construction whose
-     * exact class is {@code type}; {@code objectCalls} answers the same for a callee that
-     * receives that object first. Every question is asked, so this also finds the callees.
+     * The summary of a constructor or destructor for an exact instance of its own class
+     * (D282, D283). Calls on the object dispatch on that class, so a subclass override
+     * counts for the subclass's construction or destruction, not for the superclass code
+     * that calls it. Callees that receive the object first are summarized in the same
+     * context; every other call keeps its ordinary summary.
      */
-    private boolean publishesObject(String name, String type,
-                                    java.util.function.Function<String, Boolean> objectCalls) {
-        IrFunction function = functions.get(name);
-        if (function == null) return false;
-        Set<String> reachable = reachableBlocks(function);
-        Map<Integer, BitSet> origins = parameterOrigins(function, reachable);
-        Map<Integer, IrOperand> conversions = referenceConversions(function);
-        boolean published = false;
-        for (IrBasicBlock block : function.blocks()) {
-            if (!reachable.contains(block.label())) continue;
-            List<IrInstruction> operations = new ArrayList<>(block.instructions());
-            if (block.terminator() instanceof IrInvokeTerminator invoke) operations.add(invoke.call());
-            for (IrInstruction instruction : operations) {
-                published |= storedOrigins(function, instruction, origins).get(0)
-                        | callPublishesObject(function, conversions, instruction, origins, type,
-                        objectCalls);
+    private Summary objectSummary(IrFunction root) {
+        Map<String, Summary> values = new LinkedHashMap<>();
+        values.put(root.linkageName(), Summary.empty());
+        boolean changed;
+        do {
+            changed = false;
+            for (String name : List.copyOf(values.keySet())) {
+                IrFunction function = functions.get(name);
+                if (function == null) continue;
+                int known = values.size();
+                Summary next = summarize(function, new ObjectContext(root.ownerClass(),
+                        callee -> values.computeIfAbsent(callee, ignored -> Summary.empty())));
+                changed |= !next.equals(values.put(name, next)) || values.size() != known;
             }
-            if (block.terminator() instanceof IrThrowTerminator thrown
-                    && thrown.unwindTarget().isEmpty() && !isCatchAllFallback(function, block)
-                    && origin(thrown.exception(), origins).get(0)) {
-                published = true;
-            }
-        }
-        return published;
+        } while (changed);
+        return values.get(root.linkageName());
     }
 
-    private boolean callPublishesObject(IrFunction function, Map<Integer, IrOperand> conversions,
-                                        IrInstruction instruction, Map<Integer, BitSet> origins,
-                                        String type,
-                                        java.util.function.Function<String, Boolean> objectCalls) {
-        if (instruction instanceof IrForeignCallInstruction call) {
-            return foreignOrigins(call, origins).get(0);
-        }
+    /** Whether a call's receiver is exactly the object a context describes. */
+    private static boolean onObject(IrFunction function, Map<Integer, IrOperand> conversions,
+                                    IrInstruction instruction, ObjectContext context) {
         List<IrOperand> arguments = callArguments(instruction);
-        // Only a receiver that is exactly the object dispatches on its exact class.
-        boolean onObject = !arguments.isEmpty()
+        return context != null && !arguments.isEmpty()
                 && exactParameter(function, conversions, arguments.getFirst()).orElse(-1) == 0;
-        boolean published = false;
-        for (IrFunction target : onObject ? exactTargets(instruction, type) : targets(instruction)) {
-            BitSet parameters = summaries.getOrDefault(target.linkageName(), Summary.empty())
-                    .publishedParameters();
-            for (int parameter = parameters.nextSetBit(onObject ? 1 : 0); parameter >= 0;
-                 parameter = parameters.nextSetBit(parameter + 1)) {
-                if (parameter < arguments.size()) {
-                    published |= origin(arguments.get(parameter), origins).get(0);
-                }
-            }
-            if (onObject) published |= objectCalls.apply(target.linkageName());
-        }
-        return published;
     }
 
     /** The targets of a call whose receiver is an object of exact class {@code type}. */
@@ -240,7 +194,11 @@ final class ClosedWorldEffectAnalyzer {
     }
 
     private Summary summarize(IrFunction function) {
-        Set<String> reachable = reachableBlocks(function);
+        return summarize(function, null);
+    }
+
+    private Summary summarize(IrFunction function, ObjectContext context) {
+        Set<String> reachable = reachableBlocks(function, context);
         Map<Integer, BitSet> origins = parameterOrigins(function, reachable);
         BitSet published = new BitSet();
         BitSet returned = new BitSet();
@@ -253,7 +211,7 @@ final class ClosedWorldEffectAnalyzer {
             if (!reachable.contains(block.label())) continue;
             for (IrInstruction instruction : block.instructions()) {
                 allocates |= locallyAllocates(instruction);
-                Effect callEffect = callEffect(function, conversions, instruction, origins);
+                Effect callEffect = callEffect(function, conversions, instruction, origins, context);
                 allocates |= callEffect.allocates();
                 throwsOutward |= callEffect.throwsOutward();
                 published.or(callEffect.published());
@@ -282,7 +240,7 @@ final class ClosedWorldEffectAnalyzer {
                 }
             } else if (terminator instanceof IrInvokeTerminator invoke) {
                 allocates |= locallyAllocates(invoke.call());
-                Effect effect = callEffect(function, conversions, invoke.call(), origins);
+                Effect effect = callEffect(function, conversions, invoke.call(), origins, context);
                 allocates |= effect.allocates();
                 published.or(effect.published());
                 reclaimed.or(effect.reclaimed());
@@ -347,6 +305,12 @@ final class ClosedWorldEffectAnalyzer {
     // Recompute reachability with each fixed-point iteration; a newly throwing callee
     // makes its unwind path reachable on the next iteration, including recursive calls.
     Set<String> reachableBlocks(IrFunction function) {
+        return reachableBlocks(function, null);
+    }
+
+    private Set<String> reachableBlocks(IrFunction function, ObjectContext context) {
+        Map<Integer, IrOperand> conversions = context == null ? Map.of()
+                : referenceConversions(function);
         Map<String, IrBasicBlock> blocks = new LinkedHashMap<>();
         function.blocks().forEach(block -> blocks.put(block.label(), block));
         Set<String> reachable = new LinkedHashSet<>();
@@ -368,7 +332,14 @@ final class ClosedWorldEffectAnalyzer {
                 thrown.unwindTarget().ifPresent(pending::add);
             } else if (terminator instanceof IrInvokeTerminator invoke) {
                 pending.add(invoke.normalTarget());
-                if (mayUnwind(invoke.call())) pending.add(invoke.unwindTarget());
+                if (onObject(function, conversions, invoke.call(), context)
+                        ? exactTargets(invoke.call(), context.type()).stream().anyMatch(target -> {
+                            Summary summary = context.objectSummaries().apply(target.linkageName());
+                            return summary.throwsOutward() || summary.allocates();
+                        })
+                        : mayUnwind(invoke.call())) {
+                    pending.add(invoke.unwindTarget());
+                }
             }
         }
         return reachable;
@@ -439,12 +410,15 @@ final class ClosedWorldEffectAnalyzer {
     }
 
     private Effect callEffect(IrFunction function, Map<Integer, IrOperand> conversions,
-                              IrInstruction instruction, Map<Integer, BitSet> origins) {
+                              IrInstruction instruction, Map<Integer, BitSet> origins,
+                              ObjectContext context) {
         if (instruction instanceof IrForeignCallInstruction call) {
             BitSet inputs = foreignOrigins(call, origins);
             return new Effect(true, true, inputs, (BitSet) inputs.clone());
         }
-        List<IrFunction> targets = targets(instruction);
+        boolean onObject = onObject(function, conversions, instruction, context);
+        List<IrFunction> targets = onObject ? exactTargets(instruction, context.type())
+                : targets(instruction);
         if (targets.isEmpty()) {
             return Effect.NONE;
         }
@@ -454,7 +428,8 @@ final class ClosedWorldEffectAnalyzer {
         BitSet published = new BitSet();
         BitSet reclaimed = new BitSet();
         for (IrFunction target : targets) {
-            Summary summary = summaries.getOrDefault(target.linkageName(), Summary.empty());
+            Summary summary = onObject ? context.objectSummaries().apply(target.linkageName())
+                    : summaries.getOrDefault(target.linkageName(), Summary.empty());
             allocates |= summary.allocates();
             throwsOutward |= summary.throwsOutward();
             BitSet targetReclaimed = summary.reclaimedParameters();

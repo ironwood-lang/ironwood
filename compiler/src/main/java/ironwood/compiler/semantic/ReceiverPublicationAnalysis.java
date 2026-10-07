@@ -83,16 +83,17 @@ final class ReceiverPublicationAnalysis {
     }
 
     /**
-     * Whether building an exact instance of a constructor's class through it publishes the
-     * object (D282). Calls on the object dispatch on that class, and callees that receive
-     * the object first are solved in that context; every other call uses the summaries.
-     * Exact dispatch reaches a subset of the summaries' targets, so this adds no field marks.
+     * Whether a constructor or destructor publishes the object for an exact instance of
+     * its own class (D282, D283). Calls on the object dispatch on that class, and callees
+     * that receive the object first are solved in that context; every other call uses the
+     * summaries. Exact dispatch reaches a subset of the summaries' targets, so this adds
+     * no field marks.
      */
-    boolean constructionPublishes(IrFunction constructor) {
-        String type = constructor.ownerClass();
+    boolean objectPublishes(IrFunction root) {
+        String type = root.ownerClass();
         LinkedHashSet<String> reached = new LinkedHashSet<>();
         java.util.ArrayDeque<String> pending = new java.util.ArrayDeque<>(
-                List.of(constructor.linkageName()));
+                List.of(root.linkageName()));
         while (!pending.isEmpty()) {
             String name = pending.removeFirst();
             IrFunction function = functions.get(name);
@@ -114,7 +115,7 @@ final class ReceiverPublicationAnalysis {
                 changed |= !next.equals(context.put(name, next));
             }
         } while (changed);
-        return context.get(constructor.linkageName()).published().get(0);
+        return context.get(root.linkageName()).published().get(0);
     }
 
     private static String key(IrField field) {

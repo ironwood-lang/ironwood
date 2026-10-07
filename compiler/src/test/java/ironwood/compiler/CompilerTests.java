@@ -757,6 +757,10 @@ public final class CompilerTests {
                 ConstructionPublicationTests::attributedToConstructedClass);
         test("a user override called by bundled constructors is reported once at the user class",
                 ConstructionPublicationTests::bundledConstructorsKeepUserCause);
+        test("destructor effects are reported at the class whose destruction has them",
+                DestructorEffectTests::attributedToDestroyedClass);
+        test("destructor calls on a receiver that may be another object keep every override",
+                DestructorEffectTests::uncertainReceiverKeepsEveryOverride);
         test("array types and indices are checked", this::arrayTypesAndIndicesAreChecked);
         test("multidimensional arrays and exact tests preserve invariant typing",
                 this::multidimensionalArrayTypesAndExactTestsAreChecked);

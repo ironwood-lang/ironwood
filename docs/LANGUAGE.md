@@ -860,7 +860,8 @@ and still releases only the array container.
 
 Closed-world typed-IR effects require every reachable destructor path to be
 allocation-free, prevent `this` publication or resurrection, and reject an
-exception that can escape. Calls that may throw are permitted only when the
+exception that can escape. Each destructor is checked for an exact instance of
+its own class, so a subclass override is reported at that subclass. Calls that may throw are permitted only when the
 exception is handled inside the destructor. A runtime-observed destructor
 escape is a fatal invariant violation. Field reads through `this` or its direct
 SSA aliases introduce no nullable-receiver failure path; reads through a

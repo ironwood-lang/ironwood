@@ -314,6 +314,18 @@ round trips with the exact constructor lines that must be reported; the second
 expects one error at a user exception class whose `fillInStackTrace` override
 publishes the object, and none in bundled constructors.
 
+For the class a destructor effect error is reported at (D283), run:
+
+```sh
+./scripts/test.sh --test 'destructor effects are reported at the class whose destruction has them' \
+  --test 'destructor calls on a receiver that may be another object keep every override'
+```
+
+The first expects allocation, escaping exceptions and publication by an override
+only at the overriding subclass, also under `finally`, and a base destructor's
+own allocation at the base and each subclass; the second keeps every override
+for a receiver that may be another object.
+
 For the diagnostic baseline of duplicated cleanup, run:
 
 ```sh

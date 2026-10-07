@@ -11005,3 +11005,37 @@ occurrence order. If no
   another object stays reported; a safe override is accepted. The standard library
   builds with `--unfreed=error` without diagnostics, and 74 examples compile
   identically.
+
+## D283 - Report destructor effects at the class whose destruction has them
+
+- **Status:** Accepted and implemented. Applies D282 to destructors; the
+  destructor rules themselves are unchanged.
+- **Context:** A destructor must not allocate, let an exception escape, or publish
+  or resurrect `this`, and every subclass destructor runs its superclass
+  destructor. The effect summaries took each destructor once for every class whose
+  destruction may run it, so an override called on the object counted for every
+  superclass. One subclass whose override of a cleanup hook allocated, threw or
+  published `this` made the base destructor and every other subclass's destructor
+  report the error, although destroying none of those classes runs that override.
+- **Decision:** A destructor is reported when destroying an exact instance of its
+  own class through it allocates, lets an exception escape or publishes the object.
+  Constructors and destructors now share one exact-class summary: while the object
+  is exactly the summarized function's first argument, calls on it dispatch on that
+  class, use the same exact summaries for their callees, and also decide whether an
+  exceptional edge is reachable, so a hook wrapped in `finally` counts only where
+  it can throw. Every other call keeps its ordinary summary, so a receiver that may
+  be another object keeps every override. The context-free summaries still select
+  the functions to check.
+- **Analysis:** Every destruction of a concrete class runs that class's destructor
+  with the dispatch it actually performs, and that destructor is checked, so no
+  allocating, throwing or publishing destruction goes unreported. A base destructor
+  that allocates by itself is reported at the base and at each subclass, as before.
+  Effects reached through a field whose declared type has subclasses are unchanged:
+  `free` of such a field still considers every subclass destructor.
+- **Verification:** For one overriding subclass among others, allocation, an
+  escaping exception, publication and a throwing hook under `finally` are each
+  reported only at that subclass, where three or six errors were reported before.
+  A base destructor's own allocation and a receiver that may be another object
+  report as before, a safe override is accepted, and the D282 constructor cases are
+  unchanged on the shared summary. The standard library builds with
+  `--unfreed=error` without diagnostics, and 74 examples compile identically.

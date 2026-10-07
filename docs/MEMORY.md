@@ -916,7 +916,10 @@ additional safe programs without weakening these guarantees.
 
 A destructor is a distinct callable kind in typed IR. It cannot allocate,
 publish or resurrect `this`, or let an exception escape; direct and indirect
-calls contribute effects through a closed-world fixed point. Resurrection
+calls contribute effects through a closed-world fixed point. Each destructor is
+checked for destroying an exact instance of its own class: calls on that object
+dispatch on the class, so an override that allocates, throws or publishes is
+reported at the subclass whose destruction runs it (D283). Resurrection
 includes publishing a field that may hold the dying object or a holder of it,
 and publishing a caught exception that may be `this`. A caught exception
 is permitted when every path handles it locally. If an exception nevertheless

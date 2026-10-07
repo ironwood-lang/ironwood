@@ -1620,7 +1620,10 @@ and returned-origin summaries to a fixed point over direct calls and all
 closed-world virtual/interface targets and active-use class-initialization
 prerequisites. It rejects allocating destructors, outward exceptions,
 destructor resurrection/publication, and constructor publication. A locally
-caught exceptional call remains permitted.
+caught exceptional call remains permitted. Those verdicts use a summary for an
+exact instance of the checked constructor's or destructor's own class: calls
+whose receiver is exactly that object dispatch on the class and reuse the same
+exact summaries for their callees and exceptional edges (D282, D283).
 
 Within one effect analysis, instruction targets are cached against its fixed IR
 and class snapshot. Virtual/interface implementations, initializer prerequisites,
