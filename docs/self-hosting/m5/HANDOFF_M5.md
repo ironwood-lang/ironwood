@@ -144,3 +144,17 @@ three hosts.
 The range also contains f50038c0, a separate task's fix that keeps ownership
 refinement after import-only errors. It is not M5 work; the M5 tests ran with
 it in place.
+
+## Recheck after D278-D290
+
+After the checkpoint, 15 commits from separate tasks (689d8c85..176c0545,
+D278-D290) changed shared ownership analysis and lowering: missing-free
+checks across the whole program, field loans that cannot cross code that may
+run, per-object construction and destruction verdicts, and omitted redundant
+null checks. On 2026-10-07 the M5 checks were repeated on macOS arm64 from a
+fresh `git archive` of 176c0545: the strict build, the warning-free test
+compile, the 25 M5 tests, one compilation of all 187 port sources with the
+five pilot adapters under `--unfreed=warn` (no diagnostics), and the three M5
+classifications byte for byte. All passed, so the M5 evidence holds at that
+commit. The Linux hosts were not rerun, and the recheck's logs were not
+retained.
