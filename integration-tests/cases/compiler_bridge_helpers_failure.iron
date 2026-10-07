@@ -1,12 +1,19 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
 // Inject allocation failure into the M6.1 Bridge helpers: the export
-// selection's request copy, package set and diagnostics. Every failure
-// unwinds to the live-allocation baseline. Exit 42 on allocation failure with
-// every check intact, 43 on success.
+// selection's request copy, package set and diagnostics; text map growth and
+// replacement; identity, byte and content digests; pairing-manifest
+// serialization, loading and the canonical check; and JAR manifest writing,
+// reading and lookup. Every failure unwinds to the live-allocation baseline.
+// Exit 42 on allocation failure with every check intact, 43 on success.
 import ironwood.compiler.port.BridgeExports;
+import ironwood.compiler.port.BridgeIdentity;
+import ironwood.compiler.port.BridgeProperties;
+import ironwood.compiler.port.JarManifest;
 import ironwood.compiler.port.JavaNames;
 import ironwood.compiler.port.TextList;
+import ironwood.compiler.port.TextMap;
+import ironwood.io.IOException;
 
 class Main {
 
@@ -33,16 +40,64 @@ class Main {
         }
     }
 
-    static void exercise() {
+    static void inventories() throws IOException {
+
+        TextMap map = new TextMap();
+        defer free map;
+        for (int index = 0; index < 20; index++) {
+            String key = "key " + index;
+            defer free key;
+            map.put(key, "x=y:z#é");
+        }
+        map.put("key 3", "replaced");
+        if (map.putIfAbsent("key 4", "kept") || map.size() != 20) throw new IllegalStateException();
+        String digest = BridgeIdentity.digest(map);
+        defer free digest;
+        byte[] serialized = BridgeProperties.serialize(map);
+        defer free serialized;
+        String bytes = BridgeIdentity.bytesDigest(serialized, 0, serialized.length);
+        defer free bytes;
+        TextMap loaded = new TextMap();
+        defer free loaded;
+        BridgeProperties.load(serialized, 0, serialized.length, loaded);
+        if (!BridgeProperties.canonical(serialized, 0, serialized.length, loaded)) throw new IllegalStateException();
+        TextMap files = new TextMap();
+        defer free files;
+        files.put("a/b.c", bytes);
+        String content = BridgeIdentity.contentIdentity(files);
+        defer free content;
+        JarManifest manifest = new JarManifest();
+        defer free manifest;
+        manifest.putValue("Manifest-Version", "1.0");
+        manifest.putValue("Automatic-Module-Name", content);
+        manifest.putValue("X-Text", "é中é中é中é中é中é中é中é中é中é中é中é中é中é中é中é中é中é中é中é中é中é中");
+        byte[] written = manifest.write();
+        defer free written;
+        JarManifest read = new JarManifest(written, 0, written.length);
+        defer free read;
+        String version = read.getValue("manifest-version");
+        defer free version;
+        String module = read.getValue("Automatic-Module-Name");
+        defer free module;
+        if (!version.equals("1.0") || !module.equals(content) || digest.length() != 64) throw new IllegalStateException();
+    }
+
+    static void exercise() throws IOException {
 
         exports();
+        inventories();
     }
 
     public static int main(String[] args) {
 
-        // The identifier tables and keyword list are process-lived after their first use.
+        // The identifier tables, keyword list and SHA-256 round constants are
+        // process-lived after their first use.
         try {
             if (!JavaNames.isName("a.b")) return 3;
+            byte[] empty = new byte[0];
+            String warm = BridgeIdentity.bytesDigest(empty, 0, 0);
+            free warm;
+            free empty;
         } catch (OutOfMemoryError failure) {
             return 42;
         }
@@ -52,6 +107,8 @@ class Main {
             exercise();
         } catch (OutOfMemoryError failure) {
             failed = true;
+        } catch (IOException failure) {
+            return 4;
         }
         if (System.liveAllocationCount() != baseline) return 1;
         return failed ? 42 : 43;

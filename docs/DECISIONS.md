@@ -11366,3 +11366,58 @@ occurrence order. If no
   `SourceVersion` and the callers' loops from class and archive links; the
   ownership pairs hold in every unfreed mode and every allocation failure
   unwinds. See [the M6.1 names record](self-hosting/m6/NAMES.md).
+
+## D292 - Serialize Bridge identities, inventories and manifests exactly in the port
+
+- **Status:** Implemented during M6.1 on 2026-10-07.
+- **Decision:** The compiler port gains B5, B6 and B7's exact Bridge
+  serialization helpers for the S7 ports of BridgeGeneration,
+  BridgePackageManifest, BridgePairedArchive, BridgeAssembler,
+  BridgeDistributionCommand, BridgeJarArchive and BridgeValuesLibrary; the Java
+  seed is unchanged.
+  - **TextMap.** An owned String-ordered map of texts for the inventories Java
+    keeps in `TreeMap<String, String>`: `put` replaces, `putIfAbsent` refuses,
+    lookups and positions hand out fresh Strings or lend single units, so the
+    map never exposes Strings it holds (the TextList precedent of D276).
+  - **BridgeIdentity.** `BridgeGeneration.digest`'s framing (the domain string
+    `ironwood-java-bridge-identity-v1`, then every key and value in String
+    order, each as a big-endian 32-bit UTF-16 count and big-endian units),
+    `bytesDigest` and `contentIdentity` with its three failure texts, over
+    D267's `Sha256`; `isHash` is the `[0-9a-f]{64}` check.
+  - **BridgeProperties.** BridgePackageManifest's canonical writer (header,
+    String order, `\u` and four lowercase hex digits for every unit at or below
+    space, above `~` or among `\:=#!`, US-ASCII), a reader with
+    `Properties.load(InputStream)`'s semantics written from its published
+    specification (ISO-8859-1, comments, continuations, separators, escapes,
+    later keys replacing earlier ones, and its `Malformed \uxxxx encoding.`
+    failure), and the pairing readers' canonical check.
+  - **JarManifest.** `Manifest.write` for a main section (version first, other
+    attributes in insertion order, lines broken after 72 and then every 71
+    UTF-8 bytes even inside a character, CRLF, a closing empty line, nothing
+    else without a version) and a reader with Java's verdicts and messages for
+    the whole manifest (512-byte lines, CR, LF and CRLF ends, an ignored
+    unterminated short tail, space continuations joined before UTF-8 decoding,
+    case-insensitive `Name:` sections), keeping main attributes with
+    `Attributes.Name`'s case-insensitive names.
+- **Proof:** No analysis, runtime or lowering change. Two element loads whose
+  index was a call failed the field-ownership proof (D281); the index is now a
+  local first. A JAR manifest's bytes collect as units so its result is the
+  last allocation, after the allocation sweep found the first version leaking
+  its result when a later line failed.
+- **Boundary:** Java logs a warning for a repeated manifest attribute; the
+  reader keeps the later value without logging. The Linux support manifest,
+  whose `stringPropertyNames()` Java visits in hash order, is read in String
+  order, so a native consumer naming the first changed file names the first in
+  String order (M3.3's precedent). TLS's own inventory keeps D268's
+  `PropertiesText`. Supersedes no decision.
+- **Provenance:** Original code under the default license, written from the
+  `Properties`, `Manifest` and JAR File Specification documentation and JDK 21's
+  observed behavior; no OpenJDK source was consulted.
+- **Verification:** For 414 maps, 66 byte vectors, 2,559 properties texts
+  (hand-picked edge cases, the pinned TLS and Bridge support inventories, every
+  map's canonical form, 1,500 seeded texts and 600 mutations of canonical
+  ones), 211 attribute lists and 1,483 manifest texts, the 13,591-line
+  transcript equals the baseline's BridgeGeneration and BridgePackageManifest
+  methods and JDK 21's `Properties` and `Manifest` from class and archive
+  links; the ownership pairs hold in every unfreed mode and every allocation
+  failure unwinds. See [the M6.1 inventories record](self-hosting/m6/INVENTORIES.md).

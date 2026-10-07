@@ -1002,6 +1002,8 @@ public final class CompilerTests {
         test("M5.4 documentation helpers unwind every allocation failure", DocHelperTests::failures);
         test("M6.1 Java name validation matches SourceVersion.isName and both export loops",
                 BridgeHelperTests::namesDifferential);
+        test("M6.1 Bridge identities properties and manifests match the Java baseline and JDK 21",
+                BridgeHelperTests::inventoriesDifferential);
         test("M6.1 Bridge helpers borrow inputs and own their results", BridgeHelperTests::ownership);
         test("M6.1 Bridge helpers unwind every allocation failure", BridgeHelperTests::failures);
         test("compiler work queue keeps queued items alive and its ring private", WorkQueueTests::ownership);
