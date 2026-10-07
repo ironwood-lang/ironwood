@@ -1584,7 +1584,8 @@ than synthesizing a `null` assignment. Simple assignment may replace the dead
 local value and start tracking a new identity; every operation that reads the
 old value, including a second free or compound assignment, is rejected.
 Constructor escape checking is closed-world and rejects publication of
-in-progress `this` across direct and indirect calls. `this(...)` delegation
+in-progress `this` across direct and indirect calls, for an exact instance of
+each constructor's own class (D282). `this(...)` delegation
 shares one allocation identity.
 Loops may allocate, use, and free an allocation entirely within one iteration.
 Arrays allocated locally use the same identity proof, and freeing one releases

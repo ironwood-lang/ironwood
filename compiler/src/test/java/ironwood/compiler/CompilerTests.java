@@ -753,6 +753,10 @@ public final class CompilerTests {
         test("wget local HTTP HTTPS and streaming contracts", WgetTests::contracts);
         test("destructor and constructor effects are checked closed-world",
                 this::destructorAndConstructorEffectsAreChecked);
+        test("construction publication is reported at the class whose construction publishes",
+                ConstructionPublicationTests::attributedToConstructedClass);
+        test("a user override called by bundled constructors is reported once at the user class",
+                ConstructionPublicationTests::bundledConstructorsKeepUserCause);
         test("array types and indices are checked", this::arrayTypesAndIndicesAreChecked);
         test("multidimensional arrays and exact tests preserve invariant typing",
                 this::multidimensionalArrayTypesAndExactTestsAreChecked);

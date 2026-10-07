@@ -82,12 +82,50 @@ final class ReceiverPublicationAnalysis {
         return facts != null && facts.published().get(0);
     }
 
+    /**
+     * Whether building an exact instance of a constructor's class through it publishes the
+     * object (D282). Calls on the object dispatch on that class, and callees that receive
+     * the object first are solved in that context; every other call uses the summaries.
+     * Exact dispatch reaches a subset of the summaries' targets, so this adds no field marks.
+     */
+    boolean constructionPublishes(IrFunction constructor) {
+        String type = constructor.ownerClass();
+        LinkedHashSet<String> reached = new LinkedHashSet<>();
+        java.util.ArrayDeque<String> pending = new java.util.ArrayDeque<>(
+                List.of(constructor.linkageName()));
+        while (!pending.isEmpty()) {
+            String name = pending.removeFirst();
+            IrFunction function = functions.get(name);
+            if (function != null && reached.add(name)) {
+                new FunctionFacts(function, type, callee -> {
+                    pending.add(callee);
+                    return Facts.empty();
+                }).summarize();
+            }
+        }
+        Map<String, Facts> context = new LinkedHashMap<>();
+        reached.forEach(name -> context.put(name, Facts.empty()));
+        boolean changed;
+        do {
+            changed = false;
+            for (String name : reached) {
+                Facts next = new FunctionFacts(functions.get(name), type,
+                        callee -> context.getOrDefault(callee, Facts.empty())).summarize();
+                changed |= !next.equals(context.put(name, next));
+            }
+        } while (changed);
+        return context.get(constructor.linkageName()).published().get(0);
+    }
+
     private static String key(IrField field) {
         return field.ownerClass() + "#" + field.name();
     }
 
     private final class FunctionFacts {
         private final IrFunction function;
+        // While building an exact class: calls on the object and their callees' facts.
+        private final String exactType;
+        private final java.util.function.Function<String, Facts> objectFacts;
         private final boolean constructor;
         private final Map<Integer, IrOperand> conversions;
         private final Set<Integer> allocations = new LinkedHashSet<>();
@@ -106,7 +144,14 @@ final class ReceiverPublicationAnalysis {
         private boolean changed;
 
         FunctionFacts(IrFunction function) {
+            this(function, null, null);
+        }
+
+        FunctionFacts(IrFunction function, String exactType,
+                      java.util.function.Function<String, Facts> objectFacts) {
             this.function = function;
+            this.exactType = exactType;
+            this.objectFacts = objectFacts;
             this.constructor = function.kind() == IrCallableKind.CONSTRUCTOR;
             this.conversions = ClosedWorldEffectAnalyzer.referenceConversions(function);
         }
@@ -218,14 +263,18 @@ final class ReceiverPublicationAnalysis {
         }
 
         private void transferCall(IrInstruction instruction) {
-            List<IrFunction> targets = effects.targets(instruction);
-            if (targets.isEmpty()) return;
             List<IrOperand> arguments = ClosedWorldEffectAnalyzer.callArguments(instruction);
+            boolean onObject = exactType != null && !arguments.isEmpty()
+                    && exactParameter(arguments.getFirst()) == 0;
+            List<IrFunction> targets = onObject ? effects.exactTargets(instruction, exactType)
+                    : effects.targets(instruction);
+            if (targets.isEmpty()) return;
             List<Value> inputs = arguments.stream().map(this::read).toList();
             IrValueReference result = ClosedWorldEffectAnalyzer.callResult(instruction);
             Value output = new Value();
             for (IrFunction target : targets) {
-                Facts facts = summaries.getOrDefault(target.linkageName(), Facts.empty());
+                Facts facts = onObject ? objectFacts.apply(target.linkageName())
+                        : summaries.getOrDefault(target.linkageName(), Facts.empty());
                 for (int index = 0; index < inputs.size(); index++) {
                     Value input = inputs.get(index);
                     if (facts.published().get(index)) publishIdentity(input, -1);

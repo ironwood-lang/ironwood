@@ -29,6 +29,7 @@ final class ClosedWorldEffectAnalyzer {
     // Placeholders for missing implementations: their real behavior is unknown, so
     // they may reclaim their reference arguments, which only suppresses findings.
     private final Set<String> placeholders;
+    private Map<String, IrClass> classesByName;
 
     ClosedWorldEffectAnalyzer(List<IrFunction> functions, List<IrClass> classes) {
         this(functions, classes, null, 0,
@@ -87,11 +88,121 @@ final class ClosedWorldEffectAnalyzer {
                 }
             } else if (function.kind() == IrCallableKind.CONSTRUCTOR
                     && (summary.publishedParameters().get(0)
-                    || receivers.publishesReceiver(function.linkageName()))) {
+                    || receivers.publishesReceiver(function.linkageName()))
+                    && (constructionPublishes(function)
+                    || receivers.constructionPublishes(function))) {
                 diagnostics.add(Diagnostic.error(owner.source(), function.sourceSpan(),
                         "constructor may publish in-progress 'this' before construction completes"));
             }
         }
+    }
+
+    /**
+     * Whether building an exact instance of a constructor's class through it publishes the
+     * object before construction completes (D282). Calls on the object dispatch on that
+     * class, so a subclass override counts for the subclass's construction, not for the
+     * superclass constructor that calls it.
+     */
+    private boolean constructionPublishes(IrFunction constructor) {
+        String type = constructor.ownerClass();
+        LinkedHashSet<String> reached = new LinkedHashSet<>();
+        java.util.ArrayDeque<String> pending = new java.util.ArrayDeque<>(
+                List.of(constructor.linkageName()));
+        while (!pending.isEmpty()) {
+            String name = pending.removeFirst();
+            if (reached.add(name)) {
+                publishesObject(name, type, callee -> {
+                    pending.add(callee);
+                    return false;
+                });
+            }
+        }
+        Map<String, Boolean> answers = new LinkedHashMap<>();
+        reached.forEach(name -> answers.put(name, false));
+        boolean changed;
+        do {
+            changed = false;
+            for (String name : reached) {
+                if (!answers.get(name) && publishesObject(name, type, answers::get)) {
+                    answers.put(name, true);
+                    changed = true;
+                }
+            }
+        } while (changed);
+        return answers.get(constructor.linkageName());
+    }
+
+    /**
+     * Whether a function publishes its first argument, an object under construction whose
+     * exact class is {@code type}; {@code objectCalls} answers the same for a callee that
+     * receives that object first. Every question is asked, so this also finds the callees.
+     */
+    private boolean publishesObject(String name, String type,
+                                    java.util.function.Function<String, Boolean> objectCalls) {
+        IrFunction function = functions.get(name);
+        if (function == null) return false;
+        Set<String> reachable = reachableBlocks(function);
+        Map<Integer, BitSet> origins = parameterOrigins(function, reachable);
+        Map<Integer, IrOperand> conversions = referenceConversions(function);
+        boolean published = false;
+        for (IrBasicBlock block : function.blocks()) {
+            if (!reachable.contains(block.label())) continue;
+            List<IrInstruction> operations = new ArrayList<>(block.instructions());
+            if (block.terminator() instanceof IrInvokeTerminator invoke) operations.add(invoke.call());
+            for (IrInstruction instruction : operations) {
+                published |= storedOrigins(function, instruction, origins).get(0)
+                        | callPublishesObject(function, conversions, instruction, origins, type,
+                        objectCalls);
+            }
+            if (block.terminator() instanceof IrThrowTerminator thrown
+                    && thrown.unwindTarget().isEmpty() && !isCatchAllFallback(function, block)
+                    && origin(thrown.exception(), origins).get(0)) {
+                published = true;
+            }
+        }
+        return published;
+    }
+
+    private boolean callPublishesObject(IrFunction function, Map<Integer, IrOperand> conversions,
+                                        IrInstruction instruction, Map<Integer, BitSet> origins,
+                                        String type,
+                                        java.util.function.Function<String, Boolean> objectCalls) {
+        if (instruction instanceof IrForeignCallInstruction call) {
+            return foreignOrigins(call, origins).get(0);
+        }
+        List<IrOperand> arguments = callArguments(instruction);
+        // Only a receiver that is exactly the object dispatches on its exact class.
+        boolean onObject = !arguments.isEmpty()
+                && exactParameter(function, conversions, arguments.getFirst()).orElse(-1) == 0;
+        boolean published = false;
+        for (IrFunction target : onObject ? exactTargets(instruction, type) : targets(instruction)) {
+            BitSet parameters = summaries.getOrDefault(target.linkageName(), Summary.empty())
+                    .publishedParameters();
+            for (int parameter = parameters.nextSetBit(onObject ? 1 : 0); parameter >= 0;
+                 parameter = parameters.nextSetBit(parameter + 1)) {
+                if (parameter < arguments.size()) {
+                    published |= origin(arguments.get(parameter), origins).get(0);
+                }
+            }
+            if (onObject) published |= objectCalls.apply(target.linkageName());
+        }
+        return published;
+    }
+
+    /** The targets of a call whose receiver is an object of exact class {@code type}. */
+    List<IrFunction> exactTargets(IrInstruction instruction, String type) {
+        IrDispatchSlot slot = instruction instanceof IrVirtualCallInstruction call ? call.slot()
+                : instruction instanceof IrInterfaceCallInstruction call ? call.slot() : null;
+        if (classesByName == null) {
+            classesByName = new LinkedHashMap<>();
+            classes.forEach(irClass -> classesByName.put(irClass.name(), irClass));
+        }
+        IrClass exact = classesByName.get(type);
+        if (slot == null || exact == null) return targets(instruction);
+        return exact.dispatchEntries().stream()
+                .filter(entry -> entry.slot().index() == slot.index())
+                .map(entry -> functions.get(entry.targetLinkageName()))
+                .filter(java.util.Objects::nonNull).toList();
     }
 
     void analyze() {
@@ -130,31 +241,13 @@ final class ClosedWorldEffectAnalyzer {
 
     private Summary summarize(IrFunction function) {
         Set<String> reachable = reachableBlocks(function);
-        Map<Integer, BitSet> origins = new LinkedHashMap<>();
-        for (int index = 0; index < function.parameters().size(); index++) {
-            BitSet origin = new BitSet();
-            origin.set(index);
-            origins.put(function.parameters().get(index).value().id(), origin);
-        }
+        Map<Integer, BitSet> origins = parameterOrigins(function, reachable);
         BitSet published = new BitSet();
         BitSet returned = new BitSet();
         BitSet reclaimed = new BitSet();
         boolean allocates = false;
         boolean throwsOutward = false;
         Map<Integer, IrOperand> conversions = referenceConversions(function);
-        boolean originChanged;
-        do {
-            originChanged = false;
-            for (IrBasicBlock block : function.blocks()) {
-                if (!reachable.contains(block.label())) continue;
-                for (IrInstruction instruction : block.instructions()) {
-                    originChanged |= propagateResultOrigins(instruction, origins);
-                }
-                if (block.terminator() instanceof IrInvokeTerminator invoke) {
-                    originChanged |= propagateResultOrigins(invoke.call(), origins);
-                }
-            }
-        } while (originChanged);
 
         for (IrBasicBlock block : function.blocks()) {
             if (!reachable.contains(block.label())) continue;
@@ -175,19 +268,7 @@ final class ClosedWorldEffectAnalyzer {
                 if (instruction instanceof IrReleaseOwnedToStringResultInstruction text) {
                     reclaimed.or(releasedRenderedOrigin(function, conversions, text, origins));
                 }
-                if (instruction instanceof IrFieldStoreInstruction store) {
-                    BitSet receiver = origin(store.receiver(), origins);
-                    if (function.kind() != IrCallableKind.CONSTRUCTOR || !receiver.get(0)) {
-                        published.or(origin(store.value(), origins));
-                    }
-                } else if (instruction instanceof IrStaticFieldStoreInstruction store) {
-                    published.or(origin(store.value(), origins));
-                } else if (instruction instanceof IrArrayStoreInstruction store) {
-                    BitSet array = origin(store.array(), origins);
-                    if (function.kind() != IrCallableKind.CONSTRUCTOR || !array.get(0)) {
-                        published.or(origin(store.value(), origins));
-                    }
-                }
+                published.or(storedOrigins(function, instruction, origins));
             }
             IrTerminator terminator = block.terminator();
             if (terminator instanceof IrReturnTerminator result) {
@@ -215,6 +296,51 @@ final class ClosedWorldEffectAnalyzer {
             }
         }
         return new Summary(allocates, throwsOutward, published, returned, reclaimed);
+    }
+
+    /** The parameters each reference value may be, from the function's reachable blocks. */
+    private Map<Integer, BitSet> parameterOrigins(IrFunction function, Set<String> reachable) {
+        Map<Integer, BitSet> origins = new LinkedHashMap<>();
+        for (int index = 0; index < function.parameters().size(); index++) {
+            BitSet origin = new BitSet();
+            origin.set(index);
+            origins.put(function.parameters().get(index).value().id(), origin);
+        }
+        boolean originChanged;
+        do {
+            originChanged = false;
+            for (IrBasicBlock block : function.blocks()) {
+                if (!reachable.contains(block.label())) continue;
+                for (IrInstruction instruction : block.instructions()) {
+                    originChanged |= propagateResultOrigins(instruction, origins);
+                }
+                if (block.terminator() instanceof IrInvokeTerminator invoke) {
+                    originChanged |= propagateResultOrigins(invoke.call(), origins);
+                }
+            }
+        } while (originChanged);
+        return origins;
+    }
+
+    /**
+     * The parameters a store publishes. A constructor's stores into its own object or
+     * its own arrays keep the value inside the object under construction.
+     */
+    private static BitSet storedOrigins(IrFunction function, IrInstruction instruction,
+                                        Map<Integer, BitSet> origins) {
+        boolean constructor = function.kind() == IrCallableKind.CONSTRUCTOR;
+        if (instruction instanceof IrFieldStoreInstruction store) {
+            return constructor && origin(store.receiver(), origins).get(0)
+                    ? new BitSet() : origin(store.value(), origins);
+        }
+        if (instruction instanceof IrStaticFieldStoreInstruction store) {
+            return origin(store.value(), origins);
+        }
+        if (instruction instanceof IrArrayStoreInstruction store) {
+            return constructor && origin(store.array(), origins).get(0)
+                    ? new BitSet() : origin(store.value(), origins);
+        }
+        return new BitSet();
     }
 
     // Cleanup landing pads are emitted before the closed-world throw proof is known.

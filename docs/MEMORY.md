@@ -709,7 +709,11 @@ safe-`free` restrictions as a qualified access through its declaring type.
 Calling an imported method likewise uses its ordinary escape summary. Static
 imports create no hidden reference, allocation, owner, borrow, or lifetime.
 
-A constructor may not publish in-progress `this`. Passing that receiver or a
+A constructor may not publish in-progress `this`. Each constructor is checked
+for building an exact instance of its own class: calls on that object dispatch
+on the class, so an override that publishes is reported at the subclass whose
+construction runs it, not at the superclass constructors that call it (D282).
+Passing that receiver or a
 proved alias to another constructor requires the argument to remain confined:
 retention in a helper is permitted only through a private encapsulated field.
 This check is mandatory even without an explicit `free` and in every unfreed

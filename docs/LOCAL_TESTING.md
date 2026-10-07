@@ -302,6 +302,18 @@ destructor) with safe twins; each unsafe route must fail the field's ownership
 proof for its own reason. The second keeps runtime checks, String and primitive
 conversion, `System.arraycopy` and the owner's statics admitted inside a loan.
 
+For the class a construction-publication error is reported at (D282), run:
+
+```sh
+./scripts/test.sh --test 'construction publication is reported at the class whose construction publishes' \
+  --test 'a user override called by bundled constructors is reported once at the user class'
+```
+
+The first pairs overrides, abstract and interface hooks, delegation and field
+round trips with the exact constructor lines that must be reported; the second
+expects one error at a user exception class whose `fillInStackTrace` override
+publishes the object, and none in bundled constructors.
+
 For the diagnostic baseline of duplicated cleanup, run:
 
 ```sh

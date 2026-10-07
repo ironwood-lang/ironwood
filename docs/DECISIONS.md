@@ -10971,3 +10971,37 @@ occurrence order. If no
   standard library builds with `--unfreed=error`, its owned-field facts (161 owned
   fields and every borrow and rejection entry) are identical before and after, and
   74 examples compile identically.
+
+## D282 - Report construction publication at the class whose construction publishes
+
+- **Status:** Accepted and implemented. Refines where the existing in-progress
+  publication error is reported; the rule itself is unchanged.
+- **Context:** Both publication analyses summarize each constructor once, for every
+  class whose construction may run it, so a call on the object reaches the
+  overrides of every subclass. One user exception class whose `fillInStackTrace`
+  override stores `this` therefore made 55 bundled exception constructors, which
+  all reach `Throwable()`, report the error, although building any of those classes
+  never runs that override. Only the user's class was at fault.
+- **Decision:** A constructor is reported when building an exact instance of its
+  own class through it publishes the object. While the object is exactly the
+  constructor's own receiver or a callee's first argument derived from it, calls
+  on it dispatch on that class and the callees are evaluated in the same context;
+  every other call keeps its ordinary summary, so a receiver that may be another
+  object keeps every override. The existing context-free results still select the
+  constructors to check. An override that publishes is reported at the subclass
+  whose construction runs it; a superclass constructor is reported only when its
+  own class's construction publishes.
+- **Analysis:** Every construction of a concrete class is still checked, at that
+  class's constructors, with the dispatch it actually performs, so no publishing
+  construction goes unreported. A superclass whose own construction publishes is
+  reported together with each subclass that runs it, as before. Abstract classes
+  are checked with their own implementations, so a hook that only a subclass
+  implements counts for that subclass. No runtime behavior changes.
+- **Verification:** The user exception example reports one error at the user's
+  class instead of 55. Overrides, abstract and interface hooks, delegating
+  constructors and a field round trip through an override are reported only at the
+  subclass; publication by a base constructor itself, also through its own field,
+  is reported at the base and each subclass as before; a receiver that may be
+  another object stays reported; a safe override is accepted. The standard library
+  builds with `--unfreed=error` without diagnostics, and 74 examples compile
+  identically.
