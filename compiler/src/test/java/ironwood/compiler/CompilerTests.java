@@ -765,6 +765,8 @@ public final class CompilerTests {
                 FreedValueClassTests::releasedValuesFollowTheirClasses);
         test("every path that can release a misbehaving class keeps its holder reported",
                 FreedValueClassTests::reachableValuesStayReported);
+        test("instances of one class keep their own fields arrays and builders",
+                FreedValueClassTests::instancesKeepTheirOwnContents);
         test("array types and indices are checked", this::arrayTypesAndIndicesAreChecked);
         test("multidimensional arrays and exact tests preserve invariant typing",
                 this::multidimensionalArrayTypesAndExactTestsAreChecked);

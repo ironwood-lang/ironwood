@@ -71,7 +71,15 @@ final class ClosedWorldEffectAnalyzer {
      */
     void validate(Map<String, TypeSymbol> types, Set<IrField> ownedFields, String entryPoint,
                   List<Diagnostic> diagnostics) {
-        if (!analyzed && valueClasses == null) {
+        analyze();
+        // Receiver identity may also return through fields that a constructor
+        // filled without publishing them; see ReceiverPublicationAnalysis.
+        ReceiverPublicationAnalysis contextFree = new ReceiverPublicationAnalysis(
+                this, List.copyOf(functions.values()), ownedFields);
+        contextFree.analyze();
+        ReceiverPublicationAnalysis receivers = contextFree;
+        if (functions.values().stream().anyMatch(function -> flagged(function, contextFree))) {
+            // Value flow only narrows these verdicts, so it runs only when one is at stake.
             Set<String> privateCallables = new java.util.HashSet<>();
             for (TypeSymbol type : types.values()) {
                 java.util.stream.Stream.concat(type.declaredMethods().values().stream(),
@@ -81,18 +89,16 @@ final class ClosedWorldEffectAnalyzer {
                         .forEach(callable -> privateCallables.add(callable.linkageName()));
             }
             valueClasses = new ValueClasses(functions.values(), entryPoint, privateCallables,
-                    this::targets,
-                    (subclass, superclass) -> {
+                    this::targets, this::classByName, (subclass, superclass) -> {
                         IrClass type = classByName(subclass);
                         return type != null && isSubtype(type, superclass);
                     });
+            targetCache.clear();
+            summaries.replaceAll((name, summary) -> Summary.empty());
+            analyze();
+            receivers = new ReceiverPublicationAnalysis(this, List.copyOf(functions.values()), ownedFields);
+            receivers.analyze();
         }
-        analyze();
-        // Receiver identity may also return through fields that a constructor
-        // filled without publishing them; see ReceiverPublicationAnalysis.
-        ReceiverPublicationAnalysis receivers = new ReceiverPublicationAnalysis(
-                this, List.copyOf(functions.values()), ownedFields);
-        receivers.analyze();
         for (IrFunction function : functions.values()) {
             Summary summary = summaries.get(function.linkageName());
             TypeSymbol owner = types.get(function.ownerClass());
@@ -103,9 +109,10 @@ final class ClosedWorldEffectAnalyzer {
                     || receivers.publishesReceiver(function.linkageName());
             if (function.kind() == IrCallableKind.DESTRUCTOR) {
                 // Context-free facts select the destructors to check; the verdict is for
-                // destroying an exact instance of the destructor's class (D283).
+                // destroying an exact instance of the destructor's class (D283), and for
+                // each object of that class the program allocates when there are any (D285).
                 Summary exact = summary.allocates() || summary.throwsOutward() || mayPublish
-                        ? objectSummary(function) : summary;
+                        ? destructionSummary(function) : summary;
                 if (exact.allocates()) {
                     diagnostics.add(Diagnostic.error(owner.source(), function.sourceSpan(),
                             "destructor may allocate; destructor cleanup must be allocation-free"));
@@ -128,13 +135,99 @@ final class ClosedWorldEffectAnalyzer {
         }
     }
 
+    private boolean flagged(IrFunction function, ReceiverPublicationAnalysis receivers) {
+        Summary summary = summaries.get(function.linkageName());
+        boolean mayPublish = summary.publishedParameters().get(0)
+                || receivers.publishesReceiver(function.linkageName());
+        return function.kind() == IrCallableKind.DESTRUCTOR
+                && (summary.allocates() || summary.throwsOutward() || mayPublish)
+                || function.kind() == IrCallableKind.CONSTRUCTOR && mayPublish;
+    }
+
     /**
      * A summary taken while the summarized function's first argument is an object whose
      * exact class is {@code type}: a call whose receiver is exactly that object dispatches
-     * on {@code type} and takes its callee's summary from {@code objectSummaries}.
+     * on {@code type} and takes its callee's summary from {@code objectSummaries}. With a
+     * {@code pair}, the body runs in that value-flow context instead, and every call takes
+     * the bodies value flow recorded for it, with summaries from {@code pairSummaries}.
      */
     private record ObjectContext(String type,
-                                 java.util.function.Function<String, Summary> objectSummaries) {
+                                 java.util.function.Function<String, Summary> objectSummaries,
+                                 ValueClasses.Pair pair,
+                                 java.util.function.Function<ValueClasses.Pair, Summary> pairSummaries) {
+        private ObjectContext(String type,
+                              java.util.function.Function<String, Summary> objectSummaries) {
+            this(type, objectSummaries, null, null);
+        }
+    }
+
+    /** A body a call runs, with the summary that applies to that call. */
+    private record Callee(IrFunction target, Summary summary) {
+    }
+
+    /**
+     * Destroying an exact instance of a destructor's class: for each object of the class
+     * that the program allocates, as value flow sees that object's fields and arrays,
+     * otherwise for any instance (D283, D285).
+     */
+    private Summary destructionSummary(IrFunction destructor) {
+        List<String> objects = valueClasses == null ? List.of()
+                : valueClasses.objectsOf(destructor.ownerClass());
+        if (objects.isEmpty()) return objectSummary(destructor);
+        Map<ValueClasses.Pair, Summary> values = new LinkedHashMap<>();
+        List<ValueClasses.Pair> roots = objects.stream()
+                .map(object -> new ValueClasses.Pair(destructor.linkageName(), object)).toList();
+        roots.forEach(root -> values.put(root, Summary.empty()));
+        boolean changed;
+        do {
+            changed = false;
+            for (ValueClasses.Pair pair : List.copyOf(values.keySet())) {
+                IrFunction function = functions.get(pair.function());
+                if (function == null) continue;
+                int known = values.size();
+                Summary next = summarize(function, new ObjectContext(null, null, pair,
+                        callee -> values.computeIfAbsent(callee, ignored -> Summary.empty())));
+                changed |= !next.equals(values.put(pair, next)) || values.size() != known;
+            }
+        } while (changed);
+        boolean allocates = false;
+        boolean throwsOutward = false;
+        BitSet published = new BitSet();
+        for (ValueClasses.Pair root : roots) {
+            Summary summary = values.get(root);
+            allocates |= summary.allocates();
+            throwsOutward |= summary.throwsOutward();
+            published.or(summary.publishedParameters());
+        }
+        return new Summary(allocates, throwsOutward, published, new BitSet(), new BitSet());
+    }
+
+    /**
+     * The bodies an operation runs, each with its summary: those value flow recorded for
+     * the context's pair, those an exact receiver dispatches to, or the ordinary targets.
+     */
+    private List<Callee> callees(IrFunction function, Map<Integer, IrOperand> conversions,
+                                 IrInstruction instruction, ObjectContext context) {
+        List<IrFunction> targets = targets(instruction);
+        if (targets.isEmpty()) return List.of();
+        if (context != null && context.pair() != null) {
+            List<ValueClasses.Pair> pairs = valueClasses.callees(context.pair(), instruction);
+            if (pairs != null) {
+                List<Callee> result = new ArrayList<>();
+                for (ValueClasses.Pair pair : pairs) {
+                    IrFunction target = functions.get(pair.function());
+                    if (target != null) result.add(new Callee(target, context.pairSummaries().apply(pair)));
+                }
+                return result;
+            }
+        } else if (onObject(function, conversions, instruction, context)) {
+            return exactTargets(instruction, context.type()).stream()
+                    .map(target -> new Callee(target, context.objectSummaries().apply(target.linkageName())))
+                    .toList();
+        }
+        return targets.stream()
+                .map(target -> new Callee(target, summaries.getOrDefault(target.linkageName(), Summary.empty())))
+                .toList();
     }
 
     /**
@@ -166,7 +259,7 @@ final class ClosedWorldEffectAnalyzer {
     private static boolean onObject(IrFunction function, Map<Integer, IrOperand> conversions,
                                     IrInstruction instruction, ObjectContext context) {
         List<IrOperand> arguments = callArguments(instruction);
-        return context != null && !arguments.isEmpty()
+        return context != null && context.type() != null && !arguments.isEmpty()
                 && exactParameter(function, conversions, arguments.getFirst()).orElse(-1) == 0;
     }
 
@@ -363,17 +456,26 @@ final class ClosedWorldEffectAnalyzer {
                 thrown.unwindTarget().ifPresent(pending::add);
             } else if (terminator instanceof IrInvokeTerminator invoke) {
                 pending.add(invoke.normalTarget());
-                if (onObject(function, conversions, invoke.call(), context)
-                        ? exactTargets(invoke.call(), context.type()).stream().anyMatch(target -> {
-                            Summary summary = context.objectSummaries().apply(target.linkageName());
-                            return summary.throwsOutward() || summary.allocates();
-                        })
-                        : mayUnwind(invoke.call())) {
+                if (mayUnwind(function, conversions, invoke.call(), context)) {
                     pending.add(invoke.unwindTarget());
                 }
             }
         }
         return reachable;
+    }
+
+    /** {@link #mayUnwind(IrInstruction)}, with calls resolved in a context. */
+    private boolean mayUnwind(IrFunction function, Map<Integer, IrOperand> conversions,
+                              IrInstruction instruction, ObjectContext context) {
+        boolean call = instruction instanceof IrCallInstruction
+                || instruction instanceof IrVirtualCallInstruction
+                || instruction instanceof IrInterfaceCallInstruction
+                || instruction instanceof IrEnsureTypeInitializedInstruction;
+        if (context == null || !call) return mayUnwind(instruction);
+        List<Callee> callees = callees(function, conversions, instruction, context);
+        if (callees.isEmpty()) return mayUnwind(instruction);
+        return callees.stream().anyMatch(callee ->
+                callee.summary().throwsOutward() || callee.summary().allocates());
     }
 
     boolean mayUnwind(IrInstruction instruction) {
@@ -447,10 +549,8 @@ final class ClosedWorldEffectAnalyzer {
             BitSet inputs = foreignOrigins(call, origins);
             return new Effect(true, true, inputs, (BitSet) inputs.clone());
         }
-        boolean onObject = onObject(function, conversions, instruction, context);
-        List<IrFunction> targets = onObject ? exactTargets(instruction, context.type())
-                : targets(instruction);
-        if (targets.isEmpty()) {
+        List<Callee> callees = callees(function, conversions, instruction, context);
+        if (callees.isEmpty()) {
             return Effect.NONE;
         }
         List<IrOperand> arguments = callArguments(instruction);
@@ -458,9 +558,9 @@ final class ClosedWorldEffectAnalyzer {
         boolean throwsOutward = false;
         BitSet published = new BitSet();
         BitSet reclaimed = new BitSet();
-        for (IrFunction target : targets) {
-            Summary summary = onObject ? context.objectSummaries().apply(target.linkageName())
-                    : summaries.getOrDefault(target.linkageName(), Summary.empty());
+        for (Callee callee : callees) {
+            IrFunction target = callee.target();
+            Summary summary = callee.summary();
             allocates |= summary.allocates();
             throwsOutward |= summary.throwsOutward();
             BitSet targetReclaimed = summary.reclaimedParameters();

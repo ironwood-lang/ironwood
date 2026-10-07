@@ -330,14 +330,17 @@ For the destructors a released value may run (D284), run:
 
 ```sh
 ./scripts/test.sh --test 'released values run only the destructors of the classes they may be' \
-  --test 'every path that can release a misbehaving class keeps its holder reported'
+  --test 'every path that can release a misbehaving class keeps its holder reported' \
+  --test 'instances of one class keep their own fields arrays and builders'
 ```
 
 The first expects a user class with an allocating destructor to be the only one
 reported beside bundled pools and collections, also without an entry point, and an
 owned field of the base class to leave its holder unreported; the second keeps the
 holder, the pool and an array of unknown origin reported wherever the class can be
-released.
+released. The third checks per-object precision (D285): boxes built only with the
+base part, and a holder of a pool with a quiet builder, stay unreported beside a
+loud box and a holder of a pool of the misbehaving class.
 
 For the diagnostic baseline of duplicated cleanup, run:
 

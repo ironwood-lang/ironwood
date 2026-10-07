@@ -11076,3 +11076,43 @@ occurrence order. If no
   builder handing out an array element of it all stay reported. The standard library
   builds with `--unfreed=error` without diagnostics and identical timing, and 74
   examples compile identically.
+
+## D285 - Check destructors per object with object-sensitive value flow
+
+- **Status:** Accepted and implemented. Supersedes D284's limitation that a pool
+  holding a misbehaving class makes every holder of that pool class report it, and
+  its value flow running on every compilation.
+- **Context:** D284's value flow merged all instances of a class: every
+  `ArrayObjectPool` shared one builder field and one set of creation-array elements.
+  Pooling a user class with an allocating destructor therefore made `HashMap` and
+  `HashSet` report it through their own pools of map entries.
+- **Decision:** Value flow is object-sensitive. An object is an allocation site
+  qualified by the object its allocating body ran on, so each pool keeps its builder
+  and its arrays. A body is analyzed once per object in its first parameter, and a
+  call whose first argument is a known object dispatches on that object's class and
+  passes it alone. Every allocated object may be destroyed, so each object's
+  destructor runs on it, and a destructor flagged by the context-free summary is
+  judged for each object of its class the program allocates, through the bodies value
+  flow recorded for that object; a class with no allocated object keeps the D283
+  verdict. Static fields join their initial value and stores. A closed executable
+  is analyzed from its entry point and class initializers; elsewhere every
+  non-private body is also called by unseen code with unknown arguments. Value flow
+  runs only when a context-free summary flags a destructor or constructor, since it
+  can only narrow those verdicts.
+- **Analysis:** The flow stays a sound over-approximation for the code it analyzes:
+  every way a body runs is followed, through calls, dispatch, class initialization,
+  frees, element destruction and rollback, and unknown receivers, arguments and
+  arrays keep every object they could be. Each destruction of an object is judged
+  with that object's contents, so no allocating, throwing or publishing destruction
+  goes unreported. Code that never runs in a closed executable no longer contributes,
+  so an unused constructor that installs a misbehaving part does not implicate the
+  objects that exist. Compilations without such a verdict skip value flow.
+- **Verification:** A pool of a user class with an allocating destructor, beside
+  `HashSet`, reports the class and that pool but not `HashMap` or `HashSet`. A
+  holder of a pool with a quiet builder stays unreported beside a holder of a pool of
+  the misbehaving class; boxes built only with the base part stay unreported, and a
+  loud box makes them reported. A public method storing into an array it receives,
+  a holder of the misbehaving class and a builder handing out an array element keep
+  their reports. Correct programs compile as fast as before D284, a program with a
+  destructor error about 6 percent slower than with D284, and the standard library
+  builds with `--unfreed=error` without diagnostics.

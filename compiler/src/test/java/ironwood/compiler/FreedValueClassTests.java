@@ -10,8 +10,9 @@ import java.util.List;
 /**
  * A free or an owned-element destruction runs the destructors of the classes its value
  * may be, as closed-world value flow proves them, not of every subclass of its static
- * type (D284). A class whose destructor misbehaves is then reported only where its
- * objects can be released.
+ * type (D284), and a destructor is checked for each object of its class, with that
+ * object's own fields and arrays (D285). A class whose destructor misbehaves is then
+ * reported only where its objects can be released.
  */
 final class FreedValueClassTests {
     private static final String LOUD_MAP = """
@@ -80,16 +81,20 @@ final class FreedValueClassTests {
                 class Holder { private Part part = new LoudPart(); destructor { free part; } }
                 class Main { public static int main(String[] args) { Holder h = new Holder(); free h; return 0; } }
                 """, "allocates Main:3", "allocates Main:4");
-        including("pooled misbehaving class", """
+        // Bundled maps pool entries of their own; only the pool that holds the class is reported.
+        exactly("pooled misbehaving class", """
                 import ironwood.pool.ArrayObjectPool;
                 import ironwood.pool.ObjectBuilder;
-                class Registry { static Object saved; }
+                import ironwood.ds.HashSet;
                 class Loud { destructor { Registry.saved = new Object(); } }
+                class Registry { static Object saved; }
                 class LoudBuilder implements ObjectBuilder<Loud> { @Override public Loud newInstance() { return new Loud(); } }
                 class Main {
                     public static int main(String[] args) {
                         ArrayObjectPool<Loud> pool = new ArrayObjectPool<Loud>(1, new LoudBuilder());
                         free pool;
+                        HashSet<String> set = new HashSet<String>();
+                        free set;
                         return 0;
                     }
                 }
@@ -97,18 +102,13 @@ final class FreedValueClassTests {
         // A store into an array of unknown origin may reach any array its type allows.
         including("misbehaving class in an array of unknown origin", """
                 import ironwood.ds.HashSet;
-                class Registry { static Object[] slots = new Object[1]; static Object saved; }
+                class Registry { static Object saved; }
                 class Loud { destructor { Registry.saved = new Object(); } }
-                class Main {
-                    static void put(Object[] target, Object value) { target[0] = value; }
-                    public static int main(String[] args) {
-                        put(Registry.slots, new Loud());
-                        HashSet<String> set = new HashSet<String>();
-                        free set;
-                        return 0;
-                    }
+                class Use {
+                    public static void put(Object[] target) { target[0] = new Loud(); }
+                    static void use() { HashSet<String> set = new HashSet<String>(); free set; }
                 }
-                """, "allocates Main:3", "allocates ArrayObjectPool");
+                """, "allocates Main:3", "allocates ArrayObjectPool", "allocates HashMap");
         including("misbehaving class reaching a pool through array elements", """
                 import ironwood.pool.ArrayObjectPool;
                 import ironwood.pool.ObjectBuilder;
@@ -126,6 +126,61 @@ final class FreedValueClassTests {
                     }
                 }
                 """, "allocates Main:4", "allocates ArrayObjectPool");
+    }
+
+    /** Instances of one class keep their own fields, arrays and builders (D285). */
+    static void instancesKeepTheirOwnContents() {
+        String box = """
+                class Registry { static Object saved; }
+                class Part { }
+                class LoudPart extends Part { destructor { Registry.saved = new Object(); } }
+                class Box {
+                    private Part part;
+                    Box() { part = new Part(); }
+                    Box(int loud) { part = new LoudPart(); }
+                    destructor { free part; }
+                }
+                """;
+        exactly("only quiet boxes", box + """
+                class Main { public static int main(String[] args) { Box box = new Box(); free box; return 0; } }
+                """, "allocates Main:3");
+        exactly("a loud box among quiet ones", box + """
+                class Main {
+                    public static int main(String[] args) {
+                        Box quiet = new Box();
+                        Box loud = new Box(1);
+                        free quiet;
+                        free loud;
+                        return 0;
+                    }
+                }
+                """, "allocates Main:3", "allocates Main:8");
+        exactly("holders of pools with different builders", """
+                import ironwood.pool.ArrayObjectPool;
+                import ironwood.pool.ObjectBuilder;
+                class Registry { static Object saved; }
+                class Loud { destructor { Registry.saved = new Object(); } }
+                class Quiet { }
+                class LoudBuilder implements ObjectBuilder<Loud> { @Override public Loud newInstance() { return new Loud(); } }
+                class QuietBuilder implements ObjectBuilder<Quiet> { @Override public Quiet newInstance() { return new Quiet(); } }
+                class LoudHolder {
+                    private ArrayObjectPool<Loud> pool = new ArrayObjectPool<Loud>(1, new LoudBuilder());
+                    destructor { free pool; }
+                }
+                class QuietHolder {
+                    private ArrayObjectPool<Quiet> pool = new ArrayObjectPool<Quiet>(1, new QuietBuilder());
+                    destructor { free pool; }
+                }
+                class Main {
+                    public static int main(String[] args) {
+                        LoudHolder loud = new LoudHolder();
+                        QuietHolder quiet = new QuietHolder();
+                        free loud;
+                        free quiet;
+                        return 0;
+                    }
+                }
+                """, "allocates Main:4", "allocates Main:10", "allocates ArrayObjectPool");
     }
 
     private static void exactly(String name, String program, String... expected) {
