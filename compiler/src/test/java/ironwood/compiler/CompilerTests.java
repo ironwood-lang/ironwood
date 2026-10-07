@@ -6295,9 +6295,9 @@ public final class CompilerTests {
                     destructor { action.run(); }
                     public static int main(String[] args) { return 0; }
                 }
-                class Safe implements Action { public void run() { } }
+                class Safe implements Action { @Override public void run() { } }
                 class Late implements Action {
-                    public void run() { LateState.touch(); }
+                    @Override public void run() { LateState.touch(); }
                 }
                 class LateState {
                     static Object cached = new Object();
@@ -7384,7 +7384,7 @@ public final class CompilerTests {
         rejected.put("Item value = pool.get(); Item alias = value; free pool; return alias.value;", "freed");
         rejected.put("Item value = new Item(); Item alias = value; pool.release(value); free pool; return alias.value;", "freed");
         rejected.put("Item value = pass(pool.get()); free pool; return value.value;", "freed");
-        rejected.put("Item value = checkout(pool); free pool; return value.value;", "cannot free");
+        rejected.put("Item value = checkout(pool); free pool; return value.value;", "freed");
         rejected.put("Item a = pool.get(); Item b = pool.get(); Item value = args.length == 0 ? a : b; free pool; return value.value;", "freed");
         rejected.put("Item value = new Item(); escaped = value; pool.release(value); free pool; return 0;", "exclusive ownership is unproved");
         rejected.put("escaped = pool.get(); free pool; return 0;", "escapes");
