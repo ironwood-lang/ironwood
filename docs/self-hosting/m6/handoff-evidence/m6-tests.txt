@@ -1,0 +1,15 @@
+M6.1 Java name validation matches SourceVersion.isName and both export loops
+M6.1 Bridge identities properties and manifests match the Java baseline and JDK 21
+M6.1 Bridge text conversions and patterns match JDK 21 and the generators
+M6.1 Bridge inventories walk and list as Java does
+M6.1 Bridge helpers borrow inputs and own their results
+M6.1 Bridge helpers unwind every allocation failure
+M6.2 native Bridge jars spell Java's STORED entries and open in Java's readers and JAR tools
+M6.2 Bridge jar publication keeps Java's verdicts and earlier output on failure
+M6.2 Bridge jar publication keeps the earlier jar under every allocation failure
+M6.2 Bridge jar contents borrow inputs and own their copies
+M6.2 Bridge dependency manifests and distribution inventories match the Java producer
+M6.2 JDK selection follows JAVA_HOME the installation and PATH with Java's values and gates
+M6.2 selected JDK tools match the in-process javac and javadoc
+M6.2 JDK selection owns its values
+M6.2 JDK selection unwinds every allocation failure without leftover logs
