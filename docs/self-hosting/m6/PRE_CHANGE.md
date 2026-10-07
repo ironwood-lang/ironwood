@@ -304,3 +304,18 @@ alias of a String field. `scripts/jdk.sh` served as the selection reference
 in the same environment and directory, with a tools directory supplying `sed`
 and `cat` but no `java`. The M4.3 tests that share Command and
 ExecutableSearch were not affected, as neither changed.
+
+## M6.3 increment
+
+M6.3 changes no compiler, runtime, library or analysis code. It adds the
+reconciliation tool and records. Contracts to preserve: the pinned M0 ledgers,
+which the tool only reads and checks against their manifest, and the model
+schemas, whose hashes it records; each recorded phase table, which it
+regenerates unchanged; and the
+plan's rule that no prerequisite of a ready stage is deferred. Paired evidence:
+the tool's pass on the recorded inputs and on an unchanged copy, and eight
+negative controls that each introduce one defect (a changed ledger, a missing
+M1 row, a changed phase rule, an unknown decision, a missing record, an IR
+record missing from IrModel, an edited output document and an edited output
+ledger). Focused checks: the tool, the controls, `git diff --check` and the
+license audit for the new sources.

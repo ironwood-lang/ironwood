@@ -813,7 +813,11 @@ Port Bridge models/proofs, admission, native-entry transformations, generators,
 packaging, assembly, and distribution workflows after their prerequisites. Keep
 the generated Java/C API and lifetime protocols stable. Replace in-process Java
 tool APIs with selected JDK subprocesses, including argument-file handling where
-needed and the existing Java release/diagnostic flags.
+needed and the existing Java release/diagnostic flags. The preparation plan's
+[M6.2](self-hosting/m6/JAR.md) qualified that subprocess path in the port: its
+JDK selection follows the Java producer's launcher order and records the
+selected JDK's version and vendor (D295), and its `javac` and `javadoc` runs
+match the in-process tools.
 
 [`BridgeProducerInputs`](../compiler/src/main/java/ironwood/compiler/BridgeProducerInputs.java)
 currently requires `ironwood/compiler/Main.class` and a compiler resource in a
