@@ -11248,3 +11248,43 @@ occurrence order. If no
   library builds with `--unfreed=error`, 79 examples and projects compile with
   identical diagnostics, every linked example program runs with identical output,
   and build time is unchanged.
+
+## D289 - Trust final fields that construction leaves non-null in destructors
+
+- **Status:** Accepted and implemented. Extends D287 and D288 to final fields that no
+  test guards in the destructor.
+- **Context:** A destructor written `private final Part part = new Part(); destructor
+  { part.touch(); free part; }` kept the null check on `part`, so validation reported
+  "destructor may allocate" and "an exception may escape this destructor" although no
+  constructed object can reach the destructor with `part` null. D287 and D288 only
+  trust values a test, a check or a merge proves non-null within the function.
+- **Decision:** After the final lowering, `ConstructedFields` keeps a final reference
+  instance field as constructed non-null when each of its stores is a constructor of
+  its class storing, into its own object, a value that `RedundantNullChecks` proves
+  non-null at that point, apart from the null that its class's destructor stores when
+  it frees an owned field. Each destructor is solved again with those fields of its
+  object, declared by its class or a superclass, known non-null at entry, and the
+  checks they prove are removed. `RedundantNullChecks` now names final fields of one
+  object from the loads in the IR, through reference conversions, in every function,
+  and a store of a value known non-null to a final field starts that field's fact.
+- **Analysis:** The language makes every constructor that completes normally assign
+  each blank final field of its class exactly once, and runs field initializers in
+  every constructor that does not delegate, so each completed construction stores
+  such a field a non-null value. A destructor runs only on a fully constructed
+  object, and the subclass destructors that run before it cannot store the fields of
+  its class or its superclasses, so those fields keep their values until its own
+  free, whose store ends the fact, also across loop back edges. A subclass field is
+  not trusted in a superclass destructor, since the subclass destructor runs first
+  and may free it, and methods are not covered, since one may run during
+  construction or after the free. The pass only removes checks after ownership
+  analysis and adds nothing on valid paths (D132, D133); the deterministic benchmarks
+  compile to the same machine code as under D288.
+- **Verification:** Destructors using a field initialized or constructor-assigned with
+  an allocation, a field assigned a parameter checked for null, or an inherited field
+  are accepted. A field assigned an unchecked parameter, a field one constructor sets
+  to null, a use after the free, a free inside a loop, a subclass field read by the
+  superclass destructor and a field used through a method keep both reports. A native
+  program at `-O0` and `-O3` runs those destructors and rejects a null argument. The
+  standard library builds with `--unfreed=error`, 79 examples and projects compile
+  with identical diagnostics, every linked example program runs with identical
+  output, and build time is unchanged.

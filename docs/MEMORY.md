@@ -941,9 +941,11 @@ or field access on a reference that a dominating null test, `instanceof` test or
 earlier null check proves non-null, such as `if (listener != null) {
 listener.closed(); }` on a final field (D287), or on a value merged at a join or
 loop header from values that are each non-null, such as a guarded local used in a
-loop (D288). Freeing an owned field stores null into it, so a guard of that field
-does not cover uses after the free. Nullable receivers remain checked and retain
-those effects.
+loop (D288). A destructor also trusts each final field of its object, declared by
+its class or a superclass, that every constructor sets to a value proven non-null,
+such as `private final Part part = new Part();` (D289). Freeing an owned field
+stores null into it, so neither a guard nor that trust covers uses after the free.
+Nullable receivers remain checked and retain those effects.
 
 The compiler may later replace a source `new` with stack allocation or scalar
 replacement when observable identity and `free` behavior remain unchanged.

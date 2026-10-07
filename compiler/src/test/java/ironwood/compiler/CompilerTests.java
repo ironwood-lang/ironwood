@@ -783,6 +783,8 @@ public final class CompilerTests {
                 NullGuardTests::mergesOmitOnlyRedundantChecks);
         test("explicit throws stay outlined without the null check of the fresh object",
                 NullGuardTests::explicitThrowsStayOutlined);
+        test("destructors trust fields every constructor sets until they free them",
+                NullGuardTests::destructorsTrustConstructedFields);
         test("array types and indices are checked", this::arrayTypesAndIndicesAreChecked);
         test("multidimensional arrays and exact tests preserve invariant typing",
                 this::multidimensionalArrayTypesAndExactTestsAreChecked);

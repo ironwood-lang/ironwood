@@ -483,6 +483,7 @@ public final class SemanticAnalyzer {
         buildIrTypes(types, hierarchy, dispatchSlots, escapeSummaries);
         functions.addAll(lowerFunctions(types, hierarchy, escapeSummaries, ownedArrayFields,
                 stringPool, diagnostics, constructorDelegations, true, refinementCompleted));
+        ConstructedFields.omitDestructorChecks(functions, types);
         validateConstructorDelegationCycles(types, constructorDelegations, diagnostics);
         if (refinementCompleted) {
             validatePoolBuilders(types, hierarchy, escapeSummaries, diagnostics);

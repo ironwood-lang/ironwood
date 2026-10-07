@@ -867,8 +867,11 @@ escape is a fatal invariant violation. Field reads through `this` or its direct
 SSA aliases introduce no nullable-receiver failure path, nor does a dereference
 of a local, value or final field that a dominating `!= null`, `== null` or
 `instanceof` test or an earlier dereference proves non-null (D287), including a
-value merged at a join or loop from values that are each non-null (D288); reads
-through a genuinely nullable receiver retain their ordinary null exception effect.
+value merged at a join or loop from values that are each non-null (D288), or a
+final field of the destroyed object, declared by its class or a superclass, that
+every constructor sets to a proven non-null value and the destructor has not yet
+freed (D289); reads through a genuinely nullable receiver retain their ordinary
+null exception effect.
 
 If construction throws, the incomplete receiver's source destructor does not
 run. The compiler emits a separate rollback callable that releases zero-or-more

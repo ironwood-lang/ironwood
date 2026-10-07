@@ -1947,11 +1947,23 @@ entry over the finished graph (D288): a block keeps what every reached predecess
 knows on its edge into it, an edge adds what its null test, `instanceof` test, null
 check or recorded condition proves, and a phi is non-null when each incoming value
 is non-null on its edge. Loop headers start from every fact and keep only what each
-back edge preserves, a store to a final field ends that field's facts, and
-allocation results are never null. A null check whose reference is known non-null
-becomes a jump to its valid path, and failure blocks that only it reached are
-removed with their phi entries. Ownership analysis has already run, so only
-typed-IR consumers and LLVM see the shorter graph.
+back edge preserves, a store to a final field ends that field's facts and, when the
+stored value is known non-null, starts the fact for its object, and allocation
+results are never null. A null check whose reference is known non-null becomes a
+jump to its valid path, and failure blocks that only it reached are removed with
+their phi entries. Ownership analysis has already run, so only typed-IR consumers
+and LLVM see the shorter graph.
+
+After the final lowering, `ConstructedFields` finds the final reference fields that
+every store keeps non-null after construction (D289): each store is a constructor
+of the field's class storing, into its own object, a value that `RedundantNullChecks`
+proves non-null at that point, apart from the null that the class's destructor
+stores when it frees an owned field. Definite assignment makes every completed
+construction store each such field. Each destructor is then solved again with those
+fields of its object, from its own class and its superclasses, known non-null at
+entry; its own free ends the fact where it stores null. Subclass fields are not
+trusted, because a subclass destructor runs first and may free them, and methods are
+not covered, because one may run during construction or after the free.
 
 Both allocators are declared `noalias nonnull`, the receiver parameter of every
 instance callable is `nonnull noundef`, and `ironwood_throw` is `noreturn cold`,

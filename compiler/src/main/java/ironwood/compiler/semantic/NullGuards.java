@@ -9,7 +9,6 @@ import ironwood.compiler.ast.UnaryExpression;
 import ironwood.compiler.ast.UnaryOperator;
 import ironwood.compiler.ir.IrBranch;
 import ironwood.compiler.ir.IrField;
-import ironwood.compiler.ir.IrFieldStoreInstruction;
 import ironwood.compiler.ir.IrInvokeTerminator;
 import ironwood.compiler.ir.IrJump;
 import ironwood.compiler.ir.IrOperand;
@@ -131,9 +130,6 @@ final class NullGuards {
 
     /** A final instance field read from one receiver value. */
     record FinalField(IrOperand receiver, String owner, String name, boolean mayStore) {
-        boolean storedBy(IrFieldStoreInstruction store) {
-            return store.field().ownerClass().equals(owner) && store.field().name().equals(name);
-        }
     }
 
     private record Link(String from, String to) {
@@ -227,11 +223,6 @@ final class NullGuards {
     /** Every fact recorded on the edge from {@code from} to {@code to}, for the finished graph. */
     List<Object> edgeFacts(String from, String to) {
         return edgeFacts.getOrDefault(new Link(from, to), List.of());
-    }
-
-    /** The final field that a load reads, or null when the load is not named. */
-    FinalField finalField(IrOperand load) {
-        return finalFieldLoads.get(load);
     }
 
     /**

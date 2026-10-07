@@ -25,7 +25,8 @@ import java.util.Map;
  * destructor that tests a field before calling it therefore neither allocates nor lets
  * a NullPointerException escape, while every path that can reach null keeps its check.
  * A value merged at a join or loop header is covered when every value it merges is
- * non-null on its edge (D288).
+ * non-null on its edge (D288), and a destructor trusts the final fields of its object
+ * that every constructor sets to a non-null value until it frees them (D289).
  */
 final class NullGuardTests {
     private static final Map<String, String> KINDS = Map.of(
@@ -165,6 +166,45 @@ final class NullGuardTests {
         }
     }
 
+    /** Fields every constructor sets to a non-null value stay non-null until the destructor frees them. */
+    static void destructorsTrustConstructedFields() {
+        expect("field initialized with an allocation", """
+                class Holder { private final Part part = new Part(); destructor { part.touch(); free part; } }
+                """);
+        expect("field assigned an allocation by the constructor", """
+                class Holder { private final Part part; Holder() { part = new Part(); } destructor { part.touch(); free part; } }
+                """);
+        expect("field assigned a guarded parameter", """
+                class Holder { private final Part part; Holder(Part p) { if (p == null) { throw new IllegalArgumentException(); } part = p; } destructor { part.touch(); } }
+                """);
+        expect("superclass field in a subclass destructor", """
+                class Base { protected final Part part = new Part(); }
+                class Holder extends Base { destructor { part.touch(); } }
+                """);
+        expect("field assigned an unchecked parameter", """
+                class Holder { private final Part part; Holder(Part p) { part = p; } destructor { part.touch(); } }
+                """, "allocates 2", "throws 2");
+        expect("field one constructor sets to null", """
+                class Holder { private final Part part; Holder() { part = new Part(); } Holder(int empty) { part = null; } destructor { part.touch(); } }
+                """, "allocates 2", "throws 2");
+        // Freeing an owned field stores null into it.
+        expect("field used after its free", """
+                class Holder { private final Part part = new Part(); destructor { free part; part.touch(); } }
+                """, "allocates 2", "throws 2");
+        expect("field freed inside a loop", """
+                class Holder { private final Part part = new Part(); destructor { int i = 0; while (i < 2) { part.touch(); free part; i++; } } }
+                """, "allocates 2", "throws 2");
+        // A subclass destructor runs first and may free its own fields.
+        expect("subclass field in a superclass destructor", """
+                class Holder { destructor { if (this instanceof Leaf leaf) { leaf.part.touch(); } } }
+                class Leaf extends Holder { final Part part = new Part(); }
+                """, "allocates 2", "allocates 3", "throws 2", "throws 3");
+        // A method may also run during construction or after the free.
+        expect("field used by a method the destructor calls", """
+                class Holder { private final Part part = new Part(); destructor { use(); free part; } void use() { part.touch(); } }
+                """, "allocates 2", "throws 2");
+    }
+
     /** A `throw new` whose fresh object is no longer null-checked still calls the cold helper. */
     static void explicitThrowsStayOutlined() {
         IrProgram program = compile("""
@@ -302,7 +342,39 @@ final class NullGuardTests {
     static void nullsStillThrowAtRuntime() throws Exception {
         run("guards", PROGRAM, EXPECTED);
         run("merges", MERGES, MERGES_EXPECTED);
+        run("constructed", CONSTRUCTED, CONSTRUCTED_EXPECTED);
     }
+
+    private static final String CONSTRUCTED = """
+            class Part { static int touched; void touch() { touched++; } }
+            class Initialized { private final Part part = new Part(); destructor { part.touch(); free part; } }
+            class Guarded { private final Part part; Guarded(Part p) { if (p == null) { throw new IllegalArgumentException(); } part = p; } destructor { part.touch(); } }
+            class Base { protected final Part shared = new Part(); }
+            class Derived extends Base { destructor { shared.touch(); } }
+            class Main {
+                public static int main(String[] args) {
+                    Initialized initialized = new Initialized();
+                    free initialized;
+                    Guarded guarded = new Guarded(new Part());
+                    free guarded;
+                    try {
+                        Guarded rejected = new Guarded(null);
+                        free rejected;
+                    } catch (IllegalArgumentException e) {
+                        System.out.println("rejected null");
+                    }
+                    Derived derived = new Derived();
+                    free derived;
+                    System.out.println("touched " + Part.touched);
+                    return 0;
+                }
+            }
+            """;
+
+    private static final String CONSTRUCTED_EXPECTED = """
+            rejected null
+            touched 3
+            """;
 
     private static void run(String name, String program, String expected) throws Exception {
         CompilationArtifact artifact = compile(program);

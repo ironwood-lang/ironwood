@@ -9,6 +9,7 @@ import ironwood.compiler.ir.IrBasicBlock;
 import ironwood.compiler.ir.IrBinaryInstruction;
 import ironwood.compiler.ir.IrBinaryOperator;
 import ironwood.compiler.ir.IrBranch;
+import ironwood.compiler.ir.IrFieldLoadInstruction;
 import ironwood.compiler.ir.IrFieldStoreInstruction;
 import ironwood.compiler.ir.IrInstanceOfInstruction;
 import ironwood.compiler.ir.IrInstruction;
@@ -46,18 +47,31 @@ import java.util.Set;
  * covered. Allocation results and the proven references of lowering are never null.
  *
  * <p>Facts name SSA values, which never change, their reference conversions, and final
- * fields read from one receiver value (D287); a store to such a field ends its facts.
- * A null check whose reference is known non-null becomes a jump to its valid path, and
- * the failure blocks that only it reached are removed with their phi entries. The pass
- * runs after lowering, so only typed-IR consumers see the shorter graph.
+ * fields of one object, whatever reference type reads them. A store to a final field
+ * ends the facts of that field and, when the stored value is known non-null, starts
+ * the fact for the stored object. The entry may also start with facts that hold before
+ * the function runs, such as the fields a destructor's object keeps until it frees
+ * them (D289).
+ *
+ * <p>A null check whose reference is known non-null becomes a jump to its valid path,
+ * and the failure blocks that only it reached are removed with their phi entries. The
+ * pass runs after lowering, so only typed-IR consumers see the shorter graph.
  */
 final class RedundantNullChecks {
+    /** A final instance field of one object. */
+    record FieldKey(IrOperand object, String owner, String name) {
+        boolean storedBy(IrFieldStoreInstruction store) {
+            return store.field().ownerClass().equals(owner) && store.field().name().equals(name);
+        }
+    }
+
     private final List<IrBasicBlock> blocks;
     private final NullGuards guards;
     private final Map<String, IrBasicBlock> byLabel = new HashMap<>();
     private final Map<String, Set<String>> predecessors = new HashMap<>();
     private final Set<IrOperand> nonNull = new HashSet<>();
     private final Map<IrOperand, IrOperand> conversions = new HashMap<>();
+    private final Map<IrOperand, IrFieldLoadInstruction> finalLoads = new HashMap<>();
     /** Facts at block entries; a block not yet reached knows everything. */
     private final Map<String, Set<Object>> entries = new HashMap<>();
     private final Map<String, Set<Object>> exits = new HashMap<>();
@@ -86,8 +100,40 @@ final class RedundantNullChecks {
             return blocks;
         }
         RedundantNullChecks pass = new RedundantNullChecks(blocks, proven, guards);
-        pass.solve();
+        pass.solve(Set.of());
         return pass.rewrite();
+    }
+
+    /** As {@link #omit(List, Set, NullGuards)}, from the finished IR alone and entry facts. */
+    static List<IrBasicBlock> omit(List<IrBasicBlock> blocks, Set<IrOperand> proven,
+                                   Set<FieldKey> entry) {
+        if (blocks.stream().noneMatch(block -> nullCheck(block) != null)) {
+            return blocks;
+        }
+        RedundantNullChecks pass = new RedundantNullChecks(blocks, proven, null);
+        pass.solve(entry);
+        return pass.rewrite();
+    }
+
+    /** The facts of the finished IR alone, for {@link #knownBefore} queries. */
+    static RedundantNullChecks solved(List<IrBasicBlock> blocks, Set<IrOperand> proven) {
+        RedundantNullChecks pass = new RedundantNullChecks(blocks, proven, null);
+        if (!blocks.isEmpty()) {
+            pass.solve(Set.of());
+        }
+        return pass;
+    }
+
+    /** Whether the value is known non-null before the instruction at the index of the block. */
+    boolean knownBefore(String label, int index, IrOperand value) {
+        Set<Object> entry = entries.get(label);
+        return entry != null && known(value,
+                after(byLabel.get(label).instructions().subList(0, index), entry));
+    }
+
+    /** Whether the two references name the same object through conversions. */
+    boolean sameObject(IrOperand first, IrOperand second) {
+        return root(first).equals(root(second));
     }
 
     private void note(IrInstruction instruction) {
@@ -96,13 +142,15 @@ final class RedundantNullChecks {
             case IrArrayAllocateInstruction allocation -> nonNull.add(allocation.result());
             case IrReferenceConversionInstruction conversion ->
                     conversions.put(conversion.result(), conversion.value());
+            case IrFieldLoadInstruction load when load.field().isFinal()
+                    && load.result().type().isReference() -> finalLoads.put(load.result(), load);
             default -> { }
         }
     }
 
-    private void solve() {
+    private void solve(Set<FieldKey> entryFacts) {
         String entry = blocks.getFirst().label();
-        entries.put(entry, new HashSet<>());
+        entries.put(entry, new HashSet<>(entryFacts));
         boolean changed = true;
         while (changed) {
             changed = false;
@@ -157,7 +205,13 @@ final class RedundantNullChecks {
         }
         Set<Object> result = new HashSet<>(exit);
         IrBasicBlock source = byLabel.get(from);
-        List<Object> proven = new ArrayList<>(guards.edgeFacts(from, to));
+        List<Object> proven = new ArrayList<>();
+        if (guards != null) {
+            for (Object fact : guards.edgeFacts(from, to)) {
+                proven.add(fact instanceof NullGuards.FinalField field
+                        ? new FieldKey(root(field.receiver()), field.owner(), field.name()) : fact);
+            }
+        }
         if (source.terminator() instanceof IrBranch branch
                 && !branch.trueTarget().equals(branch.falseTarget())) {
             IrOperand tested = tested(source, branch, to);
@@ -167,7 +221,7 @@ final class RedundantNullChecks {
         }
         for (Object fact : proven) {
             // A load of the field before a store in the same block saw the old value.
-            if (!(fact instanceof NullGuards.FinalField field) || source.instructions().stream()
+            if (!(fact instanceof FieldKey field) || source.instructions().stream()
                     .noneMatch(instruction -> instruction instanceof IrFieldStoreInstruction store
                             && field.storedBy(store))) {
                 result.add(fact);
@@ -213,13 +267,20 @@ final class RedundantNullChecks {
         return exits.computeIfAbsent(label, ignored -> after(byLabel.get(label).instructions(), entry));
     }
 
-    /** The facts after the instructions run: a store to a final field ends its facts. */
-    private static Set<Object> after(List<IrInstruction> instructions, Set<Object> facts) {
+    /**
+     * The facts after the instructions run: a store to a final field ends that field's
+     * facts and, when its value is known non-null, starts the fact for its object.
+     */
+    private Set<Object> after(List<IrInstruction> instructions, Set<Object> facts) {
         Set<Object> result = new HashSet<>(facts);
         for (IrInstruction instruction : instructions) {
             if (instruction instanceof IrFieldStoreInstruction store) {
-                result.removeIf(fact -> fact instanceof NullGuards.FinalField field
-                        && field.storedBy(store));
+                boolean stored = store.field().isFinal() && known(store.value(), result);
+                result.removeIf(fact -> fact instanceof FieldKey field && field.storedBy(store));
+                if (stored) {
+                    result.add(new FieldKey(root(store.receiver()), store.field().ownerClass(),
+                            store.field().name()));
+                }
             }
         }
         return result;
@@ -242,12 +303,23 @@ final class RedundantNullChecks {
         for (IrOperand current = value; current instanceof IrValueReference && seen.add(current);
              current = conversions.get(current)) {
             result.add(current);
-            NullGuards.FinalField field = guards.finalField(current);
-            if (field != null) {
-                result.add(field);
+            IrFieldLoadInstruction load = finalLoads.get(current);
+            if (load != null) {
+                result.add(new FieldKey(root(load.receiver()), load.field().ownerClass(),
+                        load.field().name()));
             }
         }
         return result;
+    }
+
+    /** The reference that conversions start from, which names the same object. */
+    private IrOperand root(IrOperand value) {
+        Set<IrOperand> seen = new HashSet<>();
+        IrOperand current = value;
+        while (conversions.containsKey(current) && seen.add(current)) {
+            current = conversions.get(current);
+        }
+        return current;
     }
 
     /** The null check ending the block before a branch on its result, or null. */

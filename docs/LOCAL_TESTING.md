@@ -354,8 +354,8 @@ implementation only when such an implementation is passed in; the second keeps
 the exact-class verdict for an unused constructor and for a base constructor that
 only subclasses run.
 
-For null checks omitted under a dominating null test or a merge of guarded
-values (D287, D288), run:
+For null checks omitted under a dominating null test, a merge of guarded values or
+a constructed non-null field (D287 to D289), run:
 
 ```sh
 ./scripts/test.sh --test 'destructors trust the null tests that guard their calls' \
@@ -363,7 +363,8 @@ values (D287, D288), run:
   --test 'omitted null checks keep NullPointerException behavior at O0 and O3' \
   --test 'destructors trust null tests through joins and loop headers' \
   --test 'merges omit only the null checks every merged value makes redundant' \
-  --test 'explicit throws stay outlined without the null check of the fresh object'
+  --test 'explicit throws stay outlined without the null check of the fresh object' \
+  --test 'destructors trust fields every constructor sets until they free them'
 ```
 
 The first accepts destructors whose calls are guarded and keeps both reports for
@@ -375,7 +376,11 @@ fourth and fifth cover values merged at joins and loop headers (D288): a guarded
 local used in or after a loop and a fallback merged from guarded values are
 accepted, while a value advanced or nulled in a loop, or merged with a
 possibly-null value, keeps its check. The sixth expects `throw new` to stay a call
-to its cold helper once the null check of the fresh object is gone.
+to its cold helper once the null check of the fresh object is gone. The seventh
+covers final fields that every constructor sets to a non-null value (D289): a
+destructor may use them, and those of its superclasses, until it frees them, but
+not a field a constructor may set from an unchecked parameter or to null, a
+subclass field, or a field used through a method.
 
 For the diagnostic baseline of duplicated cleanup, run:
 
