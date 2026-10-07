@@ -1018,8 +1018,11 @@ public final class CompilerTests {
         test("M6.2 Bridge jar contents borrow inputs and own their copies", BridgeJarTests::ownership);
         test("M6.2 Bridge dependency manifests and distribution inventories match the Java producer",
                 BridgeJarTests::dependencyManifests);
-        test("M6.2 JDK tools run by absolute path match the in-process javac and javadoc",
-                BridgeJarTests::jdkTools);
+        test("M6.2 JDK selection follows JAVA_HOME the installation and PATH with Java's values and gates",
+                BridgeJdkTests::selection);
+        test("M6.2 selected JDK tools match the in-process javac and javadoc", BridgeJdkTests::tools);
+        test("M6.2 JDK selection owns its values", BridgeJdkTests::ownership);
+        test("M6.2 JDK selection unwinds every allocation failure without leftover logs", BridgeJdkTests::failures);
         test("compiler work queue keeps queued items alive and its ring private", WorkQueueTests::ownership);
         test("compiler worklists preserve FIFO and retain-filter order across artifacts and failures",
                 WorkQueueTests::artifacts);

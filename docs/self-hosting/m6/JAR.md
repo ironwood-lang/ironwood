@@ -1,12 +1,12 @@
 <!-- SPDX-License-Identifier: MIT OR Apache-2.0 -->
 
-# M6.2: Bridge consumer qualification (D294)
+# M6.2: Bridge consumer qualification (D294, D295)
 
-Status: in progress, blocked on one decision. The Bridge JAR writer profile,
-its verified atomic publication, the dependency manifests and the JDK-tool
-process path are qualified below; the native producer's JDK selection awaits
-the maintainer ([JDK_SELECTION.md](JDK_SELECTION.md)). S7's producer identity
-is tracked, not designed. Nothing here ports BridgeJarArchive,
+Status: complete. The Bridge JAR writer profile, its verified atomic
+publication, the dependency manifests, the JDK selection the maintainer chose
+([D295](../../DECISIONS.md#d295---select-the-native-bridge-producers-jdk-as-the-java-producers-launcher-does))
+and the JDK-tool process path through it are qualified below; S7's producer
+identity is tracked, not designed. Nothing here ports BridgeJarArchive,
 BridgeValuesLibrary, BridgeDistributionCommand, BridgeAssembler or
 BridgeBuildTools; it qualifies the port's pieces their S7 ports use.
 
@@ -14,6 +14,7 @@ BridgeBuildTools; it qualifies the port's pieces their S7 ports use.
 | --- | --- |
 | [BridgeJar.iron](../../../compiler/src/main/ironwood/ironwood/compiler/port/BridgeJar.iron) | BridgeJarArchive.publish: name checks, the manifest check, the destination check, `ZipOutputStream` staging, the `ZipFile` read-back with digest comparison, `Files.move(ATOMIC_MOVE, REPLACE_EXISTING)` and `deleteIfExists` |
 | [JarStreams.iron](../../../compiler/src/main/ironwood/ironwood/compiler/port/JarStreams.iron) | `new JarInputStream(...).getManifest()` in BridgeValuesLibrary.validate |
+| [JdkSelection.iron](../../../compiler/src/main/ironwood/ironwood/compiler/port/JdkSelection.iron) | BridgeBuildTools' running-JVM `java.home`, `Runtime.version()`, `ToolProvider` tools and gates, BridgeProducer's `java.runtime.version` and `java.vendor` inputs, BridgeAssembler's in-process javac |
 
 ## Writer profile and publication
 
@@ -65,15 +66,29 @@ Jar sizes grow by their contents' compression ratio: compressible contents
 such as class files and HTML were 3.0 times larger as STORED class artifacts
 in M5.2 (D275); native images that compress poorly change little.
 
-## JDK-tool process path
+## JDK selection (D295)
 
-`javac` and `javadoc` run by absolute path through D273's `Command` and
-D272's `runToFile`, with BridgeBuildTools' exact flags, write the in-process
-tools' class files and documentation pages byte for byte with the same JDK
-21.0.1, and a `-Werror` failure exits 1 with the same diagnostics. The test
-passes its own JVM's home: which JDK a native producer uses, how it finds it
-and how it records its version and vendor is the open decision
-([JDK_SELECTION.md](JDK_SELECTION.md)).
+The native producer selects its JDK as `scripts/jdk.sh` selects the Java
+producer's: a nonempty `JAVA_HOME`, failing without fallback when invalid;
+otherwise the installation's `toolchain/lib/jvm`; otherwise `java` on `PATH`.
+It runs the selected `java -XshowSettings:properties -version` through
+`runToFile` and records `java.runtime.version` and `java.vendor` as
+`jdk.version` and `jdk.vendor`, the values the Java producer records, with
+`java.home` and `java.specification.version` for the home and BridgeBuildTools'
+gates.
+
+| Check | Result |
+| --- | --- |
+| Selection order | `JAVA_HOME`, the installation, `PATH` and their precedence, an empty and a relative `JAVA_HOME`: each selects the JDK `scripts/jdk.sh` selects in the same environment and directory |
+| Failures | A missing `JAVA_HOME` (with an installation present) and nothing on `PATH` give `scripts/jdk.sh`'s messages; a JDK double that exits 1 or omits `java.vendor` gives `could not inspect selected Java: <path>` |
+| Values | The test JVM and 13 installed JDKs (Oracle 17, 20, 23 and 25; GraalVM 21 and 25; Eclipse Temurin 21, 22, 23, 24 and 25; IBM Semeru 23; Azul Zulu 23) record the home, version and vendor each JDK reports through its own `System.getProperty`; doubles behind a JVM warning line and multi-line properties parse too |
+| Gates | JDKs 17 and 20 and doubles reporting 26 and `1.8` give BridgeBuildTools' range message with the runtime version; doubles without `javac`, `jni.h`, the platform's `jni_md.h` or `javadoc` give its component and header messages in its order |
+| Tools | `javac` and `javadoc` through the selection write the in-process tools' class files and pages byte for byte with the same JDK 21.0.1; a `-Werror` failure exits 1 with the same diagnostics; no tool log is left |
+| Allocation failure | With a JDK double, a selection, its gates and one `javac` and `javadoc` run pass 125 limits; every stopped run unwinds and leaves no inspection or tool log |
+
+Empty `PATH` entries are skipped, as the native driver's ExecutableSearch does,
+where `command -v` would search the working directory; a selected program that
+cannot start reports ProcessRunner's failure.
 
 ## Producer identity (S7, tracked)
 
@@ -101,7 +116,10 @@ assembly identities cannot be produced until the design exists.
 | `M6.2 Bridge jar publication keeps the earlier jar under every allocation failure` | the allocation sweep with the earlier-jar and stage checks between runs |
 | `M6.2 Bridge jar contents borrow inputs and own their copies` | ownership pairs in every unfreed mode, JarStreams included |
 | `M6.2 Bridge dependency manifests and distribution inventories match the Java producer` | values validation, distribution inventory, assembly targets |
-| `M6.2 JDK tools run by absolute path match the in-process javac and javadoc` | the JDK-tool process path |
+| `M6.2 JDK selection follows JAVA_HOME the installation and PATH with Java's values and gates` | selection order, failures, values and gates (with `IRONWOOD_TEST_JDKS` naming more JDKs) |
+| `M6.2 selected JDK tools match the in-process javac and javadoc` | the JDK-tool process path through the selection |
+| `M6.2 JDK selection owns its values` | ownership pairs in every unfreed mode |
+| `M6.2 JDK selection unwinds every allocation failure without leftover logs` | the selection sweep with log checks between runs |
 
 The M6.1 allocation sweep now also covers JarStreams (509 limits), the six
 M6.1 tests pass, and one compilation of all 199 port sources with the five
@@ -110,11 +128,7 @@ classification was regenerated so that eight rows cite D294's helpers
 (BridgeJar, JarStreams and the `isSymbolicLink` destination check); one
 pattern, `Files.newOutputStream`, moved from B to D.
 
-Verification of the delivered part: from a fresh `git archive` of 9fa163d0
-on macOS arm64, the strict `scripts/build.sh`, `javac --release 21 -Xlint:all
--Werror` over every compiler test source, 21 tests (the six M6.1 and six
-M6.2 tests, the five M5.4 tests, the M5.2 STORED writer, the M4.2
-publication moves, the port generics audit and SHA-256), the nine
-classification tables M3.1 to M6.1 regenerated byte for byte, the port
-compilation with no diagnostics and the license audit passed, 24 statuses in
-all. The Linux hosts run at the M6 checkpoint, after the JDK selection.
+The JAR, dependency-manifest and JDK-tool part was first verified from a
+fresh `git archive` of 9fa163d0 (21 tests, 24 statuses); the JDK selection
+was added after the maintainer's decision. The M6 handoff run verifies the
+complete phase on all three hosts.

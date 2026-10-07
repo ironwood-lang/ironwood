@@ -524,12 +524,13 @@ M5_DOC_RULES = [
 # delivered for them and on the M3-M5 services.
 PRODUCER = ("B: the Java compiler's own class or jar inventory is the producer identity; S7 replaces it with its"
             " separate native producer-manifest design (tracked in M6.2), never a synthetic Main.class entry")
-JDK = ("B: the running JVM is the Java producer's JDK (D239); the native producer runs the selected JDK's tools by"
-       " absolute path through runToFile (D272) and takes its home, version and vendor from M6.2's JDK selection")
+JDK = ("JdkSelection: the JDK D239's order selects, inspected with java -XshowSettings:properties for its home,"
+       " feature, runtime version and vendor (D295)")
 TREE = ("TextMap for String-to-String inventories (D292), ArchiveEntries for named contents (D276), otherwise D264's"
         " container with a StringOrder key list")
 M6_RULES = [
-    ("Array", r"^Array\(int\)$", b("B: javac and javadoc arguments are a Command (D273) passed to runToFile; no array is built")),
+    ("Array", r"^Array\(int\)$", d("JdkSelection builds javac and javadoc Commands for runToFile; no array is built (D273,"
+                                     " D295)", "JdkSelection.iron", "Command.iron")),
     ("Array", r"^clone\(\)$", b("B: ArchiveEntries.add copies each entry's contents once; readers return fresh bytes (D276)")),
     ("java.io.ByteArrayInputStream", r".", b("B: the readers take byte ranges: BridgeProperties.load, new JarManifest(bytes, offset,"
                                               " length) and ZipStream over the values companion (D276, D292)")),
@@ -564,8 +565,8 @@ M6_RULES = [
      + ("unsigned lowercase digits, as Java",)),
     ("java.lang.Long", r"^toHexString\(long\)$", a("lang/Long.iron", r"public static String toHexString\(long")
      + ("unsigned lowercase digits, as Java",)),
-    ("java.lang.Runtime", r".", b(JDK)),
-    ("java.lang.Runtime.Version", r".", b(JDK)),
+    ("java.lang.Runtime", r".", d(JDK, "JdkSelection.iron")),
+    ("java.lang.Runtime.Version", r".", d(JDK, "JdkSelection.iron")),
     ("java.lang.String", r"^String\(byte\[\],int,int,java.nio.charset.Charset\)$",
      d("BridgeMacPayload's dependency names: TextList.wellFormed is the UTF-8 round trip, then new String of a Bytes.slice"
        " (D268, D276)", "TextList.iron", "Bytes.iron")),
@@ -583,7 +584,7 @@ M6_RULES = [
     ("java.lang.StringBuilder", r"^insert\(int,java.lang.String\)$", a("lang/StringBuilder.iron", r"public StringBuilder insert\(int offset, String text\)")
      + ("the five cleanup prepends at offset 0 pass non-null text",)),
     ("java.lang.System", r"^getProperty\(", b("B: os.name and os.arch through System.getProperty, as each caller tests them;"
-                                              " java.home, java.runtime.version and java.vendor are the JDK selection's (M6.2)")),
+                                              " java.home, java.runtime.version and java.vendor come from JdkSelection (D295)")),
     ("java.lang.System", r"^getenv\(\)$", a("lang/System.iron", r"public static String getenv\(String name\)")
      + ("getenv(name) with null for absence; getOrDefault's default is the absence branch",)),
     ("java.lang.Thread", r".", b("B: no interruption: a JDK tool runs through runToFile, which waits and always reaps; a terminal"
@@ -636,7 +637,8 @@ M6_RULES = [
     ("java.util.ArrayList", r"^forEach\(", b(LOOPS)),
     ("java.util.ArrayList", r"^getFirst\(\)$", b("B: get(0) after the source's emptiness guard")),
     ("java.util.Arrays", r"^equals\(byte\[\],byte\[\]\)$", a("util/Arrays.iron", r"public static boolean equals\(byte\[\] first")),
-    ("java.util.Collection", r"^<T>toArray\(", b("B: javac and javadoc arguments are a Command (D273) passed to runToFile")),
+    ("java.util.Collection", r"^<T>toArray\(", d("JdkSelection's javac and javadoc Commands (D273, D295)", "JdkSelection.iron",
+                                                  "Command.iron")),
     ("java.util.Comparator", r"^<T>reverseOrder\(\)$", d("TreeDeletion: the reverse-ordered deletes are post-order cleanup (D270)",
                                                          "TreeDeletion.iron")),
     ("java.util.HashMap", r"^get\(", a("ds/HashMap.iron", r"public E get\(")),

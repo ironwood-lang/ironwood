@@ -1,20 +1,19 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
-// The Bridge's JDK tool path on the compiler port's process adapter: javac
-// and javadoc run by absolute path through Command and
-// ProcessRunner.runToFile with BridgeBuildTools.java's and javadoc's exact
-// flags, against the in-process tools of the Java baseline.
-// `program javac <jdk-home> <work> <classes> <source>...` and
-// `program javadoc <jdk-home> <work> <classes> <output> <source>...` run the
-// tool in work with its merged output in work/<tool>.log and print the exit
-// value and the log as UTF-16 hex. The JDK home is the test's input: how a
-// native producer selects its JDK is not decided here. Every result is
-// freed. Exit 43, or 1 when the tool cannot start or the log cannot be read.
-import ironwood.compiler.port.Command;
+// The Bridge's JDK tool path on the compiler port: JdkSelection (D295) picks
+// the JDK from the inherited JAVA_HOME, installation and PATH, applies
+// BridgeBuildTools' gate, and runs javac or javadoc by absolute path through
+// ProcessRunner.runToFile with BridgeBuildTools' flags, against the
+// baseline's in-process tools.
+// `program javac <scratch> <work> <classes> <source>...` and
+// `program javadoc <scratch> <work> <classes> <output> <source>...` print
+// the tool's exit value and merged diagnostics as UTF-16 hex. Every result is
+// freed and the tool logs are deleted. Exit 43, or 1 when the JDK cannot be
+// selected or the tool cannot start.
+import ironwood.compiler.port.JdkSelection;
+import ironwood.compiler.port.TextList;
 import ironwood.io.IOException;
-import ironwood.nio.file.Files;
 import ironwood.nio.file.Path;
-import ironwood.process.ProcessResult;
 
 class Main {
 
@@ -30,65 +29,37 @@ class Main {
         return out.toString();
     }
 
-    // BridgeBuildTools.java's arguments, or javadoc's, after the executable.
-    static Command command(String[] args) {
-
-        boolean javadoc = args[0].equals("javadoc");
-        int sources = javadoc ? 5 : 4;
-        Command command = new Command(1 + 13 + args.length - sources);
-        StringBuilder tool = new StringBuilder();
-        defer free tool;
-        tool.append(args[1]);
-        tool.append(javadoc ? "/bin/javadoc" : "/bin/javac");
-        String executable = tool.toString();
-        defer free executable;
-        command.add(executable);
-        command.add("--release");
-        command.add("21");
-        command.add("-encoding");
-        command.add("UTF-8");
-        if (javadoc) {
-            command.add("-quiet");
-            command.add("-Xdoclint:none");
-            command.add("-notimestamp");
-            command.add("--class-path");
-            command.add(args[3]);
-            command.add("--source-path");
-            command.add("");
-            command.add("-d");
-            command.add(args[4]);
-        } else {
-            command.add("-proc:none");
-            command.add("-Xlint:all");
-            command.add("-Werror");
-            command.add("--class-path");
-            command.add("");
-            command.add("--source-path");
-            command.add("");
-            command.add("-d");
-            command.add(args[3]);
-        }
-        for (int index = sources; index < args.length; index++) command.add(args[index]);
-        return command;
-    }
-
     static void run(String[] args) throws IOException {
 
-        Command command = command(args);
-        defer free command;
+        boolean javadoc = args[0].equals("javadoc");
+        Path scratch = Path.of(args[1]);
+        defer free scratch;
         Path work = Path.of(args[2]);
         defer free work;
-        String name = args[0] + ".log";
-        defer free name;
-        Path log = work.resolve(name);
-        defer free log;
-        ProcessResult result = command.run(work, log);
-        defer free result;
-        String output = Files.readString(log);
-        defer free output;
-        String encoded = hex(output);
+        Path classes = Path.of(args[3]);
+        defer free classes;
+        JdkSelection jdk = new JdkSelection(null, scratch, work);
+        defer free jdk;
+        TextList sources = new TextList();
+        defer free sources;
+        for (int index = javadoc ? 5 : 4; index < args.length; index++) sources.add(args[index]);
+        StringBuilder diagnostics = new StringBuilder();
+        defer free diagnostics;
+        int exit = 0;
+        if (javadoc) {
+            jdk.requireJavadoc();
+            Path output = Path.of(args[4]);
+            defer free output;
+            exit = jdk.javadoc(sources, classes, output, work, diagnostics);
+        } else {
+            jdk.requireJdk("Java compilation");
+            exit = jdk.javac(sources, "", classes, work, diagnostics);
+        }
+        String text = diagnostics.toString();
+        defer free text;
+        String encoded = hex(text);
         defer free encoded;
-        System.out.println("exit " + result.exitValue() + " " + encoded);
+        System.out.println("exit " + exit + " " + encoded);
     }
 
     public static int main(String[] args) {

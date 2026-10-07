@@ -1,11 +1,12 @@
 <!-- SPDX-License-Identifier: MIT OR Apache-2.0 -->
 
-# M6.2: the native producer's JDK selection (decision needed)
+# M6.2: the native producer's JDK selection (D295)
 
-Status: open for the maintainer's decision. M6.2 records the options and their
-evidence and does not choose. This blocks M6.2's "selected JDK-tool process
-path" and therefore M6.3 and the M6 checkpoint; every other M6.2 item is
-delivered ([the M6.2 record](JAR.md)).
+Status: decided. The maintainer chose option B with R2 on 2026-10-07; it is
+[D295](../../DECISIONS.md#d295---select-the-native-bridge-producers-jdk-as-the-java-producers-launcher-does),
+implemented by the port's `JdkSelection` and qualified in
+[the M6.2 record](JAR.md#jdk-selection-d295). The options and evidence that
+informed the decision are kept below.
 
 ## What the Java producer does today
 
@@ -67,7 +68,7 @@ range.
 `javac -version` alone cannot supply `java.vendor` or the full runtime version
 that the identity inputs hold today.
 
-## What the decision unblocks
+## What the decision unblocked
 
 With an option for each table, M6.2 adds the selection adapter to the port
 (beside D273's adapters), qualifies it with focused fixtures (unset, invalid

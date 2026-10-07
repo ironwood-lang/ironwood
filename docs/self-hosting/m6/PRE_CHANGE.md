@@ -259,3 +259,48 @@ are now released before the failure propagates. The native producer's JDK
 selection is the maintainer's decision: its options and evidence are recorded
 in [JDK_SELECTION.md](JDK_SELECTION.md) and M6.2 stops there. S7's producer
 identity is tracked without a synthetic compiler inventory.
+
+## JDK selection review (before D295)
+
+The maintainer chose option B with R2 from
+[JDK_SELECTION.md](JDK_SELECTION.md) on 2026-10-07. Contract to implement in
+a port adapter beside D273's, without changing the Java producer or the
+launcher scripts:
+
+- Selection, as `scripts/jdk.sh` orders it: a nonempty `JAVA_HOME` selects
+  `$JAVA_HOME/bin/java` and an invalid one fails without fallback (`selected
+  Java is missing; set JAVA_HOME to a JDK: <path>`); otherwise the
+  installation's `toolchain/lib/jvm/bin/java` when executable; otherwise
+  `java` found on `PATH` through M4.3's ExecutableSearch, failing with
+  `... JDK: java on PATH`. Relative spellings resolve against the working
+  directory, because runToFile needs an absolute executable.
+- Inspection and recording: the selected `java -XshowSettings:properties
+  -version` runs through runToFile into a scratch log that is read within
+  1 MiB and always deleted; a nonzero exit or a missing `java.home`,
+  `java.specification.version`, `java.runtime.version` or `java.vendor` line
+  gives `could not inspect selected Java: <path>`. `jdk.version` and
+  `jdk.vendor` are the last two values, as the Java producer records them.
+- Gates with BridgeBuildTools' messages: feature 21 to 25, the `javac` and
+  `javadoc` launchers in place of the in-process tools, and the JNI headers.
+- Tools: `javac` and `javadoc` with BridgeBuildTools' flags (and the
+  assembler's class path) by absolute path, diagnostics read back from a log.
+
+Consumers to protect: D273's Command and ExecutableSearch, ProcessRunner's
+audited borrowing, the M6.2 JDK-tool test. Paired evidence: selection,
+values and failures against `scripts/jdk.sh`'s own selection, each JDK's own
+`System.getProperty` values and BridgeBuildTools' messages; ownership controls
+and an allocation sweep with no log left behind. No compiler, runtime or
+analysis change is planned. Focused tests: the new M6.2 selection test, the
+reworked JDK-tool test, the M4.3 adapter tests that share Command and
+ExecutableSearch (`M4.3 port executable search matches the Java seed`,
+`M4.3 driver adapters own arguments and lend probe outputs`), and the port
+compile.
+
+## D295 increment
+
+No analysis rule changed. The values moved into a TextList owner after the
+field proof rejected `new String(field)` copies and calls through a local
+alias of a String field. `scripts/jdk.sh` served as the selection reference
+in the same environment and directory, with a tools directory supplying `sed`
+and `cat` but no `java`. The M4.3 tests that share Command and
+ExecutableSearch were not affected, as neither changed.

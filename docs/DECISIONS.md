@@ -11474,8 +11474,7 @@ occurrence order. If no
 ## D294 - Write and verify Bridge JARs natively in the STORED profile
 
 - **Status:** Implemented during M6.2 on 2026-10-07. The native producer's JDK
-  selection is not part of this decision; it awaits the maintainer
-  ([JDK selection options](self-hosting/m6/JDK_SELECTION.md)).
+  selection is D295.
 - **Decision:** The compiler port gains BridgeJarArchive.publish's writer
   profile and the values companion's manifest lookup for S7; the Java seed is
   unchanged.
@@ -11532,3 +11531,52 @@ occurrence order. If no
   inventory and the assembler's target order match; and `javac` and `javadoc`
   through `runToFile` equal the in-process tools. See
   [the M6.2 record](self-hosting/m6/JAR.md).
+
+## D295 - Select the native Bridge producer's JDK as the Java producer's launcher does
+
+- **Status:** Accepted by the maintainer on 2026-10-07 (option B with R2 of
+  [the M6.2 options](self-hosting/m6/JDK_SELECTION.md)) and implemented in the
+  compiler port during M6.2. Extends D239's selection to the native producer;
+  the Java producer, its launchers and `scripts/jdk.sh` are unchanged.
+- **Decision:** The port's `JdkSelection` gives the native producer the JDK
+  the Java producer's launcher would give it.
+  - **Selection.** A nonempty `JAVA_HOME` selects `$JAVA_HOME/bin/java`, and an
+    invalid one fails without fallback (`selected Java is missing; set
+    JAVA_HOME to a JDK: <path>`); otherwise the installation's
+    `toolchain/lib/jvm/bin/java` when it is executable; otherwise `java` found
+    on `PATH` by D273's ExecutableSearch (`... JDK: java on PATH` when none
+    is). Relative spellings resolve against the working directory.
+  - **Inspection and recording.** The selected `java
+    -XshowSettings:properties -version` runs through `runToFile` into a scratch
+    log, read within 1 MiB and always deleted. Its `java.home`,
+    `java.specification.version`, `java.runtime.version` and `java.vendor`
+    give the home, the feature release and the `jdk.version` and `jdk.vendor`
+    identity inputs, the values the Java producer records from its running JVM;
+    a nonzero exit or a missing value gives `could not inspect selected Java:
+    <path>`.
+  - **Gates and tools.** BridgeBuildTools' checks keep their messages: feature
+    21 to 25, the `javac` and `javadoc` launchers in place of the in-process
+    tools, and the JNI headers. `javac` and `javadoc` run by absolute path with
+    BridgeBuildTools' flags (the assembler passes its host jar as the class
+    path), their diagnostics read back from a deleted log.
+- **Proof:** No analysis, runtime or lowering change. The inspected values
+  live in a TextList owner and are handed out as fresh Strings, because a
+  String field copied with `new String(field)` or used through a local alias
+  during calls fails the field-ownership proof.
+- **Boundary:** `PATH` empty entries are skipped, as the native driver's
+  ExecutableSearch does, where `command -v` would search the working
+  directory. A selected program that cannot start reports ProcessRunner's
+  failure instead of `could not inspect`. Where the native producer's
+  installation root comes from is S7 and S8 packaging. Usage documentation
+  changes when S7 ships the native producer. Supersedes no decision.
+- **Provenance:** Original code under the default license.
+- **Verification:** 31 selections (JAVA_HOME, the installation, PATH and their
+  precedence, empty, relative and missing selections, nothing on PATH, JDK
+  doubles that fail, omit a value, are out of range or lack javac, javadoc or
+  a header, and 13 installed JDKs from Oracle, GraalVM, Eclipse Temurin, IBM
+  Semeru and Azul Zulu, two of them out of range) select what
+  `scripts/jdk.sh` selects, report its messages, record each JDK's own
+  `System.getProperty` values and give BridgeBuildTools' gate messages;
+  `javac` and `javadoc` through the selection equal the in-process tools; the
+  ownership pairs hold; and 125 allocation limits each unwind and leave no
+  log. See [the M6.2 record](self-hosting/m6/JAR.md).

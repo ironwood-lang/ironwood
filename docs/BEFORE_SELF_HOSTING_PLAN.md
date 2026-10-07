@@ -85,7 +85,7 @@ roadmap schedules them without replacing their detailed exit criteria.
 | [M3](#m3-semantic-and-backend-preparation) | Complete core B1/B2/B7 helpers and early B5 digests | M2 for broad port work; reuse M1 outputs | Staged readiness for S2, S3 with ByteView SHA-256, and S4 with MD5/native-link policy | Complete: [M3.1 handoff](self-hosting/m3/HANDOFF_M3.1.md) ready for S2, [M3.2 handoff](self-hosting/m3/HANDOFF_M3.2.md) ready for S3 and ByteView, [M3.3 handoff](self-hosting/m3/HANDOFF_M3.3.md) ready for the source-only S4 exit ([pre-change review](self-hosting/m3/PRE_CHANGE.md)) |
 | [M4](#m4-native-filesystem-and-process-services) | Deliver B3 filesystem and B4 process services | M2; audited helper dependencies | Filesystem checkpoint first, native process/driver checkpoint second | Complete: [M4.1/M4.2 handoff](self-hosting/m4/HANDOFF_M4.1-M4.2.md) ready for M5 publication, [M4.3 handoff](self-hosting/m4/HANDOFF_M4.3.md) ready for the optional native-driver route, both on macOS arm64, Linux x86-64 and Linux arm64 ([Linux arm64 run](self-hosting/m4/arm64-evidence/manifest.json), [pre-change review](self-hosting/m4/PRE_CHANGE.md)) |
 | [M5](#m5-artifacts-and-command-line-helpers) | Deliver public CRC32, B6 archives, and S6 B7 helpers | M2; required M3 helpers; M4 filesystem checkpoint for publication | Artifact and documentation/CLI prerequisites ready for S6 | Complete: [M5 handoff](self-hosting/m5/HANDOFF_M5.md) ready for S6 on macOS arm64, Linux x86-64 and Linux arm64: public [CRC32](self-hosting/m5/CRC32.md) (D274), the [archive contract](self-hosting/m5/ARCHIVES.md), [codec and writer profiles](self-hosting/m5/CODEC.md) (D275), [artifact services](self-hosting/m5/ARTIFACTS.md) (D276) and [documentation helpers](self-hosting/m5/DOC.md) (D277) ([pre-change review](self-hosting/m5/PRE_CHANGE.md)) |
-| [M6](#m6-bridge-preparation-and-final-handoff) | Qualify remaining Bridge consumers of B3-B7 | Required M3 helpers, M4 process checkpoint, and M5 artifact facilities | Preparation evidence and remaining S7/S8 integration obligations handed off | Blocked: M6.1 complete ([record](self-hosting/m6/CONTRACTS.md), D291-D293); M6.2 delivered except the JDK-tool selection ([record](self-hosting/m6/JAR.md), D294), which awaits the maintainer's [JDK selection decision](self-hosting/m6/JDK_SELECTION.md); M6.3 and the checkpoint follow it; [pre-change review](self-hosting/m6/PRE_CHANGE.md) |
+| [M6](#m6-bridge-preparation-and-final-handoff) | Qualify remaining Bridge consumers of B3-B7 | Required M3 helpers, M4 process checkpoint, and M5 artifact facilities | Preparation evidence and remaining S7/S8 integration obligations handed off | In progress: M6.1 complete ([record](self-hosting/m6/CONTRACTS.md), D291-D293); M6.2 complete ([record](self-hosting/m6/JAR.md), D294, D295); M6.3 and the checkpoint next; [pre-change review](self-hosting/m6/PRE_CHANGE.md) |
 
 ### Dependency and scheduling rules
 
@@ -653,22 +653,22 @@ port or S8 release qualification.
   607 readelf outputs; every pattern of the 387 in
   [the M6.1 classification](self-hosting/m6/CLASSIFICATION_M6.1.md) has one
   class, and the M0 rows naming M6 have treatments with S7 fixtures.
-- [ ] **M6.2: Bridge consumer qualification.** Exercise the selected JDK-tool
+- [x] **M6.2: Bridge consumer qualification.** Exercise the selected JDK-tool
   process path, Bridge JAR writer profile, verified atomic publication, and
   dependency manifests with focused fixtures. Preserve generated Java/C and
   external JDK boundaries. Track S7's native producer-identity design explicitly;
   a synthetic `Main.class` inventory cannot stand in for that decision.
-  Blocked on the native producer's JDK selection, a maintainer decision whose
-  options and evidence are in [JDK_SELECTION.md](self-hosting/m6/JDK_SELECTION.md).
-  Delivered meanwhile ([the M6.2 record](self-hosting/m6/JAR.md), D294): the
-  STORED Bridge JAR writer with verified `moveAtomicReplacing` publication,
+  Complete: [the M6.2 record](self-hosting/m6/JAR.md) qualifies the STORED
+  Bridge JAR writer with verified `moveAtomicReplacing` publication (D294),
   equal to Java's entries and opened by Java's readers and tools, keeping an
   earlier jar on every invalid input, destination and allocation failure; the
   values companion's manifest check and the distribution inventory with
-  Java's verdicts; the identity effects of STORED jars; `javac` and `javadoc`
-  through `runToFile` equal to the in-process tools; and the tracked
-  producer-identity boundary. Next action: implement and qualify the selection
-  the maintainer chooses.
+  Java's verdicts; the identity effects of STORED jars; the maintainer's
+  [JDK selection](self-hosting/m6/JDK_SELECTION.md) (D295), which selects as
+  `scripts/jdk.sh` does and records each JDK's own version and vendor across
+  13 installed JDKs from five vendors; and `javac` and `javadoc` through it,
+  equal to the in-process tools. S7's producer identity is tracked without a
+  synthetic compiler inventory.
 - [ ] **M6.3: Close preparation evidence.** Reconcile every B0-B7 inventory item
   with its implemented contract, focused evidence, or named later-stage owner.
   Record remaining S7 producer/IDE integration and S8 qualification work without
