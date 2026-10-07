@@ -767,6 +767,10 @@ public final class CompilerTests {
                 FreedValueClassTests::reachableValuesStayReported);
         test("instances of one class keep their own fields arrays and builders",
                 FreedValueClassTests::instancesKeepTheirOwnContents);
+        test("publication follows the objects a constructor or destructor receives",
+                PublicationObjectTests::argumentObjectsDecidePublication);
+        test("constructors that build no object keep their exact-class publication verdict",
+                PublicationObjectTests::constructorsWithoutObjectsKeepTheirVerdict);
         test("array types and indices are checked", this::arrayTypesAndIndicesAreChecked);
         test("multidimensional arrays and exact tests preserve invariant typing",
                 this::multidimensionalArrayTypesAndExactTestsAreChecked);

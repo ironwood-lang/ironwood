@@ -150,6 +150,18 @@ final class ValueClasses {
         return reached.contains(pair);
     }
 
+    /**
+     * The contexts in which {@code function} runs on an object of exactly
+     * {@code className}: the objects of that class it constructs or destroys.
+     */
+    List<Pair> objectContexts(String function, String className) {
+        return reached.stream()
+                .filter(pair -> pair.function().equals(function)
+                        && !pair.context().startsWith(IMMORTAL)
+                        && className.equals(objectClasses.get(pair.context())))
+                .sorted(java.util.Comparator.comparing(Pair::context)).toList();
+    }
+
     private void reach(Pair pair) {
         if (functions.containsKey(pair.function()) && reached.add(pair)) {
             changed = true;

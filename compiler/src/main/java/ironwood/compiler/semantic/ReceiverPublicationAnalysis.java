@@ -118,6 +118,30 @@ final class ReceiverPublicationAnalysis {
         return context.get(root.linkageName()).published().get(0);
     }
 
+    /**
+     * Whether a constructor or destructor publishes the object for the given objects of
+     * its class (D286): each runs in its value-flow context, and every call, free and
+     * element destruction takes the bodies value flow recorded for it, solved in their
+     * own contexts.
+     */
+    boolean objectPublishes(ValueClasses flow, List<ValueClasses.Pair> roots) {
+        Map<ValueClasses.Pair, Facts> context = new LinkedHashMap<>();
+        roots.forEach(root -> context.put(root, Facts.empty()));
+        boolean changed;
+        do {
+            changed = false;
+            for (ValueClasses.Pair pair : List.copyOf(context.keySet())) {
+                IrFunction function = functions.get(pair.function());
+                if (function == null) continue;
+                int known = context.size();
+                Facts next = new FunctionFacts(function, flow, pair,
+                        callee -> context.computeIfAbsent(callee, ignored -> Facts.empty())).summarize();
+                changed |= !next.equals(context.put(pair, next)) || context.size() != known;
+            }
+        } while (changed);
+        return roots.stream().anyMatch(root -> context.get(root).published().get(0));
+    }
+
     private static String key(IrField field) {
         return field.ownerClass() + "#" + field.name();
     }
@@ -127,6 +151,10 @@ final class ReceiverPublicationAnalysis {
         // While building an exact class: calls on the object and their callees' facts.
         private final String exactType;
         private final java.util.function.Function<String, Facts> objectFacts;
+        // In a value-flow context: the bodies each call runs and their facts.
+        private final ValueClasses flow;
+        private final ValueClasses.Pair pair;
+        private final java.util.function.Function<ValueClasses.Pair, Facts> pairFacts;
         private final boolean constructor;
         private final Map<Integer, IrOperand> conversions;
         private final Set<Integer> allocations = new LinkedHashSet<>();
@@ -150,9 +178,24 @@ final class ReceiverPublicationAnalysis {
 
         FunctionFacts(IrFunction function, String exactType,
                       java.util.function.Function<String, Facts> objectFacts) {
+            this(function, exactType, objectFacts, null, null, null);
+        }
+
+        FunctionFacts(IrFunction function, ValueClasses flow, ValueClasses.Pair pair,
+                      java.util.function.Function<ValueClasses.Pair, Facts> pairFacts) {
+            this(function, null, null, flow, pair, pairFacts);
+        }
+
+        private FunctionFacts(IrFunction function, String exactType,
+                              java.util.function.Function<String, Facts> objectFacts,
+                              ValueClasses flow, ValueClasses.Pair pair,
+                              java.util.function.Function<ValueClasses.Pair, Facts> pairFacts) {
             this.function = function;
             this.exactType = exactType;
             this.objectFacts = objectFacts;
+            this.flow = flow;
+            this.pair = pair;
+            this.pairFacts = pairFacts;
             this.constructor = function.kind() == IrCallableKind.CONSTRUCTOR;
             this.conversions = ClosedWorldEffectAnalyzer.referenceConversions(function);
         }
@@ -265,17 +308,14 @@ final class ReceiverPublicationAnalysis {
 
         private void transferCall(IrInstruction instruction) {
             List<IrOperand> arguments = ClosedWorldEffectAnalyzer.callArguments(instruction);
-            boolean onObject = exactType != null && !arguments.isEmpty()
-                    && exactParameter(arguments.getFirst()) == 0;
-            List<IrFunction> targets = onObject ? effects.exactTargets(instruction, exactType)
-                    : effects.targets(instruction);
-            if (targets.isEmpty()) return;
+            if (effects.targets(instruction).isEmpty()) return;
+            List<Map.Entry<IrFunction, Facts>> callees = callees(instruction, arguments);
             List<Value> inputs = arguments.stream().map(this::read).toList();
             IrValueReference result = ClosedWorldEffectAnalyzer.callResult(instruction);
             Value output = new Value();
-            for (IrFunction target : targets) {
-                Facts facts = onObject ? objectFacts.apply(target.linkageName())
-                        : summaries.getOrDefault(target.linkageName(), Facts.empty());
+            for (Map.Entry<IrFunction, Facts> callee : callees) {
+                IrFunction target = callee.getKey();
+                Facts facts = callee.getValue();
                 for (int index = 0; index < inputs.size(); index++) {
                     Value input = inputs.get(index);
                     if (facts.published().get(index)) publishIdentity(input, -1);
@@ -298,6 +338,32 @@ final class ReceiverPublicationAnalysis {
                 }
             }
             if (result != null && result.type().isReference()) join(result, output);
+        }
+
+        /**
+         * The bodies an operation runs with their facts: those value flow recorded for
+         * this context, those an exact receiver dispatches to, or the summaries.
+         */
+        private List<Map.Entry<IrFunction, Facts>> callees(IrInstruction instruction,
+                                                           List<IrOperand> arguments) {
+            List<Map.Entry<IrFunction, Facts>> result = new java.util.ArrayList<>();
+            List<ValueClasses.Pair> pairs = pair == null ? null : flow.callees(pair, instruction);
+            if (pairs != null) {
+                for (ValueClasses.Pair callee : pairs) {
+                    IrFunction target = functions.get(callee.function());
+                    if (target != null) result.add(Map.entry(target, pairFacts.apply(callee)));
+                }
+                return result;
+            }
+            boolean onObject = exactType != null && !arguments.isEmpty()
+                    && exactParameter(arguments.getFirst()) == 0;
+            List<IrFunction> targets = onObject ? effects.exactTargets(instruction, exactType)
+                    : effects.targets(instruction);
+            for (IrFunction target : targets) {
+                result.add(Map.entry(target, onObject ? objectFacts.apply(target.linkageName())
+                        : summaries.getOrDefault(target.linkageName(), Facts.empty())));
+            }
+            return result;
         }
 
         /** Records a value that the constructing receiver now holds through a field. */

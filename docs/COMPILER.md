@@ -1628,8 +1628,9 @@ same verdicts, `ValueClasses` limits the destructors a `free` or owned-element
 destruction may run to the classes its value may be (D284). It is a closed-world,
 object-sensitive value flow: objects are allocation sites qualified by the object
 their allocating body ran on, bodies are analyzed per object in their first
-parameter, and a destructor is checked per object of its class (D285). It runs only
-when a context-free summary flags a destructor or constructor.
+parameter, and a constructor or destructor is checked per object of its class it
+runs on, in the effect summaries and in `ReceiverPublicationAnalysis` alike (D285,
+D286). It runs only when a context-free summary flags a destructor or constructor.
 
 Within one effect analysis, instruction targets are cached against its fixed IR
 and class snapshot. Virtual/interface implementations, initializer prerequisites,

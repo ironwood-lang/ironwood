@@ -713,6 +713,9 @@ A constructor may not publish in-progress `this`. Each constructor is checked
 for building an exact instance of its own class: calls on that object dispatch
 on the class, so an override that publishes is reported at the subclass whose
 construction runs it, not at the superclass constructors that call it (D282).
+When the program builds objects of the class with that constructor, each one is
+checked with the objects it receives, so an argument class that would publish but
+is never passed implicates no constructor (D286).
 Passing that receiver or a
 proved alias to another constructor requires the argument to remain confined:
 retention in a helper is permitted only through a private encapsulated field.
@@ -924,7 +927,9 @@ destruction inside such code runs the destructors of the classes its value may b
 as closed-world value flow proves them, so a misbehaving class is reported only
 where its objects can be released (D284). A destructor is checked for each object
 of its class that the program allocates, with that object's own fields and arrays,
-so one pool holding such a class does not implicate other pools (D285). Resurrection
+so one pool holding such a class does not implicate other pools (D285).
+Publication and resurrection are judged per object the same way, through the
+receiver-field analysis too (D286). Resurrection
 includes publishing a field that may hold the dying object or a holder of it,
 and publishing a caught exception that may be `this`. A caught exception
 is permitted when every path handles it locally. If an exception nevertheless

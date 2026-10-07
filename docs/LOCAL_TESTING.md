@@ -342,6 +342,18 @@ released. The third checks per-object precision (D285): boxes built only with th
 base part, and a holder of a pool with a quiet builder, stay unreported beside a
 loud box and a holder of a pool of the misbehaving class.
 
+For per-object publication verdicts (D286), run:
+
+```sh
+./scripts/test.sh --test 'publication follows the objects a constructor or destructor receives' \
+  --test 'constructors that build no object keep their exact-class publication verdict'
+```
+
+The first reports a constructor or destructor that hands `this` to a storing
+implementation only when such an implementation is passed in; the second keeps
+the exact-class verdict for an unused constructor and for a base constructor that
+only subclasses run.
+
 For the diagnostic baseline of duplicated cleanup, run:
 
 ```sh

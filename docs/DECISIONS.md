@@ -11116,3 +11116,33 @@ occurrence order. If no
   their reports. Correct programs compile as fast as before D284, a program with a
   destructor error about 6 percent slower than with D284, and the standard library
   builds with `--unfreed=error` without diagnostics.
+
+## D286 - Judge construction and destruction publication per object
+
+- **Status:** Accepted and implemented. Extends D285's per-object verdicts to
+  publication of an object under construction or destruction.
+- **Context:** D285 judged destructor allocation and escaping exceptions per object,
+  but publication still had class-wide parts: the constructor verdict summarized
+  each constructor for any exact instance of its class (D282), and the receiver-field
+  analysis judged constructors and destructors the same way for both. A call on an
+  argument or field then reached every implementation in the program, so a
+  constructor `Wrapper(Sink sink) { sink.accept(this); }` was rejected because some
+  `Sink` stores its argument, although only quiet sinks were ever passed; a
+  destructor calling `listener.closed(this)` was rejected the same way.
+- **Decision:** A flagged constructor or destructor is judged for each object of its
+  class that it runs on, in that object's value-flow context, in the effect summaries
+  and in the receiver-field analysis: every call, free and element destruction takes
+  the bodies value flow recorded for that object, solved in their own contexts. A
+  constructor that builds no object of its class in the analyzed program, such as an
+  unused one or a base constructor only subclasses run, keeps the exact-class verdict.
+- **Analysis:** Value flow follows every object that reaches a constructor or
+  destructor through calls, fields and arrays, and unknown values keep every
+  implementation, so a publishing implementation that can be passed in is still
+  reported. Publication through a subclass override stays attributed to the subclass
+  (D282, D283). No proof, lowering or runtime behavior changes.
+- **Verification:** The constructor given only quiet sinks and the destructor holding
+  only quiet listeners are no longer reported for publication; given a storing
+  implementation, both are. An unused publishing constructor and a base constructor
+  run only by subclasses keep their verdicts, and the D282 to D285 cases are
+  unchanged. The standard library builds with `--unfreed=error` without diagnostics,
+  and 74 examples compile identically.

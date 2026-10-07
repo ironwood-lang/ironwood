@@ -107,12 +107,14 @@ final class ClosedWorldEffectAnalyzer {
             }
             boolean mayPublish = summary.publishedParameters().get(0)
                     || receivers.publishesReceiver(function.linkageName());
+            // Context-free facts select the constructors and destructors to check; the
+            // verdict is for an exact instance of their class (D282, D283), and for each
+            // object of that class they run on when the program allocates any (D285, D286).
+            List<ValueClasses.Pair> objects = valueClasses == null ? List.of()
+                    : valueClasses.objectContexts(function.linkageName(), function.ownerClass());
             if (function.kind() == IrCallableKind.DESTRUCTOR) {
-                // Context-free facts select the destructors to check; the verdict is for
-                // destroying an exact instance of the destructor's class (D283), and for
-                // each object of that class the program allocates when there are any (D285).
                 Summary exact = summary.allocates() || summary.throwsOutward() || mayPublish
-                        ? destructionSummary(function) : summary;
+                        ? objectsSummary(function, objects) : summary;
                 if (exact.allocates()) {
                     diagnostics.add(Diagnostic.error(owner.source(), function.sourceSpan(),
                             "destructor may allocate; destructor cleanup must be allocation-free"));
@@ -122,13 +124,13 @@ final class ClosedWorldEffectAnalyzer {
                             "an exception may escape this destructor"));
                 }
                 if (mayPublish && (exact.publishedParameters().get(0)
-                        || receivers.objectPublishes(function))) {
+                        || receiverPublished(receivers, function, objects))) {
                     diagnostics.add(Diagnostic.error(owner.source(), function.sourceSpan(),
                             "destructor may publish or resurrect 'this'"));
                 }
             } else if (function.kind() == IrCallableKind.CONSTRUCTOR && mayPublish
-                    && (objectSummary(function).publishedParameters().get(0)
-                    || receivers.objectPublishes(function))) {
+                    && (objectsSummary(function, objects).publishedParameters().get(0)
+                    || receiverPublished(receivers, function, objects))) {
                 diagnostics.add(Diagnostic.error(owner.source(), function.sourceSpan(),
                         "constructor may publish in-progress 'this' before construction completes"));
             }
@@ -166,18 +168,14 @@ final class ClosedWorldEffectAnalyzer {
     }
 
     /**
-     * Destroying an exact instance of a destructor's class: for each object of the class
-     * that the program allocates, as value flow sees that object's fields and arrays,
-     * otherwise for any instance (D283, D285).
+     * A constructor or destructor for the objects of its class it runs on, each in its
+     * value-flow context with that object's fields and arrays (D285, D286); without such
+     * objects, for any exact instance of the class (D282, D283).
      */
-    private Summary destructionSummary(IrFunction destructor) {
-        List<String> objects = valueClasses == null ? List.of()
-                : valueClasses.objectsOf(destructor.ownerClass());
-        if (objects.isEmpty()) return objectSummary(destructor);
+    private Summary objectsSummary(IrFunction root, List<ValueClasses.Pair> objects) {
+        if (objects.isEmpty()) return objectSummary(root);
         Map<ValueClasses.Pair, Summary> values = new LinkedHashMap<>();
-        List<ValueClasses.Pair> roots = objects.stream()
-                .map(object -> new ValueClasses.Pair(destructor.linkageName(), object)).toList();
-        roots.forEach(root -> values.put(root, Summary.empty()));
+        objects.forEach(pair -> values.put(pair, Summary.empty()));
         boolean changed;
         do {
             changed = false;
@@ -193,13 +191,20 @@ final class ClosedWorldEffectAnalyzer {
         boolean allocates = false;
         boolean throwsOutward = false;
         BitSet published = new BitSet();
-        for (ValueClasses.Pair root : roots) {
-            Summary summary = values.get(root);
+        for (ValueClasses.Pair pair : objects) {
+            Summary summary = values.get(pair);
             allocates |= summary.allocates();
             throwsOutward |= summary.throwsOutward();
             published.or(summary.publishedParameters());
         }
         return new Summary(allocates, throwsOutward, published, new BitSet(), new BitSet());
+    }
+
+    /** The receiver-field publication verdict, per object when there are any. */
+    private boolean receiverPublished(ReceiverPublicationAnalysis receivers, IrFunction function,
+                                      List<ValueClasses.Pair> objects) {
+        return objects.isEmpty() ? receivers.objectPublishes(function)
+                : receivers.objectPublishes(valueClasses, objects);
     }
 
     /**
