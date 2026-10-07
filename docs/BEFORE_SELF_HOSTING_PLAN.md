@@ -85,7 +85,7 @@ roadmap schedules them without replacing their detailed exit criteria.
 | [M3](#m3-semantic-and-backend-preparation) | Complete core B1/B2/B7 helpers and early B5 digests | M2 for broad port work; reuse M1 outputs | Staged readiness for S2, S3 with ByteView SHA-256, and S4 with MD5/native-link policy | Complete: [M3.1 handoff](self-hosting/m3/HANDOFF_M3.1.md) ready for S2, [M3.2 handoff](self-hosting/m3/HANDOFF_M3.2.md) ready for S3 and ByteView, [M3.3 handoff](self-hosting/m3/HANDOFF_M3.3.md) ready for the source-only S4 exit ([pre-change review](self-hosting/m3/PRE_CHANGE.md)) |
 | [M4](#m4-native-filesystem-and-process-services) | Deliver B3 filesystem and B4 process services | M2; audited helper dependencies | Filesystem checkpoint first, native process/driver checkpoint second | Complete: [M4.1/M4.2 handoff](self-hosting/m4/HANDOFF_M4.1-M4.2.md) ready for M5 publication, [M4.3 handoff](self-hosting/m4/HANDOFF_M4.3.md) ready for the optional native-driver route, both on macOS arm64, Linux x86-64 and Linux arm64 ([Linux arm64 run](self-hosting/m4/arm64-evidence/manifest.json), [pre-change review](self-hosting/m4/PRE_CHANGE.md)) |
 | [M5](#m5-artifacts-and-command-line-helpers) | Deliver public CRC32, B6 archives, and S6 B7 helpers | M2; required M3 helpers; M4 filesystem checkpoint for publication | Artifact and documentation/CLI prerequisites ready for S6 | Complete: [M5 handoff](self-hosting/m5/HANDOFF_M5.md) ready for S6 on macOS arm64, Linux x86-64 and Linux arm64: public [CRC32](self-hosting/m5/CRC32.md) (D274), the [archive contract](self-hosting/m5/ARCHIVES.md), [codec and writer profiles](self-hosting/m5/CODEC.md) (D275), [artifact services](self-hosting/m5/ARTIFACTS.md) (D276) and [documentation helpers](self-hosting/m5/DOC.md) (D277) ([pre-change review](self-hosting/m5/PRE_CHANGE.md)) |
-| [M6](#m6-bridge-preparation-and-final-handoff) | Qualify remaining Bridge consumers of B3-B7 | Required M3 helpers, M4 process checkpoint, and M5 artifact facilities | Preparation evidence and remaining S7/S8 integration obligations handed off | In progress: M6.1 complete ([record](self-hosting/m6/CONTRACTS.md), D291-D293); M6.2 complete ([record](self-hosting/m6/JAR.md), D294, D295); M6.3 complete ([record](self-hosting/m6/CLOSURE.md)); the checkpoint next; [pre-change review](self-hosting/m6/PRE_CHANGE.md) |
+| [M6](#m6-bridge-preparation-and-final-handoff) | Qualify remaining Bridge consumers of B3-B7 | Required M3 helpers, M4 process checkpoint, and M5 artifact facilities | Preparation evidence and remaining S7/S8 integration obligations handed off | Complete: [M6 handoff](self-hosting/m6/HANDOFF_M6.md) on macOS arm64, Linux x86-64 and Linux arm64 closes preparation: [Bridge contracts](self-hosting/m6/CONTRACTS.md) (D291-D293), [Bridge JARs and JDK selection](self-hosting/m6/JAR.md) (D294, D295) and [the inventory reconciliation](self-hosting/m6/CLOSURE.md) ([pre-change review](self-hosting/m6/PRE_CHANGE.md)) |
 
 ### Dependency and scheduling rules
 
@@ -692,6 +692,14 @@ any deferred item states its reason, first affected stage, and blocking effect.
 No prerequisite of a claimed stage can be deferred while that stage is marked
 ready. The native bootstrap and production cutover still require the separate
 S5-S8 exits in `SELF_HOSTING_PLAN.md`.
+Complete: [the M6 handoff](self-hosting/m6/HANDOFF_M6.md) records one run on
+macOS arm64, Linux x86-64 and Linux arm64, an evidence record for every
+phase from M0.1 to M6.3, and an owner with its reason, first affected stage
+and blocking effect for each of the 85,614 M0 inventory items; no
+prerequisite of a ready stage is deferred. Before-self-hosting preparation is
+closed. S2-S8 have not started; S7 owns the native producer-identity design
+and the IDE transition, and S8 the platform qualification and the cutover
+decision.
 
 ## 2. Source findings that drive the plan
 

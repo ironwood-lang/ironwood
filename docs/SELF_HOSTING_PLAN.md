@@ -6,11 +6,14 @@ Assessment date: 2026-10-03. Source baseline:
 `37e2dda14a1de7088bd0a079492a6fbec6c156a7` (`0.6.1-beta`).
 The [preparation plan](BEFORE_SELF_HOSTING_PLAN.md) shares this source baseline.
 
-Status: proposed engineering plan based on a source audit. No compiler has been
-ported or bootstrapped by this work. The milestones below are pending, not
-implementation authorization or evidence of completed qualification. D008's
-Java bootstrap policy remains in effect; accepting a production cutover requires
-an explicit decision superseding the relevant part of D008.
+Status: proposed engineering plan based on a source audit. S0 and S1 passed
+through the preparation plan's M0 checkpoint and G1, whose pilot ported the
+lexer, parser and a bounded ownership slice; the preparation milestones M0-M6
+are complete ([final handoff](self-hosting/m6/HANDOFF_M6.md)). No compiler has
+been bootstrapped. S2-S8 are pending, not implementation authorization or
+evidence of completed qualification. D008's Java bootstrap policy remains in
+effect; accepting a production cutover requires an explicit decision
+superseding the relevant part of D008.
 
 ## 1. Recommendation and readiness
 

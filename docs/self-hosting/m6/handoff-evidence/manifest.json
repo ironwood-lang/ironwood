@@ -1,0 +1,344 @@
+{
+ "schema_version": 1,
+ "increment": "M6 checkpoint: Bridge preparation qualified and every M0 inventory item reconciled; before-self-hosting preparation closed",
+ "commit": "8dcf94410db0ddb39be944aaa493978fda9e9fce",
+ "host": "macOS 27.0.1 arm64 (this machine), with 13 further JDKs for the selection test; Linux x86-64 estonia (kernel 4.15, glibc 2.27, JDK 21.0.1, LLVM 23.1.0), with 10 further JDKs; Linux arm64 miami (Ubuntu 22.04 guest, kernel 5.15, glibc 2.35, Temurin 21.0.12.1, LLVM 23.1.0)",
+ "java": "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home",
+ "llvm": "/opt/homebrew/opt/llvm@23",
+ "reproduce": "docs/self-hosting/m6/handoff-evidence/run-evidence.sh 8dcf9441",
+ "status": [
+  "linux-x86_64-ship exit=0",
+  "linux-x86_64-launch exit=0",
+  "linux-arm64-ship exit=0",
+  "linux-arm64-launch exit=0",
+  "build exit=0",
+  "javac exit=0",
+  "tests exit=0",
+  "reconcile exit=0",
+  "reconcile-controls exit=0",
+  "port-compile exit=0",
+  "port-diagnostics exit=0",
+  "diff-check exit=0",
+  "licenses exit=0",
+  "linux-x86_64: linux-tests exit=0",
+  "linux-x86_64-cleanup exit=0",
+  "linux-arm64: linux-tests exit=0",
+  "linux-arm64-cleanup exit=0"
+ ],
+ "sources": [
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/port/BridgeExports.iron",
+   "sha256": "74cc99451bc7990f962b645302276a67e757a1512eb6f5c05a1d662a1536b59d"
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/port/BridgeIdentity.iron",
+   "sha256": "14d58cb8639498f60ba0e3cd2d9b71000f0219db3c095149601e67cf16252d00"
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/port/BridgeJar.iron",
+   "sha256": "b78fe7234245d28159eef603d13efd7f36e23b886735d71f5a9483add5aef566"
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/port/BridgePatterns.iron",
+   "sha256": "e2cf9a870ffea815277c520bad4c520a519041e1aa0c2dad0518ae295bb4a254"
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/port/BridgeProperties.iron",
+   "sha256": "50b44dc7e0cdf8a49ad7035d704f9fc47c89ca37db53ca56e20c76be00083599"
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/port/BridgeText.iron",
+   "sha256": "db282dfdfe6a7b80c8aa5362e241fdc7e02332865b2fa8cb9d937354c46be1e1"
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/port/JarManifest.iron",
+   "sha256": "84e9a3817431fd6c29971af9c1d31a6c02222fa5fb120a029827acab37383514"
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/port/JarStreams.iron",
+   "sha256": "a0f1400cf2d1e7af5e83f8a60b983e004cbd1221793170a4145ad7e087dacbdc"
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/port/JavaIdentifiers.iron",
+   "sha256": "5b28d1ecd3b93cbc60891299507034c2eefa9928abb7648537a89f39e0252b6a"
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/port/JavaNames.iron",
+   "sha256": "1c0ea5a5efda13bc131bc930953dc70fa72ca15a3650f4516860f5372fec6beb"
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/port/JdkSelection.iron",
+   "sha256": "647a481f6527cfc9a6875ca67028a1f2c0393b9e525dcc9c96b0ab2e532a9f59"
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/port/ReadelfScan.iron",
+   "sha256": "f2db4d9c1ce30552e3557f2306ccea721d03175510c7b9e240ed3f284e50a2a4"
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/port/SourceFiles.iron",
+   "sha256": "18f7c1e9df9c94d57bd88d89edbb2994db7ec87f346df657819d5e9f7fe6faf0"
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/port/TextMap.iron",
+   "sha256": "9ba4c0af26ce9c79e6e22e0eb0eea1bd9fc9e7a8e4e98ddc6097dc05b3b9a5f2"
+  },
+  {
+   "path": "compiler/src/test/java/ironwood/compiler/BridgeHelperTests.java",
+   "sha256": "e14ed4486052819c8d7c55b7fc90886877e3851b3e1de4edd78c3b99b329a8d9"
+  },
+  {
+   "path": "compiler/src/test/java/ironwood/compiler/BridgeJarTests.java",
+   "sha256": "90b185b2eac341cbce7a0533ace44aa12e7fa362785b882331ce03461aa0b92f"
+  },
+  {
+   "path": "compiler/src/test/java/ironwood/compiler/BridgeJdkTests.java",
+   "sha256": "5a5b3221b7557a4c403d2194c10a96d2249b009cc6ca7226cb684b923336c8f0"
+  },
+  {
+   "path": "compiler/src/test/java/ironwood/compiler/CompilerTests.java",
+   "sha256": "eed1a9fe4e422e9eeb749d1b246da28a40f03e0b49a22e25c334265acf119cae"
+  },
+  {
+   "path": "compiler/src/test/java/ironwood/compiler/PortFixtures.java",
+   "sha256": "0c4169c4212d6a7ba13c083f31103d93022d52aeb9b482070af8d260f636795c"
+  },
+  {
+   "path": "integration-tests/cases/compiler_bridge_helpers_failure.iron",
+   "sha256": "37bc930ae0e5ac75ec2a9939d389535814d694c764e0abaf477fcf413a8a5909"
+  },
+  {
+   "path": "integration-tests/cases/compiler_bridge_inventories.iron",
+   "sha256": "21a0657b3b2f0980d384f404952d750355f96c6cf5719a1314a84b89e77f69c9"
+  },
+  {
+   "path": "integration-tests/cases/compiler_bridge_jar.iron",
+   "sha256": "7979324702d9913b032c5e0f30bfd429015b369ae88d7b422df7c06dc3a37bfa"
+  },
+  {
+   "path": "integration-tests/cases/compiler_bridge_jdk_failure.iron",
+   "sha256": "6a4661d4f2a70a672762766703c80c7fc97bee61576130f3c13cddca2151f5c1"
+  },
+  {
+   "path": "integration-tests/cases/compiler_bridge_jdk_selection.iron",
+   "sha256": "bc557aafcc664424e3d7bedf33bbf0de8930bbd1102b321c7e76de5cae983578"
+  },
+  {
+   "path": "integration-tests/cases/compiler_bridge_jdk_tools.iron",
+   "sha256": "4ae2f5b000520ff4051aa261dc49f45ec373efd4f4b77969a20716be2be4c7ef"
+  },
+  {
+   "path": "integration-tests/cases/compiler_bridge_text.iron",
+   "sha256": "0629aee9bca645838ce535f6ded1ee78fc332de5a496128dda3222082d81a352"
+  },
+  {
+   "path": "integration-tests/cases/compiler_bridge_values.iron",
+   "sha256": "5685399542f87b16b0fca0373c05a61ba01ca80a41f78f41f5365c775db87a77"
+  },
+  {
+   "path": "integration-tests/cases/compiler_bridge_walks.iron",
+   "sha256": "6f919ee95852fa9528210f6016ac8155ccc04f6e3e65b9aefac45bdb5702016f"
+  },
+  {
+   "path": "integration-tests/cases/compiler_bridge_walks_failure.iron",
+   "sha256": "d4351541ff7287500e67749f0a328a89170b05fa32e1d6f1f1d6147292c6a690"
+  },
+  {
+   "path": "integration-tests/cases/compiler_java_names.iron",
+   "sha256": "2d091a9fd71072923b1b4da6d52376033df0372c31d4a95c6ebe40f03219b584"
+  },
+  {
+   "path": "scripts/jdk.sh",
+   "sha256": "8b5309f2e30034470eb6873b5dc7979d27e504d45699a7bc024a146a808dafe5"
+  },
+  {
+   "path": "docs/self-hosting/m3/classify.py",
+   "sha256": "d293db57f3ad529fb48c67293480d5ce7041a44137b7d8fdea9770b65f84b96e"
+  },
+  {
+   "path": "docs/self-hosting/m5/doc-evidence/JavaIdentifierTable.java",
+   "sha256": "e891bb13485ce8d438b7008ccb237e8ca58a5013da92de5a5e365583f97aee33"
+  },
+  {
+   "path": "docs/self-hosting/m6/CLASSIFICATION_M6.1.md",
+   "sha256": "fcbfd61bfac77bd78a8f69c5a2be37e54be2305c9a0482803d106b838cb450ca"
+  },
+  {
+   "path": "docs/self-hosting/m6/RECONCILIATION.md",
+   "sha256": "022b2f79c186a3a6a618e6dc73940c39af466782414685ac4ed1f64bd6351430"
+  },
+  {
+   "path": "docs/self-hosting/m6/reconciliation.json.gz",
+   "sha256": "d9c2c98a9812c1bc27779814eec840918378d35d9fba4d0a95274d22a8d5c3d0"
+  },
+  {
+   "path": "docs/self-hosting/m6/reconcile.py",
+   "sha256": "4acb93d744ef9b0ddbf0ef51c52b7b16e93abeedb21b7ab8b7d3553b1c893f9d"
+  },
+  {
+   "path": "docs/self-hosting/m6/reconcile-controls.sh",
+   "sha256": "69a57edbecc887645b11e201d71cbeb5a46068818a7dde44be18dcb2073ae7a4"
+  },
+  {
+   "path": "docs/self-hosting/m6/names-evidence/JavaNamesReference.java",
+   "sha256": "df36b72f3bcc2ec74f4c580283fd10d330a9e6d4487de7871beac898421c6dda"
+  },
+  {
+   "path": "docs/self-hosting/m6/inventory-evidence/InventoryReference.java",
+   "sha256": "e982ca2c06c542f962793e2f41a77b30fb98e00cf82dc529a2303054918415b0"
+  },
+  {
+   "path": "docs/self-hosting/m6/text-evidence/BridgeTextReference.java",
+   "sha256": "eb7c0fdf8df603deea10e0078f10e57e2c271606e0d180bf742390de98c8432e"
+  },
+  {
+   "path": "docs/self-hosting/m6/handoff-evidence/linux-evidence.sh",
+   "sha256": "7063241b51cce3d2fa1e2536be263bfc447a10597a8f48b59ae481050f068d88"
+  },
+  {
+   "path": "docs/self-hosting/m6/handoff-evidence/m6-tests.txt",
+   "sha256": "e35d89a4f29c7e933c4cd0c76f0aea3c4815c598800b73a55092acd6e70c8998"
+  },
+  {
+   "path": "docs/self-hosting/m6/handoff-evidence/run-evidence.sh",
+   "sha256": "160b8e787c07bb23298818b1ba2257df7bd8987a02489eef39f6e5c5225da55d"
+  }
+ ],
+ "logs": [
+  {
+   "log": "commit.txt",
+   "retained": "docs/self-hosting/m6/handoff-evidence/logs/commit.txt.gz",
+   "sha256": "dfe3553c3d56baad58c4229257deb5295915911c715249f3ccb65656bdc0e519",
+   "gzip_sha256": "bb824952b09dfcf144062eb6f3ed22c2447a3decad74bab9e988a98e247f151e"
+  },
+  {
+   "log": "status.txt",
+   "retained": "docs/self-hosting/m6/handoff-evidence/logs/status.txt.gz",
+   "sha256": "249e9dbb6b481791e7e36ae406a3df5ea173012baa5ae7df2aabcbcf555bbe2a",
+   "gzip_sha256": "e894837d82296bdaf2c4296b944928bd24d2b6fbca7dda4fffe403f9add30d70"
+  },
+  {
+   "log": "host.txt",
+   "retained": "docs/self-hosting/m6/handoff-evidence/logs/host.txt.gz",
+   "sha256": "75279c671916a6c3ea241c8b35c71d78872d733a00d6a0f296a9559f55126b31",
+   "gzip_sha256": "79af5e0f934eeaa436cf23df8820e10a502dc00f9e214e1f5ea33f9b7712a5da"
+  },
+  {
+   "log": "load.txt",
+   "retained": "docs/self-hosting/m6/handoff-evidence/logs/load.txt.gz",
+   "sha256": "5ca46be4b08c04855f8116c8fa1e6eb46ceee690cad3cbbb87b8211976ae56a2",
+   "gzip_sha256": "66decd01965869411a7be01a0a3a44e4d7c58a3d4daa150e315be950e13901a4"
+  },
+  {
+   "log": "build.log",
+   "retained": "docs/self-hosting/m6/handoff-evidence/logs/build.log.gz",
+   "sha256": "1e5f717ea7ed7fddb7ee6c3d52c2d612cdff327a39c87b56cafe550116d491fa",
+   "gzip_sha256": "1563f8536cb7836c527254026835562d76872193c34f685483026ee9666755fe"
+  },
+  {
+   "log": "build-identity.txt",
+   "retained": "docs/self-hosting/m6/handoff-evidence/logs/build-identity.txt.gz",
+   "sha256": "6b1b0400ea0f5cb9e31ba4b1e49fc991896d665a42ecef3dda4aae1021fb9814",
+   "gzip_sha256": "cd4546ac2dbee0fbe97f7df20d02cb77fd8d0b2e256f523b7e3fdd5954ca0e5b"
+  },
+  {
+   "log": "javac.log",
+   "retained": "docs/self-hosting/m6/handoff-evidence/logs/javac.log.gz",
+   "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "gzip_sha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64"
+  },
+  {
+   "log": "tests.log",
+   "retained": "docs/self-hosting/m6/handoff-evidence/logs/tests.log.gz",
+   "sha256": "6ad0affe4e23870610c5c1edcda953ba74bc28d7c5f002ec199b6dee16c81d7a",
+   "gzip_sha256": "450313ff2272b586f79f169958ecb54ad604bc92898fb7cfa2ada7591ee3e3e3"
+  },
+  {
+   "log": "reconcile.log",
+   "retained": "docs/self-hosting/m6/handoff-evidence/logs/reconcile.log.gz",
+   "sha256": "b5e9993054bd19edb355f4687c3f2a6884213b58de65a22583c7999385e17db7",
+   "gzip_sha256": "1999721e100ad53ea493f3c8260d660daa15e9ec57740839464f75c75c48c780"
+  },
+  {
+   "log": "reconcile-controls.log",
+   "retained": "docs/self-hosting/m6/handoff-evidence/logs/reconcile-controls.log.gz",
+   "sha256": "4abee66f9abc9ab1a43aea5aa5e5e0e57d0f1c7a3313e72c0a0d90b3d15cb378",
+   "gzip_sha256": "7c02ea366829a58135a235de30f7659859bdaeb743352fb2b78753aa6c991655"
+  },
+  {
+   "log": "port-sources.txt",
+   "retained": "docs/self-hosting/m6/handoff-evidence/logs/port-sources.txt.gz",
+   "sha256": "39fd0ee6311f56ced92013606ad37e9a875bf209f1c75d36a1390f5947d112a2",
+   "gzip_sha256": "fdf867ef7851e3c2797634d811b318ac7587642fdffc6185871478a58b071dc4"
+  },
+  {
+   "log": "port-compile.log",
+   "retained": "docs/self-hosting/m6/handoff-evidence/logs/port-compile.log.gz",
+   "sha256": "4f4738f93b8d28f62778ff86d8c1bc73c14b11da73cfd284f653252e2cf4ba87",
+   "gzip_sha256": "eed6e5aa21d9b3f377ab3a3028e4625c2a8285422a4142c9d99729ab15314028"
+  },
+  {
+   "log": "port-diagnostics.txt",
+   "retained": "docs/self-hosting/m6/handoff-evidence/logs/port-diagnostics.txt.gz",
+   "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+   "gzip_sha256": "89ed3b723e0e40d8957a2df55fcb04d57b6d95fa665c5fe67b098df7f29694ae"
+  },
+  {
+   "log": "diff-check.log",
+   "retained": "docs/self-hosting/m6/handoff-evidence/logs/diff-check.log.gz",
+   "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "gzip_sha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64"
+  },
+  {
+   "log": "licenses.log",
+   "retained": "docs/self-hosting/m6/handoff-evidence/logs/licenses.log.gz",
+   "sha256": "baf5804aeb26498337c9c5223c199afeba5c3e2fc36ae219b9bf420e3775f673",
+   "gzip_sha256": "21fd3bcaf61e87e10822dd63176f2751a3282de06861c556f8ea5cb4d913c689"
+  },
+  {
+   "log": "linux-x86_64-status.txt",
+   "retained": "docs/self-hosting/m6/handoff-evidence/logs/linux-x86_64-status.txt.gz",
+   "sha256": "a42da6289ec655a0f67ec836a4ac839978d4e4abeb9b52ec6b5a6e75cdd26b3d",
+   "gzip_sha256": "7c70b39c0465b50169324b8c31ce75c2e5fc008b8832c50f934d04313e7788b3"
+  },
+  {
+   "log": "linux-x86_64-host.txt",
+   "retained": "docs/self-hosting/m6/handoff-evidence/logs/linux-x86_64-host.txt.gz",
+   "sha256": "1340ce8ca10f6b0f38b4c62dbc26768e98380600d8d9b6717b0a1db2747dfc4d",
+   "gzip_sha256": "3fe215d58b85f0c64d8db19a02e8fdf54c9f61475e608ab97cf2124a176a2f92"
+  },
+  {
+   "log": "linux-x86_64-tests.log",
+   "retained": "docs/self-hosting/m6/handoff-evidence/logs/linux-x86_64-tests.log.gz",
+   "sha256": "79aafcf96f299fd1a4a58b6e3616d427e1d3c5a86c39461bc361905f670b887a",
+   "gzip_sha256": "cafa44d7a1a0be85ee48897c95bb06cd9733d3860a8946f5896bfd578b3e710f"
+  },
+  {
+   "log": "linux-arm64-status.txt",
+   "retained": "docs/self-hosting/m6/handoff-evidence/logs/linux-arm64-status.txt.gz",
+   "sha256": "a42da6289ec655a0f67ec836a4ac839978d4e4abeb9b52ec6b5a6e75cdd26b3d",
+   "gzip_sha256": "7c70b39c0465b50169324b8c31ce75c2e5fc008b8832c50f934d04313e7788b3"
+  },
+  {
+   "log": "linux-arm64-host.txt",
+   "retained": "docs/self-hosting/m6/handoff-evidence/logs/linux-arm64-host.txt.gz",
+   "sha256": "8ab54b73845c010bca4961cf0763b26ef68eda049bb79a1d63372bb01f0b1acb",
+   "gzip_sha256": "bec720382546d44fb79a5cb54b1b1c76453e28f98d534dacce4bb3bf88e61af9"
+  },
+  {
+   "log": "linux-arm64-tests.log",
+   "retained": "docs/self-hosting/m6/handoff-evidence/logs/linux-arm64-tests.log.gz",
+   "sha256": "64164106b0f761679306e43dffb7cbd8227557a2480bbaa92df88a8a66d41996",
+   "gzip_sha256": "a5f3054347479db4ce1b83ef9ad653329d72b450c8719df933841455967b263b"
+  }
+ ],
+ "macos_tests": 26,
+ "linux_x86_64_tests": 20,
+ "linux_arm64_tests": 20,
+ "inventory_items": 85614,
+ "m6_1_patterns": 387,
+ "m6_1_calls": 8242,
+ "port_sources": 200,
+ "port_diagnostics": 0,
+ "macos_extra_jdks": 13,
+ "linux_x86_64_extra_jdks": 10
+}
