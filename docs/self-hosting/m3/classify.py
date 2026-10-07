@@ -535,7 +535,8 @@ M6_RULES = [
                                               " length) and ZipStream over the values companion (D276, D292)")),
     ("java.io.ByteArrayOutputStream", r".", d("JarManifest.write returns the manifest bytes (D292)", "JarManifest.iron")),
     ("java.io.File", r"^separatorChar$", b(SEPARATOR)),
-    ("java.io.FilterOutputStream", r"^write\(", d("ZipWriter.add writes each STORED entry (D275)", "ZipWriter.iron")),
+    ("java.io.FilterOutputStream", r"^write\(", d("ZipWriter.add writes each STORED entry for BridgeJar (D275, D294)",
+                                                  "ZipWriter.iron", "BridgeJar.iron")),
     ("java.io.IOException", r"^IOException\(java.lang.String,java.lang.Throwable\)$",
      a("io/IOException.iron", r"public IOException\(String message, Throwable cause\)")
      + ("the interrupted-tool and producer-identity causes disappear with their callers' Java mechanisms",)),
@@ -601,18 +602,21 @@ M6_RULES = [
     ("java.nio.file.Files", r"^delete\(", d("TreeDeletion's post-order staging cleanup (D270)", "TreeDeletion.iron")),
     ("java.nio.file.Files", r"^deleteIfExists\(", d("Files.deleteIfExists removes the stage on every exit (D270)",
                                                     "stdlib:nio/file/Files.iron")),
-    ("java.nio.file.Files", r"^(exists|isRegularFile)\(", b("B: Files.exists and isRegularFile; with NOFOLLOW_LINKS the final"
-                                                            " component is read through Files.readAttributesNoFollow (D270)")),
+    ("java.nio.file.Files", r"^(exists|isRegularFile)\(", b("B: Files.exists and isRegularFile; with NOFOLLOW_LINKS,"
+                                                            " Files.isSymbolicLink adds the final link: exists becomes"
+                                                            " isSymbolicLink or exists, isRegularFile not isSymbolicLink and"
+                                                            " isRegularFile, as BridgeJar checks its destination (D294)")),
     ("java.nio.file.Files", r"^isReadable\(", a("nio/file/Files.iron", r"public static boolean isReadable\(Path path\)")),
     ("java.nio.file.Files", r"^list\(", d("FileCollector at depth one, in Path order (D276, D277, D293)", "FileCollector.iron")),
     ("java.nio.file.Files", r"^move\(", d("moveAtomicReplacing publishes a verified Bridge jar; moveAtomicNoReplace publishes a new"
                                           " distribution directory (D271)", "stdlib:nio/file/Files.iron")),
-    ("java.nio.file.Files", r"^newOutputStream\(", b("B: ZipWriter.finish assembles the staged jar and Files.write stores it (D275)")),
+    ("java.nio.file.Files", r"^newOutputStream\(", d("BridgeJar stages the jar ZipWriter.finish assembles with Files.write"
+                                                     " (D275, D294)", "BridgeJar.iron")),
     ("java.nio.file.Files", r"^readAllBytes\(", a("nio/file/Files.iron", r"public static byte\[\] readAllBytes\(Path path\)")),
     ("java.nio.file.Files", r"^walk\(", d("SourceFiles and FileCollector for inventories, TreeDeletion for cleanups (D270, D276,"
                                           " D293)", "SourceFiles.iron", "FileCollector.iron", "TreeDeletion.iron")),
     ("java.nio.file.Files", r"^write\(", a("nio/file/Files.iron", r"public static Path write\(Path path, byte\[\] bytes\)")),
-    ("java.nio.file.LinkOption", r".", b("B: Files.readAttributesNoFollow reads the final component (D270)")),
+    ("java.nio.file.LinkOption", r".", b("B: Files.isSymbolicLink tests the final component without following it (D294)")),
     ("java.nio.file.Path", r"^getFileName\(\)$", a("nio/file/Path.iron", r"Path getFileName\(\);")),
     ("java.nio.file.Path", r"^of\(java.net.URI\)$", b(PRODUCER)),
     ("java.nio.file.Path", r"^relativize\(", d("FileCollector.relative and SourceFiles.relative (D276, D293)", "FileCollector.iron",
@@ -620,8 +624,8 @@ M6_RULES = [
     ("java.nio.file.Path", r"^toFile\(\)$", b("B: runToFile takes Paths (D272) and ZipArchive reads bytes from Files.readAllBytes"
                                               " (D276)")),
     ("java.nio.file.Path", r"^toString\(\)$", a("nio/file/Path.iron", r"String toString\(\);") + ("lent, as M5 recorded",)),
-    ("java.nio.file.StandardCopyOption", r".", d("Files.moveAtomicReplacing: atomic replacement without fallback (D271)",
-                                                 "stdlib:nio/file/Files.iron")),
+    ("java.nio.file.StandardCopyOption", r".", d("BridgeJar publishes with Files.moveAtomicReplacing, without fallback (D271,"
+                                                 " D294)", "stdlib:nio/file/Files.iron", "BridgeJar.iron")),
     ("java.security.CodeSource", r".", b(PRODUCER)),
     ("java.security.MessageDigest", r".", d("BridgeIdentity over Sha256 (D267, D292)", "BridgeIdentity.iron", "Sha256.iron")),
     ("java.security.ProtectionDomain", r".", b(PRODUCER)),
@@ -646,15 +650,18 @@ M6_RULES = [
                                      "BridgeProperties.iron", "TextMap.iron")),
     ("java.util.TreeMap", r".", d(TREE, "TextMap.iron", "ArchiveEntries.iron", "StringOrder.iron")),
     ("java.util.jar.Attributes", r".", d("JarManifest.putValue and getValue (D292)", "JarManifest.iron")),
-    ("java.util.jar.JarInputStream", r".", d("ZipStream reads the values companion's first entries and JarManifest parses its"
-                                             " manifest (D276, D292)", "ZipStream.iron", "JarManifest.iron")),
+    ("java.util.jar.JarInputStream", r".", d("JarStreams.manifest: the first entry, or the second after META-INF/, read by"
+                                             " ZipStream and parsed by JarManifest (D294)", "JarStreams.iron", "ZipStream.iron",
+                                             "JarManifest.iron")),
     ("java.util.jar.Manifest", r".", d("JarManifest: Manifest.write's bytes and Java's reading verdicts (D292)", "JarManifest.iron")),
     ("java.util.regex.", r".", d("ReadelfScan: the four llvm-readelf searches with Matcher.find's semantics (D293)", "ReadelfScan.iron")),
     ("java.util.zip.ZipEntry", r".", d("ZipWriter entries with Java's fixed time; ZipArchive and ZipStream names, sizes and"
                                        " directory flags (D275, D276)", "ZipWriter.iron", "ZipArchive.iron", "ZipStream.iron")),
-    ("java.util.zip.ZipFile", r".", d("ZipArchive over the staged or paired jar's bytes (D276)", "ZipArchive.iron")),
+    ("java.util.zip.ZipFile", r".", d("ZipArchive over the paired jar's bytes, and BridgeJar's read-back verification of"
+                                      " its stage (D276, D294)", "ZipArchive.iron", "BridgeJar.iron")),
     ("java.util.zip.ZipInputStream", r".", d("ZipStream (D276)", "ZipStream.iron")),
-    ("java.util.zip.ZipOutputStream", r".", d("ZipWriter: STORED entries in Java's spelling (D275)", "ZipWriter.iron")),
+    ("java.util.zip.ZipOutputStream", r".", d("BridgeJar: the manifest first, then String order, STORED in Java's spelling"
+                                              " through ZipWriter (D275, D294)", "BridgeJar.iron", "ZipWriter.iron")),
     ("javax.lang.model.SourceVersion", r".", d("JavaNames.isName for Java 21 and BridgeExports' two export loops (D291)",
                                                "JavaNames.iron", "BridgeExports.iron")),
 ]

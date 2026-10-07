@@ -1009,6 +1009,17 @@ public final class CompilerTests {
         test("M6.1 Bridge inventories walk and list as Java does", BridgeHelperTests::walks);
         test("M6.1 Bridge helpers borrow inputs and own their results", BridgeHelperTests::ownership);
         test("M6.1 Bridge helpers unwind every allocation failure", BridgeHelperTests::failures);
+        test("M6.2 native Bridge jars spell Java's STORED entries and open in Java's readers and JAR tools",
+                BridgeJarTests::javaReaders);
+        test("M6.2 Bridge jar publication keeps Java's verdicts and earlier output on failure",
+                BridgeJarTests::failures);
+        test("M6.2 Bridge jar publication keeps the earlier jar under every allocation failure",
+                BridgeJarTests::allocationFailures);
+        test("M6.2 Bridge jar contents borrow inputs and own their copies", BridgeJarTests::ownership);
+        test("M6.2 Bridge dependency manifests and distribution inventories match the Java producer",
+                BridgeJarTests::dependencyManifests);
+        test("M6.2 JDK tools run by absolute path match the in-process javac and javadoc",
+                BridgeJarTests::jdkTools);
         test("compiler work queue keeps queued items alive and its ring private", WorkQueueTests::ownership);
         test("compiler worklists preserve FIFO and retain-filter order across artifacts and failures",
                 WorkQueueTests::artifacts);

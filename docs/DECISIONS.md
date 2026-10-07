@@ -11470,3 +11470,65 @@ occurrence order. If no
   identity, listings and class walk equal Java's `Files.walk` and
   `Files.list`; the ownership pairs hold and every allocation failure unwinds.
   See [the M6.1 text and inventories record](self-hosting/m6/TEXT.md).
+
+## D294 - Write and verify Bridge JARs natively in the STORED profile
+
+- **Status:** Implemented during M6.2 on 2026-10-07. The native producer's JDK
+  selection is not part of this decision; it awaits the maintainer
+  ([JDK selection options](self-hosting/m6/JDK_SELECTION.md)).
+- **Decision:** The compiler port gains BridgeJarArchive.publish's writer
+  profile and the values companion's manifest lookup for S7; the Java seed is
+  unchanged.
+  - **BridgeJar.** Contents with `Map.put` semantics, each copied once.
+    Publishing checks every name in String order with the baseline's rule
+    (nonempty; no backslash or NUL; no empty, `.` or `..` part), requires a
+    `META-INF/MANIFEST.MF` that reads as a manifest (D292's messages pass
+    through) with main `Manifest-Version: 1.0`, and refuses a destination that
+    exists without following a final link and is not a regular file
+    (`Files.isSymbolicLink` or `exists` and not `isRegularFile`). It stages
+    `createTempFile(parent, ".ironwood-bridge-", ".jar")` with the manifest
+    first and the other entries in String order, all STORED in Java's spelling
+    with time 0 (D275), reads the stage back with `ZipArchive` and compares
+    the entry count and each entry's presence, size and bytes, then publishes
+    with `moveAtomicReplacing` (D271) and deletes the stage on every exit.
+    Comparing bytes replaces the baseline's comparison of their SHA-256
+    digests.
+  - **JarStreams.** `JarInputStream.getManifest()`: the first entry, or the
+    second after a `META-INF/` directory entry, named `META-INF/MANIFEST.MF`
+    without regard to case, read by `ZipStream`.
+  - **JDK tools.** S7's producer runs `javac` and `javadoc` by absolute path
+    through D273's `Command` and D272's `runToFile` with BridgeBuildTools'
+    flags; with the same JDK they write the in-process tools' class files,
+    pages and diagnostics.
+- **Identity effects:** STORED Bridge jars hold the Java bootstrap's entry
+  bytes, so every identity over entry contents is unchanged
+  (`content.sha256.<entry>`, `native.sha256`, the projection and distribution
+  input identities). Identities over whole jars change: the values
+  companion's `java.values.sha256`, the distribution inventory's
+  `sha256.<file>`, and the companion bytes that BridgeValuesLibrary.copy and
+  assembly compare, so a Java-built and a native-built companion are not
+  interchangeable in one output directory or one assembly. Assembly already
+  refuses mixed producers through `compiler.sha256`, which S7's producer
+  identity design replaces.
+- **Proof:** No analysis, runtime or lowering change. An element load whose
+  index was a call failed D281's field proof and is now computed into a local;
+  the allocation sweep found JarStreams leaking an entry's bytes when its name
+  check failed, now released before the failure propagates.
+- **Boundary:** No fsync or durability policy. JarStreams does not verify jar
+  signatures, which the companion never carries. A staged jar that fails to
+  parse reports the native container message. Supersedes no decision.
+- **Provenance:** Original code under the default license; Java 21's API
+  documentation and observed behavior are the references.
+- **Verification:** For four content sets (a paired artifact with a loadable
+  class, companions, a values jar and 3,000 entries), native jars list
+  Java's entries in Java's order with Java's bytes, equal Java's STORED
+  spelling byte for byte, and open in `ZipFile`, `JarFile`, `JarInputStream`,
+  a class loader, `jar tf` and `jar --describe-module`; 20 invalid names and
+  manifests and three non-regular destinations give the publisher's messages
+  and keep the earlier jar, while a lowercase `manifest-version` publishes as
+  in Java; a read-only parent keeps the earlier jar; every
+  allocation failure keeps it and leaves no stage; 144 companion and metadata
+  combinations give BridgeValuesLibrary.validate's verdicts; the distribution
+  inventory and the assembler's target order match; and `javac` and `javadoc`
+  through `runToFile` equal the in-process tools. See
+  [the M6.2 record](self-hosting/m6/JAR.md).

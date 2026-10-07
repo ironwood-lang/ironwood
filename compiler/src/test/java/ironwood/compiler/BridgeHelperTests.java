@@ -250,7 +250,8 @@ final class BridgeHelperTests {
                             PORT + "TextList.iron", PORT + "TextMap.iron", PORT + "BridgeIdentity.iron",
                             PORT + "BridgeProperties.iron", PORT + "JarManifest.iron", PORT + "Sha256.iron",
                             PORT + "Bytes.iron", PORT + "BridgeText.iron", PORT + "BridgePatterns.iron",
-                            PORT + "ReadelfScan.iron"))) {
+                            PORT + "ReadelfScan.iron", PORT + "JarStreams.iron", PORT + "ZipWriter.iron",
+                            PORT + "ZipStream.iron", PORT + "ZipArchive.iron", PORT + "Inflate.iron"))) {
                 PortFixtures.sweep(executable, List.of(), 10);
             }
             Path tree = Files.createDirectories(root.resolve("tree/src"));

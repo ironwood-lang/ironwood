@@ -5,19 +5,23 @@
 // replacement; identity, byte and content digests; pairing-manifest
 // serialization, loading and the canonical check; JAR manifest writing,
 // reading and lookup; the generators' hex floats, escapes and stripped
-// text; and the readelf scans' collected sets. Every failure unwinds to the
-// live-allocation baseline.
+// text; the readelf scans' collected sets; and a jar's manifest found as
+// JarInputStream finds it. Every failure unwinds to the live-allocation
+// baseline.
 // Exit 42 on allocation failure with every check intact, 43 on success.
 import ironwood.compiler.port.BridgeExports;
 import ironwood.compiler.port.BridgeIdentity;
 import ironwood.compiler.port.BridgePatterns;
 import ironwood.compiler.port.BridgeProperties;
 import ironwood.compiler.port.BridgeText;
+import ironwood.compiler.port.Inflate;
 import ironwood.compiler.port.JarManifest;
+import ironwood.compiler.port.JarStreams;
 import ironwood.compiler.port.JavaNames;
 import ironwood.compiler.port.ReadelfScan;
 import ironwood.compiler.port.TextList;
 import ironwood.compiler.port.TextMap;
+import ironwood.compiler.port.ZipWriter;
 import ironwood.io.IOException;
 
 class Main {
@@ -119,11 +123,32 @@ class Main {
         }
     }
 
+    static void companion() throws IOException {
+
+        byte[] manifest = "Manifest-Version: 1.0\r\nImplementation-Version: 1\r\n\r\n".getBytes();
+        defer free manifest;
+        ZipWriter writer = new ZipWriter();
+        defer free writer;
+        writer.add("META-INF/", manifest, 0, 0);
+        writer.add("META-INF/MANIFEST.MF", manifest, 0, manifest.length);
+        byte[] jar = writer.finish();
+        defer free jar;
+        Inflate inflate = new Inflate();
+        defer free inflate;
+        JarManifest found = JarStreams.manifest(jar, inflate, "values");
+        if (found == null) throw new IllegalStateException();
+        defer free found;
+        String version = found.getValue("Implementation-Version");
+        defer free version;
+        if (!version.equals("1")) throw new IllegalStateException();
+    }
+
     static void exercise() throws IOException {
 
         exports();
         inventories();
         text();
+        companion();
     }
 
     public static int main(String[] args) {
@@ -135,9 +160,20 @@ class Main {
             byte[] empty = new byte[0];
             String warm = BridgeIdentity.bytesDigest(empty, 0, 0);
             free warm;
+            ZipWriter writer = new ZipWriter();
+            writer.add("a", empty, 0, 0);
+            byte[] jar = writer.finish();
+            free writer;
+            Inflate inflate = new Inflate();
+            JarManifest none = JarStreams.manifest(jar, inflate, "warm");
+            if (none != null) throw new IllegalStateException();
+            free inflate;
+            free jar;
             free empty;
         } catch (OutOfMemoryError failure) {
             return 42;
+        } catch (IOException failure) {
+            return 4;
         }
         long baseline = System.liveAllocationCount();
         boolean failed = false;

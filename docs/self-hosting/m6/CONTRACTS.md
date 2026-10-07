@@ -33,8 +33,8 @@ the M3.2 digest-text helper at M6.1 (8,242 calls).
 | Class | Calls | Patterns | Meaning |
 | --- | --- | --- | --- |
 | A | 5,109 | 128 | existing Ironwood member, declaration verified in source |
-| B | 2,191 | 132 | recorded port convention |
-| D | 942 | 127 | delivered helper (D248-D277, D291-D293) |
+| B | 2,190 | 131 | recorded port convention |
+| D | 943 | 128 | delivered helper (D248-D277, D291-D294) |
 
 140 patterns take one of the 88 M6.1 rules, every one of which is used; the
 other 247 keep the general M3 rules, whose collection, Optional, stream,
@@ -44,7 +44,9 @@ example `String.matches` (BridgePatterns rather than HeaderScan),
 `Properties` (BridgeProperties' escapes rather than PropertiesText's subset),
 `Files.move` (`moveAtomicReplacing` and `moveAtomicNoReplace`) and
 `StringBuilder(String)` (the M5 limit). The classification regenerated the
-eight earlier tables byte for byte.
+eight earlier tables byte for byte. After M6.2, eight rows cite D294's
+BridgeJar, JarStreams and destination check, and `Files.newOutputStream`
+moved from B to D; the counts above are the regenerated table's.
 
 Three B rules name the boundaries M6.2 tracks rather than settles: the Java
 compiler's class or jar inventory, code source and VERSION text are the

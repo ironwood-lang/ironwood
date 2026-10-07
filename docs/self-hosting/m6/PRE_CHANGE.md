@@ -230,3 +230,32 @@ compile-only.
 
 Status: initial review recorded before implementation. Each increment below
 adds the review made as its phase advances.
+
+## M6.1 increment (D291-D293)
+
+No analysis rule changed. The material choices held: the start ranges were
+generated into the shared table, whose five M5.4 consumers were rerun; the
+pairing-manifest reader implements `Properties.load` in full; the manifest
+reader gives Java's verdicts for whole manifests. Three scope findings
+shaped the increment: BridgeLinuxPayload's four regular expressions over
+`llvm-readelf` output were not in the initial review and became ReadelfScan;
+a float constant's raw bits are kept by the native constant representation
+rather than a public `Float.floatToRawIntBits`, which would be a public API
+change; and an element load whose index is a call fails D281's field proof,
+so such indexes are computed into locals first. The allocation sweep found
+the first JarManifest writer allocating its result before its last line and
+leaking it when that line failed; the result is now the last allocation. The
+classification needed 88 phase-scoped rules; the eight earlier tables
+regenerate unchanged.
+
+## M6.2 increment (D294)
+
+No analysis rule changed. The destination check uses `Files.isSymbolicLink`,
+`exists` and `isRegularFile`, which need no exception for an absent
+destination, instead of `readAttributesNoFollow`. The JarInputStream rule is
+its own class so that JarManifest does not depend on the ZIP readers, and the
+sweep found it leaking an entry's bytes when a name check failed; the bytes
+are now released before the failure propagates. The native producer's JDK
+selection is the maintainer's decision: its options and evidence are recorded
+in [JDK_SELECTION.md](JDK_SELECTION.md) and M6.2 stops there. S7's producer
+identity is tracked without a synthetic compiler inventory.

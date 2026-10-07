@@ -1,0 +1,157 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// The compiler port's Bridge JAR writer profile (BridgeJar) against the Java
+// baseline's BridgeJarArchive.publish. `program <spec> <output>` reads the
+// entries a Java test wrote (one `entry <name> <content>` line per entry,
+// name as UTF-16 hex and content as two hex digits per byte, or `file
+// <name> <path>` for a content read from a file), publishes them to output
+// and prints `published` or `error ` and the IOException message as UTF-16
+// hex, which the test compares with the Java publisher's outcome. Every
+// result is freed and only a caught failure keeps its exception and, when
+// it was built, its message. Exit 43 with the outcome printed, 1 if the spec cannot be read.
+// Under an allocation limit, exit 42 means the limit stopped the run with
+// every allocation unwound; the test then checks that the earlier jar
+// survived and no stage is left.
+import ironwood.compiler.port.BridgeJar;
+import ironwood.compiler.port.Inflate;
+import ironwood.compiler.port.Splits;
+import ironwood.compiler.port.ZipArchive;
+import ironwood.compiler.port.ZipWriter;
+import ironwood.io.IOException;
+import ironwood.nio.file.Files;
+import ironwood.nio.file.Path;
+
+class Main {
+
+    static String hex(String text) {
+
+        if (text.isEmpty()) return new String("-");
+        StringBuilder out = new StringBuilder();
+        defer free out;
+        for (int index = 0; index < text.length(); index++) {
+            int unit = text.charAt(index);
+            for (int shift = 12; shift >= 0; shift = shift - 4) out.append("0123456789abcdef".charAt((unit >>> shift) & 15));
+        }
+        return out.toString();
+    }
+
+    static String decodeText(String text, int start, int end) {
+
+        if (end - start == 1 && text.charAt(start) == '-') return new String("");
+        char[] units = new char[(end - start) / 4];
+        defer free units;
+        for (int index = 0; index < units.length; index++) {
+            int value = 0;
+            for (int digit = 0; digit < 4; digit++) value = value * 16 + Character.digit(text.charAt(start + index * 4 + digit), 16);
+            units[index] = (char) value;
+        }
+        return new String(units);
+    }
+
+    static byte[] decodeBytes(String text, int start) {
+
+        if (text.length() - start == 1 && text.charAt(start) == '-') return new byte[0];
+        byte[] bytes = new byte[(text.length() - start) / 2];
+        for (int index = 0; index < bytes.length; index++) {
+            int high = Character.digit(text.charAt(start + index * 2), 16);
+            int low = Character.digit(text.charAt(start + index * 2 + 1), 16);
+            bytes[index] = (byte) (high * 16 + low);
+        }
+        return bytes;
+    }
+
+    // Adds one spec line's entry.
+    static void entry(BridgeJar jar, String line) throws IOException {
+
+        int first = line.indexOf(' ');
+        int second = line.indexOf(' ', first + 1);
+        String name = decodeText(line, first + 1, second);
+        defer free name;
+        if (line.startsWith("file ")) {
+            String spelling = line.substring(second + 1);
+            defer free spelling;
+            Path path = Path.of(spelling);
+            defer free path;
+            byte[] content = Files.readAllBytes(path);
+            defer free content;
+            jar.put(name, content, 0, content.length);
+        } else {
+            byte[] content = decodeBytes(line, second + 1);
+            defer free content;
+            jar.put(name, content, 0, content.length);
+        }
+    }
+
+    // Publishes the spec's entries; returns the allocations a caught failure keeps.
+    static int publish(String spec, Path output) throws IOException {
+
+        BridgeJar jar = new BridgeJar();
+        defer free jar;
+        int[] lines = Splits.bounds(spec, '\n', 0);
+        defer free lines;
+        for (int line = 0; line < Splits.count(lines); line++) {
+            String text = Splits.field(spec, lines, line);
+            defer free text;
+            entry(jar, text);
+        }
+        try {
+            jar.publish(output);
+        } catch (IOException failure) {
+            String message = hex(failure.getMessage());
+            defer free message;
+            System.out.println("error " + message);
+            // The exception, and its message unless it is one of BridgeJar's literals.
+            String text = failure.getMessage();
+            boolean literal = text.equals("Java Bridge jar requires a valid versioned Java manifest")
+                    || text.equals("Java Bridge staged jar entry count differs");
+            return literal ? 1 : 2;
+        }
+        System.out.println("published");
+        return 0;
+    }
+
+    // The CRC32, ZIP timestamp and inflate tables are process-lived after their first use.
+    static void warm() throws IOException {
+
+        byte[] data = new byte[1];
+        defer free data;
+        ZipWriter writer = new ZipWriter();
+        defer free writer;
+        writer.add("a", data, 0, 1);
+        byte[] archive = writer.finish();
+        defer free archive;
+        ZipArchive zip = new ZipArchive(archive, "warm");
+        defer free zip;
+        Inflate inflate = new Inflate();
+        defer free inflate;
+        byte[] read = zip.read(archive, 0, inflate, "warm");
+        free read;
+    }
+
+    public static int main(String[] args) {
+
+        try {
+            warm();
+        } catch (IOException failure) {
+            return 1;
+        } catch (OutOfMemoryError failure) {
+            return 42;
+        }
+        long live = System.liveAllocationCount();
+        int kept = 0;
+        try {
+            Path specPath = Path.of(args[0]);
+            defer free specPath;
+            String spec = Files.readString(specPath);
+            defer free spec;
+            Path output = Path.of(args[1]);
+            defer free output;
+            kept = publish(spec, output);
+        } catch (IOException failure) {
+            return 1;
+        } catch (OutOfMemoryError failure) {
+            return System.liveAllocationCount() == live ? 42 : 3;
+        }
+        return System.liveAllocationCount() == live + kept ? 43 : 2;
+    }
+}
