@@ -76,7 +76,8 @@ final class BridgeHelperTests {
      * Double.toHexString and BridgeJavaSources.literal's spelling, every
      * integer String.format's octal and \\u escapes, and every string the
      * baseline's quote and cString, stripTrailing and the seven Bridge
-     * String.matches patterns' verdicts.
+     * String.matches patterns' verdicts, and every llvm-readelf output
+     * BridgeLinuxPayload.auditDynamic's regular-expression results.
      */
     static void textDifferential() throws Exception {
         Path root = Files.createTempDirectory("ironwood-bridge-text-");
@@ -85,7 +86,7 @@ final class BridgeHelperTests {
             String expected = PortFixtures.reference(EVIDENCE + "text-evidence/BridgeTextReference.java",
                     List.of(PortFixtures.CLASSES), List.of(corpus.toString()));
             for (Path executable : PortFixtures.links(root, "compiler_bridge_text", List.of(PORT + "BridgeText.iron",
-                    PORT + "BridgePatterns.iron", PORT + "BridgeIdentity.iron", PORT + "TextMap.iron",
+                    PORT + "BridgePatterns.iron", PORT + "ReadelfScan.iron", PORT + "BridgeIdentity.iron", PORT + "TextMap.iron",
                     PORT + "TextList.iron", PORT + "Sha256.iron", PORT + "Splits.iron"))) {
                 PortFixtures.execute(List.of(executable.toString(), corpus.toString()), null, 42, expected);
             }
@@ -190,7 +191,7 @@ final class BridgeHelperTests {
     static void ownership() throws Exception {
         List<SourceFile> helpers = PortFixtures.portSources(List.of("JavaNames", "JavaIdentifiers", "BridgeExports",
                 "TextList", "TextMap", "BridgeIdentity", "BridgeProperties", "JarManifest", "Sha256", "Bytes",
-                "BridgeText", "BridgePatterns", "SourceFiles", "FileCollector"));
+                "BridgeText", "BridgePatterns", "ReadelfScan", "SourceFiles", "FileCollector"));
         String prefix = "import ironwood.compiler.port.*;\nclass Main { public static int main(String[] args) {"
                 + " String input = new String(args[0]); TextList requested = new TextList(); requested.add(input);"
                 + " requested.add(\"a.b\"); ";
@@ -234,6 +235,9 @@ final class BridgeHelperTests {
                     + " int r = name.length(); free name; return r; }}", null);
             PortFixtures.require(mode, helpers, prefix + "free requested; String stripped = BridgeText.stripTrailing(input);"
                     + " free stripped; free input; return stripped.length(); }}", "after its allocation was freed");
+            PortFixtures.require(mode, helpers, prefix + "free requested; TextList libraries = new TextList();"
+                    + " ReadelfScan.sharedLibraries(input, libraries); free input; int r = libraries.size();"
+                    + " free libraries; return r; }}", null);
         }
     }
 
@@ -245,7 +249,8 @@ final class BridgeHelperTests {
                     List.of(PORT + "JavaNames.iron", PORT + "JavaIdentifiers.iron", PORT + "BridgeExports.iron",
                             PORT + "TextList.iron", PORT + "TextMap.iron", PORT + "BridgeIdentity.iron",
                             PORT + "BridgeProperties.iron", PORT + "JarManifest.iron", PORT + "Sha256.iron",
-                            PORT + "Bytes.iron", PORT + "BridgeText.iron", PORT + "BridgePatterns.iron"))) {
+                            PORT + "Bytes.iron", PORT + "BridgeText.iron", PORT + "BridgePatterns.iron",
+                            PORT + "ReadelfScan.iron"))) {
                 PortFixtures.sweep(executable, List.of(), 10);
             }
             Path tree = Files.createDirectories(root.resolve("tree/src"));

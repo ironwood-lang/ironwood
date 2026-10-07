@@ -8,6 +8,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Random;
+import java.util.TreeSet;
+import java.util.regex.Pattern;
 
 /**
  * Java 21 reference for integration-tests/cases/compiler_bridge_text.iron.
@@ -16,9 +18,11 @@ import java.util.Random;
  * strings as UTF-16 hex) and prints Float.toHexString and Double.toHexString
  * of each bit pattern with BridgeJavaSources.literal's float and double
  * spellings, String.format's "\\%03o" and "\\u%04x" escapes of each integer,
- * and for each string the baseline's own BridgeJavaSources.quote and
+ * for each string the baseline's own BridgeJavaSources.quote and
  * BridgeBootstrapSources.cString (called by reflection), stripTrailing, and
- * the Bridge's seven String.matches patterns.
+ * the Bridge's seven String.matches patterns, and for each llvm-readelf
+ * output BridgeLinuxPayload.auditDynamic's FLAGS search and its rpath,
+ * runpath, shared-library and GLIBC version matches.
  */
 public final class BridgeTextReference {
     static final String[] PATTERNS = {"[A-Za-z0-9_-]+(?:\\.[A-Za-z0-9_-]+)*", "[A-Za-z0-9_][A-Za-z0-9_.+-]*",
@@ -31,6 +35,42 @@ public final class BridgeTextReference {
         StringBuilder out = new StringBuilder();
         for (char unit : text.toCharArray()) out.append(String.format("%04x", (int) unit));
         return out.length() == 0 ? "-" : out.toString();
+    }
+
+    // BridgeLinuxPayload.matches.
+    static String matches(String text, String regex) {
+        var result = new TreeSet<String>();
+        var matcher = Pattern.compile(regex).matcher(text);
+        while (matcher.find()) result.add(matcher.group(1));
+        StringBuilder out = new StringBuilder().append(result.size());
+        for (String value : result) out.append(' ').append(hex(value));
+        return out.toString();
+    }
+
+    static List<String> readelf(Random random) {
+        String[] lines = {"Dynamic section at offset 0x1000 contains 30 entries:", "  Tag                Type                 Name/Value",
+            "  0x0000000000000001 (NEEDED)             Shared library: [libstdc++.so.6]",
+            "  0x0000000000000001 (NEEDED)             Shared library: [libc.so.6]",
+            "  0x0000000000000001 (NEEDED)             Shared library: [ld-linux-x86-64.so.2]",
+            "  0x000000000000001d (RUNPATH)            Library runpath: [$ORIGIN/.ironwood-bridge-support-x/lib]",
+            "  0x000000000000000f (RPATH)              Library rpath: [/opt/lib]", "  0x000000006ffffffb (FLAGS_1)            Flags: NOW",
+            "  0x000000000000001e (FLAGS)              BIND_NOW", "  0x000000000000001e (FLAGS)              ORIGIN",
+            "Version needs section '.gnu.version_r' contains 2 entries:", " Addr: 0x0000000000000000  Offset: 0x000aa8  Link: 4 (.dynstr)",
+            "  0x0000: Version: 1  File: libc.so.6  Cnt: 2", "  0x0010:   Name: GLIBC_2.17  Flags: none  Version: 3",
+            "  0x0020:   Name: GLIBC_2.2.5  Flags: none  Version: 2", "   Name: GLIBC_PRIVATE", "Shared library: []",
+            "Shared library: [x", "Library rpath: []", "Library runpath: [a]b]", "Name: GLIBC_", "Name: GLIBC_2..17", "Name: GLIBC_.",
+            "FLAGS NOW", "FLAGS", "NOW", "FLAGSNOW", "Shared library: [Shared library: [y]", "Library rpath: [Library runpath: [z]]",
+            "\r", ""};
+        List<String> texts = new ArrayList<>(List.of("", "FLAGS\nNOW", "FLAGS\rNOW", "xFLAGS NOWx", "Shared library: [a]Shared library: [b]",
+                "Name: GLIBC_2.17Name: GLIBC_2.18", "Library rpath: [a\nb]"));
+        for (int index = 0; index < 600; index++) {
+            StringBuilder text = new StringBuilder();
+            for (int line = random.nextInt(9); line > 0; line--) {
+                text.append(lines[random.nextInt(lines.length)]).append(random.nextInt(5) == 0 ? "" : "\n");
+            }
+            texts.add(text.toString());
+        }
+        return texts;
     }
 
     // BridgeJavaSources.literal's F32 and F64 spellings.
@@ -79,11 +119,13 @@ public final class BridgeTextReference {
         }
         for (int index = 0; index < 300; index++) strings.add("$ironwood$ensure" + "$".repeat(random.nextInt(3))
                 + (random.nextInt(4) == 0 ? "x" : ""));
+        List<String> outputs = readelf(random);
         StringBuilder corpus = new StringBuilder();
         for (int bits : floats) corpus.append("float ").append(Integer.toHexString(bits)).append('\n');
         for (long bits : doubles) corpus.append("double ").append(Long.toHexString(bits)).append('\n');
         for (int value : integers) corpus.append("integer ").append(Integer.toHexString(value)).append('\n');
         for (String text : strings) corpus.append("string ").append(hex(text)).append('\n');
+        for (String text : outputs) corpus.append("readelf ").append(hex(text)).append('\n');
         Files.writeString(Path.of(args[0]), corpus.toString(), StandardCharsets.UTF_8);
         for (int bits : floats) {
             float real = Float.intBitsToFloat(bits);
@@ -102,6 +144,11 @@ public final class BridgeTextReference {
             for (String pattern : PATTERNS) matches.append(text.matches(pattern) ? '1' : '0');
             System.out.println("string " + hex((String) quote.invoke(null, text)) + " " + hex((String) cString.invoke(null, text))
                     + " " + hex(text.stripTrailing()) + " " + matches);
+        }
+        for (String text : outputs) {
+            System.out.println("readelf " + Pattern.compile("FLAGS[^\\n]*NOW").matcher(text).find()
+                    + " " + matches(text, "Library (?:rpath|runpath): \\[([^\\]]*)\\]")
+                    + " " + matches(text, "Shared library: \\[([^\\]]+)\\]") + " " + matches(text, "Name: GLIBC_([0-9.]+)"));
         }
     }
 }

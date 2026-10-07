@@ -15,6 +15,7 @@ BridgeAssembler; they are not those ports.
 | --- | --- |
 | [BridgeText.iron](../../../compiler/src/main/ironwood/ironwood/compiler/port/BridgeText.iron) | `Float.toHexString`, `Double.toHexString`, `String.format("\\%03o", ...)` with and without `Locale.ROOT`, `String.format("\\u%04x", ...)`, `String.stripTrailing` |
 | [BridgePatterns.iron](../../../compiler/src/main/ironwood/ironwood/compiler/port/BridgePatterns.iron) | `matches("[A-Za-z0-9_-]+(?:\\.[A-Za-z0-9_-]+)*")`, `matches("[A-Za-z0-9_][A-Za-z0-9_.+-]*")` (two callers), `matches("[A-Za-z_$][A-Za-z0-9_$]*")`, `matches("[0-9]+(?:\\.[0-9]+){0,2}")`, `matches("[A-Za-z0-9_.+-]+(?:/[A-Za-z0-9_.+-]+)*")`, `matches("\\$ironwood\\$ensure\\$*")`; `[0-9a-f]{64}` is `BridgeIdentity.isHash` (D292) |
+| [ReadelfScan.iron](../../../compiler/src/main/ironwood/ironwood/compiler/port/ReadelfScan.iron) | BridgeLinuxPayload.auditDynamic's `Pattern.compile("FLAGS[^\\n]*NOW").matcher(output).find()` and its `matches` helper over `Library (?:rpath\|runpath): \\[([^\\]]*)\\]`, `Shared library: \\[([^\\]]+)\\]` and `Name: GLIBC_([0-9.]+)` into a `TreeSet` |
 | [SourceFiles.iron](../../../compiler/src/main/ironwood/ironwood/compiler/port/SourceFiles.iron) | `Files.walk(runtime)` filtered to regular `.c` and `.h` files, sorted, with `relativize(...).toString().replace(separatorChar, '/')` |
 
 ## Traversal coverage for the Bridge consumers
@@ -46,7 +47,9 @@ values, 200 seeded) and 3,353 strings (control characters, DEL, quotes,
 backslashes, Java's white-space set and its exclusions U+00A0, U+2007 and
 U+0085, non-ASCII and supplementary characters, unpaired surrogates, Maven
 coordinates, versions, dependency paths and ensure-method forms, 3,300
-seeded). Facts it pins include:
+seeded), and 607 `llvm-readelf` outputs mixing dynamic-section, version-needs
+and malformed lines (empty and unterminated brackets, nested prefixes,
+`GLIBC_` without digits, CR-only line ends). Facts it pins include:
 
 - `Float.MIN_VALUE` is `0x0.000002p-126`, not the double spelling
   `0x1.0p-149`; `-0.0f` is `-0x0.0p0`; every NaN is `NaN` and gets
@@ -56,6 +59,10 @@ seeded). Facts it pins include:
 - `stripTrailing` removes U+001C to U+001F and U+2028 but keeps U+00A0,
   U+2007 and U+0085.
 - `[0-9]` is ASCII: a fullwidth digit fails the version pattern.
+- `FLAGS[^\n]*NOW` crosses a CR but not an LF; a bracket group may span
+  lines; after a failed attempt the search resumes one unit later and after
+  a match at its end, so `Shared library: [Shared library: [y]` yields one
+  group.
 
 The walk test builds a tree with links to a file, a directory and nothing,
 directories named `x.c` and `dir.iron`, a nested header, an uppercase `.C`, a
@@ -67,12 +74,12 @@ stage listing and the class walk with Java's own expressions.
 
 | Test | Result |
 | --- | --- |
-| `M6.1 Bridge text conversions and patterns match JDK 21 and the generators` | the 13,204-line transcript of [compiler_bridge_text.iron](../../../integration-tests/cases/compiler_bridge_text.iron) equals the reference's from class and archive links, and every result is freed |
+| `M6.1 Bridge text conversions and patterns match JDK 21 and the generators` | the 13,811-line transcript of [compiler_bridge_text.iron](../../../integration-tests/cases/compiler_bridge_text.iron) equals the reference's from class and archive links, and every result is freed |
 | `M6.1 Bridge inventories walk and list as Java does` | [compiler_bridge_walks.iron](../../../integration-tests/cases/compiler_bridge_walks.iron) prints Java's selections, spellings, digests and identity |
 | `M6.1 Bridge helpers borrow inputs and own their results` | stripped text, hex strings, escapes and source inventories are freed by their owners after their inputs; use after free of a stripped result is rejected in every unfreed mode |
-| `M6.1 Bridge helpers unwind every allocation failure` | [compiler_bridge_helpers_failure.iron](../../../integration-tests/cases/compiler_bridge_helpers_failure.iron) unwinds each of its 398 limits and [compiler_bridge_walks_failure.iron](../../../integration-tests/cases/compiler_bridge_walks_failure.iron) each of its 194 |
+| `M6.1 Bridge helpers unwind every allocation failure` | [compiler_bridge_helpers_failure.iron](../../../integration-tests/cases/compiler_bridge_helpers_failure.iron) unwinds each of its 424 limits and [compiler_bridge_walks_failure.iron](../../../integration-tests/cases/compiler_bridge_walks_failure.iron) each of its 194 |
 
-One compilation of all 196 port sources with the five pilot adapters under
+One compilation of all 197 port sources with the five pilot adapters under
 `--unfreed=warn` reports no diagnostics.
 
 ## Conventions and boundaries

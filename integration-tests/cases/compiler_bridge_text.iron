@@ -10,12 +10,16 @@
 // BridgeJavaSources.literal spelling, each integer's octal and \u escapes,
 // and for each string BridgeJavaSources.quote's and
 // BridgeBootstrapSources.cString's expressions rebuilt on BridgeText, its
-// stripped form and its seven pattern verdicts. Every result is freed after
+// stripped form and its seven pattern verdicts; and for each llvm-readelf
+// output the ReadelfScan results of BridgeLinuxPayload.auditDynamic's
+// searches. Every result is freed after
 // it is printed, so the live allocation count returns to its baseline. Exit 42.
 import ironwood.compiler.port.BridgeIdentity;
 import ironwood.compiler.port.BridgePatterns;
 import ironwood.compiler.port.BridgeText;
+import ironwood.compiler.port.ReadelfScan;
 import ironwood.compiler.port.Splits;
+import ironwood.compiler.port.TextList;
 import ironwood.io.IOException;
 import ironwood.nio.file.Files;
 import ironwood.nio.file.Path;
@@ -199,6 +203,46 @@ class Main {
         System.out.println("string " + quotedHex + " " + cHex + " " + strippedHex + " " + matches);
     }
 
+    // A collected set: its size, then each member in String order as hex.
+    static void appendSet(StringBuilder out, TextList values) {
+
+        out.append(' ');
+        out.append(values.size());
+        for (int index = 0; index < values.size(); index++) {
+            String value = values.get(index);
+            defer free value;
+            String encoded = hex(value);
+            defer free encoded;
+            out.append(' ');
+            out.append(encoded);
+        }
+    }
+
+    static void readelfLine(String line) {
+
+        String text = decode(line, 8);
+        defer free text;
+        TextList paths = new TextList();
+        defer free paths;
+        ReadelfScan.lookupPaths(text, paths);
+        TextList libraries = new TextList();
+        defer free libraries;
+        ReadelfScan.sharedLibraries(text, libraries);
+        TextList versions = new TextList();
+        defer free versions;
+        ReadelfScan.glibcVersions(text, versions);
+        StringBuilder out = new StringBuilder();
+        defer free out;
+        out.append("readelf ");
+        out.append(ReadelfScan.flagsNow(text));
+        appendSet(out, paths);
+        appendSet(out, libraries);
+        appendSet(out, versions);
+        String printed = out.toString();
+        defer free printed;
+        System.out.println(printed);
+    }
+
     static void corpus(String corpus) {
 
         int[] lines = Splits.bounds(corpus, '\n', 0);
@@ -212,6 +256,8 @@ class Main {
                 doubleLine(text);
             } else if (text.startsWith("integer ")) {
                 integerLine(text);
+            } else if (text.startsWith("readelf ")) {
+                readelfLine(text);
             } else {
                 stringLine(text);
             }

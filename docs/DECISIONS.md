@@ -11436,6 +11436,11 @@ occurrence order. If no
     Maven group, Maven artifact and version, the C root name, the macOS
     minimum version, the extracted dependency path and the ensure method;
     `[0-9a-f]{64}` is D292's `BridgeIdentity.isHash`.
+  - **ReadelfScan.** BridgeLinuxPayload.auditDynamic's four regular
+    expressions over `llvm-readelf` output (`FLAGS[^\n]*NOW`, the rpath and
+    runpath brackets, shared libraries, `Name: GLIBC_([0-9.]+)`) with
+    `Matcher.find`'s retry and resume semantics, collecting distinct groups
+    in String order as the caller's `TreeSet` does.
   - **SourceFiles.** BridgeDistributionInputs' and BridgeProducerInputs'
     runtime selection, `Files.walk` filtered to regular `.c` and `.h` files in
     Path order with `/`-spelled relative names, as two D276 `FileCollector`
@@ -11458,9 +11463,9 @@ occurrence order. If no
   documentation and observed results; no OpenJDK source was consulted.
 - **Verification:** For 4,523 float and 4,518 double bit patterns (zeros,
   subnormals, normal boundaries, extremes, infinities, NaN payloads and seeded
-  patterns), 810 integers and 3,353 strings, the 13,204-line transcript equals
-  JDK 21's conversions and patterns and the baseline's own `quote` and
-  `cString`; on a tree with links to files, directories and nothing,
+  patterns), 810 integers, 3,353 strings and 607 `llvm-readelf` outputs, the
+  13,811-line transcript equals JDK 21's conversions, patterns and regular
+  expressions and the baseline's own `quote` and `cString`; on a tree with links to files, directories and nothing,
   directories named like sources and Unicode names, the runtime inventory,
   identity, listings and class walk equal Java's `Files.walk` and
   `Files.list`; the ownership pairs hold and every allocation failure unwinds.

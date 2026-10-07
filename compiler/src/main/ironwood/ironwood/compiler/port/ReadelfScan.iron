@@ -1,0 +1,121 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.port;
+
+/**
+ * BridgeLinuxPayload.auditDynamic's regular expressions over
+ * {@code llvm-readelf --dynamic --version-info} output, as purpose-specific
+ * scans with {@code Matcher.find}'s semantics (B7, S7): each search starts at
+ * the beginning, a match is tried at every position, and the next search
+ * resumes after a match. The collecting scans add each captured group to an
+ * empty, unsorted target once and leave it in String order, as the caller's
+ * {@code TreeSet} keeps them. No regular-expression engine is added. Inputs
+ * are borrowed.
+ */
+public final class ReadelfScan {
+
+    private ReadelfScan() {
+
+    }
+
+    /**
+     * @return whether {@code FLAGS[^\n]*NOW} occurs: {@code FLAGS}, then
+     *     {@code NOW} later on the same LF-terminated line
+     */
+    public static boolean flagsNow(String text) {
+
+        int start = text.indexOf("FLAGS");
+        while (start >= 0) {
+            int lineEnd = text.indexOf('\n', start + 5);
+            if (lineEnd < 0) lineEnd = text.length();
+            int now = text.indexOf("NOW", start + 5);
+            if (now >= 0 && now + 3 <= lineEnd) return true;
+            start = text.indexOf("FLAGS", start + 1);
+        }
+        return false;
+    }
+
+    /**
+     * Collects {@code Library (?:rpath|runpath): \[([^\]]*)\]}'s groups.
+     *
+     * @param text the readelf output; borrowed
+     * @param target an empty, unsorted list; receives the distinct paths, sorted
+     */
+    public static void lookupPaths(String text, TextList target) {
+
+        int position = 0;
+        while (position < text.length()) {
+            int open = -1;
+            if (text.startsWith("Library rpath: [", position)) open = position + 16;
+            if (text.startsWith("Library runpath: [", position)) open = position + 18;
+            position = open < 0 ? position + 1 : bracket(text, open, false, target, position + 1);
+        }
+        target.sortStrings();
+    }
+
+    /**
+     * Collects {@code Shared library: \[([^\]]+)\]}'s groups.
+     *
+     * @param text the readelf output; borrowed
+     * @param target an empty, unsorted list; receives the distinct libraries, sorted
+     */
+    public static void sharedLibraries(String text, TextList target) {
+
+        int position = 0;
+        while (position < text.length()) {
+            if (text.startsWith("Shared library: [", position)) {
+                position = bracket(text, position + 17, true, target, position + 1);
+            } else {
+                position++;
+            }
+        }
+        target.sortStrings();
+    }
+
+    /**
+     * Collects {@code Name: GLIBC_([0-9.]+)}'s groups.
+     *
+     * @param text the version-needs part of the output; borrowed
+     * @param target an empty, unsorted list; receives the distinct versions, sorted
+     */
+    public static void glibcVersions(String text, TextList target) {
+
+        int position = 0;
+        while (position < text.length()) {
+            if (text.startsWith("Name: GLIBC_", position)) {
+                int start = position + 12;
+                int end = start;
+                while (end < text.length() && (text.charAt(end) >= '0' && text.charAt(end) <= '9' || text.charAt(end) == '.')) {
+                    end++;
+                }
+                if (end > start) {
+                    addOnce(target, text, start, end);
+                    position = end;
+                } else {
+                    position++;
+                }
+            } else {
+                position++;
+            }
+        }
+        target.sortStrings();
+    }
+
+    // Matches the group and closing bracket from start: units other than ']'
+    // up to the first ']' (at least one when nonEmpty). Returns the position
+    // after the match, or failed when there is none.
+    private static int bracket(String text, int start, boolean nonEmpty, TextList target, int failed) {
+
+        int close = text.indexOf(']', start);
+        if (close < 0 || nonEmpty && close == start) return failed;
+        addOnce(target, text, start, close);
+        return close + 1;
+    }
+
+    private static void addOnce(TextList target, String text, int start, int end) {
+
+        String value = text.substring(start, end);
+        defer free value;
+        if (target.indexOf(value) < 0) target.add(value);
+    }
+}

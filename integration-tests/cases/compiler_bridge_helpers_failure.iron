@@ -4,8 +4,9 @@
 // selection's request copy, package set and diagnostics; text map growth and
 // replacement; identity, byte and content digests; pairing-manifest
 // serialization, loading and the canonical check; JAR manifest writing,
-// reading and lookup; and the generators' hex floats, escapes and stripped
-// text. Every failure unwinds to the live-allocation baseline.
+// reading and lookup; the generators' hex floats, escapes and stripped
+// text; and the readelf scans' collected sets. Every failure unwinds to the
+// live-allocation baseline.
 // Exit 42 on allocation failure with every check intact, 43 on success.
 import ironwood.compiler.port.BridgeExports;
 import ironwood.compiler.port.BridgeIdentity;
@@ -14,6 +15,7 @@ import ironwood.compiler.port.BridgeProperties;
 import ironwood.compiler.port.BridgeText;
 import ironwood.compiler.port.JarManifest;
 import ironwood.compiler.port.JavaNames;
+import ironwood.compiler.port.ReadelfScan;
 import ironwood.compiler.port.TextList;
 import ironwood.compiler.port.TextMap;
 import ironwood.io.IOException;
@@ -99,6 +101,20 @@ class Main {
         defer free stripped;
         if (!floatText.equals("0x0.000002p-126") || !doubleText.equals("-0x1.999999999999ap-4")
                 || escapes.length() != 10 || !stripped.equals("state") || !BridgePatterns.isMavenGroup("org.example")) {
+            throw new IllegalStateException();
+        }
+        String output = "Shared library: [libc.so.6]\nShared library: [libm.so.6]\nLibrary runpath: [$ORIGIN/lib]\n"
+                + "Name: GLIBC_2.17\nName: GLIBC_2.2.5\nFLAGS BIND_NOW\n";
+        TextList libraries = new TextList();
+        defer free libraries;
+        ReadelfScan.sharedLibraries(output, libraries);
+        TextList paths = new TextList();
+        defer free paths;
+        ReadelfScan.lookupPaths(output, paths);
+        TextList versions = new TextList();
+        defer free versions;
+        ReadelfScan.glibcVersions(output, versions);
+        if (libraries.size() != 2 || paths.size() != 1 || versions.size() != 2 || !ReadelfScan.flagsNow(output)) {
             throw new IllegalStateException();
         }
     }

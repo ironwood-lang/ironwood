@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
-"""Classify every M3, M4 or M5 call pattern of the M0 source-backed inventory.
+"""Classify every M3, M4, M5 or M6 call pattern of the M0 source-backed inventory.
 
 Usage: classify.py PHASE [--markdown OUT]
 
@@ -9,11 +9,12 @@ gets exactly one class:
   A  an existing Ironwood member with the needed semantics; the rule names
      the stdlib or port file and a declaration regex, which must match;
   B  a recorded port convention (decision or record cited), no new helper;
-  D  a helper delivered in M3, M4 or M5 (decision cited); its file must exist.
+  D  a helper delivered in M3, M4, M5 or M6 (decision cited); its file must exist.
 
 PHASE_RULES holds rules for one phase only, consulted before RULES, so an
-M4 or M5 phase can classify a shared Java API for its own consumers without
-changing a recorded M3 table.
+M4, M5 or M6 phase can classify a shared Java API for its own consumers
+without changing a recorded M3 table. M6.1 also takes the two calls whose
+gate reuses the M3.2 digest-text helper at M6.1.
 
 The tool fails if a phase pattern has no rule, a rule matches no pattern,
 an A declaration is missing, a D file is missing, or a row is still marked
@@ -518,6 +519,146 @@ M5_DOC_RULES = [
     ("java.util.regex.", r".", d(DOC_REGEX, "DocText.iron", "Splits.iron")),
 ]
 
+# M6.1 rules (D291-D293): the Bridge's standalone producer, packaging,
+# assembly, distribution and generator consumers (S7) on the helpers
+# delivered for them and on the M3-M5 services.
+PRODUCER = ("B: the Java compiler's own class or jar inventory is the producer identity; S7 replaces it with its"
+            " separate native producer-manifest design (tracked in M6.2), never a synthetic Main.class entry")
+JDK = ("B: the running JVM is the Java producer's JDK (D239); the native producer runs the selected JDK's tools by"
+       " absolute path through runToFile (D272) and takes its home, version and vendor from M6.2's JDK selection")
+TREE = ("TextMap for String-to-String inventories (D292), ArchiveEntries for named contents (D276), otherwise D264's"
+        " container with a StringOrder key list")
+M6_RULES = [
+    ("Array", r"^Array\(int\)$", b("B: javac and javadoc arguments are a Command (D273) passed to runToFile; no array is built")),
+    ("Array", r"^clone\(\)$", b("B: ArchiveEntries.add copies each entry's contents once; readers return fresh bytes (D276)")),
+    ("java.io.ByteArrayInputStream", r".", b("B: the readers take byte ranges: BridgeProperties.load, new JarManifest(bytes, offset,"
+                                              " length) and ZipStream over the values companion (D276, D292)")),
+    ("java.io.ByteArrayOutputStream", r".", d("JarManifest.write returns the manifest bytes (D292)", "JarManifest.iron")),
+    ("java.io.File", r"^separatorChar$", b(SEPARATOR)),
+    ("java.io.FilterOutputStream", r"^write\(", d("ZipWriter.add writes each STORED entry (D275)", "ZipWriter.iron")),
+    ("java.io.IOException", r"^IOException\(java.lang.String,java.lang.Throwable\)$",
+     a("io/IOException.iron", r"public IOException\(String message, Throwable cause\)")
+     + ("the interrupted-tool and producer-identity causes disappear with their callers' Java mechanisms",)),
+    ("java.io.InputStream", r"^readAllBytes\(\)$", d("ZipArchive.read and ZipStream.next return each entry's fresh, verified bytes (D276)",
+                                                     "ZipArchive.iron", "ZipStream.iron")),
+    ("java.lang.Boolean", r"^toString\(boolean\)$", a("lang/Boolean.iron", r"public static String toString\(boolean")),
+    ("java.lang.CharSequence", r"^isEmpty\(\)$", a("lang/StringBuilder.iron", r"public boolean isEmpty\(")
+     + ("the receivers are cleanup StringBuilders, read without mutation",)),
+    ("java.lang.Character", r"^toUpperCase\(char\)$", a("lang/Character.iron", r"public static char toUpperCase\(char")
+     + ("only a primitive type name is capitalized, for JNI's Get<Kind>ArrayRegion (D293)",)),
+    ("java.lang.Class", r"^getProtectionDomain\(\)$", b(PRODUCER)),
+    ("java.lang.Double", r"^toHexString\(double\)$", d("BridgeText.doubleHex (D293)", "BridgeText.iron")),
+    ("java.lang.Enum", r"^toString\(\)$", a("lang/Enum.iron", r"public String toString\(") + ("the constant's name",)),
+    ("java.lang.Float", r"^(NEGATIVE|POSITIVE)_INFINITY$", a("lang/Float.iron", r"public static final float (NEGATIVE|POSITIVE)_INFINITY")),
+    ("java.lang.Float", r"^floatToRawIntBits\(float\)$", b("B: the native constant keeps a float constant's raw bits as an int payload,"
+                                                            " as D268 kept double payloads; no public Float method is added (D293)")),
+    ("java.lang.Float", r"^isNaN\(float\)$", a("lang/Float.iron", r"public static boolean isNaN\(float")),
+    ("java.lang.Float", r"^toHexString\(float\)$", d("BridgeText.floatHex (D293)", "BridgeText.iron")),
+    ("java.lang.IllegalArgumentException", r"^IllegalArgumentException\(java.lang.String,java.lang.Throwable\)$",
+     a("lang/IllegalArgumentException.iron", r"public IllegalArgumentException\(String message, Throwable cause\)")),
+    ("java.lang.Integer", r"^BYTES$", a("lang/Integer.iron", r"public static final int BYTES")),
+    ("java.lang.Integer", r"^parseInt\(java.lang.String\)$", a("lang/Integer.iron", r"public static int parseInt\(String text\)")
+     + ("the parsed parts are ReadelfScan's ASCII digit runs, and an empty part fails in both",)),
+    ("java.lang.Integer", r"^toHexString\(int\)$", a("lang/Integer.iron", r"public static String toHexString\(int")
+     + ("unsigned lowercase digits, as Java",)),
+    ("java.lang.Long", r"^toHexString\(long\)$", a("lang/Long.iron", r"public static String toHexString\(long")
+     + ("unsigned lowercase digits, as Java",)),
+    ("java.lang.Runtime", r".", b(JDK)),
+    ("java.lang.Runtime.Version", r".", b(JDK)),
+    ("java.lang.String", r"^String\(byte\[\],int,int,java.nio.charset.Charset\)$",
+     d("BridgeMacPayload's dependency names: TextList.wellFormed is the UTF-8 round trip, then new String of a Bytes.slice"
+       " (D268, D276)", "TextList.iron", "Bytes.iron")),
+    ("java.lang.String", r"^String\(byte\[\],java.nio.charset.Charset\)$", b(PRODUCER)),
+    ("java.lang.String", r"^format\(", d("BridgeText.appendOctalEscape and appendUnicodeEscape for \\%03o and \\u%04x;"
+                                         " Locale.ROOT does not change digits (D293)", "BridgeText.iron")),
+    ("java.lang.String", r"^matches\(", d("BridgePatterns' scans and BridgeIdentity.isHash, one per pattern (D292, D293)",
+                                          "BridgePatterns.iron", "BridgeIdentity.iron")),
+    ("java.lang.String", r"^stripTrailing\(\)$", d("BridgeText.stripTrailing (D293)", "BridgeText.iron")),
+    ("java.lang.String", r"^trim\(\)$", b(PRODUCER)),
+    ("java.lang.StringBuilder", r"^StringBuilder\(java.lang.String\)$",
+     b("B: new StringBuilder() then append: a builder made from a String cannot be freed (M5 known limit)")),
+    ("java.lang.String", r"^toLowerCase\(java.util.Locale\)$", a("lang/String.iron", r"public String toLowerCase\(\)")
+     + ("a primitive JNI descriptor letter for its jvalue member: ASCII, where the fixed casing equals Locale.ROOT",)),
+    ("java.lang.StringBuilder", r"^insert\(int,java.lang.String\)$", a("lang/StringBuilder.iron", r"public StringBuilder insert\(int offset, String text\)")
+     + ("the five cleanup prepends at offset 0 pass non-null text",)),
+    ("java.lang.System", r"^getProperty\(", b("B: os.name and os.arch through System.getProperty, as each caller tests them;"
+                                              " java.home, java.runtime.version and java.vendor are the JDK selection's (M6.2)")),
+    ("java.lang.System", r"^getenv\(\)$", a("lang/System.iron", r"public static String getenv\(String name\)")
+     + ("getenv(name) with null for absence; getOrDefault's default is the absence branch",)),
+    ("java.lang.Thread", r".", b("B: no interruption: a JDK tool runs through runToFile, which waits and always reaps; a terminal"
+                                 " interrupt reaches the tool through its process group (D272)")),
+    ("java.net.URL", r".", b(PRODUCER)),
+    ("java.nio.ByteBuffer", r"^(allocate|array|putInt)", d("BridgeIdentity frames each count as four big-endian bytes (D292)",
+                                                           "BridgeIdentity.iron")),
+    ("java.nio.charset.StandardCharsets", r"^US_ASCII$", d("BridgeProperties.serialize writes its escaped ASCII text byte for byte (D292)",
+                                                         "BridgeProperties.iron")),
+    ("java.nio.file.Files", r"^copy\(", a("nio/file/Files.iron", r"public static Path copy\(Path source, Path target\)")
+     + ("refuses an existing target, as Java without options",)),
+    ("java.nio.file.Files", r"^createTempDirectory\(", d("Files.createTempDirectory in the destination's parent (D270)",
+                                                         "stdlib:nio/file/Files.iron")),
+    ("java.nio.file.Files", r"^createTempFile\(", d("Files.createTempFile(parent, \".ironwood-bridge-\", \".jar\") (D270)",
+                                                    "stdlib:nio/file/Files.iron")),
+    ("java.nio.file.Files", r"^delete\(", d("TreeDeletion's post-order staging cleanup (D270)", "TreeDeletion.iron")),
+    ("java.nio.file.Files", r"^deleteIfExists\(", d("Files.deleteIfExists removes the stage on every exit (D270)",
+                                                    "stdlib:nio/file/Files.iron")),
+    ("java.nio.file.Files", r"^(exists|isRegularFile)\(", b("B: Files.exists and isRegularFile; with NOFOLLOW_LINKS the final"
+                                                            " component is read through Files.readAttributesNoFollow (D270)")),
+    ("java.nio.file.Files", r"^isReadable\(", a("nio/file/Files.iron", r"public static boolean isReadable\(Path path\)")),
+    ("java.nio.file.Files", r"^list\(", d("FileCollector at depth one, in Path order (D276, D277, D293)", "FileCollector.iron")),
+    ("java.nio.file.Files", r"^move\(", d("moveAtomicReplacing publishes a verified Bridge jar; moveAtomicNoReplace publishes a new"
+                                          " distribution directory (D271)", "stdlib:nio/file/Files.iron")),
+    ("java.nio.file.Files", r"^newOutputStream\(", b("B: ZipWriter.finish assembles the staged jar and Files.write stores it (D275)")),
+    ("java.nio.file.Files", r"^readAllBytes\(", a("nio/file/Files.iron", r"public static byte\[\] readAllBytes\(Path path\)")),
+    ("java.nio.file.Files", r"^walk\(", d("SourceFiles and FileCollector for inventories, TreeDeletion for cleanups (D270, D276,"
+                                          " D293)", "SourceFiles.iron", "FileCollector.iron", "TreeDeletion.iron")),
+    ("java.nio.file.Files", r"^write\(", a("nio/file/Files.iron", r"public static Path write\(Path path, byte\[\] bytes\)")),
+    ("java.nio.file.LinkOption", r".", b("B: Files.readAttributesNoFollow reads the final component (D270)")),
+    ("java.nio.file.Path", r"^getFileName\(\)$", a("nio/file/Path.iron", r"Path getFileName\(\);")),
+    ("java.nio.file.Path", r"^of\(java.net.URI\)$", b(PRODUCER)),
+    ("java.nio.file.Path", r"^relativize\(", d("FileCollector.relative and SourceFiles.relative (D276, D293)", "FileCollector.iron",
+                                               "SourceFiles.iron")),
+    ("java.nio.file.Path", r"^toFile\(\)$", b("B: runToFile takes Paths (D272) and ZipArchive reads bytes from Files.readAllBytes"
+                                              " (D276)")),
+    ("java.nio.file.Path", r"^toString\(\)$", a("nio/file/Path.iron", r"String toString\(\);") + ("lent, as M5 recorded",)),
+    ("java.nio.file.StandardCopyOption", r".", d("Files.moveAtomicReplacing: atomic replacement without fallback (D271)",
+                                                 "stdlib:nio/file/Files.iron")),
+    ("java.security.CodeSource", r".", b(PRODUCER)),
+    ("java.security.MessageDigest", r".", d("BridgeIdentity over Sha256 (D267, D292)", "BridgeIdentity.iron", "Sha256.iron")),
+    ("java.security.ProtectionDomain", r".", b(PRODUCER)),
+    ("java.util.AbstractMap", r"^isEmpty\(\)$", d("TextMap.size() == 0 (D292)", "TextMap.iron")),
+    ("java.util.AbstractSet", r"^equals\(", a("ds/HashSet.iron", r"public boolean equals\(Object")),
+    ("java.util.ArrayList", r"^addFirst\(", a("ds/ArrayList.iron", r"public void addFirst\(E element\)")),
+    ("java.util.ArrayList", r"^contains\(", a("ds/ArrayList.iron", r"public boolean contains\(E element\)")),
+    ("java.util.ArrayList", r"^forEach\(", b(LOOPS)),
+    ("java.util.ArrayList", r"^getFirst\(\)$", b("B: get(0) after the source's emptiness guard")),
+    ("java.util.Arrays", r"^equals\(byte\[\],byte\[\]\)$", a("util/Arrays.iron", r"public static boolean equals\(byte\[\] first")),
+    ("java.util.Collection", r"^<T>toArray\(", b("B: javac and javadoc arguments are a Command (D273) passed to runToFile")),
+    ("java.util.Comparator", r"^<T>reverseOrder\(\)$", d("TreeDeletion: the reverse-ordered deletes are post-order cleanup (D270)",
+                                                         "TreeDeletion.iron")),
+    ("java.util.HashMap", r"^get\(", a("ds/HashMap.iron", r"public E get\(")),
+    ("java.util.HashMap", r"^size\(\)$", a("ds/HashMap.iron", r"public int size\(")),
+    ("java.util.HexFormat", r".", d("Sha256.hexDigest through BridgeIdentity.digest: every site formats a whole SHA-256 result"
+                                    " (D267, D292)", "Sha256.iron", "BridgeIdentity.iron")),
+    ("java.util.List", r"^iterator\(\)$", a("ds/ArrayList.iron", r"public Iterator<E> iterator\(") + ("reusable iterator (B1 section 4.3)",)),
+    ("java.util.Objects", r"^hash\(", b("B: Java's Objects.hash formula, 31 * result + each component's hash from 1, in argument"
+                                        " order (D264's value helpers for the components)")),
+    ("java.util.Properties", r".", d("BridgeProperties.load into a TextMap, Properties.load's semantics with the canonical check (D292)",
+                                     "BridgeProperties.iron", "TextMap.iron")),
+    ("java.util.TreeMap", r".", d(TREE, "TextMap.iron", "ArchiveEntries.iron", "StringOrder.iron")),
+    ("java.util.jar.Attributes", r".", d("JarManifest.putValue and getValue (D292)", "JarManifest.iron")),
+    ("java.util.jar.JarInputStream", r".", d("ZipStream reads the values companion's first entries and JarManifest parses its"
+                                             " manifest (D276, D292)", "ZipStream.iron", "JarManifest.iron")),
+    ("java.util.jar.Manifest", r".", d("JarManifest: Manifest.write's bytes and Java's reading verdicts (D292)", "JarManifest.iron")),
+    ("java.util.regex.", r".", d("ReadelfScan: the four llvm-readelf searches with Matcher.find's semantics (D293)", "ReadelfScan.iron")),
+    ("java.util.zip.ZipEntry", r".", d("ZipWriter entries with Java's fixed time; ZipArchive and ZipStream names, sizes and"
+                                       " directory flags (D275, D276)", "ZipWriter.iron", "ZipArchive.iron", "ZipStream.iron")),
+    ("java.util.zip.ZipFile", r".", d("ZipArchive over the staged or paired jar's bytes (D276)", "ZipArchive.iron")),
+    ("java.util.zip.ZipInputStream", r".", d("ZipStream (D276)", "ZipStream.iron")),
+    ("java.util.zip.ZipOutputStream", r".", d("ZipWriter: STORED entries in Java's spelling (D275)", "ZipWriter.iron")),
+    ("javax.lang.model.SourceVersion", r".", d("JavaNames.isName for Java 21 and BridgeExports' two export loops (D291)",
+                                               "JavaNames.iron", "BridgeExports.iron")),
+]
+
 PHASE_RULES = {
     "M4.1-M4.2": [
         ("java.io.InputStream", r"^readAllBytes", b(PROCESS_OUTPUT)),
@@ -580,6 +721,7 @@ PHASE_RULES = {
     ],
     "M5.2-M5.3": M5_ARCHIVE_RULES,
     "M5.4": M5_DOC_RULES,
+    "M6.1": M6_RULES,
 }
 
 
@@ -588,7 +730,8 @@ def load(phase):
     api = {row["id"]: row for row in json.load(gzip.open(ROOT / "docs/self-hosting/m0/deferred/api.json.gz"))}
     patterns = defaultdict(list)
     for call in calls:
-        if call["gate"]["preparation"].split(" ")[0] == phase:
+        first = call["gate"]["preparation"].split(" ")[0]
+        if first == phase or phase == "M6.1" and first == "reuse":
             patterns[call["pattern_id"]].append(call)
     return api, patterns
 
