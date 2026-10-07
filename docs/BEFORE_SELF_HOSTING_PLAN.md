@@ -85,7 +85,7 @@ roadmap schedules them without replacing their detailed exit criteria.
 | [M3](#m3-semantic-and-backend-preparation) | Complete core B1/B2/B7 helpers and early B5 digests | M2 for broad port work; reuse M1 outputs | Staged readiness for S2, S3 with ByteView SHA-256, and S4 with MD5/native-link policy | Complete: [M3.1 handoff](self-hosting/m3/HANDOFF_M3.1.md) ready for S2, [M3.2 handoff](self-hosting/m3/HANDOFF_M3.2.md) ready for S3 and ByteView, [M3.3 handoff](self-hosting/m3/HANDOFF_M3.3.md) ready for the source-only S4 exit ([pre-change review](self-hosting/m3/PRE_CHANGE.md)) |
 | [M4](#m4-native-filesystem-and-process-services) | Deliver B3 filesystem and B4 process services | M2; audited helper dependencies | Filesystem checkpoint first, native process/driver checkpoint second | Complete: [M4.1/M4.2 handoff](self-hosting/m4/HANDOFF_M4.1-M4.2.md) ready for M5 publication, [M4.3 handoff](self-hosting/m4/HANDOFF_M4.3.md) ready for the optional native-driver route, both on macOS arm64, Linux x86-64 and Linux arm64 ([Linux arm64 run](self-hosting/m4/arm64-evidence/manifest.json), [pre-change review](self-hosting/m4/PRE_CHANGE.md)) |
 | [M5](#m5-artifacts-and-command-line-helpers) | Deliver public CRC32, B6 archives, and S6 B7 helpers | M2; required M3 helpers; M4 filesystem checkpoint for publication | Artifact and documentation/CLI prerequisites ready for S6 | Complete: [M5 handoff](self-hosting/m5/HANDOFF_M5.md) ready for S6 on macOS arm64, Linux x86-64 and Linux arm64: public [CRC32](self-hosting/m5/CRC32.md) (D274), the [archive contract](self-hosting/m5/ARCHIVES.md), [codec and writer profiles](self-hosting/m5/CODEC.md) (D275), [artifact services](self-hosting/m5/ARTIFACTS.md) (D276) and [documentation helpers](self-hosting/m5/DOC.md) (D277) ([pre-change review](self-hosting/m5/PRE_CHANGE.md)) |
-| [M6](#m6-bridge-preparation-and-final-handoff) | Qualify remaining Bridge consumers of B3-B7 | Required M3 helpers, M4 process checkpoint, and M5 artifact facilities | Preparation evidence and remaining S7/S8 integration obligations handed off | In progress: M6.1 underway with [export-name validation](self-hosting/m6/NAMES.md) (D291), [identity, inventory and manifest serialization](self-hosting/m6/INVENTORIES.md) (D292) and [generator text, patterns and file inventories](self-hosting/m6/TEXT.md) (D293); [pre-change review](self-hosting/m6/PRE_CHANGE.md) |
+| [M6](#m6-bridge-preparation-and-final-handoff) | Qualify remaining Bridge consumers of B3-B7 | Required M3 helpers, M4 process checkpoint, and M5 artifact facilities | Preparation evidence and remaining S7/S8 integration obligations handed off | In progress: M6.1 complete ([record](self-hosting/m6/CONTRACTS.md), D291-D293); M6.2 next; [pre-change review](self-hosting/m6/PRE_CHANGE.md) |
 
 ### Dependency and scheduling rules
 
@@ -637,11 +637,22 @@ S6 has not started.
 facilities. This completes preparation for S7 consumers, not the S7 Bridge/IDE
 port or S8 release qualification.
 
-- [ ] **M6.1: Remaining compiler-local contracts.** Complete Java 21 qualified
+- [x] **M6.1: Remaining compiler-local contracts.** Complete Java 21 qualified
   export-name validation using the shared predicates delivered for S6, remaining
   properties/manifest helpers, and exact Bridge/TLS inventory serialization.
   Preserve UTF-16 identity encoding and caller-specific validation/diagnostics.
   Extend traversal coverage for each Bridge consumer brought into the port.
+  Complete: [the M6.1 record](self-hosting/m6/CONTRACTS.md) delivers
+  [Java 21 name validation](self-hosting/m6/NAMES.md) with both export loops
+  (D291), [exact identity, inventory, properties and JAR manifest
+  serialization](self-hosting/m6/INVENTORIES.md) (D292) and [the generators'
+  text conversions, patterns, readelf scans and Bridge file
+  inventories](self-hosting/m6/TEXT.md) (D293). Their transcripts equal the
+  baseline's methods and JDK 21 on 4,245 names, 414 maps, 2,559 properties
+  texts, 1,483 manifests, 9,041 float and double patterns, 3,353 strings and
+  607 readelf outputs; every pattern of the 387 in
+  [the M6.1 classification](self-hosting/m6/CLASSIFICATION_M6.1.md) has one
+  class, and the M0 rows naming M6 have treatments with S7 fixtures.
 - [ ] **M6.2: Bridge consumer qualification.** Exercise the selected JDK-tool
   process path, Bridge JAR writer profile, verified atomic publication, and
   dependency manifests with focused fixtures. Preserve generated Java/C and
