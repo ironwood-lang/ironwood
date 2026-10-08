@@ -176,9 +176,9 @@ final class OwnedFieldReentryTests {
     }
 
     /**
-     * A store whose only reclamation of its field frees a local assigned from it inside
-     * a condition, which no D297-D303 witness covers, so a free that may run code during
-     * a loan still fails the field's proof (D281) and that free reports it.
+     * A store whose only reclamation of its field frees a local declared from a cast of
+     * it, which no D297-D304 witness covers, so a free that may run code during a loan
+     * still fails the field's proof (D281) and that free reports it.
      */
     private static final String STORE = """
             class Noisy {
@@ -193,11 +193,9 @@ final class OwnedFieldReentryTests {
                 private int[] values = new int[1];
 
                 void discard() {
-                    int[] old = null;
-                    if ((old = values) != null) {
-                        values = null;
-                        free old;
-                    }
+                    int[] old = (int[]) values;
+                    values = null;
+                    free old;
                 }
 
             %s
@@ -266,7 +264,7 @@ final class OwnedFieldReentryTests {
     /**
      * When the program needs the field owned, because the owner's destructor frees it
      * (D297) or its instance code frees a local loaded from it, as Buffer.drop does,
-     * directly or by a deferred free (D298-D303), a free that may run code during a loan
+     * directly or by a deferred free (D298-D304), a free that may run code during a loan
      * leaves the field owned and is rejected at the free: freeing an object whose
      * destructor reenters names the alias and field it would cross, its safe twin
      * compiles, and freeing the owner, whose destructor frees the field directly, inside
@@ -556,6 +554,75 @@ final class OwnedFieldReentryTests {
                     + explained(twin));
             require(lowersFree(members), "lowering did not reject an assigned free the witness counted");
         }
+        // An assignment inside an expression is a witness too when its statement always
+        // evaluates it before the free: in a condition, a declaration's initializer or a
+        // switch selector, with the free in the statement or after it (D304). On the
+        // right of && the assignment may not run, so D281 keeps its report.
+        for (String members : List.of("""
+                    void reset() {
+                        int[] old = null;
+                        if ((old = values) != null) {
+                            values = null;
+                            free old;
+                        }
+                    }
+                """, """
+                    void reset() {
+                        int[] old = null;
+                        if ((old = values) == null) {
+                            return;
+                        }
+                        values = null;
+                        free old;
+                    }
+                """, """
+                    int reset() {
+                        int[] old = null;
+                        int size = (old = values).length;
+                        values = null;
+                        free old;
+                        return size;
+                    }
+                """, """
+                    void reset() {
+                        int[] old = null;
+                        switch ((old = values).length) {
+                            default:
+                                values = null;
+                                free old;
+                        }
+                    }
+                """)) {
+            CompilationArtifact evaluated = store(members + noisyUse);
+            require(!evaluated.valid() && ownershipFailures(evaluated).isEmpty()
+                            && messages(evaluated).equals(List.of(CONTINGENT)),
+                    "a reentrant free beside an expression assignment was not rejected at the free: "
+                            + explained(evaluated));
+            CompilationArtifact twin = store(members + """
+
+                        void use() {
+                            Noisy noisy = new Noisy();
+                            free noisy;
+                            int[] old = values;
+                            old[0] = 7;
+                        }
+                    """);
+            require(twin.valid(), "freeing before the loan was rejected beside an expression assignment: "
+                    + explained(twin));
+            require(lowersFree(members), "lowering did not reject an expression-assigned free the witness counted");
+        }
+        CompilationArtifact shortCircuit = store("""
+                    void reset(boolean flag) {
+                        int[] old = null;
+                        if (flag && (old = values) != null) {
+                            values = null;
+                            free old;
+                        }
+                    }
+                """ + noisyUse);
+        require(!shortCircuit.valid() && messages(shortCircuit).equals(List.of(RECLAIM, RECLAIM))
+                        && failedBy(shortCircuit, FREE),
+                "an assignment that may not run counted as a witness: " + explained(shortCircuit));
         CompilationArtifact overwritten = store("""
                     void reset(int[] spare) {
                         int[] old = null;

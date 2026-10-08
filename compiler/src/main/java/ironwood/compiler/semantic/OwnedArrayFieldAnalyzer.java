@@ -9,6 +9,7 @@ import ironwood.compiler.ast.AssignmentExpression;
 import ironwood.compiler.ast.AssignmentOperator;
 import ironwood.compiler.ast.AssignmentStatement;
 import ironwood.compiler.ast.BinaryExpression;
+import ironwood.compiler.ast.BinaryOperator;
 import ironwood.compiler.ast.Block;
 import ironwood.compiler.ast.BreakStatement;
 import ironwood.compiler.ast.CallExpression;
@@ -300,6 +301,95 @@ final class OwnedArrayFieldAnalyzer {
         return functions;
     }
 
+    /**
+     * The expressions of a block statement that run, whenever control passes it, before
+     * its nested statements and before the block's later statements (D304). A do-while
+     * condition runs after its body, and a for loop's initializer and updates are not
+     * searched.
+     */
+    private static java.util.List<Expression> headExpressions(Statement statement) {
+        if (statement instanceof ExpressionStatement expression) {
+            return java.util.List.of(expression.expression());
+        }
+        if (statement instanceof LocalVariableDeclaration local) {
+            return java.util.List.of(local.initializer());
+        }
+        if (statement instanceof AssignmentStatement assignment) {
+            return java.util.List.of(assignment.target(), assignment.value());
+        }
+        if (statement instanceof IfStatement conditional) {
+            return java.util.List.of(conditional.condition());
+        }
+        if (statement instanceof WhileStatement loop) {
+            return java.util.List.of(loop.condition());
+        }
+        if (statement instanceof ForStatement loop) {
+            return loop.condition().map(java.util.List::of).orElse(java.util.List.of());
+        }
+        if (statement instanceof EnhancedForStatement loop) {
+            return java.util.List.of(loop.iterable());
+        }
+        if (statement instanceof SwitchStatement switched) {
+            return java.util.List.of(switched.selector());
+        }
+        if (statement instanceof ModernSwitchStatement switched) {
+            return java.util.List.of(switched.selector());
+        }
+        return java.util.List.of();
+    }
+
+    /**
+     * The operands that evaluating {@code expression} always evaluates, in source order,
+     * which Java's left-to-right evaluation follows (D304): not the right operand of
+     * {@code &&} or {@code ||}, a conditional's branches, a switch expression's arms or
+     * an anonymous class body.
+     */
+    private static java.util.List<Expression> evaluatedOperands(Expression expression) {
+        java.util.List<Expression> operands = new java.util.ArrayList<>();
+        if (expression instanceof AssignmentExpression assignment) {
+            operands.add(assignment.target());
+            operands.add(assignment.value());
+        } else if (expression instanceof BinaryExpression binary) {
+            operands.add(binary.left());
+            if (binary.operator() != BinaryOperator.LOGICAL_AND
+                    && binary.operator() != BinaryOperator.LOGICAL_OR) {
+                operands.add(binary.right());
+            }
+        } else if (expression instanceof CallExpression call) {
+            call.receiver().ifPresent(operands::add);
+            operands.addAll(call.arguments());
+        } else if (expression instanceof NewExpression creation) {
+            creation.enclosingInstance().ifPresent(operands::add);
+            operands.addAll(creation.arguments());
+        } else if (expression instanceof QualifiedSuperConstructorExpression invocation) {
+            operands.add(invocation.enclosingInstance());
+            operands.addAll(invocation.arguments());
+        } else if (expression instanceof ArrayCreationExpression creation) {
+            creation.length().ifPresent(operands::add);
+            creation.initializer().ifPresent(operands::add);
+        } else if (expression instanceof ArrayInitializerExpression initializer) {
+            operands.addAll(initializer.elements());
+        } else if (expression instanceof ArrayAccessExpression access) {
+            operands.add(access.array());
+            operands.add(access.index());
+        } else if (expression instanceof FieldAccessExpression access) {
+            operands.add(access.receiver());
+        } else if (expression instanceof CastExpression cast) {
+            operands.add(cast.operand());
+        } else if (expression instanceof UnaryExpression unary) {
+            operands.add(unary.operand());
+        } else if (expression instanceof InstanceOfExpression test) {
+            operands.add(test.operand());
+        } else if (expression instanceof UpdateExpression update) {
+            operands.add(update.target());
+        } else if (expression instanceof ConditionalExpression conditional) {
+            operands.add(conditional.condition());
+        } else if (expression instanceof SwitchExpression switched) {
+            operands.add(switched.selector());
+        }
+        return operands;
+    }
+
     /** A scope's deferred actions and the locals declared outside it. */
     private record DeferredScope(Set<String> outer, java.util.List<Expression> actions) {
     }
@@ -316,9 +406,9 @@ final class OwnedArrayFieldAnalyzer {
     }
 
     /**
-     * A block statement that declares a local from the field through {@code this} or
-     * assigns the field so to a local, that block, and the block's later statements
-     * (D299, D303).
+     * A declaration of a local from the field through {@code this}, or an assignment of
+     * the field so to a local, that runs whenever control passes its block statement;
+     * that block; and the block's statements from that one on (D299, D303, D304).
      */
     private record FieldLoad(String name, SourceSpan declaration, SourceSpan scope,
                              java.util.List<SourceSpan> following) {
@@ -495,13 +585,9 @@ final class OwnedArrayFieldAnalyzer {
             java.util.List<Statement> statements = block.statements();
             for (int index = 0; index < statements.size(); index++) {
                 Statement statement = statements.get(index);
-                String loaded = fieldLoads == null ? null
-                        : statement instanceof LocalVariableDeclaration local
-                        && isThisFieldLoad(local.initializer(), environment) ? local.name()
-                        : assignedFieldLoad(statement, environment);
-                if (loaded != null) {
-                    fieldLoads.add(new FieldLoad(loaded, statement.span(), block.span(), statements
-                            .subList(index + 1, statements.size()).stream().map(Statement::span).toList()));
+                if (fieldLoads != null) {
+                    recordFieldLoads(statement, environment, block.span(), statements
+                            .subList(index, statements.size()).stream().map(Statement::span).toList());
                 }
                 // Lowering frees a deferred target only on a route out of the rest of
                 // the block (D301, D302).
@@ -564,10 +650,11 @@ final class OwnedArrayFieldAnalyzer {
         /**
          * Whether the owner's instance code (constructors, methods, destructor or instance
          * initializers) declares a local from the field through {@code this}, or assigns
-         * the field so to a local, in a statement of a block, and frees it later in that
+         * the field so to a local where a block statement always evaluates it first, and
+         * frees it after that, in the statement's nested statements or later in the
          * block, where lowering is certain to lower the free, with no other write to the
-         * local in between (D298-D303). The statement precedes the free on every path
-         * through the block, so the free sees the loaded value. Lowering tracks no
+         * local in between (D298-D304). The load runs before the free on every path to
+         * it, so the free sees the loaded value. Lowering tracks no
          * allocation for {@code this}, so it proves such a free only from a detached owned
          * field: without ownership the loaded value stays attached and the free is
          * rejected. Java forbids redeclaring the name while it is in scope, so a later
@@ -608,7 +695,7 @@ final class OwnedArrayFieldAnalyzer {
             return probe;
         }
 
-        /** Whether this probe saw a free of a field-load local later in its block, with no write between. */
+        /** Whether this probe saw a free of a field-load local after the load in its block, with no write between. */
         private boolean freesFieldLoad() {
             for (FreedLocal freed : freedLocals) {
                 for (FieldLoad load : fieldLoads) {
@@ -624,10 +711,10 @@ final class OwnedArrayFieldAnalyzer {
         }
 
         /**
-         * Whether the probe saw a write to the load's local between the load's statement
-         * and the end of the block statement that holds the free, or of a deferred free's
-         * block (D303). A later write runs only after that free, which is reached again
-         * only by passing the load's statement.
+         * Whether the probe saw a write to the load's local between the load and the end
+         * of the block statement that holds the free, or of a deferred free's block (D303,
+         * D304). A later write runs only after that free, which is reached again only by
+         * passing the load.
          */
         private boolean writtenBetween(FieldLoad load, FreedLocal freed) {
             int start = freed.span().start().offset();
@@ -642,25 +729,40 @@ final class OwnedArrayFieldAnalyzer {
         }
 
         /**
-         * The local that {@code statement} assigns from the candidate through {@code this}
-         * with a plain {@code =}, or null (D303).
+         * Records the field loads of a block statement: a declaration of a local from the
+         * candidate through {@code this}, and each plain {@code =} assignment of it so to a
+         * local or parameter that the statement's head expressions always evaluate before
+         * the statement's nested statements and the block's later statements (D303, D304).
          */
-        private String assignedFieldLoad(Statement statement, Map<String, Boolean> environment) {
-            Expression target;
-            Expression value;
-            if (statement instanceof AssignmentStatement assignment) {
-                target = assignment.target();
-                value = assignment.value();
-            } else if (statement instanceof ExpressionStatement expression
-                    && expression.expression() instanceof AssignmentExpression assignment
-                    && assignment.operator() == AssignmentOperator.ASSIGN) {
-                target = assignment.target();
-                value = assignment.value();
-            } else {
-                return null;
+        private void recordFieldLoads(Statement statement, Map<String, Boolean> environment,
+                                      SourceSpan block, java.util.List<SourceSpan> holders) {
+            if (statement instanceof LocalVariableDeclaration local
+                    && isThisFieldLoad(local.initializer(), environment)) {
+                fieldLoads.add(new FieldLoad(local.name(), statement.span(), block, holders));
             }
-            return target instanceof NameExpression local && environment.containsKey(local.name())
-                    && isThisFieldLoad(value, environment) ? local.name() : null;
+            if (statement instanceof AssignmentStatement assignment
+                    && assignment.target() instanceof NameExpression local
+                    && environment.containsKey(local.name())
+                    && isThisFieldLoad(assignment.value(), environment)) {
+                fieldLoads.add(new FieldLoad(local.name(), statement.span(), block, holders));
+            }
+            for (Expression head : headExpressions(statement)) {
+                recordAssignedLoads(head, environment, block, holders);
+            }
+        }
+
+        private void recordAssignedLoads(Expression expression, Map<String, Boolean> environment,
+                                         SourceSpan block, java.util.List<SourceSpan> holders) {
+            if (expression instanceof AssignmentExpression assignment
+                    && assignment.operator() == AssignmentOperator.ASSIGN
+                    && assignment.target() instanceof NameExpression local
+                    && environment.containsKey(local.name())
+                    && isThisFieldLoad(assignment.value(), environment)) {
+                fieldLoads.add(new FieldLoad(local.name(), assignment.span(), block, holders));
+            }
+            for (Expression operand : evaluatedOperands(expression)) {
+                recordAssignedLoads(operand, environment, block, holders);
+            }
         }
 
         /** Whether {@code initializer} reads the candidate through {@code this}, as lowering resolves it. */

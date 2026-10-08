@@ -11909,9 +11909,10 @@ occurrence order. If no
   change (D297-D302). Java forbids redeclaring a local in its scope, so the
   freed name is that local.
 - **Boundary:** An assignment inside an expression, such as `if ((old =
-  values) != null)`, a cast or other expression around the load, another
-  write between the load and the free, and a free that no route is proven to
-  reach keep D281's report. Supersedes no other decision.
+  values) != null)` (D304 recognizes one its statement always evaluates), a
+  cast or other expression around the load, another write between the load
+  and the free, and a free that no route is proven to reach keep D281's
+  report. Supersedes no other decision.
 - **Verification:** A free that runs a destructor during a loan is rejected
   at the free, with the field owned, beside a reclamation through a local
   assigned from the field, through an assigned parameter, and through a
@@ -11921,6 +11922,53 @@ occurrence order. If no
   D281's report. D281's free route and D296's paired test now use a store
   that assigns the field inside a condition. On the D302 analysis the
   assigned case reports at the reclamations, while the relocated D281 and
+  D296 checks pass. The focused field, wrapper, owner, pool and explanation
+  tests pass, 69 examples emit the same `-O3` LLVM, the standard library
+  builds and every port source compiles without diagnostics.
+
+## D304 - Recognize a field's reclamation through an assignment in an expression
+
+- **Status:** Accepted and implemented. Amends D303 and supersedes its
+  boundary that an assignment inside an expression keeps D281's report.
+- **Context:** D303 counted only a block statement that is itself the
+  assignment `old = values;`. The common form `if ((old = values) != null) {
+  values = null; free old; }`, or a load assigned in an initializer such as
+  `int size = (old = values).length;`, still reported a free that may run
+  code during a loan at its reclamation instead of at that free.
+- **Decision:** A plain `=` assignment of the field through `this` to a local
+  or parameter is a field load when a block statement always evaluates it
+  first: in an expression statement, a declaration's initializer, an `if` or
+  `while` condition, a `for` condition, an enhanced-for iterable or a switch
+  selector, reached through operands Java always evaluates (not the right of
+  `&&` or `||`, a conditional's branches, a switch expression's arms or an
+  anonymous class body). A free counts when it follows the assignment in
+  that statement's nested statements or in a later statement of the block,
+  where lowering is certain to lower it (D302), with no write to the local
+  between the assignment and the end of the block statement that holds the
+  free (D303). D303's statement form is the simplest case.
+- **Analysis:** Java evaluates operands left to right, so source order is
+  evaluation order. Such an assignment runs whenever control passes its
+  statement and before the statement's nested statements: a condition or
+  selector runs before its branches and arms, and a `while` or `for`
+  condition before each iteration of the body and before the loop ends. A
+  do-while condition runs after its body, so it is not searched. The free
+  therefore sees the loaded value, which lowering rejects unless the field is
+  owned: a program with a recorded free is invalid either way, and no valid
+  program's facts or code change (D297-D303).
+- **Boundary:** An assignment that may not run, such as one on the right of
+  `&&`, in a conditional's branch or in a do-while condition, a cast or other
+  expression around the load, another write between the load and the free,
+  and a free that no route is proven to reach keep D281's report. Supersedes
+  no other decision.
+- **Verification:** A free that runs a destructor during a loan is rejected
+  at the free, with the field owned, beside reclamations that assign the
+  field in an `if` condition and free in the branch or after the `if`, in a
+  declaration's initializer, and in a switch selector; each safe twin
+  compiles, and through a field that escapes to a sibling field lowering
+  rejects each of those frees. An assignment on the right of `&&` keeps
+  D281's report. D281's free route and D296's paired test now use a store
+  that declares the local from a cast of the field. On the D303 analysis the
+  expression cases report at the reclamations, while the relocated D281 and
   D296 checks pass. The focused field, wrapper, owner, pool and explanation
   tests pass, 69 examples emit the same `-O3` LLVM, the standard library
   builds and every port source compiles without diagnostics.
