@@ -11580,3 +11580,38 @@ occurrence order. If no
   `javac` and `javadoc` through the selection equal the in-process tools; the
   ownership pairs hold; and 125 allocation limits each unwind and leave no
   log. See [the M6.2 record](self-hosting/m6/JAR.md).
+
+## D296 - Judge a rejected free by its local's type in field-loan proofs
+
+- **Status:** Accepted and implemented. Amends D281.
+- **Context:** D281's field-loan proof counts a free inside a loan as code that
+  may run unless typed IR shows the freed value has no destructor. A free that
+  lowering rejects emits no instruction, so typed IR showed nothing and the
+  proof failed even for a class without a destructor. The free stayed
+  rejected, but the wrapper field lost its encapsulation proof, the
+  constructor argument then escaped, and that escape became the reported
+  reason in place of the live alias that observes the allocation (`cannot free
+  'x': allocation may still be observed through local 'k'`).
+- **Decision:** Provisional lowering records each rejected free of a local
+  with the local's static type, and the field-loan proof counts it as running
+  no code when no class of that type in the closed world has a destructor.
+  Those destructors include every one that any free of the local could run, so
+  the judgment holds even if a later lowering accepts the free. Arrays and
+  other types stay possible, since freeing them can destroy elements, and so
+  do frees of expressions other than a local.
+- **Boundary:** A free whose class has a destructor still fails the proof
+  while an alias is live. Freeing the owner `o` while `k` aliases `o.held`,
+  when its destructor frees `held`, stays rejected at the destructor's free
+  of the field, as D281 decided; `--explain-rejected-free` names `free o`.
+  Field facts change only where provisional lowering rejected a free of a
+  destructor-free local inside a loan. No runtime instruction, check or cost
+  changes. Supersedes no decision.
+- **Verification:** The four wrapper-field rejections in the safe-free tests
+  report the live alias again. D281's reentry routes gain a free that runs a
+  destructor, with its safe twin, and a paired test keeps a rejected free of a
+  class with a reentrant destructor failing the field's proof while a rejected
+  free of a class without one leaves only that free's own error and the field
+  owned; on the D281 analysis all three changed tests fail. The standard
+  library builds, every port source compiles without diagnostics, 69 examples
+  emit the same `-O3` LLVM as before, and the focused field, wrapper, owner and
+  pool tests pass.

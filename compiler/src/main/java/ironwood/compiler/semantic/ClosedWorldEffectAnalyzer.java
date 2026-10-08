@@ -767,14 +767,7 @@ final class ClosedWorldEffectAnalyzer {
             if (staticType.isArray() || !staticType.isNominalReference()) {
                 return List.of();
             }
-            LinkedHashSet<IrFunction> destructors = new LinkedHashSet<>();
-            Set<String> possible = valueClasses == null ? null : valueClasses.released(free);
-            classes.stream().filter(type -> isSubtype(type, staticType.referenceName())
-                            && (possible == null || possible.contains(type.name())))
-                    .flatMap(type -> type.destructorChain().stream())
-                    .map(functions::get).filter(java.util.Objects::nonNull)
-                    .forEach(destructors::add);
-            return List.copyOf(destructors);
+            return freeDestructors(staticType, valueClasses == null ? null : valueClasses.released(free));
         } else {
             return List.of();
         }
@@ -784,6 +777,28 @@ final class ClosedWorldEffectAnalyzer {
                 .map(entry -> functions.get(entry.targetLinkageName()))
                 .filter(java.util.Objects::nonNull).forEach(result::add);
         return List.copyOf(result);
+    }
+
+    /** The destructors of the classes of {@code staticType}, limited to {@code possible} when known. */
+    private List<IrFunction> freeDestructors(IrType staticType, Set<String> possible) {
+        LinkedHashSet<IrFunction> destructors = new LinkedHashSet<>();
+        classes.stream().filter(type -> isSubtype(type, staticType.referenceName())
+                        && (possible == null || possible.contains(type.name())))
+                .flatMap(type -> type.destructorChain().stream())
+                .map(functions::get).filter(java.util.Objects::nonNull)
+                .forEach(destructors::add);
+        return List.copyOf(destructors);
+    }
+
+    /**
+     * Whether freeing a value whose static type is {@code staticType} may run a
+     * destructor, judged without a free instruction: some class of that type in the
+     * closed world has one. Every free of such a value has a subset of these targets.
+     * Arrays and other types stay possible, since freeing them can destroy elements.
+     */
+    boolean freeMayRunDestructor(IrType staticType) {
+        IrType erased = staticType.erasure();
+        return erased.isArray() || !erased.isNominalReference() || !freeDestructors(erased, null).isEmpty();
     }
 
     private void collectInitializationTargets(String typeName, Set<String> visited,

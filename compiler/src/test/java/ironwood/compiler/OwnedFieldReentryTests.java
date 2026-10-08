@@ -79,6 +79,20 @@ final class OwnedFieldReentryTests {
                 Object VALUE = Trigger.make();
             }
 
+            class Victim {
+                Buffer buffer;
+
+                destructor {
+                    Buffer target = buffer;
+                    if (target != null) {
+                        target.drop();
+                    }
+                }
+            }
+
+            class Plain {
+            }
+
             final class Walker implements Iterable<String> {
                 Buffer buffer;
                 final Empty empty = new Empty();
@@ -109,6 +123,8 @@ final class OwnedFieldReentryTests {
             }
             """;
 
+    private static final String FREE = "this free can run a destructor while a local alias of "
+            + "the field's allocation remains active";
     private static final String CODE = "this expression can run other code while a local "
             + "alias of the field's allocation remains active";
     private static final String CALL = "this call occurs while a local alias of the field's "
@@ -150,6 +166,37 @@ final class OwnedFieldReentryTests {
                     }
                 """);
         require(artifact.valid(), "fixed operations disqualified the field: " + explained(artifact));
+    }
+
+    /**
+     * A free that lowering rejects has no instruction, so the type of the freed local
+     * decides whether it may run code (D296): a class with a destructor still fails the
+     * field's proof, while one without leaves only the free's own rejection and keeps
+     * the field owned, so the later free of its detached storage is accepted.
+     */
+    static void rejectedFrees() {
+        CompilationArtifact running = analyze("""
+                    void use(Victim victim) {
+                        int[] old = values;
+                        free victim;
+                        values = new int[2];
+                        free old;
+                    }
+                """);
+        require(!running.valid() && ownershipFailures(running).stream()
+                        .anyMatch(note -> note.endsWith("failed: " + FREE)),
+                "a rejected free that runs a destructor kept the field: " + explained(running));
+        CompilationArtifact inert = analyze("""
+                    void use(Plain plain) {
+                        int[] old = values;
+                        free plain;
+                        values = new int[2];
+                        free old;
+                    }
+                """);
+        require(!inert.valid() && ownershipFailures(inert).isEmpty() && inert.diagnostics().stream()
+                        .allMatch(diagnostic -> diagnostic.message().contains("free of 'plain'")),
+                "a rejected free without a destructor disqualified the field: " + explained(inert));
     }
 
     private static List<Route> routes() {
@@ -250,6 +297,23 @@ final class OwnedFieldReentryTests {
                                 alias[0] = 7;
                             }
                         """, CALL),
+                new Route("free that runs a destructor", """
+                            void use() {
+                                Victim victim = new Victim();
+                                int[] old = values;
+                                free victim;
+                                values = new int[2];
+                                free old;
+                            }
+                        """, """
+                            void use() {
+                                Victim victim = new Victim();
+                                free victim;
+                                int[] old = values;
+                                values = new int[2];
+                                free old;
+                            }
+                        """, FREE),
                 new Route("destructor", """
                             destructor {
                                 Registry.leaked = values;

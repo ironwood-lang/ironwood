@@ -95,6 +95,8 @@ public final class SemanticAnalyzer {
 
     private SourceFile source;
     private ClosedWorldEffectAnalyzer reclamationEffects;
+    /** The frees provisional lowering rejected, per function, for the field proofs (D296). */
+    private final Map<String, Map<SourceSpan, IrType>> provisionalRejectedFrees = new LinkedHashMap<>();
     private ironwood.compiler.bridge.BridgeListenerProxies listenerProxies;
     private GenericTypeSystem genericTypes;
     private LexicalTypeScopes lexicalTypeScopes = LexicalTypeScopes.empty();
@@ -343,6 +345,7 @@ public final class SemanticAnalyzer {
         // do not depend on errors in declarations it does not use. Provisional
         // ownership failures are reconsidered after receiver flow; final lowering
         // validates all source diagnostics and emits the actual reclamation instructions.
+        provisionalRejectedFrees.clear();
         List<IrFunction> boundFunctions = lowerFunctions(types, hierarchy, escapeSummaries,
                 ownedArrayFields, stringPool, new ArrayList<>(), new LinkedHashMap<>(), false, false);
         // Typed IR distinguishes allocating concatenations from expressions
@@ -362,9 +365,10 @@ public final class SemanticAnalyzer {
         boundFunctions = relowerArgumentReclaimingCallers(boundFunctions, types, hierarchy,
                 escapeSummaries, ownedArrayFields, stringPool);
         // Typed IR shows where code may run without a source call, so the field
-        // proofs below, which final lowering uses, see every possible reentry.
+        // proofs below, which final lowering uses, see every possible reentry. A
+        // rejected free has no instruction; its local's type shows its destructors.
         ReentrantOperations reentrant = ReentrantOperations.of(boundFunctions, types,
-                reclamationEffects);
+                reclamationEffects, provisionalRejectedFrees);
         BorrowDispatchAnalysis borrowDispatch = new BorrowDispatchAnalysis(types, hierarchy,
                 boundFunctions, staticFields, main != null, evidenceBudget);
         if (observer != null) {
@@ -689,6 +693,9 @@ public final class SemanticAnalyzer {
         }
         try {
             IrFunction result = analyzer.analyze();
+            if (!finalPhase) {
+                provisionalRejectedFrees.put(result.linkageName(), analyzer.rejectedFreeTypes());
+            }
             if (observer != null && analyzer.hasRejectedFreeEvidence()) {
                 RejectedFreeEvidence evidence = analyzer.rejectedFreeEvidence();
                 observer.collectorFinished(callable.linkageName(), evidence.highWater(),

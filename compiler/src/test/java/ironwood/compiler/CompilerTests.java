@@ -849,6 +849,8 @@ public final class CompilerTests {
                 OwnedFieldReentryTests::reentryRoutes);
         test("field loans admit runtime checks conversions and own-class statics",
                 OwnedFieldReentryTests::fixedOperationsInsideLoan);
+        test("field loans judge rejected frees by the destructors of their type",
+                OwnedFieldReentryTests::rejectedFrees);
         test("independent list copies preserve membership iterator and allocation scaling",
                 this::listCopiesRunNatively);
         test("independent map copies preserve keys values and callback loan safety",
@@ -5513,9 +5515,6 @@ public final class CompilerTests {
                 }
                 """);
         assertTrue(accepted.successful(), messages(accepted));
-        // D281: a free while a local alias of the wrapper's field is live fails the field's
-        // encapsulation proof (the first lowering has no typed IR to show the free inert), so
-        // the constructor argument escapes and that is the reason reported for the free.
         assertDiagnostic(keeper + """
                 class Holder {
                     private final Keeper held;
@@ -5532,7 +5531,7 @@ public final class CompilerTests {
                 class Main {
                     public static int main(String[] args) { return Holder.leak(); }
                 }
-                """, "allocation escapes through constructor argument 1");
+                """, "may still be observed through local 'k'");
         assertDiagnostic(keeper + """
                 class Loose {
                     private Keeper held;
@@ -5549,7 +5548,7 @@ public final class CompilerTests {
                 class Main {
                     public static int main(String[] args) { return Loose.leak(); }
                 }
-                """, "allocation escapes through constructor argument 1");
+                """, "may still be observed through local 'k'");
         // The wrapper retains a value that may be any element; reading its field
         // must observe the elements that value may be, not the identity itself.
         assertDiagnostic(keeper + """
@@ -5571,7 +5570,7 @@ public final class CompilerTests {
                 class Main {
                     public static int main(String[] args) { return Loose.leak(args.length); }
                 }
-                """, "may still be observed through an element loaded with a non-constant index");
+                """, "may still be observed through local 'k'");
         // D281: freeing the owner runs its destructor while 'k' aliases the field, so the
         // field is not owned and the destructor's free of it is rejected.
         assertDiagnostic(keeper + """
@@ -6643,8 +6642,6 @@ public final class CompilerTests {
                     }
                 }
                 """, "may still be observed through local 'loaded'");
-        // D281 rejects the wrapper field's encapsulation, so the constructor argument escapes
-        // (see safeFreeTracksWrapperFieldReads).
         assertDiagnostic("""
                 class Keeper { int tag = 1; }
                 class Holder {
@@ -6665,7 +6662,7 @@ public final class CompilerTests {
                 class Main {
                     public static int main(String[] args) { return Holder.leak(args.length); }
                 }
-                """, "allocation escapes through constructor argument 1");
+                """, "may still be observed through local 'k'");
         // A computed read stored in a slot and read again with a computed index is a
         // one-of nested in a one-of; the alias must see through to the element.
         assertDiagnostic("""

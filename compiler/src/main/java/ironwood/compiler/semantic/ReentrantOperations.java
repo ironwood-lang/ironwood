@@ -50,8 +50,15 @@ final class ReentrantOperations {
         this.inertFreeSpans = inertFreeSpans;
     }
 
+    /**
+     * Classifies the typed IR of {@code functions}. {@code rejectedFrees} names, per
+     * function, the frees of locals that lowering rejected, which have no instruction:
+     * each is inert when no class of its local's static type has a destructor, which
+     * holds for any free of that local should a later lowering accept it (D296).
+     */
     static ReentrantOperations of(List<IrFunction> functions, Map<String, TypeSymbol> types,
-                                  ClosedWorldEffectAnalyzer effects) {
+                                  ClosedWorldEffectAnalyzer effects,
+                                  Map<String, Map<SourceSpan, IrType>> rejectedFrees) {
         Map<String, String> checkConstructors = new HashMap<>();
         for (String name : RUNTIME_CHECK_EXCEPTIONS) {
             TypeSymbol type = types.get(name);
@@ -65,6 +72,9 @@ final class ReentrantOperations {
         for (IrFunction function : functions) {
             Scan scan = new Scan(function, types, effects, checkConstructors);
             if (!scan.code.isEmpty()) codeSpans.put(function.linkageName(), List.copyOf(scan.code));
+            rejectedFrees.getOrDefault(function.linkageName(), Map.of()).forEach((span, type) -> {
+                if (!effects.freeMayRunDestructor(type)) scan.inertFrees.add(span);
+            });
             if (!scan.inertFrees.isEmpty()) {
                 inertFreeSpans.put(function.linkageName(), Set.copyOf(scan.inertFrees));
             }

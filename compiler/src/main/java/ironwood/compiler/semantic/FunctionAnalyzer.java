@@ -245,6 +245,11 @@ final class FunctionAnalyzer {
     private SourceSpan checkedCatchOrigin;
     private CleanupExit activeCleanupExit;
     private final List<Reclamation> reclamations = new ArrayList<>();
+    /**
+     * Rejected frees of locals by statement span, with the local's static type. They
+     * emit no instruction, so field proofs judge their destructors by type (D296).
+     */
+    private final Map<SourceSpan, IrType> rejectedFreeTypes = new LinkedHashMap<>();
     private final Map<IrOperand, AllocationInfo> allocationsByOperand = new LinkedHashMap<>();
     private final Set<IrOperand> ownedHelperBorrows = new LinkedHashSet<>();
     private final Map<IrOperand, String> ownedHelperBorrowTypes = new LinkedHashMap<>();
@@ -338,6 +343,11 @@ final class FunctionAnalyzer {
 
     boolean hasRejectedFreeEvidence() {
         return rejectedFreeEvidence != null;
+    }
+
+    /** The frees of locals this lowering rejected, by statement span, with each local's static type. */
+    Map<SourceSpan, IrType> rejectedFreeTypes() {
+        return Map.copyOf(rejectedFreeTypes);
     }
 
     RejectedFreeEvidence rejectedFreeEvidence() {
@@ -2017,7 +2027,11 @@ final class FunctionAnalyzer {
     private void lowerFreeOperand(LocalSymbol symbol, IrOperand operand, IrType targetType,
                                   String targetName, SourceSpan targetSpan, SourceSpan span,
                                   Set<LocalSymbol> expiredAliases) {
-        switch (probeFree(symbol, operand, targetType, expiredAliases)) {
+        FreeProof proof = probeFree(symbol, operand, targetType, expiredAliases);
+        if (!(proof instanceof FreeProof.Accepted) && symbol != null && targetType.isReference()) {
+            rejectedFreeTypes.put(span, targetType);
+        }
+        switch (proof) {
             case FreeProof.Accepted accepted -> emitProvenFree(accepted.allocation(), operand, span);
             case FreeProof.NotReference ignored -> diagnostics.add(error(targetSpan,
                     "free target must have a class, interface, or array reference type, not "

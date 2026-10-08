@@ -905,7 +905,9 @@ object, enhanced-for iteration over an `Iterable`, a destructor, or a pending
 deferred action. Later loop iterations, catch handlers, and the static
 initializers and destructors of the owning nest count too (D281). Runtime-check
 failures, String and primitive conversion, exact `System.arraycopy`, and the
-owning class's own statics run no other code.
+owning class's own statics run no other code, and neither does a free of a value
+no class of whose type has a destructor, judged by the local's type when the
+free itself is rejected (D296).
 The compiler rejects unproven consumed parameters, arbitrary field-loaded
 references outside their declaring destructor, live aliases, published
 or conditionally replaced fields, escaping constructors or calls, uncertain
