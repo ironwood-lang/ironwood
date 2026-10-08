@@ -12105,9 +12105,9 @@ occurrence order. If no
   (D297-D306). A pattern binding named like the field no longer passes for a
   load of the field, which the D306 probe assumed.
 - **Boundary:** A write of a value that is not a field load, an assignment a
-  path to the free may skip, a pattern binding of the field, and a free that
-  no route is proven to reach keep D281's report. Supersedes no other
-  decision.
+  path to the free may skip, a pattern binding of the field (D308 recognizes
+  it), and a free that no route is proven to reach keep D281's report.
+  Supersedes no other decision.
 - **Verification:** Every D297-D306 witness and boundary test passes on the
   new analysis. A free that runs a destructor during a loan is now rejected
   at the free beside a reclamation that loads the field in a switch
@@ -12123,3 +12123,43 @@ occurrence order. If no
   D296 checks pass. The focused field, wrapper, owner, pool and explanation
   tests pass, 69 examples emit the same `-O3` LLVM, the standard library
   builds and every port source compiles without diagnostics.
+
+## D308 - Recognize a field's reclamation through a pattern binding
+
+- **Status:** Accepted and implemented. Amends D307 and supersedes its
+  boundary that a pattern binding of the field keeps D281's report.
+- **Context:** D307 gave pattern bindings no field load. A reclamation such as
+  `if (values instanceof int[] old) { values = null; free old; }`, or one
+  that returns when `!(this.values instanceof int[] old)` and frees `old`
+  afterwards, still reported a free that may run code during a loan at its
+  reclamation instead of at that free.
+- **Decision:** A type test with a binding splits the state: where the test is
+  true the binding holds a field load when its operand does, and where it is
+  false the binding holds none. Outside a condition the binding holds none.
+  Writes to a binding are tracked like writes to any local, and a binding is
+  a local wherever its name is read; one named like the field makes later
+  reads of the field count as reads of the binding, which hold a load only if
+  the binding did.
+- **Analysis:** A matching type test binds its operand's value, as a checked
+  cast of it, and lowering gives the binding the operand's allocation
+  identity or none (D305), so where the analysis says the binding holds a
+  field load, lowering's value includes one, and without ownership it rejects
+  the free: a program with a recorded free is invalid either way, and no
+  valid program's facts or code change (D297-D307).
+- **Boundary:** A binding of a value that is not a field load, a write of
+  such a value, an assignment a path to the free may skip, and a free that no
+  route is proven to reach keep D281's report. Supersedes no other decision.
+- **Verification:** A free that runs a destructor during a loan is rejected
+  at the free, with the field owned, beside `if (values instanceof int[] old)
+  { values = null; free old; }` and beside a reclamation that returns when
+  `!(this.values instanceof int[] old)`; each safe twin compiles, and through
+  a field that escapes to a sibling field lowering rejects both frees. A
+  binding of a parameter keeps D281's report. D281's free route and D296's
+  paired test now use a store that frees, in a catch handler, a local loaded
+  in the try body. The D307 dataflow differential, now with seven binding
+  shapes, and the D302 route differential found no counted free that
+  lowering accepts without ownership. On the D307 analysis the pattern cases
+  report at the reclamations, while the relocated D281 and D296 checks pass.
+  The focused field, wrapper, owner, pool and explanation tests pass, 69
+  examples emit the same `-O3` LLVM, the standard library builds and every
+  port source compiles without diagnostics.

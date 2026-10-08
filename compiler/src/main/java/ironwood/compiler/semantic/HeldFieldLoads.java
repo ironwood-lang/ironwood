@@ -85,10 +85,10 @@ import java.util.Set;
  * lowering takes to a point. A value holds one when it is a load of the field through
  * {@code this}, possibly under casts, a local that holds one, a conditional whose
  * reachable branches both hold one, a switch expression whose arms all yield one, or
- * an assignment of one; any other write to a local, and pattern bindings, hold none.
- * Conditions split the state as lowering branches: the right operand of {@code &&}
- * runs only when the left one is true, so code the whole condition guards sees its
- * writes. Only a loop condition that is the literal {@code true} ends a path, as in
+ * an assignment of one; any other write to a local holds none. A pattern binding holds
+ * its operand's value where its test is true (D308). Conditions split the state as
+ * lowering branches: the right operand of {@code &&} runs only when the left one is
+ * true, so code the whole condition guards sees its writes. Only a loop condition that is the literal {@code true} ends a path, as in
  * lowering. Loops iterate to a fixed point, and frees inside them count only on the
  * pass with it. Break, continue and yield carry their states to their targets, less
  * what finally blocks on the way may write. A catch handler, and a finally block's
@@ -98,7 +98,7 @@ import java.util.Set;
 final class HeldFieldLoads {
     private final String field;
     private final boolean staticFunction;
-    /** Pattern binding names seen so far; they hold nothing and may shadow the field. */
+    /** Pattern binding names seen so far: locals that may shadow the field (D308). */
     private final Set<String> bindings = new HashSet<>();
     private final Deque<Frame> frames = new ArrayDeque<>();
     private final Deque<Region> regions = new ArrayDeque<>();
@@ -172,7 +172,7 @@ final class HeldFieldLoads {
                 // block (D302); with no write to it there, that value is this one.
                 String name = deferred.target().name();
                 List<Statement> rest = statements.subList(index + 1, statements.size());
-                if (held != null && scope.contains(name) && held.contains(name) && recording
+                if (held != null && isLocal(name, scope) && held.contains(name) && recording
                         && unreachedFinallies == 0 && LoweredRoutes.leaves(rest)
                         && rest.stream().noneMatch(later -> writes(later, name))) {
                     found = true;
@@ -544,11 +544,10 @@ final class HeldFieldLoads {
             return new Value(null, false);
         }
         if (expression instanceof NameExpression name) {
-            if (scope.contains(name.name())) {
+            if (isLocal(name.name(), scope)) {
                 return new Value(held, held.contains(name.name()));
             }
-            return new Value(held, !bindings.contains(name.name()) && !staticFunction
-                    && name.name().equals(field));
+            return new Value(held, !staticFunction && name.name().equals(field));
         }
         if (expression instanceof FieldAccessExpression access) {
             Value receiver = expression(access.receiver(), held, scope);
@@ -577,12 +576,15 @@ final class HeldFieldLoads {
             return switchExpression(switched, held, scope);
         }
         if (expression instanceof InstanceOfExpression test) {
-            Value operand = expression(test.operand(), held, scope);
-            test.binding().ifPresent(binding -> bindings.add(binding.name()));
-            return new Value(operand.held(), false);
+            if (test.binding().isEmpty()) {
+                return new Value(expression(test.operand(), held, scope).held(), false);
+            }
+            // Outside a condition the binding is not known to match.
+            Split split = condition(test, held, scope);
+            return new Value(meet(split.whenTrue(), split.whenFalse()), false);
         }
         if (expression instanceof UpdateExpression update) {
-            if (update.target() instanceof NameExpression local && scope.contains(local.name())) {
+            if (update.target() instanceof NameExpression local && isLocal(local.name(), scope)) {
                 Set<String> out = write(held, local.name(), false);
                 note(out);
                 return new Value(out, false);
@@ -599,11 +601,10 @@ final class HeldFieldLoads {
 
     private Value assign(Expression target, Expression value, boolean plain, Set<String> held,
                          Set<String> scope) {
-        if (target instanceof NameExpression local
-                && (scope.contains(local.name()) || bindings.contains(local.name()))) {
+        if (target instanceof NameExpression local && isLocal(local.name(), scope)) {
             Value written = expression(value, held, scope);
             boolean holds = plain && written.holds();
-            Set<String> out = write(written.held(), local.name(), holds && scope.contains(local.name()));
+            Set<String> out = write(written.held(), local.name(), holds);
             note(out);
             return new Value(out, holds);
         }
@@ -670,8 +671,27 @@ final class HeldFieldLoads {
             return new Split(meet(first.whenTrue(), second.whenTrue()),
                     meet(first.whenFalse(), second.whenFalse()));
         }
+        if (expression instanceof InstanceOfExpression test && test.binding().isPresent()) {
+            // A matching test binds its operand's value, as a checked cast of it.
+            Value operand = expression(test.operand(), held, scope);
+            String binding = test.binding().orElseThrow().name();
+            bindings.add(binding);
+            Set<String> matched = write(operand.held(), binding, operand.holds());
+            note(matched);
+            return new Split(matched, write(operand.held(), binding, false));
+        }
         Set<String> after = expression(expression, held, scope).held();
         return new Split(after, after);
+    }
+
+    /**
+     * Whether {@code name} is a local where it is read: declared in scope, or a pattern
+     * binding, which Java keeps from shadowing a local. A binding named like the field
+     * makes later reads of the field count as reads of the binding, which hold a load
+     * only if the binding did, and a read of the field always does.
+     */
+    private boolean isLocal(String name, Set<String> scope) {
+        return scope.contains(name) || bindings.contains(name);
     }
 
     private static boolean isLogical(Expression expression) {
@@ -793,6 +813,8 @@ final class HeldFieldLoads {
             } else if (expression instanceof UpdateExpression update
                     && update.target() instanceof NameExpression local) {
                 names.add(local.name());
+            } else if (expression instanceof InstanceOfExpression test) {
+                test.binding().ifPresent(binding -> names.add(binding.name()));
             }
         }, nested -> {
             if (nested instanceof AssignmentStatement assignment

@@ -176,9 +176,10 @@ final class OwnedFieldReentryTests {
     }
 
     /**
-     * A store whose only reclamation of its field frees a pattern binding of it, which no
-     * D297-D307 witness tracks, so a free that may run code during a loan still fails the
-     * field's proof (D281) and that free reports it.
+     * A store whose only reclamation of its field frees, in a catch handler, a local
+     * loaded in the try body before a store that may throw. A handler starts from the
+     * state at the try body's entry too, so no D297-D308 witness counts that free, and
+     * a free that may run code during a loan still fails the field's proof (D281).
      */
     private static final String STORE = """
             class Noisy {
@@ -193,7 +194,11 @@ final class OwnedFieldReentryTests {
                 private int[] values = new int[1];
 
                 void discard() {
-                    if (values instanceof int[] old) {
+                    int[] old = null;
+                    try {
+                        old = values;
+                        old[1] = 0;
+                    } catch (RuntimeException failure) {
                         values = null;
                         free old;
                     }
@@ -265,7 +270,7 @@ final class OwnedFieldReentryTests {
     /**
      * When the program needs the field owned, because the owner's destructor frees it
      * (D297) or its instance code frees a local loaded from it, as Buffer.drop does,
-     * directly or by a deferred free (D298-D307), a free that may run code during a loan
+     * directly or by a deferred free (D298-D308), a free that may run code during a loan
      * leaves the field owned and is rejected at the free: freeing an object whose
      * destructor reenters names the alias and field it would cross, its safe twin
      * compiles, and freeing the owner, whose destructor frees the field directly, inside
@@ -697,6 +702,50 @@ final class OwnedFieldReentryTests {
                         && messages(shortCircuit).contains(CONTINGENT),
                 "a reentrant free beside a guarded load was not rejected at the free: " + explained(shortCircuit));
         require(lowersFree(guarded), "lowering did not reject a guarded free the witness counted");
+        // A pattern binding holds its operand's value where its test is true, so binding
+        // the field, also through a negated test that returns, is a witness (D308); a
+        // binding of another value is not.
+        for (String members : List.of("""
+                    void reset() {
+                        if (values instanceof int[] old) {
+                            values = null;
+                            free old;
+                        }
+                    }
+                """, """
+                    void reset() {
+                        if (!(this.values instanceof int[] old)) {
+                            return;
+                        }
+                        values = null;
+                        free old;
+                    }
+                """)) {
+            CompilationArtifact bound = store(members + noisyUse);
+            require(!bound.valid() && ownershipFailures(bound).isEmpty() && messages(bound).equals(List.of(CONTINGENT)),
+                    "a reentrant free beside a pattern reclamation was not rejected at the free: " + explained(bound));
+            CompilationArtifact twin = store(members + """
+
+                        void use() {
+                            Noisy noisy = new Noisy();
+                            free noisy;
+                            int[] old = values;
+                            old[0] = 7;
+                        }
+                    """);
+            require(twin.valid(), "freeing before the loan was rejected beside a pattern reclamation: "
+                    + explained(twin));
+            require(lowersFree(members), "lowering did not reject a pattern free the witness counted");
+        }
+        CompilationArtifact foreign = store("""
+                    void reset(Object other) {
+                        if (other instanceof int[] old) {
+                            free old;
+                        }
+                    }
+                """ + noisyUse);
+        require(!foreign.valid() && messages(foreign).equals(List.of(RECLAIM, RECLAIM)) && failedBy(foreign, FREE),
+                "a binding of another value counted as a witness: " + explained(foreign));
         CompilationArtifact skipped = store("""
                     void reset(boolean flag) {
                         int[] old = null;
