@@ -199,6 +199,57 @@ final class OwnedFieldReentryTests {
                 "a rejected free without a destructor disqualified the field: " + explained(inert));
     }
 
+    /**
+     * When the owner's destructor frees the field, a free that may run code during a
+     * loan leaves the field owned and is rejected at the free instead (D297): freeing
+     * the owner names the alias it would leave dangling, and freeing an object whose
+     * destructor reenters names the alias and field it would cross. The safe twin,
+     * freeing that object before the loan, compiles.
+     */
+    static void contingentFrees() {
+        String destructor = """
+                    destructor {
+                        free values;
+                    }
+
+                """;
+        CompilationArtifact reentrant = analyze(destructor + """
+                    void use() {
+                        Victim victim = new Victim();
+                        int[] old = values;
+                        free victim;
+                        old[0] = 7;
+                    }
+                """);
+        require(!reentrant.valid() && ownershipFailures(reentrant).isEmpty() && messages(reentrant).equals(List.of(
+                        "cannot free 'victim': it can run a destructor while local 'old' aliases field 'values'")),
+                "a reentrant free during a loan was not rejected at the free: " + explained(reentrant));
+        CompilationArtifact safe = analyze(destructor + """
+                    void use() {
+                        Victim victim = new Victim();
+                        free victim;
+                        int[] old = values;
+                        old[0] = 7;
+                    }
+                """);
+        require(safe.valid(), "freeing before the loan was rejected: " + explained(safe));
+        CompilationArtifact owner = analyze(destructor + """
+                    static int leak() {
+                        Buffer buffer = new Buffer();
+                        int[] old = buffer.values;
+                        free buffer;
+                        return old[0];
+                    }
+                """);
+        require(!owner.valid() && ownershipFailures(owner).isEmpty() && messages(owner).equals(List.of(
+                        "cannot free 'buffer': allocation may still be observed through local 'old'")),
+                "freeing the owner during a loan did not name the alias: " + explained(owner));
+    }
+
+    private static List<String> messages(CompilationArtifact artifact) {
+        return artifact.diagnostics().stream().map(diagnostic -> diagnostic.message()).toList();
+    }
+
     private static List<Route> routes() {
         return List.of(
                 around("string conversion", "Hook hook", "String text = \"x\" + hook;", CODE),

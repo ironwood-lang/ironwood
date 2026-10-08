@@ -293,6 +293,7 @@ For private field loans that must not cross code that may run (D041, D281), run:
 ./scripts/test.sh --test 'field loans reject reentry through implicit code loops handlers and cleanup' \
   --test 'field loans admit runtime checks conversions and own-class statics' \
   --test 'field loans judge rejected frees by the destructors of their type' \
+  --test "field loans leave to lowering a free the owner's destructor makes unsafe" \
   --test 'private backing arrays are freed only after proven detachment'
 ```
 
@@ -304,7 +305,9 @@ fail the field's ownership proof for its own reason. The second keeps runtime
 checks, String and primitive conversion, `System.arraycopy` and the owner's
 statics admitted inside a loan. The third (D296) keeps a rejected free of a
 class with a reentrant destructor failing the proof, and a rejected free of a
-class without one leaving the field owned.
+class without one leaving the field owned. The fourth (D297) rejects, at the
+free, a reentrant free during a loan of a field the owner's destructor frees,
+and names the alias when the owner itself is freed.
 
 For the class a construction-publication error is reported at (D282), run:
 

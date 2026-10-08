@@ -2028,8 +2028,17 @@ final class FunctionAnalyzer {
                                   String targetName, SourceSpan targetSpan, SourceSpan span,
                                   Set<LocalSymbol> expiredAliases) {
         FreeProof proof = probeFree(symbol, operand, targetType, expiredAliases);
-        if (!(proof instanceof FreeProof.Accepted) && symbol != null && targetType.isReference()) {
+        // An owned field's proof assumed this free never runs (D297); reject it.
+        String contingent = proof instanceof FreeProof.Accepted && symbol != null
+                ? ownedArrayFields.contingentFree(source, span) : null;
+        if ((contingent != null || !(proof instanceof FreeProof.Accepted)) && symbol != null
+                && targetType.isReference()) {
             rejectedFreeTypes.put(span, targetType);
+        }
+        if (contingent != null) {
+            ownershipVerdict(error(targetSpan, "cannot free " + targetName
+                    + ": it can run a destructor while " + contingent));
+            return;
         }
         switch (proof) {
             case FreeProof.Accepted accepted -> emitProvenFree(accepted.allocation(), operand, span);

@@ -96,6 +96,8 @@ final class OwnedArrayFieldAnalyzer {
     private final Map<String, Failure> failures;
     private int failureUnits;
     private final Map<String, Boolean> encapsulatedFields = new LinkedHashMap<>();
+    /** Frees an owned field's proof left to lowering, which must reject each (D297). */
+    private final Map<ContingentFree, String> contingentFrees = new LinkedHashMap<>();
     private final Map<String, Boolean> confinedCleanupFields = new LinkedHashMap<>();
 
     OwnedArrayFieldAnalyzer(Map<String, TypeSymbol> types, ClassHierarchy hierarchy,
@@ -156,6 +158,7 @@ final class OwnedArrayFieldAnalyzer {
                         && field.type().isReference()
                         && checker.isOwned()) {
                     ownedFields.add(key(field));
+                    checker.contingent.forEach(contingentFrees::putIfAbsent);
                     for (String linkageName : checker.borrowedReturnMethods) {
                         FieldSymbol previous = borrowedReturnFields.putIfAbsent(linkageName, field);
                         if (previous != null && previous != field) {
@@ -201,6 +204,15 @@ final class OwnedArrayFieldAnalyzer {
         return ownedFields.contains(key(field));
     }
 
+    /**
+     * When an owned field's proof assumed that the free statement at {@code span} of
+     * {@code source} never runs, the live alias and field that free would cross, as
+     * {@code local 'k' aliases field 'held'}; lowering must reject that free (D297).
+     */
+    String contingentFree(SourceFile source, SourceSpan span) {
+        return contingentFrees.get(new ContingentFree(sourcePath(source), span));
+    }
+
     boolean isContainedListViewAssignment(CallableSymbol callable, FieldSymbol target, Expression expression) {
         if (callable == null || !callable.isConstructor() || target == null || !isOwned(target)
                 || !(expression instanceof CallExpression call) || call.arguments().size() != 1
@@ -217,6 +229,7 @@ final class OwnedArrayFieldAnalyzer {
 
     boolean sameProofsAs(OwnedArrayFieldAnalyzer other) {
         return ownedFields.equals(other.ownedFields)
+                && contingentFrees.equals(other.contingentFrees)
                 && borrowedReturnFields.equals(other.borrowedReturnFields)
                 && ambiguousBorrowedReturns.equals(other.ambiguousBorrowedReturns);
     }
@@ -291,6 +304,17 @@ final class OwnedArrayFieldAnalyzer {
     private record DeferredScope(Set<String> outer, java.util.List<Expression> actions) {
     }
 
+    /**
+     * A free statement by source path and span: it is enforced in every function the
+     * statement is lowered into, such as the constructors an initializer joins.
+     */
+    private record ContingentFree(String source, SourceSpan span) {
+    }
+
+    private static String sourcePath(SourceFile source) {
+        return source == null || source.path() == null ? "" : source.path().toString();
+    }
+
     private final class Checker {
         private final TypeSymbol owner;
         private final FieldSymbol candidate;
@@ -298,6 +322,9 @@ final class OwnedArrayFieldAnalyzer {
         private final boolean allowBorrowedReturns;
         private boolean owned = true;
         private final boolean collectFailure;
+        /** Whether a free that may run code can be left to lowering (D297). */
+        private final boolean allowContingentFrees;
+        private final Map<ContingentFree, String> contingent = new LinkedHashMap<>();
         private String rejectionReason;
         private boolean staticFunction;
         private CallableSymbol currentCallable;
@@ -324,6 +351,9 @@ final class OwnedArrayFieldAnalyzer {
             this.requireFreshWrites = requireFreshWrites;
             this.allowBorrowedReturns = allowBorrowedReturns;
             this.collectFailure = collectFailure;
+            // Only the ownership proof, with typed IR, defers a free to lowering;
+            // provisional proofs and encapsulation keep rejecting.
+            this.allowContingentFrees = collectFailure && reentrant != ReentrantOperations.NONE;
             this.currentSource = owner.source();
         }
 
@@ -454,6 +484,46 @@ final class OwnedArrayFieldAnalyzer {
             }
         }
 
+        /**
+         * The live alias a free of a local would cross when the proof may leave that free
+         * to lowering, or null (D297). The owner's own destructor frees the field, so a
+         * proof failure would make that destructor's free an error and the program
+         * invalid anyway; the program stays invalid when lowering rejects this free
+         * instead, and the field's facts change no valid program.
+         */
+        private String contingentAlias(FreeStatement free, Map<String, Boolean> environment) {
+            if (!allowContingentFrees || !(free.value() instanceof NameExpression local)
+                    || !environment.containsKey(local.name()) || !destructorFreesCandidate()) {
+                return null;
+            }
+            return environment.entrySet().stream().filter(Map.Entry::getValue)
+                    .map(Map.Entry::getKey).findFirst().orElse(null);
+        }
+
+        /**
+         * Whether the owner's own destructor frees the candidate in a top-level statement,
+         * which lowering always reaches and resolves to the field: {@code this.name}, or
+         * {@code name} with no earlier top-level local of that name.
+         */
+        private boolean destructorFreesCandidate() {
+            Block body = owner.destructor().flatMap(CallableSymbol::body).orElse(null);
+            if (body == null) return false;
+            String name = candidate.declaration().name();
+            for (Statement statement : body.statements()) {
+                if (statement instanceof LocalVariableDeclaration local && local.name().equals(name)) {
+                    return false;
+                }
+                if (statement instanceof FreeStatement free
+                        && (free.value() instanceof NameExpression field && field.name().equals(name)
+                        || free.value() instanceof FieldAccessExpression access
+                        && access.receiver() instanceof ThisExpression
+                        && access.fieldName().equals(name))) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
         private void scanStatementKind(Statement statement, Map<String, Boolean> environment) {
             if (statement instanceof Block block) {
                 scanBlock(block, environment, true);
@@ -491,8 +561,14 @@ final class OwnedArrayFieldAnalyzer {
                 // Freeing anything but a field alias may run a destructor.
                 if (!origin(free.value(), environment) && environment.containsValue(true)
                         && !reentrant.inertFree(currentFunctions, statement.span())) {
-                    rejectAt("this free can run a destructor while a local alias of the "
-                            + "field's allocation remains active", free.value());
+                    String alias = contingentAlias(free, environment);
+                    if (alias != null) {
+                        contingent.putIfAbsent(new ContingentFree(sourcePath(currentSource), statement.span()),
+                                "local '" + alias + "' aliases field '" + candidate.declaration().name() + "'");
+                    } else {
+                        rejectAt("this free can run a destructor while a local alias of the "
+                                + "field's allocation remains active", free.value());
+                    }
                 }
                 return;
             }

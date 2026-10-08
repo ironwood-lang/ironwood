@@ -11603,6 +11603,7 @@ occurrence order. If no
   while an alias is live. Freeing the owner `o` while `k` aliases `o.held`,
   when its destructor frees `held`, stays rejected at the destructor's free
   of the field, as D281 decided; `--explain-rejected-free` names `free o`.
+  (Superseded by D297, which rejects that free where it happens.)
   Field facts change only where provisional lowering rejected a free of a
   destructor-free local inside a loan. No runtime instruction, check or cost
   changes. Supersedes no decision.
@@ -11615,3 +11616,44 @@ occurrence order. If no
   library builds, every port source compiles without diagnostics, 69 examples
   emit the same `-O3` LLVM as before, and the focused field, wrapper, owner and
   pool tests pass.
+
+## D297 - Reject at the free what an owner's destructor would make a field-proof failure
+
+- **Status:** Accepted and implemented. Amends D281 and supersedes D296's
+  boundary that freeing the owner stays rejected at the destructor.
+- **Context:** Under D281 a free that may run code while a local alias of an
+  attached field allocation is live fails the field's ownership proof. When
+  the owner's destructor frees that field, the failure surfaced at the
+  destructor (`cannot prove destructor free of field 'held' safe: field
+  ownership is uncertain`), away from its cause. Before D281, freeing the owner
+  was rejected where it happened, for the alias it would leave dangling
+  (`cannot free 'o': allocation may still be observed through local 'k'`).
+- **Decision:** When the owner's own destructor frees the field in a top-level
+  statement, the ownership proof leaves such a free of a local to lowering:
+  it records the statement, by source and span, with the alias and field it
+  would cross, and the field stays owned unless something else fails.
+  Lowering rejects every recorded free. Its own proof usually does, as for the
+  owner, whose destructor would free the field the alias observes; otherwise
+  it reports `cannot free 'victim': it can run a destructor while local 'k'
+  aliases field 'held'`. Provisional proofs, which have no typed IR, and
+  encapsulation proofs keep D281's rejection.
+- **Analysis:** Without the exemption the field fails its proof, the
+  destructor's top-level free of it is an error, and the program is invalid.
+  With it, the recorded free is an error instead. A program with a recorded
+  free is therefore invalid either way: no recorded free runs during a loan,
+  and no valid program's field facts or code change. The destructor statement
+  is top-level so that lowering always reaches it and resolves it to the
+  field.
+- **Boundary:** A destructor that frees the field only through a call, a
+  deferred free, or a free of something other than a local keeps D281's
+  report. A recorded free in an instance initializer is rejected once for each
+  constructor that lowers it. No runtime instruction, check or cost changes.
+- **Verification:** The owner case in the wrapper-field safe-free test
+  reports the alias again. A new test rejects, at the free and with the field
+  still owned, freeing an object whose destructor reenters the owner during a
+  loan; its safe twin compiles; and freeing the owner names the alias. On the
+  D296 analysis both tests fail. Probes with a dead alias, a destructor that
+  frees the field through a call, and instance and static initializers behave
+  as described. The focused field, wrapper, owner, pool and explanation tests
+  pass, 69 examples emit the same `-O3` LLVM, the standard library builds and
+  every port source compiles without diagnostics.

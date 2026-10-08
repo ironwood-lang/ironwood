@@ -851,6 +851,8 @@ public final class CompilerTests {
                 OwnedFieldReentryTests::fixedOperationsInsideLoan);
         test("field loans judge rejected frees by the destructors of their type",
                 OwnedFieldReentryTests::rejectedFrees);
+        test("field loans leave to lowering a free the owner's destructor makes unsafe",
+                OwnedFieldReentryTests::contingentFrees);
         test("independent list copies preserve membership iterator and allocation scaling",
                 this::listCopiesRunNatively);
         test("independent map copies preserve keys values and callback loan safety",
@@ -5571,8 +5573,6 @@ public final class CompilerTests {
                     public static int main(String[] args) { return Loose.leak(args.length); }
                 }
                 """, "may still be observed through local 'k'");
-        // D281: freeing the owner runs its destructor while 'k' aliases the field, so the
-        // field is not owned and the destructor's free of it is rejected.
         assertDiagnostic(keeper + """
                 class Owner {
                     private final Keeper held = new Keeper();
@@ -5587,7 +5587,7 @@ public final class CompilerTests {
                 class Main {
                     public static int main(String[] args) { return Owner.leak(); }
                 }
-                """, "cannot prove destructor free of field 'held' safe: field ownership is uncertain");
+                """, "may still be observed through local 'k'");
         assertDiagnostic(keeper + """
                 class Owner {
                     private final Keeper[] items = new Keeper[1];
