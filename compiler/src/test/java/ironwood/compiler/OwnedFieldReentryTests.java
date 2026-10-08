@@ -176,9 +176,9 @@ final class OwnedFieldReentryTests {
     }
 
     /**
-     * A store whose only reclamation of its field frees a local assigned from it after
-     * its declaration, which no D297-D301 witness covers, so a free that may run code
-     * during a loan still fails the field's proof (D281) and that free reports it.
+     * A store whose only reclamation of its field frees a local assigned from it inside
+     * a condition, which no D297-D303 witness covers, so a free that may run code during
+     * a loan still fails the field's proof (D281) and that free reports it.
      */
     private static final String STORE = """
             class Noisy {
@@ -194,9 +194,10 @@ final class OwnedFieldReentryTests {
 
                 void discard() {
                     int[] old = null;
-                    old = values;
-                    values = null;
-                    free old;
+                    if ((old = values) != null) {
+                        values = null;
+                        free old;
+                    }
                 }
 
             %s
@@ -265,7 +266,7 @@ final class OwnedFieldReentryTests {
     /**
      * When the program needs the field owned, because the owner's destructor frees it
      * (D297) or its instance code frees a local loaded from it, as Buffer.drop does,
-     * directly or by a deferred free (D298-D302), a free that may run code during a loan
+     * directly or by a deferred free (D298-D303), a free that may run code during a loan
      * leaves the field owned and is rejected at the free: freeing an object whose
      * destructor reenters names the alias and field it would cross, its safe twin
      * compiles, and freeing the owner, whose destructor frees the field directly, inside
@@ -512,6 +513,61 @@ final class OwnedFieldReentryTests {
                         && messages(reached).equals(List.of(CONTINGENT)),
                 "a free in a reached finally block was no witness: " + explained(reached));
         require(lowersFree(finallyMember("old[0] = size;")), "lowering never reached a finally block the witness counted");
+        // A local assigned from the field by a statement of a block, a parameter included,
+        // is a witness when the block frees it later with no write in between, even with
+        // a write after the free (D303); freeing before the loan compiles. A write between
+        // the assignment and the free keeps D281's report at the store's reclamations.
+        for (String members : List.of("""
+                    void reset() {
+                        int[] old = null;
+                        old = values;
+                        values = null;
+                        free old;
+                    }
+                """, """
+                    void reset(int[] old) {
+                        old = values;
+                        values = null;
+                        free old;
+                    }
+                """, """
+                    void reset() {
+                        int[] old = values;
+                        values = null;
+                        free old;
+                        old = null;
+                    }
+                """)) {
+            CompilationArtifact assigned = store(members + noisyUse);
+            require(!assigned.valid() && ownershipFailures(assigned).isEmpty()
+                            && messages(assigned).equals(List.of(CONTINGENT)),
+                    "a reentrant free beside an assigned reclamation was not rejected at the free: "
+                            + explained(assigned));
+            CompilationArtifact twin = store(members + """
+
+                        void use() {
+                            Noisy noisy = new Noisy();
+                            free noisy;
+                            int[] old = values;
+                            old[0] = 7;
+                        }
+                    """);
+            require(twin.valid(), "freeing before the loan was rejected beside an assigned reclamation: "
+                    + explained(twin));
+            require(lowersFree(members), "lowering did not reject an assigned free the witness counted");
+        }
+        CompilationArtifact overwritten = store("""
+                    void reset(int[] spare) {
+                        int[] old = null;
+                        old = values;
+                        values = null;
+                        old = spare;
+                        free old;
+                    }
+                """ + noisyUse);
+        require(!overwritten.valid() && messages(overwritten).equals(List.of(RECLAIM, RECLAIM))
+                        && failedBy(overwritten, FREE),
+                "a free after another write to the local counted as a witness: " + explained(overwritten));
         // A free through another receiver is no reclamation (D301): with no free during
         // a loan, writing the field through that receiver fails the field's proof, which
         // the store's own reclamation reports, and a value read through another receiver

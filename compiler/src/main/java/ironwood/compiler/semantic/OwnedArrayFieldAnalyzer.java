@@ -304,12 +304,24 @@ final class OwnedArrayFieldAnalyzer {
     private record DeferredScope(Set<String> outer, java.util.List<Expression> actions) {
     }
 
-    /** A free or deferred free of a local, seen by a witness probe (D298, D301). */
-    private record FreedLocal(String name, SourceSpan span) {
+    /**
+     * A free or deferred free of a local, seen by a witness probe (D298, D301), and the
+     * code until it frees: the statement itself, or a deferred free's block (D303).
+     */
+    private record FreedLocal(String name, SourceSpan span, SourceSpan reach) {
     }
 
-    /** A block statement declaring a local from the field through {@code this}, and that block (D299). */
-    private record FieldLoad(String name, SourceSpan declaration, SourceSpan scope) {
+    /** A write to a local, by name and target span, seen by a witness probe (D303). */
+    private record LocalWrite(String name, SourceSpan span) {
+    }
+
+    /**
+     * A block statement that declares a local from the field through {@code this} or
+     * assigns the field so to a local, that block, and the block's later statements
+     * (D299, D303).
+     */
+    private record FieldLoad(String name, SourceSpan declaration, SourceSpan scope,
+                             java.util.List<SourceSpan> following) {
     }
 
     /**
@@ -335,8 +347,8 @@ final class OwnedArrayFieldAnalyzer {
         private final Map<ContingentFree, String> contingent = new LinkedHashMap<>();
         /** Whether the program needs the candidate owned (D297, D298); computed on demand. */
         private Boolean ownershipNeeded;
-        /** The locals a witness probe saw assigned, or null outside a probe (D298). */
-        private Set<String> assignedLocals;
+        /** The writes to locals a witness probe saw, or null outside a probe (D298, D303). */
+        private java.util.List<LocalWrite> localWrites;
         /** The frees of locals a witness probe saw, or null outside a probe (D298, D301). */
         private java.util.List<FreedLocal> freedLocals;
         /** Whether a witness probe saw a free of the candidate field itself (D298). */
@@ -483,16 +495,20 @@ final class OwnedArrayFieldAnalyzer {
             java.util.List<Statement> statements = block.statements();
             for (int index = 0; index < statements.size(); index++) {
                 Statement statement = statements.get(index);
-                if (fieldLoads != null && statement instanceof LocalVariableDeclaration local
-                        && isThisFieldLoad(local.initializer(), environment)) {
-                    fieldLoads.add(new FieldLoad(local.name(), local.span(), block.span()));
+                String loaded = fieldLoads == null ? null
+                        : statement instanceof LocalVariableDeclaration local
+                        && isThisFieldLoad(local.initializer(), environment) ? local.name()
+                        : assignedFieldLoad(statement, environment);
+                if (loaded != null) {
+                    fieldLoads.add(new FieldLoad(loaded, statement.span(), block.span(), statements
+                            .subList(index + 1, statements.size()).stream().map(Statement::span).toList()));
                 }
                 // Lowering frees a deferred target only on a route out of the rest of
                 // the block (D301, D302).
                 if (freedLocals != null && unreachedFinallies == 0
                         && statement instanceof DeferredFreeStatement deferred
                         && LoweredRoutes.leaves(statements.subList(index + 1, statements.size()))) {
-                    freedLocals.add(new FreedLocal(deferred.target().name(), statement.span()));
+                    freedLocals.add(new FreedLocal(deferred.target().name(), statement.span(), block.span()));
                 }
                 scanStatement(statement, environment);
             }
@@ -536,7 +552,7 @@ final class OwnedArrayFieldAnalyzer {
         /**
          * Whether a free in the program is rejected whenever the candidate is not owned,
          * so that a failed proof makes the program invalid: the owner's destructor frees
-         * the field (D297), or its instance code frees a local loaded from it (D298-D302).
+         * the field (D297), or its instance code frees a local loaded from it (D298-D303).
          */
         private boolean ownershipNeeded() {
             if (ownershipNeeded == null) {
@@ -547,13 +563,15 @@ final class OwnedArrayFieldAnalyzer {
 
         /**
          * Whether the owner's instance code (constructors, methods, destructor or instance
-         * initializers) declares a local in a block from the field through {@code this},
-         * never assigns it and frees it later in that block, where lowering is certain to
-         * lower the free (D298-D302). Lowering tracks no allocation for
-         * {@code this}, so it proves such a free only from a detached owned field:
-         * without ownership the loaded value stays attached and the free is rejected.
-         * Java forbids redeclaring the name while it is in scope, so a later free of that
-         * name in the block refers to that local.
+         * initializers) declares a local from the field through {@code this}, or assigns
+         * the field so to a local, in a statement of a block, and frees it later in that
+         * block, where lowering is certain to lower the free, with no other write to the
+         * local in between (D298-D303). The statement precedes the free on every path
+         * through the block, so the free sees the loaded value. Lowering tracks no
+         * allocation for {@code this}, so it proves such a free only from a detached owned
+         * field: without ownership the loaded value stays attached and the free is
+         * rejected. Java forbids redeclaring the name while it is in scope, so a later
+         * free of that name in the block refers to that local.
          */
         private boolean instanceCodeFreesFieldLoad() {
             String name = candidate.declaration().name();
@@ -581,28 +599,68 @@ final class OwnedArrayFieldAnalyzer {
             return probe.freesFieldLoad();
         }
 
-        /** A checker that only records frees, assignments and field loads (D298-D302). */
+        /** A checker that only records frees, writes to locals and field loads (D298-D303). */
         private Checker probe() {
             Checker probe = new Checker(owner, candidate, false, false);
-            probe.assignedLocals = new java.util.HashSet<>();
+            probe.localWrites = new java.util.ArrayList<>();
             probe.freedLocals = new java.util.ArrayList<>();
             probe.fieldLoads = new java.util.ArrayList<>();
             return probe;
         }
 
-        /** Whether this probe saw a free of a never-assigned field-load local inside its block. */
+        /** Whether this probe saw a free of a field-load local later in its block, with no write between. */
         private boolean freesFieldLoad() {
             for (FreedLocal freed : freedLocals) {
-                if (assignedLocals.contains(freed.name())) continue;
                 for (FieldLoad load : fieldLoads) {
                     if (load.name().equals(freed.name())
                             && freed.span().start().offset() > load.declaration().end().offset()
-                            && freed.span().end().offset() <= load.scope().end().offset()) {
+                            && freed.span().end().offset() <= load.scope().end().offset()
+                            && !writtenBetween(load, freed)) {
                         return true;
                     }
                 }
             }
             return false;
+        }
+
+        /**
+         * Whether the probe saw a write to the load's local between the load's statement
+         * and the end of the block statement that holds the free, or of a deferred free's
+         * block (D303). A later write runs only after that free, which is reached again
+         * only by passing the load's statement.
+         */
+        private boolean writtenBetween(FieldLoad load, FreedLocal freed) {
+            int start = freed.span().start().offset();
+            int limit = load.following().stream()
+                    .filter(statement -> statement.start().offset() <= start && start < statement.end().offset())
+                    .mapToInt(statement -> statement.end().offset()).findFirst()
+                    .orElse(load.scope().end().offset());
+            int end = Math.max(limit, freed.reach().end().offset());
+            return localWrites.stream().anyMatch(write -> write.name().equals(load.name())
+                    && write.span().start().offset() > load.declaration().end().offset()
+                    && write.span().start().offset() < end);
+        }
+
+        /**
+         * The local that {@code statement} assigns from the candidate through {@code this}
+         * with a plain {@code =}, or null (D303).
+         */
+        private String assignedFieldLoad(Statement statement, Map<String, Boolean> environment) {
+            Expression target;
+            Expression value;
+            if (statement instanceof AssignmentStatement assignment) {
+                target = assignment.target();
+                value = assignment.value();
+            } else if (statement instanceof ExpressionStatement expression
+                    && expression.expression() instanceof AssignmentExpression assignment
+                    && assignment.operator() == AssignmentOperator.ASSIGN) {
+                target = assignment.target();
+                value = assignment.value();
+            } else {
+                return null;
+            }
+            return target instanceof NameExpression local && environment.containsKey(local.name())
+                    && isThisFieldLoad(value, environment) ? local.name() : null;
         }
 
         /** Whether {@code initializer} reads the candidate through {@code this}, as lowering resolves it. */
@@ -666,7 +724,7 @@ final class OwnedArrayFieldAnalyzer {
                 if (freedLocals != null && unreachedFinallies == 0) {
                     String name = candidate.declaration().name();
                     if (free.value() instanceof NameExpression local) {
-                        freedLocals.add(new FreedLocal(local.name(), statement.span()));
+                        freedLocals.add(new FreedLocal(local.name(), statement.span(), statement.span()));
                         freedCandidate |= local.name().equals(name) && !environment.containsKey(name);
                     }
                     freedCandidate |= free.value() instanceof FieldAccessExpression access
@@ -693,6 +751,8 @@ final class OwnedArrayFieldAnalyzer {
                 if (currentCallable != null && escapeSummaries != null
                         && escapeSummaries.freshBorrowingFactory(currentCallable, candidate) != null) {
                     nonBorrowedReturnMethods.add(currentCallable.linkageName());
+                    // A witness probe still records writes to locals in the value (D303).
+                    if (localWrites != null) returned.value().ifPresent(value -> origin(value, environment));
                     return;
                 }
                 returned.value().ifPresent(value -> {
@@ -1253,7 +1313,7 @@ final class OwnedArrayFieldAnalyzer {
         private void assignKnownOrigin(Expression target, boolean valueOrigin,
                                        Map<String, Boolean> environment, boolean fresh) {
             if (target instanceof NameExpression name && environment.containsKey(name.name())) {
-                if (assignedLocals != null) assignedLocals.add(name.name());
+                if (localWrites != null) localWrites.add(new LocalWrite(name.name(), target.span()));
                 environment.put(name.name(), valueOrigin);
                 return;
             }

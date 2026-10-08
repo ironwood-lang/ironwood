@@ -11674,8 +11674,9 @@ occurrence order. If no
   field at any depth, as lowering resolves the name: `this.name`, or `name`
   with no local of that name in scope. Second, one of the owner's instance
   methods, other than its constructors and destructor, declares a local at its
-  top level from the field through `this`, never assigns it, and frees it
-  later at any depth. A probe scan of the destructor or method finds both.
+  top level from the field through `this`, never assigns it (D303: writes no
+  other value to it before the free), and frees it later at any depth. A
+  probe scan of the destructor or method finds both.
 - **Analysis:** Lowering reaches every such free (D302: except in a finally
   block that no route reaches) and accepts it only for an owned field: a
   destructor's free of the field is checked against the field's proof, and
@@ -11856,12 +11857,13 @@ occurrence order. If no
 - **Boundary:** A deferred free whose remaining block has no such route, such
   as an empty `while (true)` loop or one whose only `break` passes a finally
   block that cannot complete, a free in a finally block that no such route
-  reaches, and a local assigned from the field after its declaration keep
-  D281's report. A deferred free placed directly in an old-style switch group,
-  which D301 listed, has no report to move: the parser accepts a defer only as
-  a direct statement of a braced block (LANGUAGE.md), and in a braced case the
-  rest of the block, such as its `break`, routes out, so it is a witness.
-  Supersedes no other decision.
+  reaches, and a local assigned from the field after its declaration (D303
+  recognizes an assignment statement) keep D281's report. A deferred free
+  placed directly in an old-style switch group, which D301 listed, has no
+  report to move: the parser accepts a defer only as a direct statement of a
+  braced block (LANGUAGE.md), and in a braced case the rest of the block,
+  such as its `break`, routes out, so it is a witness. Supersedes no other
+  decision.
 - **Verification:** Deferred frees before a `while (true)` loop that a break
   leaves, a `for (;;)` loop that returns and a `while (true)` loop that
   throws, and one in a braced switch case, are witnesses, while an empty loop
@@ -11877,3 +11879,48 @@ occurrence order. If no
   The focused field, wrapper, owner, pool and explanation tests pass, 69
   examples emit the same `-O3` LLVM, the standard library builds and every
   port source compiles without diagnostics.
+
+## D303 - Recognize a field's reclamation through an assigned local
+
+- **Status:** Accepted and implemented. Amends D298-D302: supersedes D302's
+  boundary that a local assigned from the field after its declaration keeps
+  D281's report, and replaces the D298-D302 condition that the local is never
+  assigned with no write between the load and the free.
+- **Context:** The witness counted only a local declared from the field and
+  never assigned. A class that reclaims with `int[] old = null; old = values;
+  values = null; free old;`, frees a parameter it assigned from the field, or
+  sets the local to `null` after freeing it, still reported a free that may
+  run code during a loan at its reclamation instead of at that free.
+- **Decision:** A block statement that assigns the field through `this` to a
+  local or parameter with a plain `=` is a field load, like a declaration
+  from the field. A free of that local counts when it follows in the block
+  where lowering is certain to lower it (D302) and no write to the local lies
+  between the load's statement and the end of the block statement that holds
+  the free, or the end of a deferred free's block. The probe records the
+  position of every write to a local, and now also scans a fresh-borrowing
+  factory's return value for writes, so that record does not depend on that
+  proof's admitted shapes.
+- **Analysis:** The load's statement precedes the free on every path through
+  the block, and a write after the statement that holds the free runs only
+  after that free, which is reached again only through the load's statement.
+  The free therefore sees the loaded value, which without ownership is
+  attached or has no identity, so lowering rejects it: a program with a
+  recorded free is invalid either way, and no valid program's facts or code
+  change (D297-D302). Java forbids redeclaring a local in its scope, so the
+  freed name is that local.
+- **Boundary:** An assignment inside an expression, such as `if ((old =
+  values) != null)`, a cast or other expression around the load, another
+  write between the load and the free, and a free that no route is proven to
+  reach keep D281's report. Supersedes no other decision.
+- **Verification:** A free that runs a destructor during a loan is rejected
+  at the free, with the field owned, beside a reclamation through a local
+  assigned from the field, through an assigned parameter, and through a
+  declared local set to `null` after its free; each safe twin compiles, and
+  through a field that escapes to a sibling field lowering rejects each of
+  those frees. Another write between the assignment and the free keeps
+  D281's report. D281's free route and D296's paired test now use a store
+  that assigns the field inside a condition. On the D302 analysis the
+  assigned case reports at the reclamations, while the relocated D281 and
+  D296 checks pass. The focused field, wrapper, owner, pool and explanation
+  tests pass, 69 examples emit the same `-O3` LLVM, the standard library
+  builds and every port source compiles without diagnostics.

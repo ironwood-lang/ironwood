@@ -304,22 +304,24 @@ destructor) with safe twins; each unsafe route must fail the field's ownership
 proof for its own reason. The second keeps runtime checks, String and primitive
 conversion, `System.arraycopy` and the owner's statics admitted inside a loan.
 The third, on a store that reclaims its field only by freeing a local assigned
-from it after its declaration, which no D297-D302 witness covers, keeps a free
+from it inside a condition, which no D297-D303 witness covers, keeps a free
 that runs a destructor during a loan failing the proof beside its safe twin
 (D281), and a rejected free failing it only when its class has a destructor
-(D296). The fourth (D297-D302) rejects at the free a reentrant free during a
+(D296). The fourth (D297-D303) rejects at the free a reentrant free during a
 loan of a field the program reclaims, including in a constructor, an instance
-initializer, by a deferred free, also after a `while (true)` loop that a break,
-return or throw leaves or in a braced switch case, and in a finally block that
-lowering reaches. It rejects a defer placed directly in a switch group, keeps
-D281's report when no route leaves the loop, compiles a program whose only
-reclamation sits in a finally block lowering never reaches, and checks through
-a field that escapes to a sibling field that lowering lowers each free the
-witness counts. It names the alias when the owner is freed and its destructor
-frees the field directly, inside a branch, or through a method that detaches it
-at its top level or in a branch, and pins that a free through another receiver
-is no reclamation: assigning the field through that receiver fails its proof,
-and freeing a value read through it is rejected while the field stays owned.
+initializer, through a local or parameter assigned from the field, also with a
+write after the free, by a deferred free, also after a `while (true)` loop that
+a break, return or throw leaves or in a braced switch case, and in a finally
+block that lowering reaches. It rejects a defer placed directly in a switch
+group, keeps D281's report when no route leaves the loop or another write
+precedes the free, compiles a program whose only reclamation sits in a finally
+block lowering never reaches, and checks through a field that escapes to a
+sibling field that lowering lowers each free the witness counts. It names the
+alias when the owner is freed and its destructor frees the field directly,
+inside a branch, or through a method that detaches it at its top level or in a
+branch, and pins that a free through another receiver is no reclamation:
+assigning the field through that receiver fails its proof, and freeing a value
+read through it is rejected while the field stays owned.
 
 For the class a construction-publication error is reported at (D282), run:
 
