@@ -62,7 +62,9 @@ final class ArchiveServiceTests {
         try {
             Path corpus = root.resolve("corpus");
             String frozen = Files.readString(Path.of(ArchiveContractTests.EVIDENCE + "java-verdicts.txt"));
-            if (!ArchiveCorpus.javaVerdicts(corpus).equals(frozen)) throw new AssertionError("Java corpus verdicts changed");
+            if (!ArchiveCorpus.javaVerdicts(corpus).equals(ArchiveContractTests.runtimeVerdicts(frozen))) {
+                throw new AssertionError("Java corpus verdicts changed");
+            }
             List<String> arguments = new ArrayList<>(List.of("--corpus"));
             for (ArchiveCorpus.Variant variant : ArchiveCorpus.CLASSES) {
                 arguments.add(variant.name());

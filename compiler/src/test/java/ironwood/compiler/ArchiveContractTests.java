@@ -26,13 +26,39 @@ final class ArchiveContractTests {
     static final List<String> CLASS_FILES = List.of("classes/p/A$Nested.ironclass", "classes/p/A.ironclass",
             "classes/p/Shape.ironclass", "classes/q/C.ironclass");
 
+    /**
+     * Java 21 verdicts that a later runtime's ZIP readers change: from the feature
+     * release named, the Java bootstrap's readers give this line instead. The
+     * frozen transcript, and the native readers, keep Java 21's verdicts.
+     */
+    private record RuntimeVerdict(int since, String line) { }
+
+    private static final List<RuntimeVerdict> LATER_RUNTIME_VERDICTS = List.of(
+            new RuntimeVerdict(23, "class.zip64-descriptor ok types=p.A,p.B entry=p.A"
+                    + " path=corpus/zip64-descriptor.ironclass!/source/A.iron source=42b6b004e3180ac2"),
+            new RuntimeVerdict(23, "class.malformed-name error java.util.zip.ZipException: invalid LOC header"
+                    + " (bad entry name)"),
+            new RuntimeVerdict(24, "jar.no-central error java.util.zip.ZipException: invalid END header"
+                    + " (total entries count too large)"));
+
     private ArchiveContractTests() { }
+
+    /** The frozen Java 21 verdicts as this runtime's Java readers give them. */
+    static String runtimeVerdicts(String frozen) {
+        List<String> lines = new ArrayList<>(List.of(frozen.split("\n", -1)));
+        for (RuntimeVerdict verdict : LATER_RUNTIME_VERDICTS) {
+            if (Runtime.version().feature() < verdict.since()) continue;
+            String variant = verdict.line().substring(0, verdict.line().indexOf(' ') + 1);
+            lines.replaceAll(line -> line.startsWith(variant) ? verdict.line() : line);
+        }
+        return String.join("\n", lines);
+    }
 
     static void javaVerdicts() throws Exception {
         Path root = Files.createTempDirectory("ironwood-archive-corpus-");
         try {
             String actual = ArchiveCorpus.javaVerdicts(root);
-            String expected = Files.readString(Path.of(EVIDENCE + "java-verdicts.txt"));
+            String expected = runtimeVerdicts(Files.readString(Path.of(EVIDENCE + "java-verdicts.txt")));
             if (!actual.equals(expected)) throw new AssertionError("Java archive verdicts changed: " + difference(expected, actual));
         } finally {
             PortFixtures.delete(root);

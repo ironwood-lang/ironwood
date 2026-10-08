@@ -24,6 +24,7 @@ import java.util.concurrent.TimeUnit;
 final class PortFixtures {
     static final String PORT = "compiler/src/main/ironwood/ironwood/compiler/port/";
     static final String CLASSES = "compiler/build/classes";
+    private static Path java21;
 
     private PortFixtures() { }
 
@@ -62,9 +63,42 @@ final class PortFixtures {
         return executables;
     }
 
-    /** Runs a single-file Java reference in a fresh JVM with inherited options cleared. */
+    /**
+     * The Java 21 launcher the references run on: this JVM's when it is Java 21,
+     * otherwise {@code IRONWOOD_JAVA21_HOME}'s or, on macOS, the one java_home
+     * reports for version 21. A newer runtime has other Unicode tables, keywords
+     * and ZIP verdicts, so it cannot stand in for Java 21's answers.
+     */
+    static synchronized Path java21() throws Exception {
+        if (java21 != null) return java21;
+        if (Runtime.version().feature() == 21) {
+            java21 = Path.of(System.getProperty("java.home"), "bin", "java");
+            return java21;
+        }
+        Path home = null;
+        String configured = System.getenv("IRONWOOD_JAVA21_HOME");
+        if (configured != null && !configured.isEmpty()) {
+            home = Path.of(configured);
+        } else if (Files.isExecutable(Path.of("/usr/libexec/java_home"))) {
+            Process process = new ProcessBuilder("/usr/libexec/java_home", "-v", "21")
+                    .redirectError(ProcessBuilder.Redirect.DISCARD).start();
+            String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8).strip();
+            if (process.waitFor() == 0 && !output.isEmpty()) home = Path.of(output);
+        }
+        Path release = home == null ? null : home.resolve("release");
+        if (release == null || !Files.isRegularFile(release)
+                || !Files.readString(release).contains("JAVA_VERSION=\"21")) {
+            throw new AssertionError("the Java 21 references need a Java 21 runtime; this JVM is Java "
+                    + Runtime.version().feature() + ": set IRONWOOD_JAVA21_HOME to a JDK 21"
+                    + (home == null ? "" : " (" + home + " is not one)"));
+        }
+        java21 = home.resolve("bin").resolve("java");
+        return java21;
+    }
+
+    /** Runs a single-file Java reference on Java 21 in a fresh JVM with inherited options cleared. */
     static String reference(String path, List<String> classPath, List<String> arguments) throws Exception {
-        Path java = Path.of(System.getProperty("java.home"), "bin", "java");
+        Path java = java21();
         List<String> command = new ArrayList<>(List.of(java.toString()));
         if (!classPath.isEmpty()) command.addAll(List.of("-cp", String.join(":", classPath)));
         command.add(path);

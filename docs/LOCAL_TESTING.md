@@ -795,6 +795,12 @@ Java differential tests use the `java` and `javac` found on PATH. Compiling with
 The StringBuilder selection pins its version-sensitive insertion observations
 to Java 21 and compares the remaining cases against the live runtime; see the
 [StringBuilder review](STDLIB_STRINGBUILDER_REVIEW.md#verification-and-lessons).
+The self-hosting port's single-file Java references run on Java 21: the test
+JVM when it is Java 21, otherwise the JDK in `IRONWOOD_JAVA21_HOME` or, on
+macOS, the one `/usr/libexec/java_home -v 21` reports; without one they fail
+and name the variable. Newer runtimes change Unicode identifier data and
+`SourceVersion` keywords. The M5.1 archive contract keeps Java 21's frozen
+reader verdicts and records the three that JDK 23 and 24 readers change.
 
 For the `ironwood.bench` library, use
 `./scripts/test.sh --test 'benchmark library reports and reclaims native results'`.
