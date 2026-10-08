@@ -19713,7 +19713,9 @@ public final class CompilerTests {
                                 ? java.util.stream.Stream.of(invoke.call()) : java.util.stream.Stream.empty()))
                 .anyMatch(ironwood.compiler.ir.IrStreamInstruction.class::isInstance), "missing typed stream IR");
         assertContains(stream.llvmIr().orElseThrow(), "@ironwood_stream_read_byte", "stream native ABI");
-        assertTrue(stream.program().orElseThrow().functions().stream()
+        // Path's real and temporary paths (D270) bring Files, and through it file output,
+        // into the analyzed closure; the closed-world program the link emits drops them.
+        assertTrue(ClosedWorldPruner.prune(stream.program().orElseThrow()).functions().stream()
                 .noneMatch(function -> function.ownerClass().equals("ironwood.io.FileOutputStream")),
                 "unreachable file output survived pruning");
     }
