@@ -910,7 +910,7 @@ no class of whose type has a destructor, judged by the local's type when the
 free itself is rejected (D296). When the program needs the field owned, because
 the owner's destructor frees it or an instance method frees a local loaded from
 it, a free of a local that may run code during the loan is rejected at that free,
-naming the alias, instead of failing the field's proof (D297, D298).
+naming the alias, instead of failing the field's proof (D297-D299).
 The compiler rejects unproven consumed parameters, arbitrary field-loaded
 references outside their declaring destructor, live aliases, published
 or conditionally replaced fields, escaping constructors or calls, uncertain

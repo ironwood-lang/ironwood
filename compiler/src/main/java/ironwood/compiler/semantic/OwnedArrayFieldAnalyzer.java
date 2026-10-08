@@ -308,6 +308,10 @@ final class OwnedArrayFieldAnalyzer {
     private record FreedLocal(String name, SourceSpan span) {
     }
 
+    /** A block statement declaring a local from the field through {@code this}, and that block (D299). */
+    private record FieldLoad(String name, SourceSpan declaration, SourceSpan scope) {
+    }
+
     /**
      * A free statement by source path and span: it is enforced in every function the
      * statement is lowered into, such as the constructors an initializer joins.
@@ -337,6 +341,8 @@ final class OwnedArrayFieldAnalyzer {
         private java.util.List<FreedLocal> freedLocals;
         /** Whether a witness probe saw a free of the candidate field itself (D298). */
         private boolean freedCandidate;
+        /** The field-load declarations a witness probe saw, or null outside a probe (D299). */
+        private java.util.List<FieldLoad> fieldLoads;
         private String rejectionReason;
         private boolean staticFunction;
         private CallableSymbol currentCallable;
@@ -473,6 +479,10 @@ final class OwnedArrayFieldAnalyzer {
             Set<String> existing = Set.copyOf(environment.keySet());
             deferredScopes.push(new DeferredScope(existing, new java.util.ArrayList<>()));
             for (Statement statement : block.statements()) {
+                if (fieldLoads != null && statement instanceof LocalVariableDeclaration local
+                        && isThisFieldLoad(local.initializer(), environment)) {
+                    fieldLoads.add(new FieldLoad(local.name(), local.span(), block.span()));
+                }
                 scanStatement(statement, environment);
             }
             deferredScopes.pop();
@@ -526,11 +536,12 @@ final class OwnedArrayFieldAnalyzer {
 
         /**
          * Whether one of the owner's own instance methods, other than constructors and its
-         * destructor, declares a local at its top level from the field through
-         * {@code this}, never assigns it and frees it afterwards (D298). The method's
+         * destructor, declares a local in a block from the field through {@code this},
+         * never assigns it and frees it later in that block (D298, D299). The method's
          * receiver has no tracked allocation, so lowering proves such a free only from a
          * detached owned field: without ownership the loaded value stays attached and the
-         * free is rejected. Java scoping makes every later free of that name refer to it.
+         * free is rejected. Java forbids redeclaring the name while it is in scope, so a
+         * later free of that name in the block refers to that local.
          */
         private boolean methodFreesFieldLoad() {
             String name = candidate.declaration().name();
@@ -540,38 +551,32 @@ final class OwnedArrayFieldAnalyzer {
                         || method.parameters().stream().anyMatch(parameter -> parameter.name().equals(name))) {
                     continue;
                 }
-                Map<String, SourceSpan> loaded = topLevelFieldLoads(method.body().orElseThrow(), name);
-                if (loaded.isEmpty()) continue;
                 Checker probe = new Checker(owner, candidate, false, false);
                 probe.assignedLocals = new java.util.HashSet<>();
                 probe.freedLocals = new java.util.ArrayList<>();
+                probe.fieldLoads = new java.util.ArrayList<>();
                 probe.scanCallable(method);
                 for (FreedLocal freed : probe.freedLocals) {
-                    SourceSpan declared = loaded.get(freed.name());
-                    if (declared != null && !probe.assignedLocals.contains(freed.name())
-                            && freed.span().start().offset() > declared.end().offset()) {
-                        return true;
+                    if (probe.assignedLocals.contains(freed.name())) continue;
+                    for (FieldLoad load : probe.fieldLoads) {
+                        if (load.name().equals(freed.name())
+                                && freed.span().start().offset() > load.declaration().end().offset()
+                                && freed.span().end().offset() <= load.scope().end().offset()) {
+                            return true;
+                        }
                     }
                 }
             }
             return false;
         }
 
-        /** The locals a body declares at its top level from {@code field}, with their declarations. */
-        private static Map<String, SourceSpan> topLevelFieldLoads(Block body, String field) {
-            Map<String, SourceSpan> loaded = new LinkedHashMap<>();
-            boolean shadowed = false;
-            for (Statement statement : body.statements()) {
-                if (statement instanceof LocalVariableDeclaration local) {
-                    if (!shadowed && local.initializer() instanceof NameExpression value && value.name().equals(field)
-                            || local.initializer() instanceof FieldAccessExpression access
-                            && access.receiver() instanceof ThisExpression && access.fieldName().equals(field)) {
-                        loaded.put(local.name(), local.span());
-                    }
-                    shadowed |= local.name().equals(field);
-                }
-            }
-            return loaded;
+        /** Whether {@code initializer} reads the candidate through {@code this}, as lowering resolves it. */
+        private boolean isThisFieldLoad(Expression initializer, Map<String, Boolean> environment) {
+            String name = candidate.declaration().name();
+            return !staticFunction && initializer instanceof NameExpression value && value.name().equals(name)
+                    && !environment.containsKey(name)
+                    || initializer instanceof FieldAccessExpression access
+                    && access.receiver() instanceof ThisExpression && access.fieldName().equals(name);
         }
 
         /**

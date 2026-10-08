@@ -11686,7 +11686,8 @@ occurrence order. If no
   top-level declaration.
 - **Boundary:** A reclamation outside both witnesses, such as a detached
   local declared inside a branch or a free through another receiver, keeps
-  D281's report at that reclamation. Supersedes no other decision.
+  D281's report at that reclamation (D299 recognizes branch declarations).
+  Supersedes no other decision.
 - **Verification:** Freeing the owner while `k` aliases `o.held` now names
   the alias when the destructor frees the field in a branch or through a
   top-level or guarded `release()`, each isolated on a store with no other
@@ -11695,3 +11696,37 @@ occurrence order. If no
   an earlier block stays valid. The focused field, wrapper, owner, pool and
   explanation tests pass, 69 examples emit the same `-O3` LLVM, the standard
   library builds and every port source compiles without diagnostics.
+
+## D299 - Recognize a detached local declared in a branch
+
+- **Status:** Accepted and implemented. Amends D298 and supersedes its
+  boundary that a detached local declared inside a branch keeps D281's report.
+- **Context:** D298's method witness required the local loaded from the
+  field to be declared at the method's top level. A method that detaches and
+  frees the field inside a check, `if (held != null) { Keeper old = held;
+  held = null; free old; }`, still left the failure at that free (`cannot
+  prove free of 'old' safe: ...`) instead of at the free of the owner.
+- **Decision:** The method witness accepts a local declared in any block of
+  the method, from the field through `this` as lowering resolves the name.
+  The probe scan records each such declaration with its block, and a free of
+  that name counts when it lies inside that block after the declaration and
+  the method never assigns the name.
+- **Analysis:** Java forbids redeclaring a local while it is in scope, so a
+  later free of that name inside the block refers to that local or makes the
+  program invalid. Its value is then the field loaded through a receiver with
+  no tracked allocation, which lowering frees only when the field is owned.
+  As in D297 and D298, a program with a recorded free is invalid either way,
+  and no valid program's facts or code change. A free of the same name in a
+  later sibling block refers to another local and does not count.
+- **Boundary:** A reclamation outside the witnesses, such as a detaching free
+  in a constructor, a deferred free, or a free through another receiver,
+  keeps D281's report at that reclamation. Supersedes no other decision.
+- **Verification:** Freeing the owner while `k` aliases `o.held` names the
+  alias when the destructor calls a method that detaches and frees the field
+  inside a branch, also isolated on a store whose only other reclamation is
+  in its constructor; on the D298 analysis that report stays at the method's
+  free. A method that frees a same-named fresh local in a later sibling block
+  stays valid. D281's free route and D296's paired test now use that store.
+  The focused field, wrapper, owner, pool and explanation tests pass, 69
+  examples emit the same `-O3` LLVM, the standard library builds and every
+  port source compiles without diagnostics.

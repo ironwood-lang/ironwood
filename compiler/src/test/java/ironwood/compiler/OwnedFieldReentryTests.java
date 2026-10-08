@@ -169,9 +169,9 @@ final class OwnedFieldReentryTests {
     }
 
     /**
-     * A store whose only reclamation of its field declares the detached local inside a
-     * branch, which no D297/D298 witness covers, so a free that may run code during a
-     * loan still fails the field's proof (D281) and that free reports the failure.
+     * A store whose only reclamation of its field is in its constructor, which no
+     * D297-D299 witness covers, so a free that may run code during a loan still fails
+     * the field's proof (D281) and the constructor's free reports the failure.
      */
     private static final String STORE = """
             class Noisy {
@@ -185,12 +185,10 @@ final class OwnedFieldReentryTests {
             class Store {
                 private int[] values = new int[1];
 
-                void reset() {
-                    if (values != null) {
-                        int[] old = values;
-                        values = null;
-                        free old;
-                    }
+                Store() {
+                    int[] old = values;
+                    values = new int[2];
+                    free old;
                 }
 
             %s
@@ -259,7 +257,7 @@ final class OwnedFieldReentryTests {
 
     /**
      * When the program needs the field owned, because the owner's destructor frees it
-     * (D297) or a method frees a local loaded from it, as Buffer.drop does (D298), a
+     * (D297) or a method frees a local loaded from it, as Buffer.drop does (D298, D299), a
      * free that may run code during a loan leaves the field owned and is rejected at
      * the free: freeing an object whose destructor reenters names the alias and field
      * it would cross, its safe twin compiles, and freeing the owner, whose destructor
@@ -307,8 +305,9 @@ final class OwnedFieldReentryTests {
                     "freeing the owner during a loan did not name the alias (" + destructor + "): "
                             + explained(owner));
         }
-        // On the store, whose reset() is no witness, each witness acts alone: a branch
-        // free in the destructor (D297), and a destructor that frees through drop() (D298).
+        // On the store, whose constructor reclamation is no witness, each witness acts
+        // alone: a branch free in the destructor (D297, D298), a destructor that frees
+        // through drop() (D298), and one whose method declares the local in a branch (D299).
         String storeLeak = """
 
                     static int leak() {
@@ -333,6 +332,18 @@ final class OwnedFieldReentryTests {
                         int[] old = values;
                         values = null;
                         free old;
+                    }
+                """, """
+                    destructor {
+                        reset();
+                    }
+
+                    void reset() {
+                        if (values != null) {
+                            int[] old = values;
+                            values = null;
+                            free old;
+                        }
                     }
                 """)) {
             CompilationArtifact owner = store(members + storeLeak);
