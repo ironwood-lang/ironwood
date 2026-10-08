@@ -49,7 +49,9 @@ public final class SelectiveInliningTests {
     }
 
     public static void libraryStructure() throws Exception {
-        String source = Files.readString(SOURCE).replace("sum += values[0];", "sum += values[0];\n".repeat(4));
+        // Six copies of each statement put the loop above the executable bound (cost 256)
+        // and below the library bound (512); D287's null-check omission shrank each copy.
+        String source = Files.readString(SOURCE).replace("sum += values[0];", "sum += values[0];\n".repeat(6));
         var original = analyze(source);
         require(!SelectiveInlining.select(original).contains("ironwood.Main.work"), "executable policy changed");
         var library = library(original);
