@@ -11720,7 +11720,8 @@ occurrence order. If no
   later sibling block refers to another local and does not count.
 - **Boundary:** A reclamation outside the witnesses, such as a detaching free
   in a constructor, a deferred free, or a free through another receiver,
-  keeps D281's report at that reclamation (D300 recognizes constructors).
+  keeps D281's report at that reclamation (D300 recognizes constructors and
+  D301 deferred frees).
   Supersedes no other decision.
 - **Verification:** Freeing the owner while `k` aliases `o.held` names the
   alias when the destructor calls a method that detaches and frees the field
@@ -11754,7 +11755,8 @@ occurrence order. If no
   so a program with a recorded free is invalid either way, as in D297-D299, and
   no valid program's facts or code change.
 - **Boundary:** A deferred free of the detached local, or a free through
-  another receiver, keeps D281's report. Supersedes no other decision.
+  another receiver, keeps D281's report (D301 recognizes a deferred free that
+  lowering reaches). Supersedes no other decision.
 - **Verification:** A free that runs a destructor during a loan is rejected at
   the free, with the field owned, when the store's only other reclamation is a
   constructor or an instance initializer that detaches and frees the field; on
@@ -11763,3 +11765,45 @@ occurrence order. If no
   focused field, wrapper, owner, pool and explanation tests pass, 69 examples
   emit the same `-O3` LLVM, the standard library builds and every port source
   compiles without diagnostics.
+
+## D301 - Recognize a field's reclamation by a deferred free
+
+- **Status:** Accepted and implemented. Amends D300 and supersedes its
+  boundary that a deferred free of the detached local keeps D281's report.
+- **Context:** D298-D300 counted only a `free` statement of a local loaded
+  from the field. A class that reclaims the field with `int[] old = values;
+  values = null; defer free old;` still reported a free that may run code
+  during a loan at the deferred free (`cannot defer free of 'old': target
+  must be a live, proven owned local reference`) instead of at that free.
+- **Decision:** A deferred free of such a local counts as the witness's free
+  when the statements after it in its block contain, at any statement depth,
+  no `while` or `do` loop whose condition is the literal `true` and no `for`
+  loop whose condition is absent or that literal. The other D300 conditions
+  are unchanged: the local is declared in a block from the field through
+  `this`, never assigned, and freed later in that block.
+- **Analysis:** Lowering frees a deferred target at the normal completion of
+  the rest of its block and at every return, break, continue, yield or
+  exception that leaves it. Only such a loop can make all of those
+  unreachable: lowering keeps a statement's normal completion reachable
+  whatever its expressions do, and a local class body is another function.
+  Each lowering of the deferred free accepts it only for a detached owned
+  field, as for a direct free; without ownership the local stays attached or
+  has no identity, so its registration or its lowering is an error. A program
+  with a recorded free is therefore invalid either way, as in D297-D300, and
+  no valid program's facts or code change.
+- **Boundary:** A deferred free after such a loop, even one the loop's
+  `break` leaves, a deferred free placed directly in an old-style switch
+  group, a local assigned from the field after its declaration, and a free
+  through another receiver keep D281's report at that reclamation.
+  Supersedes no other decision.
+- **Verification:** A free that runs a destructor during a loan is rejected
+  at the free, with the field owned, when the store's only other reclamation
+  is a deferred free at the end of its block or before a counted loop, and
+  each safe twin compiles; after a `while (true)` loop that breaks, D281
+  reports at the deferred free. D281's free route and D296's paired test now
+  use a store that frees a local assigned from the field after its
+  declaration, and assert the proof's failure note there. On the D300
+  analysis the deferred cases still report at the reclamations, while the
+  relocated D281 and D296 checks pass. The focused field, wrapper, owner,
+  pool and explanation tests pass, 69 examples emit the same `-O3` LLVM, the
+  standard library builds and every port source compiles without diagnostics.

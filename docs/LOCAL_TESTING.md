@@ -303,14 +303,16 @@ condition, a catch handler, a deferred call, a static initializer and a
 destructor) with safe twins; each unsafe route must fail the field's ownership
 proof for its own reason. The second keeps runtime checks, String and primitive
 conversion, `System.arraycopy` and the owner's statics admitted inside a loan.
-The third, on a store that reclaims its field only with a deferred free, which
-no D297-D300 witness covers, keeps a free that runs a destructor during a loan
-failing the proof beside its safe twin (D281), and a rejected free failing it
-only when its class has a destructor (D296). The fourth (D297-D300) rejects at
-the free a reentrant free during a loan of a field the program reclaims,
-including in a constructor or an instance initializer, and names the alias when
-the owner is freed and its destructor frees the field directly, inside a
-branch, or through a method that detaches it at its top level or in a branch.
+The third, on a store that reclaims its field only by freeing a local assigned
+from it after its declaration, which no D297-D301 witness covers, keeps a free
+that runs a destructor during a loan failing the proof beside its safe twin
+(D281), and a rejected free failing it only when its class has a destructor
+(D296). The fourth (D297-D301) rejects at the free a reentrant free during a
+loan of a field the program reclaims, including in a constructor, an instance
+initializer or by a deferred free, but not by a deferred free after a
+`while (true)` loop, and names the alias when the owner is freed and its
+destructor frees the field directly, inside a branch, or through a method that
+detaches it at its top level or in a branch.
 
 For the class a construction-publication error is reported at (D282), run:
 

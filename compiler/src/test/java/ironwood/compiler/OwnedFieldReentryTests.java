@@ -125,6 +125,11 @@ final class OwnedFieldReentryTests {
 
     private static final String DEFERRED = "cannot defer free of 'old': target must be a live, "
             + "proven owned local reference";
+    private static final String RECLAIM = "cannot prove free of 'old' safe: value is not a known "
+            + "allocation created by new in this method, returned by a proven fresh factory, or a "
+            + "proven detached private backing array";
+    private static final String FREE = "this free can run a destructor while a local alias "
+            + "of the field's allocation remains active";
     private static final String CODE = "this expression can run other code while a local "
             + "alias of the field's allocation remains active";
     private static final String CALL = "this call occurs while a local alias of the field's "
@@ -169,9 +174,9 @@ final class OwnedFieldReentryTests {
     }
 
     /**
-     * A store whose only reclamation of its field is a deferred free, which no
-     * D297-D300 witness covers, so a free that may run code during a loan still fails
-     * the field's proof (D281) and the deferred free reports the failure.
+     * A store whose only reclamation of its field frees a local assigned from it after
+     * its declaration, which no D297-D301 witness covers, so a free that may run code
+     * during a loan still fails the field's proof (D281) and that free reports it.
      */
     private static final String STORE = """
             class Noisy {
@@ -186,9 +191,10 @@ final class OwnedFieldReentryTests {
                 private int[] values = new int[1];
 
                 void discard() {
-                    int[] old = values;
+                    int[] old = null;
+                    old = values;
                     values = null;
-                    defer free old;
+                    free old;
                 }
 
             %s
@@ -203,7 +209,7 @@ final class OwnedFieldReentryTests {
 
     /**
      * Freeing an object with a destructor during a loan fails the field's proof, so the
-     * store's deferred free is rejected, and the safe twin compiles (D281). A free that
+     * store's reclamation is rejected, and the safe twin compiles (D281). A free that
      * lowering rejects has no instruction, so the type of the freed local decides
      * whether it may run code (D296): a class with a destructor still fails the proof,
      * one without leaves only the free's own error.
@@ -217,7 +223,7 @@ final class OwnedFieldReentryTests {
                         old[0] = 7;
                     }
                 """);
-        require(!accepted.valid() && messages(accepted).equals(List.of(DEFERRED)),
+        require(!accepted.valid() && messages(accepted).equals(List.of(RECLAIM)) && failedBy(accepted, FREE),
                 "a free that runs a destructor during a loan kept the field: " + explained(accepted));
         CompilationArtifact twin = store("""
                     void use() {
@@ -235,7 +241,7 @@ final class OwnedFieldReentryTests {
                         old[0] = 7;
                     }
                 """);
-        require(!running.valid() && messages(running).contains(DEFERRED),
+        require(!running.valid() && messages(running).contains(RECLAIM) && failedBy(running, FREE),
                 "a rejected free that runs a destructor kept the field: " + explained(running));
         CompilationArtifact inert = store("""
                     void use(Plain plain) {
@@ -256,11 +262,12 @@ final class OwnedFieldReentryTests {
 
     /**
      * When the program needs the field owned, because the owner's destructor frees it
-     * (D297) or its instance code frees a local loaded from it, as Buffer.drop does (D298-D300), a
-     * free that may run code during a loan leaves the field owned and is rejected at
-     * the free: freeing an object whose destructor reenters names the alias and field
-     * it would cross, its safe twin compiles, and freeing the owner, whose destructor
-     * frees the field directly, inside a branch or through drop(), names the alias.
+     * (D297) or its instance code frees a local loaded from it, as Buffer.drop does,
+     * directly or by a deferred free (D298-D301), a free that may run code during a loan
+     * leaves the field owned and is rejected at the free: freeing an object whose
+     * destructor reenters names the alias and field it would cross, its safe twin
+     * compiles, and freeing the owner, whose destructor frees the field directly, inside
+     * a branch or through drop(), names the alias.
      */
     static void contingentFrees() {
         CompilationArtifact reentrant = analyze("""
@@ -304,9 +311,9 @@ final class OwnedFieldReentryTests {
                     "freeing the owner during a loan did not name the alias (" + destructor + "): "
                             + explained(owner));
         }
-        // On the store, whose deferred reclamation is no witness, each witness acts
-        // alone: a branch free in the destructor (D297, D298), a destructor that frees
-        // through drop() (D298), and one whose method declares the local in a branch (D299).
+        // On the store, whose reclamation is no witness, each witness acts alone: a
+        // branch free in the destructor (D297, D298), a destructor that frees through
+        // drop() (D298), and one whose method declares the local in a branch (D299).
         String storeLeak = """
 
                     static int leak() {
@@ -375,6 +382,62 @@ final class OwnedFieldReentryTests {
                     "a reentrant free was not rejected at the free (" + (header.isEmpty() ? "initializer" : header)
                             + "): " + explained(constructed));
         }
+        // A deferred free of the detached local is a witness when lowering reaches it at
+        // the block's end or exits (D301), with or without a later loop that can finish;
+        // freeing before the loan compiles. After a while (true) loop the deferred free
+        // may never run, so D281 reports at both of the store's reclamations.
+        String clear = """
+                    void clear() {
+                        int[] old = values;
+                        values = null;
+                        defer free old;
+                    }
+                """;
+        String grow = """
+                    void grow(int size) {
+                        int[] old = values;
+                        values = new int[size];
+                        defer free old;
+                        for (int index = 0; index < old.length && index < size; index++) {
+                            values[index] = old[index];
+                        }
+                    }
+                """;
+        for (String members : List.of(clear, grow)) {
+            CompilationArtifact deferred = store(members + noisyUse);
+            require(!deferred.valid() && ownershipFailures(deferred).isEmpty()
+                            && messages(deferred).equals(List.of("cannot free 'noisy': it can run a destructor"
+                                    + " while local 'old' aliases field 'values'")),
+                    "a reentrant free beside a deferred reclamation was not rejected at the free: "
+                            + explained(deferred));
+            CompilationArtifact twin = store(members + """
+
+                        void use() {
+                            Noisy noisy = new Noisy();
+                            free noisy;
+                            int[] old = values;
+                            old[0] = 7;
+                        }
+                    """);
+            require(twin.valid(), "freeing before the loan was rejected beside a deferred reclamation: "
+                    + explained(twin));
+        }
+        CompilationArtifact looping = store("""
+                    void clear() {
+                        int[] old = values;
+                        values = null;
+                        defer free old;
+                        while (true) {
+                            break;
+                        }
+                    }
+                """ + noisyUse);
+        require(!looping.valid() && messages(looping).equals(List.of(RECLAIM, DEFERRED)) && failedBy(looping, FREE),
+                "a deferred free after a while (true) loop counted as a witness: " + explained(looping));
+    }
+
+    private static boolean failedBy(CompilationArtifact artifact, String reason) {
+        return ownershipFailures(artifact).stream().anyMatch(note -> note.endsWith("failed: " + reason));
     }
 
     private static List<String> messages(CompilationArtifact artifact) {
