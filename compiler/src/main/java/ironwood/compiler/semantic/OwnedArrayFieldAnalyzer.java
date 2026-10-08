@@ -401,17 +401,41 @@ final class OwnedArrayFieldAnalyzer {
     private record FreedLocal(String name, SourceSpan span, SourceSpan reach) {
     }
 
-    /** A write to a local, by name and target span, seen by a witness probe (D303). */
-    private record LocalWrite(String name, SourceSpan span) {
+    /**
+     * A write to a local, by name and target span, seen by a witness probe, with what it
+     * writes, or null when that is not a {@link LoadSource} (D303, D306).
+     */
+    private record LocalWrite(String name, SourceSpan span, LoadSource value) {
     }
 
     /**
-     * A declaration of a local from the field through {@code this}, or an assignment of
-     * the field so to a local, that runs whenever control passes its block statement;
-     * that block; and the block's statements from that one on (D299, D303, D304).
+     * A declaration or assignment of a local that runs whenever control passes its block
+     * statement, with what it writes; that block; and the block's statements from that
+     * one on (D299, D303, D304, D306).
      */
     private record FieldLoad(String name, SourceSpan declaration, SourceSpan scope,
-                             java.util.List<SourceSpan> following) {
+                             java.util.List<SourceSpan> following, LoadSource value) {
+    }
+
+    /**
+     * A value that holds a load of the field through {@code this} when its parts do
+     * (D306): such a load, possibly under casts, a local's value where the expression
+     * reads it, or the branch a conditional selects.
+     */
+    private sealed interface LoadSource permits FieldValue, LocalValue, EitherValue {
+    }
+
+    private record FieldValue() implements LoadSource {
+    }
+
+    private record LocalValue(String name, int position) implements LoadSource {
+    }
+
+    private record EitherValue(LoadSource first, LoadSource second) implements LoadSource {
+    }
+
+    /** Whether a local holds a field load where it is read or freed, up to {@code reach} (D306). */
+    private record HoldingQuery(String name, int position, int reach) {
     }
 
     /**
@@ -638,7 +662,7 @@ final class OwnedArrayFieldAnalyzer {
         /**
          * Whether a free in the program is rejected whenever the candidate is not owned,
          * so that a failed proof makes the program invalid: the owner's destructor frees
-         * the field (D297), or its instance code frees a local loaded from it (D298-D303).
+         * the field (D297), or its instance code frees a local loaded from it (D298-D306).
          */
         private boolean ownershipNeeded() {
             if (ownershipNeeded == null) {
@@ -649,16 +673,15 @@ final class OwnedArrayFieldAnalyzer {
 
         /**
          * Whether the owner's instance code (constructors, methods, destructor or instance
-         * initializers) declares a local from the field through {@code this}, possibly
-         * under casts, or assigns it so to a local where a block statement always
-         * evaluates the assignment first, and frees it after that, in the statement's
-         * nested statements or later in the block, where lowering is certain to lower the
-         * free, with no other write to the local in between (D298-D305). The load runs
-         * before the free on every path to it, so the free sees the loaded value. Lowering
-         * tracks no allocation for {@code this}, so it proves such a free only from a
-         * detached owned field: without ownership the loaded value stays attached or has
-         * no identity and the free is rejected. Java forbids redeclaring the name while it
-         * is in scope, so a later free of that name in the block refers to that local.
+         * initializers) frees, where lowering is certain to lower the free, a local that
+         * holds a load of the field through {@code this} there (D298-D306): a declaration
+         * or an assignment that a block statement always evaluates first writes such a
+         * load, possibly under casts, or a local or conditional that holds one, and so
+         * does every later write to the local before the free. Lowering tracks no
+         * allocation for {@code this}, so it proves such a free only from a detached owned
+         * field: without ownership the loaded value stays attached or has no identity and
+         * the free is rejected. Java forbids redeclaring the name while it is in scope, so
+         * a later free of that name in the block refers to that local.
          */
         private boolean instanceCodeFreesFieldLoad() {
             String name = candidate.declaration().name();
@@ -686,7 +709,7 @@ final class OwnedArrayFieldAnalyzer {
             return probe.freesFieldLoad();
         }
 
-        /** A checker that only records frees, writes to locals and field loads (D298-D303). */
+        /** A checker that only records frees, writes to locals and loads (D298-D306). */
         private Checker probe() {
             Checker probe = new Checker(owner, candidate, false, false);
             probe.localWrites = new java.util.ArrayList<>();
@@ -695,56 +718,125 @@ final class OwnedArrayFieldAnalyzer {
             return probe;
         }
 
-        /** Whether this probe saw a free of a field-load local after the load in its block, with no write between. */
+        /** Whether this probe saw a free of a local that holds a field load there (D306). */
         private boolean freesFieldLoad() {
+            java.util.Set<HoldingQuery> frees = new LinkedHashSet<>();
             for (FreedLocal freed : freedLocals) {
-                for (FieldLoad load : fieldLoads) {
-                    if (load.name().equals(freed.name())
-                            && freed.span().start().offset() > load.declaration().end().offset()
-                            && freed.span().end().offset() <= load.scope().end().offset()
-                            && !writtenBetween(load, freed)) {
-                        return true;
-                    }
+                frees.add(new HoldingQuery(freed.name(), freed.span().start().offset(),
+                        freed.reach().end().offset()));
+            }
+            Set<HoldingQuery> holding = holdingQueries(frees);
+            return frees.stream().anyMatch(holding::contains);
+        }
+
+        /**
+         * The queries, among {@code frees} and the local reads that loads and writes write,
+         * whose local holds a field load (D306): the greatest set in which each query has a
+         * load of its local that dominates it, writes a holding value and is followed by
+         * holding writes only, up to the end of the block statement that holds the query
+         * or the query's reach. Execution then keeps every query in the set true: a read
+         * sees the dominating load or a later write in that window, which runs after the
+         * reads its value makes, so a value read inside its own window, as in
+         * {@code old = old}, keeps the field load.
+         */
+        private Set<HoldingQuery> holdingQueries(java.util.Set<HoldingQuery> frees) {
+            Set<HoldingQuery> holding = new LinkedHashSet<>(frees);
+            for (FieldLoad load : fieldLoads) collectReads(load.value(), holding);
+            for (LocalWrite write : localWrites) collectReads(write.value(), holding);
+            boolean changed = true;
+            while (changed) {
+                changed = holding.removeIf(query -> !holds(query, holding));
+            }
+            return holding;
+        }
+
+        private static void collectReads(LoadSource source, Set<HoldingQuery> queries) {
+            if (source instanceof LocalValue read) {
+                queries.add(new HoldingQuery(read.name(), read.position(), -1));
+            } else if (source instanceof EitherValue either) {
+                collectReads(either.first(), queries);
+                collectReads(either.second(), queries);
+            }
+        }
+
+        private boolean holds(HoldingQuery query, Set<HoldingQuery> holding) {
+            for (FieldLoad load : fieldLoads) {
+                if (!load.name().equals(query.name())
+                        || query.position() <= load.declaration().end().offset()
+                        || query.position() >= load.scope().end().offset()
+                        || !holds(load.value(), holding)) {
+                    continue;
+                }
+                // A later write runs only after the query, which is reached again only by
+                // passing the load.
+                int limit = load.following().stream()
+                        .filter(statement -> statement.start().offset() <= query.position()
+                                && query.position() < statement.end().offset())
+                        .mapToInt(statement -> statement.end().offset()).findFirst()
+                        .orElse(load.scope().end().offset());
+                int end = Math.max(limit, query.reach());
+                if (localWrites.stream().filter(write -> write.name().equals(query.name())
+                                && write.span().start().offset() > load.declaration().end().offset()
+                                && write.span().start().offset() < end)
+                        .allMatch(write -> write.value() != null && holds(write.value(), holding))) {
+                    return true;
                 }
             }
             return false;
         }
 
-        /**
-         * Whether the probe saw a write to the load's local between the load and the end
-         * of the block statement that holds the free, or of a deferred free's block (D303,
-         * D304). A later write runs only after that free, which is reached again only by
-         * passing the load.
-         */
-        private boolean writtenBetween(FieldLoad load, FreedLocal freed) {
-            int start = freed.span().start().offset();
-            int limit = load.following().stream()
-                    .filter(statement -> statement.start().offset() <= start && start < statement.end().offset())
-                    .mapToInt(statement -> statement.end().offset()).findFirst()
-                    .orElse(load.scope().end().offset());
-            int end = Math.max(limit, freed.reach().end().offset());
-            return localWrites.stream().anyMatch(write -> write.name().equals(load.name())
-                    && write.span().start().offset() > load.declaration().end().offset()
-                    && write.span().start().offset() < end);
+        private static boolean holds(LoadSource source, Set<HoldingQuery> holding) {
+            if (source instanceof LocalValue read) {
+                return holding.contains(new HoldingQuery(read.name(), read.position(), -1));
+            }
+            if (source instanceof EitherValue either) {
+                return holds(either.first(), holding) && holds(either.second(), holding);
+            }
+            return source instanceof FieldValue;
         }
 
         /**
-         * Records the field loads of a block statement: a declaration of a local from the
-         * candidate through {@code this}, and each plain {@code =} assignment of it so to a
-         * local or parameter that the statement's head expressions always evaluate before
-         * the statement's nested statements and the block's later statements (D303, D304).
+         * What {@code value} writes as a {@link LoadSource}, or null (D306): a load of the
+         * candidate through {@code this}, a local, a conditional whose branches both are
+         * such values, or an assignment of one, possibly under casts.
+         */
+        private LoadSource loadSource(Expression value, Map<String, Boolean> environment) {
+            while (value instanceof CastExpression cast) {
+                value = cast.operand();
+            }
+            if (isThisFieldLoad(value, environment)) {
+                return new FieldValue();
+            }
+            if (value instanceof NameExpression local && environment.containsKey(local.name())) {
+                return new LocalValue(local.name(), local.span().start().offset());
+            }
+            if (value instanceof ConditionalExpression conditional) {
+                LoadSource first = loadSource(conditional.whenTrue(), environment);
+                LoadSource second = loadSource(conditional.whenFalse(), environment);
+                return first == null || second == null ? null : new EitherValue(first, second);
+            }
+            if (value instanceof AssignmentExpression assignment
+                    && assignment.operator() == AssignmentOperator.ASSIGN) {
+                return loadSource(assignment.value(), environment);
+            }
+            return null;
+        }
+
+        /**
+         * Records the loads of a block statement: a declaration of a local, and each plain
+         * {@code =} assignment to a local or parameter that the statement's head
+         * expressions always evaluate before the statement's nested statements and the
+         * block's later statements, when it writes a {@link LoadSource} (D303, D304, D306).
          */
         private void recordFieldLoads(Statement statement, Map<String, Boolean> environment,
                                       SourceSpan block, java.util.List<SourceSpan> holders) {
-            if (statement instanceof LocalVariableDeclaration local
-                    && isThisFieldLoad(local.initializer(), environment)) {
-                fieldLoads.add(new FieldLoad(local.name(), statement.span(), block, holders));
+            if (statement instanceof LocalVariableDeclaration local) {
+                recordLoad(local.name(), local.initializer(), statement.span(), environment, block, holders);
             }
             if (statement instanceof AssignmentStatement assignment
                     && assignment.target() instanceof NameExpression local
-                    && environment.containsKey(local.name())
-                    && isThisFieldLoad(assignment.value(), environment)) {
-                fieldLoads.add(new FieldLoad(local.name(), statement.span(), block, holders));
+                    && environment.containsKey(local.name())) {
+                recordLoad(local.name(), assignment.value(), statement.span(), environment, block, holders);
             }
             for (Expression head : headExpressions(statement)) {
                 recordAssignedLoads(head, environment, block, holders);
@@ -756,12 +848,19 @@ final class OwnedArrayFieldAnalyzer {
             if (expression instanceof AssignmentExpression assignment
                     && assignment.operator() == AssignmentOperator.ASSIGN
                     && assignment.target() instanceof NameExpression local
-                    && environment.containsKey(local.name())
-                    && isThisFieldLoad(assignment.value(), environment)) {
-                fieldLoads.add(new FieldLoad(local.name(), assignment.span(), block, holders));
+                    && environment.containsKey(local.name())) {
+                recordLoad(local.name(), assignment.value(), assignment.span(), environment, block, holders);
             }
             for (Expression operand : evaluatedOperands(expression)) {
                 recordAssignedLoads(operand, environment, block, holders);
+            }
+        }
+
+        private void recordLoad(String name, Expression value, SourceSpan span, Map<String, Boolean> environment,
+                                SourceSpan block, java.util.List<SourceSpan> holders) {
+            LoadSource source = loadSource(value, environment);
+            if (source != null) {
+                fieldLoads.add(new FieldLoad(name, span, block, holders, source));
             }
         }
 
@@ -1306,7 +1405,9 @@ final class OwnedArrayFieldAnalyzer {
                 }
                 boolean valueOrigin = assignmentOrigin(assignment.target(),
                         assignment.value(), environment);
-                assignKnownOrigin(assignment.target(), valueOrigin, environment,
+                assignKnownOrigin(assignment.target(),
+                        assignment.operator() == AssignmentOperator.ASSIGN ? assignment.value() : null,
+                        valueOrigin, environment,
                         assignment.operator() == AssignmentOperator.ASSIGN
                                 && isFreshValue(assignment.value()));
                 return assignment.operator() == AssignmentOperator.ASSIGN && valueOrigin;
@@ -1347,7 +1448,7 @@ final class OwnedArrayFieldAnalyzer {
                 rejectAt("this array store has a reentrant index or value while the "
                         + "field's storage is attached", target);
             }
-            assignKnownOrigin(target, assignmentOrigin(target, value, environment), environment, fresh);
+            assignKnownOrigin(target, value, assignmentOrigin(target, value, environment), environment, fresh);
         }
 
         private boolean assignmentOrigin(Expression target, Expression value,
@@ -1419,10 +1520,12 @@ final class OwnedArrayFieldAnalyzer {
             return releasedBacking && new Checker(owner, constructionTarget, true, true).isOwned();
         }
 
-        private void assignKnownOrigin(Expression target, boolean valueOrigin,
+        /** Records an assignment; {@code value} is null for a compound assignment. */
+        private void assignKnownOrigin(Expression target, Expression value, boolean valueOrigin,
                                        Map<String, Boolean> environment, boolean fresh) {
             if (target instanceof NameExpression name && environment.containsKey(name.name())) {
-                if (localWrites != null) localWrites.add(new LocalWrite(name.name(), target.span()));
+                if (localWrites != null) localWrites.add(new LocalWrite(name.name(), target.span(),
+                        value == null ? null : loadSource(value, environment)));
                 environment.put(name.name(), valueOrigin);
                 return;
             }

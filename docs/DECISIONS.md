@@ -11911,8 +11911,9 @@ occurrence order. If no
 - **Boundary:** An assignment inside an expression, such as `if ((old =
   values) != null)` (D304 recognizes one its statement always evaluates), a
   cast (D305 recognizes it) or other expression around the load, another
-  write between the load and the free, and a free that no route is proven to
-  reach keep D281's report. Supersedes no other decision.
+  write between the load and the free (D306 recognizes one that writes a
+  field load), and a free that no route is proven to reach keep D281's
+  report. Supersedes no other decision.
 - **Verification:** A free that runs a destructor during a loan is rejected
   at the free, with the field owned, beside a reclamation through a local
   assigned from the field, through an assigned parameter, and through a
@@ -11958,8 +11959,9 @@ occurrence order. If no
 - **Boundary:** An assignment that may not run, such as one on the right of
   `&&`, in a conditional's branch or in a do-while condition, a cast (D305
   recognizes it) or other expression around the load, another write between
-  the load and the free, and a free that no route is proven to reach keep
-  D281's report. Supersedes no other decision.
+  the load and the free (D306 recognizes one that writes a field load), and a
+  free that no route is proven to reach keep D281's report. Supersedes no
+  other decision.
 - **Verification:** A free that runs a destructor during a loan is rejected
   at the free, with the field owned, beside reclamations that assign the
   field in an `if` condition and free in the branch or after the `if`, in a
@@ -11993,7 +11995,8 @@ occurrence order. If no
 - **Boundary:** Another expression around the load, such as a conditional or
   a copy through another local, an assignment that may not run, another
   write between the load and the free, and a free that no route is proven to
-  reach keep D281's report. Supersedes no other decision.
+  reach keep D281's report (D306 recognizes copies, conditionals of loads and
+  writes that write a field load). Supersedes no other decision.
 - **Verification:** A free that runs a destructor during a loan is rejected
   at the free, with the field owned, beside reclamations through
   `(int[]) values`, through `(Object) this.values` into an `Object` local,
@@ -12002,6 +12005,59 @@ occurrence order. If no
   rejects each of those frees. D281's free route and D296's paired test now
   use a store that writes the local again between the load and the free. On
   the D304 analysis the cast cases report at the reclamations, while the
+  relocated D281 and D296 checks pass. The focused field, wrapper, owner,
+  pool and explanation tests pass, 69 examples emit the same `-O3` LLVM, the
+  standard library builds and every port source compiles without
+  diagnostics.
+
+## D306 - Recognize a field's reclamation across writes that keep a field load
+
+- **Status:** Accepted and implemented. Amends D303-D305: supersedes their
+  boundaries that a write between the load and the free, a copy through
+  another local and a conditional around the load keep D281's report, and
+  replaces D303's rule of no write between the load and the free.
+- **Context:** The witness rejected any write to the local between its load
+  and its free. A reclamation that reloads the field in a branch, `int[] old
+  = values; if (grown) { old = values; } values = null; free old;`, or
+  writes `old = flag ? values : old`, still reported a free that may run code
+  during a loan at the reclamation instead of at that free, although the
+  local holds a load of the field on every path.
+- **Decision:** A local holds a field load where it is read or freed when a
+  load of it that dominates the point, as in D303 and D304, writes a holding
+  value and every write to the local after that load and up to the end of
+  the block statement that holds the point, or a deferred free's block,
+  writes one too. A holding value is a load of the field through `this`,
+  possibly under casts (D305), a local that holds a field load where the
+  value reads it, a conditional whose branches both hold one, or an
+  assignment of one. The probe takes the greatest set of such points and
+  counts a free of a local that holds a field load there, where lowering is
+  certain to lower the free (D302).
+- **Analysis:** Execution keeps every point in that set true: a read sees the
+  dominating load or a later write in the window, and that write's value is
+  read before it runs, so by induction over execution the value is a field
+  load; a write such as `old = old` is read inside its own window and keeps
+  the property. The freed value is therefore a load of the field, possibly
+  merged with others at joins, which lowering without ownership gives no
+  identity, an attached one or a merge of those, so it rejects the free: a
+  program with a recorded free is invalid either way, and no valid
+  program's facts or code change (D297-D305). A write of any other value,
+  such as `old = new int[2]`, excludes the free, so the program keeps its
+  D281 behavior.
+- **Boundary:** A write of a value that is not a field load, an assignment
+  that may not run, such as one in a switch expression's arm, and a free that
+  no route is proven to reach keep D281's report. Supersedes no other
+  decision.
+- **Verification:** A free that runs a destructor during a loan is rejected
+  at the free, with the field owned, beside reclamations that write `old =
+  old`, reload the field in a branch, or write `old = flag ? values : old`
+  between the load and the free; each safe twin compiles, and through a
+  field that escapes to a sibling field lowering rejects each of those frees.
+  A write of a new array between them leaves only the store's D281 report,
+  and another write of a parameter keeps D281's report at both reclamations.
+  D281's free route and D296's paired test now use a store that loads the
+  field in a switch expression's arm. The D302 differential of deferred and
+  finally shapes against lowering still agrees in every counted case. On the
+  D305 analysis the rewritten cases report at the reclamations, while the
   relocated D281 and D296 checks pass. The focused field, wrapper, owner,
   pool and explanation tests pass, 69 examples emit the same `-O3` LLVM, the
   standard library builds and every port source compiles without

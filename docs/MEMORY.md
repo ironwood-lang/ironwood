@@ -911,12 +911,12 @@ failures, String and primitive conversion, exact `System.arraycopy`, and the
 owning class's own statics run no other code, and neither does a free of a value
 no class of whose type has a destructor, judged by the local's type when the
 free itself is rejected (D296). When the program needs the field owned, because
-the owner's destructor frees it or its instance code frees a local declared from
-it, possibly under casts, or assigned from it where its statement always
-evaluates the assignment, with no write in between, by a free or deferred free
-that lowering certainly reaches, a free of a local that may run code during the
-loan is rejected at that free, naming the alias, instead of failing the field's
-proof (D297-D305).
+the owner's destructor frees it or its instance code frees, by a free or deferred
+free that lowering certainly reaches, a local that holds a load of it on every
+path, from a dominating declaration or always-evaluated assignment and through
+any later writes of field loads, copies or casts of them, a free of a local that
+may run code during the loan is rejected at that free, naming the alias, instead
+of failing the field's proof (D297-D306).
 The compiler rejects unproven consumed parameters, arbitrary field-loaded
 references outside their declaring destructor, live aliases, published
 or conditionally replaced fields, escaping constructors or calls, uncertain

@@ -176,8 +176,8 @@ final class OwnedFieldReentryTests {
     }
 
     /**
-     * A store whose only reclamation of its field writes the local again between loading
-     * and freeing it, which no D297-D305 witness covers, so a free that may run code
+     * A store whose only reclamation of its field loads it in a switch expression's arm,
+     * which no D297-D306 witness counts as always evaluated, so a free that may run code
      * during a loan still fails the field's proof (D281) and that free reports it.
      */
     private static final String STORE = """
@@ -193,8 +193,13 @@ final class OwnedFieldReentryTests {
                 private int[] values = new int[1];
 
                 void discard() {
-                    int[] old = values;
-                    old = old;
+                    int[] old = null;
+                    int unused = switch (0) {
+                        default -> {
+                            old = values;
+                            yield 0;
+                        }
+                    };
                     values = null;
                     free old;
                 }
@@ -265,7 +270,7 @@ final class OwnedFieldReentryTests {
     /**
      * When the program needs the field owned, because the owner's destructor frees it
      * (D297) or its instance code frees a local loaded from it, as Buffer.drop does,
-     * directly or by a deferred free (D298-D305), a free that may run code during a loan
+     * directly or by a deferred free (D298-D306), a free that may run code during a loan
      * leaves the field owned and is rejected at the free: freeing an object whose
      * destructor reenters names the alias and field it would cross, its safe twin
      * compiles, and freeing the owner, whose destructor frees the field directly, inside
@@ -662,6 +667,62 @@ final class OwnedFieldReentryTests {
         require(!shortCircuit.valid() && messages(shortCircuit).equals(List.of(RECLAIM, RECLAIM))
                         && failedBy(shortCircuit, FREE),
                 "an assignment that may not run counted as a witness: " + explained(shortCircuit));
+        // A write between the load and the free keeps the witness when it writes a field
+        // load again: the local itself, a fresh load or a conditional of such values (D306).
+        // A write of another value, such as a new array, makes the free free that value, so
+        // with no other reclamation the field's failure leaves the store's report only.
+        for (String members : List.of("""
+                    void reset() {
+                        int[] old = values;
+                        old = old;
+                        values = null;
+                        free old;
+                    }
+                """, """
+                    void reset(boolean flag) {
+                        int[] old = values;
+                        if (flag) {
+                            old = values;
+                        }
+                        values = null;
+                        free old;
+                    }
+                """, """
+                    void reset(boolean flag) {
+                        int[] old = values;
+                        old = flag ? values : old;
+                        values = null;
+                        free old;
+                    }
+                """)) {
+            CompilationArtifact rewritten = store(members + noisyUse);
+            require(!rewritten.valid() && ownershipFailures(rewritten).isEmpty()
+                            && messages(rewritten).equals(List.of(CONTINGENT)),
+                    "a reentrant free beside a rewritten reclamation was not rejected at the free: "
+                            + explained(rewritten));
+            CompilationArtifact twin = store(members + """
+
+                        void use() {
+                            Noisy noisy = new Noisy();
+                            free noisy;
+                            int[] old = values;
+                            old[0] = 7;
+                        }
+                    """);
+            require(twin.valid(), "freeing before the loan was rejected beside a rewritten reclamation: "
+                    + explained(twin));
+            require(lowersFree(members), "lowering did not reject a rewritten free the witness counted");
+        }
+        CompilationArtifact replaced = store("""
+                    void reset() {
+                        int[] old = values;
+                        old = new int[2];
+                        values = null;
+                        free old;
+                    }
+                """ + noisyUse);
+        require(!replaced.valid() && messages(replaced).equals(List.of(RECLAIM)) && failedBy(replaced, FREE),
+                "a free of a replaced value counted as a witness: " + explained(replaced));
         CompilationArtifact overwritten = store("""
                     void reset(int[] spare) {
                         int[] old = null;
@@ -744,7 +805,8 @@ final class OwnedFieldReentryTests {
     /**
      * Whether lowering lowers the free of {@code old} in {@code member}: the store's field
      * escapes through a sibling field, so a load of it keeps an attached identity and
-     * every lowering of that free is reported, while one never lowered is not.
+     * every lowering of that free is rejected, by either message, while one never
+     * lowered is not reported.
      */
     private static boolean lowersFree(String member) {
         CompilationArtifact artifact = compile("""
@@ -764,7 +826,8 @@ final class OwnedFieldReentryTests {
                     }
                 }
                 """.formatted(member));
-        return messages(artifact).stream().anyMatch(message -> message.startsWith("cannot free 'old'"));
+        return messages(artifact).stream().anyMatch(message -> message.startsWith("cannot free 'old'")
+                || message.startsWith("cannot prove free of 'old' safe"));
     }
 
     private static CompilationArtifact compile(String source) {
