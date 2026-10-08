@@ -9,7 +9,6 @@ import ironwood.compiler.ast.AssignmentExpression;
 import ironwood.compiler.ast.AssignmentOperator;
 import ironwood.compiler.ast.AssignmentStatement;
 import ironwood.compiler.ast.BinaryExpression;
-import ironwood.compiler.ast.BinaryOperator;
 import ironwood.compiler.ast.Block;
 import ironwood.compiler.ast.BreakStatement;
 import ironwood.compiler.ast.CallExpression;
@@ -301,141 +300,8 @@ final class OwnedArrayFieldAnalyzer {
         return functions;
     }
 
-    /**
-     * The expressions of a block statement that run, whenever control passes it, before
-     * its nested statements and before the block's later statements (D304). A do-while
-     * condition runs after its body, and a for loop's initializer and updates are not
-     * searched.
-     */
-    private static java.util.List<Expression> headExpressions(Statement statement) {
-        if (statement instanceof ExpressionStatement expression) {
-            return java.util.List.of(expression.expression());
-        }
-        if (statement instanceof LocalVariableDeclaration local) {
-            return java.util.List.of(local.initializer());
-        }
-        if (statement instanceof AssignmentStatement assignment) {
-            return java.util.List.of(assignment.target(), assignment.value());
-        }
-        if (statement instanceof IfStatement conditional) {
-            return java.util.List.of(conditional.condition());
-        }
-        if (statement instanceof WhileStatement loop) {
-            return java.util.List.of(loop.condition());
-        }
-        if (statement instanceof ForStatement loop) {
-            return loop.condition().map(java.util.List::of).orElse(java.util.List.of());
-        }
-        if (statement instanceof EnhancedForStatement loop) {
-            return java.util.List.of(loop.iterable());
-        }
-        if (statement instanceof SwitchStatement switched) {
-            return java.util.List.of(switched.selector());
-        }
-        if (statement instanceof ModernSwitchStatement switched) {
-            return java.util.List.of(switched.selector());
-        }
-        return java.util.List.of();
-    }
-
-    /**
-     * The operands that evaluating {@code expression} always evaluates, in source order,
-     * which Java's left-to-right evaluation follows (D304): not the right operand of
-     * {@code &&} or {@code ||}, a conditional's branches, a switch expression's arms or
-     * an anonymous class body.
-     */
-    private static java.util.List<Expression> evaluatedOperands(Expression expression) {
-        java.util.List<Expression> operands = new java.util.ArrayList<>();
-        if (expression instanceof AssignmentExpression assignment) {
-            operands.add(assignment.target());
-            operands.add(assignment.value());
-        } else if (expression instanceof BinaryExpression binary) {
-            operands.add(binary.left());
-            if (binary.operator() != BinaryOperator.LOGICAL_AND
-                    && binary.operator() != BinaryOperator.LOGICAL_OR) {
-                operands.add(binary.right());
-            }
-        } else if (expression instanceof CallExpression call) {
-            call.receiver().ifPresent(operands::add);
-            operands.addAll(call.arguments());
-        } else if (expression instanceof NewExpression creation) {
-            creation.enclosingInstance().ifPresent(operands::add);
-            operands.addAll(creation.arguments());
-        } else if (expression instanceof QualifiedSuperConstructorExpression invocation) {
-            operands.add(invocation.enclosingInstance());
-            operands.addAll(invocation.arguments());
-        } else if (expression instanceof ArrayCreationExpression creation) {
-            creation.length().ifPresent(operands::add);
-            creation.initializer().ifPresent(operands::add);
-        } else if (expression instanceof ArrayInitializerExpression initializer) {
-            operands.addAll(initializer.elements());
-        } else if (expression instanceof ArrayAccessExpression access) {
-            operands.add(access.array());
-            operands.add(access.index());
-        } else if (expression instanceof FieldAccessExpression access) {
-            operands.add(access.receiver());
-        } else if (expression instanceof CastExpression cast) {
-            operands.add(cast.operand());
-        } else if (expression instanceof UnaryExpression unary) {
-            operands.add(unary.operand());
-        } else if (expression instanceof InstanceOfExpression test) {
-            operands.add(test.operand());
-        } else if (expression instanceof UpdateExpression update) {
-            operands.add(update.target());
-        } else if (expression instanceof ConditionalExpression conditional) {
-            operands.add(conditional.condition());
-        } else if (expression instanceof SwitchExpression switched) {
-            operands.add(switched.selector());
-        }
-        return operands;
-    }
-
     /** A scope's deferred actions and the locals declared outside it. */
     private record DeferredScope(Set<String> outer, java.util.List<Expression> actions) {
-    }
-
-    /**
-     * A free or deferred free of a local, seen by a witness probe (D298, D301), and the
-     * code until it frees: the statement itself, or a deferred free's block (D303).
-     */
-    private record FreedLocal(String name, SourceSpan span, SourceSpan reach) {
-    }
-
-    /**
-     * A write to a local, by name and target span, seen by a witness probe, with what it
-     * writes, or null when that is not a {@link LoadSource} (D303, D306).
-     */
-    private record LocalWrite(String name, SourceSpan span, LoadSource value) {
-    }
-
-    /**
-     * A declaration or assignment of a local that runs whenever control passes its block
-     * statement, with what it writes; that block; and the block's statements from that
-     * one on (D299, D303, D304, D306).
-     */
-    private record FieldLoad(String name, SourceSpan declaration, SourceSpan scope,
-                             java.util.List<SourceSpan> following, LoadSource value) {
-    }
-
-    /**
-     * A value that holds a load of the field through {@code this} when its parts do
-     * (D306): such a load, possibly under casts, a local's value where the expression
-     * reads it, or the branch a conditional selects.
-     */
-    private sealed interface LoadSource permits FieldValue, LocalValue, EitherValue {
-    }
-
-    private record FieldValue() implements LoadSource {
-    }
-
-    private record LocalValue(String name, int position) implements LoadSource {
-    }
-
-    private record EitherValue(LoadSource first, LoadSource second) implements LoadSource {
-    }
-
-    /** Whether a local holds a field load where it is read or freed, up to {@code reach} (D306). */
-    private record HoldingQuery(String name, int position, int reach) {
     }
 
     /**
@@ -459,18 +325,8 @@ final class OwnedArrayFieldAnalyzer {
         /** Whether a free that may run code can be left to lowering (D297). */
         private final boolean allowContingentFrees;
         private final Map<ContingentFree, String> contingent = new LinkedHashMap<>();
-        /** Whether the program needs the candidate owned (D297, D298); computed on demand. */
+        /** Whether the program needs the candidate owned (D297, D307); computed on demand. */
         private Boolean ownershipNeeded;
-        /** The writes to locals a witness probe saw, or null outside a probe (D298, D303). */
-        private java.util.List<LocalWrite> localWrites;
-        /** The frees of locals a witness probe saw, or null outside a probe (D298, D301). */
-        private java.util.List<FreedLocal> freedLocals;
-        /** Whether a witness probe saw a free of the candidate field itself (D298). */
-        private boolean freedCandidate;
-        /** The field-load declarations a witness probe saw, or null outside a probe (D299). */
-        private java.util.List<FieldLoad> fieldLoads;
-        /** How many finally blocks lowering may never reach enclose the probe's scan (D302). */
-        private int unreachedFinallies;
         private String rejectionReason;
         private boolean staticFunction;
         private CallableSymbol currentCallable;
@@ -606,20 +462,7 @@ final class OwnedArrayFieldAnalyzer {
         private void scanBlock(Block block, Map<String, Boolean> environment, boolean scoped) {
             Set<String> existing = Set.copyOf(environment.keySet());
             deferredScopes.push(new DeferredScope(existing, new java.util.ArrayList<>()));
-            java.util.List<Statement> statements = block.statements();
-            for (int index = 0; index < statements.size(); index++) {
-                Statement statement = statements.get(index);
-                if (fieldLoads != null) {
-                    recordFieldLoads(statement, environment, block.span(), statements
-                            .subList(index, statements.size()).stream().map(Statement::span).toList());
-                }
-                // Lowering frees a deferred target only on a route out of the rest of
-                // the block (D301, D302).
-                if (freedLocals != null && unreachedFinallies == 0
-                        && statement instanceof DeferredFreeStatement deferred
-                        && LoweredRoutes.leaves(statements.subList(index + 1, statements.size()))) {
-                    freedLocals.add(new FreedLocal(deferred.target().name(), statement.span(), block.span()));
-                }
+            for (Statement statement : block.statements()) {
                 scanStatement(statement, environment);
             }
             deferredScopes.pop();
@@ -645,10 +488,10 @@ final class OwnedArrayFieldAnalyzer {
 
         /**
          * The live alias a free of a local would cross when the proof may leave that free
-         * to lowering, or null (D297). The owner's own destructor frees the field, so a
-         * proof failure would make that destructor's free an error and the program
-         * invalid anyway; the program stays invalid when lowering rejects this free
-         * instead, and the field's facts change no valid program.
+         * to lowering, or null (D297). The program needs the field owned, so a proof
+         * failure would make another free an error and the program invalid anyway; the
+         * program stays invalid when lowering rejects this free instead, and the field's
+         * facts change no valid program.
          */
         private String contingentAlias(FreeStatement free, Map<String, Boolean> environment) {
             if (!allowContingentFrees || !(free.value() instanceof NameExpression local)
@@ -661,238 +504,46 @@ final class OwnedArrayFieldAnalyzer {
 
         /**
          * Whether a free in the program is rejected whenever the candidate is not owned,
-         * so that a failed proof makes the program invalid: the owner's destructor frees
-         * the field (D297), or its instance code frees a local loaded from it (D298-D306).
+         * so that a failed proof makes the program invalid (D297, D307): the owner's
+         * instance code (constructors, methods, destructor or instance initializers) frees
+         * a value that holds a load of the field through {@code this}, such as the field
+         * itself or a local loaded from it, where lowering is certain to lower the free.
+         * Lowering frees the field only as an owned field, and tracks no allocation for
+         * {@code this}, so it proves a free of a loaded value only from a detached owned
+         * field: without ownership the value stays attached or has no identity and the
+         * free is rejected.
          */
         private boolean ownershipNeeded() {
             if (ownershipNeeded == null) {
-                ownershipNeeded = destructorFreesCandidate() || instanceCodeFreesFieldLoad();
+                ownershipNeeded = instanceCodeFreesHeldLoad();
             }
             return ownershipNeeded;
         }
 
-        /**
-         * Whether the owner's instance code (constructors, methods, destructor or instance
-         * initializers) frees, where lowering is certain to lower the free, a local that
-         * holds a load of the field through {@code this} there (D298-D306): a declaration
-         * or an assignment that a block statement always evaluates first writes such a
-         * load, possibly under casts, or a local or conditional that holds one, and so
-         * does every later write to the local before the free. Lowering tracks no
-         * allocation for {@code this}, so it proves such a free only from a detached owned
-         * field: without ownership the loaded value stays attached or has no identity and
-         * the free is rejected. Java forbids redeclaring the name while it is in scope, so
-         * a later free of that name in the block refers to that local.
-         */
-        private boolean instanceCodeFreesFieldLoad() {
+        private boolean instanceCodeFreesHeldLoad() {
             String name = candidate.declaration().name();
             java.util.List<CallableSymbol> callables = new java.util.ArrayList<>(owner.constructors());
             callables.addAll(owner.declaredMethods().values());
             owner.destructor().ifPresent(callables::add);
             for (CallableSymbol callable : callables) {
-                if (callable.isStatic() || callable.isAbstract() || callable.body().isEmpty()
-                        || callable.parameters().stream().anyMatch(parameter -> parameter.name().equals(name))) {
+                if (callable.isStatic() || callable.isAbstract() || callable.body().isEmpty()) {
                     continue;
                 }
-                Checker probe = probe();
-                probe.scanCallable(callable);
-                if (probe.freesFieldLoad()) return true;
+                java.util.List<String> parameters = callable.parameters().stream()
+                        .map(parameter -> parameter.name()).toList();
+                if (HeldFieldLoads.freesHeldLoad(name, false, parameters, callable.body().orElseThrow())) {
+                    return true;
+                }
             }
-            // Instance initializers run in every constructor, in one scope chain.
-            Checker probe = probe();
-            probe.staticFunction = false;
-            probe.currentFunctions = constructorFunctions(owner);
-            Map<String, Boolean> environment = new LinkedHashMap<>();
+            // Instance initializers run in every constructor; each block keeps its locals.
             for (InstanceInitialization initialization
                     : ((ironwood.compiler.ast.ClassDeclaration) owner.declaration()).instanceInitializations()) {
-                if (initialization instanceof Block block) probe.scanBlock(block, environment, true);
-            }
-            return probe.freesFieldLoad();
-        }
-
-        /** A checker that only records frees, writes to locals and loads (D298-D306). */
-        private Checker probe() {
-            Checker probe = new Checker(owner, candidate, false, false);
-            probe.localWrites = new java.util.ArrayList<>();
-            probe.freedLocals = new java.util.ArrayList<>();
-            probe.fieldLoads = new java.util.ArrayList<>();
-            return probe;
-        }
-
-        /** Whether this probe saw a free of a local that holds a field load there (D306). */
-        private boolean freesFieldLoad() {
-            java.util.Set<HoldingQuery> frees = new LinkedHashSet<>();
-            for (FreedLocal freed : freedLocals) {
-                frees.add(new HoldingQuery(freed.name(), freed.span().start().offset(),
-                        freed.reach().end().offset()));
-            }
-            Set<HoldingQuery> holding = holdingQueries(frees);
-            return frees.stream().anyMatch(holding::contains);
-        }
-
-        /**
-         * The queries, among {@code frees} and the local reads that loads and writes write,
-         * whose local holds a field load (D306): the greatest set in which each query has a
-         * load of its local that dominates it, writes a holding value and is followed by
-         * holding writes only, up to the end of the block statement that holds the query
-         * or the query's reach. Execution then keeps every query in the set true: a read
-         * sees the dominating load or a later write in that window, which runs after the
-         * reads its value makes, so a value read inside its own window, as in
-         * {@code old = old}, keeps the field load.
-         */
-        private Set<HoldingQuery> holdingQueries(java.util.Set<HoldingQuery> frees) {
-            Set<HoldingQuery> holding = new LinkedHashSet<>(frees);
-            for (FieldLoad load : fieldLoads) collectReads(load.value(), holding);
-            for (LocalWrite write : localWrites) collectReads(write.value(), holding);
-            boolean changed = true;
-            while (changed) {
-                changed = holding.removeIf(query -> !holds(query, holding));
-            }
-            return holding;
-        }
-
-        private static void collectReads(LoadSource source, Set<HoldingQuery> queries) {
-            if (source instanceof LocalValue read) {
-                queries.add(new HoldingQuery(read.name(), read.position(), -1));
-            } else if (source instanceof EitherValue either) {
-                collectReads(either.first(), queries);
-                collectReads(either.second(), queries);
-            }
-        }
-
-        private boolean holds(HoldingQuery query, Set<HoldingQuery> holding) {
-            for (FieldLoad load : fieldLoads) {
-                if (!load.name().equals(query.name())
-                        || query.position() <= load.declaration().end().offset()
-                        || query.position() >= load.scope().end().offset()
-                        || !holds(load.value(), holding)) {
-                    continue;
-                }
-                // A later write runs only after the query, which is reached again only by
-                // passing the load.
-                int limit = load.following().stream()
-                        .filter(statement -> statement.start().offset() <= query.position()
-                                && query.position() < statement.end().offset())
-                        .mapToInt(statement -> statement.end().offset()).findFirst()
-                        .orElse(load.scope().end().offset());
-                int end = Math.max(limit, query.reach());
-                if (localWrites.stream().filter(write -> write.name().equals(query.name())
-                                && write.span().start().offset() > load.declaration().end().offset()
-                                && write.span().start().offset() < end)
-                        .allMatch(write -> write.value() != null && holds(write.value(), holding))) {
+                if (initialization instanceof Block block
+                        && HeldFieldLoads.freesHeldLoad(name, false, java.util.List.of(), block)) {
                     return true;
                 }
             }
             return false;
-        }
-
-        private static boolean holds(LoadSource source, Set<HoldingQuery> holding) {
-            if (source instanceof LocalValue read) {
-                return holding.contains(new HoldingQuery(read.name(), read.position(), -1));
-            }
-            if (source instanceof EitherValue either) {
-                return holds(either.first(), holding) && holds(either.second(), holding);
-            }
-            return source instanceof FieldValue;
-        }
-
-        /**
-         * What {@code value} writes as a {@link LoadSource}, or null (D306): a load of the
-         * candidate through {@code this}, a local, a conditional whose branches both are
-         * such values, or an assignment of one, possibly under casts.
-         */
-        private LoadSource loadSource(Expression value, Map<String, Boolean> environment) {
-            while (value instanceof CastExpression cast) {
-                value = cast.operand();
-            }
-            if (isThisFieldLoad(value, environment)) {
-                return new FieldValue();
-            }
-            if (value instanceof NameExpression local && environment.containsKey(local.name())) {
-                return new LocalValue(local.name(), local.span().start().offset());
-            }
-            if (value instanceof ConditionalExpression conditional) {
-                LoadSource first = loadSource(conditional.whenTrue(), environment);
-                LoadSource second = loadSource(conditional.whenFalse(), environment);
-                return first == null || second == null ? null : new EitherValue(first, second);
-            }
-            if (value instanceof AssignmentExpression assignment
-                    && assignment.operator() == AssignmentOperator.ASSIGN) {
-                return loadSource(assignment.value(), environment);
-            }
-            return null;
-        }
-
-        /**
-         * Records the loads of a block statement: a declaration of a local, and each plain
-         * {@code =} assignment to a local or parameter that the statement's head
-         * expressions always evaluate before the statement's nested statements and the
-         * block's later statements, when it writes a {@link LoadSource} (D303, D304, D306).
-         */
-        private void recordFieldLoads(Statement statement, Map<String, Boolean> environment,
-                                      SourceSpan block, java.util.List<SourceSpan> holders) {
-            if (statement instanceof LocalVariableDeclaration local) {
-                recordLoad(local.name(), local.initializer(), statement.span(), environment, block, holders);
-            }
-            if (statement instanceof AssignmentStatement assignment
-                    && assignment.target() instanceof NameExpression local
-                    && environment.containsKey(local.name())) {
-                recordLoad(local.name(), assignment.value(), statement.span(), environment, block, holders);
-            }
-            for (Expression head : headExpressions(statement)) {
-                recordAssignedLoads(head, environment, block, holders);
-            }
-        }
-
-        private void recordAssignedLoads(Expression expression, Map<String, Boolean> environment,
-                                         SourceSpan block, java.util.List<SourceSpan> holders) {
-            if (expression instanceof AssignmentExpression assignment
-                    && assignment.operator() == AssignmentOperator.ASSIGN
-                    && assignment.target() instanceof NameExpression local
-                    && environment.containsKey(local.name())) {
-                recordLoad(local.name(), assignment.value(), assignment.span(), environment, block, holders);
-            }
-            for (Expression operand : evaluatedOperands(expression)) {
-                recordAssignedLoads(operand, environment, block, holders);
-            }
-        }
-
-        private void recordLoad(String name, Expression value, SourceSpan span, Map<String, Boolean> environment,
-                                SourceSpan block, java.util.List<SourceSpan> holders) {
-            LoadSource source = loadSource(value, environment);
-            if (source != null) {
-                fieldLoads.add(new FieldLoad(name, span, block, holders, source));
-            }
-        }
-
-        /**
-         * Whether {@code initializer} reads the candidate through {@code this}, as lowering
-         * resolves it, also under casts (D305): a reference cast creates no object, and
-         * lowering gives its result the operand's allocation identity or none.
-         */
-        private boolean isThisFieldLoad(Expression initializer, Map<String, Boolean> environment) {
-            String name = candidate.declaration().name();
-            while (initializer instanceof CastExpression cast) {
-                initializer = cast.operand();
-            }
-            return !staticFunction && initializer instanceof NameExpression value && value.name().equals(name)
-                    && !environment.containsKey(name)
-                    || initializer instanceof FieldAccessExpression access
-                    && access.receiver() instanceof ThisExpression && access.fieldName().equals(name);
-        }
-
-        /**
-         * Whether the owner's own destructor frees the candidate, at any depth, as lowering
-         * resolves it: {@code this.name}, or {@code name} with no local of that name in
-         * scope (D297, D298). A probe skips frees in finally blocks that lowering may
-         * never reach (D302); lowering reaches every other such statement and rejects it
-         * unless the field is owned.
-         */
-        private boolean destructorFreesCandidate() {
-            CallableSymbol destructor = owner.destructor().orElse(null);
-            if (destructor == null || destructor.body().isEmpty()) return false;
-            Checker probe = probe();
-            probe.scanCallable(destructor);
-            return probe.freedCandidate;
         }
 
         private void scanStatementKind(Statement statement, Map<String, Boolean> environment) {
@@ -929,15 +580,6 @@ final class OwnedArrayFieldAnalyzer {
                 return;
             }
             if (statement instanceof FreeStatement free) {
-                if (freedLocals != null && unreachedFinallies == 0) {
-                    String name = candidate.declaration().name();
-                    if (free.value() instanceof NameExpression local) {
-                        freedLocals.add(new FreedLocal(local.name(), statement.span(), statement.span()));
-                        freedCandidate |= local.name().equals(name) && !environment.containsKey(name);
-                    }
-                    freedCandidate |= free.value() instanceof FieldAccessExpression access
-                            && access.receiver() instanceof ThisExpression && access.fieldName().equals(name);
-                }
                 // Freeing anything but a field alias may run a destructor.
                 if (!origin(free.value(), environment) && environment.containsValue(true)
                         && !reentrant.inertFree(currentFunctions, statement.span())) {
@@ -959,8 +601,6 @@ final class OwnedArrayFieldAnalyzer {
                 if (currentCallable != null && escapeSummaries != null
                         && escapeSummaries.freshBorrowingFactory(currentCallable, candidate) != null) {
                     nonBorrowedReturnMethods.add(currentCallable.linkageName());
-                    // A witness probe still records writes to locals in the value (D303).
-                    if (localWrites != null) returned.value().ifPresent(value -> origin(value, environment));
                     return;
                 }
                 returned.value().ifPresent(value -> {
@@ -1113,14 +753,7 @@ final class OwnedArrayFieldAnalyzer {
                 scanBlock(caught.body(), caughtEnvironment, true);
                 merge(merged, merged, caughtEnvironment);
             });
-            guarded.finallyBlock().ifPresent(cleanup -> {
-                // Lowering lowers a finally block only on a route that reaches it, so a
-                // probe records no free in one that it may never reach (D302).
-                boolean unreached = freedLocals != null && !LoweredRoutes.reachesFinally(guarded);
-                if (unreached) unreachedFinallies++;
-                scanBlock(cleanup, merged, true);
-                if (unreached) unreachedFinallies--;
-            });
+            guarded.finallyBlock().ifPresent(cleanup -> scanBlock(cleanup, merged, true));
             environment.clear();
             environment.putAll(merged);
         }
@@ -1405,9 +1038,7 @@ final class OwnedArrayFieldAnalyzer {
                 }
                 boolean valueOrigin = assignmentOrigin(assignment.target(),
                         assignment.value(), environment);
-                assignKnownOrigin(assignment.target(),
-                        assignment.operator() == AssignmentOperator.ASSIGN ? assignment.value() : null,
-                        valueOrigin, environment,
+                assignKnownOrigin(assignment.target(), valueOrigin, environment,
                         assignment.operator() == AssignmentOperator.ASSIGN
                                 && isFreshValue(assignment.value()));
                 return assignment.operator() == AssignmentOperator.ASSIGN && valueOrigin;
@@ -1448,7 +1079,7 @@ final class OwnedArrayFieldAnalyzer {
                 rejectAt("this array store has a reentrant index or value while the "
                         + "field's storage is attached", target);
             }
-            assignKnownOrigin(target, value, assignmentOrigin(target, value, environment), environment, fresh);
+            assignKnownOrigin(target, assignmentOrigin(target, value, environment), environment, fresh);
         }
 
         private boolean assignmentOrigin(Expression target, Expression value,
@@ -1520,12 +1151,9 @@ final class OwnedArrayFieldAnalyzer {
             return releasedBacking && new Checker(owner, constructionTarget, true, true).isOwned();
         }
 
-        /** Records an assignment; {@code value} is null for a compound assignment. */
-        private void assignKnownOrigin(Expression target, Expression value, boolean valueOrigin,
+        private void assignKnownOrigin(Expression target, boolean valueOrigin,
                                        Map<String, Boolean> environment, boolean fresh) {
             if (target instanceof NameExpression name && environment.containsKey(name.name())) {
-                if (localWrites != null) localWrites.add(new LocalWrite(name.name(), target.span(),
-                        value == null ? null : loadSource(value, environment)));
                 environment.put(name.name(), valueOrigin);
                 return;
             }

@@ -176,9 +176,9 @@ final class OwnedFieldReentryTests {
     }
 
     /**
-     * A store whose only reclamation of its field loads it in a switch expression's arm,
-     * which no D297-D306 witness counts as always evaluated, so a free that may run code
-     * during a loan still fails the field's proof (D281) and that free reports it.
+     * A store whose only reclamation of its field frees a pattern binding of it, which no
+     * D297-D307 witness tracks, so a free that may run code during a loan still fails the
+     * field's proof (D281) and that free reports it.
      */
     private static final String STORE = """
             class Noisy {
@@ -193,15 +193,10 @@ final class OwnedFieldReentryTests {
                 private int[] values = new int[1];
 
                 void discard() {
-                    int[] old = null;
-                    int unused = switch (0) {
-                        default -> {
-                            old = values;
-                            yield 0;
-                        }
-                    };
-                    values = null;
-                    free old;
+                    if (values instanceof int[] old) {
+                        values = null;
+                        free old;
+                    }
                 }
 
             %s
@@ -270,7 +265,7 @@ final class OwnedFieldReentryTests {
     /**
      * When the program needs the field owned, because the owner's destructor frees it
      * (D297) or its instance code frees a local loaded from it, as Buffer.drop does,
-     * directly or by a deferred free (D298-D306), a free that may run code during a loan
+     * directly or by a deferred free (D298-D307), a free that may run code during a loan
      * leaves the field owned and is rejected at the free: freeing an object whose
      * destructor reenters names the alias and field it would cross, its safe twin
      * compiles, and freeing the owner, whose destructor frees the field directly, inside
@@ -655,7 +650,40 @@ final class OwnedFieldReentryTests {
                     + explained(twin));
             require(lowersFree(members), "lowering did not reject a cast free the witness counted");
         }
-        CompilationArtifact shortCircuit = store("""
+        // An assignment that may not run counts where every path to the free runs it
+        // (D307): in a switch expression's arm that every completing arm matches, or on
+        // the right of && guarding the free. Lowering merges the && paths, so it cannot
+        // prove that free even with the field owned, but it still rejects it without
+        // ownership. A free that the skipped assignment may reach keeps D281's report.
+        String arm = """
+                    void reset() {
+                        int[] old = null;
+                        int unused = switch (0) {
+                            default -> {
+                                old = values;
+                                yield 0;
+                            }
+                        };
+                        values = null;
+                        free old;
+                    }
+                """;
+        CompilationArtifact armed = store(arm + noisyUse);
+        require(!armed.valid() && ownershipFailures(armed).isEmpty() && messages(armed).equals(List.of(CONTINGENT)),
+                "a reentrant free beside a switch arm's load was not rejected at the free: " + explained(armed));
+        CompilationArtifact armedTwin = store(arm + """
+
+                    void use() {
+                        Noisy noisy = new Noisy();
+                        free noisy;
+                        int[] old = values;
+                        old[0] = 7;
+                    }
+                """);
+        require(armedTwin.valid(), "freeing before the loan was rejected beside a switch arm's load: "
+                + explained(armedTwin));
+        require(lowersFree(arm), "lowering did not reject a switch arm's free the witness counted");
+        String guarded = """
                     void reset(boolean flag) {
                         int[] old = null;
                         if (flag && (old = values) != null) {
@@ -663,10 +691,23 @@ final class OwnedFieldReentryTests {
                             free old;
                         }
                     }
+                """;
+        CompilationArtifact shortCircuit = store(guarded + noisyUse);
+        require(!shortCircuit.valid() && ownershipFailures(shortCircuit).isEmpty()
+                        && messages(shortCircuit).contains(CONTINGENT),
+                "a reentrant free beside a guarded load was not rejected at the free: " + explained(shortCircuit));
+        require(lowersFree(guarded), "lowering did not reject a guarded free the witness counted");
+        CompilationArtifact skipped = store("""
+                    void reset(boolean flag) {
+                        int[] old = null;
+                        if (flag && (old = values) != null) {
+                            values = null;
+                        }
+                        free old;
+                    }
                 """ + noisyUse);
-        require(!shortCircuit.valid() && messages(shortCircuit).equals(List.of(RECLAIM, RECLAIM))
-                        && failedBy(shortCircuit, FREE),
-                "an assignment that may not run counted as a witness: " + explained(shortCircuit));
+        require(!skipped.valid() && messages(skipped).equals(List.of(RECLAIM, RECLAIM)) && failedBy(skipped, FREE),
+                "a free a skipped assignment may reach counted as a witness: " + explained(skipped));
         // A write between the load and the free keeps the witness when it writes a field
         // load again: the local itself, a fresh load or a conditional of such values (D306).
         // A write of another value, such as a new array, makes the free free that value, so

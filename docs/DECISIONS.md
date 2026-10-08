@@ -12044,9 +12044,9 @@ occurrence order. If no
   such as `old = new int[2]`, excludes the free, so the program keeps its
   D281 behavior.
 - **Boundary:** A write of a value that is not a field load, an assignment
-  that may not run, such as one in a switch expression's arm, and a free that
-  no route is proven to reach keep D281's report. Supersedes no other
-  decision.
+  that may not run, such as one in a switch expression's arm (D307 recognizes
+  one every path to the free runs), and a free that no route is proven to
+  reach keep D281's report. Supersedes no other decision.
 - **Verification:** A free that runs a destructor during a loan is rejected
   at the free, with the field owned, beside reclamations that write `old =
   old`, reload the field in a branch, or write `old = flag ? values : old`
@@ -12062,3 +12062,64 @@ occurrence order. If no
   pool and explanation tests pass, 69 examples emit the same `-O3` LLVM, the
   standard library builds and every port source compiles without
   diagnostics.
+
+## D307 - Recognize a field's reclamation by a must-analysis of held field loads
+
+- **Status:** Accepted and implemented. Amends D297-D306: supersedes D306's
+  boundary that an assignment that may not run keeps D281's report, and
+  replaces the witness probes of D297-D306 (destructor frees of the field,
+  dominating loads, write windows and the holding fixed point) with one
+  analysis.
+- **Context:** D304 and D306 counted a load only where a block statement
+  always evaluates it. A reclamation that loads the field where a condition
+  or switch decides, as in `if (flag && (old = values) != null) { values =
+  null; free old; }` or a switch expression's arm, still reported a free that
+  may run code during a loan at its reclamation, although every path to the
+  free runs the load. Each new form needed another syntactic rule.
+- **Decision:** `HeldFieldLoads` runs a forward must-analysis over each
+  instance function and instance initializer of the owner: the set of locals
+  that hold a load of the field through `this` on every path lowering takes
+  to a point. A value holds one when it is such a load, possibly under casts,
+  a local that holds one, a conditional whose reachable branches both hold
+  one, a switch expression whose arms all yield one, or an assignment of one;
+  any other write, and a pattern binding, holds none. Conditions split the
+  state: the right operand of `&&` or `||` runs only when its left operand
+  selects it, so code the whole condition guards sees its writes. Loops
+  iterate to a fixed point and count frees only on its pass; break, continue
+  and yield carry their states to their targets less what finally blocks on
+  the way may write; a catch handler, and a finally block's check, start
+  from the meet of every state the try statement passed through; only a
+  literal `true` loop condition ends a path, as in lowering; and code the
+  analysis does not know writes every local. The field's ownership is needed
+  when a free of a value that holds a field load stands where lowering is
+  certain to lower it (D302), or a deferred free of such a local has a route
+  out of its block with no write to it there. This covers D297's destructor
+  free of the field and every D298-D306 form.
+- **Analysis:** Every path the analysis follows is one lowering follows, so
+  where the analysis says a local holds a field load, lowering's value for it
+  includes such a load on some incoming path, even where lowering merges the
+  paths of a condition that the analysis keeps apart. Without ownership a
+  field load is not freeable, and lowering's mandatory safety rejects a free
+  of any value that may be one, so every recorded free is rejected: a program
+  with one is invalid either way, and no valid program's facts or code change
+  (D297-D306). A pattern binding named like the field no longer passes for a
+  load of the field, which the D306 probe assumed.
+- **Boundary:** A write of a value that is not a field load, an assignment a
+  path to the free may skip, a pattern binding of the field, and a free that
+  no route is proven to reach keep D281's report. Supersedes no other
+  decision.
+- **Verification:** Every D297-D306 witness and boundary test passes on the
+  new analysis. A free that runs a destructor during a loan is now rejected
+  at the free beside a reclamation that loads the field in a switch
+  expression's arm, whose safe twin compiles, and beside one guarded by
+  `flag && (old = values) != null`; through a field that escapes to a
+  sibling field lowering rejects both frees. A free the skipped assignment
+  may reach keeps D281's report. D281's free route and D296's paired test now
+  use a store that frees a pattern binding of the field. A 20-case local
+  differential of catch, finally, labeled break, loop, switch fallthrough,
+  `||` and pattern-binding shapes, and the D302 route differential, found no
+  counted free that lowering accepts without ownership. On the D306 analysis
+  the arm case reports at the reclamations, while the relocated D281 and
+  D296 checks pass. The focused field, wrapper, owner, pool and explanation
+  tests pass, 69 examples emit the same `-O3` LLVM, the standard library
+  builds and every port source compiles without diagnostics.
