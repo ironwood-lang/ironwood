@@ -304,6 +304,10 @@ final class OwnedArrayFieldAnalyzer {
     private record DeferredScope(Set<String> outer, java.util.List<Expression> actions) {
     }
 
+    /** A free statement of a local, seen by a witness probe (D298). */
+    private record FreedLocal(String name, SourceSpan span) {
+    }
+
     /**
      * A free statement by source path and span: it is enforced in every function the
      * statement is lowered into, such as the constructors an initializer joins.
@@ -325,6 +329,14 @@ final class OwnedArrayFieldAnalyzer {
         /** Whether a free that may run code can be left to lowering (D297). */
         private final boolean allowContingentFrees;
         private final Map<ContingentFree, String> contingent = new LinkedHashMap<>();
+        /** Whether the program needs the candidate owned (D297, D298); computed on demand. */
+        private Boolean ownershipNeeded;
+        /** The locals a witness probe saw assigned, or null outside a probe (D298). */
+        private Set<String> assignedLocals;
+        /** The free statements of locals a witness probe saw, or null outside a probe (D298). */
+        private java.util.List<FreedLocal> freedLocals;
+        /** Whether a witness probe saw a free of the candidate field itself (D298). */
+        private boolean freedCandidate;
         private String rejectionReason;
         private boolean staticFunction;
         private CallableSymbol currentCallable;
@@ -493,7 +505,7 @@ final class OwnedArrayFieldAnalyzer {
          */
         private String contingentAlias(FreeStatement free, Map<String, Boolean> environment) {
             if (!allowContingentFrees || !(free.value() instanceof NameExpression local)
-                    || !environment.containsKey(local.name()) || !destructorFreesCandidate()) {
+                    || !environment.containsKey(local.name()) || !ownershipNeeded()) {
                 return null;
             }
             return environment.entrySet().stream().filter(Map.Entry::getValue)
@@ -501,27 +513,81 @@ final class OwnedArrayFieldAnalyzer {
         }
 
         /**
-         * Whether the owner's own destructor frees the candidate in a top-level statement,
-         * which lowering always reaches and resolves to the field: {@code this.name}, or
-         * {@code name} with no earlier top-level local of that name.
+         * Whether a free in the program is rejected whenever the candidate is not owned,
+         * so that a failed proof makes the program invalid: the owner's destructor frees
+         * the field (D297), or one of its methods frees a local loaded from it (D298).
          */
-        private boolean destructorFreesCandidate() {
-            Block body = owner.destructor().flatMap(CallableSymbol::body).orElse(null);
-            if (body == null) return false;
+        private boolean ownershipNeeded() {
+            if (ownershipNeeded == null) {
+                ownershipNeeded = destructorFreesCandidate() || methodFreesFieldLoad();
+            }
+            return ownershipNeeded;
+        }
+
+        /**
+         * Whether one of the owner's own instance methods, other than constructors and its
+         * destructor, declares a local at its top level from the field through
+         * {@code this}, never assigns it and frees it afterwards (D298). The method's
+         * receiver has no tracked allocation, so lowering proves such a free only from a
+         * detached owned field: without ownership the loaded value stays attached and the
+         * free is rejected. Java scoping makes every later free of that name refer to it.
+         */
+        private boolean methodFreesFieldLoad() {
             String name = candidate.declaration().name();
-            for (Statement statement : body.statements()) {
-                if (statement instanceof LocalVariableDeclaration local && local.name().equals(name)) {
-                    return false;
+            for (CallableSymbol method : owner.declaredMethods().values()) {
+                if (method.isStatic() || method.isConstructor() || method.isDestructor()
+                        || method.isAbstract() || method.body().isEmpty()
+                        || method.parameters().stream().anyMatch(parameter -> parameter.name().equals(name))) {
+                    continue;
                 }
-                if (statement instanceof FreeStatement free
-                        && (free.value() instanceof NameExpression field && field.name().equals(name)
-                        || free.value() instanceof FieldAccessExpression access
-                        && access.receiver() instanceof ThisExpression
-                        && access.fieldName().equals(name))) {
-                    return true;
+                Map<String, SourceSpan> loaded = topLevelFieldLoads(method.body().orElseThrow(), name);
+                if (loaded.isEmpty()) continue;
+                Checker probe = new Checker(owner, candidate, false, false);
+                probe.assignedLocals = new java.util.HashSet<>();
+                probe.freedLocals = new java.util.ArrayList<>();
+                probe.scanCallable(method);
+                for (FreedLocal freed : probe.freedLocals) {
+                    SourceSpan declared = loaded.get(freed.name());
+                    if (declared != null && !probe.assignedLocals.contains(freed.name())
+                            && freed.span().start().offset() > declared.end().offset()) {
+                        return true;
+                    }
                 }
             }
             return false;
+        }
+
+        /** The locals a body declares at its top level from {@code field}, with their declarations. */
+        private static Map<String, SourceSpan> topLevelFieldLoads(Block body, String field) {
+            Map<String, SourceSpan> loaded = new LinkedHashMap<>();
+            boolean shadowed = false;
+            for (Statement statement : body.statements()) {
+                if (statement instanceof LocalVariableDeclaration local) {
+                    if (!shadowed && local.initializer() instanceof NameExpression value && value.name().equals(field)
+                            || local.initializer() instanceof FieldAccessExpression access
+                            && access.receiver() instanceof ThisExpression && access.fieldName().equals(field)) {
+                        loaded.put(local.name(), local.span());
+                    }
+                    shadowed |= local.name().equals(field);
+                }
+            }
+            return loaded;
+        }
+
+        /**
+         * Whether the owner's own destructor frees the candidate, at any depth, as lowering
+         * resolves it: {@code this.name}, or {@code name} with no local of that name in
+         * scope (D297, D298). Lowering reaches every such statement and rejects it unless
+         * the field is owned.
+         */
+        private boolean destructorFreesCandidate() {
+            CallableSymbol destructor = owner.destructor().orElse(null);
+            if (destructor == null || destructor.body().isEmpty()) return false;
+            Checker probe = new Checker(owner, candidate, false, false);
+            probe.assignedLocals = new java.util.HashSet<>();
+            probe.freedLocals = new java.util.ArrayList<>();
+            probe.scanCallable(destructor);
+            return probe.freedCandidate;
         }
 
         private void scanStatementKind(Statement statement, Map<String, Boolean> environment) {
@@ -558,6 +624,15 @@ final class OwnedArrayFieldAnalyzer {
                 return;
             }
             if (statement instanceof FreeStatement free) {
+                if (freedLocals != null) {
+                    String name = candidate.declaration().name();
+                    if (free.value() instanceof NameExpression local) {
+                        freedLocals.add(new FreedLocal(local.name(), statement.span()));
+                        freedCandidate |= local.name().equals(name) && !environment.containsKey(name);
+                    }
+                    freedCandidate |= free.value() instanceof FieldAccessExpression access
+                            && access.receiver() instanceof ThisExpression && access.fieldName().equals(name);
+                }
                 // Freeing anything but a field alias may run a destructor.
                 if (!origin(free.value(), environment) && environment.containsValue(true)
                         && !reentrant.inertFree(currentFunctions, statement.span())) {
@@ -1132,6 +1207,7 @@ final class OwnedArrayFieldAnalyzer {
         private void assignKnownOrigin(Expression target, boolean valueOrigin,
                                        Map<String, Boolean> environment, boolean fresh) {
             if (target instanceof NameExpression name && environment.containsKey(name.name())) {
+                if (assignedLocals != null) assignedLocals.add(name.name());
                 environment.put(name.name(), valueOrigin);
                 return;
             }

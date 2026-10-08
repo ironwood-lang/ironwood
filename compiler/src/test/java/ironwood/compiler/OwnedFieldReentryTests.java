@@ -169,29 +169,82 @@ final class OwnedFieldReentryTests {
     }
 
     /**
-     * A free that lowering rejects has no instruction, so the type of the freed local
-     * decides whether it may run code (D296): a class with a destructor still fails the
-     * field's proof, while one without leaves only the free's own rejection and keeps
-     * the field owned, so the later free of its detached storage is accepted.
+     * A store whose only reclamation of its field declares the detached local inside a
+     * branch, which no D297/D298 witness covers, so a free that may run code during a
+     * loan still fails the field's proof (D281) and that free reports the failure.
+     */
+    private static final String STORE = """
+            class Noisy {
+                destructor {
+                }
+            }
+
+            class Plain {
+            }
+
+            class Store {
+                private int[] values = new int[1];
+
+                void reset() {
+                    if (values != null) {
+                        int[] old = values;
+                        values = null;
+                        free old;
+                    }
+                }
+
+            %s
+            }
+
+            class Main {
+                public static int main(String[] args) {
+                    return 0;
+                }
+            }
+            """;
+
+    /**
+     * Freeing an object with a destructor during a loan fails the field's proof, and its
+     * safe twin compiles (D281). A free that lowering rejects has no instruction, so the
+     * type of the freed local decides whether it may run code (D296): a class with a
+     * destructor still fails the proof, one without leaves only the free's own error.
      */
     static void rejectedFrees() {
-        CompilationArtifact running = analyze("""
-                    void use(Victim victim) {
+        CompilationArtifact accepted = store("""
+                    void use() {
+                        Noisy noisy = new Noisy();
                         int[] old = values;
-                        free victim;
-                        values = new int[2];
-                        free old;
+                        free noisy;
+                        old[0] = 7;
+                    }
+                """);
+        require(!accepted.valid() && ownershipFailures(accepted).stream()
+                        .anyMatch(note -> note.endsWith("failed: " + FREE)),
+                "a free that runs a destructor during a loan kept the field: " + explained(accepted));
+        CompilationArtifact twin = store("""
+                    void use() {
+                        Noisy noisy = new Noisy();
+                        free noisy;
+                        int[] old = values;
+                        old[0] = 7;
+                    }
+                """);
+        require(twin.valid(), "freeing before the loan was rejected: " + explained(twin));
+        CompilationArtifact running = store("""
+                    void use(Noisy noisy) {
+                        int[] old = values;
+                        free noisy;
+                        old[0] = 7;
                     }
                 """);
         require(!running.valid() && ownershipFailures(running).stream()
                         .anyMatch(note -> note.endsWith("failed: " + FREE)),
                 "a rejected free that runs a destructor kept the field: " + explained(running));
-        CompilationArtifact inert = analyze("""
+        CompilationArtifact inert = store("""
                     void use(Plain plain) {
                         int[] old = values;
                         free plain;
-                        values = new int[2];
-                        free old;
+                        old[0] = 7;
                     }
                 """);
         require(!inert.valid() && ownershipFailures(inert).isEmpty() && inert.diagnostics().stream()
@@ -199,21 +252,21 @@ final class OwnedFieldReentryTests {
                 "a rejected free without a destructor disqualified the field: " + explained(inert));
     }
 
+    private static CompilationArtifact store(String member) {
+        SourceFile source = SourceFile.of("Main.iron", STORE.formatted(member));
+        return new CompilerPipeline(UnfreedMode.OFF, true, null).analyze(List.of(source));
+    }
+
     /**
-     * When the owner's destructor frees the field, a free that may run code during a
-     * loan leaves the field owned and is rejected at the free instead (D297): freeing
-     * the owner names the alias it would leave dangling, and freeing an object whose
-     * destructor reenters names the alias and field it would cross. The safe twin,
-     * freeing that object before the loan, compiles.
+     * When the program needs the field owned, because the owner's destructor frees it
+     * (D297) or a method frees a local loaded from it, as Buffer.drop does (D298), a
+     * free that may run code during a loan leaves the field owned and is rejected at
+     * the free: freeing an object whose destructor reenters names the alias and field
+     * it would cross, its safe twin compiles, and freeing the owner, whose destructor
+     * frees the field directly, inside a branch or through drop(), names the alias.
      */
     static void contingentFrees() {
-        String destructor = """
-                    destructor {
-                        free values;
-                    }
-
-                """;
-        CompilationArtifact reentrant = analyze(destructor + """
+        CompilationArtifact reentrant = analyze("""
                     void use() {
                         Victim victim = new Victim();
                         int[] old = values;
@@ -224,7 +277,7 @@ final class OwnedFieldReentryTests {
         require(!reentrant.valid() && ownershipFailures(reentrant).isEmpty() && messages(reentrant).equals(List.of(
                         "cannot free 'victim': it can run a destructor while local 'old' aliases field 'values'")),
                 "a reentrant free during a loan was not rejected at the free: " + explained(reentrant));
-        CompilationArtifact safe = analyze(destructor + """
+        CompilationArtifact safe = analyze("""
                     void use() {
                         Victim victim = new Victim();
                         free victim;
@@ -233,17 +286,60 @@ final class OwnedFieldReentryTests {
                     }
                 """);
         require(safe.valid(), "freeing before the loan was rejected: " + explained(safe));
-        CompilationArtifact owner = analyze(destructor + """
+        String leak = """
+
                     static int leak() {
                         Buffer buffer = new Buffer();
                         int[] old = buffer.values;
                         free buffer;
                         return old[0];
                     }
-                """);
-        require(!owner.valid() && ownershipFailures(owner).isEmpty() && messages(owner).equals(List.of(
-                        "cannot free 'buffer': allocation may still be observed through local 'old'")),
-                "freeing the owner during a loan did not name the alias: " + explained(owner));
+                """;
+        for (String destructor : List.of("free values;", "if (values != null) {\n            free values;\n        }",
+                "drop();")) {
+            CompilationArtifact owner = analyze("""
+                        destructor {
+                            %s
+                        }
+                    """.formatted(destructor) + leak);
+            require(!owner.valid() && ownershipFailures(owner).isEmpty() && messages(owner).equals(List.of(
+                            "cannot free 'buffer': allocation may still be observed through local 'old'")),
+                    "freeing the owner during a loan did not name the alias (" + destructor + "): "
+                            + explained(owner));
+        }
+        // On the store, whose reset() is no witness, each witness acts alone: a branch
+        // free in the destructor (D297), and a destructor that frees through drop() (D298).
+        String storeLeak = """
+
+                    static int leak() {
+                        Store store = new Store();
+                        int[] old = store.values;
+                        free store;
+                        return old[0];
+                    }
+                """;
+        for (String members : List.of("""
+                    destructor {
+                        if (values != null) {
+                            free values;
+                        }
+                    }
+                """, """
+                    destructor {
+                        drop();
+                    }
+
+                    void drop() {
+                        int[] old = values;
+                        values = null;
+                        free old;
+                    }
+                """)) {
+            CompilationArtifact owner = store(members + storeLeak);
+            require(!owner.valid() && ownershipFailures(owner).isEmpty() && messages(owner).equals(List.of(
+                            "cannot free 'store': allocation may still be observed through local 'old'")),
+                    "freeing the store during a loan did not name the alias: " + explained(owner));
+        }
     }
 
     private static List<String> messages(CompilationArtifact artifact) {
@@ -348,23 +444,6 @@ final class OwnedFieldReentryTests {
                                 alias[0] = 7;
                             }
                         """, CALL),
-                new Route("free that runs a destructor", """
-                            void use() {
-                                Victim victim = new Victim();
-                                int[] old = values;
-                                free victim;
-                                values = new int[2];
-                                free old;
-                            }
-                        """, """
-                            void use() {
-                                Victim victim = new Victim();
-                                free victim;
-                                int[] old = values;
-                                values = new int[2];
-                                free old;
-                            }
-                        """, FREE),
                 new Route("destructor", """
                             destructor {
                                 Registry.leaked = values;

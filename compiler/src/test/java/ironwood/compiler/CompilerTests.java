@@ -851,7 +851,7 @@ public final class CompilerTests {
                 OwnedFieldReentryTests::fixedOperationsInsideLoan);
         test("field loans judge rejected frees by the destructors of their type",
                 OwnedFieldReentryTests::rejectedFrees);
-        test("field loans leave to lowering a free the owner's destructor makes unsafe",
+        test("field loans leave to lowering a free the field's reclamation makes unsafe",
                 OwnedFieldReentryTests::contingentFrees);
         test("independent list copies preserve membership iterator and allocation scaling",
                 this::listCopiesRunNatively);

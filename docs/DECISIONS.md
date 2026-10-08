@@ -11646,8 +11646,9 @@ occurrence order. If no
   field.
 - **Boundary:** A destructor that frees the field only through a call, a
   deferred free, or a free of something other than a local keeps D281's
-  report. A recorded free in an instance initializer is rejected once for each
-  constructor that lowers it. No runtime instruction, check or cost changes.
+  report (D298 recognizes calls and branches). A recorded free in an instance
+  initializer is rejected once for each constructor that lowers it. No runtime
+  instruction, check or cost changes.
 - **Verification:** The owner case in the wrapper-field safe-free test
   reports the alias again. A new test rejects, at the free and with the field
   still owned, freeing an object whose destructor reenters the owner during a
@@ -11657,3 +11658,40 @@ occurrence order. If no
   as described. The focused field, wrapper, owner, pool and explanation tests
   pass, 69 examples emit the same `-O3` LLVM, the standard library builds and
   every port source compiles without diagnostics.
+
+## D298 - Recognize a field's reclamation through methods and branches
+
+- **Status:** Accepted and implemented. Amends D297 and supersedes its boundary
+  that a destructor freeing the field through a call keeps D281's report.
+- **Context:** D297 rejects at the free a free of a local that may run code
+  during a loan, but only when the owner's destructor frees the field in a
+  top-level statement. A destructor that frees it inside a branch, or through
+  a method such as `release()` that detaches and frees the field, still
+  reported the failure at that method's free (`cannot prove free of 'old'
+  safe: ...`) instead of at `free o`.
+- **Decision:** The field's ownership counts as needed, and D297's handling
+  applies, when either witness holds. First, the owner's destructor frees the
+  field at any depth, as lowering resolves the name: `this.name`, or `name`
+  with no local of that name in scope. Second, one of the owner's instance
+  methods, other than its constructors and destructor, declares a local at its
+  top level from the field through `this`, never assigns it, and frees it
+  later at any depth. A probe scan of the destructor or method finds both.
+- **Analysis:** Lowering reaches every such free and accepts it only for an
+  owned field: a destructor's free of the field is checked against the field's
+  proof, and in an instance method the receiver has no tracked allocation, so
+  the loaded value is detached only when the field is owned. Without
+  ownership each witness free is an error, so a program with a recorded free
+  is invalid either way, as in D297, and no valid program's facts or code
+  change. Java scoping makes every later free of that local name refer to the
+  top-level declaration.
+- **Boundary:** A reclamation outside both witnesses, such as a detached
+  local declared inside a branch or a free through another receiver, keeps
+  D281's report at that reclamation. Supersedes no other decision.
+- **Verification:** Freeing the owner while `k` aliases `o.held` now names
+  the alias when the destructor frees the field in a branch or through a
+  top-level or guarded `release()`, each isolated on a store with no other
+  witness. D281's free route and D296's paired test moved to that store, where
+  they still fail the field's proof. A probe that frees a same-named local from
+  an earlier block stays valid. The focused field, wrapper, owner, pool and
+  explanation tests pass, 69 examples emit the same `-O3` LLVM, the standard
+  library builds and every port source compiles without diagnostics.
