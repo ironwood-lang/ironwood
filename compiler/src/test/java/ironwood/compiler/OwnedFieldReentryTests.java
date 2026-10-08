@@ -434,6 +434,28 @@ final class OwnedFieldReentryTests {
                 """ + noisyUse);
         require(!looping.valid() && messages(looping).equals(List.of(RECLAIM, DEFERRED)) && failedBy(looping, FREE),
                 "a deferred free after a while (true) loop counted as a witness: " + explained(looping));
+        // A free through another receiver is no reclamation (D301): with no free during
+        // a loan, writing the field through that receiver fails the field's proof, which
+        // the store's own reclamation reports, and a value read through another receiver
+        // cannot be freed even while the field stays owned.
+        CompilationArtifact written = store("""
+                    void absorb(Store other) {
+                        int[] old = other.values;
+                        other.values = null;
+                        free old;
+                    }
+                """);
+        require(!written.valid() && messages(written).equals(List.of(RECLAIM, RECLAIM))
+                        && failedBy(written, "this assignment targets the same field on another receiver"),
+                "a write through another receiver kept the field: " + explained(written));
+        CompilationArtifact peeked = store("""
+                    void peek(Store other) {
+                        int[] old = other.values;
+                        free old;
+                    }
+                """);
+        require(!peeked.valid() && messages(peeked).equals(List.of(RECLAIM)) && ownershipFailures(peeked).isEmpty(),
+                "a free through another receiver was accepted or disqualified the field: " + explained(peeked));
     }
 
     private static boolean failedBy(CompilationArtifact artifact, String reason) {

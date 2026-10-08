@@ -499,10 +499,13 @@ Array-backed pools and collections deterministically reclaim a superseded
 backing array after migration. The compiler first proves the private field's
 container identity is never published, tracks a local loan of the current array,
 requires a fresh replacement to detach that loan, and rejects `free` while any
-other local alias remains. Migration may copy or relink reference elements, but
-freeing the old array releases only the array container. Collections borrow user
-elements. D104 gives the two bundled pools a creation-only owning contract:
-`get()` lends an object, and `release(object)` returns a checkout for reuse.
+other local alias remains. Only loads through `this` take that loan, so it
+never proves a free of a value read from the field through another receiver, and
+assigning the field through another receiver fails its ownership proof.
+Migration may copy or relink reference elements, but freeing the old array
+releases only the array container. Collections borrow user elements. D104 gives
+the two bundled pools a creation-only owning contract: `get()` lends an object,
+and `release(object)` returns a checkout for reuse.
 Every non-null builder result is recorded once in a growing creation array.
 Pool destruction destroys those objects, including checked-out objects, and all
 private storage. Multi-array segment holders are recorded too; they shallow-free

@@ -11685,9 +11685,9 @@ occurrence order. If no
   change. Java scoping makes every later free of that local name refer to the
   top-level declaration.
 - **Boundary:** A reclamation outside both witnesses, such as a detached
-  local declared inside a branch or a free through another receiver, keeps
-  D281's report at that reclamation (D299 recognizes branch declarations).
-  Supersedes no other decision.
+  local declared inside a branch, keeps D281's report at that reclamation
+  (D299 recognizes branch declarations). A free through another receiver is
+  no reclamation (D301). Supersedes no other decision.
 - **Verification:** Freeing the owner while `k` aliases `o.held` now names
   the alias when the destructor frees the field in a branch or through a
   top-level or guarded `release()`, each isolated on a store with no other
@@ -11719,10 +11719,10 @@ occurrence order. If no
   and no valid program's facts or code change. A free of the same name in a
   later sibling block refers to another local and does not count.
 - **Boundary:** A reclamation outside the witnesses, such as a detaching free
-  in a constructor, a deferred free, or a free through another receiver,
-  keeps D281's report at that reclamation (D300 recognizes constructors and
-  D301 deferred frees).
-  Supersedes no other decision.
+  in a constructor or a deferred free, keeps D281's report at that
+  reclamation (D300 recognizes constructors and D301 deferred frees). A free
+  through another receiver is no reclamation (D301). Supersedes no other
+  decision.
 - **Verification:** Freeing the owner while `k` aliases `o.held` names the
   alias when the destructor calls a method that detaches and frees the field
   inside a branch, also isolated on a store whose only other reclamation is
@@ -11754,9 +11754,9 @@ occurrence order. If no
   field's detachment can free. Without ownership the witness free is an error,
   so a program with a recorded free is invalid either way, as in D297-D299, and
   no valid program's facts or code change.
-- **Boundary:** A deferred free of the detached local, or a free through
-  another receiver, keeps D281's report (D301 recognizes a deferred free that
-  lowering reaches). Supersedes no other decision.
+- **Boundary:** A deferred free of the detached local keeps D281's report
+  (D301 recognizes a deferred free that lowering reaches), and a free through
+  another receiver is no reclamation (D301). Supersedes no other decision.
 - **Verification:** A free that runs a destructor during a loan is rejected at
   the free, with the field owned, when the store's only other reclamation is a
   constructor or an instance initializer that detaches and frees the field; on
@@ -11793,17 +11793,25 @@ occurrence order. If no
   no valid program's facts or code change.
 - **Boundary:** A deferred free after such a loop, even one the loop's
   `break` leaves, a deferred free placed directly in an old-style switch
-  group, a local assigned from the field after its declaration, and a free
-  through another receiver keep D281's report at that reclamation.
-  Supersedes no other decision.
+  group, and a local assigned from the field after its declaration keep
+  D281's report at that reclamation. A free through another receiver is no
+  reclamation and has no D281 report to move: D041's loan exists only for
+  loads through `this`, so the field's ownership never proves a free of a
+  value read through another receiver, and assigning the field through
+  another receiver fails the field's proof by itself. The D298-D300
+  boundaries, which said such a free kept D281's report, are corrected to
+  match. Supersedes no other decision.
 - **Verification:** A free that runs a destructor during a loan is rejected
   at the free, with the field owned, when the store's only other reclamation
   is a deferred free at the end of its block or before a counted loop, and
   each safe twin compiles; after a `while (true)` loop that breaks, D281
   reports at the deferred free. D281's free route and D296's paired test now
   use a store that frees a local assigned from the field after its
-  declaration, and assert the proof's failure note there. On the D300
-  analysis the deferred cases still report at the reclamations, while the
-  relocated D281 and D296 checks pass. The focused field, wrapper, owner,
-  pool and explanation tests pass, 69 examples emit the same `-O3` LLVM, the
-  standard library builds and every port source compiles without diagnostics.
+  declaration, and assert the proof's failure note there. A store that also
+  assigns the field through another receiver fails the proof by that write
+  alone, and one that frees a value read through another receiver keeps the
+  field owned and rejects that free. On the D300 analysis the deferred cases
+  still report at the reclamations, while the relocated D281 and D296 checks
+  pass. The focused field, wrapper, owner, pool and explanation tests pass, 69
+  examples emit the same `-O3` LLVM, the standard library builds and every
+  port source compiles without diagnostics.

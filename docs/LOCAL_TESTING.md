@@ -312,7 +312,10 @@ loan of a field the program reclaims, including in a constructor, an instance
 initializer or by a deferred free, but not by a deferred free after a
 `while (true)` loop, and names the alias when the owner is freed and its
 destructor frees the field directly, inside a branch, or through a method that
-detaches it at its top level or in a branch.
+detaches it at its top level or in a branch. It also pins that a free through
+another receiver is no reclamation: assigning the field through that receiver
+fails its proof, and freeing a value read through it is rejected while the
+field stays owned.
 
 For the class a construction-publication error is reported at (D282), run:
 
