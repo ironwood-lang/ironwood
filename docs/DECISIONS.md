@@ -11720,7 +11720,8 @@ occurrence order. If no
   later sibling block refers to another local and does not count.
 - **Boundary:** A reclamation outside the witnesses, such as a detaching free
   in a constructor, a deferred free, or a free through another receiver,
-  keeps D281's report at that reclamation. Supersedes no other decision.
+  keeps D281's report at that reclamation (D300 recognizes constructors).
+  Supersedes no other decision.
 - **Verification:** Freeing the owner while `k` aliases `o.held` names the
   alias when the destructor calls a method that detaches and frees the field
   inside a branch, also isolated on a store whose only other reclamation is
@@ -11730,3 +11731,35 @@ occurrence order. If no
   The focused field, wrapper, owner, pool and explanation tests pass, 69
   examples emit the same `-O3` LLVM, the standard library builds and every
   port source compiles without diagnostics.
+
+## D300 - Recognize a field's reclamation in constructors, initializers and destructors
+
+- **Status:** Accepted and implemented. Amends D299 and supersedes its
+  boundary that a detaching free in a constructor keeps D281's report.
+- **Context:** D298 and D299 limited their witness to instance methods,
+  excluding constructors in case lowering tracked the receiver under
+  construction. A class that detaches and frees the field in a constructor,
+  `int[] old = values; values = new int[2]; free old;`, still reported a free
+  that may run code during a loan at the constructor's free (`cannot prove
+  free of 'old' safe: ...`) instead of at that free.
+- **Decision:** The witness covers all of the owner's instance code: its
+  constructors, methods and destructor, each scanned by its own probe, and its
+  instance initializers, scanned together as one scope chain. A local declared
+  in a block from the field through `this`, never assigned in that code and
+  freed later in that block makes the field's ownership needed.
+- **Analysis:** Lowering never tracks an allocation for `this` (the
+  known-receiver path applies only to other receivers), so a field read through
+  `this` in any instance function is an attached loan that only an owned
+  field's detachment can free. Without ownership the witness free is an error,
+  so a program with a recorded free is invalid either way, as in D297-D299, and
+  no valid program's facts or code change.
+- **Boundary:** A deferred free of the detached local, or a free through
+  another receiver, keeps D281's report. Supersedes no other decision.
+- **Verification:** A free that runs a destructor during a loan is rejected at
+  the free, with the field owned, when the store's only other reclamation is a
+  constructor or an instance initializer that detaches and frees the field; on
+  the D299 analysis the report stays at that reclamation. D281's free route and
+  D296's paired test now use a store that reclaims with a deferred free. The
+  focused field, wrapper, owner, pool and explanation tests pass, 69 examples
+  emit the same `-O3` LLVM, the standard library builds and every port source
+  compiles without diagnostics.

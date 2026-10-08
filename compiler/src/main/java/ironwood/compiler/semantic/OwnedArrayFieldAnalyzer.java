@@ -525,45 +525,68 @@ final class OwnedArrayFieldAnalyzer {
         /**
          * Whether a free in the program is rejected whenever the candidate is not owned,
          * so that a failed proof makes the program invalid: the owner's destructor frees
-         * the field (D297), or one of its methods frees a local loaded from it (D298).
+         * the field (D297), or its instance code frees a local loaded from it (D298-D300).
          */
         private boolean ownershipNeeded() {
             if (ownershipNeeded == null) {
-                ownershipNeeded = destructorFreesCandidate() || methodFreesFieldLoad();
+                ownershipNeeded = destructorFreesCandidate() || instanceCodeFreesFieldLoad();
             }
             return ownershipNeeded;
         }
 
         /**
-         * Whether one of the owner's own instance methods, other than constructors and its
-         * destructor, declares a local in a block from the field through {@code this},
-         * never assigns it and frees it later in that block (D298, D299). The method's
-         * receiver has no tracked allocation, so lowering proves such a free only from a
-         * detached owned field: without ownership the loaded value stays attached and the
-         * free is rejected. Java forbids redeclaring the name while it is in scope, so a
-         * later free of that name in the block refers to that local.
+         * Whether the owner's instance code (constructors, methods, destructor or instance
+         * initializers) declares a local in a block from the field through {@code this},
+         * never assigns it and frees it later in that block (D298-D300). Lowering tracks
+         * no allocation for {@code this}, so it proves such a free only from a detached
+         * owned field: without ownership the loaded value stays attached and the free is
+         * rejected. Java forbids redeclaring the name while it is in scope, so a later
+         * free of that name in the block refers to that local.
          */
-        private boolean methodFreesFieldLoad() {
+        private boolean instanceCodeFreesFieldLoad() {
             String name = candidate.declaration().name();
-            for (CallableSymbol method : owner.declaredMethods().values()) {
-                if (method.isStatic() || method.isConstructor() || method.isDestructor()
-                        || method.isAbstract() || method.body().isEmpty()
-                        || method.parameters().stream().anyMatch(parameter -> parameter.name().equals(name))) {
+            java.util.List<CallableSymbol> callables = new java.util.ArrayList<>(owner.constructors());
+            callables.addAll(owner.declaredMethods().values());
+            owner.destructor().ifPresent(callables::add);
+            for (CallableSymbol callable : callables) {
+                if (callable.isStatic() || callable.isAbstract() || callable.body().isEmpty()
+                        || callable.parameters().stream().anyMatch(parameter -> parameter.name().equals(name))) {
                     continue;
                 }
-                Checker probe = new Checker(owner, candidate, false, false);
-                probe.assignedLocals = new java.util.HashSet<>();
-                probe.freedLocals = new java.util.ArrayList<>();
-                probe.fieldLoads = new java.util.ArrayList<>();
-                probe.scanCallable(method);
-                for (FreedLocal freed : probe.freedLocals) {
-                    if (probe.assignedLocals.contains(freed.name())) continue;
-                    for (FieldLoad load : probe.fieldLoads) {
-                        if (load.name().equals(freed.name())
-                                && freed.span().start().offset() > load.declaration().end().offset()
-                                && freed.span().end().offset() <= load.scope().end().offset()) {
-                            return true;
-                        }
+                Checker probe = probe();
+                probe.scanCallable(callable);
+                if (probe.freesFieldLoad()) return true;
+            }
+            // Instance initializers run in every constructor, in one scope chain.
+            Checker probe = probe();
+            probe.staticFunction = false;
+            probe.currentFunctions = constructorFunctions(owner);
+            Map<String, Boolean> environment = new LinkedHashMap<>();
+            for (InstanceInitialization initialization
+                    : ((ironwood.compiler.ast.ClassDeclaration) owner.declaration()).instanceInitializations()) {
+                if (initialization instanceof Block block) probe.scanBlock(block, environment, true);
+            }
+            return probe.freesFieldLoad();
+        }
+
+        /** A checker that only records frees, assignments and field loads (D298-D300). */
+        private Checker probe() {
+            Checker probe = new Checker(owner, candidate, false, false);
+            probe.assignedLocals = new java.util.HashSet<>();
+            probe.freedLocals = new java.util.ArrayList<>();
+            probe.fieldLoads = new java.util.ArrayList<>();
+            return probe;
+        }
+
+        /** Whether this probe saw a free of a never-assigned field-load local inside its block. */
+        private boolean freesFieldLoad() {
+            for (FreedLocal freed : freedLocals) {
+                if (assignedLocals.contains(freed.name())) continue;
+                for (FieldLoad load : fieldLoads) {
+                    if (load.name().equals(freed.name())
+                            && freed.span().start().offset() > load.declaration().end().offset()
+                            && freed.span().end().offset() <= load.scope().end().offset()) {
+                        return true;
                     }
                 }
             }
@@ -588,9 +611,7 @@ final class OwnedArrayFieldAnalyzer {
         private boolean destructorFreesCandidate() {
             CallableSymbol destructor = owner.destructor().orElse(null);
             if (destructor == null || destructor.body().isEmpty()) return false;
-            Checker probe = new Checker(owner, candidate, false, false);
-            probe.assignedLocals = new java.util.HashSet<>();
-            probe.freedLocals = new java.util.ArrayList<>();
+            Checker probe = probe();
             probe.scanCallable(destructor);
             return probe.freedCandidate;
         }
