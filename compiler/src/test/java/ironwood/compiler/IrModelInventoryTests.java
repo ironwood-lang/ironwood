@@ -118,7 +118,8 @@ final class IrModelInventoryTests {
         for (String type : enums) {
             out.append("enum ").append(type).append(' ').append(unquote(arm(source, "constants", type))).append('\n');
         }
-        if (records.size() != 113 || enums.size() != 20) {
+        // 113 records at D265, plus IrProcessInstruction (D272).
+        if (records.size() != 114 || enums.size() != 20) {
             throw new AssertionError("inventory size " + records.size() + " records, " + enums.size() + " enums");
         }
         return out.toString();

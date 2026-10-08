@@ -194,6 +194,10 @@ FRONTEND_MODEL = ("B: final classes with ordered fields and D258 value semantics
 IR_MODEL = "D: IrModel lists it with its root, components, walked components and constants (D265)"
 IR_ROOT = "D: IrModel.Root names the sealed root; consumers switch exhaustively over its records (D260, D265)"
 RENAMER = "B: a direct operand walk following IrModel.walked (D265), or a D264 Mapper with invocation-lived state"
+# IR records the Java model gained after the M0 inventory: IrModel lists them for
+# S2's walkers, but they are not M0 items. Any other IrModel name outside the
+# operation model fails.
+POST_M0_IR = {"IR_PROCESS_INSTRUCTION": "IrProcessInstruction, added by D272 for ProcessRunner.runToFile"}
 SEMANTIC_MODEL = ("B: final classes and enums with D258 value semantics where observed; sealed roots as an"
                   " interface with a variant enum and exhaustive switches (D260); D262's invocation-lived"
                   " analyzer payloads")
@@ -482,8 +486,9 @@ def reconcile_models(later, ledger, failures):
             ledger.add("operation-model", name, "M3.1", "later-only",
                        "prepared " + model_stage(name, role["gate"], later), treatment)
     names = {ir_name(name) for name in operation["consumers"] if name.startswith("ironwood.compiler.ir.")}
-    if listed - names:
-        failures.append(f"IrModel names outside the operation model: {sorted(listed - names)}")
+    if listed - names != set(POST_M0_IR):
+        failures.append(f"IrModel names outside the operation model: {sorted(listed - names)},"
+                        f" recorded {sorted(POST_M0_IR)}")
 
 
 def check_citations(ledger, failures):
@@ -609,6 +614,9 @@ def markdown(ledger, failures):
         lines.append(f"| {dict(FAMILIES)[family]} | {treatment} | {number(sum(counter.values()))} | {spread(counter)} |")
     lines += ["", "Each consumer gate's treatment is its phase's delivered preparation, recorded in the phase"
               " records named in the ledger.", ""]
+    lines += ["IrModel also lists IR records the Java model gained after the M0 inventory; they are not M0"
+              " items, and S2's walkers cover them through IrModel: "
+              + "; ".join(f"`{name}` ({reason})" for name, reason in sorted(POST_M0_IR.items())) + ".", ""]
     if failures:
         lines += ["## Failures", ""] + [f"- {failure}" for failure in failures] + [""]
     return "\n".join(lines)

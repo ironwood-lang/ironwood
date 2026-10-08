@@ -101,3 +101,5 @@ Calls take their class from their phase's table: [M1](../m1/CLASSIFICATION.md) (
 | operation model declarations | D: IrModel.Root names the sealed root; consumers switch exhaustively over its records (D260, D265) | 3 | bounded S2 3 |
 
 Each consumer gate's treatment is its phase's delivered preparation, recorded in the phase records named in the ledger.
+
+IrModel also lists IR records the Java model gained after the M0 inventory; they are not M0 items, and S2's walkers cover them through IrModel: `IR_PROCESS_INSTRUCTION` (IrProcessInstruction, added by D272 for ProcessRunner.runToFile).
