@@ -176,9 +176,9 @@ final class OwnedFieldReentryTests {
     }
 
     /**
-     * A store whose only reclamation of its field frees a local declared from a cast of
-     * it, which no D297-D304 witness covers, so a free that may run code during a loan
-     * still fails the field's proof (D281) and that free reports it.
+     * A store whose only reclamation of its field writes the local again between loading
+     * and freeing it, which no D297-D305 witness covers, so a free that may run code
+     * during a loan still fails the field's proof (D281) and that free reports it.
      */
     private static final String STORE = """
             class Noisy {
@@ -193,7 +193,8 @@ final class OwnedFieldReentryTests {
                 private int[] values = new int[1];
 
                 void discard() {
-                    int[] old = (int[]) values;
+                    int[] old = values;
+                    old = old;
                     values = null;
                     free old;
                 }
@@ -264,7 +265,7 @@ final class OwnedFieldReentryTests {
     /**
      * When the program needs the field owned, because the owner's destructor frees it
      * (D297) or its instance code frees a local loaded from it, as Buffer.drop does,
-     * directly or by a deferred free (D298-D304), a free that may run code during a loan
+     * directly or by a deferred free (D298-D305), a free that may run code during a loan
      * leaves the field owned and is rejected at the free: freeing an object whose
      * destructor reenters names the alias and field it would cross, its safe twin
      * compiles, and freeing the owner, whose destructor frees the field directly, inside
@@ -610,6 +611,44 @@ final class OwnedFieldReentryTests {
             require(twin.valid(), "freeing before the loan was rejected beside an expression assignment: "
                     + explained(twin));
             require(lowersFree(members), "lowering did not reject an expression-assigned free the witness counted");
+        }
+        // A cast around the load keeps its object, so a cast load is a witness too (D305).
+        for (String members : List.of("""
+                    void reset() {
+                        int[] old = (int[]) values;
+                        values = null;
+                        free old;
+                    }
+                """, """
+                    void reset() {
+                        Object old = (Object) this.values;
+                        values = null;
+                        free old;
+                    }
+                """, """
+                    void reset() {
+                        int[] old = null;
+                        if ((old = (int[]) values) != null) {
+                            values = null;
+                            free old;
+                        }
+                    }
+                """)) {
+            CompilationArtifact cast = store(members + noisyUse);
+            require(!cast.valid() && ownershipFailures(cast).isEmpty() && messages(cast).equals(List.of(CONTINGENT)),
+                    "a reentrant free beside a cast reclamation was not rejected at the free: " + explained(cast));
+            CompilationArtifact twin = store(members + """
+
+                        void use() {
+                            Noisy noisy = new Noisy();
+                            free noisy;
+                            int[] old = values;
+                            old[0] = 7;
+                        }
+                    """);
+            require(twin.valid(), "freeing before the loan was rejected beside a cast reclamation: "
+                    + explained(twin));
+            require(lowersFree(members), "lowering did not reject a cast free the witness counted");
         }
         CompilationArtifact shortCircuit = store("""
                     void reset(boolean flag) {

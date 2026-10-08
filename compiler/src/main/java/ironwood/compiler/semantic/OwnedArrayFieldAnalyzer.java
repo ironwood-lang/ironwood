@@ -649,16 +649,16 @@ final class OwnedArrayFieldAnalyzer {
 
         /**
          * Whether the owner's instance code (constructors, methods, destructor or instance
-         * initializers) declares a local from the field through {@code this}, or assigns
-         * the field so to a local where a block statement always evaluates it first, and
-         * frees it after that, in the statement's nested statements or later in the
-         * block, where lowering is certain to lower the free, with no other write to the
-         * local in between (D298-D304). The load runs before the free on every path to
-         * it, so the free sees the loaded value. Lowering tracks no
-         * allocation for {@code this}, so it proves such a free only from a detached owned
-         * field: without ownership the loaded value stays attached and the free is
-         * rejected. Java forbids redeclaring the name while it is in scope, so a later
-         * free of that name in the block refers to that local.
+         * initializers) declares a local from the field through {@code this}, possibly
+         * under casts, or assigns it so to a local where a block statement always
+         * evaluates the assignment first, and frees it after that, in the statement's
+         * nested statements or later in the block, where lowering is certain to lower the
+         * free, with no other write to the local in between (D298-D305). The load runs
+         * before the free on every path to it, so the free sees the loaded value. Lowering
+         * tracks no allocation for {@code this}, so it proves such a free only from a
+         * detached owned field: without ownership the loaded value stays attached or has
+         * no identity and the free is rejected. Java forbids redeclaring the name while it
+         * is in scope, so a later free of that name in the block refers to that local.
          */
         private boolean instanceCodeFreesFieldLoad() {
             String name = candidate.declaration().name();
@@ -765,9 +765,16 @@ final class OwnedArrayFieldAnalyzer {
             }
         }
 
-        /** Whether {@code initializer} reads the candidate through {@code this}, as lowering resolves it. */
+        /**
+         * Whether {@code initializer} reads the candidate through {@code this}, as lowering
+         * resolves it, also under casts (D305): a reference cast creates no object, and
+         * lowering gives its result the operand's allocation identity or none.
+         */
         private boolean isThisFieldLoad(Expression initializer, Map<String, Boolean> environment) {
             String name = candidate.declaration().name();
+            while (initializer instanceof CastExpression cast) {
+                initializer = cast.operand();
+            }
             return !staticFunction && initializer instanceof NameExpression value && value.name().equals(name)
                     && !environment.containsKey(name)
                     || initializer instanceof FieldAccessExpression access

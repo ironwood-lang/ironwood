@@ -11910,9 +11910,9 @@ occurrence order. If no
   freed name is that local.
 - **Boundary:** An assignment inside an expression, such as `if ((old =
   values) != null)` (D304 recognizes one its statement always evaluates), a
-  cast or other expression around the load, another write between the load
-  and the free, and a free that no route is proven to reach keep D281's
-  report. Supersedes no other decision.
+  cast (D305 recognizes it) or other expression around the load, another
+  write between the load and the free, and a free that no route is proven to
+  reach keep D281's report. Supersedes no other decision.
 - **Verification:** A free that runs a destructor during a loan is rejected
   at the free, with the field owned, beside a reclamation through a local
   assigned from the field, through an assigned parameter, and through a
@@ -11956,10 +11956,10 @@ occurrence order. If no
   owned: a program with a recorded free is invalid either way, and no valid
   program's facts or code change (D297-D303).
 - **Boundary:** An assignment that may not run, such as one on the right of
-  `&&`, in a conditional's branch or in a do-while condition, a cast or other
-  expression around the load, another write between the load and the free,
-  and a free that no route is proven to reach keep D281's report. Supersedes
-  no other decision.
+  `&&`, in a conditional's branch or in a do-while condition, a cast (D305
+  recognizes it) or other expression around the load, another write between
+  the load and the free, and a free that no route is proven to reach keep
+  D281's report. Supersedes no other decision.
 - **Verification:** A free that runs a destructor during a loan is rejected
   at the free, with the field owned, beside reclamations that assign the
   field in an `if` condition and free in the branch or after the `if`, in a
@@ -11972,3 +11972,37 @@ occurrence order. If no
   D296 checks pass. The focused field, wrapper, owner, pool and explanation
   tests pass, 69 examples emit the same `-O3` LLVM, the standard library
   builds and every port source compiles without diagnostics.
+
+## D305 - Recognize a field's reclamation through a cast load
+
+- **Status:** Accepted and implemented. Amends D304 and supersedes its
+  boundary that a cast around the load keeps D281's report.
+- **Context:** A class that reclaims with `int[] old = (int[]) values;
+  values = null; free old;`, or loads the field into an `Object` local
+  through a cast, still reported a free that may run code during a loan at
+  its reclamation instead of at that free.
+- **Decision:** A field load through `this` may sit under any number of
+  casts, in a declaration and in an assignment that D303 or D304 counts.
+- **Analysis:** A reference cast creates no object; a failed checked cast
+  throws, so the free is not reached on that path. Lowering gives an
+  assignable or checked reference cast's result the operand's allocation
+  identity, and an invalid cast's result none, with an error. Without
+  ownership the freed value is still attached or has no identity, so lowering
+  rejects the free: a program with a recorded free is invalid either way, and
+  no valid program's facts or code change (D297-D304).
+- **Boundary:** Another expression around the load, such as a conditional or
+  a copy through another local, an assignment that may not run, another
+  write between the load and the free, and a free that no route is proven to
+  reach keep D281's report. Supersedes no other decision.
+- **Verification:** A free that runs a destructor during a loan is rejected
+  at the free, with the field owned, beside reclamations through
+  `(int[]) values`, through `(Object) this.values` into an `Object` local,
+  and through `(old = (int[]) values)` in a condition; each safe twin
+  compiles, and through a field that escapes to a sibling field lowering
+  rejects each of those frees. D281's free route and D296's paired test now
+  use a store that writes the local again between the load and the free. On
+  the D304 analysis the cast cases report at the reclamations, while the
+  relocated D281 and D296 checks pass. The focused field, wrapper, owner,
+  pool and explanation tests pass, 69 examples emit the same `-O3` LLVM, the
+  standard library builds and every port source compiles without
+  diagnostics.
