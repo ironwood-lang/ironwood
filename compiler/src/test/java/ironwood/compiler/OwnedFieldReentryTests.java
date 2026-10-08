@@ -128,6 +128,8 @@ final class OwnedFieldReentryTests {
     private static final String RECLAIM = "cannot prove free of 'old' safe: value is not a known "
             + "allocation created by new in this method, returned by a proven fresh factory, or a "
             + "proven detached private backing array";
+    private static final String CONTINGENT = "cannot free 'noisy': it can run a destructor while "
+            + "local 'old' aliases field 'values'";
     private static final String FREE = "this free can run a destructor while a local alias "
             + "of the field's allocation remains active";
     private static final String CODE = "this expression can run other code while a local "
@@ -263,7 +265,7 @@ final class OwnedFieldReentryTests {
     /**
      * When the program needs the field owned, because the owner's destructor frees it
      * (D297) or its instance code frees a local loaded from it, as Buffer.drop does,
-     * directly or by a deferred free (D298-D301), a free that may run code during a loan
+     * directly or by a deferred free (D298-D302), a free that may run code during a loan
      * leaves the field owned and is rejected at the free: freeing an object whose
      * destructor reenters names the alias and field it would cross, its safe twin
      * compiles, and freeing the owner, whose destructor frees the field directly, inside
@@ -377,15 +379,13 @@ final class OwnedFieldReentryTests {
                         }
                     """.formatted(header) + noisyUse);
             require(!constructed.valid() && ownershipFailures(constructed).isEmpty()
-                            && messages(constructed).equals(List.of("cannot free 'noisy': it can run a destructor"
-                                    + " while local 'old' aliases field 'values'")),
+                            && messages(constructed).equals(List.of(CONTINGENT)),
                     "a reentrant free was not rejected at the free (" + (header.isEmpty() ? "initializer" : header)
                             + "): " + explained(constructed));
         }
         // A deferred free of the detached local is a witness when lowering reaches it at
         // the block's end or exits (D301), with or without a later loop that can finish;
-        // freeing before the loan compiles. After a while (true) loop the deferred free
-        // may never run, so D281 reports at both of the store's reclamations.
+        // freeing before the loan compiles.
         String clear = """
                     void clear() {
                         int[] old = values;
@@ -406,8 +406,7 @@ final class OwnedFieldReentryTests {
         for (String members : List.of(clear, grow)) {
             CompilationArtifact deferred = store(members + noisyUse);
             require(!deferred.valid() && ownershipFailures(deferred).isEmpty()
-                            && messages(deferred).equals(List.of("cannot free 'noisy': it can run a destructor"
-                                    + " while local 'old' aliases field 'values'")),
+                            && messages(deferred).equals(List.of(CONTINGENT)),
                     "a reentrant free beside a deferred reclamation was not rejected at the free: "
                             + explained(deferred));
             CompilationArtifact twin = store(members + """
@@ -422,18 +421,97 @@ final class OwnedFieldReentryTests {
             require(twin.valid(), "freeing before the loan was rejected beside a deferred reclamation: "
                     + explained(twin));
         }
-        CompilationArtifact looping = store("""
-                    void clear() {
+        // After a while (true) loop, the deferred free is a witness when the loop has a
+        // route out that lowering takes: a break, a return or an uncaught throw (D302).
+        for (String loop : List.of("""
+                while (true) {
+                    break;
+                }""", """
+                for (;;) {
+                    if (size > 0) {
+                        return;
+                    }
+                    size++;
+                }""", """
+                while (true) {
+                    throw new IllegalStateException();
+                }""")) {
+            CompilationArtifact routed = store(deferredBefore(loop) + noisyUse);
+            require(!routed.valid() && ownershipFailures(routed).isEmpty()
+                            && messages(routed).equals(List.of(CONTINGENT)),
+                    "a deferred free before a loop with a route out was no witness: " + explained(routed));
+            require(lowersFree(deferredBefore(loop)), "lowering never freed a deferred target the witness counted");
+        }
+        // A defer in a switch case must sit in braces; braced, the case's break routes
+        // out of the block, so the deferred free is a witness (D302).
+        String braced = """
+                    void pick(int mode) {
                         int[] old = values;
                         values = null;
-                        defer free old;
-                        while (true) {
-                            break;
+                        switch (mode) {
+                            case 0: {
+                                defer free old;
+                                break;
+                            }
+                            default:
+                                free old;
                         }
                     }
-                """ + noisyUse);
-        require(!looping.valid() && messages(looping).equals(List.of(RECLAIM, DEFERRED)) && failedBy(looping, FREE),
-                "a deferred free after a while (true) loop counted as a witness: " + explained(looping));
+                """;
+        CompilationArtifact cased = store(braced + noisyUse);
+        require(!cased.valid() && ownershipFailures(cased).isEmpty() && messages(cased).equals(List.of(CONTINGENT)),
+                "a braced deferred free in a switch case was no witness: " + explained(cased));
+        require(lowersFree(braced.replace("free old;\n        }", "break;\n        }")),
+                "lowering never freed a braced deferred target the witness counted");
+        CompilationArtifact unbraced = store("""
+                    void pick(int mode) {
+                        int[] old = values;
+                        values = null;
+                        switch (mode) {
+                            case 0:
+                                defer free old;
+                                break;
+                            default:
+                                free old;
+                        }
+                    }
+                """);
+        require(!unbraced.valid() && messages(unbraced).equals(List.of(
+                        "defer must be a direct statement of an explicit block; add braces")),
+                "a defer directly in a switch group was accepted: " + explained(unbraced));
+        // With no route out, or only a break that a finally block which cannot complete
+        // stops, lowering may never free the deferred target, so D281 reports at both of
+        // the store's reclamations.
+        for (String loop : List.of("""
+                while (true) {
+                }""", """
+                while (true) {
+                    try {
+                        break;
+                    } finally {
+                        while (true) {
+                        }
+                    }
+                }""")) {
+            CompilationArtifact stuck = store(deferredBefore(loop) + noisyUse);
+            require(!stuck.valid() && messages(stuck).equals(List.of(RECLAIM, DEFERRED)) && failedBy(stuck, FREE),
+                    "a deferred free that may never run counted as a witness: " + explained(stuck));
+        }
+        // A free in a finally block counts only when lowering reaches that block (D302).
+        // After a try body with no route out the free is never lowered, so with no other
+        // reclamation the field fails its proof and the program compiles, as under D281;
+        // a body that completes makes the free a witness.
+        CompilationArtifact unreached = finallyStore("""
+                while (true) {
+                }""");
+        require(unreached.valid() && !lowersFree(finallyMember("while (true) {\n}")),
+                "a free in a finally block lowering never reaches disqualified a valid program: "
+                        + explained(unreached));
+        CompilationArtifact reached = finallyStore("old[0] = size;");
+        require(!reached.valid() && ownershipFailures(reached).isEmpty()
+                        && messages(reached).equals(List.of(CONTINGENT)),
+                "a free in a reached finally block was no witness: " + explained(reached));
+        require(lowersFree(finallyMember("old[0] = size;")), "lowering never reached a finally block the witness counted");
         // A free through another receiver is no reclamation (D301): with no free during
         // a loan, writing the field through that receiver fails the field's proof, which
         // the store's own reclamation reports, and a value read through another receiver
@@ -456,6 +534,79 @@ final class OwnedFieldReentryTests {
                 """);
         require(!peeked.valid() && messages(peeked).equals(List.of(RECLAIM)) && ownershipFailures(peeked).isEmpty(),
                 "a free through another receiver was accepted or disqualified the field: " + explained(peeked));
+    }
+
+    /** A store method that detaches the field, defers freeing it and then runs {@code loop}. */
+    private static String deferredBefore(String loop) {
+        return "    void spin(int size) {\n        int[] old = values;\n        values = null;\n"
+                + "        defer free old;\n" + loop.indent(8) + "    }\n";
+    }
+
+    /** A store method that detaches the field and frees it in a finally block after {@code body}. */
+    private static String finallyMember(String body) {
+        return "    void spin(int size) {\n        int[] old = values;\n        values = null;\n        try {\n"
+                + body.indent(12) + "        } finally {\n            free old;\n        }\n    }\n";
+    }
+
+    /**
+     * A store whose only reclamation is {@link #finallyMember}, beside a free that runs a
+     * destructor during a loan.
+     */
+    private static CompilationArtifact finallyStore(String body) {
+        return compile("""
+                class Noisy {
+                    destructor {
+                    }
+                }
+
+                class Store {
+                    private int[] values = new int[1];
+
+                %s
+                    void use() {
+                        Noisy noisy = new Noisy();
+                        int[] old = values;
+                        free noisy;
+                        old[0] = 7;
+                    }
+                }
+
+                class Main {
+                    public static int main(String[] args) {
+                        return 0;
+                    }
+                }
+                """.formatted(finallyMember(body)));
+    }
+
+    /**
+     * Whether lowering lowers the free of {@code old} in {@code member}: the store's field
+     * escapes through a sibling field, so a load of it keeps an attached identity and
+     * every lowering of that free is reported, while one never lowered is not.
+     */
+    private static boolean lowersFree(String member) {
+        CompilationArtifact artifact = compile("""
+                class Store {
+                    private int[] values = new int[1];
+                    private int[] other;
+
+                    void leak() {
+                        other = values;
+                    }
+
+                %s}
+
+                class Main {
+                    public static int main(String[] args) {
+                        return 0;
+                    }
+                }
+                """.formatted(member));
+        return messages(artifact).stream().anyMatch(message -> message.startsWith("cannot free 'old'"));
+    }
+
+    private static CompilationArtifact compile(String source) {
+        return new CompilerPipeline(UnfreedMode.OFF, true, null).analyze(List.of(SourceFile.of("Main.iron", source)));
     }
 
     private static boolean failedBy(CompilationArtifact artifact, String reason) {

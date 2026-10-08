@@ -11676,10 +11676,11 @@ occurrence order. If no
   methods, other than its constructors and destructor, declares a local at its
   top level from the field through `this`, never assigns it, and frees it
   later at any depth. A probe scan of the destructor or method finds both.
-- **Analysis:** Lowering reaches every such free and accepts it only for an
-  owned field: a destructor's free of the field is checked against the field's
-  proof, and in an instance method the receiver has no tracked allocation, so
-  the loaded value is detached only when the field is owned. Without
+- **Analysis:** Lowering reaches every such free (D302: except in a finally
+  block that no route reaches) and accepts it only for an owned field: a
+  destructor's free of the field is checked against the field's proof, and
+  in an instance method the receiver has no tracked allocation, so the
+  loaded value is detached only when the field is owned. Without
   ownership each witness free is an error, so a program with a recorded free
   is invalid either way, as in D297, and no valid program's facts or code
   change. Java scoping makes every later free of that local name refer to the
@@ -11792,9 +11793,11 @@ occurrence order. If no
   with a recorded free is therefore invalid either way, as in D297-D300, and
   no valid program's facts or code change.
 - **Boundary:** A deferred free after such a loop, even one the loop's
-  `break` leaves, a deferred free placed directly in an old-style switch
-  group, and a local assigned from the field after its declaration keep
-  D281's report at that reclamation. A free through another receiver is no
+  `break` leaves (D302 recognizes a loop with a route out), a deferred free
+  placed directly in an old-style switch group (D302: the parser rejects a
+  defer outside a braced block, and a braced case is recognized), and a local
+  assigned from the field after its declaration keep D281's report at that
+  reclamation. A free through another receiver is no
   reclamation and has no D281 report to move: D041's loan exists only for
   loads through `this`, so the field's ownership never proves a free of a
   value read through another receiver, and assigning the field through
@@ -11813,5 +11816,64 @@ occurrence order. If no
   field owned and rejects that free. On the D300 analysis the deferred cases
   still report at the reclamations, while the relocated D281 and D296 checks
   pass. The focused field, wrapper, owner, pool and explanation tests pass, 69
+  examples emit the same `-O3` LLVM, the standard library builds and every
+  port source compiles without diagnostics.
+
+## D302 - Count only witness frees that lowering reaches
+
+- **Status:** Accepted and implemented. Amends D298-D301: supersedes D301's
+  boundary that a deferred free after a literal-`true` loop keeps D281's
+  report, and corrects D298's analysis that lowering reaches every witness
+  free.
+- **Context:** D301 excluded a deferred free followed by a `while (true)`,
+  `do ... while (true)` or `for (;;)` loop even when a `break`, `return` or
+  `throw` leaves the loop, so those programs still reported a free that may
+  run code during a loan at the deferred free. Lowering also lowers a finally
+  block only on a route that reaches it, and the D298-D300 witness counted a
+  free there too. After a try body that never leaves, as in `try { while
+  (true) { } } finally { free old; }`, that free is never lowered, so the
+  program compiles under D281, and the witness made it an error at the free
+  during the loan: a valid program became invalid.
+- **Decision:** `LoweredRoutes` under-approximates the routes lowering takes
+  out of statements: their normal completion, where a loop ends without a
+  break only when its condition is not the literal `true`, or a return,
+  yield, break or continue that leaves them, or a throw outside every try
+  statement there, through finally blocks that complete. A witness probe
+  records a deferred free only when the rest of its block has such a route,
+  and records no free in a finally block, the destructor's free of the field
+  included, unless the try body completes or has such a route (a throw only
+  when the try statement has no catch clause) or a catch body transfers out.
+- **Analysis:** Lowering lowers a deferred action or a finally block on
+  exactly those routes, and every other statement where it stands, reporting
+  the unreachable ones; a catch body is analyzed even when its try body
+  cannot throw, with the finally context but no exception region, so only
+  its transfers count. Every route found is one lowering takes, so each
+  recorded free is lowered and, without ownership, rejected: a program with a
+  recorded free is invalid either way, and no valid program's facts or code
+  change (D297-D301). Exceptions from calls, the completion of catch bodies
+  and do-while exits through `continue` are not counted, which only leaves
+  D281's report in place.
+- **Boundary:** A deferred free whose remaining block has no such route, such
+  as an empty `while (true)` loop or one whose only `break` passes a finally
+  block that cannot complete, a free in a finally block that no such route
+  reaches, and a local assigned from the field after its declaration keep
+  D281's report. A deferred free placed directly in an old-style switch group,
+  which D301 listed, has no report to move: the parser accepts a defer only as
+  a direct statement of a braced block (LANGUAGE.md), and in a braced case the
+  rest of the block, such as its `break`, routes out, so it is a witness.
+  Supersedes no other decision.
+- **Verification:** Deferred frees before a `while (true)` loop that a break
+  leaves, a `for (;;)` loop that returns and a `while (true)` loop that
+  throws, and one in a braced switch case, are witnesses, while an empty loop
+  and a break stopped by a finally block that cannot complete keep D281's
+  report; a defer placed directly in a switch group is rejected by the
+  parser. A program whose only reclamation frees in a finally block after an
+  empty `while (true)` loop compiles, as under D281, and a finally block
+  after a completing body is a witness. Through a field that escapes to a
+  sibling field, which keeps a load's identity attached, lowering reports
+  each free the witness counts and not the unreached finally block; a
+  29-case local differential of these shapes found no counted free that
+  lowering did not lower. On the D301 analysis the restored loop case fails.
+  The focused field, wrapper, owner, pool and explanation tests pass, 69
   examples emit the same `-O3` LLVM, the standard library builds and every
   port source compiles without diagnostics.

@@ -10,7 +10,6 @@ import ironwood.compiler.ast.AssignmentOperator;
 import ironwood.compiler.ast.AssignmentStatement;
 import ironwood.compiler.ast.BinaryExpression;
 import ironwood.compiler.ast.Block;
-import ironwood.compiler.ast.BooleanLiteralExpression;
 import ironwood.compiler.ast.BreakStatement;
 import ironwood.compiler.ast.CallExpression;
 import ironwood.compiler.ast.CastExpression;
@@ -301,61 +300,6 @@ final class OwnedArrayFieldAnalyzer {
         return functions;
     }
 
-    /**
-     * Whether the statements after a deferred free in its block may never exit (D301).
-     * Lowering frees a deferred target at the block's normal completion and at every
-     * return, break, continue, yield or exception that leaves it; only a loop whose
-     * condition is the literal {@code true}, or a for loop without one, can make all
-     * of them unreachable. Code inside expressions never ends a statement's normal
-     * completion, and a local class body runs elsewhere.
-     */
-    private static boolean mayLoopForever(java.util.List<Statement> statements) {
-        return statements.stream().anyMatch(OwnedArrayFieldAnalyzer::mayLoopForever);
-    }
-
-    private static boolean mayLoopForever(Statement statement) {
-        if (statement instanceof Block block) {
-            return mayLoopForever(block.statements());
-        }
-        if (statement instanceof IfStatement conditional) {
-            return mayLoopForever(conditional.thenBranch())
-                    || conditional.elseBranch().map(OwnedArrayFieldAnalyzer::mayLoopForever).orElse(false);
-        }
-        if (statement instanceof WhileStatement loop) {
-            return isLiteralTrue(loop.condition()) || mayLoopForever(loop.body());
-        }
-        if (statement instanceof DoWhileStatement loop) {
-            return isLiteralTrue(loop.condition()) || mayLoopForever(loop.body());
-        }
-        if (statement instanceof ForStatement loop) {
-            return loop.condition().map(OwnedArrayFieldAnalyzer::isLiteralTrue).orElse(true)
-                    || mayLoopForever(loop.body());
-        }
-        if (statement instanceof EnhancedForStatement loop) {
-            return mayLoopForever(loop.body());
-        }
-        if (statement instanceof LabeledStatement labeled) {
-            return mayLoopForever(labeled.body());
-        }
-        if (statement instanceof SwitchStatement switched) {
-            return switched.groups().stream().anyMatch(group -> mayLoopForever(group.statements()));
-        }
-        if (statement instanceof ModernSwitchStatement switched) {
-            return switched.rules().stream().anyMatch(rule ->
-                    rule.body() instanceof SwitchRuleBlock block && mayLoopForever(block.block()));
-        }
-        if (statement instanceof TryStatement guarded) {
-            return mayLoopForever(guarded.body())
-                    || guarded.catches().stream().anyMatch(caught -> mayLoopForever(caught.body()))
-                    || guarded.finallyBlock().map(OwnedArrayFieldAnalyzer::mayLoopForever).orElse(false);
-        }
-        return false;
-    }
-
-    private static boolean isLiteralTrue(Expression condition) {
-        return condition instanceof BooleanLiteralExpression literal && literal.value();
-    }
-
     /** A scope's deferred actions and the locals declared outside it. */
     private record DeferredScope(Set<String> outer, java.util.List<Expression> actions) {
     }
@@ -399,6 +343,8 @@ final class OwnedArrayFieldAnalyzer {
         private boolean freedCandidate;
         /** The field-load declarations a witness probe saw, or null outside a probe (D299). */
         private java.util.List<FieldLoad> fieldLoads;
+        /** How many finally blocks lowering may never reach enclose the probe's scan (D302). */
+        private int unreachedFinallies;
         private String rejectionReason;
         private boolean staticFunction;
         private CallableSymbol currentCallable;
@@ -541,8 +487,11 @@ final class OwnedArrayFieldAnalyzer {
                         && isThisFieldLoad(local.initializer(), environment)) {
                     fieldLoads.add(new FieldLoad(local.name(), local.span(), block.span()));
                 }
-                if (freedLocals != null && statement instanceof DeferredFreeStatement deferred
-                        && !mayLoopForever(statements.subList(index + 1, statements.size()))) {
+                // Lowering frees a deferred target only on a route out of the rest of
+                // the block (D301, D302).
+                if (freedLocals != null && unreachedFinallies == 0
+                        && statement instanceof DeferredFreeStatement deferred
+                        && LoweredRoutes.leaves(statements.subList(index + 1, statements.size()))) {
                     freedLocals.add(new FreedLocal(deferred.target().name(), statement.span()));
                 }
                 scanStatement(statement, environment);
@@ -587,7 +536,7 @@ final class OwnedArrayFieldAnalyzer {
         /**
          * Whether a free in the program is rejected whenever the candidate is not owned,
          * so that a failed proof makes the program invalid: the owner's destructor frees
-         * the field (D297), or its instance code frees a local loaded from it (D298-D301).
+         * the field (D297), or its instance code frees a local loaded from it (D298-D302).
          */
         private boolean ownershipNeeded() {
             if (ownershipNeeded == null) {
@@ -599,8 +548,8 @@ final class OwnedArrayFieldAnalyzer {
         /**
          * Whether the owner's instance code (constructors, methods, destructor or instance
          * initializers) declares a local in a block from the field through {@code this},
-         * never assigns it and frees it later in that block, directly or by a deferred
-         * free that lowering reaches (D298-D301). Lowering tracks no allocation for
+         * never assigns it and frees it later in that block, where lowering is certain to
+         * lower the free (D298-D302). Lowering tracks no allocation for
          * {@code this}, so it proves such a free only from a detached owned field:
          * without ownership the loaded value stays attached and the free is rejected.
          * Java forbids redeclaring the name while it is in scope, so a later free of that
@@ -632,7 +581,7 @@ final class OwnedArrayFieldAnalyzer {
             return probe.freesFieldLoad();
         }
 
-        /** A checker that only records frees, assignments and field loads (D298-D301). */
+        /** A checker that only records frees, assignments and field loads (D298-D302). */
         private Checker probe() {
             Checker probe = new Checker(owner, candidate, false, false);
             probe.assignedLocals = new java.util.HashSet<>();
@@ -668,8 +617,9 @@ final class OwnedArrayFieldAnalyzer {
         /**
          * Whether the owner's own destructor frees the candidate, at any depth, as lowering
          * resolves it: {@code this.name}, or {@code name} with no local of that name in
-         * scope (D297, D298). Lowering reaches every such statement and rejects it unless
-         * the field is owned.
+         * scope (D297, D298). A probe skips frees in finally blocks that lowering may
+         * never reach (D302); lowering reaches every other such statement and rejects it
+         * unless the field is owned.
          */
         private boolean destructorFreesCandidate() {
             CallableSymbol destructor = owner.destructor().orElse(null);
@@ -713,7 +663,7 @@ final class OwnedArrayFieldAnalyzer {
                 return;
             }
             if (statement instanceof FreeStatement free) {
-                if (freedLocals != null) {
+                if (freedLocals != null && unreachedFinallies == 0) {
                     String name = candidate.declaration().name();
                     if (free.value() instanceof NameExpression local) {
                         freedLocals.add(new FreedLocal(local.name(), statement.span()));
@@ -895,7 +845,14 @@ final class OwnedArrayFieldAnalyzer {
                 scanBlock(caught.body(), caughtEnvironment, true);
                 merge(merged, merged, caughtEnvironment);
             });
-            guarded.finallyBlock().ifPresent(cleanup -> scanBlock(cleanup, merged, true));
+            guarded.finallyBlock().ifPresent(cleanup -> {
+                // Lowering lowers a finally block only on a route that reaches it, so a
+                // probe records no free in one that it may never reach (D302).
+                boolean unreached = freedLocals != null && !LoweredRoutes.reachesFinally(guarded);
+                if (unreached) unreachedFinallies++;
+                scanBlock(cleanup, merged, true);
+                if (unreached) unreachedFinallies--;
+            });
             environment.clear();
             environment.putAll(merged);
         }
