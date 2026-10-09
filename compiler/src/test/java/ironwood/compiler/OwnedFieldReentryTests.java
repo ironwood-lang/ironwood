@@ -271,7 +271,7 @@ final class OwnedFieldReentryTests {
     /**
      * When the program needs the field owned, because the owner's destructor frees it
      * (D297) or its instance code frees a local loaded from it, as Buffer.drop does,
-     * directly or by a deferred free (D298-D309), a free that may run code during a loan
+     * directly or by a deferred free (D298-D310), a free that may run code during a loan
      * leaves the field owned and is rejected at the free: freeing an object whose
      * destructor reenters names the alias and field it would cross, its safe twin
      * compiles, and freeing the owner, whose destructor frees the field directly, inside
@@ -660,7 +660,7 @@ final class OwnedFieldReentryTests {
         // (D307): in a switch expression's arm that every completing arm matches, or on
         // the right of && guarding the free. Lowering merges the && paths, so it cannot
         // prove that free even with the field owned, but it still rejects it without
-        // ownership. A free that the skipped assignment may reach keeps D281's report.
+        // ownership.
         String arm = """
                     void reset() {
                         int[] old = null;
@@ -777,7 +777,11 @@ final class OwnedFieldReentryTests {
                 """ + noisyUse);
         require(!foreign.valid() && messages(foreign).equals(List.of(RECLAIM, RECLAIM)) && failedBy(foreign, FREE),
                 "a binding of another value counted as a witness: " + explained(foreign));
-        CompilationArtifact skipped = store("""
+        // A free that a skipped assignment may reach is a witness too (D310): it frees a
+        // field load on some path, or the null literal, so lowering rejects it without
+        // ownership; with the field owned it cannot prove the merged value either. A free
+        // of a local that is always null, or never holds a load, keeps D281's report.
+        for (String members : List.of("""
                     void reset(boolean flag) {
                         int[] old = null;
                         if (flag && (old = values) != null) {
@@ -785,9 +789,39 @@ final class OwnedFieldReentryTests {
                         }
                         free old;
                     }
-                """ + noisyUse);
-        require(!skipped.valid() && messages(skipped).equals(List.of(RECLAIM, RECLAIM)) && failedBy(skipped, FREE),
-                "a free a skipped assignment may reach counted as a witness: " + explained(skipped));
+                """, """
+                    void reset(boolean flag) {
+                        int[] old = new int[1];
+                        if (flag) {
+                            old = values;
+                            values = new int[1];
+                        }
+                        free old;
+                    }
+                """)) {
+            CompilationArtifact skipped = store(members + noisyUse);
+            require(!skipped.valid() && ownershipFailures(skipped).isEmpty() && messages(skipped).contains(CONTINGENT),
+                    "a reentrant free beside a skippable load was not rejected at the free: " + explained(skipped));
+            require(lowersFree(members), "lowering did not reject a skippable free the witness counted");
+        }
+        for (String members : List.of("""
+                    void reset() {
+                        int[] old = null;
+                        free old;
+                    }
+                """, """
+                    void reset(boolean flag) {
+                        int[] old = new int[1];
+                        if (flag) {
+                            old = new int[2];
+                        }
+                        free old;
+                    }
+                """)) {
+            CompilationArtifact unloaded = store(members + noisyUse);
+            require(!unloaded.valid() && messages(unloaded).equals(List.of(RECLAIM, RECLAIM)) && failedBy(unloaded, FREE),
+                    "a free of a local that never holds a load counted as a witness: " + explained(unloaded));
+        }
         // A write between the load and the free keeps the witness when it writes a field
         // load again: the local itself, a fresh load or a conditional of such values (D306).
         // A write of another value, such as a new array, makes the free free that value, so

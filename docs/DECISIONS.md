@@ -12200,9 +12200,9 @@ occurrence order. If no
   why the entry still counts: lowering accepts that free.
 - **Boundary:** A free in a catch handler of a local that holds neither a
   field load nor the null literal at the try body's entry, a write of a value
-  that is not a field load, an assignment a path to the free may skip, and a
-  free that no route is proven to reach keep D281's report. Supersedes no
-  other decision.
+  that is not a field load, an assignment a path to the free may skip (D310
+  recognizes it), and a free that no route is proven to reach keep D281's
+  report. Supersedes no other decision.
 - **Verification:** A free that runs a destructor during a loan is rejected
   at the free, with the field owned, beside the reclamation above, whose safe
   twin compiles, and through a field that escapes to a sibling field
@@ -12217,3 +12217,55 @@ occurrence order. If no
   focused field, wrapper, owner, pool and explanation tests pass, 69
   examples emit the same `-O3` LLVM, the standard library builds and every
   port source compiles without diagnostics.
+
+## D310 - Recognize a free that a skipped load may reach
+
+- **Status:** Accepted and implemented. Amends D307-D309: supersedes their
+  boundary that a free an assignment's skipped path may reach keeps D281's
+  report, and generalizes D309's null-literal rule for catch handlers.
+- **Context:** The analysis counted a free only when every path gave the
+  freed local a field load. `int[] old = null; if (flag && (old = values) !=
+  null) { values = null; } free old;`, or a load in one branch of an `if`
+  after `old = new int[1]`, still reported a free that may run code during a
+  loan at the reclamation instead of at that free.
+- **Decision:** The analysis tracks, beside a field load on every path,
+  whether some path gives a local a field load, whether every path gives it
+  a field load or the null literal, and whether every path gives it the null
+  literal; merges keep the first only where some path has it and the others
+  only where every path has them. A free counts when its value may be a
+  field load, or is a field load or the null literal on every path without
+  always being null. Try regions, the finally block's check and a catch
+  handler's entry keep only what holds at every one of their states,
+  including whether some path gives a load, so D309's rule becomes the
+  handler entry keeping a load or null literal that both its entry and its
+  exception edges carry. A free of a local that is always null, or never
+  holds a load, does not count.
+- **Analysis:** Every path the analysis follows is one lowering follows, so
+  where some path gives a field load, lowering's value at the free includes
+  that load, and lowering's mandatory safety rejects freeing a value that may
+  be a field's live storage without ownership; a sibling-escaped field shows
+  it rejecting a merge of a load with a new array or with null. Where every
+  path gives a load or null, no path gives a known allocation. A catch
+  handler that no edge reaches starts from the try body's entry instead of
+  the edges, so the handler entry keeps only properties both sources have.
+  A program with a recorded free is invalid either way, and no valid
+  program's facts or code change (D297-D309). With the field owned, lowering
+  cannot prove such a merged free either, so these programs are invalid
+  regardless, and only where the error is reported changes.
+- **Boundary:** A write of a value that is not a field load on every path to
+  the free, a free in a catch handler of a local that neither the try body's
+  entry nor every exception edge gives a load or null, and a free that no
+  route is proven to reach keep D281's report. Supersedes no other decision.
+- **Verification:** A free that runs a destructor during a loan is rejected
+  at the free beside a reclamation whose `&&` may skip the load after `old =
+  null`, and beside one whose branch may skip it after `old = new int[1]`;
+  through a field that escapes to a sibling field lowering rejects both
+  frees. A free of a local that is always null, or only ever holds new
+  arrays, keeps D281's report. The D307 dataflow differential, now 39 shapes
+  with skipped loads and their copies, found no counted free that lowering
+  accepts without ownership, and the D302 route differential still agrees.
+  On the D309 analysis the skipped-load case reports at the reclamations,
+  while the D281 and D296 checks pass. The focused field, wrapper, owner,
+  pool and explanation tests pass, 69 examples emit the same `-O3` LLVM, the
+  standard library builds and every port source compiles without
+  diagnostics.
