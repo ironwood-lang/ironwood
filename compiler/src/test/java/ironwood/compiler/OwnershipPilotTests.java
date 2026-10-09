@@ -9,13 +9,17 @@ import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 /** The M2.2 native ownership pilot: ownership and callback controls, J0 parity and failure safety. */
@@ -202,11 +206,9 @@ final class OwnershipPilotTests {
     static void artifacts() throws Exception {
         Path root = Files.createTempDirectory("ironwood-ownership-pilot-");
         try {
-            Path references = root.resolve("references");
-            Files.createDirectories(references);
-            extract(M0 + "ownership-resources.tar.gz", references, "ordered");
-            extract(M0 + "kernel-resources.tar.gz", references, "ordered");
-            extract(M0 + "loop-cycle-reference.tar.gz", references, "cycle-ordered");
+            String manifests = Files.readString(Path.of(M0 + "ownership-resources-manifest.json"))
+                    + Files.readString(Path.of(M0 + "kernel-resources-manifest.json"))
+                    + Files.readString(Path.of(M0 + "loop-cycle-reference-manifest.json"));
             Path classes = root.resolve("classes");
             List<String> arguments = new ArrayList<>(portSourcePaths());
             arguments.addAll(List.of(ADAPTER, "--unfreed=warn", "-d", classes.toString()));
@@ -227,9 +229,9 @@ final class OwnershipPilotTests {
                     Files.createDirectories(output);
                     execute(List.of(executable.toString(), configuration[1], configuration[2], configuration[3],
                             configuration[4], output.toString()), Map.of(), 0);
-                    Path reference = references.resolve(configuration[0].equals("effect-cycle") ? "cycle-ordered" : "ordered")
-                            .resolve(label + "-sample0-r0/result.txt");
-                    if (!Files.readString(output.resolve("result.txt")).equals(Files.readString(reference))) {
+                    String reference = (configuration[0].equals("effect-cycle") ? "cycle-ordered/" : "ordered/")
+                            + label + "-sample0-r0/result.txt";
+                    if (!sha256(output.resolve("result.txt")).equals(recordedSha256(manifests, reference))) {
                         throw new AssertionError("native kernel differs from J0: " + label);
                     }
                     Map<String, Long> metrics = metrics(output.resolve("metrics.txt"));
@@ -359,13 +361,23 @@ final class OwnershipPilotTests {
         return executable;
     }
 
-    private static void extract(String archive, Path destination, String member) throws Exception {
-        Process process = new ProcessBuilder("tar", "-xzf", archive, "-C", destination.toString(), member)
-                .redirectErrorStream(true).start();
-        byte[] output = process.getInputStream().readAllBytes();
-        if (!process.waitFor(120, TimeUnit.SECONDS) || process.exitValue() != 0) {
-            throw new AssertionError("reference extraction " + archive + ": " + new String(output, StandardCharsets.UTF_8));
+    // The J0 result archives stay outside the repository; their frozen M0
+    // manifests record the SHA-256 of every archived file.
+    private static String recordedSha256(String manifests, String member) {
+        Matcher matcher = Pattern.compile("\"" + Pattern.quote(member) + "\": \\{\\s*\"sha256\": \"([0-9a-f]{64})\"")
+                .matcher(manifests);
+        if (!matcher.find()) {
+            throw new AssertionError("no recorded J0 result: " + member);
         }
+        String recorded = matcher.group(1);
+        if (matcher.find()) {
+            throw new AssertionError("ambiguous recorded J0 result: " + member);
+        }
+        return recorded;
+    }
+
+    private static String sha256(Path file) throws Exception {
+        return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(file)));
     }
 
     private static List<String> portSourcePaths() throws Exception {
