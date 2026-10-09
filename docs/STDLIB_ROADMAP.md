@@ -610,11 +610,13 @@ The first, sufficient for `minigrep`, is complete:
 The second completes basic file manipulation:
 
 - `createFile`, `createDirectory`, and `createDirectories`;
-- `delete` and `deleteIfExists`;
+- `delete` and `deleteIfExists` (the latter added for M4.1, D270);
 - `copy` and `move` with a deliberately selected initial option subset;
-- `getLastModifiedTime` and basic readable/writable checks; and
-- temporary files/directories once secure randomness and permissions have a
-  documented native design.
+- `getLastModifiedTime` and basic readable/writable checks (`isReadable` and
+  `isExecutable` added for M4.1; `isWritable` and `getLastModifiedTime` remain);
+  and
+- temporary files/directories, implemented for M4.1 (D270) with secure random
+  names, exclusive creation and owner-only permissions.
 
 Do not invent booleans to replace Java option enums. `StandardOpenOption`,
 `StandardCopyOption`, and `LinkOption` should follow enum support. Until then,
@@ -842,10 +844,21 @@ These matter, but they should not delay the first file-capable release:
    pseudorandom tests. A separate secure source waits for native entropy and
    cryptographic contracts.
 4. **Processes:** a reduced `ProcessBuilder`/`Process` design after pipes,
-   environment, cleanup, and native handle ownership are stable.
+   environment, cleanup, and native handle ownership are stable. Delivered
+   separately for self-hosting (M4.3, D272): the narrower synchronous
+   `ironwood.process.ProcessRunner.runToFile` with absolute executables,
+   inherited environment, an optional child directory and merged file output.
+   It does not implement or cancel this item; a later design may reuse its
+   native launch, wait and cleanup but needs its own pipe, environment and
+   handle-ownership review.
 5. **Compression and checksums:** CRC and ZIP/GZIP APIs after streaming I/O;
    they are useful for tooling and distribution but are not prerequisites for
-   basic file utilities.
+   basic file utilities. Partial: the CRC32 slice is implemented for
+   self-hosting (M5.1, D274): `ironwood.util.zip.CRC32` with Java 21's
+   constructor, reset, byte, array and range updates and `getValue()`. The
+   `Checksum` interface, `update(ByteBuffer)`, Adler-32, CRC-32C and every
+   public ZIP, GZIP, Deflater and Inflater API remain open; the compiler's
+   private archive services (M5.2, M5.3) do not implement them.
 6. **Networking, pending for the near future:** sockets, DNS, HTTP, and
    single-threaded event-loop integration, built on streaming, deterministic
    resources, error mapping, and cross-platform validation. **Accepted

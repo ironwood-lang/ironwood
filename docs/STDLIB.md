@@ -1,20 +1,22 @@
 # Ironwood standard library
 
-Ironwood currently ships a bundled, Java-shaped standard library from 248
-source files. IronDocs covers 166 public and protected types across 14 packages:
+Ironwood currently ships a bundled, Java-shaped standard library from 254
+source files. IronDocs covers 170 public and protected types across 16 packages:
 
 | Package | Documented types | Purpose |
 | --- | ---: | --- |
 | `ironwood.lang` | 38 | Object model, text, iteration, resource cleanup, numeric helpers, system services, and exceptions |
 | `ironwood.io` | 32 | Synchronous byte and character streams, standard input/output/error, and checked I/O failures |
 | `ironwood.util` | 10 | Iteration, object and array helpers, comparators, randomness, optionals, joins, and bit sets |
+| `ironwood.util.zip` | 1 | CRC-32 checksums |
 | `ironwood.net` | 26 | Blocking sockets, addresses, host interfaces and explicit proxies |
 | `ironwood.net.tls` | 1 | Verified TLS clients with optional static dependency |
 | `ironwood.time` | 2 | Immutable epoch timestamps and date/time failures |
 | `ironwood.time.format` | 1 | ISO timestamp parse failures |
 | `ironwood.nio` | 5 | Checked heap byte buffers |
-| `ironwood.nio.file` | 16 | POSIX paths, whole-file I/O, directory streams, visitor traversal, metadata, and file failures |
+| `ironwood.nio.file` | 17 | POSIX paths, whole-file I/O, directory streams, visitor traversal, metadata, and file failures |
 | `ironwood.nio.file.attribute` | 2 | Millisecond file times and basic attributes |
+| `ironwood.process` | 2 | Synchronous launch of an absolute-path program with merged file output |
 | `ironwood.pool` | 4 | Explicitly built, reusable object pools |
 | `ironwood.ds` | 26 | Low-allocation lists, maps, sets, and primitive collections |
 | `ironwood.bench` | 2 | Native latency measurement, warmup, and percentile reports |
@@ -227,6 +229,11 @@ objects.
 | `Integer`, `Long` | Range/size constants; signed and unsigned parsing/comparison; decimal/radix, hexadecimal, octal and binary text; hash/compare, bit count, leading zeros, rotation and sign. |
 | `Float`, `Double` | Range/size/minimum-normal/infinity/NaN constants; Java-shaped parsing and shortest text; finite predicates, ordered comparison and canonical/raw bit/hash conversion. |
 | `Math` | Common min/max/round/floor/ceil/pow and trigonometric, exponential, logarithmic, cube-root and hypot functions; checked arithmetic; floor division/modulus; sign, clamp, random, rint, angles and constants. Platform math does not claim `StrictMath` cross-platform reproducibility. |
+
+`Double.doubleToRawLongBits(double)` returns the binary64 layout with a NaN's
+sign and payload intact, while `doubleToLongBits` collapses every NaN to
+`0x7ff8000000000000L`; `Float` has the canonical `floatToIntBits` only. The
+raw conversion inlines to a plain bit move at `-O3` (D268).
 
 `Float.parseFloat(String)` and `Double.parseDouble(String)` accept Java 21
 decimal and hexadecimal syntax, exponents, suffixes, whitespace, NaN, and
@@ -515,6 +522,32 @@ and explicit iteration borrow the reusable iterator returned by current
 collections rather than allocating one iterator per traversal; see the
 collection rules below and [Owned Helper Borrows](OWNED_HELPER_BORROWS.md).
 
+## `ironwood.util.zip`
+
+`CRC32` computes the checksum that ZIP entries and GZIP members record for
+their uncompressed bytes, with Java 21's `java.util.zip.CRC32` behavior for
+every call its surface admits (see
+[D274](DECISIONS.md#d274---provide-the-public-crc32-slice-of-compression-and-checksums)):
+
+- `CRC32()`, `reset()`, `update(int)`, `update(byte[])`,
+  `update(byte[], int, int)` and `getValue()`. A new or reset checksum is 0;
+  `update(int)` adds the argument's low eight bits, so widened bytes, chars,
+  shorts and negative ints behave as in Java; `getValue()` returns the
+  unsigned 32-bit value and leaves the checksum ready for further updates.
+- A null array throws NullPointerException; a negative offset or length, or a
+  range past the end, throws ArrayIndexOutOfBoundsException with Java's range
+  text before any byte is added.
+- The class is not final. `update(byte[])` delegates to the dynamically
+  selected range update, as Java's `Checksum` default does, so an override of
+  the range update also sees whole-array updates.
+- Updates, reads and resets allocate nothing and borrow the array only for the
+  call, so a caller may free it afterwards. An override that retains the array
+  makes that free a compile-time error. The first use allocates the
+  process-lived tables once.
+
+The `Checksum` interface, `update(ByteBuffer)` and the ZIP and GZIP stream APIs
+are not provided; calls to them fail to compile.
+
 ## `ironwood.nio`
 
 | Type | Current surface |
@@ -545,9 +578,9 @@ basic file attributes, and controlled recursive visitor traversal.
 
 | Type | Current surface |
 | --- | --- |
-| `Path` | `Comparable<Path>` interface with one/two-component `of`, text/equality/hash, absolute/root/file-name/parent/name-count/index queries, prefixes, resolution, relativization, normalization, and absolute conversion. Returned path values are caller-owned. |
+| `Path` | `Comparable<Path>` interface with one/two-component `of`, text/equality/hash, absolute/root/file-name/parent/name-count/index queries, prefixes, resolution, relativization, normalization, absolute conversion, and host real-path resolution (`toRealPath`). Returned path values are caller-owned. |
 | `Paths` | Fixed-arity `get(String)` factory corresponding to Java's common one-component varargs call. |
-| `Files` | Existing whole-file/factory/metadata calls plus delete, recursive createDirectories, no-replace copy/move, strict-UTF-8 readAllLines returning `ironwood.ds.ArrayList<String>`, and recursive `walkFileTree`. Calls borrow paths/content and retain no caller reference. |
+| `Files` | Existing whole-file/factory/metadata calls plus delete and `deleteIfExists`, recursive createDirectories, no-replace copy/move, the publication moves `moveAtomicReplacing`, `moveReplacing` and `moveAtomicNoReplace`, exclusive temporary files and directories, advisory `isReadable`/`isExecutable`, the no-follow `readAttributesNoFollow` helper, strict-UTF-8 readAllLines returning `ironwood.ds.ArrayList<String>`, and recursive `walkFileTree`. Calls borrow paths/content and retain no caller reference. |
 | `DirectoryStream<T>` | Closeable, single-iterator directory view. `hasNext()` performs allocation-free lookahead, and ownership-aware `nextEntry()` returns a fresh caller-owned path. Explicit close releases the native handle. |
 | `FileVisitResult`, `FileVisitor<T>`, `SimpleFileVisitor<T>` | Java-shaped traversal control, callback contract, and default continue/rethrow behavior. |
 | `BasicFileAttributes` | Common size, timestamp, and file-kind queries. The default read follows symbolic links; `fileKey()` is null. |
@@ -558,6 +591,7 @@ basic file attributes, and controlled recursive visitor traversal.
 | `FileSystemLoopException` | Checked `FileSystemException` delivered when followed-link traversal reaches an ancestor directory. |
 | `NoSuchFileException` | Checked `FileSystemException` specialization used by missing-path whole-file operations. |
 | `AccessDeniedException`, `FileAlreadyExistsException`, `DirectoryNotEmptyException` | Specific FileSystemException failures for permission, no-replace and non-empty-directory cases. |
+| `AtomicMoveNotSupportedException` | FileSystemException for a publication move that cannot keep its selected guarantee: an atomic rename across file systems, or an exclusive rename the host or file system cannot supply. Nothing has changed. |
 
 Construction and `normalize()` are lexical and perform no filesystem access.
 Each non-null built-in path result allocates only its wrapper and owned String;
@@ -576,6 +610,53 @@ follows links, while `Files.isSymbolicLink(Path)` performs a no-follow query.
 Creation time is epoch zero when the host does not report it. Attribute times
 have millisecond resolution.
 
+`Files.createTempFile` and `createTempDirectory` create the entry exclusively,
+with owner-only permissions (0600 or 0700 before the umask), and never replace
+an existing entry. The name is the prefix, an unsigned decimal value from the
+host's secure random source (`arc4random_buf` on macOS; the `getrandom` system
+call on Linux, or `/dev/urandom` on kernels without it) and the suffix; without
+a secure source the creation fails. A null prefix means none and a null file
+suffix means `.tmp`. NUL fails with `InvalidPathException` and a name that
+would have a parent with `IllegalArgumentException`, as Java decides both from
+the generated name. The overloads without a directory use
+`System.getProperty("java.io.tmpdir")` (a nonempty `TMPDIR`, otherwise `/tmp`)
+and report its failure without trying another directory. The returned path is
+fresh and caller-owned; freeing it never deletes the entry. Attribute-varargs
+overloads are omitted. The path object exists before the entry is created, so
+no managed allocation follows creation; a failed result String removes the new
+entry before the allocation failure propagates.
+
+`Path.toRealPath()` resolves the path's own spelling through the host
+(`realpath`), so `..` after a symbolic link follows the link; the empty path
+resolves the current directory. The `LinkOption` overload is absent.
+`Files.isReadable` and `isExecutable` are advisory `access(2)` checks that
+follow links and return false on any failure. `Files.deleteIfExists` returns
+false only for absence. `Files.readAttributesNoFollow(Path)` stands for Java's
+`readAttributes(path, BasicFileAttributes.class, NOFOLLOW_LINKS)`.
+
+Three distinctly named moves publish staged output, each with its own
+guarantee and no silent fallback to a weaker one. `moveAtomicReplacing` is one
+`rename(2)`: an existing target is replaced atomically, a link is renamed (not
+followed), names that already denote the same file are left alone, and a move
+across file systems fails with `AtomicMoveNotSupportedException`.
+`moveReplacing` renames in the same way; only a regular file moved across file
+systems is copied, with its mode and times, into an exclusive temporary beside
+the target that then replaces it atomically before the source is removed, so a
+failure before that replacement keeps the earlier target and the source. A
+source left behind after the replacement is reported with a
+`FileSystemException` whose reason is `Target replaced; source not removed`;
+the target is not rolled back. `moveAtomicNoReplace` renames only if nothing,
+not even a dangling link, exists at the target, deciding and renaming in one
+host operation (`renamex_np` with `RENAME_EXCL` on macOS, the `renameat2`
+system call with `RENAME_NOREPLACE` on Linux), so of competing creators exactly
+one wins. An existing target, including the same file, fails with
+`FileAlreadyExistsException`; a host or file system without exclusive rename,
+or another file system, fails with `AtomicMoveNotSupportedException`. The
+existing `Files.move` keeps Java's default behavior, a check followed by a
+rename, and is not an atomic no-replace primitive under a competing creator.
+Each move borrows both paths and returns the caller's target, not a fresh path.
+Atomic visibility is not a durability guarantee after a crash.
+
 `Files.walkFileTree(Path, FileVisitor<Path>)` performs a no-follow depth-first
 walk. The fixed-arity `(Path, int, boolean, FileVisitor<Path>)` overload selects
 maximum depth and link following without introducing Java's absent
@@ -583,7 +664,9 @@ maximum depth and link following without introducing Java's absent
 skipping, and sibling skipping. Streams close before post-visit callbacks and
 also close on abrupt callback completion. Follow-link traversal compares each
 directory with its ancestors and reports cycles through
-`FileSystemLoopException`.
+`FileSystemLoopException`. An allocation failure anywhere in a walk, including
+while a directory's stream or loop check is being built, releases that
+directory's attributes before it propagates (D276).
 
 Callback paths and attributes are borrowed until the callback returns. The
 compiler checks every possible closed-world visitor target and rejects a walk
@@ -610,11 +693,48 @@ spellings; this adds no new path-length limit.
 
 The fixed-arity factories and write calls preserve Java source calls without a
 hidden varargs allocation. Whole-file lengths are limited to Ironwood's signed
-32-bit array range. Charset overloads, option enums, temporary paths,
+32-bit array range. Charset overloads, option enums,
 `Files.list`, and an `ironwood.io.File` legacy facade remain absent after U5.
 `Files.list` waits for the separately excluded
 Streams/lambda design.
 See also the runnable [`projects/minigrep`](../projects/minigrep) application.
+
+## `ironwood.process`
+
+`ProcessRunner.runToFile(String[] command, Path directory, Path output)` runs
+an external program synchronously and returns a fresh `ProcessResult`. It is a
+narrower facility than Java's `ProcessBuilder`/`Process` (see
+[D272](DECISIONS.md#d272---run-external-programs-synchronously-by-absolute-path)):
+
+- `command[0]` must be an absolute executable path; it is executed directly,
+  with no PATH search and no shell, so every argument (spaces, quotes, `$`,
+  `*`, `;`) reaches the program literally. Bare and relative names, an empty
+  command and NUL fail with IllegalArgumentException before any launch.
+- The program inherits the environment and runs in `directory`, or in the
+  caller's working directory when it is null; the caller's directory never
+  changes. Standard input is empty. Standard output and standard error are
+  merged into `output`, created or truncated first and resolved against the
+  caller's directory, not the program's. Strings are encoded as UTF-8 with
+  U+FFFD for an unpaired surrogate.
+- The call waits and always reaps the program. A program that exits, with any
+  status including 127, or that a signal ends, is a result: `exitValue()` is
+  the exit status or 128 plus the signal number, as Java reports it on POSIX
+  hosts, and `signaled()`/`signal()` tell the two apart. A program that cannot
+  start fails instead: NoSuchFileException or AccessDeniedException naming the
+  executable, the directory or the output, or a FileSystemException such as
+  `Exec format error` (there is no shell fallback).
+- The command array, its Strings and both paths are borrowed for the call and
+  retained by neither the library nor the native launch; the compiler's audited
+  contract lets the caller free a String placed in the command after the call.
+  The result holds only primitive status, never a live process or stream.
+- The launch is `fork`/`execv` on both supported hosts. Descriptors the
+  runtime opens are close-on-exec; a descriptor the caller's process inherited
+  without close-on-exec reaches the program. The program stays in the caller's
+  process group, so a terminal interrupt reaches both; a signal sent to the
+  caller alone does not stop the program.
+
+Environment maps, pipes, asynchronous waits, timeouts and kill APIs are absent;
+the reduced `ProcessBuilder`/`Process` design remains a separate roadmap item.
 
 ## `ironwood.pool`
 
@@ -697,7 +817,7 @@ read its value before advancing the iterator again.
 
 | Type | Storage and behavior |
 | --- | --- |
-| `ArrayList<E>` | Resizable generic array list with configurable initial capacity/growth, front/back addition and removal, indexed insertion/access/replacement/removal, forward/reverse value lookup and removal, clearing, value equality/hash/text, and reusable iteration. |
+| `ArrayList<E>` | Resizable generic array list with configurable initial capacity/growth, front/back addition and removal, indexed insertion/access/replacement/removal, forward/reverse value lookup and removal, clearing, value equality/hash/text, and reusable iteration, plus independent ordered shallow `copy()` and stable `sortWithComparator(Comparator<? super E>)`. |
 | `UnmodifiableList<E>` | Live read-only view of an `ArrayList<E>` with indexed access, forward/reverse lookup, containment, and reusable iteration. Every exposed mutation, including `set`, and iterator removal raises `UnsupportedOperationException`. |
 | `LinkedList<E>` | Generic doubly linked list with pooled nodes, front/back operations, value containment, clearing, value equality/hash/text, and reusable iteration/removal. |
 | `ArrayLinkedList<E>` | Fixed array plus pooled linked overflow, with tail addition/removal, value containment, `clear(boolean nullifyLiveArrayPrefix)`, value equality/hash/text, and composite reusable iteration. |
@@ -718,6 +838,28 @@ constructors are absent. Callers can select initial capacity and growth when
 constructing a list, use ordinary iteration for list-to-list copying, and use
 `System.arraycopy` or `Arrays.copyOf` for bulk array operations.
 
+`ArrayList.copy()` owns a separate backing array and reusable iterator, borrows
+all element references, preserves membership order, and leaves the source
+iterator position untouched. Its initial capacity is `max(1, size())`, with the
+default growth factor. An ordinary list copy uses three allocations regardless
+of size and reclaims partial storage on failure. Copies do not share source
+capacity or iterator state. Clearing or destroying one list does not discharge
+another list's item loans. Self-items, nested containers and published callbacks
+retain their real dependencies; see [D248](DECISIONS.md#d248---derive-list-copy-item-loans-from-verified-storage-reads).
+
+`ArrayList.sortWithComparator(Comparator<? super E>)` sorts `[0, size())`
+stably in place: equal elements keep their encounter order, and size, capacity,
+growth and the reusable iterator's index are unchanged. The comparator is
+required; `null` throws `NullPointerException`, even for an empty list, and
+there is no Java `List.sort(null)` natural-order fallback or `sort` name. It
+takes O(n log n) comparisons (n - 1 for sorted input), sorts at most sixteen
+elements without workspace and otherwise allocates one `size() / 2` reference
+array, freed on every exit. A comparator exception propagates and leaves the
+same elements in an unspecified order; a comparator must not mutate the list.
+The call is not an audited container operation, so it conservatively exposes
+the stored elements: they cannot be freed afterwards, while the list,
+comparator and workspace retire normally; see [D263](DECISIONS.md#d263---sort-array-lists-stably-with-an-explicit-comparator).
+
 Resizable list implementations copy live values into a fresh backing array and
 explicitly free the detached old array. Linked implementations clear user
 references before recycling detached nodes.
@@ -727,6 +869,21 @@ references before recycling detached nodes.
 Map iterators traverse values. After `next()`, the current key is available
 through the concrete map's `getCurrIteratorKey()` method. Iterators support
 removal and are reused by the owning map.
+
+`HashMap.copy()`, `IdentityHashMap.copy()` and `LinkedHashMap.copy()` create
+independent mutable membership with fresh buckets, entries, entry pools and
+iterator state. Keys and values remain borrowed and non-null. Copies use load
+factor 1.0 and at least one bucket, sized to current membership. Value maps
+rerun key hash/equality callbacks, propagating exceptions after destination
+cleanup; identity copies invoke no key callbacks. Linked copies preserve
+insertion order. Copy traversal does not reset the source iterator. At measured
+sizes 8, 32, 128 and 512, copies allocate one entry per member plus seven support
+objects; an empty copy uses eight allocations. The inherited float-based capacity
+threshold can round down at very large sizes and trigger additional growth, so
+these counts are not a bound for every capacity. Caller-owned inputs must remain
+alive while observable. Current proofs discharge membership loans on clear or destruction,
+subject to retained aliases; individual removal does not discharge a loan.
+See [the map-copy qualification](self-hosting/m1/MAPS.md).
 Hash-map iterator removal unlinks the last returned entry from its own bucket
 and returns that entry to its pool. Other mappings, including colliding entries
 and entries in previously visited buckets, remain intact.
@@ -766,6 +923,20 @@ limited to the current heap-backed NIO surface.
 | `LinkedHashSet<E>` | Value-based set with insertion-order iteration and rendering. |
 | `IntSet` | Primitive `int` set with a reusable `IntHolder` iterator. |
 | `LongSet` | Primitive `long` set with a reusable `LongHolder` iterator. |
+
+`HashSet.copy()`, `IdentityHashSet.copy()` and `LinkedHashSet.copy()` own
+independent mutable membership, map storage and reusable iterators. Non-null
+items remain borrowed; destruction never frees caller-owned items. The backing
+map uses load factor 1.0 and initial capacity `max(1, size())`, without copying
+unused source pool capacity. Source iterator positions remain unchanged. Value
+copies rerun ordinary hash/equality callbacks and propagate exceptions after
+cleanup; callbacks must not mutate source membership. Identity copies invoke no
+item callbacks, and linked copies preserve insertion order. Empty copies use
+ten allocations; measured sizes 8, 32, 128 and 512 use one entry per item plus
+nine support objects. The backing map's inherited float-based capacity threshold
+can trigger additional growth at very large sizes; these counts are not a bound
+for every capacity. Clear/destruction can discharge membership loans subject to
+retained aliases; individual removal does not. See [the set-copy qualification](self-hosting/m1/SETS.md).
 
 `HashSet`, `LinkedHashSet`, `IntSet`, and `LongSet` each use one private static
 `Object` as the non-null value stored in their backing map. The first active use

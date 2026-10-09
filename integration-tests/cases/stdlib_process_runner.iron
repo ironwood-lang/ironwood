@@ -1,0 +1,243 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// M4.3 process runner cases against integration-tests/runtime/process_helper.c.
+// Arguments: the helper's absolute path, the scratch directory (also this
+// program's working directory), its child directory, a missing tool, a
+// non-executable file, a file of an unknown executable format, a shell
+// script and a missing directory. Each case prints one line with the scratch
+// path replaced by <s>; the test compares the lines. Paths come from the
+// arguments, so no case frees a String it placed in a command; the two cases
+// with fresh special Strings call the runner directly. Exit 42.
+import ironwood.io.FileInputStream;
+import ironwood.io.IOException;
+import ironwood.nio.file.AccessDeniedException;
+import ironwood.nio.file.DirectoryStream;
+import ironwood.nio.file.FileSystemException;
+import ironwood.nio.file.Files;
+import ironwood.nio.file.NoSuchFileException;
+import ironwood.nio.file.Path;
+import ironwood.process.ProcessResult;
+import ironwood.process.ProcessRunner;
+
+class Main {
+
+    static String helper;
+    static String scratch;
+
+    public static int main(String[] args) throws IOException {
+
+        helper = args[0];
+        scratch = args[1];
+        String child = args[2];
+        launch("exit 0", null, "out.log", helper, "exit", "0");
+        launch("exit 3", null, "out.log", helper, "exit", "3");
+        launch("child exit 127", null, "out.log", helper, "exit", "127");
+        launch("signal 15", null, "out.log", helper, "signal", "15");
+        launch("signal 9", null, "out.log", helper, "signal", "9");
+        literals();
+        launch("environment", null, "out.log", helper, "env", "M4_PROBE");
+        launch("child directory", child, "out.log", helper, "cwd", null);
+        launch("inherited directory", null, "out.log", helper, "cwd", null);
+        launch("relative output", child, "relative.log", helper, "cwd", null);
+        Path here = Path.of("relative.log");
+        defer free here;
+        Path there = Path.of("child/relative.log");
+        defer free there;
+        System.out.println(Files.exists(here) && !Files.exists(there)
+                ? "relative output -> written in the parent's directory" : "relative output -> misplaced");
+        launch("stdin", null, "out.log", helper, "stdin", null);
+        launch("large output", null, "large.log", helper, "large", "1048576");
+        descriptors();
+        launch("missing executable", null, "out.log", args[3], null, null);
+        launch("not executable", null, "out.log", args[4], null, null);
+        launch("directory executable", null, "out.log", child, null, null);
+        launch("unknown format", null, "out.log", args[5], null, null);
+        launch("shell script", null, "out.log", args[6], "x y", null);
+        launch("missing directory", args[7], "out.log", helper, "exit", "0");
+        launch("file as directory", args[4], "out.log", helper, "exit", "0");
+        launch("missing output parent", null, "missing-dir/out.log", helper, "exit", "0");
+        launch("directory as output", null, "child", helper, "exit", "0");
+        String[] empty = {};
+        defer free empty;
+        run("empty command", empty, null, "out.log");
+        launch("relative executable", null, "out.log", "process_helper", "exit", "0");
+        repeated();
+        return 42;
+    }
+
+    // Spaces, quotes, shell metacharacters, an empty argument, Unicode and an
+    // unpaired surrogate reach the program literally; NUL is rejected.
+    static void literals() throws IOException {
+
+        Path output = Path.of("out.log");
+        defer free output;
+        String surrogate = text((char) 0xD800);
+        defer free surrogate;
+        String[] literal = {helper, "argv", "a b", "'q'", "\"d\"", "$HOME", "*", ";|&", "back\\slash", "", "🌲",
+                surrogate};
+        defer free literal;
+        ProcessResult result = ProcessRunner.runToFile(literal, null, output);
+        defer free result;
+        completed("literal argv", result, output);
+        String nul = text((char) 0);
+        defer free nul;
+        String[] withNul = {helper, "argv", nul};
+        defer free withNul;
+        try {
+            ProcessResult rejected = ProcessRunner.runToFile(withNul, null, output);
+            free rejected;
+            System.out.println("NUL argument -> launched");
+        } catch (IllegalArgumentException expected) {
+            System.out.println("NUL argument -> !IllegalArgumentException");
+        }
+    }
+
+    // Up to two arguments; a null argument ends the list.
+    static void launch(String name, String directory, String output, String executable, String first,
+                       String second) {
+
+        int length = first == null ? 1 : second == null ? 2 : 3;
+        String[] command = new String[length];
+        defer free command;
+        command[0] = executable;
+        if (length > 1) command[1] = first;
+        if (length > 2) command[2] = second;
+        run(name, command, directory, output);
+    }
+
+    static void run(String name, String[] command, String directory, String output) {
+
+        if (directory == null) {
+            attempt(name, command, null, output);
+            return;
+        }
+        Path directoryPath = Path.of(directory);
+        defer free directoryPath;
+        attempt(name, command, directoryPath, output);
+    }
+
+    static void attempt(String name, String[] command, Path directoryPath, String output) {
+
+        Path outputPath = Path.of(output);
+        defer free outputPath;
+        try {
+            ProcessResult result = ProcessRunner.runToFile(command, directoryPath, outputPath);
+            defer free result;
+            completed(name, result, outputPath);
+        } catch (IOException failure) {
+            failed(name, failure);
+        } catch (IllegalArgumentException failure) {
+            System.out.println(name + " -> !IllegalArgumentException");
+        }
+    }
+
+    static void completed(String name, ProcessResult result, Path output) throws IOException {
+
+        StringBuilder line = new StringBuilder();
+        defer free line;
+        line.append(name).append(" -> ");
+        if (result.signaled()) line.append("signal ").append(result.signal()).append(' ');
+        line.append("exit ").append(result.exitValue());
+        long size = Files.size(output);
+        if (size > 4096L) {
+            line.append(" size ").append(size);
+        } else {
+            String text = Files.readString(output);
+            defer free text;
+            String flat = text.replace('\n', '|');
+            defer free flat;
+            line.append(" output ").append(flat);
+        }
+        emit(line);
+    }
+
+    static void failed(String name, IOException failure) {
+
+        StringBuilder line = new StringBuilder();
+        defer free line;
+        line.append(name).append(" -> !");
+        if (failure instanceof NoSuchFileException) line.append("NoSuchFileException");
+        else if (failure instanceof AccessDeniedException) line.append("AccessDeniedException");
+        else if (failure instanceof FileSystemException) line.append("FileSystemException");
+        else line.append("IOException");
+        if (failure instanceof FileSystemException) {
+            String file = ((FileSystemException) failure).getFile();
+            String reason = ((FileSystemException) failure).getReason();
+            line.append(' ').append(file == null ? "<null>" : file);
+            if (reason != null) line.append(": ").append(reason);
+        }
+        emit(line);
+    }
+
+    // While this process holds a file stream and a directory stream open,
+    // the program sees only its three standard descriptors.
+    static void descriptors() throws IOException {
+
+        Path plain = Path.of("plain.txt");
+        defer free plain;
+        FileInputStream input = new FileInputStream(plain);
+        defer free input;
+        Path here = Path.of(".");
+        defer free here;
+        DirectoryStream<Path> entries = Files.newDirectoryStream(here);
+        defer free entries;
+        launch("open descriptors", null, "out.log", helper, "fds", null);
+        entries.close();
+        input.close();
+    }
+
+    // Repeated launches leave this process's open descriptors unchanged.
+    static void repeated() throws IOException {
+
+        int before = openDescriptors();
+        String[] command = {helper, "exit", "0"};
+        defer free command;
+        Path output = Path.of("repeat.log");
+        defer free output;
+        for (int round = 0; round < 300; round++) {
+            ProcessResult result = ProcessRunner.runToFile(command, null, output);
+            int value = result.exitValue();
+            free result;
+            if (value != 0) throw new IllegalStateException();
+        }
+        int after = openDescriptors();
+        System.out.println(before == after ? "repeated 300 launches -> descriptors stable"
+                : "repeated 300 launches -> descriptors changed");
+    }
+
+    static int openDescriptors() throws IOException {
+
+        String system = System.getProperty("os.name");
+        defer free system;
+        Path directory = Path.of(system.startsWith("Mac") ? "/dev/fd" : "/proc/self/fd");
+        defer free directory;
+        DirectoryStream<Path> entries = Files.newDirectoryStream(directory);
+        defer free entries;
+        int count = 0;
+        while (entries.hasNext()) {
+            Path entry = entries.nextEntry();
+            free entry;
+            count++;
+        }
+        entries.close();
+        return count;
+    }
+
+    // A fresh String holding "a", the unit and "b".
+    static String text(char unit) {
+
+        StringBuilder value = new StringBuilder();
+        defer free value;
+        value.append('a').append(unit).append('b');
+        return value.toString();
+    }
+
+    static void emit(StringBuilder line) {
+
+        String text = line.toString();
+        defer free text;
+        String shown = text.replace(scratch, "<s>");
+        defer free shown;
+        System.out.println(shown);
+    }
+}

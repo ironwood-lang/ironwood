@@ -1,0 +1,174 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// Allocation-failure sweep for the native ownership pilot (M2.2). The harness
+// runs this program under every IRONWOOD_ALLOCATION_LIMIT from zero upward.
+// With explanations and the missing-free tracker on, it snapshots, captures
+// two join predecessors (growing the owner from capacity one), joins,
+// restores and releases them, then runs the effect analyzer with an observer
+// over a two-function chain. It either completes, exiting 43 when the joined
+// states and the effect summary match, or fails with OutOfMemoryError while
+// each snapshot, owner, builder and analyzer is retired by its defer, exiting
+// 42. A crash, a different exception or a wrong result is a failure. Nodes,
+// state versions, child versions and evidence payloads are invocation-lived.
+import ironwood.compiler.ir.IrBasicBlock;
+import ironwood.compiler.ir.IrCallInstruction;
+import ironwood.compiler.ir.IrForeignCallInstruction;
+import ironwood.compiler.ir.IrFunction;
+import ironwood.compiler.ir.IrInstruction;
+import ironwood.compiler.ir.IrOperand;
+import ironwood.compiler.ir.IrParameter;
+import ironwood.compiler.ir.IrReturnTerminator;
+import ironwood.compiler.ir.IrType;
+import ironwood.compiler.ir.IrValueReference;
+import ironwood.compiler.port.OperationVariants;
+import ironwood.compiler.port.SnapshotList;
+import ironwood.compiler.semantic.AllocationInfo;
+import ironwood.compiler.semantic.ArraySlot;
+import ironwood.compiler.semantic.ClosedWorldEffectAnalyzer;
+import ironwood.compiler.semantic.FunctionOwnership;
+import ironwood.compiler.semantic.OwnershipPaths;
+import ironwood.compiler.semantic.OwnershipSnapshot;
+import ironwood.compiler.semantic.PilotInputs;
+import ironwood.compiler.semantic.RejectedFreeEvidence;
+import ironwood.compiler.semantic.SemanticAnalysisObserver;
+import ironwood.compiler.semantic.UnfreedAllocationTracker;
+import ironwood.compiler.source.SourceFile;
+import ironwood.compiler.source.SourcePosition;
+import ironwood.compiler.source.SourceSpan;
+import ironwood.ds.ArrayList;
+
+/** Counts analyzer rounds; owns its counter. */
+final class Rounds implements SemanticAnalysisObserver {
+
+    int rounds;
+
+    Rounds() {
+
+    }
+
+    @Override public void analyzerCreated(long token, OperationVariants.AnalyzerKind kind,
+                                          OperationVariants.AnalyzerPhase phase) {
+
+    }
+
+    @Override public void analyzerRound(long token, OperationVariants.AnalyzerKind kind, int round) {
+
+        this.rounds++;
+    }
+
+    @Override public void evidenceSnapshot(boolean saved, boolean sharedEmpty, int associations) {
+
+    }
+}
+
+class Main {
+
+    public static int main(String[] args) {
+
+        try {
+            SourceFile source = SourceFile.of("Failure.iron", "class Failure {}\n");
+            SourceSpan span = SourceSpan.at(new SourcePosition(0, 1, 1));
+            return ownership(source, span) && effects(span) ? 43 : 1;
+        } catch (OutOfMemoryError failure) {
+            return 42;
+        }
+    }
+
+    static boolean ownership(SourceFile source, SourceSpan span) {
+
+        UnfreedAllocationTracker<AllocationInfo> unfreed =
+                new UnfreedAllocationTracker<AllocationInfo>(source, OperationVariants.UnfreedMode.WARN);
+        defer free unfreed;
+        RejectedFreeEvidence.Budget budget = new RejectedFreeEvidence.Budget(1048576);
+        defer free budget;
+        RejectedFreeEvidence evidence = new RejectedFreeEvidence(budget, 1048576, 1048576);
+        defer free evidence;
+        FunctionOwnership analyzer = new FunctionOwnership(source, unfreed, evidence, null);
+        defer free analyzer;
+        AllocationInfo first = new AllocationInfo(0);
+        AllocationInfo second = new AllocationInfo(1);
+        analyzer.allocations().add(first);
+        analyzer.allocations().add(second);
+        unfreed.register(first, span, "allocation", true);
+        unfreed.register(second, span, "allocation", true);
+        evidence.origin(first, source, span);
+        ArraySlot slot = new ArraySlot(second, 0);
+        analyzer.knownArraySlots().put(slot, first);
+        evidence.arrayStore(slot, source, span);
+        OwnershipSnapshot before = analyzer.snapshotOwnership();
+        defer free before;
+        defer analyzer.releaseOwnership(before);
+        OwnershipPaths paths = new OwnershipPaths(1);
+        defer free paths;
+        defer analyzer.releaseOwnership(paths);
+        analyzer.captureOwnership(paths);
+        first.setState(OperationVariants.AllocationState.ESCAPED);
+        analyzer.knownArraySlots().remove(slot);
+        analyzer.captureOwnership(paths);
+        analyzer.mergeOwnership(before, paths, "conflict");
+        boolean joined = first.state() == OperationVariants.AllocationState.UNCERTAIN
+                && second.state() == OperationVariants.AllocationState.ACTIVE
+                && !analyzer.knownArraySlots().containsKey(slot) && paths.size() == 2;
+        analyzer.restoreOwnership(before);
+        evidence.close();
+        return joined && first.state() == OperationVariants.AllocationState.ACTIVE
+                && analyzer.knownArraySlots().get(slot) == first && budget.live() == 0;
+    }
+
+    static boolean effects(SourceSpan span) {
+
+        SnapshotList<IrFunction> functions = chain(span);
+        defer free functions;
+        PilotInputs.admitEffectFunctions(functions);
+        Rounds observer = new Rounds();
+        defer free observer;
+        ClosedWorldEffectAnalyzer analyzer = new ClosedWorldEffectAnalyzer(functions, observer, 5,
+                OperationVariants.AnalyzerPhase.INITIAL);
+        defer free analyzer;
+        analyzer.analyze();
+        StringBuilder summary = new StringBuilder();
+        defer free summary;
+        analyzer.appendSummary(0, summary);
+        String text = summary.toString();
+        defer free text;
+        return observer.rounds == functions.size() + 1 && text.equals("Summary[allocates=true, throwsOutward=true, "
+                + "publishedParameters={0}, returnedParameters={0}, reclaimedParameters={0}]");
+    }
+
+    // F0 calls F1, which makes the fixed foreign call.
+    static SnapshotList<IrFunction> chain(SourceSpan span) {
+
+        IrType reference = IrType.reference("Node");
+        IrValueReference value = new IrValueReference(0, reference, span);
+        ArrayList<IrParameter> parameterBuilder = new ArrayList<IrParameter>(1);
+        defer free parameterBuilder;
+        parameterBuilder.add(new IrParameter("p0", value, span));
+        ArrayList<IrOperand> argumentBuilder = new ArrayList<IrOperand>(1);
+        defer free argumentBuilder;
+        argumentBuilder.add(value);
+        SnapshotList<IrParameter> parameters = new SnapshotList<IrParameter>(parameterBuilder);
+        SnapshotList<IrOperand> arguments = new SnapshotList<IrOperand>(argumentBuilder);
+        ArrayList<IrFunction> functions = new ArrayList<IrFunction>(2);
+        defer free functions;
+        for (int index = 0; index < 2; index++) {
+            IrValueReference result = new IrValueReference(1, reference, span);
+            ArrayList<IrInstruction> calls = new ArrayList<IrInstruction>(1);
+            defer free calls;
+            if (index == 1) {
+                calls.add(new IrForeignCallInstruction(result, PilotInputs.FOREIGN_TARGET, reference, arguments, span));
+            } else {
+                calls.add(new IrCallInstruction(result, "F1", reference, arguments, OperationVariants.CallKind.DIRECT,
+                        span));
+            }
+            ArrayList<IrBasicBlock> blocks = new ArrayList<IrBasicBlock>(1);
+            defer free blocks;
+            blocks.add(new IrBasicBlock("entry", new SnapshotList<IrInstruction>(calls),
+                    new IrReturnTerminator(result, span), span));
+            String name = "F" + index;
+            functions.add(new IrFunction("Node", name, name, reference, parameters,
+                    new SnapshotList<IrBasicBlock>(blocks), span, IrFunction.UNKNOWN_SOURCE,
+                    OperationVariants.CallableKind.METHOD));
+        }
+        return new SnapshotList<IrFunction>(functions);
+    }
+}

@@ -1,0 +1,214 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// Compiler-private LLVM text against the Java baseline's own emitter code
+// (docs/self-hosting/m3/backend-evidence/LlvmTextReference.java, which calls
+// LlvmEmitter.floatingConstant and escapeBytes and
+// OptimizedTraceMetadata.decodeSymbol by reflection, and the static
+// initializer's String.format of Double.doubleToRawLongBits): the raw-bit
+// hexadecimal and the floating constant of boundary doubles, NaN payloads,
+// widened floats and 100,000 seeded values; the escape of every byte and
+// of 2,000 seeded arrays; and the decoded units of fixed and 3,000 seeded
+// symbols with valid, invalid and malformed-UTF-8 escapes and surrogate
+// units. Native-only checks then cover allocation: each call returns one
+// fresh String and leaves nothing else live, and the not-finite rejection
+// leaves only its caught exception. Prints the shared transcript; exit 42.
+import ironwood.compiler.port.LlvmText;
+
+class Main {
+
+    static long seed = 141421L;
+    static long[] rawBits = {0L, 0x8000000000000000L, 0x3ff0000000000000L, 0xbff0000000000000L, 1L,
+        0x8000000000000001L, 0x0010000000000000L, 0x000fffffffffffffL, 0x7fefffffffffffffL, 0x7ff0000000000000L,
+        0xfff0000000000000L, 0x7ff8000000000000L, 0x7ff0000000000001L, 0xfff8000000000000L, 0x7ff8000000000001L,
+        0xffffffffffffffffL, 0x3fb999999999999aL, 0x4024000000000000L};
+    static int[] floatBits = {0, 0x80000000, 0x3f800000, 1, 0x00800000, 0x7f7fffff, 0x7f800000, 0xff800000,
+        0x7fc00000, 0x7fa00001, 0xffc00001, 0x3dcccccd};
+    static double[] scales = {1e-320, 1e-300, 1e-20, 1e-5, 0.1, 1.0, 10.0, 1e5, 1e20, 1e300};
+    static char[] plain = {'a', 'Z', '0', '.', '$', '-', '_', ' ', '\u00e9', '\u4e2d', '\ud83d', '\ude00', '\ud800',
+        '\udc00', '"', '\\', 'g'};
+    static String hexDigits = "0123456789ABCDEFabcdef";
+
+    static int next() {
+
+        seed = seed * 6364136223846793005L + 1442695040888963407L;
+        return (int) (seed >>> 33);
+    }
+
+    static long nextLong() {
+
+        return ((long) next() << 33) ^ ((long) next() << 2) ^ next();
+    }
+
+    // The static initializer's spelling: the raw bits in hexadecimal.
+    static void bits(String label, double value) {
+
+        String text = LlvmText.hexBits(Double.doubleToRawLongBits(value));
+        System.out.println(label + " " + text);
+        free text;
+    }
+
+    // LlvmEmitter.floatingConstant: NaN and the infinities as bits, else %.17e.
+    static void constant(String label, double value) {
+
+        if (Double.isNaN(value)) {
+            System.out.println(label + " 0x7FF8000000000000");
+        } else if (value == Double.POSITIVE_INFINITY) {
+            System.out.println(label + " 0x7FF0000000000000");
+        } else if (value == Double.NEGATIVE_INFINITY) {
+            System.out.println(label + " 0xFFF0000000000000");
+        } else {
+            String text = LlvmText.scientific(value);
+            System.out.println(label + " " + text);
+            free text;
+        }
+    }
+
+    static void both(String label, double value) {
+
+        bits("bits " + label, value);
+        constant("constant " + label, value);
+    }
+
+    static void values() {
+
+        for (int index = 0; index < rawBits.length; index++) both("raw " + index, Double.longBitsToDouble(rawBits[index]));
+        for (int index = 0; index < floatBits.length; index++) {
+            both("float " + index, (double) Float.intBitsToFloat(floatBits[index]));
+        }
+        for (int index = 0; index < 60000; index++) both("seeded", Double.longBitsToDouble(nextLong()));
+        for (int index = 0; index < 20000; index++) both("widened", (double) Float.intBitsToFloat(next() ^ (next() << 16)));
+        for (int index = 0; index < 20000; index++) {
+            both("decimal", (double) (next() % 2000001 - 1000000) * scales[next() % scales.length]);
+        }
+    }
+
+    static void escape(String label, byte[] bytes) {
+
+        String text = LlvmText.escapeBytes(bytes);
+        System.out.println(label + " " + text);
+        free text;
+    }
+
+    static void escapes() {
+
+        byte[] single = new byte[1];
+        defer free single;
+        for (int value = 0; value < 256; value++) {
+            single[0] = (byte) value;
+            escape("escape " + value, single);
+        }
+        byte[] empty = new byte[0];
+        escape("escape empty", empty);
+        free empty;
+        for (int index = 0; index < 2000; index++) {
+            byte[] bytes = new byte[next() % 21];
+            for (int at = 0; at < bytes.length; at++) bytes[at] = (byte) next();
+            escape("escape seeded", bytes);
+            free bytes;
+        }
+    }
+
+    // Decoded UTF-16 units in decimal, so unpaired surrogates print exactly.
+    static void decode(String label, String symbol) {
+
+        String decoded = LlvmText.decodeSymbol(symbol);
+        StringBuilder text = new StringBuilder();
+        text.append(label);
+        for (int index = 0; index < decoded.length(); index++) text.append(' ').append((int) decoded.charAt(index));
+        free decoded;
+        String line = text.toString();
+        free text;
+        System.out.println(line);
+        free line;
+    }
+
+    static void decodeUnits(String label, char[] units) {
+
+        String symbol = new String(units);
+        decode(label, symbol);
+        free symbol;
+    }
+
+    static void symbols() {
+
+        decode("decode 0", "@main");
+        decode("decode 1", "@a.b$c_d-1");
+        decode("decode 2", "@\"x\"");
+        decode("decode 3", "@\"a\\22b\"");
+        decode("decode 4", "@\"\\5C\\5c\"");
+        decode("decode 5", "@\"\\zz\\5\"");
+        decode("decode 6", "@\"\\\"");
+        decode("decode 7", "@\"\\C3\\A9\\E4\\B8\\AD\"");
+        decode("decode 8", "@\"\\C3\\E4\\B8\\F0\\9F\\98\\ED\\A0\\80\\C0\\AF\\FF\"");
+        decode("decode 9", "@\"\\F0\\9F\\98\\80\\F4\\90\\80\\80\"");
+        decode("decode 10", "@\"\"");
+        char[] pair = {'@', '"', '\ud83d', '\ude00', '\\', '4', '1', '"'};
+        decodeUnits("decode 11", pair);
+        free pair;
+        char[] lone = {'@', '"', '\ud800', 'x', '\udc00', '\u00e9', '"'};
+        decodeUnits("decode 12", lone);
+        free lone;
+        char[] bare = {'@', '\u4e2d'};
+        decodeUnits("decode 13", bare);
+        free bare;
+        for (int index = 0; index < 3000; index++) {
+            StringBuilder symbol = new StringBuilder();
+            symbol.append('@').append('"');
+            int tokens = next() % 12;
+            for (int token = 0; token < tokens; token++) {
+                int kind = next() % 4;
+                if (kind == 0) {
+                    symbol.append('\\').append(hexDigits.charAt(next() % 22)).append(hexDigits.charAt(next() % 22));
+                } else if (kind == 1) {
+                    symbol.append('\\').append(plain[next() % plain.length]);
+                } else {
+                    symbol.append(plain[next() % plain.length]);
+                }
+            }
+            symbol.append('"');
+            String text = symbol.toString();
+            free symbol;
+            decode("decode seeded " + index, text);
+            free text;
+        }
+    }
+
+    // Native-only allocation checks; the transcript above is the Java comparison.
+    static boolean contract() {
+
+        byte[] bytes = {0, 34, 92, 65, (byte) 0xff};
+        defer free bytes;
+        long live = System.liveAllocationCount();
+        String hex = LlvmText.hexBits(-1L);
+        String scientific = LlvmText.scientific(-0.0);
+        String escaped = LlvmText.escapeBytes(bytes);
+        String decoded = LlvmText.decodeSymbol("@\"\\C3\\A9\"");
+        String plainName = LlvmText.decodeSymbol("@main");
+        boolean counted = System.liveAllocationCount() == live + 5;
+        boolean spelled = hex.equals("0xFFFFFFFFFFFFFFFF") && scientific.equals("-0.00000000000000000e+00")
+                && escaped.equals("\\00\\22\\5CA\\FF") && decoded.length() == 1 && plainName.equals("main");
+        free plainName;
+        free decoded;
+        free escaped;
+        free scientific;
+        free hex;
+        if (!counted || !spelled || System.liveAllocationCount() != live) return false;
+        try {
+            String rejected = LlvmText.scientific(Double.NaN);
+            free rejected;
+            return false;
+        } catch (IllegalArgumentException expected) {
+            return System.liveAllocationCount() == live + 1;
+        }
+    }
+
+    public static int main(String[] args) {
+
+        long live = System.liveAllocationCount();
+        values();
+        escapes();
+        symbols();
+        if (System.liveAllocationCount() != live) return 1;
+        return contract() ? 42 : 2;
+    }
+}

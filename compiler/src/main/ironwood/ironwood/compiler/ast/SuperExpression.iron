@@ -1,0 +1,34 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.ast;
+
+import ironwood.compiler.source.SourceSpan;
+
+/**
+ * The direct-superclass receiver used by {@code super.field} and {@code
+ * super.method(...)}. It ports the Java frontend AST record {@code SuperExpression}.
+ * Components keep the record's order; {@code Optional} components are nullable, and
+ * list components are frozen, independent copies that the node borrows for the
+ * invocation.
+ */
+public final class SuperExpression implements Expression {
+
+    private final SourceSpan span;
+
+    /** Creates the node from its components in record order. */
+    public SuperExpression(SourceSpan span) {
+
+        this.span = span;
+    }
+
+    /** @return the {@code span} component */
+    @Override public SourceSpan span() {
+
+        return this.span;
+    }
+
+    @Override public ExpressionVariant expressionVariant() {
+
+        return ExpressionVariant.SUPER_EXPRESSION;
+    }
+}

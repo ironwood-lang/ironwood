@@ -1,0 +1,100 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.port;
+
+import ironwood.util.NoSuchElementException;
+
+/**
+ * Compiler-owned first-in first-out worklist over a reusable ring. Items are
+ * borrowed and must stay alive under their real owners while queued; taking
+ * an item removes only membership. Consumed slots are reused, so the backing
+ * storage is bounded by the largest simultaneous membership rather than by
+ * every historical request. Destruction reclaims only the ring.
+ */
+public final class WorkQueue<E extends Object> {
+
+    private static final int INITIAL_CAPACITY = 16;
+    private static final int MAXIMUM_CAPACITY = 1 << 30;
+
+    private E[] slots;
+    private int head;
+    private int count;
+
+    /** Creates an empty queue with one ring allocation. */
+    public WorkQueue() {
+
+        this.slots = new E[INITIAL_CAPACITY];
+    }
+
+    /**
+     * Appends a non-null item at the tail. Growth allocates the larger ring
+     * before changing membership, so an allocation failure leaves the queue
+     * unchanged.
+     *
+     * @param item the borrowed item
+     * @throws NullPointerException if the item is null
+     * @throws IllegalStateException if the queue cannot grow further
+     */
+    public void add(E item) {
+
+        if (item == null) throw new NullPointerException();
+        if (this.count == this.slots.length) grow();
+        this.slots[(this.head + this.count) & (this.slots.length - 1)] = item;
+        this.count = this.count + 1;
+    }
+
+    /**
+     * Removes and returns the head item without allocation.
+     *
+     * @return the borrowed item that was queued first
+     * @throws NoSuchElementException if the queue is empty
+     */
+    public E removeFirst() {
+
+        if (this.count == 0) throw new NoSuchElementException();
+        E item = this.slots[this.head];
+        this.head = (this.head + 1) & (this.slots.length - 1);
+        this.count = this.count - 1;
+        if (this.count == 0) this.head = 0;
+        return item;
+    }
+
+    /** @return whether no item is queued, without allocation */
+    public boolean isEmpty() {
+
+        return this.count == 0;
+    }
+
+    /** @return the queued item count, without allocation */
+    public int size() {
+
+        return this.count;
+    }
+
+    /** Removes all membership; queued items are not freed. */
+    public void clear() {
+
+        this.head = 0;
+        this.count = 0;
+    }
+
+    // Called only when full. If the new ring cannot be allocated, the old ring
+    // is still installed and membership is unchanged.
+    private void grow() {
+
+        int capacity = this.slots.length;
+        if (capacity >= MAXIMUM_CAPACITY) throw new IllegalStateException("work queue too large");
+        E[] previous = this.slots;
+        this.slots = new E[capacity * 2];
+        int tail = capacity - this.head;
+        System.arraycopy(previous, this.head, this.slots, 0, tail);
+        System.arraycopy(previous, 0, this.slots, tail, this.head);
+        this.head = 0;
+        free previous;
+    }
+
+    destructor {
+
+        free this.slots;
+    }
+}

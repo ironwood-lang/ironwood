@@ -1,0 +1,939 @@
+{
+  "base_commit": "6ee1377e",
+  "scope": "qualified independent map-copy increment; M1 open; no S1/G1 evaluation",
+  "m0_pins_unchanged": true,
+  "sources": [
+    {
+      "path": "compiler/src/main/java/ironwood/compiler/semantic/FreshBorrowingFactoryAnalysis.java",
+      "bytes": 26802,
+      "sha256": "d90740fedcf9e9fa1c289efdb062fff072f4a4e0eb6e89298d0a542000c7bca4"
+    },
+    {
+      "path": "compiler/src/main/java/ironwood/compiler/semantic/MapCopyFactoryAnalysis.java",
+      "bytes": 9385,
+      "sha256": "0473cf04133fcee22dbe4ef6605efa79c4e8ea6cf4bb706795ad5575d1f02a93"
+    },
+    {
+      "path": "compiler/src/main/java/ironwood/compiler/semantic/FunctionAnalyzer.java",
+      "bytes": 789982,
+      "sha256": "1c9efc0346632e13895b66682b247cb7a4fb3dcf8030632eb2f745c9075e4027"
+    },
+    {
+      "path": "compiler/src/test/java/ironwood/compiler/CompilerTests.java",
+      "bytes": 1242369,
+      "sha256": "0ca6e5d57240257dd7a823ce0e26534e12f56f7c53e002a94abf26a8df7b90b5"
+    },
+    {
+      "path": "stdlib/src/main/ironwood/ironwood/ds/HashMap.iron",
+      "bytes": 14041,
+      "sha256": "c683c7d82f837adac0c5840c3a7192b53ed4c8c289d5d14792bcfde497d4f366"
+    },
+    {
+      "path": "stdlib/src/main/ironwood/ironwood/ds/IdentityHashMap.iron",
+      "bytes": 14035,
+      "sha256": "05e138e97b5c86833b718faafb881a8b9f4b24f39c4f43bd1918b9937a877089"
+    },
+    {
+      "path": "stdlib/src/main/ironwood/ironwood/ds/LinkedHashMap.iron",
+      "bytes": 14607,
+      "sha256": "401a5bb3c810254d765e5bc61ea57add29a0855f8e766109764882db29a23bb5"
+    },
+    {
+      "path": "integration-tests/cases/ds_map_copy.iron",
+      "bytes": 5104,
+      "sha256": "153542607d50ddaae776289d7d48538b1e3362a470fc852de90e84e0a7e86f9f"
+    },
+    {
+      "path": "integration-tests/cases/ds_map_copy_membership.iron",
+      "bytes": 4848,
+      "sha256": "fffb50e6efd86fee7b08f5c505c013d52bf858fc669a49a6941252e94587d6f9"
+    },
+    {
+      "path": "integration-tests/cases/ds_map_copy_failure.iron",
+      "bytes": 1951,
+      "sha256": "e558e0baee9a98577170a6752faac1888fb6c88724aa380b8b3b53cd45aa7285"
+    },
+    {
+      "path": "integration-tests/cases/ds_map_copy_callback_failure.iron",
+      "bytes": 3470,
+      "sha256": "2b56699ed42a2131db7b2df72c07e1ce7f0a0c6ed3d5c7cf666d06adba95e3fb"
+    },
+    {
+      "path": "integration-tests/fixtures/MapCopyReference.java",
+      "bytes": 3420,
+      "sha256": "35dfa63db6bcfbcc404892196c3975867588e99af9c0f96fc77a6164d7b6047b"
+    }
+  ],
+  "artifacts": [
+    {
+      "path": "compiler/build/ironwoodc.jar",
+      "bytes": 2339790,
+      "sha256": "e9b483ecf2adc9e96a08c42f6732cc3db5c231e195752f321af87bccd3d48118"
+    },
+    {
+      "path": "compiler/build/ironwood-stdlib.ironjar",
+      "bytes": 873457,
+      "sha256": "c839895b6f64e593bb7fc1b073be55af2472fb1ca0c0fa42454b71307c917ab6"
+    },
+    {
+      "path": "compiler/build/classes/ironwood/compiler/semantic/FreshBorrowingFactoryAnalysis.class",
+      "bytes": 24313,
+      "sha256": "68ea98f8ed361e6f6e9f1d207b728fc97f7fe388a4414b8c109bd2e714d57fca"
+    },
+    {
+      "path": "compiler/build/classes/ironwood/compiler/semantic/MapCopyFactoryAnalysis.class",
+      "bytes": 11326,
+      "sha256": "143c4dd255dffe28510cfce7c5f5a6795df600c89e7e56644d3a2fa05e8c6d40"
+    },
+    {
+      "path": "compiler/build/classes/ironwood/compiler/semantic/FunctionAnalyzer.class",
+      "bytes": 447847,
+      "sha256": "14f7853d239f4d71a1faf734e26648e91b490c9e191590e27770fb67b533221a"
+    },
+    {
+      "path": "compiler/build/classes/ironwood/compiler/semantic/FunctionAnalyzer$AllocationInfo.class",
+      "bytes": 2842,
+      "sha256": "6a1841ef4063a88040e100c4714203ecc505acac42c1cf5780102d1605a28ec8"
+    },
+    {
+      "path": "compiler/build/classes/ironwood/compiler/semantic/EscapeSummaryAnalyzer.class",
+      "bytes": 74709,
+      "sha256": "943bd80895c112d5c9fb5688188b6368fbe2fac0c1a015eaf28fef92999142aa"
+    },
+    {
+      "path": "compiler/build/test-classes/ironwood/compiler/CompilerTests.class",
+      "bytes": 870719,
+      "sha256": "b89ce79eb961d5e59bf9e065348bfd7d877189433892b6eb684af4ad2a397e14"
+    },
+    {
+      "path": "runtime/src/ironwood_runtime.c",
+      "bytes": 154433,
+      "sha256": "db1556358c69d2ecded75308b402ee703a246574bd535863946d68751bb76b1e"
+    },
+    {
+      "path": "workspace/m1/qualified-ds_map_copy-native",
+      "bytes": 409600,
+      "sha256": "bfb70ed387ede184061255e7dde33b5cd325d4d1d237097161f7b3407e99cbe3"
+    },
+    {
+      "path": "workspace/m1/qualified-ds_map_copy_membership-native",
+      "bytes": 342104,
+      "sha256": "641f2f4550a62228b880b9bf6ffd23841a1f1b223dce9c1dcd650a1d56d92b4c"
+    },
+    {
+      "path": "workspace/m1/qualified-ds_map_copy_failure-native",
+      "bytes": 291992,
+      "sha256": "4e31ae9d9be6c4f070ca24eafd66bba38bdc835fc65f0d5f5a23b538b62bf482"
+    },
+    {
+      "path": "workspace/m1/qualified-ds_map_copy_callback_failure-native",
+      "bytes": 258512,
+      "sha256": "1712909ec527616df6e5b7b7a9e8c24bba910a802f3f56f48e1d0bf4f297833d"
+    }
+  ],
+  "tool_artifacts": [
+    {
+      "path": "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home/bin/java",
+      "bytes": 69936,
+      "sha256": "00e1f85b58fbb7b9e28c78740288028fc3d5146fc2810b78fe4f1a3ed7765d98"
+    },
+    {
+      "path": "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home/bin/javac",
+      "bytes": 69856,
+      "sha256": "7c23e4d156cf9787bc072ddb6c851aec909d0581638cef021d7771b37adf1ce8"
+    },
+    {
+      "path": "/opt/homebrew/opt/llvm@23/bin/clang",
+      "bytes": 138440,
+      "sha256": "4e4fd968922cd634ebb6445325703a6276effde7b39337a6a9ff40b3b0c657b8"
+    }
+  ],
+  "logs": [
+    {
+      "path": "docs/self-hosting/m1/map-evidence/IdentityHashMap-safe.log.gz",
+      "bytes": 121,
+      "sha256": "0c9f78cf551f880c422c304dc52de00551156db93f55bc2c55e10e8378d858c4",
+      "uncompressed_bytes": 212,
+      "uncompressed_sha256": "c3913fe10224e5093b4d1b962b38b70d33e61b89693454868e0a1a6e7fbf673c",
+      "warnings": 0,
+      "errors": 0,
+      "classification": "historical probe or earlier focused verification; see MAPS.md"
+    },
+    {
+      "path": "docs/self-hosting/m1/map-evidence/LinkedHashMap-safe.log.gz",
+      "bytes": 119,
+      "sha256": "5d2cdb0873c47aac2d635aef48614765f1e4a4a274302d99d688b7bbf6c072c2",
+      "uncompressed_bytes": 208,
+      "uncompressed_sha256": "85d489b0aeecf7e48adc4cbe565b4e3356cf8d03c1c964fc39a9f30d585ae646",
+      "warnings": 0,
+      "errors": 0,
+      "classification": "historical probe or earlier focused verification; see MAPS.md"
+    },
+    {
+      "path": "docs/self-hosting/m1/map-evidence/ds_map_copy-compile.log.gz",
+      "bytes": 118,
+      "sha256": "89bc765067fe75c4cdf435d9bdd01d340b4820307516b1de211475634f9f6dce",
+      "uncompressed_bytes": 292,
+      "uncompressed_sha256": "db46245e81aab8c794f350e8b333a265544bf051c254a2e7727dc7bccbef5d64",
+      "warnings": 0,
+      "errors": 0,
+      "classification": "historical probe or earlier focused verification; see MAPS.md"
+    },
+    {
+      "path": "docs/self-hosting/m1/map-evidence/ds_map_copy_callback_failure-compile-final-probe.log.gz",
+      "bytes": 291,
+      "sha256": "ae3cd3816773090b7904150f172b3202934728c91e6756b6948fa30a616efb2b",
+      "uncompressed_bytes": 2010,
+      "uncompressed_sha256": "b76cfb9a6540d46bd25ae92d8ec93dc3eda3ad7c931ec18547ca4ca79e2fcaba",
+      "warnings": 0,
+      "errors": 6,
+      "classification": "historical probe or earlier focused verification; see MAPS.md"
+    },
+    {
+      "path": "docs/self-hosting/m1/map-evidence/ds_map_copy_failure-compile.log.gz",
+      "bytes": 109,
+      "sha256": "b185cabd7b679fcaedf54a87e8f3c6cf550e7e8cc0d8b2d45ac579fe45a4c926",
+      "uncompressed_bytes": 105,
+      "uncompressed_sha256": "949d2fd8efed07c6eb24c46eff106dba02422b53f8eba913fd1253c01cb0ac22",
+      "warnings": 0,
+      "errors": 0,
+      "classification": "historical probe or earlier focused verification; see MAPS.md"
+    },
+    {
+      "path": "docs/self-hosting/m1/map-evidence/ds_map_copy_membership-compile-final-probe.log.gz",
+      "bytes": 218,
+      "sha256": "0490647c59a7384e99a5d14ff8ba9c5eaf0da9e9c4548237aab2816b00713ecd",
+      "uncompressed_bytes": 312,
+      "uncompressed_sha256": "ccd60795740c5599b95ff79c6f0de7e83dc577abdc8af9fe7c7154c057841977",
+      "warnings": 0,
+      "errors": 1,
+      "classification": "historical probe or earlier focused verification; see MAPS.md"
+    },
+    {
+      "path": "docs/self-hosting/m1/map-evidence/ds_map_copy_membership-compile.log.gz",
+      "bytes": 110,
+      "sha256": "daea7c5ef6763ef29ff062764f4ba7f1e3e314af8b5f07e8c13444c9f15222a9",
+      "uncompressed_bytes": 108,
+      "uncompressed_sha256": "56d36c5c70db045ab175274eff70cc194dc426f74b708b0aa1f0b9534326a1b9",
+      "warnings": 0,
+      "errors": 0,
+      "classification": "historical probe or earlier focused verification; see MAPS.md"
+    },
+    {
+      "path": "docs/self-hosting/m1/map-evidence/map-copy-callback-compile.log.gz",
+      "bytes": 291,
+      "sha256": "f993d2d12962095d156571b76b2bf8a1d74bd960d743465378472e1791cbd760",
+      "uncompressed_bytes": 2004,
+      "uncompressed_sha256": "ecd3d3335d87aaf459ff111d8e70f3b179e4c51e4167a2a3a41b7b8575461f21",
+      "warnings": 0,
+      "errors": 6,
+      "classification": "historical probe or earlier focused verification; see MAPS.md"
+    },
+    {
+      "path": "docs/self-hosting/m1/map-evidence/map-copy-compile.log.gz",
+      "bytes": 613,
+      "sha256": "1730fe5f37efd9bb4469c22b6a8e862f413f6eacf3acfb1b13c4a40f853e626b",
+      "uncompressed_bytes": 3800,
+      "uncompressed_sha256": "173acb6699fd01dab0470508ec616ff53c6ccec0158779a232ff6e53f815d655",
+      "warnings": 0,
+      "errors": 15,
+      "classification": "historical probe or earlier focused verification; see MAPS.md"
+    },
+    {
+      "path": "docs/self-hosting/m1/map-evidence/map-copy-compile2.log.gz",
+      "bytes": 314,
+      "sha256": "874e1cc504825bd370a8f6cdb3d8b83b4d9dc72ccec3628cde71ebb90841d8d9",
+      "uncompressed_bytes": 971,
+      "uncompressed_sha256": "c196bf3b970dedbe6fc7e59eba41e0bb1bbb999ab5e93fbd3e922fe9076a4231",
+      "warnings": 0,
+      "errors": 4,
+      "classification": "historical probe or earlier focused verification; see MAPS.md"
+    },
+    {
+      "path": "docs/self-hosting/m1/map-evidence/map-copy-compile3.log.gz",
+      "bytes": 202,
+      "sha256": "39fc19570e644d0056c1683aa0d860274c81ab61be67f2109eacb9932dc69b19",
+      "uncompressed_bytes": 251,
+      "uncompressed_sha256": "e1f9af4f6cf2d2e7d7f32a639fbf82cccf5291fa9eb1ccadc6acbbcc52142755",
+      "warnings": 0,
+      "errors": 1,
+      "classification": "historical probe or earlier focused verification; see MAPS.md"
+    },
+    {
+      "path": "docs/self-hosting/m1/map-evidence/map-copy-compile4.log.gz",
+      "bytes": 209,
+      "sha256": "8ab604107e9327c8ad3dc3425c570fbd7e07220135fba4aba18c967b3cf1a379",
+      "uncompressed_bytes": 472,
+      "uncompressed_sha256": "93fb665ff2a32d54722d0d562ac12b2aa6f02d50c52cc89ed62ad857c2c6fa2c",
+      "warnings": 0,
+      "errors": 2,
+      "classification": "historical probe or earlier focused verification; see MAPS.md"
+    },
+    {
+      "path": "docs/self-hosting/m1/map-evidence/map-copy-expanded-tests.log.gz",
+      "bytes": 2144,
+      "sha256": "25bdb8a7862280b549b23960fd5090489c969c892a9022e34f70eab8d5571047",
+      "uncompressed_bytes": 29454,
+      "uncompressed_sha256": "5d1a203041bdc58db0a631266f30a2eeb75253e8a54f4276be3bfec7dc347b94",
+      "warnings": 0,
+      "errors": 0,
+      "classification": "historical probe or earlier focused verification; see MAPS.md"
+    },
+    {
+      "path": "docs/self-hosting/m1/map-evidence/map-copy-final-tests.log.gz",
+      "bytes": 1895,
+      "sha256": "1e94bd629d594d50d966842e70bafa7eed5342dba38188dc8fb40ff2090a242f",
+      "uncompressed_bytes": 28809,
+      "uncompressed_sha256": "7b630e25349c99dd954e942b502191ac3a78b0d34f54fe3a657efb0a4aed6900",
+      "warnings": 0,
+      "errors": 0,
+      "classification": "qualified"
+    },
+    {
+      "path": "docs/self-hosting/m1/map-evidence/map-copy-focused-tests.log.gz",
+      "bytes": 234,
+      "sha256": "fada4bffa9a7c264d1f14c66c8875a537b1bc216d7b4ba5a027a9f969fc78bf5",
+      "uncompressed_bytes": 588,
+      "uncompressed_sha256": "f253e0559f0326e82f21922d332d96679c2f11a3f29fb24b75e1d8ed0a2e1991",
+      "warnings": 0,
+      "errors": 0,
+      "classification": "historical probe or earlier focused verification; see MAPS.md"
+    },
+    {
+      "path": "docs/self-hosting/m1/map-evidence/map-copy-formatted-artifact-tests.log.gz",
+      "bytes": 139,
+      "sha256": "260297b73aa64d6aa823cbf933aba5839c594058258bb0337a32c05c609ba095",
+      "uncompressed_bytes": 206,
+      "uncompressed_sha256": "100d44b88664b7f105af20aad25ef4d5bbc009aefae214036363401abd40cc40",
+      "warnings": 0,
+      "errors": 0,
+      "classification": "qualified"
+    },
+    {
+      "path": "docs/self-hosting/m1/map-evidence/map-copy-initial-build.log.gz",
+      "bytes": 1838,
+      "sha256": "cc27196f1ba47e4057a1e9a2938a6d06c17e7dc026c9491fbb46ebc7cf70379f",
+      "uncompressed_bytes": 28618,
+      "uncompressed_sha256": "b1692ebf2773f42792b51dc5a28e1111b2bac54fee285c9b6b3fbcc2e3f7b771",
+      "warnings": 0,
+      "errors": 0,
+      "classification": "historical probe or earlier focused verification; see MAPS.md"
+    },
+    {
+      "path": "docs/self-hosting/m1/map-evidence/map-copy-licenses.log.gz",
+      "bytes": 73,
+      "sha256": "21fd3bcaf61e87e10822dd63176f2751a3282de06861c556f8ea5cb4d913c689",
+      "uncompressed_bytes": 54,
+      "uncompressed_sha256": "baf5804aeb26498337c9c5223c199afeba5c3e2fc36ae219b9bf420e3775f673",
+      "warnings": 0,
+      "errors": 0,
+      "classification": "qualified"
+    },
+    {
+      "path": "docs/self-hosting/m1/map-evidence/map-copy-link.log.gz",
+      "bytes": 653,
+      "sha256": "ec42efe9a2edbb1b36a862a81478b77f6e6cfdb6d5988fe0e83c895040d362ad",
+      "uncompressed_bytes": 1572,
+      "uncompressed_sha256": "721d185dfa47d5c35ad170e14e12f31dea8de8f728726394e3831679b92f2b48",
+      "warnings": 0,
+      "errors": 1,
+      "classification": "historical probe or earlier focused verification; see MAPS.md"
+    },
+    {
+      "path": "docs/self-hosting/m1/map-evidence/map-copy-proof-build.log.gz",
+      "bytes": 1695,
+      "sha256": "e4cec8509c7729aff62abaf0640b60483f0ffbc760a6bd66e55c317a4e865546",
+      "uncompressed_bytes": 28358,
+      "uncompressed_sha256": "d1a08f1fe0719e043af9226f4b6a084f0bd1596e305e2a34e8713d3b6a9af016",
+      "warnings": 0,
+      "errors": 0,
+      "classification": "historical probe or earlier focused verification; see MAPS.md"
+    },
+    {
+      "path": "docs/self-hosting/m1/map-evidence/map-copy-qualified-tests.log.gz",
+      "bytes": 2023,
+      "sha256": "f06c32aec98942c27a5a1eb0519e0a586174dde72abdf0345a09c73fd659ed56",
+      "uncompressed_bytes": 29352,
+      "uncompressed_sha256": "551d383e8950aae2a9dfe8f6da826d189636ba518e74a5632c84fa7a6ef99a22",
+      "warnings": 0,
+      "errors": 0,
+      "classification": "qualified"
+    },
+    {
+      "path": "docs/self-hosting/m1/map-evidence/map-copy-result-types-build.log.gz",
+      "bytes": 1695,
+      "sha256": "e4cec8509c7729aff62abaf0640b60483f0ffbc760a6bd66e55c317a4e865546",
+      "uncompressed_bytes": 28358,
+      "uncompressed_sha256": "d1a08f1fe0719e043af9226f4b6a084f0bd1596e305e2a34e8713d3b6a9af016",
+      "warnings": 0,
+      "errors": 0,
+      "classification": "historical probe or earlier focused verification; see MAPS.md"
+    },
+    {
+      "path": "docs/self-hosting/m1/map-evidence/map-copy-safe-proof.log.gz",
+      "bytes": 116,
+      "sha256": "eff28c8f18d4de9c0c71d67f6c6983ba2684f8bce827b3c2cb2672a194a58c76",
+      "uncompressed_bytes": 198,
+      "uncompressed_sha256": "312928be5e0af74834b08d64ab6204726395ef0ef737519178908a8b825f55b7",
+      "warnings": 0,
+      "errors": 0,
+      "classification": "historical probe or earlier focused verification; see MAPS.md"
+    },
+    {
+      "path": "docs/self-hosting/m1/map-evidence/map-copy-safe.log.gz",
+      "bytes": 202,
+      "sha256": "e58f55bb91efb4d7b24b0a5b5fd99f3005d6860ddc88dcb4a6604b75e1b4abd9",
+      "uncompressed_bytes": 448,
+      "uncompressed_sha256": "742915bc6c09d521f247ad6c1c022bb9c20b70f862f764fd585cd6723f379950",
+      "warnings": 0,
+      "errors": 2,
+      "classification": "historical probe or earlier focused verification; see MAPS.md"
+    },
+    {
+      "path": "docs/self-hosting/m1/map-evidence/map-irondocs.log.gz",
+      "bytes": 121,
+      "sha256": "bc7da29e0b5622d2e68246bc9596725fb7cc2ece5b870d7a4f7a4bdf066d3207",
+      "uncompressed_bytes": 112,
+      "uncompressed_sha256": "550649be473294f03001253c33ed091082f232a8cd19279130519029b3237d14",
+      "warnings": 0,
+      "errors": 0,
+      "classification": "qualified"
+    },
+    {
+      "path": "docs/self-hosting/m1/map-evidence/map-java-reference.log.gz",
+      "bytes": 51,
+      "sha256": "a83c127d6514085c5a4bd5885602267ffe0e43e0e9cd337d6d69e41968e06938",
+      "uncompressed_bytes": 33,
+      "uncompressed_sha256": "37acd3c55b26e36d832751d339c4a1a0f50db216ed6794067be7f5ffc6d70dc5",
+      "warnings": 0,
+      "errors": 0,
+      "classification": "qualified"
+    },
+    {
+      "path": "docs/self-hosting/m1/map-evidence/qualified-ds_map_copy-compile.log.gz",
+      "bytes": 150,
+      "sha256": "dcb8480f7dd7a93989e97f749668fd2d45d1811122619f35f5ed33cb8c026bbc",
+      "uncompressed_bytes": 702,
+      "uncompressed_sha256": "4a0c0f068d39b5c815b624c769743cb2b2cf20f3fd062beab7408f09594597a0",
+      "warnings": 0,
+      "errors": 0,
+      "classification": "qualified"
+    },
+    {
+      "path": "docs/self-hosting/m1/map-evidence/qualified-ds_map_copy-link.log.gz",
+      "bytes": 100,
+      "sha256": "3e96381ca8c16ee2cb72a27ef8d389ddfebcbbda2949056e67e5f7a43c89e1e6",
+      "uncompressed_bytes": 91,
+      "uncompressed_sha256": "1d72f5618b7ccc1a9f2747da49a609e8e1272d97fb8e22164adb3085fdec6927",
+      "warnings": 0,
+      "errors": 0,
+      "classification": "qualified"
+    },
+    {
+      "path": "docs/self-hosting/m1/map-evidence/qualified-ds_map_copy-run.log.gz",
+      "bytes": 104,
+      "sha256": "47d8fadcfde5cf92942ca47680d95f1849720ba2935af76c5fab8b0911f4acc9",
+      "uncompressed_bytes": 203,
+      "uncompressed_sha256": "92cc0743a83aef78c95b5fb62026e919338f07b9037040dd562590d473a6aaea",
+      "warnings": 0,
+      "errors": 0,
+      "classification": "qualified"
+    },
+    {
+      "path": "docs/self-hosting/m1/map-evidence/qualified-ds_map_copy_callback_failure-compile.log.gz",
+      "bytes": 158,
+      "sha256": "9979ba147bf17b9127fa7e442d07bbe35ceff91b47822bc2a6541e8b02558cae",
+      "uncompressed_bytes": 678,
+      "uncompressed_sha256": "e167b628aa0396ee232bebcd5f151f0a26e28914bbcecdaa1998882be4c341c3",
+      "warnings": 0,
+      "errors": 0,
+      "classification": "qualified"
+    },
+    {
+      "path": "docs/self-hosting/m1/map-evidence/qualified-ds_map_copy_callback_failure-link.log.gz",
+      "bytes": 112,
+      "sha256": "a41e745c373f8ff5cdac5887911cf18c052b4983a79c5af8d6d4f33ce0f1dd8d",
+      "uncompressed_bytes": 108,
+      "uncompressed_sha256": "487c2ef100643b4dd43ecf5049d32640b7c26d871d9fe2ad2e3c78900dd17f99",
+      "warnings": 0,
+      "errors": 0,
+      "classification": "qualified"
+    },
+    {
+      "path": "docs/self-hosting/m1/map-evidence/qualified-ds_map_copy_callback_failure-run.log.gz",
+      "bytes": 20,
+      "sha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "uncompressed_bytes": 0,
+      "uncompressed_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "warnings": 0,
+      "errors": 0,
+      "classification": "qualified"
+    },
+    {
+      "path": "docs/self-hosting/m1/map-evidence/qualified-ds_map_copy_failure-compile.log.gz",
+      "bytes": 148,
+      "sha256": "0f5d3b147833ccab9adb3a9906b6a402e4a7267568ff9aab795abfaac6d72708",
+      "uncompressed_bytes": 519,
+      "uncompressed_sha256": "c4ceb962921be91e99783027a3e7f5cc8aa0f76ccf01ae089609f6aa4c490fc0",
+      "warnings": 0,
+      "errors": 0,
+      "classification": "qualified"
+    },
+    {
+      "path": "docs/self-hosting/m1/map-evidence/qualified-ds_map_copy_failure-link.log.gz",
+      "bytes": 105,
+      "sha256": "27bc9eaf220abff693cbabe480e66a5f6b2458a4fbc6c38f2aec516f677154b5",
+      "uncompressed_bytes": 99,
+      "uncompressed_sha256": "130a46876339d386c7586914edcb7318c3c734b0034b0d9095cf7ad386b24b29",
+      "warnings": 0,
+      "errors": 0,
+      "classification": "qualified"
+    },
+    {
+      "path": "docs/self-hosting/m1/map-evidence/qualified-ds_map_copy_failure-run.log.gz",
+      "bytes": 20,
+      "sha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "uncompressed_bytes": 0,
+      "uncompressed_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "warnings": 0,
+      "errors": 0,
+      "classification": "qualified"
+    },
+    {
+      "path": "docs/self-hosting/m1/map-evidence/qualified-ds_map_copy_membership-compile.log.gz",
+      "bytes": 151,
+      "sha256": "37aa7f14e62a47cb1297cdb9cc6ba1f38fc061d69298848e2c0991c87b239412",
+      "uncompressed_bytes": 531,
+      "uncompressed_sha256": "79906947708ccce4b8fa4eac10b6eae611d8663965746f77f4eeb87ef722ad60",
+      "warnings": 0,
+      "errors": 0,
+      "classification": "qualified"
+    },
+    {
+      "path": "docs/self-hosting/m1/map-evidence/qualified-ds_map_copy_membership-link.log.gz",
+      "bytes": 107,
+      "sha256": "4f1078a1a7a17d52eaecb95e68e375090148ca8caa0f0cb7db8654f8eca196f2",
+      "uncompressed_bytes": 102,
+      "uncompressed_sha256": "9f73225b1dea435eb3469154de2c9f667223cabecc0bef2f3b3c229fb9c4c95a",
+      "warnings": 0,
+      "errors": 0,
+      "classification": "qualified"
+    },
+    {
+      "path": "docs/self-hosting/m1/map-evidence/qualified-ds_map_copy_membership-run.log.gz",
+      "bytes": 20,
+      "sha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+      "uncompressed_bytes": 0,
+      "uncompressed_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "warnings": 0,
+      "errors": 0,
+      "classification": "qualified"
+    },
+    {
+      "path": "docs/self-hosting/m1/map-evidence/map-copy-monotonic-key-tests.log.gz",
+      "bytes": 1938,
+      "sha256": "00113becd69a77b3978d2ba043a62a0171f00c1a28d2cffa98d43bf99ca29365",
+      "uncompressed_bytes": 29000,
+      "uncompressed_sha256": "05f7069c895d87780912d456779cb7bdb2ec6aa3be28edac18d70d23fe24a723",
+      "warnings": 0,
+      "errors": 0,
+      "classification": "qualified final lazy monotonic key set; PASS 3 tests"
+    }
+  ],
+  "commands": [
+    {
+      "argv": [
+        "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home/bin/java",
+        "-jar",
+        "compiler/build/ironwoodc.jar",
+        "stdlib/src/main/ironwood/ironwood/ds/HashMap.iron",
+        "stdlib/src/main/ironwood/ironwood/ds/IdentityHashMap.iron",
+        "stdlib/src/main/ironwood/ironwood/ds/LinkedHashMap.iron",
+        "integration-tests/cases/ds_map_copy.iron",
+        "--unfreed=warn",
+        "-d",
+        "workspace/m1/qualified-ds_map_copy-classes"
+      ],
+      "exit": 0,
+      "log": "workspace/m1/qualified-ds_map_copy-compile.log",
+      "warnings": 0,
+      "unique_warning_sites": 0,
+      "manual_suppressions": []
+    },
+    {
+      "argv": [
+        "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home/bin/java",
+        "-jar",
+        "compiler/build/ironwoodc.jar",
+        "--link",
+        "-cp",
+        "workspace/m1/qualified-ds_map_copy-classes",
+        "--main-class",
+        "Main",
+        "--unfreed=warn",
+        "-O3",
+        "-o",
+        "workspace/m1/qualified-ds_map_copy-native"
+      ],
+      "exit": 0,
+      "log": "workspace/m1/qualified-ds_map_copy-link.log",
+      "warnings": 0,
+      "unique_warning_sites": 0,
+      "manual_suppressions": []
+    },
+    {
+      "argv": [
+        "workspace/m1/qualified-ds_map_copy-native"
+      ],
+      "exit": 42,
+      "log": "workspace/m1/qualified-ds_map_copy-run.log"
+    },
+    {
+      "argv": [
+        "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home/bin/java",
+        "-jar",
+        "compiler/build/ironwoodc.jar",
+        "stdlib/src/main/ironwood/ironwood/ds/HashMap.iron",
+        "stdlib/src/main/ironwood/ironwood/ds/IdentityHashMap.iron",
+        "stdlib/src/main/ironwood/ironwood/ds/LinkedHashMap.iron",
+        "integration-tests/cases/ds_map_copy_membership.iron",
+        "--unfreed=warn",
+        "-d",
+        "workspace/m1/qualified-ds_map_copy_membership-classes"
+      ],
+      "exit": 0,
+      "log": "workspace/m1/qualified-ds_map_copy_membership-compile.log",
+      "warnings": 0,
+      "unique_warning_sites": 0,
+      "manual_suppressions": []
+    },
+    {
+      "argv": [
+        "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home/bin/java",
+        "-jar",
+        "compiler/build/ironwoodc.jar",
+        "--link",
+        "-cp",
+        "workspace/m1/qualified-ds_map_copy_membership-classes",
+        "--main-class",
+        "Main",
+        "--unfreed=warn",
+        "-O3",
+        "-o",
+        "workspace/m1/qualified-ds_map_copy_membership-native"
+      ],
+      "exit": 0,
+      "log": "workspace/m1/qualified-ds_map_copy_membership-link.log",
+      "warnings": 0,
+      "unique_warning_sites": 0,
+      "manual_suppressions": []
+    },
+    {
+      "argv": [
+        "workspace/m1/qualified-ds_map_copy_membership-native"
+      ],
+      "exit": 42,
+      "log": "workspace/m1/qualified-ds_map_copy_membership-run.log"
+    },
+    {
+      "argv": [
+        "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home/bin/java",
+        "-jar",
+        "compiler/build/ironwoodc.jar",
+        "stdlib/src/main/ironwood/ironwood/ds/HashMap.iron",
+        "stdlib/src/main/ironwood/ironwood/ds/IdentityHashMap.iron",
+        "stdlib/src/main/ironwood/ironwood/ds/LinkedHashMap.iron",
+        "integration-tests/cases/ds_map_copy_failure.iron",
+        "--unfreed=warn",
+        "-d",
+        "workspace/m1/qualified-ds_map_copy_failure-classes"
+      ],
+      "exit": 0,
+      "log": "workspace/m1/qualified-ds_map_copy_failure-compile.log",
+      "warnings": 0,
+      "unique_warning_sites": 0,
+      "manual_suppressions": []
+    },
+    {
+      "argv": [
+        "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home/bin/java",
+        "-jar",
+        "compiler/build/ironwoodc.jar",
+        "--link",
+        "-cp",
+        "workspace/m1/qualified-ds_map_copy_failure-classes",
+        "--main-class",
+        "Main",
+        "--unfreed=warn",
+        "-O3",
+        "-o",
+        "workspace/m1/qualified-ds_map_copy_failure-native"
+      ],
+      "exit": 0,
+      "log": "workspace/m1/qualified-ds_map_copy_failure-link.log",
+      "warnings": 0,
+      "unique_warning_sites": 0,
+      "manual_suppressions": []
+    },
+    {
+      "argv": [
+        "workspace/m1/qualified-ds_map_copy_failure-native"
+      ],
+      "exit": 43,
+      "log": "workspace/m1/qualified-ds_map_copy_failure-run.log"
+    },
+    {
+      "argv": [
+        "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home/bin/java",
+        "-jar",
+        "compiler/build/ironwoodc.jar",
+        "stdlib/src/main/ironwood/ironwood/ds/HashMap.iron",
+        "stdlib/src/main/ironwood/ironwood/ds/IdentityHashMap.iron",
+        "stdlib/src/main/ironwood/ironwood/ds/LinkedHashMap.iron",
+        "integration-tests/cases/ds_map_copy_callback_failure.iron",
+        "--unfreed=warn",
+        "-d",
+        "workspace/m1/qualified-ds_map_copy_callback_failure-classes"
+      ],
+      "exit": 0,
+      "log": "workspace/m1/qualified-ds_map_copy_callback_failure-compile.log",
+      "warnings": 0,
+      "unique_warning_sites": 0,
+      "manual_suppressions": []
+    },
+    {
+      "argv": [
+        "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home/bin/java",
+        "-jar",
+        "compiler/build/ironwoodc.jar",
+        "--link",
+        "-cp",
+        "workspace/m1/qualified-ds_map_copy_callback_failure-classes",
+        "--main-class",
+        "Main",
+        "--unfreed=warn",
+        "-O3",
+        "-o",
+        "workspace/m1/qualified-ds_map_copy_callback_failure-native"
+      ],
+      "exit": 0,
+      "log": "workspace/m1/qualified-ds_map_copy_callback_failure-link.log",
+      "warnings": 0,
+      "unique_warning_sites": 0,
+      "manual_suppressions": []
+    },
+    {
+      "argv": [
+        "workspace/m1/qualified-ds_map_copy_callback_failure-native"
+      ],
+      "exit": 42,
+      "log": "workspace/m1/qualified-ds_map_copy_callback_failure-run.log"
+    },
+    {
+      "argv": [
+        "env",
+        "JAVA_HOME=/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home",
+        "./scripts/test.sh",
+        "--test",
+        "independent map copies preserve keys values and callback loan safety",
+        "--test",
+        "independent map copy proofs reject changed traversal and publication",
+        "--test",
+        "independent map copies survive artifacts and allocation failures",
+        "--test",
+        "independent list copies preserve destination and nested payload loans",
+        "--test",
+        "pool release helper proofs preserve mandatory safety"
+      ],
+      "exit": 0,
+      "log": "workspace/m1/map-copy-qualified-tests.log",
+      "result": "PASS: 5 compiler tests; strict library build"
+    },
+    {
+      "argv": [
+        "env",
+        "JAVA_HOME=/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home",
+        "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home/bin/java",
+        "-ea",
+        "-cp",
+        "compiler/build/classes:compiler/build/test-classes",
+        "ironwood.compiler.CompilerTests",
+        "--test",
+        "independent map copies survive artifacts and allocation failures"
+      ],
+      "exit": 0,
+      "log": "workspace/m1/map-copy-formatted-artifact-tests.log",
+      "result": "PASS: 1 compiler tests; final formatted fixtures"
+    },
+    {
+      "shell_command": "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home/bin/javac --release 21 -encoding UTF-8 -Xlint:all -Werror -d workspace/m1/map-java-reference integration-tests/fixtures/MapCopyReference.java && /Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home/bin/java -cp workspace/m1/map-java-reference MapCopyReference > workspace/m1/map-java-reference.log 2>&1",
+      "exit": 0,
+      "log": "workspace/m1/map-java-reference.log",
+      "result": "selected map copy contracts pass; javac emitted no diagnostics"
+    },
+    {
+      "argv": [
+        "env",
+        "JAVA_HOME=/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home",
+        "./bin/irondoc",
+        "stdlib/src/main/ironwood/ironwood/ds/HashMap.iron",
+        "stdlib/src/main/ironwood/ironwood/ds/IdentityHashMap.iron",
+        "stdlib/src/main/ironwood/ironwood/ds/LinkedHashMap.iron",
+        "-sourcepath",
+        "stdlib/src/main/ironwood",
+        "-d",
+        "workspace/m1/map-irondocs"
+      ],
+      "exit": 0,
+      "log": "workspace/m1/map-irondocs.log",
+      "result": "generated 3 types"
+    },
+    {
+      "argv": [
+        "./scripts/check-licenses.sh"
+      ],
+      "exit": 0,
+      "log": "workspace/m1/map-copy-licenses.log",
+      "result": "license audit passed (5 OpenJDK-derived source files)"
+    },
+    {
+      "argv": [
+        "git",
+        "diff",
+        "--check"
+      ],
+      "exit": 0,
+      "tool_output": "empty stdout/stderr; executed before commit"
+    },
+    {
+      "argv": [
+        "env",
+        "JAVA_HOME=/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home",
+        "./scripts/test.sh",
+        "--test",
+        "independent map copies preserve keys values and callback loan safety",
+        "--test",
+        "independent map copy proofs reject changed traversal and publication",
+        "--test",
+        "independent map copies survive artifacts and allocation failures"
+      ],
+      "exit": 0,
+      "log": "workspace/m1/map-copy-monotonic-key-tests.log",
+      "result": "PASS: 3 compiler tests; final lazy monotonic metadata; strict library build"
+    }
+  ],
+  "diagnostics": {
+    "qualified_source_and_link_commands": 8,
+    "warnings": 0,
+    "unique_warning_sites": 0,
+    "manual_suppressions": [],
+    "historical_failures": "early factory exposure, declaration generic result arguments, cursor/lookup ownership limits and initial fixture construction; not accepted safety witnesses"
+  },
+  "native_failure_boundaries": {
+    "class_and_archive_limits": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20,
+      21,
+      22,
+      23,
+      24,
+      25,
+      26,
+      27,
+      28,
+      29,
+      30,
+      31,
+      32,
+      33,
+      34,
+      35,
+      36,
+      37,
+      38,
+      39,
+      40,
+      41,
+      42,
+      43,
+      44,
+      45,
+      46,
+      47,
+      48,
+      49,
+      50,
+      51,
+      52,
+      53,
+      54,
+      55,
+      56,
+      57,
+      58,
+      59,
+      60,
+      61,
+      62,
+      63,
+      64,
+      65,
+      66
+    ],
+    "failure_exit": 42,
+    "first_success_limit": 66,
+    "success_exit": 43,
+    "callback_exception": "preallocated global exception; 3 global keys; baselines include these process-lived inputs; destination/source storage reclaimed"
+  },
+  "host": {
+    "os": "macOS 27.0.1",
+    "build": "26A434",
+    "architecture": "arm64",
+    "jdk": "Oracle Java 21.0.1+12-LTS-29",
+    "llvm": "Homebrew clang 23.1.0; arm64-apple-darwin27.0.0",
+    "version_commands": [
+      [
+        "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home/bin/java",
+        "-version"
+      ],
+      [
+        "/opt/homebrew/opt/llvm@23/bin/clang",
+        "--version"
+      ],
+      [
+        "sw_vers"
+      ],
+      [
+        "uname",
+        "-m"
+      ]
+    ],
+    "version_command_result": "tool exit 0; exact versions transcribed from output"
+  },
+  "native_artifact_bootstrap_note": "Final explicit source/link/run qualification was repeated after the lazy monotonic key-set backing change. All final native binaries were produced by the current recorded compiler JAR, using the recorded final source hashes. These replace the earlier same-path native artifacts; historical test/probe logs remain separately classified.",
+  "earlier_producing_identity": {
+    "path": "compiler/build/ironwoodc.jar",
+    "bytes": 2339813,
+    "sha256": "0ba8522aa533e93b46b97039f34dc8c28b1a34794f486d43a7259179f7ac64a9",
+    "attribution": "Coordinator independently verified this producing JAR before the lazy key-set backing change; original binary/source bundle not retained here. Earlier focused logs use this build. Final explicit CLI artifacts were regenerated under the current recorded final JAR."
+  }
+}

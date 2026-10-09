@@ -1,0 +1,48 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.semantic;
+
+/**
+ * A known array element. Ports the Java record {@code FunctionAnalyzer.ArraySlot}:
+ * equal composite keys (the same container identity and index) select the
+ * same stored value. The container is borrowed.
+ */
+public final class ArraySlot {
+
+    private final AllocationInfo container;
+    private final int index;
+
+    /**
+     * @param container the borrowed container identity
+     * @param index the element index
+     */
+    public ArraySlot(AllocationInfo container, int index) {
+
+        this.container = container;
+        this.index = index;
+    }
+
+    /** @return the container identity */
+    public AllocationInfo container() {
+
+        return this.container;
+    }
+
+    /** @return the element index */
+    public int index() {
+
+        return this.index;
+    }
+
+    @Override public boolean equals(Object value) {
+
+        if (!(value instanceof ArraySlot)) return false;
+        ArraySlot other = (ArraySlot) value;
+        return this.container == other.container && this.index == other.index;
+    }
+
+    @Override public int hashCode() {
+
+        return System.identityHashCode(this.container) * 31 + this.index;
+    }
+}

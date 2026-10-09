@@ -1,0 +1,132 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// Compiler-private LLVM scanners against the Java baseline's own regexes
+// (docs/self-hosting/m3/backend-evidence/LlvmScanReference.java, which calls
+// NativeTarget's specification and attach by reflection and runs
+// OptimizedTraceMetadata's REGISTER_DECLARATION and FUNCTION patterns). The
+// arguments are corpus files: Clang target probes, emitted and optimized
+// LLVM, line-terminator variants and adversarial and seeded texts. For each
+// file it prints both target specifications or their failures, the SHA-256
+// of four attachments (the found value, a configured triple, and their
+// failures), the SHA-256 of the text without its registration declaration,
+// and every FUNCTION match: symbol bounds and match end. Native-only checks
+// then cover allocation: scanning allocates nothing and each result one
+// fresh String. Exit 42.
+import ironwood.compiler.port.LlvmScan;
+import ironwood.compiler.port.Sha256;
+import ironwood.io.IOException;
+import ironwood.nio.file.Files;
+import ironwood.nio.file.Path;
+
+class Main {
+
+    static void digest(String label, String text, Sha256 sha) {
+
+        sha.updateUtf8(text);
+        String hex = sha.hexDigest();
+        System.out.println(label + " " + hex);
+        free hex;
+    }
+
+    static void attach(String llvm, String name, String label, String value, Sha256 sha) {
+
+        try {
+            String attached = LlvmScan.attach(llvm, name, value);
+            digest("attach " + name + " " + label, attached, sha);
+            free attached;
+        } catch (IOException failure) {
+            System.out.println("attach " + name + " " + label + " error " + failure.getMessage());
+        }
+    }
+
+    // The specification, or null after printing its failure.
+    static String specification(String llvm, String name) {
+
+        try {
+            String value = LlvmScan.specification(llvm, name);
+            System.out.println("specification " + name + " " + value);
+            return value;
+        } catch (IOException failure) {
+            System.out.println("specification " + name + " error " + failure.getMessage());
+            return null;
+        }
+    }
+
+    static void target(String llvm, String name, Sha256 sha) {
+
+        String found = specification(llvm, name);
+        if (found != null) {
+            attach(llvm, name, "found", found, sha);
+            free found;
+        } else {
+            attach(llvm, name, "found", "none", sha);
+        }
+        attach(llvm, name, "configured", "x86_64-unknown-linux-gnu", sha);
+    }
+
+    static void scan(String llvm, Sha256 sha) {
+
+        target(llvm, "triple", sha);
+        target(llvm, "datalayout", sha);
+        String removed = LlvmScan.removeRegisterDeclaration(llvm);
+        digest("register", removed, sha);
+        free removed;
+        int[] symbol = new int[2];
+        defer free symbol;
+        int from = 0;
+        int end = LlvmScan.nextFunction(llvm, from, symbol);
+        while (end >= 0) {
+            System.out.println("function " + symbol[0] + " " + symbol[1] + " " + end);
+            from = end;
+            end = LlvmScan.nextFunction(llvm, from, symbol);
+        }
+    }
+
+    // Native-only allocation checks; the transcript above is the Java comparison.
+    static boolean contract() {
+
+        String llvm = "target triple = \"t\"\ndeclare void @ironwood_trace_register_current(ptr, i32)\n"
+                + "define void @f() {\n}\ndefine i32 @\"g\\22\"(i32 %x) {\n}\n";
+        int[] symbol = new int[2];
+        defer free symbol;
+        long before = System.allocationCount();
+        int first = LlvmScan.nextFunction(llvm, 0, symbol);
+        int second = LlvmScan.nextFunction(llvm, first, symbol);
+        if (System.allocationCount() != before || second < 0 || LlvmScan.nextFunction(llvm, second, symbol) >= 0) {
+            return false;
+        }
+        long live = System.liveAllocationCount();
+        try {
+            String value = LlvmScan.specification(llvm, "triple");
+            String same = LlvmScan.attach(llvm, "triple", "t");
+            String removed = LlvmScan.removeRegisterDeclaration(llvm);
+            boolean counted = System.liveAllocationCount() == live + 3;
+            boolean spelled = value.equals("t") && same.equals(llvm) && removed.length() < llvm.length();
+            free removed;
+            free same;
+            free value;
+            return counted && spelled && System.liveAllocationCount() == live;
+        } catch (IOException unexpected) {
+            return false;
+        }
+    }
+
+    public static int main(String[] args) {
+
+        Sha256 sha = new Sha256();
+        defer free sha;
+        for (int index = 0; index < args.length; index++) {
+            Path path = Path.of(args[index]);
+            try {
+                String llvm = Files.readString(path);
+                System.out.println("file " + index);
+                scan(llvm, sha);
+                free llvm;
+            } catch (IOException failure) {
+                System.out.println("file " + index + " unreadable");
+            }
+            free path;
+        }
+        return contract() ? 42 : 1;
+    }
+}

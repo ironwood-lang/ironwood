@@ -1,0 +1,234 @@
+{
+ "schema_version": 1,
+ "increment": "D253 retention-aware constructor and destructor receiver publication",
+ "base_commit": "aa98ace20e4b8f8227fa5a48141e4e53b24e33f3",
+ "producing_compiler": {
+  "path": "/Users/developer/workspace-mba-m2/Ironwood/workspace/m1/field-alias/stage/compiler/build/ironwoodc.jar",
+  "sha256": "a7e1477f6781ec8fab1a8928f269d0e323274e687588b241e4321b991641c4c6",
+  "role": "base commit plus this increment only; paused keyed draft excluded"
+ },
+ "comparison_compiler": {
+  "path": "/Users/developer/workspace-mba-m2/Ironwood/workspace/m1/set-rollback-qualified/ironwoodc.jar",
+  "sha256": "ee7211ebf944e6bfadaaee48f574a45fe8304ff15f47b27c57b29686f2b667cc",
+  "role": "qualified D252 compiler; compile-only for unsafe probes"
+ },
+ "sources": [
+  {
+   "path": "compiler/src/main/java/ironwood/compiler/semantic/ReceiverPublicationAnalysis.java",
+   "sha256": "cf6f6eab05221c750140ddbec5d340474a4b8a3fde93c3563eff6c824b843f68"
+  },
+  {
+   "path": "compiler/src/main/java/ironwood/compiler/semantic/ClosedWorldEffectAnalyzer.java",
+   "sha256": "0741d0decffefae381cd2fd9414aaec399eacf34891a383d7cde4f0c77d348c2"
+  },
+  {
+   "path": "compiler/src/main/java/ironwood/compiler/semantic/SemanticAnalyzer.java",
+   "sha256": "4d007465fd9bd757f795f74f20d52cba3acb16d2bb30bddd44d3095ab0977567"
+  },
+  {
+   "path": "compiler/src/test/java/ironwood/compiler/ReceiverPublicationTests.java",
+   "sha256": "fbb45b591e20ce3d8695007e08e0ff54fb1557b1626a7bc3e7626c766947e643"
+  },
+  {
+   "path": "integration-tests/cases/constructor_field_alias_rollback.iron",
+   "sha256": "c7406ba0f230ef83812539e6446f69aece4074b058d2b93fe346ded6a0ea3947"
+  }
+ ],
+ "probes": [
+  {
+   "path": "docs/self-hosting/m1/field-alias-evidence/probes/limit-01-local-holder.iron",
+   "sha256": "f4aef9f08e09d811d14ca736eb5780e743eb5f8acd85450c6d2cf58389613e3d"
+  },
+  {
+   "path": "docs/self-hosting/m1/field-alias-evidence/probes/limit-02-helper-from-instance-method.iron",
+   "sha256": "9fd13af8e5c8ceb023cda36099fec2c14e677e05184151a8fe20b46033cbab46"
+  },
+  {
+   "path": "docs/self-hosting/m1/field-alias-evidence/probes/safe-01-encapsulated-self-field.iron",
+   "sha256": "c03bcae97fd5d9abfe92dba1fd60e137c453bb667ea60e2a6ecd2f16d1afccf8"
+  },
+  {
+   "path": "docs/self-hosting/m1/field-alias-evidence/probes/safe-02-confined-helper-from-self-field.iron",
+   "sha256": "1dbab5df8c854e8b3db3d4a8aac4e34469522017726da5d89648584a1d76ab7d"
+  },
+  {
+   "path": "docs/self-hosting/m1/field-alias-evidence/probes/safe-03-self-retaining-collections.iron",
+   "sha256": "8c75debeb4b25597a386d899fbcab78799abd8bf31ecc044f11396de38350d41"
+  },
+  {
+   "path": "docs/self-hosting/m1/field-alias-evidence/probes/safe-04-owned-child-array.iron",
+   "sha256": "844fcc8d37577cec98880769196c64e813639e8b6545d71484edb5a56a178993"
+  },
+  {
+   "path": "docs/self-hosting/m1/field-alias-evidence/probes/safe-05-destructor-caught-this-dropped.iron",
+   "sha256": "b35cfe8a7b8d5397633c98ac6fb473c5b98aa2eeef0d00e0b85a8961bdb5cc7b"
+  },
+  {
+   "path": "docs/self-hosting/m1/field-alias-evidence/probes/unsafe-01-helper-from-self-field.iron",
+   "sha256": "71ae6c9efffd6e2a817484532cfa7789b06a79f556e34f6629031307281c0166"
+  },
+  {
+   "path": "docs/self-hosting/m1/field-alias-evidence/probes/unsafe-02-static-store-of-self-field.iron",
+   "sha256": "36f0e3bcc2e110be8bc4086910d8f84415cb073d04b9f16c44eeb6f4c8a78f16"
+  },
+  {
+   "path": "docs/self-hosting/m1/field-alias-evidence/probes/unsafe-03-holder-getter-to-publishing-helper.iron",
+   "sha256": "ce30d46337c16c66d4ba4ae96ff49de466fadd3ff1f2ef4f0482a99ce70d9058"
+  },
+  {
+   "path": "docs/self-hosting/m1/field-alias-evidence/probes/unsafe-04-static-call-on-self-field.iron",
+   "sha256": "1889078f2541531a8741af952d8ee8d14b9f42967ccc8ffef1858ee5c805321a"
+  },
+  {
+   "path": "docs/self-hosting/m1/field-alias-evidence/probes/unsafe-05-virtual-call-on-self-field.iron",
+   "sha256": "53367881576d499f0e69e1fd2db4f9b81ed0c3b467c8f661ea22ce0f5f378367"
+  },
+  {
+   "path": "docs/self-hosting/m1/field-alias-evidence/probes/unsafe-06-helper-built-in-instance-method.iron",
+   "sha256": "e8d8cd464fb657f87fd98f574476e9da98c41752b907186b59578fb7ab5054a6"
+  },
+  {
+   "path": "docs/self-hosting/m1/field-alias-evidence/probes/unsafe-07-local-array-element.iron",
+   "sha256": "78852d64c2b2b329032a2f91d306538a573cbea2add3dc7c02f75303c71d1eba"
+  },
+  {
+   "path": "docs/self-hosting/m1/field-alias-evidence/probes/unsafe-08-direct-static-call.iron",
+   "sha256": "9e3fd38e7236cee35547763d8e73cdfe28285caa04461002fbb7c0d4781fb691"
+  },
+  {
+   "path": "docs/self-hosting/m1/field-alias-evidence/probes/unsafe-09-joined-store-target.iron",
+   "sha256": "9b6a5c5d2d4abd903a94c60ce018787b48de0fd101488254c5fc33003f0a25f5"
+  },
+  {
+   "path": "docs/self-hosting/m1/field-alias-evidence/probes/unsafe-10-published-local-holder.iron",
+   "sha256": "d64d81a8d127fe13809905a024a468bdaed625d3645918c7fadbd0019220db06"
+  },
+  {
+   "path": "docs/self-hosting/m1/field-alias-evidence/probes/unsafe-11-published-holder-field.iron",
+   "sha256": "8c5e0f407cdaefdc608e251460fcaa720b4d22629117bf12cfa9b3c2721012be"
+  },
+  {
+   "path": "docs/self-hosting/m1/field-alias-evidence/probes/unsafe-12-published-owned-array-element.iron",
+   "sha256": "bcc4731d9685ab0f33188bd2d7ba64c4a6e04b83866b01fbc67802d683a79aae"
+  },
+  {
+   "path": "docs/self-hosting/m1/field-alias-evidence/probes/unsafe-13-destructor-self-field.iron",
+   "sha256": "f167d798bf052fd6932c57591f04ad46832d7697149b87f863aba3d38526c3ec"
+  },
+  {
+   "path": "docs/self-hosting/m1/field-alias-evidence/probes/unsafe-14-destructor-caught-this.iron",
+   "sha256": "a3209632679834951c0664b8cb5bb68fc05aefe34281f221c51bcac4dd67c656"
+  }
+ ],
+ "tools": [
+  {
+   "path": "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home/bin/java",
+   "sha256": "00e1f85b58fbb7b9e28c78740288028fc3d5146fc2810b78fe4f1a3ed7765d98",
+   "role": "Java 21.0.1"
+  },
+  {
+   "path": "/opt/homebrew/opt/llvm@23/bin/opt",
+   "sha256": "bc0c3344c3ce3c5c9614d2f132836c9e590304e2021b104433992cbf75e6d71c",
+   "role": "LLVM 23.1.0"
+  },
+  {
+   "path": "/opt/homebrew/opt/llvm@23/bin/llc",
+   "sha256": "68ec93686ac68bb70b93fa413bf2a9696face192bb949043734fb1053094c793",
+   "role": "LLVM 23.1.0"
+  }
+ ],
+ "commands": {
+  "stage_and_build": "workspace/m1/stage-patch.sh <stage> <focused patch>: git archive of base_commit, patch -p1 with only this increment, scripts/build.sh (strict --unfreed=error library and testing library), javac of all test sources",
+  "focused_tests": "java -ea -cp compiler/build/classes:compiler/build/test-classes ironwood.compiler.CompilerTests with the 18 --test names in logs/focused-tests.log.gz, run from the stage root with IRONWOOD_LLVM_HOME=/opt/homebrew/opt/llvm@23",
+  "probe_matrix": "workspace/m1/field-alias/matrix.sh: every retained probe x both compilers x off/warn/error; only safe-* probes are linked (-O3) and executed",
+  "reconstruction": "workspace/m1/field-alias/recon.sh: app compiled against confined helper classes, linked with confined classes, publishing classes and publishing archive in every mode",
+  "native_fixture": "compile and --link -O3 --emit-llvm of integration-tests/cases/constructor_field_alias_rollback.iron with both compilers in every mode, then execution",
+  "consumers": "workspace/m1/field-alias/consumers.sh: every examples/* and projects/* source tree compiled with both compilers",
+  "hygiene": "git diff --check; ./scripts/check-licenses.sh"
+ },
+ "logs": [
+  {
+   "retained": "docs/self-hosting/m1/field-alias-evidence/logs/build-7.log.gz",
+   "sha256": "4a6f443c4d35fa7ff55d22caa9c3d94d8e5063b55218afc99228c67519eb0eee",
+   "gzip_sha256": "f23bcb1e9d4d06730e31836877ed8324639c6b6e2c3af482abdf049d971dda8e",
+   "bytes": 36341
+  },
+  {
+   "retained": "docs/self-hosting/m1/field-alias-evidence/logs/consumers-summary.txt.gz",
+   "sha256": "e90900e0e0c98821e275013909bee233d01d55f6e9f4cdc6606b7d1accda897f",
+   "gzip_sha256": "1647b5394093d138558440977e5542a38d9efe219c67c09fc71ccd18e89707a3",
+   "bytes": 3058
+  },
+  {
+   "retained": "docs/self-hosting/m1/field-alias-evidence/logs/diff-check.log.gz",
+   "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "gzip_sha256": "f61f27bd17de546264aa58f40f3aafaac7021e0ef69c17f6b1b4cd7664a037ec",
+   "bytes": 0
+  },
+  {
+   "retained": "docs/self-hosting/m1/field-alias-evidence/logs/fixture-runs.log.gz",
+   "sha256": "0dfaba878ed338c580a58a1978144c7c59a6be08d9f814e2147a53926711462d",
+   "gzip_sha256": "011858ad978bc03c960f08653a06ba0b7f7c99b73ef600a6a6c0866297cd4e5b",
+   "bytes": 2844
+  },
+  {
+   "retained": "docs/self-hosting/m1/field-alias-evidence/logs/focused-tests.log.gz",
+   "sha256": "5074d5cf8f1d5b7670027d0c39a97d9c1a0fd891c3636386fc2e990eaa47af0b",
+   "gzip_sha256": "fa33a6588530eee3f0e398aef45c5118678719d2493c0a70d2b4877279939591",
+   "bytes": 20233
+  },
+  {
+   "retained": "docs/self-hosting/m1/field-alias-evidence/logs/licenses.log.gz",
+   "sha256": "baf5804aeb26498337c9c5223c199afeba5c3e2fc36ae219b9bf420e3775f673",
+   "gzip_sha256": "c33bdaafc40ae52137c7119d2922a14fd4f4f340cea86e19094625617947bf77",
+   "bytes": 54
+  },
+  {
+   "retained": "docs/self-hosting/m1/field-alias-evidence/logs/probe-matrix.tsv.gz",
+   "sha256": "913a82ff00072a7182d683189ccbb8e079dcfb7ab756072435f84f692b327cb7",
+   "gzip_sha256": "1ad98171c36035c1a315023d462da35a58b428c7aaf0c79a41a889241035c8fc",
+   "bytes": 13007
+  },
+  {
+   "retained": "docs/self-hosting/m1/field-alias-evidence/logs/recon.log.gz",
+   "sha256": "2f8f07a4902640e9b058c4cb895627978c6f8800cdb3672aba8aeddd539a43bf",
+   "gzip_sha256": "59cec1f12423223729c6468ab6e811040c807c3c9026ac1e69ade8e7960b1987",
+   "bytes": 1422
+  }
+ ],
+ "results": {
+  "focused_tests": "PASS: 18 compiler tests",
+  "unsafe_probes": "14 rejected for publication in off/warn/error; 10 newly rejected for publication relative to D252",
+  "safe_probes": "5 accepted in every mode with exits equal to D252 (42 or 0)",
+  "reconstruction": "confined link exits 42; publishing classes and archive links rejected in every mode; D252 admitted all six",
+  "native_fixture": "exit 42 for both compilers in every mode; LLVM sha256 231a257222664a00313ea720fb23b6d70172fb23fc02893142ee610878368965 for both",
+  "consumers": "79 example/project trees exit 0 with both compilers",
+  "strict_library": "--unfreed=error, exit 0",
+  "compile_time_seconds": {
+   "d252": [
+    6.68,
+    6.6,
+    6.84
+   ],
+   "corrected": [
+    6.67,
+    7.04,
+    6.97
+   ]
+  },
+  "licensing": "passed, 5 OpenJDK-derived files",
+  "unsafe_native_execution": false
+ },
+ "boundaries": [
+  "full M1.1/M1.2/M1.3 remains open",
+  "paused keyed snapshot draft preserved and excluded from the producing compiler",
+  "limit-* probes document unchanged escape-summary limits; they are not publication results",
+  "array element stores outside owned receiver arrays remain conservative publications"
+ ],
+ "host_profile": {
+  "host": "macOS 27.0.1, arm64, Apple M5, 32 GiB",
+  "bootstrap": "Java 21.0.1 explicit JDK paths",
+  "backend": "pinned LLVM 23.1.0 from /opt/homebrew/opt/llvm@23/bin",
+  "prior_profile_reference": "docs/self-hosting/m1/set-rollback-evidence/manifest.json; no target-profile change"
+ }
+}

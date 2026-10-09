@@ -16,8 +16,8 @@ M0-M6 are implementation milestones; their numbered phases are schedulable work
 units. B0-B7 remain stable technical workstreams, and S0-S8 remain the migration
 stages defined by the self-hosting plan. The existing increment numbers and G1
 are retained in the [implementation map](#suggested-implementation-increments).
-All milestones and phases below are **not started**; checklists describe future
-evidence, not completed implementation.
+The execution status below is maintained separately from the original audit
+baseline. Checked phases link to durable evidence; unchecked phases remain work.
 
 ## 1. Recommendation and scope
 
@@ -79,13 +79,13 @@ roadmap schedules them without replacing their detailed exit criteria.
 
 | Milestone | Purpose and workstreams | Entry dependency | Checkpoint and migration handoff | Status |
 | --- | --- | --- | --- | --- |
-| [M0](#m0-baseline-and-contract-inventory) | Freeze the baseline and evidence contract: B0a | Current Java compiler and source audit | S0 baseline, ordering inventory, fixtures, budgets, and selected pilot scope recorded | Not started |
-| [M1](#m1-minimum-pilot-prerequisites) | Build the minimum pilot dependencies: selected B1/B2/B7 slices | M0 | Required copies, traversal, ordering, and syntax/helpers have focused evidence | Not started |
-| [M2](#m2-portability-and-ownership-pilot) | Run B0b's frontend and ownership pilots | Required M1 phases | G1, the existing S1 gate, passes before broad translation | Not started |
-| [M3](#m3-semantic-and-backend-preparation) | Complete core B1/B2/B7 helpers and early B5 digests | M2 for broad port work; reuse M1 outputs | Staged readiness for S2, S3 with ByteView SHA-256, and S4 with MD5/native-link policy | Not started |
-| [M4](#m4-native-filesystem-and-process-services) | Deliver B3 filesystem and B4 process services | M2; audited helper dependencies | Filesystem checkpoint first, native process/driver checkpoint second | Not started |
-| [M5](#m5-artifacts-and-command-line-helpers) | Deliver public CRC32, B6 archives, and S6 B7 helpers | M2; required M3 helpers; M4 filesystem checkpoint for publication | Artifact and documentation/CLI prerequisites ready for S6 | Not started |
-| [M6](#m6-bridge-preparation-and-final-handoff) | Qualify remaining Bridge consumers of B3-B7 | Required M3 helpers, M4 process checkpoint, and M5 artifact facilities | Preparation evidence and remaining S7/S8 integration obligations handed off | Not started |
+| [M0](#m0-baseline-and-contract-inventory) | Freeze the baseline and evidence contract: B0a | Current Java compiler and source audit | S0 baseline, ordering inventory, fixtures, budgets, and selected pilot scope recorded | Complete on qualified macOS arm64 profile: M0.1/M0.2/M0.3 and S0 passed |
+| [M1](#m1-minimum-pilot-prerequisites) | Build the minimum pilot dependencies: selected B1/B2/B7 slices | M0 | Required copies, traversal, ordering, and syntax/helpers have focused evidence | Complete on the qualified macOS arm64 profile; [checkpoint](self-hosting/m1/CHECKPOINT.md), [pre-change review](self-hosting/m1/PRE_CHANGE.md) |
+| [M2](#m2-portability-and-ownership-pilot) | Run B0b's frontend and ownership pilots | Required M1 phases | G1, the existing S1 gate, passes before broad translation | Complete: G1 passed on the qualified macOS arm64 profile ([checkpoint](self-hosting/m2/CHECKPOINT.md)) |
+| [M3](#m3-semantic-and-backend-preparation) | Complete core B1/B2/B7 helpers and early B5 digests | M2 for broad port work; reuse M1 outputs | Staged readiness for S2, S3 with ByteView SHA-256, and S4 with MD5/native-link policy | Complete: [M3.1 handoff](self-hosting/m3/HANDOFF_M3.1.md) ready for S2, [M3.2 handoff](self-hosting/m3/HANDOFF_M3.2.md) ready for S3 and ByteView, [M3.3 handoff](self-hosting/m3/HANDOFF_M3.3.md) ready for the source-only S4 exit ([pre-change review](self-hosting/m3/PRE_CHANGE.md)) |
+| [M4](#m4-native-filesystem-and-process-services) | Deliver B3 filesystem and B4 process services | M2; audited helper dependencies | Filesystem checkpoint first, native process/driver checkpoint second | Complete: [M4.1/M4.2 handoff](self-hosting/m4/HANDOFF_M4.1-M4.2.md) ready for M5 publication, [M4.3 handoff](self-hosting/m4/HANDOFF_M4.3.md) ready for the optional native-driver route, both on macOS arm64, Linux x86-64 and Linux arm64 ([Linux arm64 run](self-hosting/m4/arm64-evidence/manifest.json), [pre-change review](self-hosting/m4/PRE_CHANGE.md)) |
+| [M5](#m5-artifacts-and-command-line-helpers) | Deliver public CRC32, B6 archives, and S6 B7 helpers | M2; required M3 helpers; M4 filesystem checkpoint for publication | Artifact and documentation/CLI prerequisites ready for S6 | Complete: [M5 handoff](self-hosting/m5/HANDOFF_M5.md) ready for S6 on macOS arm64, Linux x86-64 and Linux arm64: public [CRC32](self-hosting/m5/CRC32.md) (D274), the [archive contract](self-hosting/m5/ARCHIVES.md), [codec and writer profiles](self-hosting/m5/CODEC.md) (D275), [artifact services](self-hosting/m5/ARTIFACTS.md) (D276) and [documentation helpers](self-hosting/m5/DOC.md) (D277) ([pre-change review](self-hosting/m5/PRE_CHANGE.md)) |
+| [M6](#m6-bridge-preparation-and-final-handoff) | Qualify remaining Bridge consumers of B3-B7 | Required M3 helpers, M4 process checkpoint, and M5 artifact facilities | Preparation evidence and remaining S7/S8 integration obligations handed off | Complete: [M6 handoff](self-hosting/m6/HANDOFF_M6.md) on macOS arm64, Linux x86-64 and Linux arm64 closes preparation: [Bridge contracts](self-hosting/m6/CONTRACTS.md) (D291-D293), [Bridge JARs and JDK selection](self-hosting/m6/JAR.md) (D294, D295) and [the inventory reconciliation](self-hosting/m6/CLOSURE.md) ([pre-change review](self-hosting/m6/PRE_CHANGE.md)) |
 
 ### Dependency and scheduling rules
 
@@ -114,16 +114,16 @@ or displace the feasibility pilot.
 [B0a](#b0a-inventory-and-java-baseline) and
 [S0](SELF_HOSTING_PLAN.md#s0-establish-the-baseline-and-comparison-harness).
 
-- [ ] **M0.1: Freeze reproducibility.** Record J0/JDK, library/runtime and LLVM
+- [x] **M0.1: Freeze reproducibility.** Record J0/JDK, library/runtime and LLVM
   identities, launcher `-Xmx`/`-Xss`, effective environment/settings, hosts,
   source hashes, and exact commands. Define the memory, stack, and time
   measurement procedure and supported development-machine profiles.
-- [ ] **M0.2: Classify dependencies and ordering.** Inventory API overloads,
+- [x] **M0.2: Classify dependencies and ordering.** Inventory API overloads,
   excluded syntax, callbacks/captures, snapshots, null handling, deque uses,
   and every hash-container traversal. Assign each required replacement to a B
   owner, phase, first consumer, and fixture. Preserve the original evidence
   when reviewed Java ordering refactors change a comparison baseline.
-- [ ] **M0.3: Freeze fixtures and pilot scope.** Capture tokens/spans, AST,
+- [x] **M0.3: Freeze fixtures and pilot scope.** Capture tokens/spans, AST,
   diagnostics, IR, LLVM, and resource baselines. Prove the comparison harness
   detects deliberate mismatches. Choose numerical budgets from these
   measurements before evaluating native results. Name the exact B1/B2/B7
@@ -134,6 +134,208 @@ enumerated, and relevant ordering decisions and budgets are recorded. Unresolved
 contracts block their dependent phase; a count of Java imports is insufficient.
 This is S0's baseline checkpoint, not a second definition of S0.
 
+Evidence: [M0 qualification record](self-hosting/m0/VERIFICATION.md), including
+the original J0 input manifest, effective numeric JVM profile and measurement
+procedure. M0.1/M0.2/M0.3 and S0 passed on the qualified macOS arm64 M5/32-GiB
+profile. [PILOT_HANDOFF.md](self-hosting/m0/PILOT_HANDOFF.md) defines the exact
+permitted B1/B7 M1.1/M1.2/M1.3 prerequisites, with no selected B2 sorting demand.
+[s0-qualification.json](self-hosting/m0/s0-qualification.json) binds archive
+integrity, mismatch controls, fixed budget replay and the finite source handoff.
+M1 has since passed its own [checkpoint](self-hosting/m1/CHECKPOINT.md); M2 has
+not started. The following paragraphs retain the M0 increment history; their
+earlier open-status notes are superseded by the M0 checkpoint.
+Attributed discovery and its focused qualification are retained in that record;
+candidate labels remain separate from the required reviewed use-site contracts.
+The neutral process comparison now detects deliberately changed diagnostics,
+removed typed-IR branch edges and changed LLVM output. Original safe/unsafe
+branch-snapshot captures are retained with fresh-process repeats and native
+execution evidence. These are partial M0.3 evidence while the inventory remains
+open. The [frontend contracts](self-hosting/m0/FRONTEND_CONTRACTS.md) cover the
+lexer/parser/source use sites, and the [snapshot contracts](self-hosting/m0/SNAPSHOT_CONTRACTS.md)
+include a complete private explanation-store traversal review with adversarial
+Java qualification. The [AST contracts](self-hosting/m0/AST_CONTRACTS.md) cover
+all exact external member uses in that package, with qualified original helper
+probes. The [worklist contracts](self-hosting/m0/WORKLIST_CONTRACTS.md) map all
+44 deque origins to FIFO or scope-stack semantics and their actual references.
+Selected variant coverage, captures and upstream semantic ordering remain open.
+The [diagnostic value closure](self-hosting/m0/DIAGNOSTIC_CONTRACTS.md) adds
+source identity/span value, immutable note membership, constructor failure order
+and immediate first-error traversal contracts reached by the frontend. Formatter
+rendering remains a separate later consumer.
+The [syntax discovery correction](self-hosting/m0/syntax-discovery-correction.json)
+separates 118 excluded uninitialized locals from 1,141 enhanced-for bindings and
+marks all 1,753 Java var declarations excluded. Original non-syntax tables are
+preserved; incidental javac wildcard names are not compiler semantic identities.
+The [callback contracts](self-hosting/m0/CALLBACK_CONTRACTS.md) review all exact
+functional-member calls, every captured constructor callback and a traced
+method-to-field observer. Remaining method-argument capture and stream/comparator
+contracts still block the full inventory gate.
+The [hash-origin correction](self-hosting/m0/hash-origin-correction.json) removes
+17 bound mutation references from the construction catalog, leaving 849 origins.
+All 2,957 traversal records and surviving discovery IDs are preserved; their
+global source proofs remain open. The
+[effect contracts](self-hosting/m0/EFFECT_CONTRACTS.md) review all exact external
+uses and propagated hash sites in ClosedWorldEffectAnalyzer, including its
+field-stored compiler-defined observer. Original target unions, cross-word
+parameter bits, rendered-result exclusion and unwind reachability have focused
+Java qualification; global summary/ownership ordering and resources remain open.
+The effect slice reuses existing BitSet operations under B1 and starts copies
+with new BitSet plus or(source); its FIFO is M1.2, and primitive presence is B7.
+It introduces no B2 sorting dependency or replacement vector implementation.
+[Initial resource measurements](self-hosting/m0/RESOURCE_MEASUREMENTS.md) retain
+152 fresh outcomes and twelve strict-input follow-ups. Their exact qualifier
+exposes SlotOrder's line-18/line-19 explanation choice; preserve these original
+bytes before fixing snapshot ordering. Capped Java frame traces are lower bounds.
+Direct kernel measurements and native-tool costs are separate from these
+complete-compiler measurements; expanded corpus references and budgets remain open.
+The array-slot ordering repair has a recorded pre-change consumer map and
+safe/unsafe verification selection in the M0 qualification record. It preserves
+incoming path/current-store insertion order before first witness selection;
+other snapshot hash paths remain outside that focused repair.
+The D247 repair and its four selected behavior tests now pass, including all
+unfreed modes and paired safe/unsafe array controls. The original J0 archive
+stays intact; the distinct ordered seed and fresh comparison are qualified below.
+An additional focused overwrite case distinguishes current-store order from
+earliest-ever store order and the ordinary probe's minimum-index precedence.
+The [ordered baseline delta](self-hosting/m0/ordered/DELTA.md) now qualifies
+two matching seed reconstructions, four canonical captures per fixture and 36
+selected resource follow-ups. Original J0 evidence remains separate. D247's
+array-slot path passes; global ownership ordering and M0.3 budgets remain open.
+The [direct kernel evidence](self-hosting/m0/KERNEL_RESOURCES.md) qualifies 104
+fresh original/ordered runs of the actual explanation snapshot store and effect
+fixed-point analyzer. Exact results match across seeds, observation and sampling;
+store close retires every budget unit. Setup/projection costs are separate from
+the measured kernels, and these measurements do not replace ownership-proof
+snapshot workloads or native lifetime verification.
+The [native pipeline evidence](self-hosting/m0/NATIVE_RESOURCES.md) qualifies 32
+original/ordered compile-then-link pipelines, including separate LLVM/Clang
+records and total wall/RSS observations. Wrappers preserve tool output bytes and
+exit codes; plain/profiled LLVM and executable results agree. Concurrent RSS
+sums remain distinct from physical memory and isolated JVM heap.
+The [expanded canonical corpus](self-hosting/m0/CANONICAL_CORPUS.md) retains 248
+fresh original/ordered captures across 31 accepted/rejected sources. Ordered
+repeat checks pass; original J0 reproduces the known SlotOrder note instability.
+Cross-seed differences stay restricted to that repaired note. Raw-byte storage
+reconstruction and deliberate diagnostic/IR/LLVM mismatches are qualified.
+Observed variants do not replace independent model/dispatch coverage. Explicit
+pilot closure and reviewed remaining inventory still precede budget selection.
+The [diagnostic allocation tracker](self-hosting/m0/UNFREED_CONTRACTS.md) adds
+25 exact patterns/43 calls, three immediate captured rows and all nine H0866
+membership-flow contributions. Its 2,148-check probe matches in four fresh JVMs;
+registration/finding order stays separate from snapshot membership order.
+Upstream caller event ordering and mandatory free proofs retain their own gates.
+The [selected frontend closure](self-hosting/m0/FRONTEND_PILOT.md) now joins
+376 explicit methods/3,154 calls to 68 reviewed external patterns. An independent
+119-declaration model includes parser-private records and DocumentationComment,
+checks every reached method owner, and rejects missing
+variant/field treatments. Six later-only AST helper declarations and source
+acquisition/rendering remain explicitly outside M2.1 construction. This fixes
+the frontend prerequisite boundary; the ownership pilot and global inventory
+still precede S0 closure.
+Model raw TSV outputs are retained in gzip with exact-byte hashes, including
+empty trailing fields; the complete task diff passes whitespace verification.
+The [bounded ownership pilot](self-hosting/m0/OWNERSHIP_PILOT.md) now invokes
+actual snapshot/restore/merge over all seven fields and records full keyed
+before/changed/merged facts. Its conservative closure maps 97 methods/528 calls
+to 67 exact external contracts, with 115 bounded traversal sites and 46 immediate
+captured rows. Ninety-six fresh ordered-seed resource runs and a 47-check
+original value/branch probe pass; general event prefixes, competing pool
+conflicts and later retained-child consumers remain explicitly gated. Numerical
+budgets, complete classifications and final pilot model checks still precede S0.
+Independent scoped review of `729b726e` confirmed the four 47-check probe outputs,
+all 2,964 archive members, 96 final resource runs and every projected proof field
+across explanation modes. License and complete-task whitespace checks passed;
+that acceptance does not close M0.
+The [loop/cycle reference](self-hosting/m0/LOOP_CYCLE_REFERENCE.md) adds source
+loops at depths 16/64/128, all four loop forms, and mandatory unsafe array-loop
+rejection in every unfreed mode. Forty final canonical captures and eighty final
+cyclic-effect processes agree across original and ordered seeds. Four focused
+native loop programs exit zero. Deliberate changed-effect/missing-repeat controls
+fail qualification. Isolated resource replays replace provisional overlapped
+timings for budget selection, retaining every predecessor. Native pilot input
+model treatment and global dependency classifications remain open.
+The [finite operation model](self-hosting/m0/OPERATION_MODEL.md) now inventories
+233 declarations from 132 pinned sources independently of fixture serialization.
+Four fresh original/ordered JVMs agree; all fields and permitted variants have
+selected, restricted or later-only treatments. Five missing-treatment controls
+fail. The private call/foreign-call/return and ownership role boundaries must be
+enforced before M2.2; general model roles retain explicit M3.1 consumer gates.
+This closes the selected model inventory without implementing native consumers.
+Independent scoped review of `2448e344` confirmed all 2,393 archive members,
+twenty final loop cross-seed pairs, four actual loop kinds, both forty-run cyclic
+groups and observer rounds, forty cycle pairs and all 36 isolated loop statuses.
+The complete-task whitespace check passed. Global inventory/budgets remain open.
+The [fixed pilot budgets](self-hosting/m0/PILOT_BUDGETS.md) now derive numerical
+limits from 88 frontend, 96 ownership, 24 explanation and 160 effect Java runs,
+with exact maximizing labels and archive/member hashes. Frontend allows 2 seconds/
+1 GiB RSS; direct kernels allow 1 second/512 MiB with explicit phase caps. Native
+main stack is limited to 8,176 KiB and temporary retirement must end at zero,
+without treating unmeasured bytes or association counts as physical accounting.
+Only the qualified M5 macOS profile is covered; no native result is evaluated.
+Global classifications and final S0 reconciliation still precede M0 completion.
+The fixed frontend budget also gates the actual translated frontend/helper
+source bundle before G1: M1.1/M1.3 deliver and hash helper sources; M2.1 supplies
+frontend consumer sources, completes the combined source/closure manifest and
+fresh J0 reference, then compares and measures the combined retained bundle.
+Independent budget review confirmed baseline arithmetic, the frozen stack limit
+and combined retention requirement. The explicit helper/consumer phase split
+keeps M1 preparation separate from M2 frontend translation.
+Twelve synthetic resource/method controls exercise strict numeric enforcement;
+they are not native results. Stack rationale and external enforcement are explicit.
+Independent scoped review of `6a4dd09f` confirmed all source hashes, six logs,
+four identical 233-model outputs, finite roles and negative controls. Native
+consumer implementation remains in M1/M2. Next action: finish global reviewed
+API/capture/syntax and transitive ordering classifications, then reconcile the
+selected pilot dependencies, fixed budgets and S0 evidence before M0 completion.
+The [sorting contracts](self-hosting/m0/SORTING_CONTRACTS.md) now review 41 exact
+patterns/554 calls in 72 original files, including stream sorts/min/max omitted
+from the B2 discovery label. All 88 sorted origins and 58 captured argument rows
+retain literal source facts and blocking consumer fixtures. The 59-check Java
+probe passes four fresh processes. Seventy-three String/one Path TreeMaps and
+eleven String/one Integer/one custom Key/one Path TreeSets need distinct domains.
+The existing native Path Unicode-order difference is confirmed and preserved
+against D087/D093's fixed POSIX surface; B2/B3 actual callers remain gated without
+selecting a provider subsystem or a broad API repair. Upstream producer/tie/
+retention facts and the remaining global inventory still precede S0 completion.
+Independent review accepted the fixed budget arithmetic, exact input sets,
+stack capacity, source-bundle phase split and synthetic enforcement controls;
+this does not qualify native G1 or the complete M0 checkpoint.
+The [source reconciliation](self-hosting/m0/RECONCILIATION.md) now joins all
+712 patterns/30,979 external calls, 12,413 syntax sites, 3,054 capture rows and
+31,325 hash-origin/traversal contributions without promoting candidate labels.
+Exact selected method/site overlays preserve M1 prerequisites and M2 first
+consumers, while excluded roles and general producers remain later. The private
+operation factory's 51 constructor calls/14 patterns have conditional data
+contracts; 98 general hash contributions are excluded from that fixed input,
+without a global order proof. Current D247 attribution is preserved separately.
+All selected call/capture/contribution joins and four rejection controls pass.
+The mutable-text review adds 15 declarations/5,006 typed source calls and four
+37-check original JVM outputs. Argument qualification preserves all 30,979
+external keys and 53,644 operand ranges with flat quote grammar and canonical
+UTF-16 constants. Five failed parsing attempts remain archived; their raw calls
+were complete. Boxed int/char, borrowed builder, ASCII anchor and cleanup prepend
+contracts are source-specific. General producer order/native retirement remain
+later obligations. The final source-backed deferred ledger assigns every exact
+call/syntax/capture/hash contribution its typed source demand, B preparation,
+actual first consumer and blocking fixture. Main/facade Bridge dispatch, archive
+classpath and native process branches no longer become source-only S4 demands.
+Actual earlier semantic call routes remain visible. Five final admission controls pass;
+later unresolved contracts stay blocked before their dependent consumer. REPLAY.md
+provides a read-only git/blob view for phase source checks after later edits.
+The final pilot handoff binds 1,330 calls, 723 syntax sites, 65 captured rows and
+446 scoped/conditional hash contributions. All ten retained archives pass byte/
+manifest verification; comparison controls and fixed budget/control derivations
+reproduce their retained bytes. M0 and S0 are complete for this host/profile.
+Only the named M1 prerequisites are permitted next; no milestone is running.
+The final review corrects API0412/API0413's eight HexFormat call sites to private
+B5/B7 lowercase digest-text/factory elision: M3.2 before the ByteView/earlier Bridge
+S3 callers, M3.3 for TLS and reuse before later Bridge identity. A fifth admission
+control rejects the earlier collection/M3.1 classification. The selected pilot
+counts, fixed budgets and M1 scope are unchanged; no formatter API is introduced.
+The corrected 55314265 committed frozen view reproduces inventory/handoff bytes
+and S0 facts/control-output hashes; only fresh invocation paths differ. M0 is
+complete, and M1/M2 and every later milestone remain not started.
+
 ### M1. Minimum pilot prerequisites
 
 **Entry:** M0 evidence and the bounded pilot inventory. Use
@@ -141,18 +343,48 @@ This is S0's baseline checkpoint, not a second definition of S0.
 [B2](#5-b2-stable-list-level-sorting-for-compiler-objects), and
 [B7](#10-b7-compiler-local-portability-helpers).
 
-- [ ] **M1.1: Independent snapshot storage.** Implement the required ArrayList
+- [x] **M1.1: Independent snapshot storage.** Implement the required ArrayList
   and private compiler snapshot copies. Start BitSet copying with the existing
   `or` operation; add a convenience only when justified. Establish independent
   backing storage, borrowed elements, failure rollback, and safe destruction.
-- [ ] **M1.2: Pilot maps, traversal, and order.** Add the selected map/set copies,
+  Complete: the [ArrayList slice](self-hosting/m1/ARRAY_LIST.md) and
+  [private list/logical-bit helpers](self-hosting/m1/SNAPSHOTS.md) pass;
+  [independent map copies](self-hosting/m1/MAPS.md) and
+  [set copies](self-hosting/m1/SETS.md), including D252's mandatory helper
+  confinement correction for automatic rollback, also pass. A later root review
+  found D252 incomplete: constructor-held fields and helper retention could
+  still publish the in-progress receiver. D253's
+  [field-alias correction](self-hosting/m1/FIELD_ALIAS.md) closes that blocker
+  for source, class and archive inputs in every unfreed mode, with unchanged
+  valid LLVM. [Private keyed snapshots](self-hosting/m1/KEYED.md) (D254) and
+  the [seven-field composition](self-hosting/m1/COMPOSITION.md) (D257) pass;
+  node and version retirement is the M2.2 native lifetime proof. A
+  [400-operation list-copy differential](self-hosting/m1/ARRAY_LIST.md#java-differential)
+  over a source, its copy, a copy of the copy and a later source copy equals
+  Java 21's `ArrayList` copy-constructor transcript.
+- [x] **M1.2: Pilot maps, traversal, and order.** Add the selected map/set copies,
   use local/indexed traversal or copied keys, and preserve identity/value/order
   distinctions. Rewrite pilot stack/FIFO consumers. Bring in B2's list sort or
   sorted-container rewrites only where M0 identified a pilot dependency.
-- [ ] **M1.3: Pilot language and text helpers.** Prepare record value operations,
+  Complete: the three map-copy and three set-copy families qualify, with
+  publishing helper construction rejected even without explicit caller frees,
+  including through constructor-held fields (D253), and D254's read-only keyed
+  snapshots. The selected FIFO and evidence-store iterator removal pass with
+  [D255's worklist](self-hosting/m1/WORKLIST.md); no pilot stack consumer is
+  reached. D257 adds copied traversal lists for restore and join, with a
+  native seven-field join projection equal to its Java reference.
+- [x] **M1.3: Pilot language and text helpers.** Prepare record value operations,
   text-block normalization, varargs/factory rewrites, numeric/nullable results,
   reached name splitting, and required callback interfaces. Rewrite any pattern
   dispatch reached by the pilot and establish its variant coverage check.
+  Complete: [text-block normalization](self-hosting/m1/TEXT.md) (D256)
+  matches Java 21 `stripIndent` on 20,012 differential inputs, and the
+  [value helpers and port conventions](self-hosting/m1/VALUES.md) (D258) cover
+  escapes, segment counts, singleton/empty lists and record values. The
+  [finite input model](self-hosting/m1/VARIANTS.md) (D260) makes variant
+  coverage a compile-time check, and
+  [snapshot-owned evidence](self-hosting/m1/EVIDENCE_STORE.md) (D259) replaces
+  weak evidence keys.
 
 **Checkpoint:** each selected helper has Java-equivalence evidence, allocation
 measurements, and applicable safe/unsafe and failure-cleanup pairs. List the
@@ -160,24 +392,60 @@ remaining B1/B2/B7 work explicitly. New cursors, a general deque, reusable sort
 workspace, or more precise ownership rules remain conditional on demonstrated
 need. Passing this checkpoint makes M2 runnable; it does not establish S1.
 
+Status: passed on the qualified macOS arm64 M5/32-GiB profile. The
+[M1 checkpoint](self-hosting/m1/CHECKPOINT.md) maps every selected helper to its
+evidence, reconciles all 1,330 handoff calls, hashes the helper source bundle
+for M2.1 and lists the remaining B1/B2/B7 work and the M2 obligations M1
+created. M2 has not started.
+
 ### M2. Portability and ownership pilot
 
 **Entry:** the required M1 deliverables have passed their focused checks. Use
 [B0b](#b0b-execute-the-s1-pilot); [S1](SELF_HOSTING_PLAN.md#s1-prove-portability-and-memory-feasibility)
 remains the gate definition, and **G1** remains its stable checkpoint name.
 
-- [ ] **M2.1: Frontend slice.** Port spans, diagnostics, lexer, and parser with
+- [x] **M2.1: Frontend slice.** Port spans, diagnostics, lexer, and parser with
   the selected AST subset. Compare positive/malformed inputs, cooked text,
   Unicode digit continuation, and exact UTF-16 source spans against J0.
-- [ ] **M2.2: Ownership slice.** Exercise real snapshot construction, copy,
+  Complete: the [native frontend](self-hosting/m2/FRONTEND.md) (D261) is
+  byte-identical to J0 on the 36 frozen workloads, the 125-unit combined
+  [source bundle](self-hosting/m2/SOURCE_BUNDLE.json), all 759 tracked `.iron`
+  sources and 3,000 seeded mutations, and reconciles the 376-method closure
+  and 119-declaration model. It compiles and links under `--unfreed=warn`
+  with no findings, retires every builder (a census leaves no temporaries on
+  accepted inputs), unwinds every allocation failure, and fits the frontend
+  budget: measured in isolation in M2.3, the whole bundle in one invocation
+  takes 0.270 s and 138.7 MB, and every case completes within a 128-KiB stack.
+- [x] **M2.2: Ownership slice.** Exercise real snapshot construction, copy,
   mutation, joins, restoration, and retirement, including explanation evidence.
   Measure immediate and field-retained callbacks and captured-state allocations;
   pair accepted cleanup with rejected frees of still-observable state.
-- [ ] **M2.3: Scale and qualify.** Compile and link with `--unfreed=warn`, retain
+  Complete: the [native ownership slice](self-hosting/m2/OWNERSHIP.md) (D262)
+  is byte-identical to the retained J0 kernel results for all 47
+  configurations (ownership, evidence, effect chains and cycles) from classes
+  and archive. Join predecessors live in a creation-array owner, so every
+  snapshot, saved version, builder and analyzer retires by a local proof;
+  after retirement only the derived invocation-lived payload stays live, with
+  zero temporaries. Callback costs are recorded per kind (observer calls add
+  no allocations), paired controls hold in every mode, every allocation
+  failure unwinds, and all 94 runs fit the budgets within a 32-KiB stack.
+- [x] **M2.3: Scale and qualify.** Compile and link with `--unfreed=warn`, retain
   logs, and classify per-command and unique-site missing-free counts and local
   suppressions. Compare geometrically increasing workloads, memory/stack/time,
   and outstanding temporaries against M0 budgets. Mandatory safety failures
   remain errors, and zero missing-free warnings is not a requirement.
+  Complete: the [qualification record](self-hosting/m2/QUALIFICATION.md)
+  shows the ten pilot commands with no missing-free finding and no mandatory
+  error; the test adapters declare their intentional process-lifetime
+  retention with five reviewed local suppressions.
+  The unsafe corpus sources stay rejected in every mode. Every pilot is
+  re-measured in one isolated run, because the earlier runs overlapped a
+  stray helper process: the 74 frontend and 94 kernel records stay within
+  budget, and doubling past the references leaves zero
+  temporaries: ownership stays linear to 4,096 nodes, while forced-collision
+  evidence and fixed-point effects grow faster and reach their phase caps at
+  1,024 nodes and 512 functions; the frontend bundle matches M2.1 up to eight
+  copies.
 
 **Checkpoint G1:** all [S1 evidence](#evidence-for-the-s1-exit-gate) passes and
 has an evidence record. On failure, name the limiting representation/proof or
@@ -185,30 +453,61 @@ resource cost, return to the affected M1 phase, and rerun the affected checks.
 Do not expand translation to hide an unresolved pilot failure or weaken a free
 proof to make the checkpoint pass.
 
+Status: passed on the qualified macOS arm64 M5/32-GiB profile. The
+[G1 checkpoint](self-hosting/m2/CHECKPOINT.md) maps every S1 evidence item to
+its record, lists the consumers that retained conservative limits block and
+the forms that avoid them, and names what M3 needs. No new ownership
+semantics or analysis change was required. M3 has since recorded its three
+handoffs.
+
 ### M3. Semantic and backend preparation
 
 **Entry:** G1 passed. Finish the remaining B1/B2/B7 work in consumer order and
 the early [B5 digest work](#8-b5-exact-checksums-and-digests). These phases support
 the S2-S4 port; they do not replace its integration exits.
 
-- [ ] **M3.1: S2 representation and traversal helpers.** Complete the selected
+- [x] **M3.1: S2 representation and traversal helpers.** Complete the selected
   snapshot/value APIs, reference generic bounds, compiler-local callbacks, and
   explicit walkers/pattern-switch rewrites. Share the independent variant
   inventory; prove a missing treatment fails coverage. Finish the collection,
   sorted-map/set, and worklist slices needed by the next consumers, preserving
   the B1/B2 allocation and ownership contracts.
-- [ ] **M3.2: S3 semantic prerequisites.** Complete bounded numeric folding,
+  Complete: B2's stable [list sort](self-hosting/m3/SORT.md) (D263), the
+  [stack, order, value and callback helpers](self-hosting/m3/HELPERS.md) (D264)
+  and the [shared IR variant inventory](self-hosting/m3/VARIANTS.md) (D265)
+  pass, with split bounds, prefix copies and IR names brought forward from
+  M3.2/M3.3 to their first S2 consumer (D266). The
+  [classification](self-hosting/m3/CLASSIFICATION_M3.1.md) gives each of the
+  319 M3.1 patterns an existing API, a recorded convention or a delivered
+  helper, and the [M3.1 handoff](self-hosting/m3/HANDOFF_M3.1.md) records
+  readiness for the S2 consumers.
+- [x] **M3.2: S3 semantic prerequisites.** Complete bounded numeric folding,
   StringPool/UTF-16 and name helpers, and exact SHA-256 before ByteView analysis.
   Test original versus changed declarations and preserve declaration authority.
   Extend semantic/snapshot differential fixtures as the port grows, using S3's
   pinned J0 time, heap, and stack capacity evidence.
-- [ ] **M3.3: S4 backend prerequisites.** Complete MD5 GUID generation, unsigned
+  Complete: the [numeric, text and SHA-256 helpers](self-hosting/m3/SEMANTIC.md)
+  (D267) pass, including ByteView authority from J0's source, class and
+  archive contents, and the [classification](self-hosting/m3/CLASSIFICATION_M3.2.md)
+  covers every M3.2 pattern. The [M3.2 handoff](self-hosting/m3/HANDOFF_M3.2.md)
+  records the pinned capacity evidence and readiness for the S3 consumers.
+  J0 cannot compile the accumulated port, so S3 qualifies capacity on a newer
+  recorded seed.
+- [x] **M3.3: S4 backend prerequisites.** Complete MD5 GUID generation, unsigned
   comparison/widening, binary slices, and remaining emission/text helpers.
   Prepare explicit installation/build identity inputs for the source-only route.
   Record the runtime-object cache omission or prove retained invalidation;
   preserve all other SHA-256 consumers. Cover native output and trace ordering,
   and use the existing hot-lowering checks for changed paths, including
   `SelectiveInlining` consumers.
+  Complete: the [backend helpers and source-only inputs](self-hosting/m3/BACKEND.md)
+  (D268, D269) pass against the Java baseline's own MD5 GUIDs, emitter text,
+  target and trace patterns, Properties, installation discovery and version,
+  including trace-root ordering; one link never reuses a runtime object, so the
+  native port compiles them directly, and the other SHA-256 consumers are
+  unchanged. The [classification](self-hosting/m3/CLASSIFICATION_M3.3.md)
+  covers every M3.3 pattern, and the [M3.3 handoff](self-hosting/m3/HANDOFF_M3.3.md)
+  records readiness for the source-only S4 exit.
 
 **Checkpoints:** M3.1's helpers must be ready for their S2 consumers; M3.2 must
 pass before its S3 consumers, especially ByteView; M3.3 must pass before the
@@ -222,20 +521,42 @@ isolated helpers pass. No archive or native process API is added to that path.
 slice. Follow [B3](#6-b3-filesystem-operations-and-publication-guarantees) and
 [B4](#7-b4-a-synchronous-process-facility); this milestone can overlap M3.
 
-- [ ] **M4.1: Traversal, scratch paths, and discovery.** Rewrite `walk`/`list`
+- [x] **M4.1: Traversal, scratch paths, and discovery.** Rewrite `walk`/`list`
   consumers with existing visitors/directory streams. Add audited temporary,
   cleanup, real-path, and access APIs using the existing temporary-directory
   convention. Update every affected Files borrowing/IR consumer and pair normal
   results with allocation, IO, aliasing, and resource-failure cases.
-- [ ] **M4.2: Publication guarantees.** Implement and qualify separate atomic
+  Complete: [exclusive temporary paths with secure names, real paths, access
+  checks, `deleteIfExists`, the no-follow attribute helper and the port's
+  post-order tree deletion](self-hosting/m4/SCRATCH.md) (D270) match Java 21
+  on a 74-case fixture tree and six `TMPDIR` settings, unwind every allocation
+  failure without leftover entries and survive injected native failures; the
+  M5/M6 `walk`/`list` consumers keep B3's replacement table.
+- [x] **M4.2: Publication guarantees.** Implement and qualify separate atomic
   replacement, permitted fallback, and no-replace policies. Resolve host
   primitives against the macOS/glibc baseline before coding; verify failure
   preserves earlier outputs and that unsupported capabilities fail explicitly.
-- [ ] **M4.3: Synchronous launch and discovery adapters.** After M4.1, implement
+  Complete: [`moveAtomicReplacing`, `moveReplacing` and
+  `moveAtomicNoReplace`](self-hosting/m4/PUBLICATION.md) (D271) use `rename`,
+  a regular-file copy only across file systems, and `renamex_np`/raw
+  `renameat2` exclusive renames; they match Java 21 where the policies
+  agree, keep earlier output on every injected failure, admit one of eight
+  competing processes, fail unsupported or cross-device exclusive renames
+  explicitly, and pass on macOS arm64, Linux x86-64 and Linux arm64 with a
+  glibc 2.17 symbol baseline.
+- [x] **M4.3: Synchronous launch and discovery adapters.** After M4.1, implement
   B4's absolute executable, inherited environment, optional child cwd, and
   merged-file output contract. Normalize bare launch sites in compiler callers.
   Test temp-log read/delete behavior, invocation-scoped discovery reuse, failure
   cleanup, and the actual LLVM pipeline.
+  Complete: [`ProcessRunner.runToFile`](self-hosting/m4/PROCESS.md) (D272)
+  launches by absolute path through one `fork`/`execv` runtime path with a
+  typed process instruction; the Java seed now runs `/usr/bin/xcrun` and a
+  `brew` resolved by its own PATH search; and the port's Command, Probes,
+  ExecutableSearch and LlvmPipeline adapters (D273) reuse discovery within an
+  invocation, delete every probe log, clean up failing stages and link the
+  Java compiler's emitted module into an executable equal to the Java link's,
+  on macOS arm64, Linux x86-64 and Linux arm64.
 
 **Checkpoints:** M4.1 plus M4.2 establish filesystem readiness for M5 publication;
 M4.3 separately establishes native driver/process readiness. Record qualified
@@ -249,30 +570,66 @@ M4 filesystem checkpoint; M5.1/M5.2 can proceed earlier. Use
 [B5](#8-b5-exact-checksums-and-digests),
 [B6](#9-b6-archive-codec-and-artifact-compatibility), and the S6 portions of B7.
 
-- [ ] **M5.1: CRC32 and archive contracts.** Implement the public CRC32 slice
+- [x] **M5.1: CRC32 and archive contracts.** Implement the public CRC32 slice
   with its full admitted overload/ownership behavior. Freeze the legacy-input
   matrix, metadata rules, serialization fixtures, and publication expectations;
   reuse M3 SHA-256 rather than creating another digest facility.
-- [ ] **M5.2: Codec and writer decision.** Prototype inflate against admitted
+  Complete: [public CRC32](self-hosting/m5/CRC32.md) (D274) matches Java 21
+  for every admitted call, including subclass dispatch, with its ownership
+  pairs, omissions and allocation behavior; [the archive
+  contract](self-hosting/m5/ARCHIVES.md) freezes both Java readers' verdicts on
+  144 byte-exact variants, the observed STORED, DEFLATED and ZIP64 metadata,
+  four class artifacts and an archive whose identities the port's `Sha256`
+  checks, and each profile's publication behavior.
+- [x] **M5.2: Codec and writer decision.** Prototype inflate against admitted
   legacy blocks and malformed streams. Evaluate STORED native `.ironclass` and
   Bridge JAR output versus a pinned codec. Record the selected reader/writer
   profiles, provenance, byte/identity effects, and dependency/package boundary
   before changing canonical writer fixtures. A STORED writer never permits a
   STORED-only legacy reader.
-- [ ] **M5.3: Artifact integration.** With M4.1/M4.2 ready, qualify class/jar
+  Complete: [D275](self-hosting/m5/CODEC.md) selects an original RFC 1951
+  decoder for every reader and STORED native writers in Java's STORED
+  spelling, with no new dependency. The decoder gives Java's Inflater verdict
+  on 194 streams; the writer reproduces the frozen `.ironjar` byte for byte,
+  matches Java's STORED bytes through the ZIP64 count threshold, and its class
+  artifact and JAR open in Java's readers, the `jar` tool, `java -jar` and a
+  class loader. Native class artifacts are 3.0 times larger; their bytes and
+  any identity over them differ from the Java bootstrap's.
+- [x] **M5.3: Artifact integration.** With M4.1/M4.2 ready, qualify class/jar
   reading, writing, nested payloads, validation, staging, and publication.
   Run both Java/native reader directions, native round trips, malformed inputs,
   and repeat/reordered-input determinism. Keep cross-writer byte equality a
   separate recorded requirement.
-- [ ] **M5.4: CLI and documentation helpers.** Complete the S6 split/line scans,
+  Complete: [the port's archive services](self-hosting/m5/ARTIFACTS.md) (D276)
+  give Java's verdicts and messages on the 144-variant corpus apart from five
+  recorded policy cases, read every Java-built standard-library artifact and
+  archive, write artifacts Java reads back, rebuild the standard-library
+  archive byte for byte (cross-writer equality holds for `.ironjar` and is not
+  required for `.ironclass`), stay deterministic under repeated and reordered
+  inputs, report Java's creation diagnostics, publish staged with
+  `moveReplacing`, unwind every allocation failure, and discover the library's
+  archive, class and source roots as Java does; a `walkFileTree` leak under
+  allocation failure was fixed on the way.
+- [x] **M5.4: CLI and documentation helpers.** Complete the S6 split/line scans,
   entity conversion, Java identifier-part tag predicate, and remaining discovery
   or installation helpers. Compare diagnostics, tag boundaries, text, and
   resource cleanup with the Java tools; preserve the `char` tag scan.
+  Complete: [the documentation helpers](self-hosting/m5/DOC.md) (D277) equal
+  the Java tools' own methods and expressions on 3,083 inputs, 438 tag
+  suffixes and every char and code point (a 47,935-line transcript), keep the
+  `char` tag scan with a regenerated Java 21 identifier-part table, select
+  IronDoc's sources as `Files.walk` does, and free every result.
 
 **Checkpoint:** S6's helper and artifact prerequisites have evidence for the
 selected profiles and supported hosts. Public CRC32, private archive services,
 and the remaining public ZIP/GZIP roadmap work have separate status. Passing
 this milestone does not itself claim the full native CLI has passed S6.
+Complete: [the M5 handoff](self-hosting/m5/HANDOFF_M5.md) records one run on
+macOS arm64, Linux x86-64 and Linux arm64 and gives each of the 312 M5
+inventory patterns one class. Public CRC32 is implemented (D274); the
+compiler's private archive services are complete for the selected profiles
+(D275, D276); the remaining public ZIP/GZIP work stays open in roadmap item 5.
+S6 has not started.
 
 ### M6. Bridge preparation and final handoff
 
@@ -280,27 +637,69 @@ this milestone does not itself claim the full native CLI has passed S6.
 facilities. This completes preparation for S7 consumers, not the S7 Bridge/IDE
 port or S8 release qualification.
 
-- [ ] **M6.1: Remaining compiler-local contracts.** Complete Java 21 qualified
+- [x] **M6.1: Remaining compiler-local contracts.** Complete Java 21 qualified
   export-name validation using the shared predicates delivered for S6, remaining
   properties/manifest helpers, and exact Bridge/TLS inventory serialization.
   Preserve UTF-16 identity encoding and caller-specific validation/diagnostics.
   Extend traversal coverage for each Bridge consumer brought into the port.
-- [ ] **M6.2: Bridge consumer qualification.** Exercise the selected JDK-tool
+  Complete: [the M6.1 record](self-hosting/m6/CONTRACTS.md) delivers
+  [Java 21 name validation](self-hosting/m6/NAMES.md) with both export loops
+  (D291), [exact identity, inventory, properties and JAR manifest
+  serialization](self-hosting/m6/INVENTORIES.md) (D292) and [the generators'
+  text conversions, patterns, readelf scans and Bridge file
+  inventories](self-hosting/m6/TEXT.md) (D293). Their transcripts equal the
+  baseline's methods and JDK 21 on 4,245 names, 414 maps, 2,559 properties
+  texts, 1,483 manifests, 9,041 float and double patterns, 3,353 strings and
+  607 readelf outputs; every pattern of the 387 in
+  [the M6.1 classification](self-hosting/m6/CLASSIFICATION_M6.1.md) has one
+  class, and the M0 rows naming M6 have treatments with S7 fixtures.
+- [x] **M6.2: Bridge consumer qualification.** Exercise the selected JDK-tool
   process path, Bridge JAR writer profile, verified atomic publication, and
   dependency manifests with focused fixtures. Preserve generated Java/C and
   external JDK boundaries. Track S7's native producer-identity design explicitly;
   a synthetic `Main.class` inventory cannot stand in for that decision.
-- [ ] **M6.3: Close preparation evidence.** Reconcile every B0-B7 inventory item
+  Complete: [the M6.2 record](self-hosting/m6/JAR.md) qualifies the STORED
+  Bridge JAR writer with verified `moveAtomicReplacing` publication (D294),
+  equal to Java's entries and opened by Java's readers and tools, keeping an
+  earlier jar on every invalid input, destination and allocation failure; the
+  values companion's manifest check and the distribution inventory with
+  Java's verdicts; the identity effects of STORED jars; the maintainer's
+  [JDK selection](self-hosting/m6/JDK_SELECTION.md) (D295), which selects as
+  `scripts/jdk.sh` does and records each JDK's own version and vendor across
+  13 installed JDKs from five vendors; and `javac` and `javadoc` through it,
+  equal to the in-process tools. S7's producer identity is tracked without a
+  synthetic compiler inventory.
+- [x] **M6.3: Close preparation evidence.** Reconcile every B0-B7 inventory item
   with its implemented contract, focused evidence, or named later-stage owner.
   Record remaining S7 producer/IDE integration and S8 qualification work without
   treating it as completed. Update affected API, ownership, packaging, provenance,
   and roadmap documents with the actual delivered scope.
+  Complete: [the M6.3 record](self-hosting/m6/CLOSURE.md) gives each of the
+  85,614 M0 inventory items (calls, syntax sites, captures, hash origins,
+  traversals and contributions, consumer gates, excluded edges and model
+  declarations) one treatment and one owner in
+  [the reconciliation](self-hosting/m6/RECONCILIATION.md): 1,877 qualified at
+  G1, 1,277 qualified only for the pilot's bounded input, 478 delivered for
+  the optional native-driver route, 81,779 prepared for their S2-S7 consumer
+  ports, seven owned by S7's producer-identity design and 196 edges excluded
+  from the source-only route, each with its reason, first affected stage and
+  blocking effect. No prerequisite of a ready stage is deferred. The record
+  lists the remaining S7 producer, Bridge, JDK-tool and IDE work and S8's
+  qualification; M6 changed no public API, runtime or package.
 
 **Checkpoint:** every in-scope preparation obligation has an evidence record;
 any deferred item states its reason, first affected stage, and blocking effect.
 No prerequisite of a claimed stage can be deferred while that stage is marked
 ready. The native bootstrap and production cutover still require the separate
 S5-S8 exits in `SELF_HOSTING_PLAN.md`.
+Complete: [the M6 handoff](self-hosting/m6/HANDOFF_M6.md) records one run on
+macOS arm64, Linux x86-64 and Linux arm64, an evidence record for every
+phase from M0.1 to M6.3, and an owner with its reason, first affected stage
+and blocking effect for each of the 85,614 M0 inventory items; no
+prerequisite of a ready stage is deferred. Before-self-hosting preparation is
+closed. S2-S8 have not started; S7 owns the native producer-identity design
+and the IDE transition, and S8 the platform qualification and the cutover
+decision.
 
 ## 2. Source findings that drive the plan
 

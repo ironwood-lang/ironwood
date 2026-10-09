@@ -1,0 +1,325 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// The compiler port's Bridge identity and inventory serialization
+// (BridgeIdentity, TextMap), properties (BridgeProperties) and JAR manifests
+// (JarManifest) against the Java baseline and JDK 21
+// (docs/self-hosting/m6/inventory-evidence/InventoryReference.java).
+// `program <corpus>` reads the reference's corpus (maps after `map` lines as
+// UTF-16 hex key and value pairs, byte vectors, properties texts, attribute
+// lists after `attributes` lines and manifest texts, bytes as two hex digits
+// each) and prints the reference's transcript: each map's identity digest,
+// content identity or its failure, and pairing serialization; each byte
+// vector's digest; each properties text's entries or failure with the
+// canonical check; each attribute list's written manifest; and each
+// manifest's main attributes or failure. Every result is freed after it is
+// printed; a caught failure keeps its exception, and its message too when
+// the message was built rather than a literal. Exit 42.
+import ironwood.compiler.port.BridgeIdentity;
+import ironwood.compiler.port.BridgeProperties;
+import ironwood.compiler.port.JarManifest;
+import ironwood.compiler.port.Splits;
+import ironwood.compiler.port.TextMap;
+import ironwood.io.IOException;
+import ironwood.nio.file.Files;
+import ironwood.nio.file.Path;
+
+class Main {
+
+    static String hexText(String text) {
+
+        if (text.isEmpty()) return new String("-");
+        StringBuilder out = new StringBuilder();
+        defer free out;
+        for (int index = 0; index < text.length(); index++) {
+            int unit = text.charAt(index);
+            for (int shift = 12; shift >= 0; shift = shift - 4) out.append("0123456789abcdef".charAt((unit >>> shift) & 15));
+        }
+        return out.toString();
+    }
+
+    static String hexBytes(byte[] bytes) {
+
+        if (bytes.length == 0) return new String("-");
+        StringBuilder out = new StringBuilder();
+        defer free out;
+        for (int index = 0; index < bytes.length; index++) {
+            int value = bytes[index] & 0xFF;
+            out.append("0123456789abcdef".charAt(value >>> 4));
+            out.append("0123456789abcdef".charAt(value & 15));
+        }
+        return out.toString();
+    }
+
+    static String decodeText(String text, int start, int end) {
+
+        if (end - start == 1 && text.charAt(start) == '-') return new String("");
+        char[] units = new char[(end - start) / 4];
+        defer free units;
+        for (int index = 0; index < units.length; index++) {
+            int value = 0;
+            for (int digit = 0; digit < 4; digit++) value = value * 16 + Character.digit(text.charAt(start + index * 4 + digit), 16);
+            units[index] = (char) value;
+        }
+        return new String(units);
+    }
+
+    static byte[] decodeBytes(String text, int start) {
+
+        if (text.length() - start == 1 && text.charAt(start) == '-') return new byte[0];
+        byte[] bytes = new byte[(text.length() - start) / 2];
+        for (int index = 0; index < bytes.length; index++) {
+            int high = Character.digit(text.charAt(start + index * 2), 16);
+            int low = Character.digit(text.charAt(start + index * 2 + 1), 16);
+            bytes[index] = (byte) (high * 16 + low);
+        }
+        return bytes;
+    }
+
+    static void printEntries(String label, TextMap map) {
+
+        System.out.println(label + " " + map.size());
+        for (int position = 0; position < map.size(); position++) {
+            String key = map.key(position);
+            defer free key;
+            String value = map.value(position);
+            defer free value;
+            String encodedKey = hexText(key);
+            defer free encodedKey;
+            String encodedValue = hexText(value);
+            defer free encodedValue;
+            System.out.println("  " + encodedKey + " " + encodedValue);
+        }
+    }
+
+    // Prints a map's digest, content identity and serialization; returns the
+    // allocations its caught failure keeps.
+    static int map(String corpus, int[] lines, int from, int to) {
+
+        TextMap values = new TextMap();
+        defer free values;
+        for (int line = from; line < to; line++) {
+            String text = Splits.field(corpus, lines, line);
+            defer free text;
+            int space = text.indexOf(' ');
+            String key = decodeText(text, 0, space);
+            defer free key;
+            String value = decodeText(text, space + 1, text.length());
+            defer free value;
+            values.put(key, value);
+        }
+        String digest = BridgeIdentity.digest(values);
+        defer free digest;
+        System.out.println("map " + values.size() + " digest " + digest);
+        int caught = 0;
+        try {
+            String content = BridgeIdentity.contentIdentity(values);
+            defer free content;
+            System.out.println("  content " + content);
+        } catch (IllegalArgumentException failure) {
+            String message = hexText(failure.getMessage());
+            defer free message;
+            System.out.println("  content error " + message);
+            // The exception; its message is a literal.
+            caught++;
+        }
+        byte[] serialized = BridgeProperties.serialize(values);
+        defer free serialized;
+        String encoded = hexBytes(serialized);
+        defer free encoded;
+        System.out.println("  serialized " + encoded);
+        return caught;
+    }
+
+    static void bytes(String text) {
+
+        byte[] bytes = decodeBytes(text, 6);
+        defer free bytes;
+        String digest = BridgeIdentity.bytesDigest(bytes, 0, bytes.length);
+        defer free digest;
+        System.out.println("bytes " + digest);
+    }
+
+    // Returns the allocations its caught failure keeps.
+    static int properties(String text) {
+
+        byte[] bytes = decodeBytes(text, 11);
+        defer free bytes;
+        TextMap loaded = new TextMap();
+        defer free loaded;
+        try {
+            BridgeProperties.load(bytes, 0, bytes.length, loaded);
+        } catch (IllegalArgumentException failure) {
+            String message = hexText(failure.getMessage());
+            defer free message;
+            System.out.println("properties error " + message);
+            // The exception; its message is a literal.
+            return 1;
+        }
+        printEntries("properties", loaded);
+        System.out.println("  canonical " + BridgeProperties.canonical(bytes, 0, bytes.length, loaded));
+        return 0;
+    }
+
+    // Writes an attribute list; returns the allocations its caught failures keep.
+    static int attributes(String corpus, int[] lines, int from, int to) {
+
+        JarManifest manifest = new JarManifest();
+        defer free manifest;
+        // The reference reports the last rejected name.
+        StringBuilder outcome = new StringBuilder();
+        defer free outcome;
+        int caught = 0;
+        for (int line = from; line < to; line++) {
+            String text = Splits.field(corpus, lines, line);
+            defer free text;
+            int space = text.indexOf(' ');
+            String name = decodeText(text, 0, space);
+            defer free name;
+            String value = decodeText(text, space + 1, text.length());
+            defer free value;
+            try {
+                manifest.putValue(name, value);
+            } catch (IllegalArgumentException failure) {
+                String message = hexText(failure.getMessage());
+                defer free message;
+                outcome.setLength(0);
+                outcome.append(message);
+                // The exception and its copy of the name.
+                caught = caught + 2;
+            }
+        }
+        byte[] written = manifest.write();
+        defer free written;
+        String encoded = hexBytes(written);
+        defer free encoded;
+        if (caught == 0) {
+            System.out.println("attributes ok " + encoded);
+        } else {
+            String last = outcome.toString();
+            defer free last;
+            System.out.println("attributes invalid " + last + " " + encoded);
+        }
+        return caught;
+    }
+
+    // Reads a manifest; returns the allocations its caught failure keeps.
+    static int manifest(String text) {
+
+        byte[] bytes = decodeBytes(text, 9);
+        defer free bytes;
+        try {
+            JarManifest manifest = new JarManifest(bytes, 0, bytes.length);
+            defer free manifest;
+            System.out.println("manifest " + manifest.size());
+            for (int index = 0; index < manifest.size(); index++) {
+                String name = manifest.name(index);
+                defer free name;
+                String value = manifest.value(index);
+                defer free value;
+                String encodedName = hexText(name);
+                defer free encodedName;
+                String encodedValue = hexText(value);
+                defer free encodedValue;
+                System.out.println("  " + encodedName + " " + encodedValue);
+            }
+            String version = manifest.getValue("manifest-version");
+            if (version == null) {
+                System.out.println("  version null");
+            } else {
+                String encoded = hexText(version);
+                defer free encoded;
+                System.out.println("  version " + encoded);
+                free version;
+            }
+        } catch (IOException failure) {
+            String message = hexText(failure.getMessage());
+            defer free message;
+            System.out.println("manifest error " + message);
+            // The exception and its built message.
+            return 2;
+        }
+        return 0;
+    }
+
+    static boolean isLine(String corpus, int[] lines, int line, String marker) {
+
+        String text = Splits.field(corpus, lines, line);
+        defer free text;
+        return text.equals(marker);
+    }
+
+    static boolean startsWith(String corpus, int[] lines, int line, String prefix) {
+
+        String text = Splits.field(corpus, lines, line);
+        defer free text;
+        return text.startsWith(prefix);
+    }
+
+    // The end of the group whose marker line is at line: the next line that
+    // is a marker or a tagged item.
+    static int groupEnd(String corpus, int[] lines, int line, int count) {
+
+        int end = line + 1;
+        while (end < count && !isLine(corpus, lines, end, "map") && !isLine(corpus, lines, end, "attributes")
+                && !startsWith(corpus, lines, end, "bytes ") && !startsWith(corpus, lines, end, "properties ")
+                && !startsWith(corpus, lines, end, "manifest ")) {
+            end++;
+        }
+        return end;
+    }
+
+    // Prints the transcript in the reference's order; returns the allocations
+    // the caught failures keep.
+    static int corpus(String corpus) {
+
+        int[] lines = Splits.bounds(corpus, '\n', 0);
+        defer free lines;
+        int count = Splits.count(lines);
+        int caught = 0;
+        for (int line = 0; line < count; line++) {
+            if (isLine(corpus, lines, line, "map")) caught = caught + map(corpus, lines, line + 1, groupEnd(corpus, lines, line, count));
+        }
+        for (int line = 0; line < count; line++) {
+            String text = Splits.field(corpus, lines, line);
+            defer free text;
+            if (text.startsWith("bytes ")) bytes(text);
+        }
+        for (int line = 0; line < count; line++) {
+            String text = Splits.field(corpus, lines, line);
+            defer free text;
+            if (text.startsWith("properties ")) caught = caught + properties(text);
+        }
+        for (int line = 0; line < count; line++) {
+            if (isLine(corpus, lines, line, "attributes")) {
+                caught = caught + attributes(corpus, lines, line + 1, groupEnd(corpus, lines, line, count));
+            }
+        }
+        for (int line = 0; line < count; line++) {
+            String text = Splits.field(corpus, lines, line);
+            defer free text;
+            if (text.startsWith("manifest ")) caught = caught + manifest(text);
+        }
+        return caught;
+    }
+
+    public static int main(String[] args) {
+
+        // The SHA-256 round constants are process-lived after their first use.
+        byte[] empty = new byte[0];
+        String warm = BridgeIdentity.bytesDigest(empty, 0, 0);
+        free warm;
+        free empty;
+        long live = System.liveAllocationCount();
+        int kept = 0;
+        try {
+            Path path = Path.of(args[0]);
+            defer free path;
+            String text = Files.readString(path);
+            defer free text;
+            kept = corpus(text);
+        } catch (IOException failure) {
+            return 1;
+        }
+        return System.liveAllocationCount() == live + kept ? 42 : 2;
+    }
+}

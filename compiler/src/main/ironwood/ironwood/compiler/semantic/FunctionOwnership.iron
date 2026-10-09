@@ -1,0 +1,475 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.semantic;
+
+import ironwood.compiler.port.OperationVariants;
+import ironwood.compiler.port.SnapshotList;
+import ironwood.compiler.source.SourceFile;
+import ironwood.ds.ArrayList;
+import ironwood.ds.IdentityHashMap;
+import ironwood.ds.IdentityHashSet;
+import ironwood.ds.LinkedHashMap;
+import ironwood.util.Iterator;
+
+/**
+ * The ownership state of one function analysis and its snapshot, restore and
+ * join. Ports {@code FunctionAnalyzer}'s seven ownership fields with
+ * {@code snapshotOwnership}, {@code restoreOwnership}, {@code mergeOwnership},
+ * {@code selectBlocked} and {@code uniqueIncomingArrayStore} for the pilot's
+ * admitted inputs: {@code LOCAL_NEW} allocations and empty join paths, so
+ * join explanations are not captured (nonempty paths are later-only).
+ *
+ * <p>Java's lambdas and streams become ordered loops with the same
+ * short-circuiting (D258). Joined and restored states walk the append-only
+ * allocation list instead of a hashed key set; each allocation's join is
+ * independent of the others, so the order is not observable. A retained-child
+ * union is built once per owner across all predecessors, where Java rebuilds
+ * it per predecessor; the final version is the same. The live containers and
+ * every builder are owned and freed; nodes, state versions and child versions
+ * are invocation-lived (D262).
+ */
+public final class FunctionOwnership {
+
+    private static final String POOL_CONFLICT = "object has conflicting pool owners across control flow";
+    private static final String LOST_SLOT = "allocation may still be observed through "
+            + "an array element on an incoming control-flow path";
+    private static final String MAYBE_FREED = "allocation may have been freed on an incoming control-flow path";
+
+    private final SourceFile source;
+    private final ArrayList<AllocationInfo> allocations = new ArrayList<AllocationInfo>();
+    private final LinkedHashMap<ArraySlot, AllocationInfo> knownArraySlots = new LinkedHashMap<ArraySlot, AllocationInfo>();
+    private final LinkedHashMap<String, AllocationInfo> borrowedOwnedFields = new LinkedHashMap<String, AllocationInfo>();
+    private final IdentityHashMap<AllocationInfo, SnapshotList<AllocationInfo>> retainedBorrows =
+            new IdentityHashMap<AllocationInfo, SnapshotList<AllocationInfo>>();
+    private final IdentityHashMap<AllocationInfo, AllocationInfo> poolOwners = new IdentityHashMap<AllocationInfo, AllocationInfo>();
+    private final IdentityHashSet<AllocationInfo> exposedContainerContents = new IdentityHashSet<AllocationInfo>();
+    private final UnfreedAllocationTracker<AllocationInfo> unfreed;
+    private final RejectedFreeEvidence rejectedFreeEvidence;
+    private final SemanticAnalysisObserver observer;
+
+    /**
+     * @param source the borrowed source
+     * @param unfreed the borrowed missing-free tracker, or null
+     * @param rejectedFreeEvidence the borrowed explanation store, or null
+     * @param observer the borrowed observer, or null
+     */
+    public FunctionOwnership(SourceFile source, UnfreedAllocationTracker<AllocationInfo> unfreed,
+                             RejectedFreeEvidence rejectedFreeEvidence, SemanticAnalysisObserver observer) {
+
+        this.source = source;
+        this.unfreed = unfreed;
+        this.rejectedFreeEvidence = rejectedFreeEvidence;
+        this.observer = observer;
+    }
+
+    /** @return the live allocation list, borrowed for appending */
+    public ArrayList<AllocationInfo> allocations() {
+
+        return this.allocations;
+    }
+
+    /** @return the live known array slots, borrowed for mutation */
+    public LinkedHashMap<ArraySlot, AllocationInfo> knownArraySlots() {
+
+        return this.knownArraySlots;
+    }
+
+    /** @return the live borrowed owned fields, borrowed for mutation */
+    public LinkedHashMap<String, AllocationInfo> borrowedOwnedFields() {
+
+        return this.borrowedOwnedFields;
+    }
+
+    /** @return the live retained-child versions, borrowed for mutation */
+    public IdentityHashMap<AllocationInfo, SnapshotList<AllocationInfo>> retainedBorrows() {
+
+        return this.retainedBorrows;
+    }
+
+    /** @return the live pool owners, borrowed for mutation */
+    public IdentityHashMap<AllocationInfo, AllocationInfo> poolOwners() {
+
+        return this.poolOwners;
+    }
+
+    /** @return the live exposed membership, borrowed for mutation */
+    public IdentityHashSet<AllocationInfo> exposedContainerContents() {
+
+        return this.exposedContainerContents;
+    }
+
+    /**
+     * Copies the seven fields and, when explanations are enabled, saves the
+     * evidence version the snapshot then owns.
+     *
+     * @return the caller-owned snapshot
+     */
+    public OwnershipSnapshot snapshotOwnership() {
+
+        SnapshotBuilders builders = this.builders();
+        defer free builders;
+        return new OwnershipSnapshot(builders, this.knownArraySlots, this.borrowedOwnedFields, this.retainedBorrows,
+                this.poolOwners, this.exposedContainerContents, this.rejectedFreeEvidence, this.observer);
+    }
+
+    /**
+     * Captures the current state as the last predecessor of a join, as
+     * {@link #snapshotOwnership} does, recording the version in the owner.
+     *
+     * @param paths the borrowed owner of the join's predecessor versions
+     */
+    public void captureOwnership(OwnershipPaths paths) {
+
+        this.captureOwnership(paths, paths.size());
+    }
+
+    /**
+     * Captures the current state as a join predecessor at a path position.
+     *
+     * @param paths the borrowed owner of the join's predecessor versions
+     * @param position the path position, from 0 to the owner's size
+     * @throws IndexOutOfBoundsException if the position is outside that range
+     */
+    public void captureOwnership(OwnershipPaths paths, int position) {
+
+        SnapshotBuilders builders = this.builders();
+        defer free builders;
+        paths.capture(builders, this.knownArraySlots, this.borrowedOwnedFields, this.retainedBorrows, this.poolOwners,
+                this.exposedContainerContents, this.rejectedFreeEvidence, this.observer, position);
+    }
+
+    /**
+     * Releases a snapshot's saved evidence through this analyzer's store before
+     * the snapshot is freed (D259); nothing happens without a store.
+     *
+     * @param snapshot the borrowed snapshot
+     */
+    public void releaseOwnership(OwnershipSnapshot snapshot) {
+
+        if (this.rejectedFreeEvidence != null) this.rejectedFreeEvidence.release(snapshot.savedEvidence());
+    }
+
+    /**
+     * Releases the saved evidence of every version an owner holds before the
+     * owner is freed.
+     *
+     * @param paths the borrowed owner
+     */
+    public void releaseOwnership(OwnershipPaths paths) {
+
+        if (this.rejectedFreeEvidence == null) return;
+        for (int index = 0; index < paths.size(); index++) {
+            this.rejectedFreeEvidence.release(paths.version(index).savedEvidence());
+        }
+    }
+
+    // A snapshot's builders come from the borrowed fields; this analyzer has
+    // no getter for its borrowed services, since such a getter would leave
+    // every service it holds conservatively escaping.
+    private SnapshotBuilders builders() {
+
+        return new SnapshotBuilders(this.allocations, this.knownArraySlots, this.borrowedOwnedFields,
+                this.retainedBorrows, this.poolOwners, this.exposedContainerContents, this.unfreed);
+    }
+
+    /**
+     * Makes the seven fields equal the snapshot's and restores its evidence.
+     *
+     * @param snapshot the borrowed snapshot
+     */
+    public void restoreOwnership(OwnershipSnapshot snapshot) {
+
+        if (this.unfreed != null) this.unfreed.restore(snapshot.liveMembers());
+        for (int index = 0; index < this.allocations.size(); index++) this.allocations.get(index).setPresent(false);
+        for (int index = 0; index < this.allocations.size(); index++) {
+            AllocationInfo allocation = this.allocations.get(index);
+            AllocationStateSnapshot state = snapshot.state(allocation);
+            if (state == null) continue;
+            allocation.setPresent(true);
+            allocation.install(state);
+        }
+        this.knownArraySlots.clear();
+        for (int index = 0; index < snapshot.slotCount(); index++) {
+            ArraySlot slot = snapshot.slotAt(index);
+            this.knownArraySlots.put(slot, snapshot.knownArraySlot(slot));
+        }
+        this.borrowedOwnedFields.clear();
+        for (int index = 0; index < snapshot.fieldCount(); index++) {
+            String name = snapshot.fieldAt(index);
+            this.borrowedOwnedFields.put(name, snapshot.borrowedOwnedField(name));
+        }
+        this.retainedBorrows.clear();
+        for (int index = 0; index < snapshot.retainedCount(); index++) {
+            AllocationInfo owner = snapshot.retainedAt(index);
+            this.retainedBorrows.put(owner, snapshot.retainedBorrows(owner));
+        }
+        this.poolOwners.clear();
+        for (int index = 0; index < snapshot.poolCount(); index++) {
+            AllocationInfo value = snapshot.poolAt(index);
+            this.poolOwners.put(value, snapshot.poolOwner(value));
+        }
+        this.exposedContainerContents.clear();
+        for (int index = 0; index < snapshot.exposedCount(); index++) {
+            this.exposedContainerContents.add(snapshot.exposedAt(index));
+        }
+        if (this.rejectedFreeEvidence != null) {
+            boolean restored = this.rejectedFreeEvidence.restore(snapshot);
+            if (this.observer != null) this.observer.evidenceSnapshot(false, false, restored ? 1 : -1);
+        } else if (this.observer != null) {
+            this.observer.evidenceSnapshot(false, true, 0);
+        }
+    }
+
+    /**
+     * Joins predecessor states after restoring the pre-branch snapshot, with
+     * Java's rules: per-allocation agreement or an uncertain or may-be-freed
+     * join, slot and field agreement, first-owner pool precedence with conflict
+     * blocking, retained-child and exposed unions, lost-slot blocking and live
+     * intersection.
+     *
+     * @param before the borrowed pre-branch snapshot
+     * @param incoming the borrowed owner of the predecessor snapshots, visited in path order
+     * @param conflictReason the borrowed reason for a state conflict
+     */
+    public void mergeOwnership(OwnershipSnapshot before, OwnershipPaths incoming,
+                               String conflictReason) {
+
+        this.restoreOwnership(before);
+        if (this.rejectedFreeEvidence != null) this.rejectedFreeEvidence.merge(incoming);
+        this.joinStates(incoming, conflictReason);
+        this.joinSlotsAndFields(incoming);
+        if (this.rejectedFreeEvidence != null) this.rejectedFreeEvidence.retainArrayStores(this.knownArraySlots);
+        this.poolOwners.clear();
+        for (int path = 0; path < incoming.size(); path++) {
+            OwnershipSnapshot snapshot = incoming.path(path);
+            for (int index = 0; index < snapshot.poolCount(); index++) {
+                AllocationInfo value = snapshot.poolAt(index);
+                AllocationInfo owner = snapshot.poolOwner(value);
+                AllocationInfo previous = this.poolOwners.get(value);
+                if (previous == null) {
+                    this.poolOwners.put(value, owner);
+                } else if (previous != owner) {
+                    this.selectBlocked(previous, POOL_CONFLICT, null);
+                    this.selectBlocked(owner, POOL_CONFLICT, null);
+                }
+            }
+        }
+        this.joinRetainedAndExposed(incoming);
+        // An inexact slot loses load identity, not the fact that it may retain
+        // an alias. Otherwise a branch-local store could make a later free unsafe.
+        for (int path = 0; path < incoming.size(); path++) {
+            OwnershipSnapshot snapshot = incoming.path(path);
+            for (int index = 0; index < snapshot.slotCount(); index++) {
+                ArraySlot slot = snapshot.slotAt(index);
+                AllocationInfo allocation = snapshot.knownArraySlot(slot);
+                if (this.knownArraySlots.get(slot) == allocation) continue;
+                RejectedFreeEvidence.Site store = this.uniqueIncomingArrayStore(incoming, slot, allocation);
+                boolean blocked = switch (allocation.origin()) {
+                    case LOCAL_NEW, FRESH_CALL, OWNED_FIELD -> this.selectBlocked(allocation, LOST_SLOT, store);
+                    // A one-of identity's candidates are later-only (OPERATION_MODEL).
+                    case ONE_OF -> rejected();
+                };
+            }
+        }
+        if (this.unfreed != null) this.joinLive(incoming);
+    }
+
+    private void joinStates(OwnershipPaths incoming, String conflictReason) {
+
+        ArrayList<AllocationStateSnapshot> states = new ArrayList<AllocationStateSnapshot>(incoming.size() + 1);
+        defer free states;
+        for (int index = 0; index < this.allocations.size(); index++) {
+            AllocationInfo allocation = this.allocations.get(index);
+            states.clear();
+            for (int path = 0; path < incoming.size(); path++) {
+                AllocationStateSnapshot state = incoming.path(path).state(allocation);
+                if (state != null) states.add(state);
+            }
+            if (states.isEmpty()) continue;
+            AllocationStateSnapshot first = states.get(0);
+            allocation.setPresent(true);
+            boolean agree = true;
+            boolean anyFreed = false;
+            boolean allDetached = true;
+            for (int path = 0; path < states.size(); path++) {
+                AllocationStateSnapshot state = states.get(path);
+                if (!first.equals(state)) agree = false;
+                if (AllocationInfo.mayBeFreed(state.state())) anyFreed = true;
+                if (!state.detached()) allDetached = false;
+            }
+            if (agree) {
+                allocation.install(first);
+                continue;
+            }
+            OperationVariants.AllocationState joined = anyFreed
+                    ? OperationVariants.AllocationState.MAYBE_FREED : OperationVariants.AllocationState.UNCERTAIN;
+            String reason = anyFreed ? MAYBE_FREED : conflictReason;
+            allocation.install(new AllocationStateSnapshot(joined, reason, allDetached));
+            if (this.rejectedFreeEvidence != null) this.rejectedFreeEvidence.selectedReason(allocation, reason);
+        }
+    }
+
+    private void joinSlotsAndFields(OwnershipPaths incoming) {
+
+        ArrayList<ArraySlot> lostSlots = new ArrayList<ArraySlot>(8);
+        defer free lostSlots;
+        Iterator<AllocationInfo> slots = this.knownArraySlots.iterator();
+        while (slots.hasNext()) {
+            AllocationInfo allocation = slots.next();
+            ArraySlot slot = this.knownArraySlots.getCurrIteratorKey();
+            for (int path = 0; path < incoming.size(); path++) {
+                if (incoming.path(path).knownArraySlot(slot) != allocation) {
+                    lostSlots.add(slot);
+                    break;
+                }
+            }
+        }
+        for (int index = 0; index < lostSlots.size(); index++) this.knownArraySlots.remove(lostSlots.get(index));
+        ArrayList<String> lostFields = new ArrayList<String>(8);
+        defer free lostFields;
+        Iterator<AllocationInfo> fields = this.borrowedOwnedFields.iterator();
+        while (fields.hasNext()) {
+            AllocationInfo allocation = fields.next();
+            String name = this.borrowedOwnedFields.getCurrIteratorKey();
+            for (int path = 0; path < incoming.size(); path++) {
+                if (incoming.path(path).borrowedOwnedField(name) != allocation) {
+                    lostFields.add(name);
+                    break;
+                }
+            }
+        }
+        for (int index = 0; index < lostFields.size(); index++) this.borrowedOwnedFields.remove(lostFields.get(index));
+        if (incoming.size() == 0) return;
+        OwnershipSnapshot first = incoming.path(0);
+        for (int index = 0; index < first.slotCount(); index++) {
+            ArraySlot slot = first.slotAt(index);
+            AllocationInfo allocation = first.knownArraySlot(slot);
+            if (agreeOnSlot(incoming, slot, allocation)) this.knownArraySlots.put(slot, allocation);
+        }
+        for (int index = 0; index < first.fieldCount(); index++) {
+            String name = first.fieldAt(index);
+            AllocationInfo allocation = first.borrowedOwnedField(name);
+            if (agreeOnField(incoming, name, allocation)) this.borrowedOwnedFields.put(name, allocation);
+        }
+    }
+
+    private static boolean agreeOnSlot(OwnershipPaths incoming, ArraySlot slot,
+                                       AllocationInfo allocation) {
+
+        for (int path = 0; path < incoming.size(); path++) {
+            if (incoming.path(path).knownArraySlot(slot) != allocation) return false;
+        }
+        return true;
+    }
+
+    private static boolean agreeOnField(OwnershipPaths incoming, String name,
+                                        AllocationInfo allocation) {
+
+        for (int path = 0; path < incoming.size(); path++) {
+            if (incoming.path(path).borrowedOwnedField(name) != allocation) return false;
+        }
+        return true;
+    }
+
+    // Exposed membership and retained children are unions over predecessors.
+    // Each owner's union is built once, as one new shared child version.
+    private void joinRetainedAndExposed(OwnershipPaths incoming) {
+
+        this.retainedBorrows.clear();
+        this.exposedContainerContents.clear();
+        ArrayList<AllocationInfo> owners = new ArrayList<AllocationInfo>(8);
+        defer free owners;
+        IdentityHashSet<AllocationInfo> seenOwners = new IdentityHashSet<AllocationInfo>(8);
+        defer free seenOwners;
+        for (int path = 0; path < incoming.size(); path++) {
+            OwnershipSnapshot snapshot = incoming.path(path);
+            for (int index = 0; index < snapshot.exposedCount(); index++) {
+                this.exposedContainerContents.add(snapshot.exposedAt(index));
+            }
+            for (int index = 0; index < snapshot.retainedCount(); index++) {
+                AllocationInfo owner = snapshot.retainedAt(index);
+                if (seenOwners.add(owner)) owners.add(owner);
+            }
+        }
+        for (int index = 0; index < owners.size(); index++) {
+            AllocationInfo owner = owners.get(index);
+            this.retainedBorrows.put(owner, unionOfChildren(incoming, owner));
+        }
+    }
+
+    private static SnapshotList<AllocationInfo> unionOfChildren(OwnershipPaths incoming,
+                                                                AllocationInfo owner) {
+
+        ArrayList<AllocationInfo> members = new ArrayList<AllocationInfo>(8);
+        defer free members;
+        IdentityHashSet<AllocationInfo> seen = new IdentityHashSet<AllocationInfo>(8);
+        defer free seen;
+        for (int path = 0; path < incoming.size(); path++) {
+            SnapshotList<AllocationInfo> borrowed = incoming.path(path).retainedBorrows(owner);
+            if (borrowed == null) continue;
+            for (int index = 0; index < borrowed.size(); index++) {
+                AllocationInfo child = borrowed.get(index);
+                if (seen.add(child)) members.add(child);
+            }
+        }
+        return new SnapshotList<AllocationInfo>(members);
+    }
+
+    // Java's tracker merge: a result must be live on every predecessor.
+    private void joinLive(OwnershipPaths incoming) {
+
+        this.unfreed.clearLive();
+        if (incoming.size() == 0) return;
+        SnapshotList<AllocationInfo> members = incoming.path(0).liveMembers();
+        for (int index = 0; index < members.size(); index++) {
+            AllocationInfo member = members.get(index);
+            boolean everywhere = true;
+            for (int path = 1; path < incoming.size(); path++) {
+                if (!incoming.path(path).live(member)) everywhere = false;
+            }
+            if (everywhere) this.unfreed.addLive(member);
+        }
+    }
+
+    private RejectedFreeEvidence.Site uniqueIncomingArrayStore(OwnershipPaths incoming,
+                                                               ArraySlot slot, AllocationInfo allocation) {
+
+        if (this.rejectedFreeEvidence == null) return null;
+        RejectedFreeEvidence.Site selected = null;
+        for (int path = 0; path < incoming.size(); path++) {
+            OwnershipSnapshot snapshot = incoming.path(path);
+            if (snapshot.knownArraySlot(slot) != allocation) continue;
+            RejectedFreeEvidence.Site site = this.rejectedFreeEvidence.arrayStore(snapshot, slot);
+            if (site == null || selected != null && !selected.equals(site)) return null;
+            selected = site;
+        }
+        return selected;
+    }
+
+    private boolean selectBlocked(AllocationInfo allocation, String reason, RejectedFreeEvidence.Site site) {
+
+        if (allocation.blockReclamation(reason) && this.rejectedFreeEvidence != null) {
+            if (site == null) {
+                this.rejectedFreeEvidence.selectedReason(allocation, reason);
+            } else {
+                this.rejectedFreeEvidence.selectedReason(allocation, reason, site.source(), site.span());
+            }
+        }
+        return true;
+    }
+
+    private static boolean rejected() {
+
+        throw new IllegalStateException("ownership join reached a role the pilot input factory rejects");
+    }
+
+    destructor {
+
+        free this.exposedContainerContents;
+        free this.poolOwners;
+        free this.retainedBorrows;
+        free this.borrowedOwnedFields;
+        free this.knownArraySlots;
+        free this.allocations;
+    }
+}

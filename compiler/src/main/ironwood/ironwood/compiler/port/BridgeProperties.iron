@@ -1,0 +1,257 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.port;
+
+/**
+ * The Bridge's properties inventories (B6, B7, S7): BridgePackageManifest's
+ * canonical pairing and distribution manifests, and Java's
+ * {@code Properties.load(InputStream)} for reading them and the Linux support
+ * manifest.
+ *
+ * <p>{@link #serialize} writes
+ * {@code # Ironwood Java Bridge paired artifact; schema 1} and then one
+ * {@code key=value} line per entry in String order, every unit at or below
+ * space, above {@code ~} or among {@code \:=#!} written as {@code \u} and four
+ * lowercase hex digits, all in US-ASCII.
+ *
+ * <p>{@link #load} follows the published {@code Properties.load} format for a
+ * byte stream: each byte is the ISO-8859-1 character of the same value; lines
+ * end at LF, CR or CRLF; leading spaces, tabs and form feeds are skipped;
+ * blank lines and lines whose first character is {@code #} or {@code !} are
+ * comments; an odd run of backslashes before a line end joins the next line,
+ * whose leading white space is dropped; a key ends at the first unescaped
+ * {@code =}, {@code :} or white space, after which white space, at most one
+ * {@code =} or {@code :} and more white space are skipped; escapes are
+ * {@code \t}, {@code \n}, {@code \f}, {@code \r}, {@code \u} with four hex
+ * digits, and a backslash before any other character; a later key replaces an
+ * earlier one. Inputs are borrowed.
+ */
+public final class BridgeProperties {
+
+    /** BridgePackageManifest's first line, without its line feed. */
+    public static final String HEADER = "# Ironwood Java Bridge paired artifact; schema 1";
+
+    private BridgeProperties() {
+
+    }
+
+    /**
+     * @param properties the entries; borrowed
+     * @return BridgePackageManifest.serialize's bytes, owned by the caller
+     */
+    public static byte[] serialize(TextMap properties) {
+
+        StringBuilder text = new StringBuilder();
+        defer free text;
+        text.append(HEADER);
+        text.append('\n');
+        for (int position = 0; position < properties.size(); position++) {
+            int keyLength = properties.keyLength(position);
+            for (int unit = 0; unit < keyLength; unit++) escape(text, properties.keyCharAt(position, unit));
+            text.append('=');
+            int valueLength = properties.valueLength(position);
+            for (int unit = 0; unit < valueLength; unit++) escape(text, properties.valueCharAt(position, unit));
+            text.append('\n');
+        }
+        byte[] bytes = new byte[text.length()];
+        for (int index = 0; index < bytes.length; index++) bytes[index] = (byte) text.charAt(index);
+        return bytes;
+    }
+
+    /**
+     * @param bytes the manifest; borrowed
+     * @param offset its first byte
+     * @param length its byte count
+     * @param parsed what {@link #load} read from it; borrowed
+     * @return whether the bytes are exactly {@code serialize(parsed)}, the
+     *     pairing readers' canonical check
+     */
+    public static boolean canonical(byte[] bytes, int offset, int length, TextMap parsed) {
+
+        if (offset < 0 || length < 0 || length > bytes.length - offset) throw new IndexOutOfBoundsException();
+        byte[] expected = serialize(parsed);
+        defer free expected;
+        if (expected.length != length) return false;
+        for (int index = 0; index < length; index++) {
+            if (expected[index] != bytes[offset + index]) return false;
+        }
+        return true;
+    }
+
+    /**
+     * Reads properties as Java's {@code Properties.load(InputStream)} does,
+     * putting each entry into target in file order.
+     *
+     * @param bytes the properties text; borrowed
+     * @param offset its first byte
+     * @param length its byte count
+     * @param target receives the entries; later keys replace earlier ones
+     * @throws IllegalArgumentException with Java's {@code Malformed \uxxxx
+     *     encoding.} for a {@code \u} escape without four hex digits
+     */
+    public static void load(byte[] bytes, int offset, int length, TextMap target) {
+
+        if (offset < 0 || length < 0 || length > bytes.length - offset) throw new IndexOutOfBoundsException();
+        StringBuilder line = new StringBuilder();
+        defer free line;
+        int position = offset;
+        int end = offset + length;
+        while (position >= 0) {
+            line.setLength(0);
+            position = logicalLine(bytes, position, end, line);
+            if (position != -1) entry(line, target);
+            if (position == -2) position = -1;
+        }
+    }
+
+    // Reads the next logical line into line. Returns the position after it,
+    // -1 when the input ended with no line, or -2 when the input ended right
+    // after this line.
+    private static int logicalLine(byte[] bytes, int start, int end, StringBuilder line) {
+
+        int position = start;
+        boolean skipWhite = true;
+        boolean joined = false;
+        boolean backslash = false;
+        while (true) {
+            if (position >= end) {
+                if (line.length() == 0) return -1;
+                if (backslash) line.setLength(line.length() - 1);
+                return -2;
+            }
+            char unit = (char) (bytes[position] & 0xFF);
+            position++;
+            if (skipWhite) {
+                if (unit == ' ' || unit == '\t' || unit == '\f') continue;
+                if (!joined && (unit == '\r' || unit == '\n')) continue;
+                skipWhite = false;
+                joined = false;
+            }
+            if (line.length() == 0 && (unit == '#' || unit == '!')) {
+                // A comment runs to the end of its natural line.
+                while (position < end && bytes[position] != '\r' && bytes[position] != '\n') position++;
+                if (position >= end) return -1;
+                position++;
+                skipWhite = true;
+                continue;
+            }
+            if (unit != '\n' && unit != '\r') {
+                line.append(unit);
+                backslash = unit == '\\' ? !backslash : false;
+                continue;
+            }
+            if (line.length() == 0) {
+                skipWhite = true;
+                continue;
+            }
+            if (position >= end) {
+                if (backslash) line.setLength(line.length() - 1);
+                return -2;
+            }
+            if (!backslash) return position;
+            // An escaped line end joins the next natural line.
+            line.setLength(line.length() - 1);
+            backslash = false;
+            skipWhite = true;
+            joined = true;
+            if (unit == '\r' && bytes[position] == '\n') position++;
+        }
+    }
+
+    // Splits one logical line into its key and value and puts them.
+    private static void entry(StringBuilder line, TextMap target) {
+
+        int length = line.length();
+        int keyEnd = 0;
+        int valueStart = length;
+        boolean separator = false;
+        boolean backslash = false;
+        while (keyEnd < length) {
+            char unit = line.charAt(keyEnd);
+            if (!backslash && (unit == '=' || unit == ':')) {
+                valueStart = keyEnd + 1;
+                separator = true;
+                break;
+            }
+            if (!backslash && (unit == ' ' || unit == '\t' || unit == '\f')) {
+                valueStart = keyEnd + 1;
+                break;
+            }
+            backslash = unit == '\\' ? !backslash : false;
+            keyEnd++;
+        }
+        while (valueStart < length) {
+            char unit = line.charAt(valueStart);
+            if (unit != ' ' && unit != '\t' && unit != '\f') {
+                if (separator || unit != '=' && unit != ':') break;
+                separator = true;
+            }
+            valueStart++;
+        }
+        String key = unescape(line, 0, keyEnd);
+        defer free key;
+        String value = unescape(line, valueStart, length);
+        defer free value;
+        target.put(key, value);
+    }
+
+    // The text of line[start, end) with its escapes decoded.
+    private static String unescape(StringBuilder line, int start, int end) {
+
+        StringBuilder out = new StringBuilder();
+        defer free out;
+        int index = start;
+        while (index < end) {
+            char unit = line.charAt(index);
+            index++;
+            if (unit != '\\' || index >= end) {
+                out.append(unit);
+            } else {
+                char escaped = line.charAt(index);
+                index++;
+                if (escaped == 'u') {
+                    if (end - index < 4) throw new IllegalArgumentException("Malformed \\uxxxx encoding.");
+                    int value = 0;
+                    for (int digit = 0; digit < 4; digit++) {
+                        int nibble = hexDigit(line.charAt(index + digit));
+                        if (nibble < 0) throw new IllegalArgumentException("Malformed \\uxxxx encoding.");
+                        value = value * 16 + nibble;
+                    }
+                    index = index + 4;
+                    out.append((char) value);
+                } else if (escaped == 't') {
+                    out.append('\t');
+                } else if (escaped == 'r') {
+                    out.append('\r');
+                } else if (escaped == 'n') {
+                    out.append('\n');
+                } else if (escaped == 'f') {
+                    out.append('\f');
+                } else {
+                    out.append(escaped);
+                }
+            }
+        }
+        return out.toString();
+    }
+
+    // The value of an ASCII hex digit, or -1.
+    private static int hexDigit(char unit) {
+
+        if (unit >= '0' && unit <= '9') return unit - '0';
+        if (unit >= 'a' && unit <= 'f') return unit - 'a' + 10;
+        if (unit >= 'A' && unit <= 'F') return unit - 'A' + 10;
+        return -1;
+    }
+
+    // Appends one unit as serialize writes it.
+    private static void escape(StringBuilder text, char unit) {
+
+        if (unit <= 32 || unit > 126 || unit == '\\' || unit == ':' || unit == '=' || unit == '#' || unit == '!') {
+            text.append("\\u");
+            for (int shift = 12; shift >= 0; shift = shift - 4) text.append("0123456789abcdef".charAt((unit >>> shift) & 15));
+        } else {
+            text.append(unit);
+        }
+    }
+}

@@ -1,0 +1,63 @@
+{
+  "schema": 1,
+  "J0_seed_sha256": "2a8b10ab5575f84d3660b3824a4b80cba7f6f9110023e7e30db3b41103893ad7",
+  "argv": [
+    "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home/bin/java",
+    "-Xms256m",
+    "-Xmx4096m",
+    "-Xss8m",
+    "-XX:+UseG1GC",
+    "-cp",
+    "/Users/developer/workspace-mba-m2/Ironwood/target/self-hosting-m0/resources-strict/tooling:/Users/developer/workspace-mba-m2/Ironwood/target/self-hosting-m0/J0-final2/lib/ironwoodc.jar",
+    "ironwood.compiler.ReferenceCapture",
+    "/Users/developer/workspace-mba-m2/Ironwood/scripts/self-hosting/fixtures/BranchJoin.iron",
+    "/Users/developer/workspace-mba-m2/Ironwood/target/self-hosting-m0/reference-access-qualification/capture",
+    "explain-on"
+  ],
+  "returncode": 0,
+  "matches_original_frozen_reference": [
+    {
+      "artifact": "tokens.json",
+      "sha256": "625c7550f305e90835ee91a967b7a93e2c8f5a4a14d2f7b4d3b45b3c9b93ec20"
+    },
+    {
+      "artifact": "lex-diagnostics.json",
+      "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+    },
+    {
+      "artifact": "ast.json",
+      "sha256": "7cdbc214b88a0564e21990d5cb105da26b675546ce77086f788a801c4c9028ca"
+    },
+    {
+      "artifact": "parse-diagnostics.json",
+      "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+    },
+    {
+      "artifact": "diagnostics.json",
+      "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+    },
+    {
+      "artifact": "typed-ir.json",
+      "sha256": "cda1da370e97c2158ecaede59ed205160f1633ea87189e134d19d63a7adc0636"
+    },
+    {
+      "artifact": "compile-diagnostics.json",
+      "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+    },
+    {
+      "artifact": "final-typed-ir.json",
+      "sha256": "a2f354b0a31aa62c174f09031096b10c8b2a656520b1c53edef7010fae4a3f54"
+    },
+    {
+      "artifact": "status.json",
+      "sha256": "f4ad278aced37942fd2e169e552317712a7674f2fa74f223d0ef01ed6d18cef9"
+    },
+    {
+      "artifact": "output.ll",
+      "sha256": "71042576984d91311515fa844610121fb7e49dbe34c27f9f1fd0fa28c97df54d"
+    }
+  ],
+  "adapter_source_sha256": "c6c1eac53b2c14bca35142853b20837dac6453322e9dbfd152bcc629e19f2ee9",
+  "process_stdout_utf8": "",
+  "process_stderr_utf8": ""
+}

@@ -139,11 +139,9 @@ public final class CompilerPipeline {
             return new CompilationArtifact(Optional.empty(), Optional.empty(), diagnostics);
         }
 
-        Set<java.nio.file.Path> originalSources = sources.stream().map(SourceFile::path)
-                .collect(java.util.stream.Collectors.toSet());
         SemanticAnalyzer analyzer = analyzerFactory == null
-                ? new SemanticAnalyzer(unfreedMode, originalSources, explainRejectedFree)
-                : analyzerFactory.create(unfreedMode, originalSources, explainRejectedFree);
+                ? new SemanticAnalyzer(unfreedMode, explainRejectedFree)
+                : analyzerFactory.create(unfreedMode, explainRejectedFree);
         SemanticResult semanticResult = proxies != null ? analyzer.analyzeForBridge(units, proxies)
                 : bridgeAnalysis ? analyzer.analyzeForBridge(units) : mainClass.isPresent()
                 ? analyzer.analyze(units, mainClass.orElseThrow())

@@ -539,6 +539,77 @@ final class UnfreedAllocationTests {
         }
     }
 
+    /**
+     * The command line and the in-process pipeline apply missing-free checks to the
+     * whole analyzed program, bundled library code included (D280). A leak planted in
+     * a copy of the standard library is the only finding through both paths.
+     */
+    static void bundledLibraryScope() throws Exception {
+        Path root = Files.createTempDirectory("ironwood-unfreed-scope").toAbsolutePath();
+        try {
+            Path library = root.resolve("stdlib/src/main/ironwood");
+            Path bundled = Path.of("stdlib/src/main/ironwood").toAbsolutePath();
+            require(Files.isDirectory(bundled), "standard library sources not found from " + Path.of("").toAbsolutePath());
+            try (var files = Files.walk(bundled)) {
+                for (Path path : files.toList()) {
+                    Path target = library.resolve(bundled.relativize(path).toString());
+                    if (Files.isDirectory(path)) Files.createDirectories(target);
+                    else Files.copy(path, target);
+                }
+            }
+            Path throwable = library.resolve("ironwood/lang/Throwable.iron");
+            String text = Files.readString(throwable);
+            int end = text.lastIndexOf('}');
+            Files.writeString(throwable, text.substring(0, end) + """
+
+                        private static void plantedUnfreedForTest() {
+                            byte[] data = new byte[4];
+                            data[0] = 1;
+                        }
+                    """ + text.substring(end));
+            Path program = Files.writeString(root.resolve("Main.iron"),
+                    "class Main { public static int main(String[] args) { return 0; } }\n");
+            String finding = "allocation assigned to 'data' leaves scope without being freed Throwable.iron:";
+            for (String mode : List.of("off", "warn", "error")) {
+                List<String> output = probe(root, mode, program);
+                List<String> command = output.stream().filter(line -> line.startsWith("command "))
+                        .map(line -> line.substring("command ".length())).toList();
+                List<String> pipeline = output.stream().filter(line -> line.startsWith("pipeline "))
+                        .map(line -> line.substring("pipeline ".length())).toList();
+                boolean expected = mode.equals("off") ? command.isEmpty()
+                        : command.size() == 1 && command.getFirst().startsWith(
+                        (mode.equals("warn") ? "warning: " : "error: ") + finding);
+                require(expected && command.equals(pipeline),
+                        mode + " missing-free scope differs between entry paths: " + output);
+            }
+        } finally {
+            try (var files = Files.walk(root)) {
+                for (Path path : files.sorted(Comparator.reverseOrder()).toList()) Files.deleteIfExists(path);
+            }
+        }
+    }
+
+    private static List<String> probe(Path root, String mode, Path program) throws Exception {
+        String classPath = java.util.Arrays.stream(System.getProperty("java.class.path")
+                        .split(java.io.File.pathSeparator))
+                .map(entry -> Path.of(entry).toAbsolutePath().toString())
+                .collect(java.util.stream.Collectors.joining(java.io.File.pathSeparator));
+        ProcessBuilder builder = new ProcessBuilder(
+                Path.of(System.getProperty("java.home"), "bin", "java").toString(), "-cp", classPath,
+                UnfreedScopeProbe.class.getName(), mode, program.toString(),
+                root.resolve("classes-" + mode).toString())
+                .directory(root.toFile()).redirectErrorStream(true);
+        for (String variable : List.of("JAVA_TOOL_OPTIONS", "JDK_JAVA_OPTIONS", "_JAVA_OPTIONS")) {
+            builder.environment().remove(variable);
+        }
+        builder.environment().put("IRONWOOD_STDLIB_HOME", root.toString());
+        Process process = builder.start();
+        String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+        require(process.waitFor(300, java.util.concurrent.TimeUnit.SECONDS) && process.exitValue() == 0,
+                "probe failed: " + output);
+        return output.lines().toList();
+    }
+
     private static Result run(String... args) {
         ByteArrayOutputStream errors = new ByteArrayOutputStream();
         int exit = Main.run(args, new PrintStream(new ByteArrayOutputStream()),

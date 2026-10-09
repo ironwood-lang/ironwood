@@ -1,0 +1,85 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.ast;
+
+import ironwood.compiler.port.SnapshotList;
+import ironwood.compiler.source.SourceSpan;
+
+/**
+ * Port of the Java frontend AST record {@code NewExpression}. Components keep the
+ * record's order; {@code Optional} components are nullable, and list components are
+ * frozen, independent copies that the node borrows for the invocation.
+ */
+public final class NewExpression implements Expression {
+
+    private final TypeName classType;
+    private final Expression enclosingInstance;
+    private final SnapshotList<TypeName> constructorTypeArguments;
+    private final boolean diamond;
+    private final SnapshotList<Expression> arguments;
+    private final AnonymousClassBody anonymousClassBody;
+    private final SourceSpan span;
+
+    /** Creates the node from its components in record order. */
+    public NewExpression(TypeName classType, Expression enclosingInstance,
+                         SnapshotList<TypeName> constructorTypeArguments, boolean diamond,
+                         SnapshotList<Expression> arguments, AnonymousClassBody anonymousClassBody, SourceSpan span) {
+
+        if (constructorTypeArguments == null) constructorTypeArguments = AstLists.NO_TYPE_NAMES;
+        if (arguments == null) throw new NullPointerException();
+        this.classType = classType;
+        this.enclosingInstance = enclosingInstance;
+        this.constructorTypeArguments = constructorTypeArguments;
+        this.diamond = diamond;
+        this.arguments = arguments;
+        this.anonymousClassBody = anonymousClassBody;
+        this.span = span;
+    }
+
+    /** @return the {@code classType} component */
+    public TypeName classType() {
+
+        return this.classType;
+    }
+
+    /** @return the {@code enclosingInstance} component */
+    public Expression enclosingInstance() {
+
+        return this.enclosingInstance;
+    }
+
+    /** @return the {@code constructorTypeArguments} component */
+    public SnapshotList<TypeName> constructorTypeArguments() {
+
+        return this.constructorTypeArguments;
+    }
+
+    /** @return the {@code diamond} component */
+    public boolean diamond() {
+
+        return this.diamond;
+    }
+
+    /** @return the {@code arguments} component */
+    public SnapshotList<Expression> arguments() {
+
+        return this.arguments;
+    }
+
+    /** @return the {@code anonymousClassBody} component */
+    public AnonymousClassBody anonymousClassBody() {
+
+        return this.anonymousClassBody;
+    }
+
+    /** @return the {@code span} component */
+    @Override public SourceSpan span() {
+
+        return this.span;
+    }
+
+    @Override public ExpressionVariant expressionVariant() {
+
+        return ExpressionVariant.NEW_EXPRESSION;
+    }
+}

@@ -1,0 +1,202 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.port;
+
+/**
+ * A fixed matrix of bit rows in one owned primitive array, for analyses that
+ * keep many small independent bit vectors and update them in place. Each row
+ * behaves as an independent {@code java.util.BitSet} restricted to bits
+ * {@code 0..bits()-1}: operations on one row never change another, and rows of
+ * different matrices combine by value. Rendering follows {@code BitSet.toString}.
+ * Nothing here allocates except the constructor and {@link #appendRow}'s
+ * appended text.
+ */
+public final class BitRows {
+
+    private final long[] words;
+    private final int rows;
+    private final int wordsPerRow;
+
+    /**
+     * @param rows the number of rows, at least zero
+     * @param bits the number of addressable bits per row, at least zero
+     */
+    public BitRows(int rows, int bits) {
+
+        if (rows < 0 || bits < 0) throw new IllegalArgumentException("negative bit matrix size");
+        int perRow = (bits + 63) / 64;
+        this.wordsPerRow = perRow == 0 ? 1 : perRow;
+        this.rows = rows;
+        this.words = new long[rows * this.wordsPerRow];
+    }
+
+    /** @return the number of rows */
+    public int rows() {
+
+        return this.rows;
+    }
+
+    /** @return the number of addressable bits per row */
+    public int bits() {
+
+        return this.wordsPerRow * 64;
+    }
+
+    /** Clears every row. */
+    public void clear() {
+
+        for (int index = 0; index < this.words.length; index++) this.words[index] = 0L;
+    }
+
+    /** @param row the row to clear */
+    public void clearRow(int row) {
+
+        int base = this.base(row);
+        for (int word = 0; word < this.wordsPerRow; word++) this.words[base + word] = 0L;
+    }
+
+    /**
+     * @param row the row
+     * @param bit the bit to set
+     */
+    public void set(int row, int bit) {
+
+        int index = this.base(row) + this.wordIndex(bit);
+        long value = this.words[index] | (1L << (bit & 63));
+        this.words[index] = value;
+    }
+
+    /**
+     * @param row the row
+     * @param bit the bit
+     * @return whether the bit is set
+     */
+    public boolean get(int row, int bit) {
+
+        // A call may not form the index of an access to the owned array.
+        int index = this.base(row) + this.wordIndex(bit);
+        return (this.words[index] & (1L << (bit & 63))) != 0L;
+    }
+
+    /**
+     * Ors a row of another matrix, or of this one, into a row.
+     *
+     * @param target the row receiving the bits
+     * @param source the borrowed source matrix
+     * @param sourceRow the source row
+     * @return whether the target row's cardinality changed
+     */
+    public boolean orRow(int target, BitRows source, int sourceRow) {
+
+        int targetBase = this.base(target);
+        int sourceBase = source.base(sourceRow);
+        int count = Math.min(this.wordsPerRow, source.wordsPerRow);
+        source.requireFits(sourceRow, count);
+        boolean changed = false;
+        for (int word = 0; word < count; word++) {
+            long before = this.words[targetBase + word];
+            long after = before | source.word(sourceBase + word);
+            if (after != before) changed = true;
+            this.words[targetBase + word] = after;
+        }
+        return changed;
+    }
+
+    /**
+     * Replaces a row with a row of another matrix, or of this one.
+     *
+     * @param target the row to replace
+     * @param source the borrowed source matrix
+     * @param sourceRow the source row
+     */
+    public void copyRow(int target, BitRows source, int sourceRow) {
+
+        this.clearRow(target);
+        this.orRow(target, source, sourceRow);
+    }
+
+    /**
+     * @param row a row of this matrix
+     * @param other the borrowed other matrix
+     * @param otherRow a row of the other matrix
+     * @return whether both rows hold the same bits, as BitSet.equals
+     */
+    public boolean rowEquals(int row, BitRows other, int otherRow) {
+
+        int base = this.base(row);
+        int otherBase = other.base(otherRow);
+        int count = Math.max(this.wordsPerRow, other.wordsPerRow);
+        for (int word = 0; word < count; word++) {
+            long mine = word < this.wordsPerRow ? this.words[base + word] : 0L;
+            long theirs = word < other.wordsPerRow ? other.word(otherBase + word) : 0L;
+            if (mine != theirs) return false;
+        }
+        return true;
+    }
+
+    /**
+     * @param row the row
+     * @param from the first bit to consider, at least zero
+     * @return the next set bit at or after from, or -1
+     */
+    public int nextSetBit(int row, int from) {
+
+        if (from < 0) throw new IndexOutOfBoundsException();
+        int base = this.base(row);
+        int word = from >>> 6;
+        if (word >= this.wordsPerRow) return -1;
+        long bits = this.words[base + word] & (-1L << (from & 63));
+        while (true) {
+            // The lowest set bit's index is the population of the bits below it.
+            if (bits != 0L) return word * 64 + Long.bitCount((bits & -bits) - 1L);
+            word++;
+            if (word == this.wordsPerRow) return -1;
+            bits = this.words[base + word];
+        }
+    }
+
+    /**
+     * Appends a row as {@code BitSet.toString} renders it, such as {@code {0, 2}}.
+     *
+     * @param row the row
+     * @param out the borrowed text builder
+     */
+    public void appendRow(int row, StringBuilder out) {
+
+        out.append('{');
+        boolean first = true;
+        for (int bit = this.nextSetBit(row, 0); bit >= 0; bit = this.nextSetBit(row, bit + 1)) {
+            if (!first) out.append(", ");
+            out.append(bit);
+            first = false;
+        }
+        out.append('}');
+    }
+
+    private long word(int index) {
+
+        return this.words[index];
+    }
+
+    private void requireFits(int row, int count) {
+
+        if (row < 0 || row >= this.rows || count > this.wordsPerRow) throw new IndexOutOfBoundsException();
+    }
+
+    private int base(int row) {
+
+        if (row < 0 || row >= this.rows) throw new IndexOutOfBoundsException();
+        return row * this.wordsPerRow;
+    }
+
+    private int wordIndex(int bit) {
+
+        if (bit < 0 || bit >= this.wordsPerRow * 64) throw new IndexOutOfBoundsException();
+        return bit >>> 6;
+    }
+
+    destructor {
+
+        free this.words;
+    }
+}

@@ -1,0 +1,147 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.diagnostic;
+
+import ironwood.compiler.port.Lists;
+import ironwood.compiler.port.SnapshotList;
+import ironwood.compiler.source.SourceFile;
+import ironwood.compiler.source.SourceSpan;
+
+/**
+ * A primary compiler message. Ports the Java record {@code Diagnostic} and its
+ * factories: the source keeps identity, the span compares by value, and notes
+ * are an independent list the diagnostic borrows. A global diagnostic, with no
+ * source or span, carries no notes (D185).
+ */
+public final class Diagnostic {
+
+    /** The severity of a diagnostic. */
+    public enum Severity {
+
+        ERROR,
+        WARNING
+    }
+
+    /** The shared empty note list; never freed. */
+    public static final SnapshotList<DiagnosticNote> NO_NOTES = Lists.<DiagnosticNote>empty();
+
+    private final String message;
+    private final SourceFile source;
+    private final SourceSpan span;
+    private final Severity severity;
+    private final SnapshotList<DiagnosticNote> notes;
+
+    /**
+     * Creates a diagnostic.
+     *
+     * @param message the nonblank message
+     * @param source the borrowed source, or null for a global diagnostic
+     * @param span the borrowed span, or null for a global diagnostic
+     * @param severity the severity
+     * @param notes the borrowed independent note list
+     * @throws IllegalArgumentException if the message is blank
+     * @throws NullPointerException if the severity or notes are null
+     */
+    public Diagnostic(String message, SourceFile source, SourceSpan span, Severity severity,
+                      SnapshotList<DiagnosticNote> notes) {
+
+        if (message == null || message.isBlank()) {
+            throw new IllegalArgumentException("diagnostic message must not be blank");
+        }
+        if (severity == null) throw new NullPointerException("severity");
+        if (notes == null) throw new NullPointerException("notes");
+        this.message = message;
+        this.source = source;
+        this.span = span;
+        this.severity = severity;
+        // Notes belong to a located primary of either severity (D185).
+        this.notes = source == null || span == null ? NO_NOTES : notes;
+    }
+
+    /**
+     * Creates an error.
+     *
+     * @param source the borrowed source
+     * @param span the borrowed span
+     * @param message the nonblank message
+     * @return the new diagnostic
+     */
+    public static Diagnostic error(SourceFile source, SourceSpan span, String message) {
+
+        return new Diagnostic(message, source, span, Severity.ERROR, NO_NOTES);
+    }
+
+    /**
+     * Creates a warning.
+     *
+     * @param source the borrowed source
+     * @param span the borrowed span
+     * @param message the nonblank message
+     * @return the new diagnostic
+     */
+    public static Diagnostic warning(SourceFile source, SourceSpan span, String message) {
+
+        return new Diagnostic(message, source, span, Severity.WARNING, NO_NOTES);
+    }
+
+    /**
+     * Creates an error without a location.
+     *
+     * @param message the nonblank message
+     * @return the new diagnostic
+     */
+    public static Diagnostic global(String message) {
+
+        return new Diagnostic(message, null, null, Severity.ERROR, NO_NOTES);
+    }
+
+    /**
+     * Returns whether any diagnostic is an error.
+     *
+     * @param diagnostics the borrowed diagnostics
+     * @return whether one has error severity
+     */
+    public static boolean hasErrors(SnapshotList<Diagnostic> diagnostics) {
+
+        for (int index = 0; index < diagnostics.size(); index++) {
+            if (diagnostics.get(index).isError()) return true;
+        }
+        return false;
+    }
+
+    /** @return the message */
+    public String message() {
+
+        return this.message;
+    }
+
+    /** @return the borrowed source, or null */
+    public SourceFile source() {
+
+        return this.source;
+    }
+
+    /** @return the borrowed span, or null */
+    public SourceSpan span() {
+
+        return this.span;
+    }
+
+    /** @return the severity */
+    public Severity severity() {
+
+        return this.severity;
+    }
+
+    /** @return the borrowed note list */
+    public SnapshotList<DiagnosticNote> notes() {
+
+        return this.notes;
+    }
+
+    /** @return whether this is an error */
+    public boolean isError() {
+
+        return this.severity == Severity.ERROR;
+    }
+}

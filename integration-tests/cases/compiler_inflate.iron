@@ -1,0 +1,124 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// The compiler port's raw DEFLATE decoder against Java 21's Inflater
+// (docs/self-hosting/m5/inflate-evidence/InflateCorpus.java): each stream file
+// named on the command line is decoded and printed as Java prints it, `name ok
+// <length> <sha256 prefix> <consumed>` or `name error`. Native-only checks
+// then require, for every accepted stream, the same bytes and consumed length
+// when decoding into an exact-size array and when the stream sits at an
+// offset inside a larger array followed by other bytes; failure when the
+// declared size is one byte off either way; failure for every shorter prefix
+// (every prefix up to 300 bytes, then every 1009th); and no allocation once the
+// scratch output has grown. Exit 42 when every check holds.
+import ironwood.compiler.port.Inflate;
+import ironwood.compiler.port.Sha256;
+import ironwood.io.IOException;
+import ironwood.nio.file.Files;
+import ironwood.nio.file.Path;
+
+class Main {
+
+    static int failures;
+
+    static boolean same(byte[] first, byte[] second) {
+
+        if (first.length != second.length) return false;
+        for (int index = 0; index < first.length; index++) {
+            if (first[index] != second[index]) return false;
+        }
+        return true;
+    }
+
+    static boolean rejects(Inflate inflate, byte[] bytes, int length) {
+
+        try {
+            byte[] result = inflate.inflate(bytes, 0, length, 1 << 26);
+            free result;
+            return false;
+        } catch (IOException expected) {
+            return true;
+        }
+    }
+
+    static boolean rejectsSize(Inflate inflate, byte[] bytes, int size) {
+
+        byte[] output = new byte[size];
+        defer free output;
+        try {
+            inflate.inflate(bytes, 0, bytes.length, output);
+            return false;
+        } catch (IOException expected) {
+            return true;
+        }
+    }
+
+    // The stream at offset 13 of a larger array, between other bytes.
+    static byte[] placed(byte[] bytes) {
+
+        byte[] placed = new byte[bytes.length + 18];
+        for (int index = 0; index < placed.length; index++) placed[index] = (byte) (index * 7 + 1);
+        System.arraycopy(bytes, 0, placed, 13, bytes.length);
+        return placed;
+    }
+
+    // Native-only checks for an accepted stream with its decoded bytes.
+    static void check(Inflate inflate, byte[] bytes, byte[] decoded, int consumed) throws IOException {
+
+        byte[] exact = new byte[decoded.length];
+        defer free exact;
+        if (inflate.inflate(bytes, 0, bytes.length, exact) != consumed || !same(exact, decoded)) failures++;
+        byte[] placed = placed(bytes);
+        defer free placed;
+        byte[] moved = inflate.inflate(placed, 13, bytes.length + 5, 1 << 26);
+        defer free moved;
+        if (inflate.consumed() != consumed || !same(moved, decoded)) failures++;
+        if (!rejectsSize(inflate, bytes, decoded.length + 1)) failures++;
+        if (decoded.length > 0 && !rejectsSize(inflate, bytes, decoded.length - 1)) failures++;
+        for (int length = 0; length < consumed; length = length < 300 ? length + 1 : length + 1009) {
+            if (!rejects(inflate, bytes, length)) failures++;
+        }
+        long before = System.allocationCount();
+        inflate.inflate(bytes, 0, bytes.length, exact);
+        if (System.allocationCount() != before) failures++;
+    }
+
+    static void stream(Inflate inflate, Sha256 digest, String name) throws IOException {
+
+        Path path = Path.of(name);
+        defer free path;
+        Path file = path.getFileName();
+        defer free file;
+        byte[] bytes = Files.readAllBytes(path);
+        defer free bytes;
+        byte[] decoded = null;
+        try {
+            decoded = inflate.inflate(bytes, 0, bytes.length, 1 << 26);
+        } catch (IOException malformed) {
+            System.out.println(file.toString() + " error");
+            return;
+        }
+        defer free decoded;
+        int consumed = inflate.consumed();
+        digest.update(decoded, 0, decoded.length);
+        String hex = digest.hexDigest();
+        defer free hex;
+        String prefix = hex.substring(0, 16);
+        defer free prefix;
+        System.out.println(file.toString() + " ok " + decoded.length + " " + prefix + " " + consumed);
+        check(inflate, bytes, decoded, consumed);
+    }
+
+    public static int main(String[] args) {
+
+        Inflate inflate = new Inflate();
+        defer free inflate;
+        Sha256 digest = new Sha256();
+        defer free digest;
+        try {
+            for (int index = 0; index < args.length; index++) stream(inflate, digest, args[index]);
+        } catch (IOException failure) {
+            return 1;
+        }
+        return failures == 0 ? 42 : 2;
+    }
+}

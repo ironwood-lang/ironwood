@@ -2,6 +2,7 @@
 
 package ironwood.compiler;
 
+import ironwood.compiler.diagnostic.Diagnostic;
 import ironwood.compiler.source.SourceFile;
 
 import java.util.List;
@@ -809,6 +810,12 @@ final class CleanupDiagnosticTests {
                         + registrationOn.diagnostics());
     }
 
+    private static String explanation(Diagnostic diagnostic) {
+        return diagnostic.message() + " @ " + diagnostic.span().start().line() + ":"
+                + diagnostic.span().start().column() + " "
+                + diagnostic.notes().stream().map(note -> note.message()).toList();
+    }
+
     static void cleanupReadinessAndExclusions() {
         String skipped = """
                 class Base { void keep(Object value) { } }
@@ -825,16 +832,22 @@ final class CleanupDiagnosticTests {
                 """;
         CompilationArtifact skippedOff = analyze("SkippedCleanup", skipped);
         CompilationArtifact skippedOn = explained("SkippedCleanup", skipped);
+        // The missing directive leaves refinement in place, so the cleanup
+        // rejection keeps the explanation of the corrected declaration.
+        CompilationArtifact correctedOn = explained("SkippedCleanup", skipped.replace(
+                "extends Base {\n    void keep", "extends Base {\n    @Override void keep"));
+        List<String> verdicts = skippedOn.diagnostics().stream()
+                .filter(diagnostic -> !diagnostic.message().contains("@Override"))
+                .map(CleanupDiagnosticTests::explanation).toList();
         require(skippedOff.diagnostics().size() == skippedOn.diagnostics().size()
+                        && verdicts.size() == skippedOn.diagnostics().size() - 1
+                        && verdicts.equals(correctedOn.diagnostics().stream()
+                        .map(CleanupDiagnosticTests::explanation).toList())
                         && skippedOn.diagnostics().stream().anyMatch(diagnostic ->
                         diagnostic.message().startsWith("cannot free ")
-                        && diagnostic.notes().size() == 1
-                        && diagnostic.notes().getFirst().message().startsWith(
-                        "ownership analysis was limited because of earlier errors"))
-                        && skippedOn.diagnostics().stream().noneMatch(diagnostic ->
-                        diagnostic.notes().stream().anyMatch(note ->
+                        && diagnostic.notes().stream().anyMatch(note ->
                         note.message().startsWith("this cleanup is checked for "))),
-                "skipped refinement gained an exit note: " + skippedOn.diagnostics());
+                "earlier error changed the cleanup explanation: " + skippedOn.diagnostics());
 
         String excluded = """
                 class ExcludedCleanup {

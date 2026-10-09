@@ -1,0 +1,1 @@
+PASS: 289 original effect contract checks

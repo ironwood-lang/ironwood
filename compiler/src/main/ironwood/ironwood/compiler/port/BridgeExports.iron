@@ -1,0 +1,94 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.port;
+
+/**
+ * The exact-package export checks of the Java baseline's
+ * BridgePackageInputs.discover and BridgeExportSurface.select (B7, S7). Each
+ * requested name, in request order, is accepted when Java 21's
+ * {@code SourceVersion.isName} accepts it ({@link JavaNames}); otherwise it
+ * gives {@code invalid Java Bridge export package: '<name>'}. The export
+ * surface also reserves {@code ironwood.bridge}. Package inputs report
+ * {@code Java Bridge requires at least one exact export package} when nothing
+ * was requested. Accepted packages are kept once each, in String order, as
+ * the callers' TreeSet keeps them.
+ *
+ * <p>The Java callers also reject a null name with the same text; a native
+ * request list holds no null. Diagnostics are messages only: the callers wrap
+ * each in a global diagnostic. A failure, including an allocation failure,
+ * rolls back the partly built selection.
+ */
+public final class BridgeExports {
+
+    /** The package reserved for the shared Java Bridge value API. */
+    public static final String RESERVED = "ironwood.bridge";
+
+    private TextList packages;
+    private TextList diagnostics;
+
+    /**
+     * Checks the requested names.
+     *
+     * @param exports the requested package names in request order; borrowed
+     * @param surface true for BridgeExportSurface's selection, which reserves
+     *     {@code ironwood.bridge}; false for BridgePackageInputs, which
+     *     requires at least one package
+     */
+    public BridgeExports(TextList exports, boolean surface) {
+
+        this.packages = new TextList();
+        this.diagnostics = new TextList();
+        for (int index = 0; index < exports.size(); index++) {
+            String name = exports.get(index);
+            defer free name;
+            if (!JavaNames.isName(name)) {
+                StringBuilder message = new StringBuilder();
+                defer free message;
+                message.append("invalid Java Bridge export package: '");
+                message.append(name);
+                message.append('\'');
+                String text = message.toString();
+                defer free text;
+                this.diagnostics.add(text);
+            } else if (surface && name.equals(RESERVED)) {
+                this.diagnostics.add("ironwood.bridge is reserved for the shared Java Bridge value API");
+            } else if (this.packages.indexOf(name) < 0) {
+                this.packages.add(name);
+            }
+        }
+        if (!surface && this.packages.size() == 0 && this.diagnostics.size() == 0) {
+            this.diagnostics.add("Java Bridge requires at least one exact export package");
+        }
+        this.packages.sortStrings();
+    }
+
+    /** @return the number of accepted packages */
+    public int packageCount() {
+
+        return this.packages.size();
+    }
+
+    /** @return a fresh copy of the accepted package at index, in String order */
+    public String packageName(int index) {
+
+        return this.packages.get(index);
+    }
+
+    /** @return the number of diagnostics */
+    public int diagnosticCount() {
+
+        return this.diagnostics.size();
+    }
+
+    /** @return a fresh copy of the diagnostic message at index, in report order */
+    public String diagnostic(int index) {
+
+        return this.diagnostics.get(index);
+    }
+
+    destructor {
+
+        free this.packages;
+        free this.diagnostics;
+    }
+}

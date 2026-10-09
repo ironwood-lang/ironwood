@@ -1,0 +1,100 @@
+{
+ "schema_version": 1,
+ "increment": "D258 M1.3 value helpers and pilot port conventions",
+ "base_commit": "c9630d3e29d0090119289bcb603b4380d3ea6fe9",
+ "producing_compiler": {
+  "path": "/Users/developer/workspace-mba-m2/Ironwood/workspace/m1/keyed-final/stage/compiler/build/ironwoodc.jar",
+  "sha256": "ab50fe2c128137005c4dbac8263bc1190ab956c1012bf5a285940709655a54b2",
+  "role": "compiler sources identical to base commit"
+ },
+ "sources": [
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/port/CharEscapes.iron",
+   "sha256": "0c7e2845d760d9919f57e49672de33e3cbfdd89ee691aa6a1936ed4d0140625a"
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/port/SnapshotInts.iron",
+   "sha256": "b4eb48e4a08f5715152c30a7b625115e658886dc8a53255285005c99c3541a74"
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/port/Lists.iron",
+   "sha256": "2b763f0488e8dec57fa578e662579f520ba52ded7ce77a862876d6e23c807af9"
+  },
+  {
+   "path": "integration-tests/cases/compiler_value_helpers.iron",
+   "sha256": "09297e8da9c20c9d39062ae4b9adf9d974dea93e4d2afb50522c1b5813ddc361"
+  },
+  {
+   "path": "compiler/src/test/java/ironwood/compiler/ValueHelpersTests.java",
+   "sha256": "8071347c5974d77ca041af3c2f77acf33ef162dcf87b3cb23d550f9a7c9e783e"
+  }
+ ],
+ "java_reference": {
+  "path": "docs/self-hosting/m1/values-evidence/ValueHelpersReference.java",
+  "sha256": "06164a1a777788af1f5395e7dc6e6de1399b3c7a23dc58d75fd0d946f3ea28bf",
+  "runs": 4,
+  "classpath": "producing stage compiler/build/classes"
+ },
+ "handoff_sites": {
+  "M1.3": "API0184 boxed Character append and escape presence; API0083/0656/0672 segment counts; API0442/0443 List.of; RECORD rows for SourcePosition, SourceSpan, Site, Retention, Summary, AllocationStateSnapshot, ArraySlot"
+ },
+ "logs": [
+  {
+   "retained": "docs/self-hosting/m1/values-evidence/logs/compile.log.gz",
+   "sha256": "8464094d02f52bcee4669177f07849bc58b3b9bac06810031aafb3201bb3cfa3",
+   "gzip_sha256": "3e237ca0a4ca20343c1deedc0880886545e074959d23f5ca7cf58cdabb8ea081"
+  },
+  {
+   "retained": "docs/self-hosting/m1/values-evidence/logs/diff-check.log.gz",
+   "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "gzip_sha256": "f61f27bd17de546264aa58f40f3aafaac7021e0ef69c17f6b1b4cd7664a037ec"
+  },
+  {
+   "retained": "docs/self-hosting/m1/values-evidence/logs/irondocs.log.gz",
+   "sha256": "1576064b08f76a63e809ffdb40b3c25f423284dfeafca6e5907cf3b866ca7b38",
+   "gzip_sha256": "2a591cfd57b99b62c0fb294519734b8bad702ed638ab8ec3b0541cc847a697ec"
+  },
+  {
+   "retained": "docs/self-hosting/m1/values-evidence/logs/java-reference.log.gz",
+   "sha256": "0616b1b7103a4a47828efd3fc47aa95a341fe32a1a073f2850af0c62944dbae1",
+   "gzip_sha256": "d5afcbc111fbae9db562e7a8ecabbf33d5b97d7a6427a9055f0eb918d62a3ee2"
+  },
+  {
+   "retained": "docs/self-hosting/m1/values-evidence/logs/licenses.log.gz",
+   "sha256": "baf5804aeb26498337c9c5223c199afeba5c3e2fc36ae219b9bf420e3775f673",
+   "gzip_sha256": "c33bdaafc40ae52137c7119d2922a14fd4f4f340cea86e19094625617947bf77"
+  },
+  {
+   "retained": "docs/self-hosting/m1/values-evidence/logs/link.log.gz",
+   "sha256": "09395f6cf468082f49a3ce39c0d5257e2b41aa7c11e2f97ab19dcae2ac521e7c",
+   "gzip_sha256": "0b290e093679518ca3e355f944790a6f2a553ad65ac23b73611235d54fc1717d"
+  },
+  {
+   "retained": "docs/self-hosting/m1/values-evidence/logs/native.txt.gz",
+   "sha256": "0616b1b7103a4a47828efd3fc47aa95a341fe32a1a073f2850af0c62944dbae1",
+   "gzip_sha256": "d5afcbc111fbae9db562e7a8ecabbf33d5b97d7a6427a9055f0eb918d62a3ee2"
+  },
+  {
+   "retained": "docs/self-hosting/m1/values-evidence/logs/tests.log.gz",
+   "sha256": "ec03813541071a43854bb4aa1248801dff818310d2acb5ff8293ee952cb42a6d",
+   "gzip_sha256": "a1a4067690663afe85ff3568f65fbd4a682bc1405fdfa0bbe19af935ed6ee866"
+  }
+ ],
+ "results": {
+  "tests": "PASS: 2 compiler tests",
+  "java_parity": "transcript identical in 4 fresh JVMs",
+  "unfreed_warn": "0 diagnostics",
+  "irondocs": "4 types including SnapshotList",
+  "licensing": "passed"
+ },
+ "boundaries": [
+  "ported records, cooked string assembly and keyword switch are M2 consumer code",
+  "generic singleton exposes its item",
+  "full M1 open"
+ ],
+ "host_profile": {
+  "host": "macOS 27.0.1, arm64, Apple M5, 32 GiB",
+  "bootstrap": "Java 21.0.1",
+  "backend": "pinned LLVM 23.1.0"
+ }
+}

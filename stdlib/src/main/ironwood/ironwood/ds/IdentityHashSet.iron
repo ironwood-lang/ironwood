@@ -14,7 +14,7 @@ import ironwood.util.Iterator;
 
 public class IdentityHashSet<E extends Object> implements Iterable<E> {
 
-    private IdentityHashMap<E, E> map;
+    private final IdentityHashMap<E, E> map;
     private IdentityHashSetIterator<E> reusableIterator;
     /** Creates a new IdentityHashSet. */
 
@@ -37,6 +37,31 @@ public class IdentityHashSet<E extends Object> implements Iterable<E> {
         this.map = new IdentityHashMap<E, E>();
         this.reusableIterator = new IdentityHashSetIterator<E>(this);
     }
+
+    private IdentityHashSet(IdentityHashSet<E> source) {
+
+        this.map = source.map.copy();
+        this.reusableIterator = new IdentityHashSetIterator<E>(this);
+    }
+
+    /**
+     * Creates independent mutable membership with separately owned map and
+     * iterator storage. Non-null items are borrowed; the caller owns the result.
+     * Source cursor state is untouched. Partial construction reclaims storage.
+     * The backing map uses load factor 1.0 and max(1, size()) initial capacity;
+     * unused source pool capacity is not copied. Destruction reclaims private
+     * storage and never frees caller-owned items.
+     * Membership loans remain until clear or destruction, subject to retained
+     * aliases; individual removal does not discharge a compiler loan.
+     * Reference identity is preserved and no item callbacks are invoked.
+     *
+     * @return an independent shallow copy
+     */
+    public IdentityHashSet<E> copy() {
+
+        return new IdentityHashSet<E>(this);
+    }
+
     /** Returns the initial capacity. */
 
     public int getInitialCapacity() {

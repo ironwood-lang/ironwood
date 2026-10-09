@@ -1,0 +1,78 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// Differential input for TextBlocks.stripIndent. A shared linear congruential
+// generator builds 20,000 strings over whitespace-heavy characters, including
+// every line terminator form, tab, form feed, vertical tab, em space and a
+// non-breaking space that is not whitespace. Each line prints the case index,
+// result length and FNV-1a hash; the output must equal the Java 21 reference.
+// Exit 42 if every call leaves exactly its result live and freeing it restores
+// the storage baseline.
+import ironwood.compiler.port.TextBlocks;
+
+class Main {
+
+    static int state = 20261005;
+
+    static int next(int bound) {
+
+        state = state * 1103515245 + 12345;
+        return ((state >>> 16) & 32767) % bound;
+    }
+
+    static char pick() {
+
+        int choice = next(13);
+        if (choice < 3) return ' ';
+        if (choice == 3) return '\t';
+        if (choice == 4) return '\f';
+        if (choice == 5) return '\u000B';
+        if (choice == 6) return ' ';
+        if (choice == 7) return ' ';
+        if (choice == 8) return '\n';
+        if (choice == 9) return '\r';
+        if (choice == 10) return 'a';
+        if (choice == 11) return 'b';
+        return '\\';
+    }
+
+    static int hash(String value) {
+
+        int result = -2128831035;
+        for (int index = 0; index < value.length(); index++) {
+            result = (result ^ value.charAt(index)) * 16777619;
+        }
+        return result;
+    }
+
+    static boolean check(String input, int index) {
+
+        long before = System.liveAllocationCount();
+        String output = TextBlocks.stripIndent(input);
+        boolean balanced = System.liveAllocationCount() - before == 1;
+        System.out.println(index + ":" + output.length() + ":" + hash(output));
+        free output;
+        return balanced && System.liveAllocationCount() == before;
+    }
+
+    public static int main(String[] args) {
+
+        long baseline = System.liveAllocationCount();
+        boolean balanced = true;
+        String[] fixed = {"", "\n", "  a\n  b", "  a\n   b\n  ", "  a\n\n  b\n", "\ta\n\t\tb\n\t", " a \r\n  b\t\r  ",
+                "    hello\n    ", "  x\n    \n  y\n ", "a\r\rb\r\n", " a\n b", " a\n b"};
+        for (int index = 0; index < fixed.length; index++) balanced &= check(fixed[index], -1 - index);
+        for (int index = 0; index < 20000; index++) {
+            int length = next(25);
+            StringBuilder builder = new StringBuilder();
+            for (int position = 0; position < length; position++) builder.append(pick());
+            String input = builder.toString();
+            free builder;
+            balanced &= check(input, index);
+            free input;
+        }
+        free fixed;
+        if (!balanced) return 1;
+        if (System.liveAllocationCount() != baseline) return 2;
+        return 42;
+    }
+}

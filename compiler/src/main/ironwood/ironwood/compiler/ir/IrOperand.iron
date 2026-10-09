@@ -1,0 +1,19 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.ir;
+
+import ironwood.compiler.port.OperationVariants;
+
+/**
+ * An IR operand. Ports the Java sealed interface {@code IrOperand}; the pilot
+ * implements only {@link IrValueReference} and dispatches on the closed
+ * {@link OperationVariants.Operand} list (D260).
+ */
+public interface IrOperand {
+
+    /** @return the operand's type */
+    IrType type();
+
+    /** @return this operand's closed variant */
+    OperationVariants.Operand operandVariant();
+}

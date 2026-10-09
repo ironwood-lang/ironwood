@@ -1,0 +1,38 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.ast;
+
+import ironwood.compiler.port.SnapshotList;
+import ironwood.compiler.source.SourceSpan;
+
+/**
+ * A class, enum or interface declaration.
+ * Ports the Java sealed interface {@code TypeDeclaration}: implementations report their
+ * closed variant so consumers dispatch with an exhaustive {@code switch} (D260).
+ */
+public interface TypeDeclaration {
+
+    /** @return the declared access */
+    AccessModifier accessModifier();
+
+    /** @return the simple name */
+    String name();
+
+    /** @return the declared type parameters */
+    SnapshotList<TypeParameter> typeParameters();
+
+    /** @return whether the type is a static member */
+    boolean isStatic();
+
+    /** @return the member types */
+    SnapshotList<TypeDeclaration> memberTypes();
+
+    /** @return the name span */
+    SourceSpan nameSpan();
+
+    /** @return the source span */
+    SourceSpan span();
+
+    /** @return this node's closed variant */
+    TypeDeclarationVariant typeDeclarationVariant();
+}

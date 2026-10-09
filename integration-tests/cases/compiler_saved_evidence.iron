@@ -1,0 +1,222 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// Replaces RejectedFreeEvidence's weak snapshot keys with strong ownership:
+// each proof snapshot owns its optional saved evidence, so version identity is
+// the snapshot object and retirement is its destruction after an explicit unit
+// release. Sites carry primitive reference counts. Each run saves two versions,
+// restores and re-applies them, restores a version saved without evidence
+// (truthful fallback), retires both and closes the store. Budgets admit two,
+// one and zero saved versions. Prints budget, saved count and the checks;
+// every unit and reference returns to zero and all storage retires. Exit 42.
+import ironwood.ds.*;
+import ironwood.util.Iterator;
+import ironwood.compiler.port.*;
+
+// RejectedFreeEvidence.Site: source identity plus offset; references is
+// bookkeeping owned by the store and excluded from equality.
+final class Site {
+
+    private final Object source;
+    private final int offset;
+    int references;
+
+    Site(Object source, int offset) {
+
+        this.source = source;
+        this.offset = offset;
+    }
+
+    @Override public boolean equals(Object value) {
+
+        if (!(value instanceof Site)) return false;
+        Site other = (Site) value;
+        return this.source == other.source && this.offset == other.offset;
+    }
+
+    @Override public int hashCode() {
+
+        return System.identityHashCode(this.source) * 31 + this.offset;
+    }
+}
+
+// One saved version of the current origin associations.
+final class Saved {
+
+    private final SnapshotIdentityMap<Object, Site> origins;
+    private final SnapshotList<Object> keys;
+    private final int units;
+
+    Saved(IdentityHashMap<Object, Site> origins, ArrayList<Object> keys, int units) {
+
+        this.origins = new SnapshotIdentityMap<Object, Site>(origins);
+        this.keys = new SnapshotList<Object>(keys);
+        this.units = units;
+    }
+
+    int units() { return this.units; }
+    int count() { return this.keys.size(); }
+    Object keyAt(int index) { return this.keys.get(index); }
+    Site site(Object key) { return this.origins.get(key); }
+
+    destructor {
+
+        free this.keys;
+        free this.origins;
+    }
+}
+
+// A proof snapshot that owns its optional evidence: the store's save is a
+// fresh-or-null factory, so the field holds an exclusively owned version.
+final class ProofSnapshot {
+
+    private final Saved saved;
+
+    ProofSnapshot(Evidence evidence) {
+
+        this.saved = evidence.save();
+    }
+
+    Saved saved() { return this.saved; }
+
+    destructor {
+
+        if (this.saved != null) free this.saved;
+    }
+}
+
+final class Evidence {
+
+    private final IdentityHashMap<Object, Site> origins = new IdentityHashMap<Object, Site>(8);
+    private final int budget;
+    private int liveUnits;
+    private boolean truncated;
+
+    Evidence(int budget) {
+
+        this.budget = budget;
+    }
+
+    int liveUnits() { return this.liveUnits; }
+    boolean truncated() { return this.truncated; }
+
+    void record(Object allocation, Site site) {
+
+        Site old = this.origins.get(allocation);
+        if (old != null) old.references--;
+        else this.liveUnits++;
+        this.origins.put(allocation, site);
+        site.references++;
+    }
+
+    // Reserves the whole version before copying, as E2 does, or saves nothing.
+    Saved save() {
+
+        int units = 2 + this.origins.size();
+        if (this.liveUnits + units > this.budget) {
+            this.truncated = true;
+            return null;
+        }
+        ArrayList<Object> keys = new ArrayList<Object>(this.origins.size() + 1);
+        defer free keys;
+        Iterator<Site> values = this.origins.iterator();
+        while (values.hasNext()) {
+            values.next().references++;
+            keys.add(this.origins.getCurrIteratorKey());
+        }
+        this.liveUnits += units;
+        return new Saved(this.origins, keys, units);
+    }
+
+    // E5 then E4; an absent version clears and reports truncation.
+    boolean restore(Saved saved) {
+
+        clearCurrent();
+        if (saved == null) {
+            this.truncated = true;
+            return false;
+        }
+        for (int index = 0; index < saved.count(); index++) {
+            Object key = saved.keyAt(index);
+            Site site = saved.site(key);
+            this.origins.put(key, site);
+            site.references++;
+            this.liveUnits++;
+        }
+        return true;
+    }
+
+    // E6: releases a version's units and site references before its owner frees it.
+    void release(Saved saved) {
+
+        if (saved == null) return;
+        this.liveUnits -= saved.units();
+        for (int index = 0; index < saved.count(); index++) saved.site(saved.keyAt(index)).references--;
+    }
+
+    void clearCurrent() {
+
+        Iterator<Site> values = this.origins.iterator();
+        while (values.hasNext()) {
+            values.next().references--;
+            this.liveUnits--;
+        }
+        this.origins.clear();
+    }
+
+    void close() {
+
+        clearCurrent();
+    }
+
+    destructor {
+
+        free this.origins;
+    }
+}
+
+class Main {
+
+    static boolean run(int budget, Object[] nodes, Site[] sites) {
+
+        long baseline = System.liveAllocationCount();
+        Evidence evidence = new Evidence(budget);
+        evidence.record(nodes[0], sites[0]);
+        evidence.record(nodes[1], sites[1]);
+        ProofSnapshot before = new ProofSnapshot(evidence);
+        evidence.record(nodes[1], sites[2]);
+        evidence.record(nodes[2], sites[0]);
+        ProofSnapshot changed = new ProofSnapshot(evidence);
+        int saves = (before.saved() != null ? 1 : 0) + (changed.saved() != null ? 1 : 0);
+        Evidence disabled = new Evidence(0);
+        ProofSnapshot unsaved = new ProofSnapshot(disabled);
+        free disabled;
+        boolean restored = evidence.restore(before.saved());
+        boolean fallback = !evidence.restore(unsaved.saved()) && evidence.truncated();
+        restored = restored || before.saved() == null;
+        boolean reapplied = evidence.restore(changed.saved()) || changed.saved() == null;
+        evidence.release(changed.saved());
+        free changed;
+        evidence.release(before.saved());
+        free before;
+        free unsaved;
+        evidence.close();
+        boolean balanced = evidence.liveUnits() == 0;
+        for (int index = 0; index < sites.length; index++) balanced = balanced && sites[index].references == 0;
+        free evidence;
+        System.out.println("budget " + budget + ":" + saves + ":" + restored + ":" + reapplied + ":" + fallback
+                + ":" + balanced);
+        return restored && reapplied && fallback && balanced && System.liveAllocationCount() == baseline;
+    }
+
+    public static int main(String[] args) {
+
+        Object[] nodes = {new Object(), new Object(), new Object()};
+        Object source = new Object();
+        Site[] sites = {new Site(source, 1), new Site(source, 2), new Site(source, 3)};
+        boolean passed = run(1048576, nodes, sites) && run(8, nodes, sites) && run(5, nodes, sites);
+        // The fixture's nodes and sites are invocation-lived; only the arrays retire.
+        free sites;
+        free nodes;
+        return passed ? 42 : 1;
+    }
+}

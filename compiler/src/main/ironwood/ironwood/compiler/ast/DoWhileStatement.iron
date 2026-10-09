@@ -1,0 +1,48 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.ast;
+
+import ironwood.compiler.source.SourceSpan;
+
+/**
+ * Port of the Java frontend AST record {@code DoWhileStatement}. Components keep the
+ * record's order; {@code Optional} components are nullable, and list components are
+ * frozen, independent copies that the node borrows for the invocation.
+ */
+public final class DoWhileStatement implements Statement {
+
+    private final Statement body;
+    private final Expression condition;
+    private final SourceSpan span;
+
+    /** Creates the node from its components in record order. */
+    public DoWhileStatement(Statement body, Expression condition, SourceSpan span) {
+
+        this.body = body;
+        this.condition = condition;
+        this.span = span;
+    }
+
+    /** @return the {@code body} component */
+    public Statement body() {
+
+        return this.body;
+    }
+
+    /** @return the {@code condition} component */
+    public Expression condition() {
+
+        return this.condition;
+    }
+
+    /** @return the {@code span} component */
+    @Override public SourceSpan span() {
+
+        return this.span;
+    }
+
+    @Override public StatementVariant statementVariant() {
+
+        return StatementVariant.DO_WHILE_STATEMENT;
+    }
+}

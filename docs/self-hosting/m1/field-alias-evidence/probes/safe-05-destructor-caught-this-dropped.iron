@@ -1,0 +1,7 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+class Parent extends Error {
+    private Parent self;
+    Parent() { this.self = this; }
+    destructor { try { throw this; } catch (Throwable ignored) { } }
+}
+class Main { public static int main(String[] args) { return 0; } }

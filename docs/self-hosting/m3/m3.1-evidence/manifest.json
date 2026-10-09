@@ -1,0 +1,132 @@
+{
+ "schema_version": 1,
+ "increment": "M3.1 handoff: helpers ready for their S2 consumers",
+ "commit": "cbed323dd1bc659d65f7a95eb721c43ed9fcc500",
+ "host": "macOS arm64 Apple M5, 32 GiB",
+ "java": "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home",
+ "llvm": "/opt/homebrew/opt/llvm@23",
+ "reproduce": "docs/self-hosting/m3/m3.1-evidence/run-evidence.sh cbed323d",
+ "status": [
+  "build exit=0",
+  "javac exit=0",
+  "tests exit=0",
+  "classification exit=0",
+  "diff-check exit=0",
+  "licenses exit=0"
+ ],
+ "sources": [
+  {
+   "path": "stdlib/src/main/ironwood/ironwood/ds/ArrayList.iron",
+   "sha256": "fdc48a06e0580653d8cced9ed45ab7e1e5622a524ff9e423801e6861813aa20c"
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/port/IrModel.iron",
+   "sha256": "9746d611ff0eef2a17be8817c6081916648e839c8fee73d486ddc22f7ece22d8"
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/port/Lists.iron",
+   "sha256": "0117c75e02ae0ef253aa10cbc6ed5d149ece305a87aa09cf3fc32292f5a11b4d"
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/port/ScopeStack.iron",
+   "sha256": "7600464ef6210e0de8a259b95bbfcd99bb200ab2087d964933b769c6eccaff43"
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/port/Splits.iron",
+   "sha256": "96a0874c80c0bc3feca557eabafa292250faf29c3bb1d2d969a9ca38b552875f"
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/port/SnapshotSet.iron",
+   "sha256": "543db5990ece3f59de7546c2deedca448606318b7630ce4793daa20a736b5e05"
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/port/StringOrder.iron",
+   "sha256": "51b6e8c9ae455675484e587c923c883e420877bb19981286da0582f094c94cde"
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/port/Extremes.iron",
+   "sha256": "646c066f59b1a3eae63d3f4691aa53d4e51d82cd085048209930e1f0b00890e4"
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/port/Maps.iron",
+   "sha256": "fb4de5f2ddd4ec6509c922782dfef5ca94098a28dfbbd7fe4a098b29bacad0a2"
+  },
+  {
+   "path": "docs/self-hosting/m3/classify.py",
+   "sha256": "66d32ed5d48e80cef143e941e363e242f56adc148afbdf27578b699a75c2e7c9"
+  },
+  {
+   "path": "docs/self-hosting/m3/CLASSIFICATION_M3.1.md",
+   "sha256": "9a272d87a3105d5abb4baaecebbaa1f098d9077eb00eec104ea3380f42ca41d4"
+  },
+  {
+   "path": "docs/self-hosting/m3/m3.1-evidence/run-evidence.sh",
+   "sha256": "0ed55025d5cb1e6f7cdcbc7ae5dceb8a7d489bb0f239709e94f5b95866f2e653"
+  }
+ ],
+ "logs": [
+  {
+   "log": "commit.txt",
+   "retained": "docs/self-hosting/m3/m3.1-evidence/logs/commit.txt.gz",
+   "sha256": "38d9393559fd9368a01123a3ce036356274c8674634ebc84629a9ff59cbe584f",
+   "gzip_sha256": "d2fa9eb5dd8873f9172fd6e75e024d44be68edcb941a98c5db273ceac6eae065"
+  },
+  {
+   "log": "status.txt",
+   "retained": "docs/self-hosting/m3/m3.1-evidence/logs/status.txt.gz",
+   "sha256": "3369bc2807592298efd754f7b6cf5c3f6cf5e43794648291e9d3fb7138a83566",
+   "gzip_sha256": "3c32e141ab1d9954f0d5535a5c6eeb98d6ad7d6f9e4f25b44bffe0e692847614"
+  },
+  {
+   "log": "build.log",
+   "retained": "docs/self-hosting/m3/m3.1-evidence/logs/build.log.gz",
+   "sha256": "5669e0b5f5bbdeb8bee2cad0dcf685009be45e4d2a8d129b04214fe5705bae27",
+   "gzip_sha256": "8c1eb021d6b0de442deb9ab5b9a7e62e6797d978fc8f66e4b4cdef388432ae7b"
+  },
+  {
+   "log": "build-identity.txt",
+   "retained": "docs/self-hosting/m3/m3.1-evidence/logs/build-identity.txt.gz",
+   "sha256": "01f05476daba82d9d1aa1edbbc5482f6186efa69422b52221ed1a46dc3dd9557",
+   "gzip_sha256": "647d92cfd6d1e1e89caaa3584431ffdfc65521e0b45c9c2c09eeb1d093df3bd5"
+  },
+  {
+   "log": "javac.log",
+   "retained": "docs/self-hosting/m3/m3.1-evidence/logs/javac.log.gz",
+   "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "gzip_sha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64"
+  },
+  {
+   "log": "tests.log",
+   "retained": "docs/self-hosting/m3/m3.1-evidence/logs/tests.log.gz",
+   "sha256": "3d31046049e680a01cca97a431eaae6cb3c557bf08cef6574d667426fad64130",
+   "gzip_sha256": "58dcf3d972da2e185a210bb43a56ec8bf4b0dbeaf7091037367020d11af26d8a"
+  },
+  {
+   "log": "classification.log",
+   "retained": "docs/self-hosting/m3/m3.1-evidence/logs/classification.log.gz",
+   "sha256": "1be5ff5fac8c0b56d7ab70f190d26a961034d04f3012cd6203cc255c4d0265db",
+   "gzip_sha256": "d3060656b396bcba22b5ef12e2dced36939979fa4e4aeec035f5a2ea5a224928"
+  },
+  {
+   "log": "classification.md",
+   "retained": "docs/self-hosting/m3/m3.1-evidence/logs/classification.md.gz",
+   "sha256": "9a272d87a3105d5abb4baaecebbaa1f098d9077eb00eec104ea3380f42ca41d4",
+   "gzip_sha256": "b2e843c024ca9200b59ea6b8b8137cd0ed21025956b11f153d52074e0198dfa7"
+  },
+  {
+   "log": "diff-check.log",
+   "retained": "docs/self-hosting/m3/m3.1-evidence/logs/diff-check.log.gz",
+   "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "gzip_sha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64"
+  },
+  {
+   "log": "licenses.log",
+   "retained": "docs/self-hosting/m3/m3.1-evidence/logs/licenses.log.gz",
+   "sha256": "baf5804aeb26498337c9c5223c199afeba5c3e2fc36ae219b9bf420e3775f673",
+   "gzip_sha256": "21fd3bcaf61e87e10822dd63176f2751a3282de06861c556f8ea5cb4d913c689"
+  }
+ ],
+ "tests": 31,
+ "m3_1_patterns": 319,
+ "m3_1_calls": 13622
+}

@@ -1,0 +1,167 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.port;
+
+import ironwood.ds.ArrayList;
+import ironwood.ds.IntArrayList;
+
+/**
+ * Immutable lists for the compiler's {@code List.of} sites and Java list value
+ * semantics over snapshots. A generic shared empty instance would need an
+ * unchecked cast, which Ironwood rejects, so each element type that needs one
+ * stores the result of {@link #empty()} in its own process-lived static
+ * constant; holders borrow it and never free it. {@code List.of} with one to
+ * four items has a fixed-arity factory; longer literals fill a builder.
+ */
+public final class Lists {
+
+    private Lists() {
+    }
+
+    /**
+     * Returns a fresh immutable empty list, for a process-lived per-type
+     * constant. The caller owns the list; the temporary builder is freed on
+     * every exit.
+     *
+     * @return the new empty list
+     */
+    public static <E extends Object> SnapshotList<E> empty() {
+
+        ArrayList<E> builder = new ArrayList<E>(1);
+        // Retires the builder even if the list's own allocation fails.
+        defer free builder;
+        return new SnapshotList<E>(builder);
+    }
+
+    /**
+     * Returns a fresh immutable list holding one borrowed item. The caller
+     * owns the list, not the item; the temporary builder is freed on every exit.
+     *
+     * @param item the borrowed non-null item
+     * @return the new list
+     * @throws NullPointerException if the item is null
+     */
+    public static <E extends Object> SnapshotList<E> single(E item) {
+
+        if (item == null) throw new NullPointerException();
+        ArrayList<E> builder = new ArrayList<E>(1);
+        // Retires the builder even if the list's own allocation fails.
+        defer free builder;
+        builder.add(item);
+        return new SnapshotList<E>(builder);
+    }
+
+    /**
+     * Returns a fresh immutable list of two borrowed items in argument order,
+     * for {@code List.of(first, second)}.
+     *
+     * @throws NullPointerException if an item is null
+     */
+    public static <E extends Object> SnapshotList<E> of(E first, E second) {
+
+        if (first == null || second == null) throw new NullPointerException();
+        ArrayList<E> builder = new ArrayList<E>(2);
+        // Retires the builder even if the list's own allocation fails.
+        defer free builder;
+        builder.add(first);
+        builder.add(second);
+        return new SnapshotList<E>(builder);
+    }
+
+    /**
+     * Returns a fresh immutable list of three borrowed items in argument
+     * order, for {@code List.of(first, second, third)}.
+     *
+     * @throws NullPointerException if an item is null
+     */
+    public static <E extends Object> SnapshotList<E> of(E first, E second, E third) {
+
+        if (first == null || second == null || third == null) throw new NullPointerException();
+        ArrayList<E> builder = new ArrayList<E>(3);
+        // Retires the builder even if the list's own allocation fails.
+        defer free builder;
+        builder.add(first);
+        builder.add(second);
+        builder.add(third);
+        return new SnapshotList<E>(builder);
+    }
+
+    /**
+     * Returns a fresh immutable list of four borrowed items in argument
+     * order, for {@code List.of} with four items.
+     *
+     * @throws NullPointerException if an item is null
+     */
+    public static <E extends Object> SnapshotList<E> of(E first, E second, E third, E fourth) {
+
+        if (first == null || second == null || third == null || fourth == null) throw new NullPointerException();
+        ArrayList<E> builder = new ArrayList<E>(4);
+        // Retires the builder even if the list's own allocation fails.
+        defer free builder;
+        builder.add(first);
+        builder.add(second);
+        builder.add(third);
+        builder.add(fourth);
+        return new SnapshotList<E>(builder);
+    }
+
+    /**
+     * Java {@code List.equals} between two snapshots: equal sizes and
+     * pairwise {@code equals} in order, calling {@code first}'s items with
+     * {@code second}'s as arguments. Identical snapshots are equal without
+     * calls. Nothing is allocated; the items' {@code equals} effects apply.
+     */
+    public static <E extends Object> boolean equal(SnapshotList<E> first, SnapshotList<E> second) {
+
+        if (first == second) return true;
+        if (first.size() != second.size()) return false;
+        for (int index = 0; index < first.size(); index++) {
+            if (!first.get(index).equals(second.get(index))) return false;
+        }
+        return true;
+    }
+
+    /**
+     * Java {@code List.hashCode}: 1, then {@code 31 * hash + item.hashCode()}
+     * in order, with wrapping arithmetic. Nothing is allocated.
+     */
+    public static <E extends Object> int hash(SnapshotList<E> list) {
+
+        int hash = 1;
+        for (int index = 0; index < list.size(); index++) hash = 31 * hash + list.get(index).hashCode();
+        return hash;
+    }
+
+    /**
+     * Returns a fresh immutable list of the first {@code count} borrowed
+     * items, for {@code List.subList(0, count)} copied into a new record
+     * component. The caller owns the list, not the items.
+     *
+     * @throws IndexOutOfBoundsException if count is negative or exceeds the size
+     */
+    public static <E extends Object> SnapshotList<E> prefix(SnapshotList<E> source, int count) {
+
+        if (count < 0 || count > source.size()) throw new IndexOutOfBoundsException();
+        ArrayList<E> builder = new ArrayList<E>(count > 0 ? count : 1);
+        // Retires the builder even if the list's own allocation fails.
+        defer free builder;
+        for (int index = 0; index < count; index++) builder.add(source.get(index));
+        return new SnapshotList<E>(builder);
+    }
+
+    /**
+     * Returns a fresh immutable copy of the first {@code count} values, for
+     * the segment-count {@code subList(0, count)} sites. The caller owns it.
+     *
+     * @throws IndexOutOfBoundsException if count is negative or exceeds the size
+     */
+    public static SnapshotInts prefix(SnapshotInts source, int count) {
+
+        if (count < 0 || count > source.size()) throw new IndexOutOfBoundsException();
+        IntArrayList builder = new IntArrayList(count > 0 ? count : 1);
+        // Retires the builder even if the copy's own allocation fails.
+        defer free builder;
+        for (int index = 0; index < count; index++) builder.add(source.get(index));
+        return new SnapshotInts(builder);
+    }
+}

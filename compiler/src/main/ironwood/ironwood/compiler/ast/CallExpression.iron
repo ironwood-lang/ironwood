@@ -1,0 +1,76 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.ast;
+
+import ironwood.compiler.port.SnapshotList;
+import ironwood.compiler.source.SourceSpan;
+
+/**
+ * Port of the Java frontend AST record {@code CallExpression}. Components keep the
+ * record's order; {@code Optional} components are nullable, and list components are
+ * frozen, independent copies that the node borrows for the invocation.
+ */
+public final class CallExpression implements Expression {
+
+    private final Expression receiver;
+    private final SnapshotList<TypeName> typeArguments;
+    private final String methodName;
+    private final SourceSpan methodNameSpan;
+    private final SnapshotList<Expression> arguments;
+    private final SourceSpan span;
+
+    /** Creates the node from its components in record order. */
+    public CallExpression(Expression receiver, SnapshotList<TypeName> typeArguments, String methodName,
+                          SourceSpan methodNameSpan, SnapshotList<Expression> arguments, SourceSpan span) {
+
+        if (typeArguments == null) typeArguments = AstLists.NO_TYPE_NAMES;
+        if (arguments == null) throw new NullPointerException();
+        this.receiver = receiver;
+        this.typeArguments = typeArguments;
+        this.methodName = methodName;
+        this.methodNameSpan = methodNameSpan;
+        this.arguments = arguments;
+        this.span = span;
+    }
+
+    /** @return the {@code receiver} component */
+    public Expression receiver() {
+
+        return this.receiver;
+    }
+
+    /** @return the {@code typeArguments} component */
+    public SnapshotList<TypeName> typeArguments() {
+
+        return this.typeArguments;
+    }
+
+    /** @return the {@code methodName} component */
+    public String methodName() {
+
+        return this.methodName;
+    }
+
+    /** @return the {@code methodNameSpan} component */
+    public SourceSpan methodNameSpan() {
+
+        return this.methodNameSpan;
+    }
+
+    /** @return the {@code arguments} component */
+    public SnapshotList<Expression> arguments() {
+
+        return this.arguments;
+    }
+
+    /** @return the {@code span} component */
+    @Override public SourceSpan span() {
+
+        return this.span;
+    }
+
+    @Override public ExpressionVariant expressionVariant() {
+
+        return ExpressionVariant.CALL_EXPRESSION;
+    }
+}

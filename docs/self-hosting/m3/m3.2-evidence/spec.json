@@ -1,0 +1,35 @@
+{
+ "evidence": "docs/self-hosting/m3/m3.2-evidence",
+ "run": "workspace/m3/m3.2-evidence",
+ "increment": "M3.2 handoff: S3 semantic prerequisites before their S3 consumers, ByteView first",
+ "reproduce": "docs/self-hosting/m3/m3.2-evidence/run-evidence.sh 776a9efc",
+ "sources": [
+  "compiler/src/main/ironwood/ironwood/compiler/port/IntegerLiterals.iron",
+  "compiler/src/main/ironwood/ironwood/compiler/port/IntegralConstants.iron",
+  "compiler/src/main/ironwood/ironwood/compiler/port/Sha256.iron",
+  "compiler/src/main/ironwood/ironwood/compiler/port/Texts.iron",
+  "compiler/src/main/ironwood/ironwood/compiler/port/Splits.iron",
+  "docs/self-hosting/m3/classify.py",
+  "docs/self-hosting/m3/CLASSIFICATION_M3.2.md",
+  "docs/self-hosting/m3/capacity.py",
+  "docs/self-hosting/m3/m3.2-evidence/run-evidence.sh"
+ ],
+ "logs": ["commit.txt", "status.txt", "build.log", "build-identity.txt", "javac.log", "tests.log",
+  "classification.log", "classification.md", "capacity.json", "capacity.log", "j0-errors.txt",
+  "seed-diagnostics.txt", "capacity/port-sources.txt", "capacity/port-sources.sha256",
+  "capacity/j0-compile-1.log", "capacity/j0-compile-1.load", "capacity/j0-compile-1.rusage", "capacity/j0-compile-1.gc",
+  "capacity/seed-compile-1.log", "capacity/seed-compile-1.load", "capacity/seed-compile-1.rusage", "capacity/seed-compile-1.gc",
+  "capacity/seed-compile-2.load", "capacity/seed-compile-2.rusage", "capacity/seed-compile-2.gc",
+  "capacity/seed-link-frontend-1.log", "capacity/seed-link-frontend-1.load", "capacity/seed-link-frontend-1.rusage",
+  "capacity/seed-link-frontend-1.gc", "capacity/seed-link-frontend-2.load", "capacity/seed-link-frontend-2.rusage",
+  "capacity/seed-link-kernel-1.log", "capacity/seed-link-kernel-1.load", "capacity/seed-link-kernel-1.rusage",
+  "capacity/seed-link-kernel-1.gc", "capacity/seed-link-kernel-2.load", "capacity/seed-link-kernel-2.rusage",
+  "diff-check.log", "licenses.log"],
+ "extra": {
+  "tests": 17,
+  "m3_2_patterns": 72,
+  "m3_2_calls": 981,
+  "jvm_profile": "-Xms256m -Xmx4096m -Xss8m -XX:+UseG1GC, JAVA_TOOL_OPTIONS/JDK_JAVA_OPTIONS/_JAVA_OPTIONS cleared",
+  "j0": "target/self-hosting-m0/J0-final2/lib/ironwoodc.jar sha256 2a8b10ab5575f84d3660b3824a4b80cba7f6f9110023e7e30db3b41103893ad7 (0.6.1-beta, seed 6bde84df)"
+ }
+}

@@ -16,8 +16,15 @@ import java.util.Set;
  * to the ordinary conservative escape summary.
  */
 final class FreshBorrowingFactoryAnalysis {
-    record Input(ReturnOrigin origin, List<FieldSymbol> fields, IrType type) {
+    record Input(ReturnOrigin origin, List<FieldSymbol> fields, IrType type, boolean containerElements,
+                 boolean keyCallbacks) {
         Input { fields = List.copyOf(fields); }
+        Input(ReturnOrigin origin, List<FieldSymbol> fields, IrType type) {
+            this(origin, fields, type, false, false);
+        }
+        Input(ReturnOrigin origin, List<FieldSymbol> fields, IrType type, boolean containerElements) {
+            this(origin, fields, type, containerElements, false);
+        }
     }
     record Result(IrType type, Map<FieldSymbol, Input> borrows, List<Input> elements) {
         Result { borrows = Map.copyOf(borrows); elements = List.copyOf(elements); }
@@ -40,6 +47,103 @@ final class FreshBorrowingFactoryAnalysis {
         this.checkingField = checkingField;
     }
 
+    /** A final wrapper that owns one proved membership copy, with no other observation
+     * of its input. The returned inputs describe the copied items, not the source
+     * list identity. Unknown construction/publication remains conservative.
+     */
+    List<Input> constructorElements(CallableSymbol method) {
+        if (owned == null || !method.isConstructor() || method.body().isEmpty()
+                || method.thisInvocation().isPresent() || method.superInvocation().isPresent()
+                || method.parameters().size() != 1 || escapes.summary(method).thisEscapes()) return null;
+        TypeSymbol owner = types.get(method.ownerType());
+        if (owner == null || !owner.isFinal() || owner.enclosingInstanceField().isPresent()
+                || owner.superclass().filter(parent -> parent.name().equals("ironwood.lang.Object")).isEmpty()
+                || owner.declaredFields().size() != 1) return null;
+        FieldSymbol storage = owner.declaredFields().values().iterator().next();
+        if (storage.isStatic() || !storage.isFinal() || storage.accessModifier() != AccessModifier.PRIVATE
+                || storage.declaration().initializer().isPresent() || !owned.isOwned(storage)) return null;
+        List<Statement> statements = method.body().orElseThrow().statements();
+        if (statements.size() != 2 || !(statements.getFirst() instanceof IfStatement guard)
+                || guard.elseBranch().isPresent() || !(guard.condition() instanceof BinaryExpression condition)
+                || condition.operator() != BinaryOperator.EQUAL
+                || !(condition.left() instanceof NameExpression checked)
+                || !checked.name().equals(method.parameters().getFirst().name())
+                || !(condition.right() instanceof NullLiteralExpression)
+                || !(guard.thenBranch() instanceof ThrowStatement thrown)
+                || !(thrown.value() instanceof NewExpression failure)
+                || failure.enclosingInstance().isPresent() || failure.anonymousClassBody().isPresent()
+                || !failure.arguments().isEmpty()
+                || !(statements.get(1) instanceof ExpressionStatement action)
+                || !(action.expression() instanceof AssignmentExpression assignment)
+                || assignment.operator() != AssignmentOperator.ASSIGN
+                || !(assignment.target() instanceof FieldAccessExpression field)
+                || !(field.receiver() instanceof ThisExpression) || !field.fieldName().equals(storage.declaration().name())
+                || !(assignment.value() instanceof CallExpression call)) return null;
+        List<CallableSymbol> targets = escapes.boundTargets(method, call);
+        if (targets.size() != 1 || targets.getFirst().isStatic() || !call.arguments().isEmpty()) return null;
+        Result factory = prove(targets.getFirst());
+        Input receiver = call.receiver().isPresent() ? input(method, call.receiver().orElseThrow()) : null;
+        if (factory == null || receiver == null || !factory.borrows().isEmpty() || factory.elements().isEmpty()) return null;
+        List<Input> result = new ArrayList<>();
+        for (Input element : factory.elements()) {
+            Input value = remap(element, receiver, List.of());
+            if (value == null || !value.containerElements() || !value.fields().isEmpty()
+                    || value.origin().kind() != ReturnOrigin.Kind.PARAMETER || value.origin().parameterIndex() != 0) return null;
+            result.add(value);
+        }
+        return List.copyOf(result);
+    }
+
+    boolean primitivePayloadRead(CallableSymbol method) {
+        var body = method.body().orElse(null);
+        return !method.isStatic() && method.parameterTypes().isEmpty() && method.returnType().isPrimitive()
+                && escapes.isNonRetaining(method.linkageName()) && body != null && body.statements().size() == 1
+                && body.statements().getFirst() instanceof ReturnStatement returned
+                && returned.value().isPresent() && readOnlyPrimitiveCount(method, returned.value().orElseThrow());
+    }
+
+    /** A single read delegated through the wrapper's private copied storage. */
+    CopiedMapReadAnalysis.Read copiedMembershipRead(CallableSymbol method) {
+        TypeSymbol owner = types.get(method.ownerType());
+        if (method.isStatic() || owner == null || owner.constructors().isEmpty()
+                || owner.constructors().stream().anyMatch(constructor -> constructorElements(constructor) == null)) return null;
+        var body = method.body().orElse(null);
+        if (body == null || body.statements().size() != 1
+                || !(body.statements().getFirst() instanceof ReturnStatement returned)
+                || !(returned.value().orElse(null) instanceof CallExpression call)
+                || !(call.receiver().orElse(null) instanceof FieldAccessExpression field)
+                || !(field.receiver() instanceof ThisExpression)
+                || !owner.declaredFields().containsKey(field.fieldName())) return null;
+        List<CallableSymbol> targets = escapes.boundTargets(method, call);
+        if (targets.size() != 1 || !(targets.getFirst().ownerType().equals("ironwood.ds.ArrayList")
+                || MapCopyFactoryAnalysis.isMap(IrType.reference(targets.getFirst().ownerType()))
+                || SetCopyFactoryAnalysis.isSet(IrType.reference(targets.getFirst().ownerType())))) return null;
+        CallableSymbol target = targets.getFirst();
+        for (Expression argument : call.arguments()) {
+            if (!(argument instanceof NameExpression name) || method.parameters().stream()
+                    .noneMatch(parameter -> parameter.name().equals(name.name()))) return null;
+        }
+        CallExpression guard = DataStructureSemantics.arrayListElementReadGuard(target);
+        if (guard != null) {
+            TypeSymbol list = types.get(target.ownerType());
+            FieldSymbol array = list == null ? null : list.declaredFields().get("array");
+            List<CallableSymbol> guards = escapes.boundTargets(target, guard);
+            return array != null && owned.isOwned(array) && guards.size() == 1
+                    && DataStructureSemantics.isPureArrayListReadGuard(guards.getFirst())
+                    ? new CopiedMapReadAnalysis.Read(false) : null;
+        }
+        if (!target.ownerType().equals("ironwood.ds.ArrayList")) {
+            return new CopiedMapReadAnalysis(types, escapes, owned).prove(target);
+        }
+        var targetBody = target.body().orElse(null);
+        return call.arguments().isEmpty() && target.parameterTypes().isEmpty()
+                && target.returnType().isPrimitive()
+                && targetBody != null && targetBody.statements().size() == 1
+                && targetBody.statements().getFirst() instanceof ReturnStatement value
+                && value.value().isPresent() && readOnlyPrimitiveCount(target, value.value().orElseThrow())
+                ? new CopiedMapReadAnalysis.Read(false) : null;
+    }
+
     Result prove(CallableSymbol method) { return prove(method, new LinkedHashSet<>()); }
 
     private Result prove(CallableSymbol method, Set<String> visiting) {
@@ -49,6 +153,8 @@ final class FreshBorrowingFactoryAnalysis {
             List<Statement> statements = method.body().orElseThrow().statements();
             Result list = listFactory(method, statements);
             if (list != null) return list;
+            Result map = new MapCopyFactoryAnalysis(types, resolver, escapes, owned).prove(method, statements);
+            if (map != null) return map;
             if (statements.size() != 1 || !(statements.getFirst() instanceof ReturnStatement returned)
                     || returned.value().isEmpty()) return null;
             Expression expression = returned.value().orElseThrow();
@@ -99,7 +205,8 @@ final class FreshBorrowingFactoryAnalysis {
         if (source == null) return null;
         List<FieldSymbol> fields = new ArrayList<>(source.fields());
         fields.addAll(input.fields());
-        return new Input(source.origin(), fields, input.type());
+        if (source.containerElements()) return null;
+        return new Input(source.origin(), fields, input.type(), input.containerElements(), input.keyCallbacks());
     }
 
     /** A bounded list of borrowed inputs with explicit failure cleanup. Element
@@ -140,10 +247,12 @@ final class FreshBorrowingFactoryAnalysis {
                 || !(returned.value().orElse(null) instanceof NameExpression value)
                 || !value.name().equals(local.name())) return null;
         List<Input> elements = new ArrayList<>();
+        List<Expression> countQueries = new ArrayList<>(creation.arguments());
         for (Statement statement : body.subList(0, body.size() - 1)) {
             if (statement instanceof ForStatement loop) {
                 statement = borrowedListLoop(method, loop);
                 if (statement == null) return null;
+                countQueries.add(((BinaryExpression) loop.condition().orElseThrow()).right());
             }
             if (!(statement instanceof ExpressionStatement action) || !(action.expression() instanceof CallExpression call)
                     || !(call.receiver().orElse(null) instanceof NameExpression receiver)
@@ -156,6 +265,10 @@ final class FreshBorrowingFactoryAnalysis {
             if (element == null || !element.type().isReference()) return null;
             elements.add(element);
         }
+        // A whole-root borrower retains mutations through that root. Projecting
+        // only current container items requires counts that cannot change them.
+        if (elements.stream().anyMatch(Input::containerElements)
+                && countQueries.stream().anyMatch(query -> !isLiteral(query) && !readOnlyCount(method, query))) return null;
         return new Result(method.returnType(), Map.of(), elements);
     }
 
@@ -182,6 +295,38 @@ final class FreshBorrowingFactoryAnalysis {
                 && escapes.isNonRetaining(targets.getFirst().linkageName());
     }
 
+    private boolean readOnlyCount(CallableSymbol method, Expression expression) {
+        if (!(expression instanceof CallExpression call) || !call.arguments().isEmpty()
+                || !(call.receiver().orElse(null) instanceof ThisExpression)) return false;
+        List<CallableSymbol> targets = escapes.boundTargets(method, call);
+        if (targets.size() != 1) return false;
+        CallableSymbol target = targets.getFirst();
+        var body = target.body().orElse(null);
+        return !target.isStatic() && target.parameterTypes().isEmpty() && target.returnType().equals(IrType.I32)
+                && escapes.isNonRetaining(target.linkageName()) && body != null && body.statements().size() == 1
+                && body.statements().getFirst() instanceof ReturnStatement returned
+                && returned.value().isPresent() && readOnlyPrimitiveCount(target, returned.value().orElseThrow());
+    }
+
+    private boolean readOnlyPrimitiveCount(CallableSymbol method, Expression expression) {
+        if (expression instanceof IntegerLiteralExpression) return true;
+        if (expression instanceof BinaryExpression binary) {
+            return readOnlyPrimitiveCount(method, binary.left()) && readOnlyPrimitiveCount(method, binary.right());
+        }
+        if (expression instanceof ConditionalExpression conditional) {
+            return readOnlyPrimitiveCount(method, conditional.condition())
+                    && readOnlyPrimitiveCount(method, conditional.whenTrue())
+                    && readOnlyPrimitiveCount(method, conditional.whenFalse());
+        }
+        String name = expression instanceof NameExpression field ? field.name()
+                : expression instanceof FieldAccessExpression field && field.receiver() instanceof ThisExpression
+                ? field.fieldName() : null;
+        TypeSymbol owner = types.get(method.ownerType());
+        FieldSymbol field = owner == null || name == null ? null : owner.declaredFields().get(name);
+        return field != null && !field.isStatic() && field.accessModifier() == AccessModifier.PRIVATE
+                && field.type().equals(IrType.I32);
+    }
+
     private Result allocation(CallableSymbol method, NewExpression creation) {
         if (creation.enclosingInstance().isPresent() || creation.anonymousClassBody().isPresent()) return null;
         TypeSymbol type = resolver.resolve(creation.className(), types.get(method.ownerType()),
@@ -194,6 +339,12 @@ final class FreshBorrowingFactoryAnalysis {
         for (TypeSymbol current = type; current != null; current = current.superclass().orElse(null)) {
             if (current.constructors().stream().anyMatch(candidate -> escapes.summary(candidate).thisEscapes()))
                 return null;
+        }
+        Input copiedSet = new SetCopyFactoryAnalysis(types, resolver, escapes, owned).prove(constructor);
+        if (copiedSet != null && creation.arguments().size() == 1) {
+            Input source = input(method, creation.arguments().getFirst());
+            Input mapped = source == null ? null : remap(copiedSet, null, List.of(source));
+            return mapped == null ? null : new Result(type.selfType(), Map.of(), List.of(mapped));
         }
         Map<FieldSymbol, Input> borrows = new LinkedHashMap<>();
         for (int index = 0; index < creation.arguments().size(); index++) {
@@ -231,6 +382,22 @@ final class FreshBorrowingFactoryAnalysis {
             if (targets.size() != 1 || targets.getFirst().isStatic()) return null;
             CallableSymbol target = targets.getFirst();
             var summary = escapes.summary(target);
+            CallExpression guard = DataStructureSemantics.arrayListElementReadGuard(target);
+            if (guard != null && call.arguments().stream().allMatch(argument ->
+                    argument instanceof NameExpression || isLiteral(argument))) {
+                TypeSymbol list = types.get(target.ownerType());
+                FieldSymbol storage = list == null ? null : list.declaredFields().get("array");
+                List<CallableSymbol> guards = escapes.boundTargets(target, guard);
+                Input receiver = call.receiver().isPresent() ? input(method, call.receiver().orElseThrow())
+                        : input(method, new ThisExpression(call.span()));
+                if (storage != null && owned.isOwned(storage) && !guards.isEmpty()
+                        && guards.stream().allMatch(check -> DataStructureSemantics.isPureArrayListReadGuard(check)
+                            && !escapes.summary(check).thisEscapesWithoutReturn())
+                        && receiver != null && !receiver.containerElements()) {
+                    return new Input(receiver.origin(), receiver.fields(), target.returnType(), true);
+                }
+                return null;
+            }
             if (summary.mayReturnFresh() || !summary.returnedOrigins().isEmpty()
                     || summary.borrowedReturnedOrigins().isEmpty() || summary.thisEscapesWithoutReturn()
                     || summary.borrowedReturnedOrigins().stream().anyMatch(origin ->

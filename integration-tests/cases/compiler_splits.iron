@@ -1,0 +1,60 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// Splits.bounds against Java 21 String.split with a one-character literal
+// regex: every string over {a, b, '.', '/'} up to length 5, split on '.' and
+// on '/', with limits -1, 0, 1, 2 and 3, prints its fields. The transcript
+// must equal docs/self-hosting/m3/helpers-evidence/SplitsReference.java.
+// Every bounds array, field and text is freed. Exit 42.
+import ironwood.compiler.port.Splits;
+
+class Main {
+
+    static String text(int code, int length) {
+
+        StringBuilder text = new StringBuilder();
+        defer free text;
+        int rest = code;
+        for (int index = 0; index < length; index++) {
+            int digit = rest % 4;
+            rest = rest / 4;
+            text.append(digit == 0 ? 'a' : digit == 1 ? 'b' : digit == 2 ? '.' : '/');
+        }
+        return text.toString();
+    }
+
+    static void line(String text, char delimiter, int limit) {
+
+        int[] bounds = Splits.bounds(text, delimiter, limit);
+        defer free bounds;
+        StringBuilder out = new StringBuilder();
+        defer free out;
+        out.append('"').append(text).append("\" ").append(delimiter).append(' ').append(limit).append(" [");
+        for (int field = 0; field < Splits.count(bounds); field++) {
+            if (field > 0) out.append(',');
+            String value = Splits.field(text, bounds, field);
+            out.append('"').append(value).append('"');
+            free value;
+        }
+        out.append(']');
+        System.out.println(out.toString());
+    }
+
+    public static int main(String[] args) {
+
+        int[] limits = {-1, 0, 1, 2, 3};
+        defer free limits;
+        int codes = 1;
+        for (int length = 0; length <= 5; length++) {
+            for (int code = 0; code < codes; code++) {
+                String value = text(code, length);
+                for (int limit = 0; limit < limits.length; limit++) {
+                    line(value, '.', limits[limit]);
+                    line(value, '/', limits[limit]);
+                }
+                free value;
+            }
+            codes = codes * 4;
+        }
+        return 42;
+    }
+}

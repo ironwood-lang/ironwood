@@ -1,0 +1,100 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.ir;
+
+import ironwood.compiler.port.OperationVariants;
+import ironwood.compiler.port.SnapshotList;
+import ironwood.compiler.source.SourceSpan;
+
+/**
+ * A lowered function. Ports the Java record {@code IrFunction} with its
+ * components in record order; parameter and block lists are frozen and
+ * borrowed. The Java seven-argument constructor's defaults, source file
+ * {@code <unknown>.iron} and kind {@code METHOD}, are passed explicitly.
+ */
+public final class IrFunction {
+
+    /** The Java default source file name. */
+    public static final String UNKNOWN_SOURCE = "<unknown>.iron";
+
+    private final String ownerClass;
+    private final String sourceName;
+    private final String linkageName;
+    private final IrType returnType;
+    private final SnapshotList<IrParameter> parameters;
+    private final SnapshotList<IrBasicBlock> blocks;
+    private final SourceSpan sourceSpan;
+    private final String sourceFileName;
+    private final OperationVariants.CallableKind kind;
+
+    /** Creates the function from its components in record order. */
+    public IrFunction(String ownerClass, String sourceName, String linkageName, IrType returnType,
+                      SnapshotList<IrParameter> parameters, SnapshotList<IrBasicBlock> blocks, SourceSpan sourceSpan,
+                      String sourceFileName, OperationVariants.CallableKind kind) {
+
+        if (parameters == null || blocks == null) throw new NullPointerException();
+        this.ownerClass = ownerClass;
+        this.sourceName = sourceName;
+        this.linkageName = linkageName;
+        this.returnType = returnType;
+        this.parameters = parameters;
+        this.blocks = blocks;
+        this.sourceSpan = sourceSpan;
+        this.sourceFileName = sourceFileName;
+        this.kind = kind;
+    }
+
+    /** @return the owner class */
+    public String ownerClass() {
+
+        return this.ownerClass;
+    }
+
+    /** @return the source name */
+    public String sourceName() {
+
+        return this.sourceName;
+    }
+
+    /** @return the linkage name */
+    public String linkageName() {
+
+        return this.linkageName;
+    }
+
+    /** @return the return type */
+    public IrType returnType() {
+
+        return this.returnType;
+    }
+
+    /** @return the borrowed ordered parameters */
+    public SnapshotList<IrParameter> parameters() {
+
+        return this.parameters;
+    }
+
+    /** @return the borrowed ordered blocks */
+    public SnapshotList<IrBasicBlock> blocks() {
+
+        return this.blocks;
+    }
+
+    /** @return the span */
+    public SourceSpan sourceSpan() {
+
+        return this.sourceSpan;
+    }
+
+    /** @return the source file name */
+    public String sourceFileName() {
+
+        return this.sourceFileName;
+    }
+
+    /** @return the callable kind */
+    public OperationVariants.CallableKind kind() {
+
+        return this.kind;
+    }
+}

@@ -1,0 +1,113 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.port;
+
+import ironwood.nio.file.Files;
+import ironwood.nio.file.Path;
+
+/**
+ * The library source roots of one discovery (Installation.librarySourceRoots),
+ * owned in a private creation array (D163). Java keeps a List of Paths; a
+ * native list handed to the discovery would expose its Paths, so none could
+ * be freed. Here each root is a fresh Path recorded exactly once, after its
+ * slot is reserved, lent through a direct indexed getter and retired by the
+ * destructor loop.
+ */
+public final class LibraryRoots {
+
+    private Path[] roots;
+    private int count;
+
+    /** Creates an empty owner. */
+    public LibraryRoots() {
+
+        this.roots = new Path[4];
+    }
+
+    /** @return the number of recorded roots */
+    public int size() {
+
+        return this.count;
+    }
+
+    /**
+     * @param index a discovery position below {@link #size()}
+     * @return the root at that position, lent by this owner
+     */
+    public Path root(int index) {
+
+        return this.roots[index];
+    }
+
+    // Records the library directory under root, then under each ancestor.
+    void addDirectories(Path root) {
+
+        if (this.count == this.roots.length) this.grow();
+        Path directory = Installation.child(root, Installation.LIBRARY_SOURCE);
+        defer free directory;
+        if (Files.isDirectory(directory) && !this.contains(directory)) {
+            // Record a fresh copy that no call has seen; the probe is freed.
+            Path recorded = directory.normalize();
+            this.roots[this.count] = recorded;
+            this.count++;
+        }
+        Path parent = root.getParent();
+        if (parent != null) {
+            defer free parent;
+            this.addDirectories(parent);
+        }
+    }
+
+    // Records, under root and then under each ancestor, the first and then the
+    // second relative candidate that exists as a regular file (files) or a
+    // directory, as StandardLibrary.discover's addFile and addDirectory do.
+    void addEach(Path root, String first, String second, boolean files) {
+
+        this.addCandidate(root, first, files);
+        this.addCandidate(root, second, files);
+        Path parent = root.getParent();
+        if (parent != null) {
+            defer free parent;
+            this.addEach(parent, first, second, files);
+        }
+    }
+
+    private void addCandidate(Path root, String relative, boolean files) {
+
+        if (this.count == this.roots.length) this.grow();
+        Path candidate = Installation.child(root, relative);
+        defer free candidate;
+        boolean exists = files ? Files.isRegularFile(candidate) : Files.isDirectory(candidate);
+        if (exists && !this.contains(candidate)) {
+            // Record a fresh copy that no call has seen; the probe is freed.
+            Path recorded = candidate.normalize();
+            this.roots[this.count] = recorded;
+            this.count++;
+        }
+    }
+
+    private boolean contains(Path directory) {
+
+        for (int index = 0; index < this.count; index++) {
+            if (this.root(index).equals(directory)) return true;
+        }
+        return false;
+    }
+
+    // A full shallow transfer into fresh storage keeps each root recorded once.
+    private void grow() {
+
+        Path[] previous = this.roots;
+        this.roots = new Path[previous.length * 2];
+        System.arraycopy(previous, 0, this.roots, 0, previous.length);
+        free previous;
+    }
+
+    destructor {
+
+        for (int index = 0; index < this.roots.length; index++) {
+            free this.roots[index];
+        }
+        free this.roots;
+    }
+}

@@ -1,0 +1,98 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.port;
+
+import ironwood.ds.IntArrayList;
+
+/**
+ * Compiler-owned immutable ordered int sequence, replacing an immutable
+ * {@code List<Integer>} such as parameterized-name segment counts. It copies
+ * its builder, so later builder changes are invisible; a null builder gives
+ * the empty sequence, as the AST's null-to-empty defaults do. Equality and
+ * hash follow {@code List<Integer>}: element-wise values and
+ * {@code 31 * hash + value} from 1. Reads never allocate.
+ */
+public final class SnapshotInts {
+
+    private final int[] values;
+
+    /**
+     * Copies the builder's current values in order.
+     *
+     * @param builder the borrowed values, or null for an empty sequence
+     */
+    public SnapshotInts(IntArrayList builder) {
+
+        int count = builder == null ? 0 : builder.size();
+        this.values = new int[count];
+        // A call may not form the index or value of a store into attached
+        // owned storage, so each builder read lands in a local first.
+        for (int index = 0; index < count; index++) {
+            int value = builder.get(index);
+            this.values[index] = value;
+        }
+    }
+
+    /** @return the number of values */
+    public int size() {
+
+        return this.values.length;
+    }
+
+    /** @return whether the sequence has no values */
+    public boolean isEmpty() {
+
+        return this.values.length == 0;
+    }
+
+    /**
+     * @param index a position in 0..size()-1
+     * @return the value at that position
+     * @throws IndexOutOfBoundsException if the index is out of range
+     */
+    public int get(int index) {
+
+        if (index < 0 || index >= this.values.length) throw new IndexOutOfBoundsException();
+        return this.values[index];
+    }
+
+    /** @return the sum with Java int overflow wrapping, as IntStream.sum gives */
+    public int sum() {
+
+        int total = 0;
+        for (int index = 0; index < this.values.length; index++) total += this.values[index];
+        return total;
+    }
+
+    /** @return whether any value is negative */
+    public boolean anyNegative() {
+
+        for (int index = 0; index < this.values.length; index++) {
+            if (this.values[index] < 0) return true;
+        }
+        return false;
+    }
+
+    @Override public boolean equals(Object value) {
+
+        if (!(value instanceof SnapshotInts)) return false;
+        SnapshotInts other = (SnapshotInts) value;
+        if (this.values.length != other.size()) return false;
+        for (int index = 0; index < this.values.length; index++) {
+            if (this.values[index] != other.get(index)) return false;
+        }
+        return true;
+    }
+
+    @Override public int hashCode() {
+
+        int hash = 1;
+        for (int index = 0; index < this.values.length; index++) hash = 31 * hash + this.values[index];
+        return hash;
+    }
+
+    destructor {
+
+        free this.values;
+    }
+}

@@ -1,0 +1,54 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// Floating text for constant folding: Double/Float toString and
+// parseDouble/parseFloat round trips over special values, boundaries and
+// 200,000 seeded bit patterns of each width (NaN patterns skipped, since
+// toString does not distinguish their payloads). The transcript must equal
+// docs/self-hosting/m3/semantic-evidence/FloatingTextReference.java, so the
+// native compiler folds `"x" + 1.5f` to J0's text. Exit 0.
+class Main {
+
+    static long seed = 99;
+
+    static long next() {
+
+        seed = seed * 6364136223846793005L + 1442695040888963407L;
+        return seed;
+    }
+
+    static void emitDouble(double value) {
+
+        String text = Double.toString(value);
+        double back = Double.parseDouble(text);
+        System.out.println("d " + Double.doubleToLongBits(value) + " " + text + " " + Double.doubleToLongBits(back));
+        free text;
+    }
+
+    static void emitFloat(float value) {
+
+        String text = Float.toString(value);
+        float back = Float.parseFloat(text);
+        System.out.println("f " + Float.floatToIntBits(value) + " " + text + " " + Float.floatToIntBits(back));
+        free text;
+    }
+
+    public static int main(String[] args) {
+
+        double[] doubles = {0.0, -0.0, 1.0, -1.0, 0.1, 1e-300, 1e300, Double.MAX_VALUE, Double.MIN_VALUE,
+            Double.MIN_NORMAL, 1e7, 9999999.0, 1e-3, 0.001, 1.0e21, 1.0e22, 123456789012345678.0, 2.0e-323,
+            Double.NaN, Double.POSITIVE_INFINITY, Double.NEGATIVE_INFINITY, 5e-324, 4.9e-324, 1.7976931348623157e308};
+        for (int index = 0; index < doubles.length; index++) emitDouble(doubles[index]);
+        float[] floats = {0.0f, -0.0f, 1.0f, 0.1f, 1.0f / 3.0f, Float.MAX_VALUE, Float.MIN_VALUE, Float.MIN_NORMAL,
+            1e7f, 9999999.0f, 1e-3f, 16777216.0f, Float.NaN, Float.POSITIVE_INFINITY, Float.NEGATIVE_INFINITY};
+        for (int index = 0; index < floats.length; index++) emitFloat(floats[index]);
+        for (int round = 0; round < 200000; round++) {
+            double value = Double.longBitsToDouble(next());
+            if (!Double.isNaN(value)) emitDouble(value);
+            float single = Float.intBitsToFloat((int) (next() >>> 32));
+            if (!Float.isNaN(single)) emitFloat(single);
+        }
+        free doubles;
+        free floats;
+        return 0;
+    }
+}

@@ -1,0 +1,19 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.port;
+
+/**
+ * Replaces {@code Function.identity()} and {@code UnaryOperator.identity()}
+ * (API0611, API0615): returns its argument unchanged, creating nothing.
+ * Stateless, so one process-lived instance can serve every caller.
+ *
+ * @param <T> the reference value type
+ */
+public final class IdentityMapper<T extends Object> implements Mapper<T, T> {
+
+    @Override
+    public T apply(T value) {
+
+        return value;
+    }
+}

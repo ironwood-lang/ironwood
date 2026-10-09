@@ -1,0 +1,154 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.port;
+
+import ironwood.ds.ArrayList;
+import ironwood.util.NoSuchElementException;
+
+/**
+ * Compiler-owned last-in first-out stack replacing the analyzers' scope and
+ * context {@code ArrayDeque}s (WORKLIST_CONTRACTS Q21-Q41). It keeps the deque
+ * view: the head is the innermost element, {@link #get(int)} counts depth from
+ * the head, and snapshots and restores use head-to-tail order. Storage is a
+ * tail-backed array, so push and pop never shift membership. Items are
+ * borrowed and must stay alive under their real owners while stacked; popping
+ * removes only membership. Destruction reclaims only the array.
+ */
+public final class ScopeStack<E extends Object> {
+
+    private static final int INITIAL_CAPACITY = 8;
+    private static final int MAXIMUM_CAPACITY = 1 << 30;
+
+    // slots[count - 1] is the head (innermost); slots[0] is the outermost.
+    private E[] slots;
+    private int count;
+
+    /** Creates an empty stack with one array allocation. */
+    public ScopeStack() {
+
+        this.slots = new E[INITIAL_CAPACITY];
+    }
+
+    /**
+     * Pushes a non-null item at the head. Growth allocates the larger array
+     * before changing membership, so an allocation failure leaves the stack
+     * unchanged.
+     *
+     * @param item the borrowed item
+     * @throws NullPointerException if the item is null
+     * @throws IllegalStateException if the stack cannot grow further
+     */
+    public void push(E item) {
+
+        if (item == null) throw new NullPointerException();
+        if (this.count == this.slots.length) grow();
+        this.slots[this.count] = item;
+        this.count = this.count + 1;
+    }
+
+    /**
+     * Removes and returns the head item without allocation.
+     *
+     * @return the borrowed innermost item
+     * @throws NoSuchElementException if the stack is empty
+     */
+    public E pop() {
+
+        if (this.count == 0) throw new NoSuchElementException();
+        this.count = this.count - 1;
+        return this.slots[this.count];
+    }
+
+    /** @return the borrowed innermost item, or null when empty, without allocation */
+    public E peek() {
+
+        if (this.count == 0) return null;
+        return this.slots[this.count - 1];
+    }
+
+    /**
+     * Reads the item at a depth from the head without allocation; depth 0 is
+     * the innermost item, so ascending depths traverse head to tail.
+     *
+     * @param depth the zero-based distance from the head
+     * @return the borrowed item
+     * @throws IndexOutOfBoundsException if depth is outside membership
+     */
+    public E get(int depth) {
+
+        if (depth < 0 || depth >= this.count) throw new IndexOutOfBoundsException();
+        return this.slots[this.count - 1 - depth];
+    }
+
+    /** @return whether the stack is empty, without allocation */
+    public boolean isEmpty() {
+
+        return this.count == 0;
+    }
+
+    /** @return the stacked item count, without allocation */
+    public int size() {
+
+        return this.count;
+    }
+
+    /** Removes all membership; stacked items are not freed. */
+    public void clear() {
+
+        this.count = 0;
+    }
+
+    /**
+     * Copies membership in head-to-tail order, innermost first, as Java's
+     * {@code List.copyOf(deque)} does. The caller owns the result; items stay
+     * borrowed. The temporary builder is freed on every exit.
+     *
+     * @return a fresh immutable copy of the membership
+     */
+    public SnapshotList<E> snapshot() {
+
+        ArrayList<E> builder = new ArrayList<E>(this.count > 0 ? this.count : 1);
+        defer free builder;
+        for (int depth = 0; depth < this.count; depth++) builder.add(this.slots[this.count - 1 - depth]);
+        return new SnapshotList<E>(builder);
+    }
+
+    /**
+     * Replaces membership with a saved head-to-tail sequence, as
+     * FunctionAnalyzer's {@code restoreDeque} clears and appends it: the first
+     * saved item becomes the head again. Capacity grows before membership
+     * changes, so an allocation failure leaves the stack unchanged.
+     *
+     * @param saved the borrowed head-to-tail sequence
+     * @throws NullPointerException if saved is null
+     */
+    public void restore(SnapshotList<E> saved) {
+
+        if (saved == null) throw new NullPointerException();
+        int size = saved.size();
+        while (this.slots.length < size) grow();
+        // Pushing the saved items from the tail end restores the head order.
+        // Capacity already suffices, so no push grows or fails. Storing a
+        // snapshot read straight into the array would make its ownership
+        // uncertain to the owned-array proof; push stores its own parameter.
+        this.count = 0;
+        for (int index = size - 1; index >= 0; index--) push(saved.get(index));
+    }
+
+    // If the new array cannot be allocated, the old array is still installed
+    // and membership is unchanged.
+    private void grow() {
+
+        int capacity = this.slots.length;
+        if (capacity >= MAXIMUM_CAPACITY) throw new IllegalStateException("scope stack too large");
+        E[] previous = this.slots;
+        this.slots = new E[capacity * 2];
+        System.arraycopy(previous, 0, this.slots, 0, this.count);
+        free previous;
+    }
+
+    destructor {
+
+        free this.slots;
+    }
+}

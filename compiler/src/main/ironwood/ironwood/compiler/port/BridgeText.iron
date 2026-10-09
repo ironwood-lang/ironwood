@@ -1,0 +1,132 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.port;
+
+/**
+ * The Bridge source generators' remaining Java text conversions (B7, S7):
+ * {@code Float.toHexString} and {@code Double.toHexString} for generated
+ * float and double literals (BridgeJavaSources.literal), the
+ * {@code String.format("\\%03o", value)} and {@code String.format("\\u%04x",
+ * value)} escapes of generated Java and C strings (BridgeJavaSources.quote,
+ * BridgeBootstrapSources.cString, BridgePackageManifest.escape) and
+ * {@code String.stripTrailing} (BridgeRootStateSources). Results follow the
+ * Java 21 API documentation; inputs are borrowed and results are fresh.
+ */
+public final class BridgeText {
+
+    private BridgeText() {
+
+    }
+
+    /** @return Java's {@code Double.toHexString(value)}, owned by the caller */
+    public static String doubleHex(double value) {
+
+        StringBuilder text = new StringBuilder();
+        defer free text;
+        appendDoubleHex(text, Double.doubleToRawLongBits(value));
+        return text.toString();
+    }
+
+    /** @return Java's {@code Float.toHexString(value)}, owned by the caller */
+    public static String floatHex(float value) {
+
+        // floatToIntBits differs from the raw bits only for NaN, which needs no bits.
+        int bits = Float.floatToIntBits(value);
+        int exponent = (bits >>> 23) & 0xFF;
+        int fraction = bits & 0x7FFFFF;
+        StringBuilder text = new StringBuilder();
+        defer free text;
+        if (exponent == 0 && fraction != 0) {
+            // A subnormal float keeps its own exponent, -126.
+            if (bits < 0) text.append('-');
+            text.append("0x0.");
+            appendFraction(text, (long) fraction << 29);
+            text.append("p-126");
+        } else {
+            // Every other float converts to double exactly and prints alike.
+            appendDoubleHex(text, Double.doubleToRawLongBits((double) value));
+        }
+        return text.toString();
+    }
+
+    /**
+     * Appends {@code String.format("\\%03o", value)}: a backslash and the
+     * value in octal, as an unsigned 32-bit number, padded to three digits.
+     */
+    public static void appendOctalEscape(StringBuilder target, int value) {
+
+        target.append('\\');
+        appendUnsigned(target, value, 3, 3);
+    }
+
+    /**
+     * Appends {@code String.format("\\u%04x", value)}: a backslash, {@code u}
+     * and the value in lowercase hexadecimal, as an unsigned 32-bit number,
+     * padded to four digits.
+     */
+    public static void appendUnicodeEscape(StringBuilder target, int value) {
+
+        target.append("\\u");
+        appendUnsigned(target, value, 4, 4);
+    }
+
+    /** @return Java's {@code text.stripTrailing()}: text without trailing white space, owned by the caller */
+    public static String stripTrailing(String text) {
+
+        int end = text.length();
+        while (end > 0 && Character.isWhitespace(text.charAt(end - 1))) end--;
+        return text.substring(0, end);
+    }
+
+    // Double.toHexString of the binary64 value with these bits.
+    private static void appendDoubleHex(StringBuilder text, long bits) {
+
+        int exponent = (int) ((bits >>> 52) & 0x7FF);
+        long fraction = bits & 0xFFFFFFFFFFFFFL;
+        if (exponent == 0x7FF) {
+            if (fraction != 0) {
+                text.append("NaN");
+            } else {
+                text.append(bits < 0 ? "-Infinity" : "Infinity");
+            }
+            return;
+        }
+        if (bits < 0) text.append('-');
+        if (exponent == 0 && fraction == 0) {
+            text.append("0x0.0p0");
+        } else if (exponent == 0) {
+            text.append("0x0.");
+            appendFraction(text, fraction);
+            text.append("p-1022");
+        } else {
+            text.append("0x1.");
+            appendFraction(text, fraction);
+            text.append('p');
+            text.append(exponent - 1023);
+        }
+    }
+
+    // The 52 fraction bits as 13 lowercase hex digits without trailing zeros,
+    // or one zero when they are all zero.
+    private static void appendFraction(StringBuilder text, long fraction) {
+
+        int digits = 13;
+        while (digits > 1 && ((fraction >>> ((13 - digits) * 4)) & 15) == 0) digits--;
+        for (int digit = 0; digit < digits; digit++) {
+            text.append("0123456789abcdef".charAt((int) ((fraction >>> ((12 - digit) * 4)) & 15)));
+        }
+    }
+
+    // Appends value as unsigned in base 8 (shift 3) or 16 (shift 4), zero-padded
+    // to width digits.
+    private static void appendUnsigned(StringBuilder target, int value, int shift, int width) {
+
+        long unsigned = value & 0xFFFFFFFFL;
+        int digits = 1;
+        while ((unsigned >>> (digits * shift)) != 0) digits++;
+        for (int pad = digits; pad < width; pad++) target.append('0');
+        for (int digit = digits - 1; digit >= 0; digit--) {
+            target.append("0123456789abcdef".charAt((int) ((unsigned >>> (digit * shift)) & ((1 << shift) - 1))));
+        }
+    }
+}

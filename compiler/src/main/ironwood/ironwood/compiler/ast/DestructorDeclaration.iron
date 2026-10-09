@@ -1,0 +1,44 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.ast;
+
+import ironwood.compiler.source.SourceSpan;
+
+/**
+ * A class destructor. Superclass chaining is compiler-owned and implicit. It ports the
+ * Java frontend AST record {@code DestructorDeclaration}. Components keep the record's
+ * order; {@code Optional} components are nullable, and list components are frozen,
+ * independent copies that the node borrows for the invocation.
+ */
+public final class DestructorDeclaration {
+
+    private final Block body;
+    private final SourceSpan keywordSpan;
+    private final SourceSpan span;
+
+    /** Creates the node from its components in record order. */
+    public DestructorDeclaration(Block body, SourceSpan keywordSpan, SourceSpan span) {
+
+        this.body = body;
+        this.keywordSpan = keywordSpan;
+        this.span = span;
+    }
+
+    /** @return the {@code body} component */
+    public Block body() {
+
+        return this.body;
+    }
+
+    /** @return the {@code keywordSpan} component */
+    public SourceSpan keywordSpan() {
+
+        return this.keywordSpan;
+    }
+
+    /** @return the {@code span} component */
+    public SourceSpan span() {
+
+        return this.span;
+    }
+}

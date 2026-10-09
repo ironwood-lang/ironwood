@@ -1,0 +1,75 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// Allocation failure inside Files.walkFileTree: `program <directory>` walks
+// the tree twice, links unfollowed and followed (the followed walk also runs
+// the traversal-loop check), with a visitor that only counts. A failure while
+// a directory's stream or loop check is being built used to keep that
+// directory's attributes; every failure must now unwind to the
+// live-allocation baseline. Exit 42 on allocation failure with every check
+// intact, 43 on success.
+import ironwood.io.IOException;
+import ironwood.nio.file.FileVisitResult;
+import ironwood.nio.file.FileVisitor;
+import ironwood.nio.file.Files;
+import ironwood.nio.file.Path;
+import ironwood.nio.file.attribute.BasicFileAttributes;
+
+final class Counter implements FileVisitor<Path> {
+
+    int visits;
+
+    @Override
+    public FileVisitResult preVisitDirectory(Path directory, BasicFileAttributes attributes) {
+
+        this.visits++;
+        return FileVisitResult.CONTINUE;
+    }
+
+    @Override
+    public FileVisitResult visitFile(Path file, BasicFileAttributes attributes) {
+
+        this.visits++;
+        return FileVisitResult.CONTINUE;
+    }
+
+    @Override
+    public FileVisitResult visitFileFailed(Path file, IOException failure) throws IOException {
+
+        throw failure;
+    }
+
+    @Override
+    public FileVisitResult postVisitDirectory(Path directory, IOException failure) throws IOException {
+
+        if (failure != null) throw failure;
+        return FileVisitResult.CONTINUE;
+    }
+}
+
+class Main {
+
+    static int walk(Path root, boolean followLinks) throws IOException {
+
+        Counter counter = new Counter();
+        defer free counter;
+        Files.walkFileTree(root, Integer.MAX_VALUE, followLinks, counter);
+        return counter.visits;
+    }
+
+    public static int main(String[] args) {
+
+        long baseline = System.liveAllocationCount();
+        boolean failed = false;
+        try {
+            Path root = Path.of(args[0]);
+            defer free root;
+            if (walk(root, false) >= walk(root, true)) return 3;
+        } catch (OutOfMemoryError failure) {
+            failed = true;
+        } catch (IOException unexpected) {
+            return 1;
+        }
+        if (System.liveAllocationCount() != baseline) return 2;
+        return failed ? 42 : 43;
+    }
+}

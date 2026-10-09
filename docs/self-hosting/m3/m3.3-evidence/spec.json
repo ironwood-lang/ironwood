@@ -1,0 +1,31 @@
+{
+ "evidence": "docs/self-hosting/m3/m3.3-evidence",
+ "run": "workspace/m3/m3.3-evidence",
+ "increment": "M3.3 handoff: S4 backend prerequisites and source-only inputs before the source-only S4 exit",
+ "reproduce": "docs/self-hosting/m3/m3.3-evidence/run-evidence.sh 8ec1a836",
+ "sources": [
+  "compiler/src/main/ironwood/ironwood/compiler/port/Md5.iron",
+  "compiler/src/main/ironwood/ironwood/compiler/port/Bytes.iron",
+  "compiler/src/main/ironwood/ironwood/compiler/port/LlvmText.iron",
+  "compiler/src/main/ironwood/ironwood/compiler/port/LlvmScan.iron",
+  "compiler/src/main/ironwood/ironwood/compiler/port/PropertiesText.iron",
+  "compiler/src/main/ironwood/ironwood/compiler/port/HeaderScan.iron",
+  "compiler/src/main/ironwood/ironwood/compiler/port/Installation.iron",
+  "compiler/src/main/ironwood/ironwood/compiler/port/LibraryRoots.iron",
+  "stdlib/src/main/ironwood/ironwood/lang/Double.iron",
+  "scripts/self-hosting/build-identity.sh",
+  "docs/self-hosting/m3/classify.py",
+  "docs/self-hosting/m3/CLASSIFICATION_M3.3.md",
+  "docs/self-hosting/m3/m3.3-evidence/run-evidence.sh"
+ ],
+ "logs": ["commit.txt", "status.txt", "build.log", "build-identity.txt", "javac.log", "tests.log",
+  "classification.log", "classification.md", "port-sources.txt", "port-compile.log", "port-diagnostics.txt",
+  "diff-check.log", "licenses.log"],
+ "extra": {
+  "tests": 23,
+  "m3_3_patterns": 314,
+  "m3_3_calls": 5059,
+  "port_sources": 168,
+  "port_diagnostics": 0
+ }
+}

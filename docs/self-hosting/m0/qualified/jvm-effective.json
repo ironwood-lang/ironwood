@@ -1,0 +1,13 @@
+{
+  "uncompressed_sha256": "6a0ece91ff04335b556c236327d3ab326732809018b69fdf8c114bb5fcd866df",
+  "command": [
+    "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home/bin/java",
+    "-Xms256m",
+    "-Xmx4096m",
+    "-Xss8m",
+    "-XX:+UseG1GC",
+    "-XshowSettings:all",
+    "-XX:+PrintFlagsFinal",
+    "-version"
+  ]
+}

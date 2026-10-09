@@ -1,0 +1,134 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// The compiler-private ScopeStack keeps Java's ArrayDeque stack view: push,
+// pop and peek at the head, innermost-first traversal by depth, head-to-tail
+// snapshots like List.copyOf(deque) and restores like FunctionAnalyzer's
+// restoreDeque. 3,000 seeded operations print a transcript that must equal
+// docs/self-hosting/m3/helpers-evidence/ScopeStackReference.java. Saved
+// snapshots live in a process-lived static list; every other stack and
+// snapshot is freed. Exit 42 after the allocation checks.
+import ironwood.ds.ArrayList;
+import ironwood.compiler.port.ScopeStack;
+import ironwood.compiler.port.SnapshotList;
+import ironwood.util.NoSuchElementException;
+
+class Main {
+
+    static String[] names = {"a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l"};
+    static ArrayList<SnapshotList<String>> saved = new ArrayList<SnapshotList<String>>();
+    static long seed = 1234567L;
+
+    static int next(int bound) {
+
+        seed = seed * 6364136223846793005L + 1442695040888963407L;
+        return (int) ((seed >>> 33) % bound);
+    }
+
+    static String render(ScopeStack<String> stack, int skip) {
+
+        StringBuilder text = new StringBuilder();
+        defer free text;
+        text.append('[');
+        for (int depth = skip; depth < stack.size(); depth++) {
+            if (depth > skip) text.append(',');
+            text.append(stack.get(depth));
+        }
+        text.append(']');
+        return text.toString();
+    }
+
+    static void transcript() {
+
+        ScopeStack<String> stack = new ScopeStack<String>();
+        defer free stack;
+        int hash = 17;
+        for (int step = 0; step < 3000; step++) {
+            int op = next(20);
+            StringBuilder line = new StringBuilder();
+            defer free line;
+            if (op < 8) {
+                String name = names[next(names.length)];
+                stack.push(name);
+                line.append("push ").append(name);
+            } else if (op < 12) {
+                try {
+                    line.append("pop ").append(stack.pop());
+                } catch (NoSuchElementException empty) {
+                    line.append("pop empty");
+                }
+            } else if (op < 13) {
+                String head = stack.peek();
+                line.append("peek ").append(head == null ? "null" : head);
+            } else if (op < 15) {
+                String rendered = render(stack, op == 13 ? 0 : 1);
+                line.append(op == 13 ? "all " : "outer ").append(rendered);
+                free rendered;
+            } else if (op < 16) {
+                saved.add(stack.snapshot());
+                line.append("save ").append(saved.size() - 1);
+            } else if (op < 18) {
+                if (saved.isEmpty()) {
+                    line.append("restore none");
+                } else {
+                    int which = next(saved.size());
+                    stack.restore(saved.get(which));
+                    line.append("restore ").append(which);
+                }
+            } else if (op < 19) {
+                String wanted = names[next(names.length)];
+                int found = -1;
+                for (int depth = 0; depth < stack.size() && found < 0; depth++) {
+                    if (stack.get(depth).equals(wanted)) found = depth;
+                }
+                line.append("find ").append(wanted).append(' ').append(found);
+            } else {
+                stack.clear();
+                line.append("clear");
+            }
+            line.append(" size=").append(stack.size());
+            String text = line.toString();
+            hash = 31 * hash + text.hashCode();
+            if (step < 200 || step % 100 == 0) System.out.println(text);
+            free text;
+        }
+        System.out.println("hash " + hash + " saved " + saved.size());
+    }
+
+    // Construction allocates the array; pushes within capacity, pops, peeks
+    // and depth reads allocate nothing; restoring into enough capacity
+    // allocates nothing; growth doubles once per overflow.
+    static boolean allocations() {
+
+        long before = System.allocationCount();
+        ScopeStack<String> stack = new ScopeStack<String>();
+        defer free stack;
+        if (System.allocationCount() - before != 2) return false;
+        before = System.allocationCount();
+        for (int index = 0; index < 8; index++) stack.push(names[index]);
+        String head = stack.peek();
+        String outer = stack.get(7);
+        stack.pop();
+        stack.push(head);
+        if (System.allocationCount() != before || outer != names[0]) return false;
+        stack.push(names[8]);
+        if (System.allocationCount() - before != 1) return false;
+        SnapshotList<String> copy = stack.snapshot();
+        defer free copy;
+        before = System.allocationCount();
+        stack.clear();
+        stack.restore(copy);
+        if (System.allocationCount() != before || stack.size() != 9 || stack.peek() != names[8]) return false;
+        try {
+            stack.push(null);
+            return false;
+        } catch (NullPointerException expected) {
+            return stack.size() == 9;
+        }
+    }
+
+    public static int main(String[] args) {
+
+        transcript();
+        return allocations() ? 42 : 1;
+    }
+}

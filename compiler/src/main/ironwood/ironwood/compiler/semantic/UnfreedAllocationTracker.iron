@@ -1,0 +1,170 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.semantic;
+
+import ironwood.compiler.port.OperationVariants;
+import ironwood.compiler.port.SnapshotList;
+import ironwood.compiler.source.SourceFile;
+import ironwood.compiler.source.SourceSpan;
+import ironwood.ds.ArrayList;
+import ironwood.ds.IdentityHashSet;
+import ironwood.ds.LinkedHashMap;
+import ironwood.util.Iterator;
+
+/**
+ * Diagnostic-only allocation obligations, independent of the safe-free proof.
+ * Ports the members of the Java {@code UnfreedAllocationTracker} the pilot
+ * reaches: registration in order, completion, consumption, and the live set's
+ * snapshot, restore and intersection. Allocation keys compare by identity.
+ * Suppressions and findings stay empty in this role, so diagnostics are
+ * later-only. The live set is a membership set: its order is not observed.
+ *
+ * @param <A> the allocation identity type
+ */
+public final class UnfreedAllocationTracker<A extends Object> {
+
+    private final SourceFile source;
+    private final OperationVariants.UnfreedMode mode;
+    private final LinkedHashMap<A, Origin> origins = new LinkedHashMap<A, Origin>();
+    private final IdentityHashSet<A> live = new IdentityHashSet<A>();
+
+    /**
+     * @param source the borrowed source
+     * @param mode the missing-free mode
+     */
+    public UnfreedAllocationTracker(SourceFile source, OperationVariants.UnfreedMode mode) {
+
+        this.source = source;
+        this.mode = mode;
+    }
+
+    /** Where and how an allocation was made. Ports the record {@code Origin}; the first registration wins. */
+    public static final class Origin {
+
+        private final SourceSpan span;
+        private final String description;
+
+        Origin(SourceSpan span, String description) {
+
+            this.span = span;
+            this.description = description;
+        }
+
+        /** @return the borrowed span */
+        public SourceSpan span() {
+
+            return this.span;
+        }
+
+        /** @return the borrowed description */
+        public String description() {
+
+            return this.description;
+        }
+    }
+
+    /**
+     * Registers an allocation once and optionally completes it.
+     *
+     * @param allocation the borrowed allocation, ignored when null
+     * @param span the borrowed span
+     * @param description the borrowed description
+     * @param completed whether the allocation is now live
+     */
+    public void register(A allocation, SourceSpan span, String description, boolean completed) {
+
+        if (allocation == null) return;
+        if (!this.origins.containsKey(allocation)) this.origins.put(allocation, new Origin(span, description));
+        if (completed) this.completed(allocation);
+    }
+
+    /** @param allocation a registered allocation that is now live */
+    public void completed(A allocation) {
+
+        if (this.origins.containsKey(allocation)) this.live.add(allocation);
+    }
+
+    /** @param allocation an allocation whose obligation is consumed */
+    public void consumed(A allocation) {
+
+        this.live.remove(allocation);
+    }
+
+    /**
+     * @param allocation an allocation
+     * @return whether its obligation is live
+     */
+    public boolean isLive(A allocation) {
+
+        return this.live.contains(allocation);
+    }
+
+    /** @return the number of live obligations */
+    public int liveCount() {
+
+        return this.live.size();
+    }
+
+    /**
+     * Copies the live membership into a snapshot's builders, as Java's
+     * {@code Set.copyOf} snapshot does.
+     *
+     * @param members the borrowed membership builder
+     * @param items the borrowed member list builder
+     */
+    public void copyLive(IdentityHashSet<A> members, ArrayList<A> items) {
+
+        Iterator<A> live = this.live.iterator();
+        while (live.hasNext()) {
+            A member = live.next();
+            members.add(member);
+            items.add(member);
+        }
+    }
+
+    /**
+     * Replaces the live membership.
+     *
+     * @param members the borrowed saved members
+     */
+    public void restore(SnapshotList<A> members) {
+
+        this.live.clear();
+        for (int index = 0; index < members.size(); index++) this.live.add(members.get(index));
+    }
+
+    /** Empties the live membership before a join installs its intersection. */
+    public void clearLive() {
+
+        this.live.clear();
+    }
+
+    /**
+     * Java's {@code merge} keeps only members live on every predecessor; the
+     * joining analyzer computes that intersection and adds each member here.
+     *
+     * @param member a member live on every predecessor
+     */
+    public void addLive(A member) {
+
+        this.live.add(member);
+    }
+
+    /** @return the borrowed source */
+    public SourceFile source() {
+
+        return this.source;
+    }
+
+    /** @return the missing-free mode */
+    public OperationVariants.UnfreedMode mode() {
+
+        return this.mode;
+    }
+
+    destructor {
+
+        free this.live;
+        free this.origins;
+    }
+}

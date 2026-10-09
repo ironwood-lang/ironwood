@@ -1,0 +1,51 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.port;
+
+/**
+ * The sysroot check of TlsDependency and BridgeNativeSupport without a regex
+ * engine: {@code text.matches("(?s).*#define\\s+NAME\\s+VALUE\\s.*")}, where
+ * {@code \s} is the unflagged regex set (space, tab, newline, vertical tab,
+ * form feed and carriage return). The text is borrowed; nothing is allocated.
+ */
+public final class HeaderScan {
+
+    private HeaderScan() {
+
+    }
+
+    /**
+     * Whether some {@code #define} is followed by whitespace, the name,
+     * whitespace, the value and one more whitespace character. The name and
+     * value are literal, non-empty and start with a non-whitespace character
+     * (as {@code __GLIBC__}, {@code 2}, {@code __GLIBC_MINOR__} and
+     * {@code 17} do), so each whitespace run is matched in full.
+     */
+    public static boolean defines(String text, String name, String value) {
+
+        int length = text.length();
+        for (int at = text.indexOf("#define"); at >= 0; at = text.indexOf("#define", at + 1)) {
+            int index = skipSpace(text, at + 7);
+            if (index == at + 7 || !text.startsWith(name, index)) continue;
+            int after = index + name.length();
+            index = skipSpace(text, after);
+            if (index == after || !text.startsWith(value, index)) continue;
+            index = index + value.length();
+            if (index < length && regexSpace(text.charAt(index))) return true;
+        }
+        return false;
+    }
+
+    private static int skipSpace(String text, int from) {
+
+        int index = from;
+        while (index < text.length() && regexSpace(text.charAt(index))) index++;
+        return index;
+    }
+
+    private static boolean regexSpace(char character) {
+
+        return character == ' ' || character == '\t' || character == '\n' || character == '\u000b'
+                || character == '\f' || character == '\r';
+    }
+}

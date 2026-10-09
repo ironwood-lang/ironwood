@@ -9,9 +9,6 @@ import java.util.List;
 
 /** Interim boundaries for eligible rejections until their evidence producers arrive. */
 final class RejectedFreeExplanation {
-    private static final String LIMITED = "ownership analysis was limited because of earlier errors; "
-            + "fix those first and recompile; this rejection may be secondary";
-
     enum Missing {
         IDENTITY("the failed allocation-identity proof"),
         BORROW_OWNER("the borrowing owner's acquisition context"),
@@ -41,14 +38,11 @@ final class RejectedFreeExplanation {
     private RejectedFreeExplanation() {
     }
 
-    static Diagnostic attach(Diagnostic primary, boolean enabled, boolean refinementCompleted,
-                             Missing missing) {
+    static Diagnostic attach(Diagnostic primary, boolean enabled, Missing missing) {
         if (!enabled || !primary.isError() || primary.source() == null || primary.span() == null) {
             return primary;
         }
-        String note = refinementCompleted
-                ? "the compiler did not retain " + missing.fact + " needed to explain this rejection"
-                : LIMITED;
-        return primary.withNotes(List.of(new DiagnosticNote(note)));
+        return primary.withNotes(List.of(new DiagnosticNote("the compiler did not retain "
+                + missing.fact + " needed to explain this rejection")));
     }
 }

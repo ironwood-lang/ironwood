@@ -12,6 +12,7 @@
 #include <errno.h>
 #include <dirent.h>
 #include <fcntl.h>
+#include <limits.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdatomic.h>
@@ -21,6 +22,7 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <sys/ioctl.h>
+#include <sys/wait.h>
 #include <time.h>
 #include <sys/utsname.h>
 #include <unwind.h>
@@ -31,8 +33,12 @@
 #include <mach-o/getsect.h>
 #include <mach-o/loader.h>
 #elif defined(__linux__)
+#include <sys/syscall.h>
 extern const uint8_t __start_ironwood_trace[] __attribute__((weak));
 extern const uint8_t __stop_ironwood_trace[] __attribute__((weak));
+/* The strict POSIX feature level hides these glibc 2.2.5 declarations. */
+extern long syscall(long number, ...);
+extern char *realpath(const char *path, char *resolved);
 #endif
 
 enum ironwood_type_kind {
@@ -182,7 +188,13 @@ enum ironwood_file_error {
     IRONWOOD_FILE_ERROR_TOO_LARGE = 6,
     IRONWOOD_FILE_ERROR_ALREADY_EXISTS = 7,
     IRONWOOD_FILE_ERROR_DIRECTORY_NOT_EMPTY = 8,
-    IRONWOOD_FILE_ERROR_OTHER = 9
+    IRONWOOD_FILE_ERROR_OTHER = 9,
+    /* Set only by the publication moves: a move across file systems, a host or
+     * file system without exclusive rename, and a replacement whose source
+     * could not be removed afterwards. */
+    IRONWOOD_FILE_ERROR_CROSS_DEVICE = 10,
+    IRONWOOD_FILE_ERROR_UNSUPPORTED = 11,
+    IRONWOOD_FILE_ERROR_SOURCE_RETAINED = 12
 };
 
 static _Thread_local int32_t last_file_error;
@@ -2131,6 +2143,549 @@ int32_t ironwood_file_move(const void *source, const void *target,
     }
     last_file_error = IRONWOOD_FILE_ERROR_NONE;
     return last_file_error;
+}
+
+/* Temporary names follow Java's TempFileHelper spelling: the prefix, an
+ * unsigned decimal 64-bit value and the suffix. The value comes from a secure
+ * source only; without one the creation fails instead of using weaker bits. */
+enum { IRONWOOD_TEMPORARY_ATTEMPTS = 100, IRONWOOD_TEMPORARY_DIGITS = 20 };
+
+#if defined(__linux__)
+#if !defined(SYS_getrandom) && defined(__x86_64__)
+#define SYS_getrandom 318
+#elif !defined(SYS_getrandom) && defined(__aarch64__)
+#define SYS_getrandom 278
+#endif
+#endif
+
+static _Bool temporary_random(uint64_t *value) {
+#if defined(__APPLE__)
+    arc4random_buf(value, sizeof(*value));
+    return 1;
+#else
+#if defined(SYS_getrandom)
+    for (;;) {
+        long count = syscall(SYS_getrandom, value, sizeof(*value), 0);
+        if (count == (long) sizeof(*value)) { return 1; }
+        if (count < 0 && errno == EINTR) { continue; }
+        if (count < 0 && errno == ENOSYS) { break; }
+        if (count < 0) { return 0; }
+    }
+#endif
+    /* Kernels before 3.17 lack getrandom; their urandom device is the source. */
+    int descriptor;
+    do {
+        descriptor = open("/dev/urandom", O_RDONLY | O_CLOEXEC);
+    } while (descriptor < 0 && errno == EINTR);
+    if (descriptor < 0) { return 0; }
+    unsigned char *bytes = (unsigned char *) value;
+    size_t filled = 0;
+    while (filled < sizeof(*value)) {
+        ssize_t count = read(descriptor, bytes + filled, sizeof(*value) - filled);
+        if (count < 0 && errno == EINTR) { continue; }
+        if (count <= 0) {
+            int error = count < 0 ? errno : EIO;
+            close(descriptor);
+            errno = error;
+            return 0;
+        }
+        filled += (size_t) count;
+    }
+    close(descriptor);
+    return 1;
+#endif
+}
+
+static size_t write_unsigned_decimal(char *output, uint64_t value) {
+    char digits[IRONWOOD_TEMPORARY_DIGITS];
+    size_t count = 0;
+    do {
+        digits[count++] = (char) ('0' + (int) (value % UINT64_C(10)));
+        value /= UINT64_C(10);
+    } while (value != 0);
+    for (size_t index = 0; index < count; index++) {
+        output[index] = digits[count - 1 - index];
+    }
+    return count;
+}
+
+/* Appends a random name to the stem already in path and creates it
+ * exclusively, retrying a bounded number of existing names; a new file stays
+ * open in *descriptor. Returns 0 or the errno value of the last attempt. */
+static int create_exclusive_name(char *path, size_t stem_length, const char *suffix,
+                                 size_t suffix_length, _Bool directory, int *descriptor,
+                                 size_t *length) {
+    int error = EEXIST;
+    for (int attempt = 0; attempt < IRONWOOD_TEMPORARY_ATTEMPTS && error == EEXIST; attempt++) {
+        uint64_t value;
+        if (!temporary_random(&value)) { return errno == 0 ? EIO : errno; }
+        *length = stem_length + write_unsigned_decimal(path + stem_length, value);
+        memcpy(path + *length, suffix, suffix_length);
+        *length += suffix_length;
+        path[*length] = '\0';
+        if (directory) {
+            error = mkdir(path, 0700) == 0 ? 0 : errno;
+        } else {
+            *descriptor = open(path, O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC, 0600);
+            error = *descriptor < 0 ? errno : 0;
+        }
+        if (error == EINTR) { error = EEXIST; }
+    }
+    return error;
+}
+
+/* Exclusively creates the entry before any managed result exists, then builds
+ * its spelling. A failed String allocation removes the new entry first. */
+static void *create_temporary(const struct ironwood_string *stem,
+                              const struct ironwood_string *suffix, _Bool directory,
+                              const void *string_type, void *allocation_failure) {
+    if (stem == NULL || string_type == NULL || (!directory && suffix == NULL)) { abort(); }
+    size_t stem_length = (size_t) stem->utf8_length;
+    size_t suffix_capacity = suffix == NULL ? 1U : (size_t) suffix->utf8_length + 1U;
+    if (stem_length > SIZE_MAX - suffix_capacity - IRONWOOD_TEMPORARY_DIGITS) {
+        raise_allocation_failure(allocation_failure);
+    }
+    size_t capacity = stem_length + IRONWOOD_TEMPORARY_DIGITS + suffix_capacity;
+    if (capacity > SIZE_MAX - suffix_capacity) { raise_allocation_failure(allocation_failure); }
+    char stack[IRONWOOD_PATH_STACK_CAPACITY];
+    char *path = capacity + suffix_capacity <= sizeof(stack) ? stack
+            : malloc(capacity + suffix_capacity);
+    if (path == NULL) { raise_allocation_failure(allocation_failure); }
+    char *suffix_text = path + capacity;
+    string_to_utf8_buffer(stem, path, stem_length + 1U, allocation_failure);
+    size_t suffix_length = 0;
+    if (suffix != NULL) {
+        string_to_utf8_buffer(suffix, suffix_text, suffix_capacity, allocation_failure);
+        suffix_length = suffix_capacity - 1U;
+        /* Java's generated name drops trailing separators before its parent check. */
+        while (suffix_length > 0 && suffix_text[suffix_length - 1U] == '/') { suffix_length--; }
+    }
+    size_t length = 0;
+    int descriptor = -1;
+    int error = create_exclusive_name(path, stem_length, suffix_text, suffix_length, directory,
+            &descriptor, &length);
+    if (error == 0 && !directory && close(descriptor) != 0) {
+        error = errno;
+        unlink(path);
+    }
+    struct ironwood_string *result = NULL;
+    if (error == 0) {
+        result = try_string_from_valid_utf8_bytes((const unsigned char *) path, length,
+                string_type, allocation_failure);
+        if (result == NULL) {
+            if (directory) { rmdir(path); } else { unlink(path); }
+            if (path != stack) { free(path); }
+            raise_allocation_failure(allocation_failure);
+        }
+        last_file_error = IRONWOOD_FILE_ERROR_NONE;
+    } else {
+        set_file_error_from_errno(error);
+    }
+    if (path != stack) { free(path); }
+    return result;
+}
+
+void *ironwood_file_create_temp_file(const void *stem, const void *suffix,
+                                     const void *string_type, void *allocation_failure) {
+    return create_temporary(stem, suffix, 0, string_type, allocation_failure);
+}
+
+void *ironwood_file_create_temp_directory(const void *stem, const void *string_type,
+                                          void *allocation_failure) {
+    return create_temporary(stem, NULL, 1, string_type, allocation_failure);
+}
+
+/* Resolves the path's own spelling, never a lexically normalized form, so a
+ * '..' after a symbolic link follows the link. The empty path is the current
+ * directory, as Java's toAbsolutePath makes it. */
+void *ironwood_file_real_path(const void *path, const void *string_type,
+                              void *allocation_failure) {
+    const struct ironwood_string *text = path;
+    if (text == NULL || string_type == NULL) { abort(); }
+    char stack[IRONWOOD_PATH_STACK_CAPACITY];
+    char *native_path = string_to_utf8_buffer(text, stack, sizeof(stack), allocation_failure);
+    char resolved[PATH_MAX];
+    char *result = realpath(native_path[0] == '\0' ? "." : native_path, resolved);
+    int error = errno;
+    if (native_path != stack) { free(native_path); }
+    if (result == NULL) {
+        set_file_error_from_errno(error);
+        return NULL;
+    }
+    size_t length = strlen(resolved);
+    if (!valid_utf8((const unsigned char *) resolved, length)) {
+        last_file_error = IRONWOOD_FILE_ERROR_INVALID_UTF8;
+        return NULL;
+    }
+    struct ironwood_string *value = try_string_from_valid_utf8_bytes(
+            (const unsigned char *) resolved, length, string_type, allocation_failure);
+    if (value == NULL) { raise_allocation_failure(allocation_failure); }
+    last_file_error = IRONWOOD_FILE_ERROR_NONE;
+    return value;
+}
+
+/* Advisory access check: 1 for read, 2 for execute; any failure is "no". */
+int32_t ironwood_file_access(const void *path, int32_t mode, void *allocation_failure) {
+    const struct ironwood_string *text = path;
+    if (text == NULL || (mode != 1 && mode != 2)) { abort(); }
+    char stack[IRONWOOD_PATH_STACK_CAPACITY];
+    char *native_path = string_to_utf8_buffer(text, stack, sizeof(stack), allocation_failure);
+    int result = access(native_path, mode == 1 ? R_OK : X_OK);
+    if (native_path != stack) { free(native_path); }
+    return result == 0;
+}
+
+/* Publication moves. Each keeps its own guarantee and never falls back to a
+ * weaker one: rename(2) for atomic replacement, an exclusive rename for
+ * no-replace, and a copy only for the replacing move of a regular file across
+ * file systems. */
+static int32_t move_result(int error) {
+    if (error == 0) {
+        last_file_error = IRONWOOD_FILE_ERROR_NONE;
+    } else if (error == EXDEV) {
+        last_file_error = IRONWOOD_FILE_ERROR_CROSS_DEVICE;
+    } else if (error == ENOTSUP || error == EOPNOTSUPP || error == ENOSYS) {
+        last_file_error = IRONWOOD_FILE_ERROR_UNSUPPORTED;
+    } else {
+        set_file_error_from_errno(error);
+    }
+    return last_file_error;
+}
+
+/* POSIX lets a non-empty directory target fail with EEXIST or ENOTEMPTY. */
+static int replacement_error(int error) {
+    return error == EEXIST ? ENOTEMPTY : error;
+}
+
+int32_t ironwood_file_move_atomic(const void *source, const void *target,
+                                  void *allocation_failure) {
+    const struct ironwood_string *source_text = source;
+    const struct ironwood_string *target_text = target;
+    if (source_text == NULL || target_text == NULL) { abort(); }
+    char stack[IRONWOOD_PATH_STACK_CAPACITY * 2];
+    char *source_path, *target_path;
+    char *storage = two_native_paths(source_text, target_text, stack, sizeof(stack),
+            &source_path, &target_path, allocation_failure);
+    int error = rename(source_path, target_path) == 0 ? 0 : replacement_error(errno);
+    if (storage != stack) { free(storage); }
+    return move_result(error);
+}
+
+/* Copies an open regular file into a new exclusive temporary beside target,
+ * keeping its mode and times, then renames that over target. Any failure
+ * before the rename removes the temporary and leaves target unchanged. */
+static int replace_by_copy(int input, const struct stat *status, const char *target_path,
+                           void *allocation_failure) {
+    size_t target_length = strlen(target_path);
+    size_t directory_length = target_length;
+    while (directory_length > 0 && target_path[directory_length - 1U] != '/') { directory_length--; }
+    static const char marker[] = ".ironwood-move-";
+    size_t stem_length = directory_length + sizeof(marker) - 1U;
+    size_t capacity = stem_length + IRONWOOD_TEMPORARY_DIGITS + 1U;
+    char stack[IRONWOOD_PATH_STACK_CAPACITY];
+    char *temporary = capacity <= sizeof(stack) ? stack : malloc(capacity);
+    if (temporary == NULL) { raise_allocation_failure(allocation_failure); }
+    memcpy(temporary, target_path, directory_length);
+    memcpy(temporary + directory_length, marker, sizeof(marker) - 1U);
+    size_t length = 0;
+    int output = -1;
+    int error = create_exclusive_name(temporary, stem_length, "", 0, 0, &output, &length);
+    if (error == 0) {
+        unsigned char buffer[IRONWOOD_IO_CHUNK_CAPACITY];
+        for (;;) {
+            ssize_t count = read(input, buffer, sizeof(buffer));
+            if (count < 0 && errno == EINTR) { continue; }
+            if (count < 0) { error = errno; break; }
+            if (count == 0) { break; }
+            if (!write_native_bytes(output, buffer, (size_t) count)) { error = errno; break; }
+        }
+#if defined(__APPLE__)
+        struct timespec times[2] = {status->st_atimespec, status->st_mtimespec};
+#else
+        struct timespec times[2] = {status->st_atim, status->st_mtim};
+#endif
+        if (error == 0 && fchmod(output, status->st_mode & 07777) != 0) { error = errno; }
+        if (error == 0 && futimens(output, times) != 0) { error = errno; }
+        if (close(output) != 0 && error == 0) { error = errno; }
+        if (error == 0 && rename(temporary, target_path) != 0) { error = errno; }
+        if (error != 0) { unlink(temporary); }
+    }
+    if (temporary != stack) { free(temporary); }
+    return error;
+}
+
+int32_t ironwood_file_move_replacing(const void *source, const void *target,
+                                     void *allocation_failure) {
+    const struct ironwood_string *source_text = source;
+    const struct ironwood_string *target_text = target;
+    if (source_text == NULL || target_text == NULL) { abort(); }
+    char stack[IRONWOOD_PATH_STACK_CAPACITY * 2];
+    char *source_path, *target_path;
+    char *storage = two_native_paths(source_text, target_text, stack, sizeof(stack),
+            &source_path, &target_path, allocation_failure);
+    int error = rename(source_path, target_path) == 0 ? 0 : replacement_error(errno);
+    _Bool retained = 0;
+    if (error == EXDEV) {
+        struct stat status;
+        int input = -1;
+        do {
+            input = open(source_path, O_RDONLY | O_CLOEXEC | O_NOFOLLOW);
+        } while (input < 0 && errno == EINTR);
+        /* A link (ELOOP) or directory has no fallback and stays a cross-device failure. */
+        if (input < 0 && errno != ELOOP) { error = errno; }
+        if (input >= 0 && fstat(input, &status) == 0 && S_ISREG(status.st_mode)) {
+            error = replace_by_copy(input, &status, target_path, allocation_failure);
+            /* The target already holds the content; report the source left behind. */
+            if (error == 0 && unlink(source_path) != 0) { retained = 1; }
+        }
+        if (input >= 0) { close(input); }
+    }
+    if (storage != stack) { free(storage); }
+    if (retained) {
+        last_file_error = IRONWOOD_FILE_ERROR_SOURCE_RETAINED;
+        return last_file_error;
+    }
+    return move_result(error);
+}
+
+#if defined(__linux__)
+#if !defined(SYS_renameat2) && defined(__x86_64__)
+#define SYS_renameat2 316
+#elif !defined(SYS_renameat2) && defined(__aarch64__)
+#define SYS_renameat2 276
+#endif
+#ifndef RENAME_NOREPLACE
+#define RENAME_NOREPLACE 1
+#endif
+
+/* EINVAL means an unsupported flag unless the move puts a directory inside
+ * itself; telling them apart only classifies a failure that already happened. */
+static int exclusive_rename_invalid(const char *source_path, const char *target_path) {
+    char source_real[PATH_MAX], parent_real[PATH_MAX], parent[PATH_MAX];
+    size_t length = strlen(target_path);
+    while (length > 0 && target_path[length - 1U] != '/') { length--; }
+    if (length >= sizeof(parent)) { return EINVAL; }
+    if (length == 0) {
+        parent[0] = '.';
+        parent[1] = '\0';
+    } else {
+        memcpy(parent, target_path, length);
+        parent[length] = '\0';
+    }
+    if (realpath(source_path, source_real) == NULL || realpath(parent, parent_real) == NULL) {
+        return ENOTSUP;
+    }
+    size_t source_length = strlen(source_real);
+    return strncmp(parent_real, source_real, source_length) == 0
+            && (parent_real[source_length] == '\0' || parent_real[source_length] == '/')
+            ? EINVAL : ENOTSUP;
+}
+#endif
+
+int32_t ironwood_file_move_exclusive(const void *source, const void *target,
+                                     void *allocation_failure) {
+    const struct ironwood_string *source_text = source;
+    const struct ironwood_string *target_text = target;
+    if (source_text == NULL || target_text == NULL) { abort(); }
+    char stack[IRONWOOD_PATH_STACK_CAPACITY * 2];
+    char *source_path, *target_path;
+    char *storage = two_native_paths(source_text, target_text, stack, sizeof(stack),
+            &source_path, &target_path, allocation_failure);
+    int error;
+#if defined(__APPLE__)
+    error = renamex_np(source_path, target_path, RENAME_EXCL) == 0 ? 0 : errno;
+    /* macOS accepts a name renamed to itself; Linux reports it as existing.
+     * A source that still names the target's file after success moved nothing. */
+    struct stat source_status, target_status;
+    if (error == 0 && lstat(source_path, &source_status) == 0
+            && lstat(target_path, &target_status) == 0
+            && source_status.st_dev == target_status.st_dev
+            && source_status.st_ino == target_status.st_ino) {
+        error = EEXIST;
+    }
+#elif defined(__linux__) && defined(SYS_renameat2)
+    error = syscall(SYS_renameat2, AT_FDCWD, source_path, AT_FDCWD, target_path,
+            RENAME_NOREPLACE) == 0 ? 0 : errno;
+    if (error == EINVAL) { error = exclusive_rename_invalid(source_path, target_path); }
+#else
+    error = ENOTSUP;
+#endif
+    if (storage != stack) { free(storage); }
+    return move_result(error);
+}
+
+/* Synchronous process launch (B4). The command, child directory and output
+ * spelling are encoded into one block before forking; the child only
+ * redirects descriptors, changes directory and executes, and reports a
+ * failure before exec through a close-on-exec pipe. The parent always reaps
+ * the child. A result >= 0 is the status: the exit value, or 0x100 plus the
+ * signal number. A negative result is -(stage * 16 + reason). */
+enum ironwood_process_stage {
+    IRONWOOD_PROCESS_OUTPUT = 1,
+    IRONWOOD_PROCESS_INPUT = 2,
+    IRONWOOD_PROCESS_START = 3,
+    IRONWOOD_PROCESS_DIRECTORY = 4,
+    IRONWOOD_PROCESS_EXECUTE = 5
+};
+
+enum ironwood_process_reason {
+    IRONWOOD_PROCESS_NO_SUCH_FILE = 1,
+    IRONWOOD_PROCESS_PERMISSION = 2,
+    IRONWOOD_PROCESS_NOT_DIRECTORY = 3,
+    IRONWOOD_PROCESS_IS_DIRECTORY = 4,
+    IRONWOOD_PROCESS_EXEC_FORMAT = 5,
+    IRONWOOD_PROCESS_TOO_BIG = 6,
+    IRONWOOD_PROCESS_RESOURCE = 7,
+    IRONWOOD_PROCESS_LOOP = 8,
+    IRONWOOD_PROCESS_NAME_TOO_LONG = 9,
+    IRONWOOD_PROCESS_OTHER = 10
+};
+
+struct ironwood_process_report {
+    int32_t stage;
+    int32_t error;
+};
+
+static int64_t process_failure(int stage, int error) {
+    int reason = error == ENOENT ? IRONWOOD_PROCESS_NO_SUCH_FILE
+            : error == EACCES || error == EPERM ? IRONWOOD_PROCESS_PERMISSION
+            : error == ENOTDIR ? IRONWOOD_PROCESS_NOT_DIRECTORY
+            : error == EISDIR ? IRONWOOD_PROCESS_IS_DIRECTORY
+            : error == ENOEXEC ? IRONWOOD_PROCESS_EXEC_FORMAT
+            : error == E2BIG ? IRONWOOD_PROCESS_TOO_BIG
+            : error == EAGAIN || error == ENOMEM || error == EMFILE || error == ENFILE
+                    ? IRONWOOD_PROCESS_RESOURCE
+            : error == ELOOP ? IRONWOOD_PROCESS_LOOP
+            : error == ENAMETOOLONG ? IRONWOOD_PROCESS_NAME_TOO_LONG
+            : IRONWOOD_PROCESS_OTHER;
+    return -(int64_t) (stage * 16 + reason);
+}
+
+/* Keeps a close-on-exec descriptor clear of 0-2, which the child redirects. */
+static int process_descriptor(int descriptor) {
+    if (descriptor < 0 || descriptor > 2) { return descriptor; }
+    int moved = fcntl(descriptor, F_DUPFD_CLOEXEC, 3);
+    int error = errno;
+    close(descriptor);
+    errno = error;
+    return moved;
+}
+
+int64_t ironwood_process_run(const void *command, const void *directory, const void *output,
+                             void *allocation_failure) {
+    const struct ironwood_array *arguments = command;
+    const struct ironwood_string *directory_text = directory;
+    const struct ironwood_string *output_text = output;
+    if (arguments == NULL || output_text == NULL || arguments->element_kind != IRONWOOD_ARRAY_REFERENCE
+            || arguments->length == 0 || arguments->length > (size_t) INT32_MAX) { abort(); }
+    const struct ironwood_string *const *elements = (const struct ironwood_string *const *) arguments->data;
+    size_t count = arguments->length;
+    size_t total = (count + 1U) * sizeof(char *);
+    for (size_t index = 0; index < count; index++) {
+        if (elements[index] == NULL) { abort(); }
+        total += (size_t) elements[index]->utf8_length + 1U;
+    }
+    total += (directory_text == NULL ? 0U : (size_t) directory_text->utf8_length + 1U)
+            + (size_t) output_text->utf8_length + 1U;
+    char *block = malloc(total);
+    if (block == NULL) { raise_allocation_failure(allocation_failure); }
+    char **argv = (char **) block;
+    char *cursor = block + (count + 1U) * sizeof(char *);
+    for (size_t index = 0; index < count; index++) {
+        size_t length = (size_t) elements[index]->utf8_length + 1U;
+        argv[index] = string_to_utf8_buffer(elements[index], cursor, length, allocation_failure);
+        cursor += length;
+    }
+    argv[count] = NULL;
+    char *directory_path = NULL;
+    if (directory_text != NULL) {
+        size_t length = (size_t) directory_text->utf8_length + 1U;
+        directory_path = string_to_utf8_buffer(directory_text, cursor, length, allocation_failure);
+        cursor += length;
+    }
+    char *output_path = string_to_utf8_buffer(output_text, cursor,
+            (size_t) output_text->utf8_length + 1U, allocation_failure);
+    /* The output is opened by the parent, so a relative spelling names a file
+     * in the parent's directory, never in the child's. */
+    int output_descriptor;
+    do {
+        output_descriptor = open(output_path, O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0666);
+    } while (output_descriptor < 0 && errno == EINTR);
+    output_descriptor = process_descriptor(output_descriptor);
+    if (output_descriptor < 0) {
+        int error = errno;
+        free(block);
+        return process_failure(IRONWOOD_PROCESS_OUTPUT, error);
+    }
+    int input_descriptor;
+    do {
+        input_descriptor = open("/dev/null", O_RDONLY | O_CLOEXEC);
+    } while (input_descriptor < 0 && errno == EINTR);
+    input_descriptor = process_descriptor(input_descriptor);
+    if (input_descriptor < 0) {
+        int error = errno;
+        close(output_descriptor);
+        free(block);
+        return process_failure(IRONWOOD_PROCESS_INPUT, error);
+    }
+    int report[2] = {-1, -1};
+    int error = pipe(report) == 0 ? 0 : errno;
+    for (int end = 0; end < 2 && error == 0; end++) {
+        if (fcntl(report[end], F_SETFD, FD_CLOEXEC) != 0) { error = errno; }
+        report[end] = process_descriptor(report[end]);
+        if (report[end] < 0 && error == 0) { error = errno; }
+    }
+    pid_t child = error == 0 ? fork() : -1;
+    if (child < 0) {
+        if (error == 0) { error = errno; }
+        for (int end = 0; end < 2; end++) {
+            if (report[end] >= 0) { close(report[end]); }
+        }
+        close(input_descriptor);
+        close(output_descriptor);
+        free(block);
+        return process_failure(IRONWOOD_PROCESS_START, error);
+    }
+    if (child == 0) {
+        /* Only async-signal-safe calls between fork and exec. */
+        struct ironwood_process_report record = {IRONWOOD_PROCESS_START, 0};
+        if (dup2(input_descriptor, 0) >= 0 && dup2(output_descriptor, 1) >= 0
+                && dup2(output_descriptor, 2) >= 0) {
+            record.stage = IRONWOOD_PROCESS_DIRECTORY;
+            if (directory_path == NULL || chdir(directory_path) == 0) {
+                record.stage = IRONWOOD_PROCESS_EXECUTE;
+                execv(argv[0], argv);
+            }
+        }
+        record.error = errno;
+        ssize_t ignored = write(report[1], &record, sizeof(record));
+        (void) ignored;
+        _exit(127);
+    }
+    close(report[1]);
+    close(input_descriptor);
+    close(output_descriptor);
+    struct ironwood_process_report record;
+    size_t received = 0;
+    while (received < sizeof(record)) {
+        ssize_t count_read = read(report[0], (char *) &record + received, sizeof(record) - received);
+        if (count_read < 0 && errno == EINTR) { continue; }
+        if (count_read <= 0) { break; }
+        received += (size_t) count_read;
+    }
+    close(report[0]);
+    int status = 0;
+    pid_t waited;
+    do {
+        waited = waitpid(child, &status, 0);
+    } while (waited < 0 && errno == EINTR);
+    int wait_error = waited < 0 ? errno : 0;
+    free(block);
+    if (received == sizeof(record)) { return process_failure(record.stage, record.error); }
+    if (waited < 0) { return process_failure(IRONWOOD_PROCESS_START, wait_error); }
+    if (WIFEXITED(status)) { return (int64_t) WEXITSTATUS(status); }
+    if (WIFSIGNALED(status)) { return INT64_C(0x100) | (int64_t) WTERMSIG(status); }
+    return process_failure(IRONWOOD_PROCESS_START, EIO);
 }
 
 struct ironwood_directory_handle {

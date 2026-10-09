@@ -1,0 +1,376 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.port;
+
+import ironwood.io.IOException;
+
+/**
+ * The main attributes of a JAR manifest, as the Java baseline's Bridge
+ * writes them with {@code java.util.jar.Manifest} and reads them with
+ * {@code new Manifest(InputStream)} or {@code JarInputStream.getManifest()}
+ * (B6, B7, S7).
+ *
+ * <p>Attribute names are 1 to 70 ASCII letters, digits, {@code -} or
+ * {@code _}, compared without ASCII case; a later value for an existing name
+ * replaces the value in place and keeps the first spelling. {@link #write}
+ * produces {@code Manifest.write}'s bytes for a manifest without sections:
+ * the version attribute first, then the others in insertion order, each
+ * {@code name: value} line encoded in UTF-8 and broken after its first 72
+ * bytes and then every 71 bytes by a CRLF and a space, which may split a
+ * character, with CRLF line ends and a closing empty line. Without a
+ * {@code Manifest-Version} or {@code Signature-Version} only the empty line is
+ * written, as Java does.
+ *
+ * <p>The reading constructor gives Java's verdicts and messages for the whole
+ * manifest and keeps the main section's attributes. Lines end at LF, CR or
+ * CRLF and hold at most 512 bytes with their terminator (a CRLF's LF is not
+ * counted); a final line without a terminator is ignored unless it reaches
+ * 512 bytes. A header is a name, a colon and a space; a line starting with a
+ * space continues the previous value, and the bytes join before UTF-8
+ * decoding, which replaces malformed input. An empty line ends a section.
+ * Each later section starts with a {@code Name:} header, case aside, and is
+ * validated but not kept. Java logs a warning for a repeated name; this reader
+ * keeps the later value silently. Inputs are borrowed.
+ */
+public final class JarManifest {
+
+    private static final int LINE_LIMIT = 512;
+
+    // Attribute names in insertion order; values holds every value put, and
+    // valueOf maps each name to its current value.
+    private TextList names;
+    private TextList values;
+    private int[] valueOf;
+
+    // Reading state: the next byte, the end of input, the lines read so far
+    // and the bounds of the current line's content.
+    private int position;
+    private int end;
+    private int line;
+    private int lineStart;
+    private int lineLength;
+
+    /** Creates a manifest without attributes. */
+    public JarManifest() {
+
+        this.names = new TextList();
+        this.values = new TextList();
+        this.valueOf = new int[8];
+    }
+
+    /**
+     * Reads a manifest. A failure, including an allocation failure, rolls back
+     * the partly read manifest.
+     *
+     * @param bytes the manifest bytes; borrowed
+     * @param offset its first byte
+     * @param length its byte count
+     * @throws IOException with Java's message for a malformed manifest
+     */
+    public JarManifest(byte[] bytes, int offset, int length) throws IOException {
+
+        this.names = new TextList();
+        this.values = new TextList();
+        this.valueOf = new int[8];
+        if (offset < 0 || length < 0 || length > bytes.length - offset) throw new IndexOutOfBoundsException();
+        this.position = offset;
+        this.end = offset + length;
+        while (this.readAttribute(bytes, true)) {
+            // Each call reads one main attribute.
+        }
+        while (this.readSection(bytes)) {
+            // Each call reads one named section.
+        }
+    }
+
+    /** @return the number of main attributes */
+    public int size() {
+
+        return this.names.size();
+    }
+
+    /** @return a fresh copy of the attribute name at index, in insertion order */
+    public String name(int index) {
+
+        return this.names.get(index);
+    }
+
+    /** @return a fresh copy of the attribute value at index, in insertion order */
+    public String value(int index) {
+
+        return this.values.get(this.valueOf[index]);
+    }
+
+    /**
+     * @param name the attribute name; borrowed
+     * @return a fresh copy of its value, owned by the caller, or null when absent
+     * @throws IllegalArgumentException when name is not a valid attribute name,
+     *     as {@code Attributes.getValue(String)} does
+     */
+    public String getValue(String name) {
+
+        if (!validName(name)) throw new IllegalArgumentException(new String(name));
+        int index = this.indexOf(name);
+        if (index < 0) return null;
+        return this.values.get(this.valueOf[index]);
+    }
+
+    /**
+     * Sets an attribute, as {@code Attributes.putValue} does.
+     *
+     * @param name the attribute name; copied
+     * @param value the value; copied
+     * @throws IllegalArgumentException with the name as its message when name is
+     *     not a valid attribute name
+     */
+    public void putValue(String name, String value) {
+
+        if (!validName(name)) throw new IllegalArgumentException(new String(name));
+        this.put(name, value);
+    }
+
+    /** @return {@code Manifest.write}'s bytes for these main attributes, owned by the caller */
+    public byte[] write() {
+
+        String version = "Manifest-Version";
+        int versionIndex = this.indexOf(version);
+        if (versionIndex < 0) {
+            version = "Signature-Version";
+            versionIndex = this.indexOf(version);
+        }
+        int lines = versionIndex < 0 ? 0 : this.names.size();
+        // The written bytes collect as units, so the result is the last allocation.
+        StringBuilder out = new StringBuilder();
+        defer free out;
+        for (int index = 0; index < lines; index++) {
+            byte[] encoded = this.lineBytes(index, versionIndex, version);
+            defer free encoded;
+            appendWrapped(encoded, out);
+        }
+        out.append('\r');
+        out.append('\n');
+        byte[] result = new byte[out.length()];
+        for (int index = 0; index < result.length; index++) result[index] = (byte) out.charAt(index);
+        return result;
+    }
+
+    // The UTF-8 bytes of written line index: the version first, then the
+    // other attributes in insertion order.
+    private byte[] lineBytes(int index, int versionIndex, String version) {
+
+        int attribute = index == 0 ? versionIndex : index - 1 < versionIndex ? index - 1 : index;
+        StringBuilder text = new StringBuilder();
+        defer free text;
+        if (index == 0) {
+            text.append(version);
+        } else {
+            this.names.appendTo(attribute, text);
+        }
+        text.append(": ");
+        this.values.appendTo(this.valueOf[attribute], text);
+        String line = text.toString();
+        defer free line;
+        return line.getBytes();
+    }
+
+    // Appends encoded with its breaks and CRLF to out, one unit per byte.
+    private static void appendWrapped(byte[] encoded, StringBuilder out) {
+
+        int count = encoded.length;
+        if (count > 0) {
+            out.append((char) (encoded[0] & 0xFF));
+            int index = 1;
+            while (count - index > 71) {
+                for (int copy = 0; copy < 71; copy++) out.append((char) (encoded[index + copy] & 0xFF));
+                index = index + 71;
+                out.append("\r\n ");
+            }
+            while (index < count) {
+                out.append((char) (encoded[index] & 0xFF));
+                index++;
+            }
+        }
+        out.append("\r\n");
+    }
+
+    // Reads one attribute of the current section, with its continuation
+    // lines. Returns false at the empty line ending the section or at the end
+    // of input; keep says whether the attribute belongs to the main section.
+    private boolean readAttribute(byte[] bytes, boolean keep) throws IOException {
+
+        if (!this.nextLine(bytes, false) || this.lineLength == 0) return false;
+        int start = this.lineStart;
+        int length = this.lineLength;
+        if (bytes[start] == ' ') throw this.failure("misplaced continuation line");
+        int colon = start;
+        while (colon < start + length && bytes[colon] != ':') colon++;
+        if (colon + 1 >= start + length || bytes[colon + 1] != ' ') throw this.failure("invalid header field");
+        String name = decode(bytes, start, colon);
+        defer free name;
+        StringBuilder pending = new StringBuilder();
+        defer free pending;
+        for (int index = colon + 2; index < start + length; index++) pending.append((char) (bytes[index] & 0xFF));
+        while (this.peek(bytes) == ' ') {
+            if (!this.nextLine(bytes, false)) return false;
+            for (int index = this.lineStart + 1; index < this.lineStart + this.lineLength; index++) {
+                pending.append((char) (bytes[index] & 0xFF));
+            }
+        }
+        if (!validName(name)) {
+            StringBuilder message = new StringBuilder();
+            defer free message;
+            message.append("invalid header field name: ");
+            message.append(name);
+            throw this.failure(message);
+        }
+        String value = decodePending(pending);
+        defer free value;
+        if (keep) this.put(name, value);
+        return true;
+    }
+
+    // Reads one named section: empty lines, the Name header with its
+    // continuation lines, then its attributes. Returns false at the end of
+    // input.
+    private boolean readSection(byte[] bytes) throws IOException {
+
+        boolean header = false;
+        while (!header) {
+            if (!this.nextLine(bytes, true)) return false;
+            header = this.lineLength > 0;
+        }
+        int start = this.lineStart;
+        if (this.lineLength < 6 || lower(bytes[start]) != 'n' || lower(bytes[start + 1]) != 'a'
+                || lower(bytes[start + 2]) != 'm' || lower(bytes[start + 3]) != 'e' || bytes[start + 4] != ':'
+                || bytes[start + 5] != ' ') {
+            throw this.failure("invalid manifest format");
+        }
+        while (this.peek(bytes) == ' ') {
+            if (!this.nextLine(bytes, true)) return false;
+        }
+        while (this.readAttribute(bytes, false)) {
+            // Section attributes are checked, not kept.
+        }
+        return true;
+    }
+
+    // Reads the next terminated line. Returns false at the end of input,
+    // including before a final line without a terminator.
+    private boolean nextLine(byte[] bytes, boolean section) throws IOException {
+
+        if (this.position >= this.end) return false;
+        int limit = this.end - this.position < LINE_LIMIT ? this.end : this.position + LINE_LIMIT;
+        int terminator = this.position;
+        while (terminator < limit && bytes[terminator] != '\r' && bytes[terminator] != '\n') terminator++;
+        if (terminator == limit) {
+            if (limit == this.end && this.end - this.position < LINE_LIMIT) return false;
+            this.line++;
+            throw this.failure(section ? "manifest line too long" : "line too long");
+        }
+        this.line++;
+        this.lineStart = this.position;
+        this.lineLength = terminator - this.position;
+        this.position = terminator + 1;
+        if (bytes[terminator] == '\r' && this.position < this.end && bytes[this.position] == '\n') this.position++;
+        return true;
+    }
+
+    private int peek(byte[] bytes) {
+
+        return this.position < this.end ? bytes[this.position] & 0xFF : -1;
+    }
+
+    // An IOException with the message and Java's line position.
+    private IOException failure(CharSequence message) {
+
+        StringBuilder text = new StringBuilder();
+        defer free text;
+        text.append(message);
+        text.append(" (line ");
+        text.append(this.line);
+        text.append(')');
+        String full = text.toString();
+        return new IOException(full);
+    }
+
+    // UTF-8 decoding of bytes[from, to) with replacement, as new String(bytes, UTF_8).
+    private static String decode(byte[] bytes, int from, int to) {
+
+        byte[] slice = Bytes.slice(bytes, from, to);
+        defer free slice;
+        return new String(slice);
+    }
+
+    // UTF-8 decoding of the byte values held as units of pending.
+    private static String decodePending(StringBuilder pending) {
+
+        byte[] raw = new byte[pending.length()];
+        defer free raw;
+        for (int index = 0; index < raw.length; index++) raw[index] = (byte) pending.charAt(index);
+        return new String(raw);
+    }
+
+    // Finds a name without ASCII case.
+    private int indexOf(String name) {
+
+        for (int index = 0; index < this.names.size(); index++) {
+            if (this.names.length(index) == name.length() && this.sameName(index, name)) return index;
+        }
+        return -1;
+    }
+
+    private boolean sameName(int index, String name) {
+
+        for (int unit = 0; unit < name.length(); unit++) {
+            if (lower(this.names.charAt(index, unit)) != lower(name.charAt(unit))) return false;
+        }
+        return true;
+    }
+
+    private static int lower(int unit) {
+
+        return unit >= 'A' && unit <= 'Z' ? unit + 32 : unit;
+    }
+
+    // Attributes.Name's rule.
+    private static boolean validName(String name) {
+
+        if (name.length() < 1 || name.length() > 70) return false;
+        for (int index = 0; index < name.length(); index++) {
+            char unit = name.charAt(index);
+            if (!(unit >= 'a' && unit <= 'z' || unit >= 'A' && unit <= 'Z' || unit >= '0' && unit <= '9' || unit == '-'
+                    || unit == '_')) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    // Puts a checked name: replaces an existing value in place or appends.
+    private void put(String name, String value) {
+
+        int index = this.indexOf(name);
+        this.values.add(value);
+        int stored = this.values.size() - 1;
+        if (index >= 0) {
+            this.valueOf[index] = stored;
+        } else {
+            int count = this.names.size();
+            if (count == this.valueOf.length) {
+                int[] previous = this.valueOf;
+                this.valueOf = new int[previous.length * 2];
+                System.arraycopy(previous, 0, this.valueOf, 0, count);
+                free previous;
+            }
+            this.names.add(name);
+            this.valueOf[count] = stored;
+        }
+    }
+
+    destructor {
+
+        free this.names;
+        free this.values;
+        free this.valueOf;
+    }
+}

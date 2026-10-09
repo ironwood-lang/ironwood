@@ -1,0 +1,255 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// Compiler-private MD5 and LLVM pseudo-probe GUIDs against the Java baseline
+// (docs/self-hosting/m3/backend-evidence/Md5Reference.java): the RFC 1321
+// suite including one million 'a', every length 0-300 across the padding
+// boundaries, every byte value, UTF-8 text with surrogate pairs and unpaired
+// surrogates, 64 MiB streamed through one reused buffer, then the GUIDs of
+// fixed and 2,000 seeded linkage names, which the reference takes from both
+// OptimizedTraceMetadata.linkageGuid and LlvmEmitter's TracePlan.linkageGuid.
+// Native-only checks then cover every two-way split, offsets, reset, reuse,
+// a GUID computed in the middle of partial input, range failures and
+// allocation: a digest costs four allocations, hashing and GUIDs none, a
+// fresh result one array; the three caught range exceptions are the only
+// allocations left. Prints the shared transcript; exit 42.
+import ironwood.compiler.port.Md5;
+
+class Main {
+
+    static long seed = 271828L;
+
+    static int next() {
+
+        seed = seed * 6364136223846793005L + 1442695040888963407L;
+        return (int) (seed >>> 33);
+    }
+
+    static byte[] result = new byte[16];
+    static String digits = "0123456789abcdef";
+
+    // Finishes the digest into the process-lived result and prints it in hex.
+    static void line(String name, Md5 digest) {
+
+        digest.digest(result, 0);
+        StringBuilder hex = new StringBuilder();
+        for (int index = 0; index < 16; index++) {
+            hex.append(digits.charAt((result[index] >> 4) & 15)).append(digits.charAt(result[index] & 15));
+        }
+        String text = hex.toString();
+        free hex;
+        System.out.println(name + " " + text);
+        free text;
+    }
+
+    static byte[] pattern(int length) {
+
+        byte[] data = new byte[length];
+        for (int index = 0; index < length; index++) data[index] = (byte) (index * 31 + 7);
+        return data;
+    }
+
+    static void vectors(Md5 digest) {
+
+        line("empty", digest);
+        digest.updateUtf8("a");
+        line("a", digest);
+        digest.updateUtf8("abc");
+        line("abc", digest);
+        digest.updateUtf8("message digest");
+        line("message", digest);
+        digest.updateUtf8("abcdefghijklmnopqrstuvwxyz");
+        line("alphabet", digest);
+        digest.updateUtf8("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789");
+        line("alphanumeric", digest);
+        for (int index = 0; index < 8; index++) digest.updateUtf8("1234567890");
+        line("digits", digest);
+        for (int index = 0; index < 1000000; index++) digest.update('a');
+        line("million", digest);
+    }
+
+    static void lengths(Md5 digest) {
+
+        byte[] data = pattern(300);
+        defer free data;
+        for (int length = 0; length <= 300; length++) {
+            digest.update(data, 0, length);
+            line("length " + length, digest);
+        }
+        for (int value = 0; value < 256; value++) {
+            digest.update(value);
+            line("byte " + value, digest);
+        }
+    }
+
+    // Ironwood string literals have no \u escape, so texts with surrogates
+    // are built from character literals in process-lived tables.
+    static char[][] spelled = {{}, {'a', 's', 'c', 'i', 'i'}, {'c', 'a', 'f', '\u00e9'}, {'\u4e2d', '\u6587'},
+        {'\ud83d', '\ude00'}, {'\ud800'}, {'\udc00'}, {'a', '\ud800'}, {'\ud800', '\ud800', '\udc00'},
+        {'\udbff', '\udfff'}, {'x', '\udc00', '\ud800', 'y'}, {'\u007f', '\u0080', '\u07ff', '\u0800', '\uffff'}};
+    static char[] alphabet = {'a', 'b', 'Z', '0', '9', '.', '$', '_', '<', '>', '-', '\u00e9', '\u4e2d', '\ud83d',
+        '\ude00', '\ud800', '\udc00', ' ', '"', '\\'};
+
+    static void texts(Md5 digest) {
+
+        for (int index = 0; index < spelled.length; index++) {
+            String text = new String(spelled[index]);
+            digest.updateUtf8(text);
+            free text;
+            line("text " + index, digest);
+        }
+    }
+
+    static void streamed(Md5 digest) {
+
+        byte[] buffer = new byte[65536];
+        defer free buffer;
+        for (int chunk = 0; chunk < 1024; chunk++) {
+            for (int index = 0; index < buffer.length; index++) buffer[index] = (byte) (chunk + index);
+            digest.update(buffer, 0, buffer.length);
+        }
+        line("streamed", digest);
+    }
+
+    static void guid(int index, String name, Md5 digest) {
+
+        System.out.println("guid " + index + " " + digest.linkageGuid(name));
+    }
+
+    static void guids(Md5 digest) {
+
+        guid(0, "", digest);
+        guid(1, "main", digest);
+        guid(2, "_main", digest);
+        guid(3, "ironwood.lang.Object.<init>", digest);
+        guid(4, "Main.main([Lironwood/lang/String;)I", digest);
+        guid(5, "ironwood_trace_register_current", digest);
+        for (int index = 0; index < spelled.length; index++) {
+            String text = new String(spelled[index]);
+            guid(6 + index, text, digest);
+            free text;
+        }
+        for (int index = 0; index < 2000; index++) {
+            StringBuilder name = new StringBuilder();
+            int length = next() % 40;
+            for (int unit = 0; unit < length; unit++) name.append(alphabet[next() % alphabet.length]);
+            String text = name.toString();
+            free name;
+            guid(6 + spelled.length + index, text, digest);
+            free text;
+        }
+    }
+
+    static boolean same(byte[] first, byte[] second) {
+
+        for (int index = 0; index < 16; index++) {
+            if (first[index] != second[index]) return false;
+        }
+        return true;
+    }
+
+    // Native-only contract checks; the transcript above is the Java comparison.
+    static boolean contract(Md5 digest) {
+
+        byte[] data = pattern(200);
+        defer free data;
+        byte[] whole = new byte[16];
+        defer free whole;
+        byte[] parts = new byte[16];
+        defer free parts;
+        digest.update(data, 0, 200);
+        digest.digest(whole, 0);
+        for (int split = 0; split <= 200; split++) {
+            digest.update(data, 0, split);
+            digest.update(data, split, 200 - split);
+            digest.digest(parts, 0);
+            if (!same(whole, parts)) return false;
+        }
+        digest.update(data, 13, 100);
+        digest.digest(parts, 0);
+        byte[] slice = new byte[100];
+        defer free slice;
+        for (int index = 0; index < 100; index++) slice[index] = data[13 + index];
+        digest.update(slice, 0, 100);
+        digest.digest(whole, 0);
+        if (!same(whole, parts)) return false;
+        digest.update(data, 0, 77);
+        digest.reset();
+        digest.update(slice, 0, 100);
+        digest.digest(parts, 0);
+        if (!same(whole, parts)) return false;
+        // A GUID discards partial input and leaves the digest reset.
+        long main = digest.linkageGuid("main");
+        digest.update(data, 0, 33);
+        if (digest.linkageGuid("main") != main) return false;
+        digest.update(slice, 0, 100);
+        digest.digest(parts, 0);
+        if (!same(whole, parts)) return false;
+        long before = System.allocationCount();
+        digest.update(data, 0, 200);
+        digest.digest(parts, 0);
+        long guid = digest.linkageGuid("ironwood.lang.Object.<init>");
+        if (System.allocationCount() != before || guid == 0) return false;
+        long live = System.liveAllocationCount();
+        byte[] fresh = digest.digest();
+        boolean freshCounted = System.liveAllocationCount() == live + 1;
+        free fresh;
+        return freshCounted && System.liveAllocationCount() == live;
+    }
+
+    // Each rejected range leaves its caught exception allocated.
+    static int rejections(Md5 digest) {
+
+        byte[] data = pattern(200);
+        defer free data;
+        byte[] result = new byte[16];
+        defer free result;
+        int rejected = 0;
+        try {
+            digest.update(data, -1, 1);
+        } catch (IndexOutOfBoundsException expected) {
+            rejected++;
+        }
+        try {
+            digest.update(data, 150, 51);
+        } catch (IndexOutOfBoundsException expected) {
+            rejected++;
+        }
+        try {
+            digest.digest(result, 1);
+        } catch (IndexOutOfBoundsException expected) {
+            rejected++;
+        }
+        return rejected;
+    }
+
+    // Hashes everything with one digest; returns 42 when every check holds.
+    static int run(long live) {
+
+        long before = System.allocationCount();
+        Md5 digest = new Md5();
+        defer free digest;
+        long construction = System.allocationCount() - before;
+        vectors(digest);
+        lengths(digest);
+        texts(digest);
+        streamed(digest);
+        guids(digest);
+        boolean valid = contract(digest) && construction == 4;
+        if (System.liveAllocationCount() != live + 4) return 1;
+        long beforeRejections = System.liveAllocationCount();
+        boolean rejected = rejections(digest) == 3 && System.liveAllocationCount() == beforeRejections + 3;
+        return valid && rejected ? 42 : 2;
+    }
+
+    public static int main(String[] args) {
+
+        // The first digest runs the one-time, process-lived table
+        // initialization; take the baseline after it.
+        Md5 warm = new Md5();
+        free warm;
+        long live = System.liveAllocationCount();
+        int status = run(live);
+        if (System.liveAllocationCount() != live + 3) return 1;
+        return status;
+    }
+}

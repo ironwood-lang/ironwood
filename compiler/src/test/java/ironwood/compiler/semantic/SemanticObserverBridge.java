@@ -10,36 +10,45 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 /** Test-only bridge to the package-private observer constructor. */
 public final class SemanticObserverBridge {
     private SemanticObserverBridge() {
     }
 
-    public static SemanticAnalyzer create(UnfreedMode mode, Set<Path> sources,
-                                          boolean explain, Counts counts, Path watchedSource) {
-        return create(mode, sources, explain, counts, watchedSource, null);
+    public static SemanticAnalyzer create(UnfreedMode mode, boolean explain, Counts counts,
+                                          Path watchedSource) {
+        return create(mode, explain, counts, watchedSource, null);
     }
 
-    public static SemanticAnalyzer createWithLimits(UnfreedMode mode, Set<Path> sources,
-                                                    boolean explain, Counts counts,
-                                                    Path watchedSource, int local,
+    public static SemanticAnalyzer createWithLimits(UnfreedMode mode, boolean explain,
+                                                    Counts counts, Path watchedSource, int local,
                                                     int snapshots, int invocation) {
-        return create(mode, sources, explain, counts, watchedSource,
+        return create(mode, explain, counts, watchedSource,
                 new RejectedFreeEvidence.Limits(local, snapshots, invocation));
     }
 
+    /** Observes an analyzer whose refinement gives up after {@code passes} passes. */
+    public static SemanticAnalyzer createWithRefinementPassLimit(UnfreedMode mode,
+            boolean explain, Counts counts, Path watchedSource, int passes) {
+        return create(mode, explain, counts, watchedSource, null, passes);
+    }
+
     public static SemanticAnalyzer createWithSummaryLimits(UnfreedMode mode,
-            Set<Path> sources, boolean explain, Counts counts, Path watchedSource,
+            boolean explain, Counts counts, Path watchedSource,
             int method, int fact, int invocation) {
-        return create(mode, sources, explain, counts, watchedSource,
+        return create(mode, explain, counts, watchedSource,
                 new RejectedFreeEvidence.Limits(1_024, 1_024, invocation, method, fact));
     }
 
-    private static SemanticAnalyzer create(UnfreedMode mode, Set<Path> sources,
-                                           boolean explain, Counts counts, Path watchedSource,
-                                           RejectedFreeEvidence.Limits limits) {
+    private static SemanticAnalyzer create(UnfreedMode mode, boolean explain, Counts counts,
+                                           Path watchedSource, RejectedFreeEvidence.Limits limits) {
+        return create(mode, explain, counts, watchedSource, limits, -1);
+    }
+
+    private static SemanticAnalyzer create(UnfreedMode mode, boolean explain, Counts counts,
+                                           Path watchedSource, RejectedFreeEvidence.Limits limits,
+                                           int passes) {
         SemanticAnalysisObserver observer = new SemanticAnalysisObserver() {
             @Override
             public void analyzerCreated(long token, AnalyzerKind kind, AnalyzerPhase phase) {
@@ -196,7 +205,7 @@ public final class SemanticObserverBridge {
                 counts.liveCollectors--;
             }
         };
-        return new SemanticAnalyzer(mode, sources, explain, observer, limits);
+        return new SemanticAnalyzer(mode, explain, observer, limits, passes);
     }
 
     public static final class Counts {

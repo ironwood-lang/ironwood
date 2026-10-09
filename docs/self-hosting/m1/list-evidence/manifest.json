@@ -1,0 +1,174 @@
+{
+  "schema": 1,
+  "scope": "M1.1 ArrayList slice only; no phase/S1/G1 completion",
+  "base_commit": "d97fbe2f274a054ec086fcfb83d76b1f82ad0d58",
+  "jdk": "Java 21.0.1+12-LTS-29",
+  "llvm": "Homebrew LLVM 23.1.0",
+  "host": "macOS 27.0.1 (26A434), arm64",
+  "logs": {
+    "initial-build.log": {
+      "raw_bytes": 131,
+      "raw_sha256": "fe0673f7256e1852ced5e717c26ed6a11f270f2d8ef433d4138a688de597b1d9",
+      "gzip_sha256": "21569e9088d033572c79a3b8cc70e857a703f880bb4d0edef7e64541fe947465"
+    },
+    "build.log": {
+      "raw_bytes": 28358,
+      "raw_sha256": "d1a08f1fe0719e043af9226f4b6a084f0bd1596e305e2a34e8713d3b6a9af016",
+      "gzip_sha256": "e4cec8509c7729aff62abaf0640b60483f0ffbc760a6bd66e55c317a4e865546"
+    },
+    "build-copy-proof.log": {
+      "raw_bytes": 28358,
+      "raw_sha256": "d1a08f1fe0719e043af9226f4b6a084f0bd1596e305e2a34e8713d3b6a9af016",
+      "gzip_sha256": "e4cec8509c7729aff62abaf0640b60483f0ffbc760a6bd66e55c317a4e865546"
+    },
+    "copy-probe.log": {
+      "raw_bytes": 221,
+      "raw_sha256": "be117ac3414a6cee4d1e2feddb686826b46a1514e786960caf80f0209d2bf8f3",
+      "gzip_sha256": "1a63cb9e51e65cc7f076f8946a2c0ef7c1dcabf29578a469d7e7d0f40d281234"
+    },
+    "copy-probe-after.log": {
+      "raw_bytes": 434,
+      "raw_sha256": "3bb59f35b01b576d00cab345d7c347a1218448afa67016cc230ea3135b6fe961",
+      "gzip_sha256": "542f947feb31ab993163fd2ea12233389822aecbb799efb2c868e514fdd12396"
+    },
+    "copy-runtime-test.log": {
+      "raw_bytes": 28937,
+      "raw_sha256": "4189acb48c3783ea35fc2332f201d0a642f97876175484503633b72f5c0c9df1",
+      "gzip_sha256": "bf2f83d2798f91801faa2cd526dbcab3de606480ded6a073e3b2c814311537ab"
+    },
+    "copy-tests-final.log": {
+      "raw_bytes": 29006,
+      "raw_sha256": "13447ef0daa705df75e26481e9feb7f7af3a2b9a6830134fb7ab86b72e2f39c4",
+      "gzip_sha256": "8720a85b3b1180261a3e874bf729a9de7f0e311676bfa2de8f9f26420fb7b989"
+    },
+    "copy-proof-regressions.log": {
+      "raw_bytes": 29334,
+      "raw_sha256": "f0837f43937e38b9923798a3ea44f6605e5453537d950951be06e3b1640c95cc",
+      "gzip_sha256": "a2df247d2d26d60985070e350171518e5c5f280e5bc7ff9736ae427cfeef64ff"
+    },
+    "copy-guard-controls.log": {
+      "raw_bytes": 28984,
+      "raw_sha256": "7e8576fc3a4a653104a1a3bb19142f8589b1f0e202a33aef9f7cf8b6e0c9eee2",
+      "gzip_sha256": "625d5502ddbf79b81fb06ddcb1037c8d8281a3bc16b26a02571a6b43a9cc8938"
+    },
+    "copy-guard-artifacts.log": {
+      "raw_bytes": 29163,
+      "raw_sha256": "2add49b10af2c935e072219200c0968d18a2ff22f70feeaf93e18c566ee4cf8f",
+      "gzip_sha256": "f74693a7fba175737555abe0eff4a03536cc61407547dc289cd5b54d6424250d"
+    },
+    "list-irondoc.log": {
+      "raw_bytes": 108,
+      "raw_sha256": "e9816e05ea10657721792d227b3181c89a4d2f17270f250210c7ae548e51468c",
+      "gzip_sha256": "a0f063e16fbfaa370ff5944bdcc2e251774b860a6ca1eb7ebd2a3b3f798fdb5a"
+    },
+    "list-final-compile.log": {
+      "raw_bytes": 176,
+      "raw_sha256": "ecf7a9b43690385b444d8e0e80b5774327efcefc2f514c5b4ed0219dfb75cbed",
+      "gzip_sha256": "8d160dcf43a5effd3a42d8d83a4ddaf1b718da1ed1ef473bc02657cc8398ef42"
+    },
+    "list-final-link.log": {
+      "raw_bytes": 81,
+      "raw_sha256": "fd7ec13f818570a326739a960e48abe894581a63b1fafc1786a63231a76d49bc",
+      "gzip_sha256": "12d9b17cbc7113382ed661b7af1dab71af9e473c22d407c835c93a28beb66a76"
+    },
+    "list-final-rusage.txt": {
+      "raw_bytes": 777,
+      "raw_sha256": "d1b84b2414bfc7dbd8699ae9f1394aca8a9b38844d0e8e2f1a9fcea30a6930ff",
+      "gzip_sha256": "b1f2cd64dd45b29ba94fdd51ef35f7222e167f1c826ea788446dbe2ec6d6d758"
+    },
+    "list-final-stdout.txt": {
+      "raw_bytes": 21,
+      "raw_sha256": "0ed5ad93c64d0caea5dca04f2d585e36261e160856b722ff93c4bd56f5d8d66d",
+      "gzip_sha256": "6c0a6a25988ec0331483df079beb57bf110d90217cd3b4758ac8654f0c4ba5d1"
+    },
+    "list-final-stderr.txt": {
+      "raw_bytes": 0,
+      "raw_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "gzip_sha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64"
+    },
+    "list-final-licenses.log": {
+      "raw_bytes": 54,
+      "raw_sha256": "baf5804aeb26498337c9c5223c199afeba5c3e2fc36ae219b9bf420e3775f673",
+      "gzip_sha256": "21fd3bcaf61e87e10822dd63176f2751a3282de06861c556f8ea5cb4d913c689"
+    }
+  },
+  "sources": {
+    "compiler/src/main/java/ironwood/compiler/semantic/DataStructureSemantics.java": "58006fde0d6458d8ba73cbd7e7393608553c6c9d8149bbe0b4f3b140c2b8e87e",
+    "compiler/src/main/java/ironwood/compiler/semantic/FreshBorrowingFactoryAnalysis.java": "0f38f5c4c76a6b580b13d6403db8cb5f3d92baa006a9de3f1ffe8587d5c3f595",
+    "compiler/src/main/java/ironwood/compiler/semantic/FunctionAnalyzer.java": "33237394f801bd88eef842636599ad98debe3becc675626fd1f34dd5cf65a172",
+    "compiler/src/main/java/ironwood/compiler/semantic/TemporaryListBorrowAnalysis.java": "1af2f0cf6622a6f10ffea34c167f26469945b489c1ee42463b33aa916b621e52",
+    "stdlib/src/main/ironwood/ironwood/ds/ArrayList.iron": "4bacfc3fe702afbb7c3c19c975a75875e24f1d2fdf960ce0129dc449acd7dfdf",
+    "integration-tests/cases/ds_list_copy.iron": "1b472e5ce4a551eb982d5089a3e6cfac78e68823a5af05201b7f57472ebd3fe8",
+    "integration-tests/cases/ds_list_copy_failure.iron": "f503ec5a739279e97ae8dd1192d12a7967cee2c02aa2503f87ed21c9d17f34ba"
+  },
+  "diagnostics": {
+    "suppressions": [],
+    "final_source_compile": {
+      "mode": "warn",
+      "warnings": 0
+    },
+    "final_native_link": {
+      "mode": "warn",
+      "warnings": 0
+    },
+    "final_unique_sites": 0,
+    "prototype_copy_probe": {
+      "warnings": 1,
+      "unique_sites": 1,
+      "site": "workspace/m1/copy-probe.iron:9",
+      "classification": "temporary cleanup: prototype early return before copy free; final fixture uses defer cleanup",
+      "mandatory_errors_in_original_probe": 1
+    }
+  },
+  "native_result": {
+    "exit": 42,
+    "stdout": "8:3\n32:3\n128:3\n512:3\n",
+    "stderr": "",
+    "post_retirement_live_allocation_delta": 0,
+    "method": "System.allocationCount and System.liveAllocationCount fixture assertions; process rusage separately retained",
+    "budget_gate_evaluated": false
+  },
+  "commands": {
+    "final_source_compile": [
+      "./bin/ironwoodc",
+      "integration-tests/cases/ds_list_copy.iron",
+      "--unfreed=warn",
+      "-d",
+      "workspace/m1/list-final"
+    ],
+    "final_native_link": [
+      "./bin/ironwoodc",
+      "--link",
+      "-cp",
+      "workspace/m1/list-final",
+      "--main-class",
+      "Main",
+      "--unfreed=warn",
+      "-O3",
+      "-o",
+      "workspace/m1/list-final-program"
+    ],
+    "native_run": [
+      "/usr/bin/time",
+      "-l",
+      "-o",
+      "workspace/m1/list-final-rusage.txt",
+      "workspace/m1/list-final-program"
+    ],
+    "irondoc": [
+      "./bin/irondoc",
+      "-d",
+      "workspace/m1/list-api",
+      "-sourcepath",
+      "stdlib/src/main/ironwood",
+      "stdlib/src/main/ironwood/ironwood/ds/ArrayList.iron"
+    ],
+    "licenses": [
+      "./scripts/check-licenses.sh"
+    ]
+  },
+  "environment": {
+    "JAVA_HOME": "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home",
+    "production_safety_instrumentation_added": false
+  }
+}

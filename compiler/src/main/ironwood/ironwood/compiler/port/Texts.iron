@@ -1,0 +1,97 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.port;
+
+import ironwood.ds.ArrayList;
+
+/**
+ * Compiler-local text helpers for the semantic and emission consumers:
+ * StringPool's UTF-8 length, {@code Character.toCodePoint}, a literal
+ * {@code replaceFirst} and {@code String.join} over list elements. Inputs are
+ * borrowed; each String result is fresh and owned by the caller.
+ */
+public final class Texts {
+
+    private Texts() {
+
+    }
+
+    /**
+     * StringPool.utf8Length: the UTF-8 byte count of a string constant, with a
+     * surrogate pair as four bytes and each unpaired surrogate as U+FFFD
+     * (three bytes). Nothing is allocated.
+     */
+    public static int utf8Length(String value) {
+
+        int length = 0;
+        int index = 0;
+        while (index < value.length()) {
+            char unit = value.charAt(index);
+            int point = unit;
+            if (Character.isHighSurrogate(unit) && index + 1 < value.length()
+                    && Character.isLowSurrogate(value.charAt(index + 1))) {
+                index++;
+                point = codePoint(unit, value.charAt(index));
+            } else if (Character.isSurrogate(unit)) {
+                point = 0xFFFD;
+            }
+            length = length + (point <= 0x7F ? 1 : point <= 0x7FF ? 2 : point <= 0xFFFF ? 3 : 4);
+            index++;
+        }
+        return length;
+    }
+
+    /**
+     * {@code Character.toCodePoint} for an already validated pair: the
+     * supplementary code point of a high and a low surrogate.
+     */
+    public static int codePoint(char high, char low) {
+
+        return ((high - 0xD800) << 10) + (low - 0xDC00) + 0x10000;
+    }
+
+    /**
+     * {@code text.replaceFirst(target, replacement)} where the regex
+     * {@code target} has no metacharacters and the replacement has no
+     * {@code $} or backslash, as at FunctionAnalyzer.joinNotes: the first
+     * occurrence is replaced and the text is otherwise copied.
+     *
+     * @return a fresh String, equal to the text when the target is absent
+     */
+    public static String replaceFirst(String text, String target, String replacement) {
+
+        int found = text.indexOf(target);
+        StringBuilder out = new StringBuilder();
+        defer free out;
+        if (found < 0) {
+            out.append(text);
+        } else {
+            out.append(text, 0, found).append(replacement).append(text, found + target.length(), text.length());
+        }
+        return out.toString();
+    }
+
+    /** {@code String.join(delimiter, parts)} in list order; empty for an empty list. */
+    public static String join(String delimiter, ArrayList<String> parts) {
+
+        StringBuilder out = new StringBuilder();
+        defer free out;
+        for (int index = 0; index < parts.size(); index++) {
+            if (index > 0) out.append(delimiter);
+            out.append(parts.get(index));
+        }
+        return out.toString();
+    }
+
+    /** {@code String.join(delimiter, parts)} over a snapshot, in order. */
+    public static String join(String delimiter, SnapshotList<String> parts) {
+
+        StringBuilder out = new StringBuilder();
+        defer free out;
+        for (int index = 0; index < parts.size(); index++) {
+            if (index > 0) out.append(delimiter);
+            out.append(parts.get(index));
+        }
+        return out.toString();
+    }
+}

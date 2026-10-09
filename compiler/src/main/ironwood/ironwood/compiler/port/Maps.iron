@@ -1,0 +1,50 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.port;
+
+/**
+ * Java {@code Map} value semantics over a keyed snapshot and its key list.
+ * A keyed snapshot exposes no iteration, so a record component that needs
+ * equality keeps the keys it was built from as a {@link SnapshotList} beside
+ * the {@link SnapshotMap} (D257). The caller guarantees that the key list
+ * holds exactly the snapshot's keys, once each. Nothing is allocated; the
+ * keys' and values' ordinary {@code hashCode} and {@code equals} run.
+ */
+public final class Maps {
+
+    private Maps() {
+
+    }
+
+    /**
+     * Java {@code Map.equals}: equal sizes and, for every key of the first
+     * map, an equal value under that key in the second, in key-list order.
+     */
+    public static <K extends Object, V extends Object> boolean equal(SnapshotMap<K, V> first,
+            SnapshotList<K> firstKeys, SnapshotMap<K, V> second) {
+
+        if (first == second) return true;
+        if (first.size() != second.size()) return false;
+        for (int index = 0; index < firstKeys.size(); index++) {
+            K key = firstKeys.get(index);
+            V other = second.get(key);
+            if (other == null || !first.get(key).equals(other)) return false;
+        }
+        return true;
+    }
+
+    /**
+     * Java {@code Map.hashCode}: the wrapping sum of
+     * {@code key.hashCode() ^ value.hashCode()} over the entries, which does
+     * not depend on key order.
+     */
+    public static <K extends Object, V extends Object> int hash(SnapshotMap<K, V> map, SnapshotList<K> keys) {
+
+        int hash = 0;
+        for (int index = 0; index < keys.size(); index++) {
+            K key = keys.get(index);
+            hash = hash + (key.hashCode() ^ map.get(key).hashCode());
+        }
+        return hash;
+    }
+}

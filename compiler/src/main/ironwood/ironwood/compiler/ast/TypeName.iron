@@ -1,0 +1,228 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.ast;
+
+import ironwood.compiler.port.SnapshotInts;
+import ironwood.compiler.port.SnapshotList;
+import ironwood.compiler.source.SourceSpan;
+
+/**
+ * A source type: primitive, reference, wildcard or array. It ports the Java
+ * frontend AST record {@code TypeName} with its validation in the same order
+ * and messages, and the factories the parser reaches. Type arguments are a
+ * frozen list the node borrows; segment counts are an immutable int sequence
+ * replacing {@code List<Integer>} (D258). Display rendering and qualifier
+ * splitting are later-only and not ported here.
+ */
+public final class TypeName {
+
+    /** The form of a type. */
+    public enum Kind {
+
+        BYTE,
+        SHORT,
+        INT,
+        LONG,
+        CHAR,
+        FLOAT,
+        DOUBLE,
+        BOOLEAN,
+        VOID,
+        REFERENCE,
+        WILDCARD,
+        ARRAY
+    }
+
+    /** The bound form of a wildcard. */
+    public enum WildcardKind {
+
+        UNBOUNDED,
+        EXTENDS,
+        SUPER
+    }
+
+    private final Kind kind;
+    private final String referenceName;
+    private final SnapshotList<TypeName> typeArguments;
+    private final SnapshotInts typeArgumentSegmentCounts;
+    private final TypeName elementType;
+    private final WildcardKind wildcardKind;
+    private final TypeName wildcardBound;
+    private final SourceSpan span;
+
+    /**
+     * Creates a type from its components in record order. Null lists mean
+     * empty, as in Java.
+     *
+     * @throws IllegalArgumentException if the components are inconsistent
+     */
+    public TypeName(Kind kind, String referenceName, SnapshotList<TypeName> typeArguments,
+                    SnapshotInts typeArgumentSegmentCounts, TypeName elementType, WildcardKind wildcardKind,
+                    TypeName wildcardBound, SourceSpan span) {
+
+        if (typeArguments == null) typeArguments = AstLists.NO_TYPE_NAMES;
+        if (typeArgumentSegmentCounts == null) typeArgumentSegmentCounts = AstLists.NO_COUNTS;
+        if (kind == Kind.REFERENCE && (referenceName == null || referenceName.isBlank())) {
+            throw new IllegalArgumentException("reference type requires a class name");
+        }
+        if (kind != Kind.REFERENCE && referenceName != null) {
+            throw new IllegalArgumentException("non-reference types cannot name a class");
+        }
+        if (kind == Kind.ARRAY && (elementType == null || elementType.kind() == Kind.VOID)) {
+            throw new IllegalArgumentException("array type requires a non-void element type");
+        }
+        if (kind != Kind.ARRAY && elementType != null) {
+            throw new IllegalArgumentException("only array types have an element type");
+        }
+        if (kind == Kind.WILDCARD && wildcardKind == null) {
+            throw new IllegalArgumentException("wildcard type requires a wildcard kind");
+        }
+        if (kind != Kind.WILDCARD && (wildcardKind != null || wildcardBound != null)) {
+            throw new IllegalArgumentException("only wildcard types have wildcard bounds");
+        }
+        if (wildcardKind == WildcardKind.UNBOUNDED && wildcardBound != null) {
+            throw new IllegalArgumentException("unbounded wildcard cannot have a bound");
+        }
+        if ((wildcardKind == WildcardKind.EXTENDS || wildcardKind == WildcardKind.SUPER)
+                && wildcardBound == null) {
+            throw new IllegalArgumentException("bounded wildcard requires a bound");
+        }
+        if (kind != Kind.REFERENCE && !typeArguments.isEmpty()) {
+            throw new IllegalArgumentException("only reference types have type arguments");
+        }
+        if (kind != Kind.REFERENCE && !typeArgumentSegmentCounts.isEmpty()) {
+            throw new IllegalArgumentException("only reference types have parameterized name segments");
+        }
+        if (kind == Kind.REFERENCE && typeArgumentSegmentCounts.sum() != typeArguments.size()) {
+            throw new IllegalArgumentException("parameterized name segments must account for every type argument");
+        }
+        if (typeArgumentSegmentCounts.anyNegative()) {
+            throw new IllegalArgumentException("parameterized name segment counts cannot be negative");
+        }
+        if (kind == Kind.REFERENCE && typeArgumentSegmentCounts.size() != segmentCount(referenceName)) {
+            throw new IllegalArgumentException(
+                    "parameterized name segments must match the qualified reference name");
+        }
+        this.kind = kind;
+        this.referenceName = referenceName;
+        this.typeArguments = typeArguments;
+        this.typeArgumentSegmentCounts = typeArgumentSegmentCounts;
+        this.elementType = elementType;
+        this.wildcardKind = wildcardKind;
+        this.wildcardBound = wildcardBound;
+        this.span = span;
+    }
+
+    /**
+     * @param kind a primitive or void kind
+     * @param span the source span
+     * @return the new primitive type
+     */
+    public static TypeName primitive(Kind kind, SourceSpan span) {
+
+        return new TypeName(kind, null, AstLists.NO_TYPE_NAMES, AstLists.NO_COUNTS, null, null, null, span);
+    }
+
+    /**
+     * @param name the qualified reference name
+     * @param typeArguments the borrowed frozen type arguments
+     * @param segmentCounts the borrowed per-segment argument counts
+     * @param span the source span
+     * @return the new reference type
+     */
+    public static TypeName reference(String name, SnapshotList<TypeName> typeArguments,
+                                     SnapshotInts segmentCounts, SourceSpan span) {
+
+        return new TypeName(Kind.REFERENCE, name, typeArguments, segmentCounts, null, null, null, span);
+    }
+
+    /**
+     * @param span the source span
+     * @return the new unbounded wildcard
+     */
+    public static TypeName wildcard(SourceSpan span) {
+
+        return wildcard(WildcardKind.UNBOUNDED, null, span);
+    }
+
+    /**
+     * @param wildcardKind the bound form
+     * @param bound the bound, or null when unbounded
+     * @param span the source span
+     * @return the new wildcard
+     */
+    public static TypeName wildcard(WildcardKind wildcardKind, TypeName bound, SourceSpan span) {
+
+        return new TypeName(Kind.WILDCARD, null, AstLists.NO_TYPE_NAMES, AstLists.NO_COUNTS, null,
+                wildcardKind, bound, span);
+    }
+
+    /**
+     * @param elementType the non-void element type
+     * @param span the source span
+     * @return the new array type
+     */
+    public static TypeName array(TypeName elementType, SourceSpan span) {
+
+        return new TypeName(Kind.ARRAY, null, AstLists.NO_TYPE_NAMES, AstLists.NO_COUNTS, elementType,
+                null, null, span);
+    }
+
+    // The number of literal '.'-separated segments in a qualified name.
+    static int segmentCount(String referenceName) {
+
+        int count = 1;
+        for (int index = 0; index < referenceName.length(); index++) {
+            if (referenceName.charAt(index) == '.') count++;
+        }
+        return count;
+    }
+
+    /** @return the {@code kind} component */
+    public Kind kind() {
+
+        return this.kind;
+    }
+
+    /** @return the {@code referenceName} component, or null */
+    public String referenceName() {
+
+        return this.referenceName;
+    }
+
+    /** @return the {@code typeArguments} component */
+    public SnapshotList<TypeName> typeArguments() {
+
+        return this.typeArguments;
+    }
+
+    /** @return the {@code typeArgumentSegmentCounts} component */
+    public SnapshotInts typeArgumentSegmentCounts() {
+
+        return this.typeArgumentSegmentCounts;
+    }
+
+    /** @return the {@code elementType} component, or null */
+    public TypeName elementType() {
+
+        return this.elementType;
+    }
+
+    /** @return the {@code wildcardKind} component, or null */
+    public WildcardKind wildcardKind() {
+
+        return this.wildcardKind;
+    }
+
+    /** @return the {@code wildcardBound} component, or null */
+    public TypeName wildcardBound() {
+
+        return this.wildcardBound;
+    }
+
+    /** @return the {@code span} component */
+    public SourceSpan span() {
+
+        return this.span;
+    }
+}

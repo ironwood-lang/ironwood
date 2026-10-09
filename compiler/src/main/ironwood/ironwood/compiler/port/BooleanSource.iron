@@ -1,0 +1,14 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.port;
+
+/**
+ * Compiler-local replacement for {@code BooleanSupplier} (API0609), as in
+ * FunctionAnalyzer's flow helpers, which invoke it once between their own
+ * state changes. The result is a primitive; nothing is boxed.
+ */
+public interface BooleanSource {
+
+    /** @return the computed condition; failures propagate to the caller */
+    boolean get();
+}

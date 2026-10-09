@@ -1,0 +1,21 @@
+{
+  "schema": 1,
+  "manifest_sha256": "51e6f55aedd979c1b3c67b49e93434f13af07d2267b41f42ac15f7b3229e00d1",
+  "source_files": 460,
+  "patterns": 712,
+  "external_calls": 30979,
+  "syntax": 12413,
+  "capture_rows": 3054,
+  "hash_origins": 849,
+  "hash_traversals": 2957,
+  "hash_contributions": 31325,
+  "selected_calls": 1330,
+  "selected_captures": 65,
+  "negative_controls": [
+    "missing selected exact call proof",
+    "selected frontend moved to later gate",
+    "missing origin flow edge",
+    "bounded proof promoted to general ordering"
+  ],
+  "limits": "source join and conditional finite gates only; unresolved global contracts still block M0/S0 completion"
+}

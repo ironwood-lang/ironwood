@@ -1,0 +1,33 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// Inject OOM into source and result construction/growth. Both lists own their
+// storage; neither frees borrowed literals. Exit 42 on OOM, 43 on success.
+import ironwood.ds.ArrayList;
+
+class Main {
+
+    static void copyLists() {
+
+        ArrayList<String> source = new ArrayList<String>(1);
+        defer free source;
+        for (int index = 0; index < 256; index++) {
+            source.add("item");
+        }
+        ArrayList<String> copied = source.copy();
+        defer free copied;
+        if (copied.size() != 256 || source.size() != 256) throw new IllegalStateException();
+    }
+
+    public static int main(String[] args) {
+
+        long baseline = System.liveAllocationCount();
+        boolean failed = false;
+        try {
+            copyLists();
+        } catch (OutOfMemoryError failure) {
+            failed = true;
+        }
+        if (System.liveAllocationCount() != baseline) return 1;
+        return failed ? 42 : 43;
+    }
+}

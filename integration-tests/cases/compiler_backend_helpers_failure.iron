@@ -1,0 +1,127 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// Inject allocation failure into the M3.3 helpers: an MD5 digest's
+// construction and fresh result, a byte slice, the four LLVM text results,
+// a target specification, attachment and declaration removal, a Properties
+// parse with its key and value, and both installation discoveries with every
+// intermediate Path and the roots' owner. Every failure unwinds to the live-allocation
+// baseline. Exit 42 on allocation failure with every check intact, 43 on
+// success.
+import ironwood.compiler.port.Bytes;
+import ironwood.compiler.port.Installation;
+import ironwood.compiler.port.LibraryRoots;
+import ironwood.compiler.port.LlvmScan;
+import ironwood.compiler.port.LlvmText;
+import ironwood.compiler.port.Md5;
+import ironwood.compiler.port.PropertiesText;
+import ironwood.io.IOException;
+import ironwood.nio.file.Path;
+
+class Main {
+
+    static void digests() {
+
+        Md5 digest = new Md5();
+        defer free digest;
+        digest.updateUtf8("abc");
+        byte[] bytes = digest.digest();
+        defer free bytes;
+        byte[] slice = Bytes.slice(bytes, 2, 6);
+        defer free slice;
+        if (bytes[0] != (byte) 0x90 || slice.length != 4 || digest.linkageGuid("main") == 0) {
+            throw new IllegalStateException();
+        }
+    }
+
+    static void texts() {
+
+        byte[] raw = {34, 65, (byte) 0xff};
+        defer free raw;
+        String hex = LlvmText.hexBits(0x7ff8000000000000L);
+        defer free hex;
+        String scientific = LlvmText.scientific(0.1);
+        defer free scientific;
+        String escaped = LlvmText.escapeBytes(raw);
+        defer free escaped;
+        String decoded = LlvmText.decodeSymbol("@\"a\\C3\\A9\"");
+        defer free decoded;
+        if (!hex.equals("0x7FF8000000000000") || !scientific.equals("1.00000000000000000e-01")
+                || !escaped.equals("\\22A\\FF") || decoded.length() != 2) {
+            throw new IllegalStateException();
+        }
+    }
+
+    static void scans() throws IOException {
+
+        String llvm = "target triple = \"t\"\ndeclare void @ironwood_trace_register_current(ptr, i32)\n";
+        String value = LlvmScan.specification(llvm, "triple");
+        defer free value;
+        String attached = LlvmScan.attach(llvm, "datalayout", "e");
+        defer free attached;
+        String removed = LlvmScan.removeRegisterDeclaration(llvm);
+        defer free removed;
+        if (!value.equals("t") || !attached.startsWith("target datalayout = \"e\"\n") || removed.length() != 20) {
+            throw new IllegalStateException();
+        }
+    }
+
+    static void properties() {
+
+        PropertiesText parsed = PropertiesText.parse("format=1\nplatform=macos-arm64\n");
+        defer free parsed;
+        String key = parsed.key(1);
+        defer free key;
+        String value = parsed.value(key);
+        defer free value;
+        if (!value.equals("macos-arm64")) throw new IllegalStateException();
+    }
+
+    // The checkout supplies the runtime and at least one library root (a
+    // checkout staged inside another adds that one's root as an ancestor).
+    static void installation() {
+
+        Path location = Path.of("compiler/build/classes");
+        defer free location;
+        StringBuilder error = new StringBuilder();
+        defer free error;
+        Path runtime = Installation.runtimeSource(location, error);
+        if (runtime == null) throw new IllegalStateException();
+        free runtime;
+        LibraryRoots roots = new LibraryRoots();
+        defer free roots;
+        Installation.librarySourceRoots(location, roots);
+        if (roots.size() == 0) throw new IllegalStateException();
+    }
+
+    static void exercise() throws IOException {
+
+        digests();
+        texts();
+        scans();
+        properties();
+        installation();
+    }
+
+    public static int main(String[] args) {
+
+        // The first digest runs the one-time, process-lived table
+        // initialization; take the baseline after it.
+        try {
+            Md5 warm = new Md5();
+            free warm;
+        } catch (OutOfMemoryError failure) {
+            return 42;
+        }
+        long baseline = System.liveAllocationCount();
+        boolean failed = false;
+        try {
+            exercise();
+        } catch (OutOfMemoryError failure) {
+            failed = true;
+        } catch (IOException unexpected) {
+            return 2;
+        }
+        if (System.liveAllocationCount() != baseline) return 1;
+        return failed ? 42 : 43;
+    }
+}

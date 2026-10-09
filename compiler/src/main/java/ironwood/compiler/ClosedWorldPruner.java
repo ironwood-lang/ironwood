@@ -13,6 +13,7 @@ import ironwood.compiler.ir.IrDispatchSlot;
 import ironwood.compiler.ir.IrFieldLoadInstruction;
 import ironwood.compiler.ir.IrFieldStoreInstruction;
 import ironwood.compiler.ir.IrFileInstruction;
+import ironwood.compiler.ir.IrProcessInstruction;
 import ironwood.compiler.ir.IrEnsureTypeInitializedInstruction;
 import ironwood.compiler.ir.IrFunction;
 import ironwood.compiler.ir.IrInstanceOfInstruction;
@@ -232,6 +233,7 @@ final class ClosedWorldPruner {
                 || instruction instanceof IrStringConcatInstruction
                 || instruction instanceof IrSystemGetenvInstruction
                 || instruction instanceof IrFileInstruction
+                || instruction instanceof IrProcessInstruction
                 || instruction instanceof IrStreamInstruction) {
             allocationFailureReachable = true;
             program.allocationFailure().ifPresent(error ->

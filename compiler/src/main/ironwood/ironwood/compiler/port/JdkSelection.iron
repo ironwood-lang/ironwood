@@ -1,0 +1,362 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.port;
+
+import ironwood.io.IOException;
+import ironwood.nio.file.Files;
+import ironwood.nio.file.Path;
+import ironwood.process.ProcessResult;
+
+/**
+ * The native Bridge producer's JDK (D295), in place of the Java producer's
+ * running JVM: BridgeBuildTools' {@code java.home}, {@code Runtime.version()},
+ * {@code ToolProvider} tools and BridgeProducer's {@code java.runtime.version}
+ * and {@code java.vendor} identity inputs.
+ *
+ * <p>The JDK is selected as {@code scripts/jdk.sh} selects it for the Java
+ * producer (D239): a nonempty {@code JAVA_HOME} selects
+ * {@code $JAVA_HOME/bin/java}, and an invalid one fails without fallback;
+ * otherwise the installation's {@code toolchain/lib/jvm/bin/java} when it is
+ * executable; otherwise {@code java} found on {@code PATH} by
+ * {@link ExecutableSearch}, which skips empty entries where a shell would
+ * search the working directory. Relative spellings resolve against the
+ * working directory. The selected {@code java -XshowSettings:properties
+ * -version} then runs through {@code ProcessRunner.runToFile} into a scratch
+ * log, read back within {@link #OUTPUT_LIMIT} bytes and deleted on every path,
+ * and its {@code java.home}, {@code java.specification.version},
+ * {@code java.runtime.version} and {@code java.vendor} lines give the home,
+ * the feature release and the two recorded identity values. A program that
+ * cannot start reports ProcessRunner's failure; one that exits nonzero or
+ * omits a value reports {@code could not inspect selected Java}.
+ *
+ * <p>The gates keep BridgeBuildTools' messages: feature 21 to 25, the
+ * {@code javac} and {@code javadoc} launchers in place of the in-process tools,
+ * and the JNI headers. The tools run by absolute path with BridgeBuildTools'
+ * flags. A selection is one invocation's; its values are handed out as fresh
+ * Strings. Inputs are borrowed.
+ */
+public final class JdkSelection {
+
+    /** The most output the inspection may produce; more is an explicit failure. */
+    public static final long OUTPUT_LIMIT = 1048576L;
+
+    private static final int HOME = 0;
+    private static final int SPECIFICATION = 1;
+    private static final int RUNTIME_VERSION = 2;
+    private static final int VENDOR = 3;
+
+    // The four inspected values, in the order above.
+    private TextList values;
+
+    /**
+     * Selects and inspects the JDK. A failure, including an allocation
+     * failure, rolls back the partly built selection.
+     *
+     * @param root the installation root holding {@code toolchain/lib/jvm}, or null; borrowed
+     * @param scratch the directory receiving the inspection log; borrowed
+     * @param workingDirectory the directory relative spellings resolve against; borrowed
+     * @throws IOException {@code selected Java is missing; set JAVA_HOME to a
+     *     JDK: <path or java on PATH>}, {@code could not inspect selected Java:
+     *     <path>}, or the launch's own failure
+     */
+    public JdkSelection(Path root, Path scratch, Path workingDirectory) throws IOException {
+
+        this.values = new TextList();
+        Path java = selectJava(root, workingDirectory);
+        defer free java;
+        String listing = inspect(java, scratch);
+        defer free listing;
+        addProperty(this.values, listing, "java.home", java);
+        addProperty(this.values, listing, "java.specification.version", java);
+        addProperty(this.values, listing, "java.runtime.version", java);
+        addProperty(this.values, listing, "java.vendor", java);
+    }
+
+    /** @return a fresh copy of the selected JDK's {@code java.home} */
+    public String home() {
+
+        return this.values.get(HOME);
+    }
+
+    /** @return a fresh copy of {@code java.runtime.version}, the recorded {@code jdk.version} */
+    public String runtimeVersion() {
+
+        return this.values.get(RUNTIME_VERSION);
+    }
+
+    /** @return a fresh copy of {@code java.vendor}, the recorded {@code jdk.vendor} */
+    public String vendor() {
+
+        return this.values.get(VENDOR);
+    }
+
+    /** @return the feature release from {@code java.specification.version}, or -1 when it is not an integer */
+    public int feature() {
+
+        int length = this.values.length(SPECIFICATION);
+        if (length == 0 || length > 9) return -1;
+        int value = 0;
+        for (int index = 0; index < length; index++) {
+            char unit = this.values.charAt(SPECIFICATION, index);
+            if (unit < '0' || unit > '9') return -1;
+            value = value * 10 + (unit - '0');
+        }
+        return value;
+    }
+
+    /**
+     * BridgeBuildTools.requireJdk: the feature release is 21 to 25 and the
+     * JDK has its {@code javac} launcher.
+     *
+     * @param operation the operation named in the message; borrowed
+     * @throws IOException with BridgeBuildTools' message
+     */
+    public void requireJdk(String operation) throws IOException {
+
+        int feature = this.feature();
+        if (feature < 21 || feature > 25) {
+            String version = this.values.get(RUNTIME_VERSION);
+            defer free version;
+            throw failure("Java Bridge ", operation, " requires JDK 21, 22, 23, 24 or 25; detected ", version);
+        }
+        if (!this.launcher("javac")) {
+            String home = this.values.get(HOME);
+            defer free home;
+            throw failure("Java Bridge ", operation, " requires the selected JDK's javac component: ", home);
+        }
+    }
+
+    /**
+     * BridgeBuildTools.requireJniHeaders: the producer gate, the two JNI
+     * headers as regular readable files, then the Javadoc gate.
+     *
+     * @param macos whether the target is macOS, whose machine header is under {@code darwin}
+     * @throws IOException with BridgeBuildTools' message
+     */
+    public void requireJniHeaders(boolean macos) throws IOException {
+
+        this.requireJdk("producer");
+        this.requireHeader("include/jni.h");
+        this.requireHeader(macos ? "include/darwin/jni_md.h" : "include/linux/jni_md.h");
+        this.requireJavadoc();
+    }
+
+    /**
+     * BridgeBuildTools.requireJavadoc: the Javadoc generation gate and the
+     * {@code javadoc} launcher.
+     *
+     * @throws IOException with BridgeBuildTools' message
+     */
+    public void requireJavadoc() throws IOException {
+
+        this.requireJdk("Javadoc generation");
+        if (!this.launcher("javadoc")) {
+            String home = this.values.get(HOME);
+            defer free home;
+            throw failure("Java Bridge producer requires the selected JDK's Javadoc component: ", home, "", "");
+        }
+    }
+
+    /**
+     * Runs {@code javac} with BridgeBuildTools.java's flags and the given
+     * class path (empty there, the host jar for the assembler).
+     *
+     * @param sources the source files; borrowed
+     * @param classPath the class path argument; borrowed
+     * @param classes the output directory; borrowed
+     * @param work the tool's working directory, which receives its scratch log; borrowed
+     * @param diagnostics receives the tool's merged output
+     * @return the exit status
+     * @throws IOException if the tool cannot start or its log cannot be read
+     */
+    public int javac(TextList sources, String classPath, Path classes, Path work, StringBuilder diagnostics) throws IOException {
+
+        Command command = new Command(14 + sources.size());
+        defer free command;
+        this.tool(command, "javac");
+        command.add("--release").add("21").add("-encoding").add("UTF-8").add("-proc:none").add("-Xlint:all");
+        command.add("-Werror").add("--class-path").add(classPath).add("--source-path").add("").add("-d").add(classes);
+        addSources(command, sources);
+        return run(command, work, diagnostics);
+    }
+
+    /**
+     * Runs {@code javadoc} with BridgeBuildTools.javadoc's flags.
+     *
+     * @param sources the source files; borrowed
+     * @param classes the class path, the compiled facade; borrowed
+     * @param output the documentation directory; borrowed
+     * @param work the tool's working directory, which receives its scratch log; borrowed
+     * @param diagnostics receives the tool's merged output
+     * @return the exit status
+     * @throws IOException if the tool cannot start or its log cannot be read
+     */
+    public int javadoc(TextList sources, Path classes, Path output, Path work, StringBuilder diagnostics) throws IOException {
+
+        Command command = new Command(14 + sources.size());
+        defer free command;
+        this.tool(command, "javadoc");
+        command.add("--release").add("21").add("-encoding").add("UTF-8").add("-quiet").add("-Xdoclint:none");
+        command.add("-notimestamp").add("--class-path").add(classes).add("--source-path").add("").add("-d").add(output);
+        addSources(command, sources);
+        return run(command, work, diagnostics);
+    }
+
+    // The selected java: JAVA_HOME, then the installation's JDK, then PATH.
+    private static Path selectJava(Path root, Path workingDirectory) throws IOException {
+
+        String javaHome = System.getenv("JAVA_HOME");
+        if (javaHome != null && !javaHome.isEmpty()) {
+            defer free javaHome;
+            String spelling = javaHome + "/bin/java";
+            defer free spelling;
+            Path selected = workingDirectory.resolve(spelling);
+            if (Files.isExecutable(selected)) return selected;
+            free selected;
+            throw failure("selected Java is missing; set JAVA_HOME to a JDK: ", spelling, "", "");
+        }
+        if (javaHome != null) free javaHome;
+        if (root != null) {
+            Path bundled = root.resolve("toolchain/lib/jvm/bin/java");
+            if (Files.isExecutable(bundled)) return bundled;
+            free bundled;
+        }
+        Path found = onPath(workingDirectory);
+        if (found == null) throw new IOException("selected Java is missing; set JAVA_HOME to a JDK: java on PATH");
+        return found;
+    }
+
+    private static Path onPath(Path workingDirectory) {
+
+        String path = System.getenv("PATH");
+        Path found = null;
+        if (path != null) {
+            defer free path;
+            found = ExecutableSearch.find("java", path, workingDirectory);
+        }
+        return found;
+    }
+
+    // The property listing of the selected java.
+    private static String inspect(Path java, Path scratch) throws IOException {
+
+        Command command = new Command(3);
+        defer free command;
+        command.add(java).add("-XshowSettings:properties").add("-version");
+        Path log = Files.createTempFile(scratch, "jdk-", ".log");
+        defer free log;
+        try {
+            ProcessResult result = command.run(null, log);
+            defer free result;
+            if (Files.size(log) > OUTPUT_LIMIT || result.exitValue() != 0) {
+                throw failure("could not inspect selected Java: ", java.toString(), "", "");
+            }
+            byte[] bytes = Files.readAllBytes(log);
+            defer free bytes;
+            return new String(bytes);
+        } finally {
+            Files.deleteIfExists(log);
+        }
+    }
+
+    // Adds a listing line's value: the line, without leading white space,
+    // starts with "<key> = "; the value runs to the line's end.
+    private static void addProperty(TextList values, String listing, String key, Path java) throws IOException {
+
+        int line = 0;
+        while (line < listing.length()) {
+            int end = listing.indexOf('\n', line);
+            if (end < 0) end = listing.length();
+            int start = line;
+            while (start < end && (listing.charAt(start) == ' ' || listing.charAt(start) == '\t')) start++;
+            if (listing.startsWith(key, start) && listing.startsWith(" = ", start + key.length())) {
+                int valueEnd = end > start && listing.charAt(end - 1) == '\r' ? end - 1 : end;
+                values.addRange(listing, start + key.length() + 3, valueEnd);
+                return;
+            }
+            line = end + 1;
+        }
+        throw failure("could not inspect selected Java: ", java.toString(), "", "");
+    }
+
+    // Whether bin/<name> under the home is a regular executable file.
+    private boolean launcher(String name) {
+
+        Path tool = this.homeChild("bin/", name);
+        defer free tool;
+        return Files.isRegularFile(tool) && Files.isExecutable(tool);
+    }
+
+    private void requireHeader(String name) throws IOException {
+
+        Path header = this.homeChild("", name);
+        defer free header;
+        if (!Files.isRegularFile(header) || !Files.isReadable(header)) {
+            throw failure("Java Bridge producer requires the selected JDK's JNI header: ", header.toString(), "", "");
+        }
+    }
+
+    // Adds the tool's absolute path.
+    private void tool(Command command, String name) {
+
+        Path tool = this.homeChild("bin/", name);
+        defer free tool;
+        command.add(tool);
+    }
+
+    // A fresh path of directory and name under the home.
+    private Path homeChild(String directory, String name) {
+
+        String home = this.values.get(HOME);
+        defer free home;
+        Path homePath = Path.of(home);
+        defer free homePath;
+        String relative = directory + name;
+        defer free relative;
+        return homePath.resolve(relative);
+    }
+
+    private static void addSources(Command command, TextList sources) {
+
+        for (int index = 0; index < sources.size(); index++) {
+            String source = sources.get(index);
+            defer free source;
+            command.add(source);
+        }
+    }
+
+    // Runs a tool in work with a scratch log that is read into diagnostics and deleted.
+    private static int run(Command command, Path work, StringBuilder diagnostics) throws IOException {
+
+        Path log = Files.createTempFile(work, "jdk-tool-", ".log");
+        defer free log;
+        try {
+            ProcessResult result = command.run(work, log);
+            defer free result;
+            String output = Files.readString(log);
+            defer free output;
+            diagnostics.append(output);
+            return result.exitValue();
+        } finally {
+            Files.deleteIfExists(log);
+        }
+    }
+
+    // An IOException whose message joins four parts.
+    private static IOException failure(String first, String second, String third, String fourth) {
+
+        StringBuilder message = new StringBuilder();
+        defer free message;
+        message.append(first);
+        message.append(second);
+        message.append(third);
+        message.append(fourth);
+        String text = message.toString();
+        return new IOException(text);
+    }
+
+    destructor {
+
+        free this.values;
+    }
+}

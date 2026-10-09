@@ -1,0 +1,198 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// Bounded integer literal decoding and width-aware folding against J0:
+// docs/self-hosting/m3/semantic-evidence/IntegralReference.java calls the
+// real IntegerLiteralDecoder and FunctionAnalyzer folds by reflection, and
+// this transcript must equal it. Literal spellings cover fixed malformed and
+// boundary cases (non-ASCII digits, underscores everywhere, prefixes and
+// suffixes, magnitudes up to 2^64 with leading zeros) and 20,000 seeded
+// spellings, each plain and negated; folds cover wrapping to every width,
+// eleven binary operators and an unfolded comparison over boundary operands,
+// negation, complement and constant narrowing. Every text is freed. Exit 42.
+import ironwood.compiler.ast.BinaryOperator;
+import ironwood.compiler.port.IntegerLiterals;
+import ironwood.compiler.port.IntegralConstants;
+import ironwood.compiler.port.OperationVariants;
+
+class Main {
+
+    static long seed = 314159L;
+    static String[] fixed = {"", "_", "L", "l", "0", "00", "0L", "0x", "0b", "0xL", "0bL", "0b2", "12abc",
+        "1L2", "0x1g", "08", "0_8", "٣", "1٣", "0x١", "0b١", "１２", "0x_", "_1",
+        "1_", "1__0", "0x7fff_ffff", "0X80000000", "0xFFFFFFFFL", "0x1_0000_0000L", "0xFFFFFFFFFFFFFFFFL",
+        "0x10000000000000000L", "0xFFFFFFFFFFFFFFFFF", "0b11111111111111111111111111111111",
+        "0b111111111111111111111111111111111", "2147483647", "2147483648", "2147483649", "9223372036854775807L",
+        "9223372036854775808L", "9223372036854775809L", "18446744073709551615L", "18446744073709551616L",
+        "000000000000000000000000000000000000000000000002147483647", "0x00000000000000000000000000000ff"};
+    static String[] prefixes = {"", "0x", "0X", "0b", "0B"};
+    static String[] suffixes = {"", "L", "l"};
+    static String[] zeros = {"", "0", "00000000000000000000"};
+    static String[] decimal = {"0", "1", "2147483647", "2147483648", "4294967295", "4294967296",
+        "9223372036854775807", "9223372036854775808", "18446744073709551615", "18446744073709551616"};
+    static String[] hexadecimal = {"0", "1", "7fffffff", "80000000", "ffffffff", "100000000", "7fffffffffffffff",
+        "8000000000000000", "ffffffffffffffff", "10000000000000000"};
+    static String[] binary = {"0", "1", "1111111111111111111111111111111", "10000000000000000000000000000000",
+        "11111111111111111111111111111111", "100000000000000000000000000000000",
+        "111111111111111111111111111111111111111111111111111111111111111",
+        "1000000000000000000000000000000000000000000000000000000000000000",
+        "1111111111111111111111111111111111111111111111111111111111111111",
+        "10000000000000000000000000000000000000000000000000000000000000000"};
+    static String alphabet = "0123456789abcdefABCDEFxXbBlL_١g";
+
+    static int next(int bound) {
+
+        seed = seed * 6364136223846793005L + 1442695040888963407L;
+        return (int) ((seed >>> 33) % bound);
+    }
+
+    static void escape(StringBuilder out, String text) {
+
+        for (int index = 0; index < text.length(); index++) {
+            char character = text.charAt(index);
+            if (character >= 0x20 && character < 0x7f) {
+                out.append(character);
+            } else {
+                out.append("\\u");
+                for (int shift = 12; shift >= 0; shift = shift - 4) {
+                    out.append("0123456789abcdef".charAt((character >> shift) & 15));
+                }
+            }
+        }
+    }
+
+    static void literal(String spelling) {
+
+        for (int pass = 0; pass < 2; pass++) {
+            boolean negated = pass == 1;
+            StringBuilder line = new StringBuilder();
+            defer free line;
+            line.append("lit ");
+            escape(line, spelling);
+            line.append(' ').append(negated).append(' ').append(IntegerLiterals.isLong(spelling) ? "I64" : "I32");
+            String error = IntegerLiterals.error(spelling, negated);
+            if (error != null) {
+                line.append(" error ").append(error);
+                free error;
+            } else {
+                line.append(" value ").append(IntegerLiterals.value(spelling, negated));
+            }
+            System.out.println(line.toString());
+        }
+    }
+
+    static String underscored(String text) {
+
+        StringBuilder out = new StringBuilder();
+        defer free out;
+        for (int index = 0; index < text.length(); index++) {
+            if (index > 0) out.append('_');
+            out.append(text.charAt(index));
+        }
+        return out.toString();
+    }
+
+    static void literals() {
+
+        for (int index = 0; index < fixed.length; index++) literal(fixed[index]);
+        for (int prefix = 0; prefix < prefixes.length; prefix++) {
+            String[] digits = prefix == 0 ? decimal : prefix < 3 ? hexadecimal : binary;
+            for (int magnitude = 0; magnitude < digits.length; magnitude++) {
+                for (int zero = 0; zero < zeros.length; zero++) {
+                    for (int suffix = 0; suffix < suffixes.length; suffix++) {
+                        String body = zeros[zero] + digits[magnitude];
+                        String plain = prefixes[prefix] + body + suffixes[suffix];
+                        literal(plain);
+                        free plain;
+                        String spaced = underscored(body);
+                        String separated = prefixes[prefix] + spaced + suffixes[suffix];
+                        literal(separated);
+                        free separated;
+                        free spaced;
+                        free body;
+                    }
+                }
+            }
+        }
+        for (int round = 0; round < 20000; round++) {
+            StringBuilder spelling = new StringBuilder();
+            defer free spelling;
+            spelling.append(prefixes[next(prefixes.length)]);
+            int length = next(24);
+            for (int index = 0; index < length; index++) spelling.append(alphabet.charAt(next(alphabet.length())));
+            String text = spelling.toString();
+            literal(text);
+            free text;
+        }
+    }
+
+    static void folds() {
+
+        long[] values = {0, 1, -1, 2, -2, 7, -7, 31, 32, 33, 63, 64, Integer.MAX_VALUE, Integer.MIN_VALUE,
+            Integer.MAX_VALUE - 1, Integer.MIN_VALUE + 1, 0x55555555L, (int) 0xAAAAAAAAL, 1000000007, -1000000007,
+            Long.MAX_VALUE, Long.MIN_VALUE, Long.MAX_VALUE - 1, Long.MIN_VALUE + 1, 1L << 32, -(1L << 32),
+            0x5555555555555555L, 0xAAAAAAAAAAAAAAAAL, 65535, 65536, -32768, 32767, 127, -128, 255, 256};
+        defer free values;
+        OperationVariants.TypeKind[] widths = {OperationVariants.TypeKind.I8, OperationVariants.TypeKind.I16,
+            OperationVariants.TypeKind.U16, OperationVariants.TypeKind.I32, OperationVariants.TypeKind.I64};
+        defer free widths;
+        for (int index = 0; index < values.length; index++) {
+            StringBuilder line = new StringBuilder();
+            defer free line;
+            line.append("wrap ").append(values[index]);
+            for (int width = 0; width < widths.length; width++) {
+                line.append(' ').append(IntegralConstants.wrap(values[index], widths[width]));
+            }
+            System.out.println(line.toString());
+        }
+        BinaryOperator[] operators = {BinaryOperator.ADD, BinaryOperator.SUBTRACT, BinaryOperator.MULTIPLY,
+            BinaryOperator.DIVIDE, BinaryOperator.REMAINDER, BinaryOperator.SHIFT_LEFT, BinaryOperator.SHIFT_RIGHT,
+            BinaryOperator.UNSIGNED_SHIFT_RIGHT, BinaryOperator.BITWISE_AND, BinaryOperator.BITWISE_XOR,
+            BinaryOperator.BITWISE_OR, BinaryOperator.LESS};
+        defer free operators;
+        for (int pass = 0; pass < 2; pass++) {
+            OperationVariants.TypeKind type = pass == 0 ? OperationVariants.TypeKind.I32 : OperationVariants.TypeKind.I64;
+            for (int operator = 0; operator < operators.length; operator++) {
+                long hash = 17;
+                int defined = 0;
+                for (int left = 0; left < values.length; left++) {
+                    long l = IntegralConstants.wrap(values[left], type);
+                    for (int right = 0; right < values.length; right++) {
+                        long r = IntegralConstants.wrap(values[right], type);
+                        long encoded = 0x7357L;
+                        if (IntegralConstants.defines(operators[operator], r)) {
+                            encoded = IntegralConstants.binary(operators[operator], l, r, type);
+                            defined++;
+                        }
+                        hash = hash * 31 + encoded;
+                    }
+                }
+                System.out.println("binary " + type.name() + " " + operators[operator].name() + " defined "
+                        + defined + " hash " + hash);
+            }
+            for (int index = 0; index < values.length; index++) {
+                long v = IntegralConstants.wrap(values[index], type);
+                System.out.println("unary " + type.name() + " " + v + " " + IntegralConstants.negate(v, type) + " "
+                        + IntegralConstants.complement(v, type));
+            }
+        }
+        for (int index = 0; index < values.length; index++) {
+            StringBuilder line = new StringBuilder();
+            defer free line;
+            line.append("narrow ").append(values[index]);
+            for (int actual = 0; actual < widths.length; actual++) {
+                for (int expected = 0; expected < widths.length; expected++) {
+                    long v = IntegralConstants.wrap(values[index], widths[actual]);
+                    line.append(IntegralConstants.fitsNarrowing(v, widths[actual], widths[expected]) ? '1' : '0');
+                }
+            }
+            System.out.println(line.toString());
+        }
+    }
+
+    public static int main(String[] args) {
+
+        literals();
+        folds();
+        return 42;
+    }
+}

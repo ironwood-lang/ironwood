@@ -1,0 +1,19 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.ast;
+
+import ironwood.compiler.source.SourceSpan;
+
+/**
+ * A statement node.
+ * Ports the Java sealed interface {@code Statement}: implementations report their
+ * closed variant so consumers dispatch with an exhaustive {@code switch} (D260).
+ */
+public interface Statement {
+
+    /** @return the source span */
+    SourceSpan span();
+
+    /** @return this node's closed variant */
+    StatementVariant statementVariant();
+}

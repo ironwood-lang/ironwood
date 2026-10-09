@@ -1,0 +1,28 @@
+{
+ "evidence": "docs/self-hosting/m3/sort-evidence",
+ "run": "workspace/m3/sort-evidence",
+ "increment": "M3.1 B2 ArrayList.sortWithComparator (D263)",
+ "reproduce": "docs/self-hosting/m3/sort-evidence/run-evidence.sh d077d1ff1713a36b208ece2e87810cb2ebb5dd19",
+ "sources": [
+  "stdlib/src/main/ironwood/ironwood/ds/ArrayList.iron",
+  "integration-tests/cases/ds_array_list_sort.iron",
+  "integration-tests/cases/ds_array_list_sort_failure.iron",
+  "compiler/src/test/java/ironwood/compiler/ListSortTests.java",
+  "docs/self-hosting/m3/sort-evidence/ListSortReference.java",
+  "docs/self-hosting/m3/sort-evidence/O3Sort.iron",
+  "docs/self-hosting/m3/sort-evidence/SortBench.iron",
+  "docs/self-hosting/m3/sort-evidence/compare_functions.py",
+  "docs/self-hosting/m3/sort-evidence/run-evidence.sh"
+ ],
+ "logs": ["commit.txt", "status.txt", "build.log", "build-identity.txt", "tests.log",
+  "java-1.txt", "java-2.txt", "java-3.txt", "java-4.txt", "native.txt", "transcript-compare.log",
+  "fixture-compile.log", "fixture-link.log", "failure-compile.log", "failure-link.log", "oom.log",
+  "o3-single-link.log", "o3-poly-link.log", "o3-single-mergeSort.s", "o3-poly-mergeSort.s",
+  "bench-load.txt", "bench-compile.log", "bench-link.log", "bench.txt", "base-build.log",
+  "llvm-functions.log", "irondoc.log", "diff-check.log", "licenses.log"],
+ "extra": {
+  "java_reference_runs": 4,
+  "transcript_sha256": "cc160d6220c7e897c7eae62f93cc1d7584ef9525ecc6c4f3acadfef10e92533e",
+  "pre_change_base": "adfa0515194209c1cd4fb2766f3097ea79f51573"
+ }
+}

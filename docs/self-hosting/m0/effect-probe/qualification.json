@@ -1,0 +1,83 @@
+{
+  "schema": 1,
+  "J0_revision": "6bde84df320e9dbc32977a2b665d214ac09bc2d4",
+  "J0_seed_sha256": "2a8b10ab5575f84d3660b3824a4b80cba7f6f9110023e7e30db3b41103893ad7",
+  "profile": [
+    "-Xms256m",
+    "-Xmx4096m",
+    "-Xss8m",
+    "-XX:+UseG1GC"
+  ],
+  "probe_sha256": "55c514c6e930aa7c8a1f759608b3bfa79735a48d9bb950094b59238be593c99f",
+  "cases": "8/65/257 parameters; colliding linkage/function and target permutations; retained observer rounds; foreign unions; rendered-result exclusion; unwind reachability and cyclic initialization closure",
+  "limits": "no resource measurement or native implementation; invalid internal IR and diagnostic ordering not qualified by this probe",
+  "commands": [
+    {
+      "argv": [
+        "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home/bin/javac",
+        "--release",
+        "21",
+        "-Xlint:all",
+        "-Werror",
+        "-cp",
+        "/Users/developer/workspace-mba-m2/Ironwood/target/self-hosting-m0/J0-final2/lib/ironwoodc.jar",
+        "-d",
+        "/Users/developer/workspace-mba-m2/Ironwood/target/self-hosting-m0/effect-probe-classes",
+        "/Users/developer/workspace-mba-m2/Ironwood/scripts/self-hosting/EffectContractProbe.java"
+      ],
+      "returncode": 0
+    },
+    {
+      "argv": [
+        "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home/bin/java",
+        "-Xms256m",
+        "-Xmx4096m",
+        "-Xss8m",
+        "-XX:+UseG1GC",
+        "-cp",
+        "/Users/developer/workspace-mba-m2/Ironwood/target/self-hosting-m0/effect-probe-classes:/Users/developer/workspace-mba-m2/Ironwood/target/self-hosting-m0/J0-final2/lib/ironwoodc.jar",
+        "ironwood.compiler.semantic.EffectContractProbe"
+      ],
+      "returncode": 0
+    },
+    {
+      "argv": [
+        "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home/bin/java",
+        "-Xms256m",
+        "-Xmx4096m",
+        "-Xss8m",
+        "-XX:+UseG1GC",
+        "-cp",
+        "/Users/developer/workspace-mba-m2/Ironwood/target/self-hosting-m0/effect-probe-classes:/Users/developer/workspace-mba-m2/Ironwood/target/self-hosting-m0/J0-final2/lib/ironwoodc.jar",
+        "ironwood.compiler.semantic.EffectContractProbe"
+      ],
+      "returncode": 0
+    },
+    {
+      "argv": [
+        "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home/bin/java",
+        "-Xms256m",
+        "-Xmx4096m",
+        "-Xss8m",
+        "-XX:+UseG1GC",
+        "-cp",
+        "/Users/developer/workspace-mba-m2/Ironwood/target/self-hosting-m0/effect-probe-classes:/Users/developer/workspace-mba-m2/Ironwood/target/self-hosting-m0/J0-final2/lib/ironwoodc.jar",
+        "ironwood.compiler.semantic.EffectContractProbe"
+      ],
+      "returncode": 0
+    },
+    {
+      "argv": [
+        "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home/bin/java",
+        "-Xms256m",
+        "-Xmx4096m",
+        "-Xss8m",
+        "-XX:+UseG1GC",
+        "-cp",
+        "/Users/developer/workspace-mba-m2/Ironwood/target/self-hosting-m0/effect-probe-classes:/Users/developer/workspace-mba-m2/Ironwood/target/self-hosting-m0/J0-final2/lib/ironwoodc.jar",
+        "ironwood.compiler.semantic.EffectContractProbe"
+      ],
+      "returncode": 0
+    }
+  ]
+}

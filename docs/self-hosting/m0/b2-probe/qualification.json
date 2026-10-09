@@ -1,0 +1,84 @@
+{
+  "schema": 1,
+  "J0_revision": "6bde84df320e9dbc32977a2b665d214ac09bc2d4",
+  "J0_seed_sha256": "2a8b10ab5575f84d3660b3824a4b80cba7f6f9110023e7e30db3b41103893ad7",
+  "profile": [
+    "-Xms256m",
+    "-Xmx4096m",
+    "-Xss8m",
+    "-XX:+UseG1GC"
+  ],
+  "probe_sha256": "3cdd5cff38055cb9820b3f54145ad2a97ae865d2fd6a51a690236dfe1038002c",
+  "helper_source_sha256": {},
+  "cases": "natural UTF-16 names; nullable sorted-map values and absent membership; independent copies and immutable first entry; comparator-zero deduplication/first representative; stable equal-key sorting and min/max selection; reverse extreme sign and unsigned keys; null comparator/extractor/item failures",
+  "limits": "JDK contract facts only; compiler producer/tie ordering remains source-gated; no native B2 helper or resource measurement",
+  "commands": [
+    {
+      "argv": [
+        "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home/bin/javac",
+        "--release",
+        "21",
+        "-Xlint:all",
+        "-Werror",
+        "-cp",
+        "/Users/developer/workspace-mba-m2/Ironwood/target/self-hosting-m0/J0-final2/lib/ironwoodc.jar",
+        "-d",
+        "/Users/developer/workspace-mba-m2/Ironwood/target/self-hosting-m0/b2-probe-classes",
+        "/Users/developer/workspace-mba-m2/Ironwood/scripts/self-hosting/B2ContractProbe.java"
+      ],
+      "returncode": 0
+    },
+    {
+      "argv": [
+        "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home/bin/java",
+        "-Xms256m",
+        "-Xmx4096m",
+        "-Xss8m",
+        "-XX:+UseG1GC",
+        "-cp",
+        "/Users/developer/workspace-mba-m2/Ironwood/target/self-hosting-m0/b2-probe-classes:/Users/developer/workspace-mba-m2/Ironwood/target/self-hosting-m0/J0-final2/lib/ironwoodc.jar",
+        "ironwood.compiler.B2ContractProbe"
+      ],
+      "returncode": 0
+    },
+    {
+      "argv": [
+        "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home/bin/java",
+        "-Xms256m",
+        "-Xmx4096m",
+        "-Xss8m",
+        "-XX:+UseG1GC",
+        "-cp",
+        "/Users/developer/workspace-mba-m2/Ironwood/target/self-hosting-m0/b2-probe-classes:/Users/developer/workspace-mba-m2/Ironwood/target/self-hosting-m0/J0-final2/lib/ironwoodc.jar",
+        "ironwood.compiler.B2ContractProbe"
+      ],
+      "returncode": 0
+    },
+    {
+      "argv": [
+        "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home/bin/java",
+        "-Xms256m",
+        "-Xmx4096m",
+        "-Xss8m",
+        "-XX:+UseG1GC",
+        "-cp",
+        "/Users/developer/workspace-mba-m2/Ironwood/target/self-hosting-m0/b2-probe-classes:/Users/developer/workspace-mba-m2/Ironwood/target/self-hosting-m0/J0-final2/lib/ironwoodc.jar",
+        "ironwood.compiler.B2ContractProbe"
+      ],
+      "returncode": 0
+    },
+    {
+      "argv": [
+        "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home/bin/java",
+        "-Xms256m",
+        "-Xmx4096m",
+        "-Xss8m",
+        "-XX:+UseG1GC",
+        "-cp",
+        "/Users/developer/workspace-mba-m2/Ironwood/target/self-hosting-m0/b2-probe-classes:/Users/developer/workspace-mba-m2/Ironwood/target/self-hosting-m0/J0-final2/lib/ironwoodc.jar",
+        "ironwood.compiler.B2ContractProbe"
+      ],
+      "returncode": 0
+    }
+  ]
+}

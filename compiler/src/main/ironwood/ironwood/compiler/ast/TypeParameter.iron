@@ -1,0 +1,46 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.ast;
+
+import ironwood.compiler.port.SnapshotList;
+import ironwood.compiler.source.SourceSpan;
+
+/**
+ * Port of the Java frontend AST record {@code TypeParameter}. Components keep the
+ * record's order; {@code Optional} components are nullable, and list components are
+ * frozen, independent copies that the node borrows for the invocation.
+ */
+public final class TypeParameter {
+
+    private final String name;
+    private final SnapshotList<TypeName> upperBounds;
+    private final SourceSpan span;
+
+    /** Creates the node from its components in record order. */
+    public TypeParameter(String name, SnapshotList<TypeName> upperBounds, SourceSpan span) {
+
+        if (name == null || name.isBlank()) throw new IllegalArgumentException("type parameter requires a name");
+        if (upperBounds == null) upperBounds = AstLists.NO_TYPE_NAMES;
+        this.name = name;
+        this.upperBounds = upperBounds;
+        this.span = span;
+    }
+
+    /** @return the {@code name} component */
+    public String name() {
+
+        return this.name;
+    }
+
+    /** @return the {@code upperBounds} component */
+    public SnapshotList<TypeName> upperBounds() {
+
+        return this.upperBounds;
+    }
+
+    /** @return the {@code span} component */
+    public SourceSpan span() {
+
+        return this.span;
+    }
+}

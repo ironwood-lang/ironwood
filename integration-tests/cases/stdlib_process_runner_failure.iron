@@ -1,0 +1,50 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// Inject allocation failure around a launch: the command array, the output
+// and directory Paths, the result and the read-back of the output, with the
+// helper (argument 0) printing its argument from the scratch directory
+// (argument 1). The output file is deleted on every exit. Exit 42 on
+// allocation failure with the live-allocation baseline restored, 43 on
+// success.
+import ironwood.io.IOException;
+import ironwood.nio.file.Files;
+import ironwood.nio.file.Path;
+import ironwood.process.ProcessResult;
+import ironwood.process.ProcessRunner;
+
+class Main {
+
+    static void launch(String helper, String scratch) throws IOException {
+
+        Path directory = Path.of(scratch);
+        defer free directory;
+        Path output = directory.resolve("launch.log");
+        defer free output;
+        String[] command = {helper, "argv", "value"};
+        defer free command;
+        try {
+            ProcessResult result = ProcessRunner.runToFile(command, directory, output);
+            defer free result;
+            String text = Files.readString(output);
+            defer free text;
+            if (result.exitValue() != 0 || !text.equals("[value]\n")) throw new IllegalStateException();
+        } finally {
+            Files.deleteIfExists(output);
+        }
+    }
+
+    public static int main(String[] args) {
+
+        long baseline = System.liveAllocationCount();
+        boolean failed = false;
+        try {
+            launch(args[0], args[1]);
+        } catch (OutOfMemoryError failure) {
+            failed = true;
+        } catch (IOException unexpected) {
+            return 2;
+        }
+        if (System.liveAllocationCount() != baseline) return 1;
+        return failed ? 42 : 43;
+    }
+}

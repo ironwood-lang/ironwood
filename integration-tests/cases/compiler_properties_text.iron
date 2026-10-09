@@ -1,0 +1,153 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// The compiler-private Properties subset against Java 21 Properties.load
+// (docs/self-hosting/m3/backend-evidence/PropertiesReference.java). The
+// arguments are corpus files: the pinned packaging inventories in LF, CRLF
+// and CR forms, a generated build.properties, separator, whitespace, comment,
+// duplicate and terminator cases, and seeded texts. For each admitted file it
+// prints the size, every entry in sorted key order, containsKey probes and
+// Properties.equals with itself and with the next admitted file; a text
+// with a backslash is rejected, as the admitted format requires. Native-only
+// checks then cover allocation: a parse holds itself, a copy of its text and
+// a default bounds list; lookups allocate nothing, keys and values one fresh
+// String each.
+// Exit 42.
+import ironwood.compiler.port.PropertiesText;
+import ironwood.ds.IntArrayList;
+import ironwood.io.IOException;
+import ironwood.nio.file.Files;
+import ironwood.nio.file.Path;
+
+class Main {
+
+    static String[] probes = {"format", "platform", "missing", ""};
+
+    static boolean admitted(String text) {
+
+        return text.indexOf('\\') < 0;
+    }
+
+    static boolean greater(PropertiesText parsed, int first, int second) {
+
+        String left = parsed.key(first);
+        String right = parsed.key(second);
+        boolean result = left.compareTo(right) > 0;
+        free right;
+        free left;
+        return result;
+    }
+
+    // Entry indices in key order, by an insertion sort over fresh keys.
+    static int[] sorted(PropertiesText parsed) {
+
+        int[] order = new int[parsed.size()];
+        for (int index = 0; index < order.length; index++) order[index] = index;
+        for (int index = 1; index < order.length; index++) {
+            int current = order[index];
+            int at = index - 1;
+            while (at >= 0 && greater(parsed, order[at], current)) {
+                order[at + 1] = order[at];
+                at--;
+            }
+            order[at + 1] = current;
+        }
+        return order;
+    }
+
+    static void report(int index, String text, String[] args) {
+
+        PropertiesText parsed = PropertiesText.parse(text);
+        defer free parsed;
+        System.out.println("file " + index + " size " + parsed.size());
+        int[] order = sorted(parsed);
+        defer free order;
+        for (int entry = 0; entry < order.length; entry++) {
+            String key = parsed.key(order[entry]);
+            String value = parsed.value(key);
+            System.out.println("entry " + key + "=" + value + "|");
+            free value;
+            free key;
+        }
+        for (int probe = 0; probe < probes.length; probe++) {
+            System.out.println("contains " + probes[probe] + " " + parsed.containsKey(probes[probe]));
+        }
+        PropertiesText again = PropertiesText.parse(text);
+        System.out.println("self " + parsed.sameEntries(again));
+        free again;
+        if (index + 1 < args.length) {
+            Path nextPath = Path.of(args[index + 1]);
+            try {
+                String nextText = Files.readString(nextPath);
+                if (admitted(nextText)) {
+                    PropertiesText next = PropertiesText.parse(nextText);
+                    System.out.println("next " + parsed.sameEntries(next) + " " + next.sameEntries(parsed));
+                    free next;
+                }
+                free nextText;
+            } catch (IOException ignored) {
+                System.out.println("next unreadable");
+            }
+            free nextPath;
+        }
+    }
+
+    // A text outside the admitted format must fail before any parse exists.
+    static boolean rejects(String text) {
+
+        try {
+            PropertiesText parsed = PropertiesText.parse(text);
+            free parsed;
+            return false;
+        } catch (IllegalArgumentException expected) {
+            return true;
+        }
+    }
+
+    // Native-only allocation checks; the transcript above is the Java comparison.
+    static boolean contract() {
+
+        String text = "b=2\na=1\nb=3\n";
+        long start = System.liveAllocationCount();
+        IntArrayList list = new IntArrayList();
+        long listCost = System.liveAllocationCount() - start;
+        free list;
+        PropertiesText parsed = PropertiesText.parse(text);
+        // The set, its text copy and a default bounds list.
+        long held = System.liveAllocationCount() - start;
+        long before = System.allocationCount();
+        boolean found = parsed.containsKey("a") && !parsed.containsKey("c") && parsed.size() == 2;
+        boolean quiet = System.allocationCount() == before;
+        long live = System.liveAllocationCount();
+        String key = parsed.key(0);
+        String value = parsed.value("b");
+        String missing = parsed.value("c");
+        boolean counted = System.liveAllocationCount() == live + 2 && missing == null;
+        boolean spelled = key.equals("b") && value.equals("3");
+        free value;
+        free key;
+        free parsed;
+        return found && quiet && counted && spelled && held == 2 + listCost && System.liveAllocationCount() == start
+                && text.length() == 12;
+    }
+
+    public static int main(String[] args) {
+
+        for (int index = 0; index < args.length; index++) {
+            Path path = Path.of(args[index]);
+            defer free path;
+            try {
+                String text = Files.readString(path);
+                defer free text;
+                if (!admitted(text)) {
+                    if (!rejects(text)) return 1;
+                    System.out.println("file " + index + " rejected");
+                } else {
+                    report(index, text, args);
+                }
+            } catch (IOException failure) {
+                System.out.println("file " + index + " unreadable");
+            }
+        }
+        return contract() ? 42 : 2;
+    }
+}

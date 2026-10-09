@@ -166,6 +166,48 @@ the [T4 review](STDLIB_BYTE_STREAM_REVIEW.md). String byte construction
 uses the same replacement decoder; byte export encodes unmatched surrogates as
 `?`, matching Java's UTF-8 encoder.
 
+## Temporary files and directory traversal
+
+`java.io.tmpdir`, and so the default directory of `Files.createTempFile` and
+`createTempDirectory`, is a nonempty `TMPDIR` or else `/tmp` on every supported
+host. Java takes the per-user Darwin temporary directory on macOS and `/tmp` on
+Linux, whatever `TMPDIR` holds. Generated names have Java's shape (prefix,
+unsigned decimal value, suffix), but a creation failure names the directory
+rather than the generated path in its exception. Ironwood's `SimpleFileVisitor`
+declares `throws IOException` only on `visitFileFailed` and
+`postVisitDirectory`; a subclass whose `visitFile` or `preVisitDirectory`
+throws fails to compile and implements `FileVisitor` directly instead. See D270.
+
+The publication moves have no Java counterpart by name. `moveAtomicReplacing`
+behaves as Java's `ATOMIC_MOVE` on POSIX hosts. `moveReplacing` copies only a regular file across file systems, where Java's
+`REPLACE_EXISTING` move also copies links and empty directories and reports a
+non-empty one as DirectoryNotEmptyException. `moveAtomicNoReplace` never
+copies and treats a target that is already the same file as existing, where
+Java's default move copies across file systems and treats the same file as a
+no-op. See D271.
+
+## Checksums
+
+`ironwood.util.zip` provides only `CRC32`. Its constructor, `reset`, the byte,
+whole-array and range updates and `getValue` behave as Java 21's, including
+widened arguments, range failures and subclass dispatch of the whole-array
+update. The `Checksum` interface and `update(ByteBuffer)` are absent, so code
+naming them fails to compile; a null whole-array argument throws
+NullPointerException without the JVM's helpful-message text. Java's ZIP, GZIP,
+Deflater and Inflater APIs are absent. See D274.
+
+## Process launching
+
+Java's `ProcessBuilder` and `Process` are absent. `ProcessRunner.runToFile`
+covers synchronous launches only: the executable must be an absolute path (no
+PATH search), the environment is inherited without a map, standard input is
+empty, and standard output and standard error are merged into a file. Java
+encodes an unpaired surrogate in an argument as `?`; Ironwood passes U+FFFD,
+its host-string convention. Java's launcher closes every descriptor above 2
+in the child; Ironwood relies on close-on-exec, so a descriptor inherited by
+the caller without that flag reaches the program. `exitValue()` follows Java's
+POSIX convention of 128 plus the signal number. See D272.
+
 ## Generic type parameter bounds
 
 Java treats an omitted type parameter bound as an implicit `extends Object`.

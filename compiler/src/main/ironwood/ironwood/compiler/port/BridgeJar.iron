@@ -1,0 +1,294 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.port;
+
+import ironwood.io.IOException;
+import ironwood.nio.file.Files;
+import ironwood.nio.file.Path;
+
+/**
+ * The Bridge JAR writer profile of the Java baseline's BridgeJarArchive.publish
+ * (B3, B6, S7), on the native STORED writer (D275) and M4.2's atomic
+ * replacement (D271). The contents are the publisher's
+ * {@code Map<String, byte[]>}: {@link #put} replaces as {@code Map.put} does,
+ * and each content is copied once.
+ *
+ * <p>{@link #publish} checks every name in String order, as the callers'
+ * sorted maps present them: a name must be nonempty, must not contain a
+ * backslash or NUL, and every {@code /}-separated part must be nonempty and
+ * neither {@code .} nor {@code ..}. The {@code META-INF/MANIFEST.MF} content
+ * must read as a manifest ({@link JarManifest}, whose IOException passes
+ * through) whose main {@code Manifest-Version} is {@code 1.0}. A destination
+ * that exists without following a final link and is not a regular file is
+ * refused. The jar is staged in the destination's parent with
+ * {@code createTempFile(parent, ".ironwood-bridge-", ".jar")}, the manifest
+ * first and the other entries in String order, all STORED in Java's spelling
+ * with time 0. The staged file is read back and its entry count, each entry's
+ * presence and size, and each entry's bytes are compared with the contents
+ * (Java compares SHA-256 digests of the same bytes). Only then is it published
+ * with {@code moveAtomicReplacing}, without a non-atomic fallback, so an
+ * earlier jar survives every failure; the stage is deleted on every exit.
+ * Messages are the baseline's; a staged jar that fails to parse reports the
+ * native container message. No fsync or durability policy is added.
+ */
+public final class BridgeJar {
+
+    /** The JAR manifest's entry name. */
+    public static final String MANIFEST = "META-INF/MANIFEST.MF";
+
+    // Names in insertion order; contents back to back with every version put;
+    // extents hold each version's start and length, and contentOf maps each
+    // name to its current version.
+    private TextList names;
+    private byte[] contents;
+    private int used;
+    private int[] extents;
+    private int versions;
+    private int[] contentOf;
+
+    /** Creates empty contents. */
+    public BridgeJar() {
+
+        this.names = new TextList();
+        this.contents = new byte[4096];
+        this.extents = new int[32];
+        this.contentOf = new int[16];
+    }
+
+    /** @return the number of entries */
+    public int size() {
+
+        return this.names.size();
+    }
+
+    /** @return whether an entry has this name */
+    public boolean contains(String name) {
+
+        return this.names.indexOf(name) >= 0;
+    }
+
+    /**
+     * Sets an entry's content to a copy of {@code bytes[offset, offset + length)},
+     * replacing an earlier content with the same name.
+     *
+     * @param name the entry name; copied
+     * @param bytes the content; borrowed
+     * @param offset its first byte
+     * @param length its byte count
+     */
+    public void put(String name, byte[] bytes, int offset, int length) {
+
+        if (offset < 0 || length < 0 || length > bytes.length - offset) throw new IndexOutOfBoundsException();
+        int version = this.store(bytes, offset, length);
+        int index = this.names.indexOf(name);
+        if (index >= 0) {
+            this.contentOf[index] = version;
+        } else {
+            int count = this.names.size();
+            if (count == this.contentOf.length) {
+                int[] previous = this.contentOf;
+                this.contentOf = new int[previous.length * 2];
+                System.arraycopy(previous, 0, this.contentOf, 0, count);
+                free previous;
+            }
+            this.names.add(name);
+            this.contentOf[count] = version;
+        }
+    }
+
+    /**
+     * @param name the entry name; borrowed
+     * @return a fresh copy of the entry's content, owned by the caller, or null when absent
+     */
+    public byte[] get(String name) {
+
+        int index = this.names.indexOf(name);
+        if (index < 0) return null;
+        int version = this.contentOf[index];
+        return Bytes.slice(this.contents, this.extents[version * 2], this.extents[version * 2] + this.extents[version * 2 + 1]);
+    }
+
+    /**
+     * Verifies the contents, stages the jar, verifies the staged file and
+     * publishes it atomically.
+     *
+     * @param output the jar to publish; borrowed
+     * @throws IOException with the baseline's message for an invalid name, a
+     *     missing or unversioned manifest, a destination that is not a regular
+     *     file and a staged jar that differs; IO failures pass through
+     */
+    public void publish(Path output) throws IOException {
+
+        // The callers' maps are sorted, so names are checked and written in String order.
+        TextList sorted = new TextList();
+        defer free sorted;
+        for (int index = 0; index < this.names.size(); index++) {
+            String name = this.names.get(index);
+            defer free name;
+            sorted.add(name);
+        }
+        sorted.sortStrings();
+        for (int position = 0; position < sorted.size(); position++) {
+            String name = sorted.get(position);
+            defer free name;
+            if (!validName(name)) throw failure("invalid Java Bridge jar entry: ", name);
+        }
+        int manifest = this.names.indexOf(MANIFEST);
+        if (manifest < 0 || !this.versioned(manifest)) {
+            throw new IOException("Java Bridge jar requires a valid versioned Java manifest");
+        }
+        Path absolute = output.toAbsolutePath();
+        defer free absolute;
+        Path destination = absolute.normalize();
+        defer free destination;
+        if (Files.isSymbolicLink(destination) || Files.exists(destination) && !Files.isRegularFile(destination)) {
+            throw failure("Java Bridge output is not a regular file: ", destination.toString());
+        }
+        Path parent = destination.getParent();
+        defer free parent;
+        Files.createDirectories(parent);
+        Path staged = Files.createTempFile(parent, ".ironwood-bridge-", ".jar");
+        defer free staged;
+        try {
+            this.stage(staged, sorted, manifest);
+            this.verify(staged, sorted);
+            // No non-atomic fallback: a failed build must preserve an earlier jar.
+            Files.moveAtomicReplacing(staged, destination);
+        } finally {
+            Files.deleteIfExists(staged);
+        }
+    }
+
+    // Whether the manifest content's main Manifest-Version is 1.0.
+    private boolean versioned(int manifest) throws IOException {
+
+        int version = this.contentOf[manifest];
+        JarManifest parsed = new JarManifest(this.contents, this.extents[version * 2], this.extents[version * 2 + 1]);
+        defer free parsed;
+        String value = parsed.getValue("Manifest-Version");
+        if (value == null) return false;
+        defer free value;
+        return value.equals("1.0");
+    }
+
+    // Writes the manifest, then the other entries in String order, to the stage.
+    private void stage(Path staged, TextList sorted, int manifest) throws IOException {
+
+        ZipWriter writer = new ZipWriter();
+        defer free writer;
+        this.add(writer, MANIFEST, manifest);
+        for (int position = 0; position < sorted.size(); position++) {
+            int index = sorted.stored(position);
+            if (index != manifest) {
+                String name = sorted.get(position);
+                defer free name;
+                this.add(writer, name, index);
+            }
+        }
+        byte[] archive = writer.finish();
+        defer free archive;
+        Files.write(staged, archive);
+    }
+
+    private void add(ZipWriter writer, String name, int index) throws IOException {
+
+        int version = this.contentOf[index];
+        writer.add(name, this.contents, this.extents[version * 2], this.extents[version * 2 + 1]);
+    }
+
+    // Reads the staged jar back and compares its entries with the contents.
+    private void verify(Path staged, TextList sorted) throws IOException {
+
+        byte[] bytes = Files.readAllBytes(staged);
+        defer free bytes;
+        String display = staged.toString();
+        ZipArchive archive = new ZipArchive(bytes, display);
+        defer free archive;
+        if (archive.size() != this.names.size()) throw new IOException("Java Bridge staged jar entry count differs");
+        Inflate inflate = new Inflate();
+        defer free inflate;
+        for (int position = 0; position < sorted.size(); position++) {
+            String name = sorted.get(position);
+            defer free name;
+            int stored = sorted.stored(position);
+            int version = this.contentOf[stored];
+            int start = this.extents[version * 2];
+            int length = this.extents[version * 2 + 1];
+            int entry = archive.find(name);
+            if (entry < 0 || archive.entrySize(entry) != length) {
+                throw failure("Java Bridge staged entry missing/truncated: ", name);
+            }
+            byte[] read = archive.read(bytes, entry, inflate, display);
+            defer free read;
+            for (int index = 0; index < length; index++) {
+                if (read[index] != this.contents[start + index]) throw failure("Java Bridge staged entry digest differs: ", name);
+            }
+        }
+    }
+
+    // Appends a content version and returns its number.
+    private int store(byte[] bytes, int offset, int length) {
+
+        if ((long) this.used + length > 0x7FFFFFF0L) throw new IllegalStateException("Java Bridge jar contents exceed the array range");
+        if (this.used + length > this.contents.length) {
+            long capacity = (long) this.contents.length * 2;
+            if (capacity < (long) this.used + length) capacity = (long) this.used + length;
+            if (capacity > 0x7FFFFFF0L) capacity = 0x7FFFFFF0L;
+            byte[] previous = this.contents;
+            this.contents = new byte[(int) capacity];
+            System.arraycopy(previous, 0, this.contents, 0, this.used);
+            free previous;
+        }
+        int slot = this.versions * 2;
+        if (slot == this.extents.length) {
+            int[] previous = this.extents;
+            this.extents = new int[previous.length * 2];
+            System.arraycopy(previous, 0, this.extents, 0, previous.length);
+            free previous;
+        }
+        System.arraycopy(bytes, offset, this.contents, this.used, length);
+        this.extents[slot] = this.used;
+        this.extents[slot + 1] = length;
+        this.used = this.used + length;
+        int version = this.versions;
+        this.versions++;
+        return version;
+    }
+
+    // BridgeJarArchive's name rule.
+    private static boolean validName(String name) {
+
+        if (name.isEmpty() || name.indexOf('\\') >= 0 || name.indexOf('\u0000') >= 0) return false;
+        int start = 0;
+        while (true) {
+            int end = name.indexOf('/', start);
+            if (end < 0) end = name.length();
+            int length = end - start;
+            if (length == 0 || length == 1 && name.charAt(start) == '.'
+                    || length == 2 && name.charAt(start) == '.' && name.charAt(start + 1) == '.') {
+                return false;
+            }
+            if (end == name.length()) return true;
+            start = end + 1;
+        }
+    }
+
+    // An IOException whose message is prefix followed by text.
+    private static IOException failure(String prefix, String text) {
+
+        StringBuilder message = new StringBuilder();
+        defer free message;
+        message.append(prefix);
+        message.append(text);
+        String full = message.toString();
+        return new IOException(full);
+    }
+
+    destructor {
+
+        free this.names;
+        free this.contents;
+        free this.extents;
+        free this.contentOf;
+    }
+}

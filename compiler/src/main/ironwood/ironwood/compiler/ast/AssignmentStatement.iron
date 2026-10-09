@@ -1,0 +1,56 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.ast;
+
+import ironwood.compiler.source.SourceSpan;
+
+/**
+ * Port of the Java frontend AST record {@code AssignmentStatement}. Components keep
+ * the record's order; {@code Optional} components are nullable, and list components
+ * are frozen, independent copies that the node borrows for the invocation.
+ */
+public final class AssignmentStatement implements Statement {
+
+    private final Expression target;
+    private final SourceSpan equalsSpan;
+    private final Expression value;
+    private final SourceSpan span;
+
+    /** Creates the node from its components in record order. */
+    public AssignmentStatement(Expression target, SourceSpan equalsSpan, Expression value, SourceSpan span) {
+
+        this.target = target;
+        this.equalsSpan = equalsSpan;
+        this.value = value;
+        this.span = span;
+    }
+
+    /** @return the {@code target} component */
+    public Expression target() {
+
+        return this.target;
+    }
+
+    /** @return the {@code equalsSpan} component */
+    public SourceSpan equalsSpan() {
+
+        return this.equalsSpan;
+    }
+
+    /** @return the {@code value} component */
+    public Expression value() {
+
+        return this.value;
+    }
+
+    /** @return the {@code span} component */
+    @Override public SourceSpan span() {
+
+        return this.span;
+    }
+
+    @Override public StatementVariant statementVariant() {
+
+        return StatementVariant.ASSIGNMENT_STATEMENT;
+    }
+}

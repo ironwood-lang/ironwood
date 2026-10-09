@@ -1,0 +1,63 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.ast;
+
+import ironwood.compiler.port.SnapshotList;
+import ironwood.compiler.source.SourceSpan;
+
+/**
+ * One source-ordered constant in an enum declaration. It ports the Java frontend AST
+ * record {@code EnumConstant}. Components keep the record's order; {@code Optional}
+ * components are nullable, and list components are frozen, independent copies that the
+ * node borrows for the invocation.
+ */
+public final class EnumConstant {
+
+    private final String name;
+    private final SourceSpan nameSpan;
+    private final SnapshotList<Expression> arguments;
+    private final AnonymousClassBody classBody;
+    private final SourceSpan span;
+
+    /** Creates the node from its components in record order. */
+    public EnumConstant(String name, SourceSpan nameSpan, SnapshotList<Expression> arguments,
+                        AnonymousClassBody classBody, SourceSpan span) {
+
+        if (arguments == null) throw new NullPointerException();
+        this.name = name;
+        this.nameSpan = nameSpan;
+        this.arguments = arguments;
+        this.classBody = classBody;
+        this.span = span;
+    }
+
+    /** @return the {@code name} component */
+    public String name() {
+
+        return this.name;
+    }
+
+    /** @return the {@code nameSpan} component */
+    public SourceSpan nameSpan() {
+
+        return this.nameSpan;
+    }
+
+    /** @return the {@code arguments} component */
+    public SnapshotList<Expression> arguments() {
+
+        return this.arguments;
+    }
+
+    /** @return the {@code classBody} component */
+    public AnonymousClassBody classBody() {
+
+        return this.classBody;
+    }
+
+    /** @return the {@code span} component */
+    public SourceSpan span() {
+
+        return this.span;
+    }
+}

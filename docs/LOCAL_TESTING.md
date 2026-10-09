@@ -52,8 +52,9 @@ For M1e's public parser, source/link transport, and output contract, run:
 This uses `Main.run` with separate streams and checks both help aliases,
 valued and misspelled options, duplicate bare flags, artifact absence on misuse
 or rejection, source and native-link output, a class-path library rejection,
-a rejected link from independently safe earlier-version class builds, and the
-limited-analysis note after skipped refinement. It compares the
+a rejected link from independently safe earlier-version class builds, and a
+rejection beside an earlier error explained exactly as in the corrected file.
+It compares the
 complete usage text and selected enabled/disabled output. Use the adjacent
 off/off harness for selected class, archive, LLVM, and native parity against
 the pre-change base; the CLI test compares LLVM with a fixed output path because
@@ -77,7 +78,7 @@ whole-executable byte equality as a parity oracle.
 For the M1c nullable observer and local explanation readiness seam, run:
 
 ```sh
-./scripts/test.sh --test 'explanation observer records completed and skipped refinement'
+./scripts/test.sh --test 'explanation observer records completed and unconverged refinement'
 ./scripts/test.sh --test 'explanation readiness gives local boundaries without changing primaries'
 ./scripts/test.sh --test 'explanation readiness and exclusions preserve eligible note boundaries'
 ./scripts/test.sh --test 'explanation eligibility covers deferred destructor loop and owned elements'
@@ -86,28 +87,30 @@ For the M1c nullable observer and local explanation readiness seam, run:
 ```
 
 These check actual pipeline construction, analyzer instances and inner-round
-callbacks, completed and skipped refinement, and local enabled-note boundaries.
+callbacks, completed refinement after an earlier error, unconverged refinement
+under an injected pass limit, and local enabled-note boundaries.
 Observed and null-observer runs keep identical primaries and accepted LLVM.
 The local note test also compares disabled/enabled primaries across all
 `--unfreed` modes, including `@SuppressUnfreed`, and checks the selected
-static-store source site and the exact limited-analysis note after a skip.
-The additional readiness selection covers
-a later body error, skipped deferred/destructor/loop/owned-element checks,
+static-store source site, which keeps its corrected-program explanation beside
+an earlier error. The additional readiness selection covers
+a later body error, deferred/destructor/loop/owned-element checks beside an
+earlier error,
 parser/name/type errors, pending writes, use after free, and wrong-pool transfer.
 The final selection checks deferred registration, destructor fields, both loop
 diagnostics, and late owned-element validation, including excluded type guards.
 The source-scope selections retain dependency source, class, archive, and
 bundled Writer identities while checking final lowering and note placement.
 The observer selection also checks selected proof projections and all four
-user callable kinds. The dependency and bundled selections check the exact
-limited-analysis boundary in those sources when refinement is skipped.
+user callable kinds. The dependency and bundled selections check that genuine
+rejections in those sources keep their explanations beside an earlier error.
 Detailed evidence remains pending.
 
 For M1d's first nullable collector and snapshot-storage step, run:
 
 ```sh
 ./scripts/test.sh --test 'rejected-free evidence snapshots retain identity and enforce storage limits'
-./scripts/test.sh --test 'explanation observer records completed and skipped refinement'
+./scripts/test.sh --test 'explanation observer records completed and unconverged refinement'
 ```
 
 The first selection checks equal-proof/different-evidence snapshots, restore,
@@ -238,17 +241,179 @@ paths, omitted and incomplete source evidence, and the identity boundary for
 an allocation absent on one predecessor. Loop and cleanup routes remain
 separate M3 selections.
 
-For ownership analysis after earlier errors, run:
+For ownership analysis after earlier errors (D278, D279), run:
 
 ```sh
 ./scripts/test.sh --test 'safe free distinguishes earlier errors from refined dispatch'
+./scripts/test.sh --test 'ownership diagnostics are independent of unrelated declaration errors'
+./scripts/test.sh --test 'genuine ownership errors are reported beside earlier errors'
+./scripts/test.sh --test 'declaration errors used around frees report only their own errors'
+./scripts/test.sh --test 'missing implementations add no ownership diagnostics of their own'
+./scripts/test.sh --test 'unconverged ownership analysis reports no ownership verdicts'
+./scripts/test.sh --test 'command line reports only the declaration error after earlier errors'
+./scripts/test.sh --test 'link without an entry point reports only its own error'
 ```
 
-This records the current conservative rejection after a missing `@Override`,
-acceptance after adding the annotation, rejection of a genuinely retaining
-implementation, and preserved dispatch refinement after an unrelated body error.
-It is a baseline for the planned explanation gate, not a test of implemented
-explanation notes. Removing secondary diagnostics remains a separate change.
+The first checks that a missing `@Override` is the only diagnostic while the
+non-retaining override stays accepted, that a retaining implementation is
+rejected identically with or without the error, that a body error keeps refined
+dispatch, and that unresolved single-type and static imports are their only
+diagnostic in every unfreed mode. The second compiles a program with genuine
+and safe frees and missing-free findings alone and beside nine kinds of
+unrelated declaration error, in `off` and `error` modes, and requires identical
+diagnostics for the program and none outside the erroneous file. The third
+removes the directive from the retaining override itself and compares every
+verdict and note with the corrected program. The fourth uses 13 kinds of broken
+declaration around a `free`, each with a corrected twin that compiles cleanly,
+and requires only the declaration errors. The fifth covers D279's placeholders:
+frees around calls that reach a missing implementation, also two calls away, a
+genuine error in the same body, a leak reported only once the implementation
+exists, a retaining sibling implementation, freed, deferred, wrapped, published
+and discarded results, generic, anonymous and primitive-returning requirements,
+and destructor checks equal to the corrected program's. The sixth forces
+non-convergence: no ownership verdict is reported, a body error still is, and
+the non-convergence error appears only without earlier errors. The last two run
+the command-line path, which also checks bundled sources for missing frees, for
+a declaration error and for a link whose main class lacks `main`.
+
+For the missing-free scope across entry paths (D280), run:
+
+```sh
+./scripts/test.sh --test 'unfreed checks cover bundled library code in every entry path'
+```
+
+It copies the standard library sources into a temporary root, plants one leak
+in `Throwable`, and compiles an empty program in a child JVM through the command
+line and the in-process pipeline in every `--unfreed` mode. Both paths report
+exactly the planted finding, as a warning or an error, and nothing with `off`.
+
+For private field loans that must not cross code that may run (D041, D281), run:
+
+```sh
+./scripts/test.sh --test 'field loans reject reentry through implicit code loops handlers and cleanup' \
+  --test 'field loans admit runtime checks conversions and own-class statics' \
+  --test 'field loans judge rejected frees by the destructors of their type' \
+  --test "field loans leave to lowering a free the field's reclamation makes unsafe" \
+  --test 'private backing arrays are freed only after proven detachment'
+```
+
+The first test pairs 13 reentry routes without a source call (string conversion,
+class initialization, enhanced-for iteration, an element store, a loop
+condition, a catch handler, a deferred call, a static initializer and a
+destructor) with safe twins; each unsafe route must fail the field's ownership
+proof for its own reason. The second keeps runtime checks, String and primitive
+conversion, `System.arraycopy` and the owner's statics admitted inside a loan.
+The third, on a store that reclaims its field only by freeing, in a catch
+handler, a local that holds a parameter at the try's entry where only an
+elidable null check can throw, which no D297-D311 witness counts, keeps a free
+that runs a destructor during a loan failing the proof beside its safe twin
+(D281), and a rejected free failing it only when its class has a destructor
+(D296). The fourth (D297-D311) rejects at the free a reentrant free during a
+loan of a field the program reclaims, including in a constructor, an instance
+initializer, through a local or parameter assigned from the field, also under a
+cast, also with a write after the free or a write between that writes a field
+load again, or by an assignment that a condition, an initializer or a switch
+selector always evaluates, a switch expression arm or an `&&` guarding the free
+runs, through a pattern binding of the field, in a catch handler after a load
+that a throwing store follows, also after a parameter when the try body reaches
+an array access or throw, after a load that a branch or `&&` may skip, by a
+deferred free, also after a `while (true)` loop that a break, return or throw
+leaves or in a braced switch case, and in a finally block that lowering
+reaches. It rejects a defer placed directly in a switch group, keeps D281's
+report when no route leaves the loop, a write of another value precedes the
+free the freed local is always null or never holds a load, or a binding binds
+another value, compiles a program whose only reclamation sits in a finally
+block lowering never reaches, and checks through a field that escapes to a
+sibling field that lowering lowers each free the witness counts. It names the
+alias when the owner is freed and its destructor frees the field directly,
+inside a branch, or through a method that detaches it at its top level or in a
+branch, and pins that a free through another receiver is no reclamation:
+assigning the field through that receiver fails its proof, and freeing a value
+read through it is rejected while the field stays owned.
+
+For the class a construction-publication error is reported at (D282), run:
+
+```sh
+./scripts/test.sh --test 'construction publication is reported at the class whose construction publishes' \
+  --test 'a user override called by bundled constructors is reported once at the user class'
+```
+
+The first pairs overrides, abstract and interface hooks, delegation and field
+round trips with the exact constructor lines that must be reported; the second
+expects one error at a user exception class whose `fillInStackTrace` override
+publishes the object, and none in bundled constructors.
+
+For the class a destructor effect error is reported at (D283), run:
+
+```sh
+./scripts/test.sh --test 'destructor effects are reported at the class whose destruction has them' \
+  --test 'destructor calls on a receiver that may be another object keep every override'
+```
+
+The first expects allocation, escaping exceptions and publication by an override
+only at the overriding subclass, also under `finally`, and a base destructor's
+own allocation at the base and each subclass; the second keeps every override
+for a receiver that may be another object.
+
+For the destructors a released value may run (D284), run:
+
+```sh
+./scripts/test.sh --test 'released values run only the destructors of the classes they may be' \
+  --test 'every path that can release a misbehaving class keeps its holder reported' \
+  --test 'instances of one class keep their own fields arrays and builders'
+```
+
+The first expects a user class with an allocating destructor to be the only one
+reported beside bundled pools and collections, also without an entry point, and an
+owned field of the base class to leave its holder unreported; the second keeps the
+holder, the pool and an array of unknown origin reported wherever the class can be
+released. The third checks per-object precision (D285): boxes built only with the
+base part, and a holder of a pool with a quiet builder, stay unreported beside a
+loud box and a holder of a pool of the misbehaving class.
+
+For per-object publication verdicts (D286), run:
+
+```sh
+./scripts/test.sh --test 'publication follows the objects a constructor or destructor receives' \
+  --test 'constructors that build no object keep their exact-class publication verdict'
+```
+
+The first reports a constructor or destructor that hands `this` to a storing
+implementation only when such an implementation is passed in; the second keeps
+the exact-class verdict for an unused constructor and for a base constructor that
+only subclasses run.
+
+For null checks omitted under a dominating null test, a merge of guarded values or
+a constructed non-null field (D287 to D290), run:
+
+```sh
+./scripts/test.sh --test 'destructors trust the null tests that guard their calls' \
+  --test 'null tests omit only the null checks they make redundant' \
+  --test 'omitted null checks keep NullPointerException behavior at O0 and O3' \
+  --test 'destructors trust null tests through joins and loop headers' \
+  --test 'merges omit only the null checks every merged value makes redundant' \
+  --test 'explicit throws stay outlined without the null check of the fresh object' \
+  --test 'destructors trust fields every constructor sets until they free them' \
+  --test 'methods a destructor calls on its object trust the fields not yet freed'
+```
+
+The first accepts destructors whose calls are guarded and keeps both reports for
+unguarded calls, mutable fields, reassigned locals, uses after the guarded branch
+and owned fields freed before or around the use; the second checks which typed-IR
+null checks remain; the third runs native programs at `-O0` and `-O3` and expects
+every path that reaches null to throw a catchable `NullPointerException`. The
+fourth and fifth cover values merged at joins and loop headers (D288): a guarded
+local used in or after a loop and a fallback merged from guarded values are
+accepted, while a value advanced or nulled in a loop, or merged with a
+possibly-null value, keeps its check. The sixth expects `throw new` to stay a call
+to its cold helper once the null check of the fresh object is gone. The seventh
+covers final fields that every constructor sets to a non-null value (D289): a
+destructor may use them, and those of its superclasses, until it frees them, but
+not a field a constructor may set from an unchecked parameter or to null, or a
+subclass field the destructor cannot know. The eighth covers methods the destructor
+calls on its object (D290): they may use the fields before the free, also through
+nested and static calls, but not after it, not through an override reached after a
+subclass freed its field, and not on another object.
 
 For the diagnostic baseline of duplicated cleanup, run:
 
@@ -397,9 +562,9 @@ For call-summary evidence baselines, run:
 
 This checks a retaining call chain, retaining and non-retaining recursive cycles,
 and a temporary constructor borrower accepted after refinement. An unrelated
-missing `@Override` preserves today's two secondary cleanup rejections; fixing
-it accepts, while actual helper publication remains rejected. These are current
-diagnostic baselines, not tests of the planned witness chains or option.
+missing `@Override` leaves that proof in place and is the only diagnostic;
+actual helper publication remains rejected. These are diagnostic baselines,
+not tests of the planned witness chains or option.
 The summary storage selection checks first-discovery identity, immutable
 dependency retention, method/fact caps, an independent method after local
 exhaustion, the aggregate stop, and retirement of live charges.
@@ -441,7 +606,7 @@ selections together:
 
 ```sh
 ./scripts/test.sh \
-  --test 'explanation observer records completed and skipped refinement' \
+  --test 'explanation observer records completed and unconverged refinement' \
   --test 'rejected-free evidence limits preserve pipeline safety and truthful fallback' \
   --test 'summary witness method fact and aggregate exhaustion preserve safety' \
   --test 'summary call notes cap four hops and ignore unrelated imports' \
@@ -659,6 +824,12 @@ Java differential tests use the `java` and `javac` found on PATH. Compiling with
 The StringBuilder selection pins its version-sensitive insertion observations
 to Java 21 and compares the remaining cases against the live runtime; see the
 [StringBuilder review](STDLIB_STRINGBUILDER_REVIEW.md#verification-and-lessons).
+The self-hosting port's single-file Java references run on Java 21: the test
+JVM when it is Java 21, otherwise the JDK in `IRONWOOD_JAVA21_HOME` or, on
+macOS, the one `/usr/libexec/java_home -v 21` reports; without one they fail
+and name the variable. Newer runtimes change Unicode identifier data and
+`SourceVersion` keywords. The M5.1 archive contract keeps Java 21's frozen
+reader verdicts and records the three that JDK 23 and 24 readers change.
 
 For the `ironwood.bench` library, use
 `./scripts/test.sh --test 'benchmark library reports and reclaims native results'`.
@@ -764,6 +935,14 @@ This starts a dedicated `ironwood-tests` Colima profile with six virtual CPUs an
 Rosetta for Linux x86-64. The existing default profile and active Docker context
 are not changed. Setup and x86-64 test runs verify that Rosetta is active and
 reject a competing QEMU registration before running tests.
+
+Rosetta opens, in every translated process, the executable it translates and
+then its runtime (`/mnt/lima-rosetta/rosetta` under Colima), both without
+close-on-exec, so an x86-64 child inherits its parent's pair and adds its own.
+The M4.3 process tests list a child's descriptors through the controlled helper
+`integration-tests/runtime/process_helper.c`, whose `fds` mode leaves out a
+descriptor naming that runtime and the one just before it; native hosts have no
+such descriptors.
 
 To switch an existing QEMU test environment to Rosetta, stop it first. Cached
 images and compiler output are retained. Then prepare only the x86-64 image:

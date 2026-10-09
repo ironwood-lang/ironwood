@@ -1,0 +1,16 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.ir;
+
+import ironwood.compiler.port.OperationVariants;
+
+/**
+ * A block terminator. Ports the Java sealed interface {@code IrTerminator}; the
+ * pilot implements only {@link IrReturnTerminator} and dispatches on the closed
+ * {@link OperationVariants.Terminator} list (D260).
+ */
+public interface IrTerminator {
+
+    /** @return this terminator's closed variant */
+    OperationVariants.Terminator terminatorVariant();
+}

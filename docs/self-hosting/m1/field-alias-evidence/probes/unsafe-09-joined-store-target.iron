@@ -1,0 +1,20 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+class Box { Parent item; }
+class Parent {
+    private int marker = 7;
+    Parent(Box box, boolean pick) {
+        Object target = pick ? (Object) this : (Object) box;
+        if (target instanceof Box chosen) { chosen.item = this; }
+        throw Main.failure;
+    }
+    int value() { return this.marker; }
+}
+class Main {
+    static RuntimeException failure = new RuntimeException();
+    public static int main(String[] args) {
+        Box box = new Box();
+        try { new Parent(box, false); }
+        catch (RuntimeException expected) { return box.item.value(); }
+        return 0;
+    }
+}

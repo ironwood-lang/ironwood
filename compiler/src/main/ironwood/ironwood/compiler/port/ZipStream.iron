@@ -1,0 +1,209 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.port;
+
+import ironwood.io.IOException;
+import ironwood.util.zip.CRC32;
+
+/**
+ * The local-header view of a ZIP archive held in memory: the container model
+ * of the IronClass profile, which the Java baseline reads with
+ * {@code ZipInputStream} (D275 and docs/self-hosting/m5/ARCHIVES.md). Entries
+ * are read in file order from the start; the first position that does not
+ * hold a complete local header ends them, so a central directory is never
+ * read and leading bytes leave no entries. Like Java it rejects an encrypted
+ * entry, a data descriptor on a STORED entry, a method other than STORED or
+ * DEFLATED, and an entry whose CRC-32, size or compressed size disagrees with
+ * its header or descriptor; a descriptor's sizes are 32-bit because no entry
+ * reaches 4 GiB. Unlike Java, a malformed UTF-8 name is a container failure
+ * instead of an unchecked exception.
+ *
+ * <p>Container failures are IOExceptions starting {@code invalid ZIP data in
+ * <archive>:}. The archive bytes are passed to each call and never retained;
+ * the view owns only the names read so far.
+ */
+public final class ZipStream {
+
+    private int position;
+    private boolean directory;
+    private TextList names;
+    private CRC32 checksum;
+
+    /** Creates a view positioned at the first local header. */
+    public ZipStream() {
+
+        this.names = new TextList();
+        this.checksum = new CRC32();
+    }
+
+    /** @return the number of entries read so far */
+    public int count() {
+
+        return this.names.size();
+    }
+
+    /** @return whether the last entry read is a directory (its name ends with '/') */
+    public boolean isDirectory() {
+
+        return this.directory;
+    }
+
+    /** @return a fresh String holding entry index's name, owned by the caller */
+    public String name(int index) {
+
+        return this.names.get(index);
+    }
+
+    /** @return whether entry index's name equals text */
+    public boolean nameEquals(int index, String text) {
+
+        return this.names.equalsText(index, text);
+    }
+
+    /** @return whether entry index's name starts with prefix */
+    public boolean nameStartsWith(int index, String prefix) {
+
+        return this.names.startsWith(index, prefix);
+    }
+
+    /** @return whether entry index's name ends with suffix */
+    public boolean nameEndsWith(int index, String suffix) {
+
+        return this.names.endsWith(index, suffix);
+    }
+
+    /** @return the first earlier entry whose name equals entry index's, or -1 */
+    public int earlierName(int index) {
+
+        String name = this.names.get(index);
+        defer free name;
+        int first = this.names.indexOf(name);
+        return first < index ? first : -1;
+    }
+
+    /**
+     * Reads the next entry.
+     *
+     * @param bytes the whole archive; borrowed
+     * @param inflate the decoder for DEFLATED data; borrowed
+     * @param display the archive's name in messages; borrowed
+     * @return a fresh array of the entry's bytes, owned by the caller, or null
+     *     when the local headers end
+     * @throws IOException if the entry is malformed or its data fails a check
+     */
+    public byte[] next(byte[] bytes, Inflate inflate, String display) throws IOException {
+
+        int header = this.position;
+        if (header > bytes.length - 30 || ZipArchive.u32(bytes, header) != 0x04034b50) return null;
+        int flags = ZipArchive.u16(bytes, header + 6);
+        int method = ZipArchive.u16(bytes, header + 8);
+        long crc = ZipArchive.u32(bytes, header + 14);
+        long compressed = ZipArchive.u32(bytes, header + 18);
+        long size = ZipArchive.u32(bytes, header + 22);
+        int nameLength = ZipArchive.u16(bytes, header + 26);
+        int extraLength = ZipArchive.u16(bytes, header + 28);
+        int name = header + 30;
+        int extra = name + nameLength;
+        int data = extra + extraLength;
+        if (data > bytes.length) throw ZipArchive.failure(display, "a local header extends past the archive");
+        if (!TextList.wellFormed(bytes, name, nameLength)) throw ZipArchive.failure(display, "an entry name is not valid UTF-8");
+        this.names.addUtf8(bytes, name, nameLength);
+        int index = this.names.size() - 1;
+        this.directory = this.names.endsWith(index, "/");
+        if ((flags & 1) != 0) throw this.failure(display, index, "is encrypted");
+        boolean described = (flags & 8) != 0;
+        if (described && method != 8) throw this.failure(display, index, "has a data descriptor but is not DEFLATED");
+        if (compressed == 0xFFFFFFFFL || size == 0xFFFFFFFFL) {
+            int field = zip64(bytes, extra, extraLength);
+            if (field < 0) throw this.failure(display, index, "lacks its ZIP64 extra field");
+            size = ZipArchive.u64(bytes, field);
+            compressed = ZipArchive.u64(bytes, field + 8);
+        }
+        if (method == 0) return this.stored(bytes, display, index, data, compressed, size, crc);
+        if (method != 8) throw this.failure(display, index, "uses compression method " + method);
+        byte[] result = null;
+        try {
+            result = inflate.inflate(bytes, data, bytes.length - data, 0x7FFFFFF0);
+        } catch (IOException malformed) {
+            throw this.failure(display, index, "has invalid DEFLATE data (" + malformed.getMessage() + ")");
+        }
+        int consumed = inflate.consumed();
+        int after = data + consumed;
+        String problem = null;
+        if (described) {
+            int fields = after;
+            if (after <= bytes.length - 4 && ZipArchive.u32(bytes, after) == 0x08074b50) fields = after + 4;
+            if (fields > bytes.length - 12) {
+                problem = "has a data descriptor past the end of the archive";
+            } else {
+                crc = ZipArchive.u32(bytes, fields);
+                compressed = ZipArchive.u32(bytes, fields + 4);
+                size = ZipArchive.u32(bytes, fields + 8);
+                after = fields + 12;
+            }
+        }
+        if (problem == null) problem = this.problem(result, consumed, compressed, size, crc);
+        if (problem != null) {
+            free result;
+            throw this.failure(display, index, problem);
+        }
+        this.position = after;
+        return result;
+    }
+
+    private byte[] stored(byte[] bytes, String display, int index, int data, long compressed, long size, long crc)
+            throws IOException {
+
+        if (compressed != size) throw this.failure(display, index, "is STORED with differing sizes");
+        if (size < 0 || size > bytes.length - data) throw this.failure(display, index, "data extends past the archive");
+        if (this.crc(bytes, data, (int) size) != (int) crc) throw this.failure(display, index, "fails its CRC-32 check");
+        this.position = data + (int) size;
+        return Bytes.slice(bytes, data, data + (int) size);
+    }
+
+    // Java's order for DEFLATED data: decoded size, then compressed size, then
+    // CRC. Returns the defect or null; every text is a literal.
+    private String problem(byte[] result, int consumed, long compressed, long size, long crc) {
+
+        if (result.length != size) return "has the wrong size";
+        if (consumed != compressed) return "has the wrong compressed size";
+        if (this.crc(result, 0, result.length) != (int) crc) return "fails its CRC-32 check";
+        return null;
+    }
+
+    private int crc(byte[] data, int offset, int length) {
+
+        this.checksum.reset();
+        this.checksum.update(data, offset, length);
+        return (int) this.checksum.getValue();
+    }
+
+    private IOException failure(String display, int index, String problem) {
+
+        StringBuilder message = new StringBuilder();
+        defer free message;
+        message.append("invalid ZIP data in ").append(display).append(": entry '");
+        this.names.appendTo(index, message);
+        message.append("' ").append(problem);
+        return new IOException(message.toString());
+    }
+
+    // The data offset of a ZIP64 extra field holding both sizes, or -1.
+    private static int zip64(byte[] bytes, int extra, int length) {
+
+        int position = extra;
+        while (position + 4 <= extra + length) {
+            int id = ZipArchive.u16(bytes, position);
+            int size = ZipArchive.u16(bytes, position + 2);
+            if (id == 1) return size >= 16 && position + 4 + size <= extra + length ? position + 4 : -1;
+            position = position + 4 + size;
+        }
+        return -1;
+    }
+
+    destructor {
+
+        free this.names;
+        free this.checksum;
+    }
+}

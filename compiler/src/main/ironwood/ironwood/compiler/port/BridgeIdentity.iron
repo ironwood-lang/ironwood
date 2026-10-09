@@ -1,0 +1,117 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.port;
+
+/**
+ * The Java baseline's Bridge identity serialization (BridgeGeneration.digest,
+ * bytesDigest and contentIdentity) over M3.2's {@link Sha256} (B5, B7, S7).
+ *
+ * <p>An identity digest hashes the domain string, then every key and value of
+ * the map in String order. Each string is framed as its UTF-16 unit count in
+ * a big-endian 32-bit integer followed by its units as big-endian 16-bit
+ * values, so unpaired surrogates stay distinct where UTF-8 would replace them.
+ * A byte digest hashes raw bytes. Both are 64 lowercase hexadecimal digits.
+ * Inputs are borrowed; results are fresh Strings owned by the caller.
+ */
+public final class BridgeIdentity {
+
+    /** The domain string that starts every identity digest. */
+    public static final String DOMAIN = "ironwood-java-bridge-identity-v1";
+
+    private BridgeIdentity() {
+
+    }
+
+    /**
+     * @param values the identity inputs; borrowed
+     * @return BridgeGeneration.digest's lowercase hex SHA-256 of the framed map
+     */
+    public static String digest(TextMap values) {
+
+        Sha256 digest = new Sha256();
+        defer free digest;
+        frame(digest, DOMAIN);
+        for (int position = 0; position < values.size(); position++) {
+            int keyLength = values.keyLength(position);
+            frameLength(digest, keyLength);
+            for (int unit = 0; unit < keyLength; unit++) frameUnit(digest, values.keyCharAt(position, unit));
+            int valueLength = values.valueLength(position);
+            frameLength(digest, valueLength);
+            for (int unit = 0; unit < valueLength; unit++) frameUnit(digest, values.valueCharAt(position, unit));
+        }
+        return digest.hexDigest();
+    }
+
+    /**
+     * @param bytes the content; borrowed
+     * @param offset its first byte
+     * @param length its byte count
+     * @return bytesDigest's lowercase hex SHA-256 of {@code bytes[offset, offset + length)}
+     */
+    public static String bytesDigest(byte[] bytes, int offset, int length) {
+
+        Sha256 digest = new Sha256();
+        defer free digest;
+        digest.update(bytes, offset, length);
+        return digest.hexDigest();
+    }
+
+    /**
+     * contentIdentity: the identity digest of a nonempty inventory of names
+     * and SHA-256 texts, checked in key order.
+     *
+     * @param files names to lowercase hex SHA-256 texts; borrowed
+     * @return the identity digest
+     * @throws IllegalArgumentException with Java's text for an empty inventory,
+     *     a blank name or a value that is not 64 lowercase hex digits
+     */
+    public static String contentIdentity(TextMap files) {
+
+        if (files.size() == 0) throw new IllegalArgumentException("content identity requires an input inventory");
+        for (int position = 0; position < files.size(); position++) {
+            String name = files.key(position);
+            defer free name;
+            if (name.isBlank()) throw new IllegalArgumentException("missing input name");
+            String hash = files.value(position);
+            defer free hash;
+            if (!isHash(hash)) throw new IllegalArgumentException("expected SHA-256 input identity");
+        }
+        return digest(files);
+    }
+
+    /**
+     * @param text the candidate; borrowed
+     * @return whether text matches {@code [0-9a-f]{64}}, as the Java
+     *     baseline's requireHash and the loader's checks test it
+     */
+    public static boolean isHash(String text) {
+
+        if (text.length() != 64) return false;
+        for (int index = 0; index < 64; index++) {
+            char unit = text.charAt(index);
+            if (!(unit >= '0' && unit <= '9' || unit >= 'a' && unit <= 'f')) return false;
+        }
+        return true;
+    }
+
+    // Frames one string: its unit count, then its units, big-endian.
+    private static void frame(Sha256 digest, String text) {
+
+        frameLength(digest, text.length());
+        for (int unit = 0; unit < text.length(); unit++) frameUnit(digest, text.charAt(unit));
+    }
+
+    private static void frameLength(Sha256 digest, int length) {
+
+        digest.update(length >>> 24);
+        digest.update(length >>> 16);
+        digest.update(length >>> 8);
+        digest.update(length);
+    }
+
+    private static void frameUnit(Sha256 digest, char unit) {
+
+        digest.update(unit >>> 8);
+        digest.update(unit);
+    }
+}

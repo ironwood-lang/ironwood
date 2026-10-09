@@ -73,6 +73,21 @@ The isolated bootstrap runtime exposes these C ABI functions:
 - `ironwood_file_read_attributes` returns one unpublished primitive metadata
   result for source-level basic file attributes, following links only when the
   typed call requests it;
+- `ironwood_file_create_temp_file` and `ironwood_file_create_temp_directory`
+  create an entry exclusively (mode 0600 or 0700) under a name with a secure
+  random decimal value (`arc4random_buf`, or the raw `getrandom` syscall with a
+  `/dev/urandom` fallback on Linux) and remove it if the result String cannot
+  be allocated; `ironwood_file_real_path` resolves with `realpath` into a stack
+  buffer; `ironwood_file_access` is an advisory `access` check (M4.1, D270);
+- `ironwood_file_move_atomic`, `ironwood_file_move_replacing` and
+  `ironwood_file_move_exclusive` keep three publication guarantees apart:
+  `rename`, `rename` with a regular-file copy only across file systems, and
+  `renamex_np(RENAME_EXCL)` or the raw `renameat2(RENAME_NOREPLACE)` syscall
+  with an explicit unsupported result, never a check-then-rename (M4.2, D271);
+- `ironwood_process_run` launches a program by absolute path with `fork` and
+  `execv`, encoding every argument before forking, redirecting the merged
+  output to a file the parent opens before forking, reporting pre-exec failures through a
+  close-on-exec pipe and always reaping the child (M4.3, D272);
 - `ironwood_print_stream_write`, `ironwood_print_stream_flush`, and
   `ironwood_print_stream_check_error`, which select the compiler-emitted
   stdout/stderr channel and synchronously write String or primitive payloads;

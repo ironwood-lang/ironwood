@@ -1,0 +1,40 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.ast;
+
+import ironwood.compiler.source.SourceSpan;
+
+/**
+ * Port of the Java frontend AST record {@code YieldStatement}. Components keep the
+ * record's order; {@code Optional} components are nullable, and list components are
+ * frozen, independent copies that the node borrows for the invocation.
+ */
+public final class YieldStatement implements Statement {
+
+    private final Expression value;
+    private final SourceSpan span;
+
+    /** Creates the node from its components in record order. */
+    public YieldStatement(Expression value, SourceSpan span) {
+
+        this.value = value;
+        this.span = span;
+    }
+
+    /** @return the {@code value} component */
+    public Expression value() {
+
+        return this.value;
+    }
+
+    /** @return the {@code span} component */
+    @Override public SourceSpan span() {
+
+        return this.span;
+    }
+
+    @Override public StatementVariant statementVariant() {
+
+        return StatementVariant.YIELD_STATEMENT;
+    }
+}

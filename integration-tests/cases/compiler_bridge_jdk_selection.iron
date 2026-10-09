@@ -1,0 +1,99 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// The native Bridge producer's JDK selection (JdkSelection, D295) against
+// scripts/jdk.sh's selection, each JDK's own properties and BridgeBuildTools'
+// gates. `program <root> <scratch> <macos>` selects with the inherited
+// JAVA_HOME and PATH and the installation root (`-` for none), inspecting the
+// JDK with a scratch log, and prints the home, specification version,
+// runtime version and vendor, then the producer gate and the JNI-header gate
+// (`1` for macOS headers) as `ok` or `error ` and the message as UTF-16 hex.
+// A selection failure prints `error ` and its message. Every result is freed
+// and a caught failure keeps its exception and, when it was built, its
+// message. Exit 43.
+import ironwood.compiler.port.JdkSelection;
+import ironwood.io.IOException;
+import ironwood.nio.file.Path;
+
+class Main {
+
+    static String hex(String text) {
+
+        if (text.isEmpty()) return new String("-");
+        StringBuilder out = new StringBuilder();
+        defer free out;
+        for (int index = 0; index < text.length(); index++) {
+            int unit = text.charAt(index);
+            for (int shift = 12; shift >= 0; shift = shift - 4) out.append("0123456789abcdef".charAt((unit >>> shift) & 15));
+        }
+        return out.toString();
+    }
+
+    // Prints a caught failure; returns the allocations it keeps.
+    static int report(String label, IOException failure) {
+
+        String message = hex(failure.getMessage());
+        defer free message;
+        System.out.println(label + "error " + message);
+        // The literal message is not an allocation.
+        return failure.getMessage().equals("selected Java is missing; set JAVA_HOME to a JDK: java on PATH") ? 1 : 2;
+    }
+
+    static int gates(JdkSelection selection, boolean macos) {
+
+        int kept = 0;
+        try {
+            selection.requireJdk("producer");
+            System.out.println("producer ok");
+        } catch (IOException failure) {
+            kept = kept + report("producer ", failure);
+        }
+        try {
+            selection.requireJniHeaders(macos);
+            System.out.println("headers ok");
+        } catch (IOException failure) {
+            kept = kept + report("headers ", failure);
+        }
+        return kept;
+    }
+
+    static int select(Path root, Path scratch, Path working, boolean macos) {
+
+        try {
+            JdkSelection selection = new JdkSelection(root, scratch, working);
+            defer free selection;
+            String home = selection.home();
+            defer free home;
+            String version = selection.runtimeVersion();
+            defer free version;
+            String vendor = selection.vendor();
+            defer free vendor;
+            System.out.println("home " + home);
+            System.out.println("feature " + selection.feature());
+            System.out.println("version " + version);
+            System.out.println("vendor " + vendor);
+            return gates(selection, macos);
+        } catch (IOException failure) {
+            return report("", failure);
+        }
+    }
+
+    public static int main(String[] args) {
+
+        long live = System.liveAllocationCount();
+        Path scratch = Path.of(args[1]);
+        Path current = Path.of("");
+        Path working = current.toAbsolutePath();
+        free current;
+        int kept = 0;
+        if (args[0].equals("-")) {
+            kept = select(null, scratch, working, args[2].equals("1"));
+        } else {
+            Path root = Path.of(args[0]);
+            kept = select(root, scratch, working, args[2].equals("1"));
+            free root;
+        }
+        free working;
+        free scratch;
+        return System.liveAllocationCount() == live + kept ? 43 : 2;
+    }
+}

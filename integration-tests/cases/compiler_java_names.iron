@@ -1,0 +1,168 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// The compiler port's Java 21 name validation (JavaNames, JavaIdentifiers)
+// and Bridge export checks (BridgeExports) against JDK 21
+// (docs/self-hosting/m6/names-evidence/JavaNamesReference.java).
+// `program <corpus>` reads the reference's corpus (one name per line as UTF-16
+// hex, then `exports` and groups of requested names after `group` lines) and
+// prints the reference's transcript: isName, isIdentifier and isKeyword for
+// each name, the packages and diagnostics both export callers give for each
+// group, and the identifier start and part ranges over every code point.
+// Every result is freed after it is printed, so the live allocation count
+// returns to its baseline. Exit 42.
+import ironwood.compiler.port.BridgeExports;
+import ironwood.compiler.port.JavaIdentifiers;
+import ironwood.compiler.port.JavaNames;
+import ironwood.compiler.port.Splits;
+import ironwood.compiler.port.TextList;
+import ironwood.io.IOException;
+import ironwood.nio.file.Files;
+import ironwood.nio.file.Path;
+
+class Main {
+
+    static String hex(String text) {
+
+        if (text.isEmpty()) return new String("-");
+        StringBuilder out = new StringBuilder();
+        defer free out;
+        for (int index = 0; index < text.length(); index++) {
+            int unit = text.charAt(index);
+            for (int shift = 12; shift >= 0; shift = shift - 4) out.append("0123456789abcdef".charAt((unit >>> shift) & 15));
+        }
+        return out.toString();
+    }
+
+    static String decode(String line) {
+
+        if (line.equals("-")) return new String("");
+        char[] units = new char[line.length() / 4];
+        defer free units;
+        for (int index = 0; index < units.length; index++) {
+            int value = 0;
+            for (int digit = 0; digit < 4; digit++) value = value * 16 + Character.digit(line.charAt(index * 4 + digit), 16);
+            units[index] = (char) value;
+        }
+        return new String(units);
+    }
+
+    static void name(String name) {
+
+        String encoded = hex(name);
+        defer free encoded;
+        System.out.println("name " + encoded + " " + JavaNames.isName(name) + " "
+                + JavaNames.isIdentifier(name, 0, name.length()) + " " + JavaNames.isKeyword(name, 0, name.length()));
+    }
+
+    static void selection(String label, TextList group, boolean surface) {
+
+        BridgeExports exports = new BridgeExports(group, surface);
+        defer free exports;
+        System.out.println(label + " " + exports.packageCount() + " " + exports.diagnosticCount());
+        for (int index = 0; index < exports.packageCount(); index++) {
+            String name = exports.packageName(index);
+            defer free name;
+            String encoded = hex(name);
+            defer free encoded;
+            System.out.println("  package " + encoded);
+        }
+        for (int index = 0; index < exports.diagnosticCount(); index++) {
+            String message = exports.diagnostic(index);
+            defer free message;
+            String encoded = hex(message);
+            defer free encoded;
+            System.out.println("  diagnostic " + encoded);
+        }
+    }
+
+    // Selects the export group on lines [from, to) of the corpus.
+    static void group(String corpus, int[] lines, int from, int to) {
+
+        TextList group = new TextList();
+        defer free group;
+        for (int line = from; line < to; line++) {
+            String text = Splits.field(corpus, lines, line);
+            defer free text;
+            String value = decode(text);
+            defer free value;
+            group.add(value);
+        }
+        System.out.println("group " + group.size());
+        selection("inputs", group, false);
+        selection("surface", group, true);
+    }
+
+    static void ranges(String label, boolean start) {
+
+        System.out.println(label);
+        int code = 0;
+        while (code <= 0x10FFFF) {
+            boolean accepted = start ? JavaIdentifiers.isJavaIdentifierStart(code) : JavaIdentifiers.isJavaIdentifierPart(code);
+            if (!accepted) {
+                code++;
+            } else {
+                int first = code;
+                while (code <= 0x10FFFF && (start ? JavaIdentifiers.isJavaIdentifierStart(code)
+                        : JavaIdentifiers.isJavaIdentifierPart(code))) {
+                    code++;
+                }
+                String low = Integer.toHexString(first);
+                defer free low;
+                String high = Integer.toHexString(code - 1);
+                defer free high;
+                System.out.println(low + " " + high);
+            }
+        }
+    }
+
+    // Prints every name, then every export group's selections.
+    static void corpus(String corpus) {
+
+        int[] lines = Splits.bounds(corpus, '\n', 0);
+        defer free lines;
+        int count = Splits.count(lines);
+        int line = 0;
+        while (line < count && !isLine(corpus, lines, line, "exports")) {
+            String text = Splits.field(corpus, lines, line);
+            defer free text;
+            String value = decode(text);
+            defer free value;
+            name(value);
+            line++;
+        }
+        line++;
+        while (line < count) {
+            // A `group` line starts each group; its names run to the next one.
+            int end = line + 1;
+            while (end < count && !isLine(corpus, lines, end, "group")) end++;
+            group(corpus, lines, line + 1, end);
+            line = end;
+        }
+    }
+
+    static boolean isLine(String corpus, int[] lines, int line, String marker) {
+
+        String text = Splits.field(corpus, lines, line);
+        defer free text;
+        return text.equals(marker);
+    }
+
+    public static int main(String[] args) {
+
+        // The identifier tables and keyword list are process-lived after their first use.
+        if (!JavaNames.isName("a") || !JavaIdentifiers.isJavaIdentifierStart(0x4e2d)) return 3;
+        long live = System.liveAllocationCount();
+        try {
+            Path path = Path.of(args[0]);
+            defer free path;
+            String text = Files.readString(path);
+            defer free text;
+            corpus(text);
+        } catch (IOException failure) {
+            return 1;
+        }
+        ranges("start ranges", true);
+        ranges("part ranges", false);
+        return System.liveAllocationCount() == live ? 42 : 2;
+    }
+}

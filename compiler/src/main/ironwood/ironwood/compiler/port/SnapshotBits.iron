@@ -1,0 +1,40 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.port;
+
+import ironwood.util.BitSet;
+
+/** Logical BitSet snapshots using the existing primitive or operation. */
+public final class SnapshotBits {
+
+    /**
+     * Allocates independent word storage for the source's logical set bits.
+     * Unused source capacity is not part of this compiler-private contract.
+     * The caller owns the result and must free it after its last consumer.
+     * The source is observed only during this call; no payload is retained.
+     * Failure destroys partially allocated result storage.
+     *
+     * @param source the non-null bit set to observe
+     * @return a fresh mutable bit set with the same logical bits
+     * @throws NullPointerException if source is null
+     */
+    public static BitSet copy(BitSet source) {
+
+        if (source == null) throw new NullPointerException();
+        // Capacity is a constant-time bound; length scans the final word.
+        // Empty inputs need no retained spare capacity. A negative bound can
+        // arise from Java's int-size overflow, so retain ordinary or growth.
+        int capacity = source.isEmpty() ? 64 : source.size();
+        BitSet result = new BitSet(capacity < 64 ? 64 : capacity);
+        try {
+            result.or(source);
+            return result;
+        } catch (RuntimeException failure) {
+            free result;
+            throw failure;
+        } catch (Error failure) {
+            free result;
+            throw failure;
+        }
+    }
+}

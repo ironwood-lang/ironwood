@@ -1,0 +1,359 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// M4.1 differential fixture: deletion, temporary files and directories, real
+// paths, access checks and no-follow attributes on a fixture tree that the
+// test harness builds (links, a dangling link, a loop, locked and read-only
+// directories). docs/self-hosting/m4/scratch-evidence/ScratchPathsReference.java
+// prints the same lines from Java 21. Paths print with the fixture root
+// replaced and every random run of ten or more digits masked; '@' in a case
+// name stands for NUL. Argument 0 selects "cases" (run in the fixture root)
+// or "default" (the default temporary directory from TMPDIR); exit 42 when
+// every case ran.
+import ironwood.io.IOException;
+import ironwood.nio.file.AccessDeniedException;
+import ironwood.nio.file.DirectoryNotEmptyException;
+import ironwood.nio.file.FileAlreadyExistsException;
+import ironwood.nio.file.FileSystemException;
+import ironwood.nio.file.Files;
+import ironwood.nio.file.InvalidPathException;
+import ironwood.nio.file.NoSuchFileException;
+import ironwood.nio.file.Path;
+import ironwood.nio.file.attribute.BasicFileAttributes;
+
+class Fixture {
+
+    private String root;
+    private String realRoot;
+
+    Fixture(String root) throws IOException {
+
+        this.root = new String(root);
+        Path rootPath = Path.of(root);
+        defer free rootPath;
+        Path real = rootPath.toRealPath();
+        defer free real;
+        this.realRoot = new String(real.toString());
+    }
+
+    void deletions() {
+
+        delete("link-file");
+        delete("file.txt");
+        delete("file.txt");
+        delete("missing");
+        delete("missing/child");
+        delete("notdir.txt/child");
+        delete("full");
+        delete("empty");
+        delete("dangling");
+        delete("locked/child.txt");
+        delete("link-full");
+        Path inner = Path.of("full/inner.txt");
+        defer free inner;
+        StringBuilder line = new StringBuilder();
+        defer free line;
+        line.append("exists full/inner.txt -> ").append(Files.exists(inner) ? "true" : "false");
+        emit(line);
+    }
+
+    private void delete(String name) {
+
+        Path path = Path.of(name);
+        defer free path;
+        StringBuilder line = new StringBuilder();
+        defer free line;
+        line.append("deleteIfExists ").append(name).append(" -> ");
+        try {
+            line.append(Files.deleteIfExists(path) ? "true" : "false");
+        } catch (IOException failure) {
+            failed(line, failure, true);
+        }
+        emit(line);
+    }
+
+    void temporaries() {
+
+        file("tmp", "pre", ".suf");
+        file("tmp", null, null);
+        file("tmp", "", "");
+        file("tmp", "🌲 x", " y");
+        file("tmp", "a", "b/");
+        file("tmp", "a", "/");
+        file("tmp", "a", "./");
+        file("tmp", "X", "X");
+        file("tmp", "a/b", null);
+        file("tmp", "a", "/b");
+        file("tmp", "/", null);
+        file("tmp", "a@", null);
+        file("tmp", "a", "@");
+        file("tmp", "a@/", null);
+        file("missing", "a", null);
+        file("notdir.txt", "a", null);
+        file("ro", "a", null);
+        file("locked", "a", null);
+        file("dangling", "a", null);
+        file("link-full", "via", null);
+        file("", "rel", null);
+        directory("tmp", "d");
+        directory("tmp", null);
+        directory("tmp", "🌲 d");
+        directory("tmp", "x/");
+        directory("tmp", "x@");
+        directory("missing", "d");
+        directory("ro", "d");
+        directory("", "reld");
+    }
+
+    private void file(String dir, String prefix, String suffix) {
+
+        Path directory = Path.of(dir);
+        defer free directory;
+        String prefixValue = nul(prefix);
+        defer free prefixValue;
+        String suffixValue = nul(suffix);
+        defer free suffixValue;
+        StringBuilder line = new StringBuilder();
+        defer free line;
+        line.append("createTempFile ").append(dir).append(' ').append(prefix == null ? "<null>" : prefix).append(' ').append(suffix == null ? "<null>" : suffix).append(" -> ");
+        try {
+            Path created = Files.createTempFile(directory, prefixValue, suffixValue);
+            defer free created;
+            show(line, created.toString());
+            line.append(Files.isRegularFile(created) ? " file" : " other");
+        } catch (IOException failure) {
+            failed(line, failure, false);
+        } catch (IllegalArgumentException failure) {
+            failed(line, failure, false);
+        }
+        emit(line);
+    }
+
+    private void directory(String dir, String prefix) {
+
+        Path directory = Path.of(dir);
+        defer free directory;
+        String prefixValue = nul(prefix);
+        defer free prefixValue;
+        StringBuilder line = new StringBuilder();
+        defer free line;
+        line.append("createTempDirectory ").append(dir).append(' ').append(prefix == null ? "<null>" : prefix).append(" -> ");
+        try {
+            Path created = Files.createTempDirectory(directory, prefixValue);
+            defer free created;
+            show(line, created.toString());
+            line.append(Files.isDirectory(created) ? " directory" : " other");
+        } catch (IOException failure) {
+            failed(line, failure, false);
+        } catch (IllegalArgumentException failure) {
+            failed(line, failure, false);
+        }
+        emit(line);
+    }
+
+    void realPaths() {
+
+        real("nested/x");
+        real("link-file");
+        real("link-full/inner.txt");
+        real("link-deep/../x");
+        real("nested/../link-file");
+        real("nested/./deep/..");
+        real("🌲 space");
+        real("");
+        real(".");
+        real("..");
+        real(this.root);
+        real("dangling");
+        real("missing");
+        real("loop-a");
+        real("notdir.txt/x");
+        real("locked/child.txt");
+    }
+
+    private void real(String name) {
+
+        Path path = Path.of(name);
+        defer free path;
+        StringBuilder line = new StringBuilder();
+        defer free line;
+        line.append("toRealPath ");
+        show(line, name);
+        line.append(" -> ");
+        try {
+            Path resolved = path.toRealPath();
+            defer free resolved;
+            show(line, resolved.toString());
+        } catch (IOException failure) {
+            failed(line, failure, true);
+        }
+        emit(line);
+    }
+
+    void access() {
+
+        String[] names = {"nested/x", "exec.sh", "secret.txt", "nested", "locked", "ro", "link-exec",
+                "dangling", "missing", "locked/child.txt", "🌲 space"};
+        defer free names;
+        for (int index = 0; index < names.length; index++) {
+            Path path = Path.of(names[index]);
+            defer free path;
+            StringBuilder line = new StringBuilder();
+            defer free line;
+            line.append("access ").append(names[index]).append(" -> ").append(Files.isReadable(path) ? 'r' : '-').append(Files.isExecutable(path) ? 'x' : '-');
+            emit(line);
+        }
+    }
+
+    void noFollow() {
+
+        String[] names = {"link-exec", "nested/x", "nested", "loop-a", "dangling", "missing"};
+        defer free names;
+        for (int index = 0; index < names.length; index++) {
+            Path path = Path.of(names[index]);
+            defer free path;
+            StringBuilder line = new StringBuilder();
+            defer free line;
+            line.append("readAttributesNoFollow ").append(names[index]).append(" -> ");
+            try {
+                BasicFileAttributes attributes = Files.readAttributesNoFollow(path);
+                defer free attributes;
+                line.append(attributes.isSymbolicLink() ? "link" : attributes.isDirectory() ? "directory"
+                        : attributes.isRegularFile() ? "file" : "other");
+            } catch (IOException failure) {
+                failed(line, failure, true);
+            }
+            emit(line);
+        }
+    }
+
+    // The default directory is java.io.tmpdir; each created entry is removed.
+    void defaults() {
+
+        String configured = System.getProperty("java.io.tmpdir");
+        defer free configured;
+        StringBuilder line = new StringBuilder();
+        defer free line;
+        line.append("default ");
+        try {
+            Path expected = Path.of(configured);
+            defer free expected;
+            Path file = Files.createTempFile("m4-default-", null);
+            defer free file;
+            Path directory = Files.createTempDirectory(null);
+            defer free directory;
+            Path fileParent = file.getParent();
+            defer free fileParent;
+            Path directoryParent = directory.getParent();
+            defer free directoryParent;
+            line.append(fileParent.equals(expected) && directoryParent.equals(expected) ? "in-tmpdir " : "elsewhere ");
+            show(line, file.toString());
+            line.append(' ');
+            show(line, directory.toString());
+            Files.delete(file);
+            Files.delete(directory);
+        } catch (IOException failure) {
+            failed(line, failure, false);
+        }
+        emit(line);
+    }
+
+    private void failed(StringBuilder line, Exception failure, boolean withFile) {
+
+        line.append('!').append(kind(failure));
+        if (withFile && failure instanceof FileSystemException) {
+            String file = ((FileSystemException) failure).getFile();
+            line.append(' ');
+            if (file == null) line.append("<null>");
+            else show(line, file);
+        }
+    }
+
+    private static String kind(Exception failure) {
+
+        if (failure instanceof NoSuchFileException) return "NoSuchFileException";
+        if (failure instanceof AccessDeniedException) return "AccessDeniedException";
+        if (failure instanceof FileAlreadyExistsException) return "FileAlreadyExistsException";
+        if (failure instanceof DirectoryNotEmptyException) return "DirectoryNotEmptyException";
+        if (failure instanceof FileSystemException) return "FileSystemException";
+        if (failure instanceof InvalidPathException) return "InvalidPathException";
+        if (failure instanceof IllegalArgumentException) return "IllegalArgumentException";
+        if (failure instanceof IOException) return "IOException";
+        return "Exception";
+    }
+
+    // Appends path with the root's real and given spellings replaced and
+    // every run of ten or more digits masked.
+    private void show(StringBuilder line, String path) {
+
+        int index = 0;
+        if (under(path, this.realRoot)) {
+            line.append("<real>");
+            index = this.realRoot.length();
+        } else if (under(path, this.root)) {
+            line.append("<root>");
+            index = this.root.length();
+        }
+        while (index < path.length()) {
+            int end = index;
+            while (end < path.length() && path.charAt(end) >= '0' && path.charAt(end) <= '9') end++;
+            if (end - index >= 10) {
+                line.append("<n>");
+                index = end;
+            } else if (end > index) {
+                while (index < end) line.append(path.charAt(index++));
+            } else {
+                line.append(path.charAt(index++));
+            }
+        }
+    }
+
+    private static boolean under(String path, String root) {
+
+        return path.startsWith(root) && (path.length() == root.length() || path.charAt(root.length()) == '/');
+    }
+
+    // A fresh copy with each '@' replaced by NUL, or null.
+    private static String nul(String text) {
+
+        if (text == null) return null;
+        StringBuilder value = new StringBuilder();
+        defer free value;
+        for (int index = 0; index < text.length(); index++) {
+            char unit = text.charAt(index);
+            value.append(unit == '@' ? (char) 0 : unit);
+        }
+        return value.toString();
+    }
+
+    private static void emit(StringBuilder line) {
+
+        String text = line.toString();
+        defer free text;
+        System.out.println(text);
+    }
+
+    destructor {
+
+        free this.root;
+        free this.realRoot;
+    }
+}
+
+class Main {
+
+    public static int main(String[] args) throws IOException {
+
+        Fixture fixture = new Fixture(args[1]);
+        defer free fixture;
+        if (args[0].equals("cases")) {
+            fixture.temporaries();
+            fixture.realPaths();
+            fixture.access();
+            fixture.noFollow();
+            fixture.deletions();
+        } else {
+            fixture.defaults();
+        }
+        return 42;
+    }
+}

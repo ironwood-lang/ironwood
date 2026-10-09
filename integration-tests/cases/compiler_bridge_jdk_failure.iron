@@ -1,0 +1,58 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// Inject allocation failure into the native Bridge producer's JDK selection
+// (JdkSelection, D295): `program <scratch> <work> <macos>` selects the JDK
+// from the inherited JAVA_HOME, reads its values, applies the JNI-header gate
+// and runs javac and javadoc once each. Every failure unwinds to the
+// live-allocation baseline; the test checks between runs that no inspection or
+// tool log is left. Exit 42 on allocation failure with every check intact, 43
+// on success.
+import ironwood.compiler.port.JdkSelection;
+import ironwood.compiler.port.TextList;
+import ironwood.io.IOException;
+import ironwood.nio.file.Path;
+
+class Main {
+
+    static void exercise(String[] args) throws IOException {
+
+        Path scratch = Path.of(args[0]);
+        defer free scratch;
+        Path work = Path.of(args[1]);
+        defer free work;
+        JdkSelection jdk = new JdkSelection(null, scratch, work);
+        defer free jdk;
+        String home = jdk.home();
+        defer free home;
+        String vendor = jdk.vendor();
+        defer free vendor;
+        String version = jdk.runtimeVersion();
+        defer free version;
+        jdk.requireJniHeaders(args[2].equals("1"));
+        TextList sources = new TextList();
+        defer free sources;
+        sources.add("A.java");
+        StringBuilder diagnostics = new StringBuilder();
+        defer free diagnostics;
+        int compiled = jdk.javac(sources, "", work, work, diagnostics);
+        int documented = jdk.javadoc(sources, work, work, work, diagnostics);
+        if (compiled != 0 || documented != 0 || home.isEmpty() || vendor.isEmpty() || version.isEmpty()) {
+            throw new IllegalStateException();
+        }
+    }
+
+    public static int main(String[] args) {
+
+        long baseline = System.liveAllocationCount();
+        boolean failed = false;
+        try {
+            exercise(args);
+        } catch (OutOfMemoryError failure) {
+            failed = true;
+        } catch (IOException failure) {
+            return 4;
+        }
+        if (System.liveAllocationCount() != baseline) return 1;
+        return failed ? 42 : 43;
+    }
+}

@@ -1,0 +1,48 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.ast;
+
+import ironwood.compiler.source.SourceSpan;
+
+/**
+ * Port of the Java frontend AST record {@code ArrayAccessExpression}. Components keep
+ * the record's order; {@code Optional} components are nullable, and list components
+ * are frozen, independent copies that the node borrows for the invocation.
+ */
+public final class ArrayAccessExpression implements Expression {
+
+    private final Expression array;
+    private final Expression index;
+    private final SourceSpan span;
+
+    /** Creates the node from its components in record order. */
+    public ArrayAccessExpression(Expression array, Expression index, SourceSpan span) {
+
+        this.array = array;
+        this.index = index;
+        this.span = span;
+    }
+
+    /** @return the {@code array} component */
+    public Expression array() {
+
+        return this.array;
+    }
+
+    /** @return the {@code index} component */
+    public Expression index() {
+
+        return this.index;
+    }
+
+    /** @return the {@code span} component */
+    @Override public SourceSpan span() {
+
+        return this.span;
+    }
+
+    @Override public ExpressionVariant expressionVariant() {
+
+        return ExpressionVariant.ARRAY_ACCESS_EXPRESSION;
+    }
+}

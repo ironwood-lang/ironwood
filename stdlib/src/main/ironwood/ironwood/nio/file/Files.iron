@@ -24,6 +24,11 @@ public final class Files {
     private static final int ERROR_FILE_TOO_LARGE = 6;
     private static final int ERROR_ALREADY_EXISTS = 7;
     private static final int ERROR_DIRECTORY_NOT_EMPTY = 8;
+    private static final int ERROR_CROSS_DEVICE = 10;
+    private static final int ERROR_UNSUPPORTED = 11;
+    private static final int ERROR_SOURCE_RETAINED = 12;
+    private static final int ACCESS_READ = 1;
+    private static final int ACCESS_EXECUTE = 2;
 
     private Files() {
 
@@ -107,6 +112,163 @@ public final class Files {
         int error = deleteValue(text);
         if (error != ERROR_NONE) throwFailure(text, error);
     }
+
+    /**
+     * Deletes a file, an empty directory or a symbolic link (never its
+     * target) if it exists. Absence is the only failure this method reports
+     * by returning; a non-empty directory, a denied permission or a parent
+     * that is not a directory still fails.
+     *
+     * @param path the entry to delete; borrowed for the call
+     * @return true if this call deleted the entry, false if it did not exist
+     * @throws DirectoryNotEmptyException if the entry is a non-empty directory
+     * @throws IOException if the entry exists but cannot be deleted
+     */
+    public static boolean deleteIfExists(Path path) throws IOException {
+
+        String text = path.toString();
+        int error = deleteValue(text);
+        if (error == ERROR_NO_SUCH_FILE) return false;
+        if (error != ERROR_NONE) throwFailure(text, error);
+        return true;
+    }
+
+    /**
+     * Creates a new empty file in {@code dir} and returns its path. The name
+     * is the prefix, an unsigned decimal value from the host's secure random
+     * source and the suffix; the file is created exclusively, with owner-only
+     * read and write permission before the umask, and is never replaced. A
+     * name that would contain a separator before its trailing separators is
+     * rejected, as Java rejects a generated name with a parent.
+     *
+     * <p>Deleting the file stays the caller's responsibility: freeing the
+     * returned path releases only the path object.
+     *
+     * @param dir an existing directory; borrowed for the call
+     * @param prefix the name's beginning, or null for none
+     * @param suffix the name's end, or null for {@code ".tmp"}
+     * @return a fresh caller-owned path of the new file
+     * @throws IllegalArgumentException if the prefix or suffix would give the
+     *         name a parent
+     * @throws InvalidPathException if the prefix or suffix contains NUL
+     * @throws IOException if the file cannot be created
+     */
+    public static Path createTempFile(Path dir, String prefix, String suffix) throws IOException {
+
+        if (dir == null) throw new NullPointerException();
+        return temporary(dir, prefix, suffix == null ? ".tmp" : suffix, false);
+    }
+
+    /**
+     * Creates a new empty file in the default temporary directory, which is
+     * {@code System.getProperty("java.io.tmpdir")}: a nonempty {@code TMPDIR},
+     * otherwise {@code /tmp}. An unusable configured directory fails; no other
+     * directory is tried.
+     *
+     * @param prefix the name's beginning, or null for none
+     * @param suffix the name's end, or null for {@code ".tmp"}
+     * @return a fresh caller-owned path of the new file
+     * @throws IllegalArgumentException if the prefix or suffix would give the
+     *         name a parent
+     * @throws InvalidPathException if the prefix or suffix contains NUL
+     * @throws IOException if the file cannot be created
+     * @see #createTempFile(Path, String, String)
+     */
+    public static Path createTempFile(String prefix, String suffix) throws IOException {
+
+        Path dir = defaultTemporaryDirectory();
+        defer free dir;
+        return temporary(dir, prefix, suffix == null ? ".tmp" : suffix, false);
+    }
+
+    /**
+     * Creates a new empty directory in {@code dir} and returns its path. The
+     * name is the prefix followed by an unsigned decimal value from the host's
+     * secure random source; the directory is created exclusively with
+     * owner-only permissions before the umask.
+     *
+     * @param dir an existing directory; borrowed for the call
+     * @param prefix the name's beginning, or null for none
+     * @return a fresh caller-owned path of the new directory
+     * @throws IllegalArgumentException if the prefix contains a separator
+     * @throws InvalidPathException if the prefix contains NUL
+     * @throws IOException if the directory cannot be created
+     */
+    public static Path createTempDirectory(Path dir, String prefix) throws IOException {
+
+        if (dir == null) throw new NullPointerException();
+        return temporary(dir, prefix, null, true);
+    }
+
+    /**
+     * Creates a new empty directory in the default temporary directory,
+     * selected as {@link #createTempFile(String, String)} selects it.
+     *
+     * @param prefix the name's beginning, or null for none
+     * @return a fresh caller-owned path of the new directory
+     * @throws IllegalArgumentException if the prefix contains a separator
+     * @throws InvalidPathException if the prefix contains NUL
+     * @throws IOException if the directory cannot be created
+     */
+    public static Path createTempDirectory(String prefix) throws IOException {
+
+        Path dir = defaultTemporaryDirectory();
+        defer free dir;
+        return temporary(dir, prefix, null, true);
+    }
+
+    private static Path defaultTemporaryDirectory() {
+
+        String text = System.getProperty("java.io.tmpdir");
+        defer free text;
+        return Path.of(text);
+    }
+
+    // A null suffix selects a directory. The name is checked as Java checks the
+    // generated name: NUL first, then a separator before the trailing ones.
+    private static Path temporary(Path dir, String prefix, String suffix,
+                                  boolean directory) throws IOException {
+
+        String namePrefix = prefix == null ? "" : prefix;
+        if (namePrefix.indexOf(0) >= 0) throw new InvalidPathException(namePrefix, "Nul character not allowed");
+        if (suffix != null && suffix.indexOf(0) >= 0) {
+            throw new InvalidPathException(suffix, "Nul character not allowed");
+        }
+        int end = suffix == null ? 0 : suffix.length();
+        while (end > 0 && suffix.charAt(end - 1) == '/') end--;
+        if (namePrefix.indexOf('/') >= 0 || end > 0 && suffix.lastIndexOf('/', end - 1) >= 0) {
+            throw new IllegalArgumentException("Invalid prefix or suffix");
+        }
+        String directoryText = dir.toString();
+        String stem = temporaryStem(directoryText, namePrefix);
+        defer free stem;
+        return new UnixPath(directoryText, stem, directory ? null : suffix);
+    }
+
+    // The directory joined with the prefix, as Path.resolve joins a name.
+    private static String temporaryStem(String directory, String prefix) {
+
+        if (directory.isEmpty()) return new String(prefix);
+        if (directory.equals("/")) return "/" + prefix;
+        return directory + "/" + prefix;
+    }
+
+    // Called inside the adopting UnixPath constructor, after its object exists.
+    static String createdTemporary(String directory, String stem, String suffix) throws IOException {
+
+        String result = suffix == null ? createTempDirectoryValue(stem)
+                : createTempFileValue(stem, suffix);
+        if (result == null) throw failure(directory, lastError());
+        return result;
+    }
+
+    // Called inside the adopting UnixPath constructor, after its object exists.
+    static String resolvedRealPath(String path) throws IOException {
+
+        String result = realPathValue(path);
+        if (result == null) throw failure(path, lastError());
+        return result;
+    }
     /** Performs the create directories operation. */
 
     public static Path createDirectories(Path path) throws IOException {
@@ -135,6 +297,113 @@ public final class Files {
         int error = moveValue(sourceText, targetText);
         if (error != ERROR_NONE) throwFailure(sourceText, targetText, error);
         return target;
+    }
+
+    /**
+     * Renames {@code source} to {@code target} as one atomic file-system
+     * operation, replacing an existing target: an observer sees either the
+     * earlier target or the moved entry, never a missing or partial one. A
+     * file may replace a file or link, and a directory an empty directory; a
+     * link is renamed itself, and a target link is replaced, not followed. If
+     * both names already denote the same file, nothing changes and both
+     * remain. There is no copy fallback: a move across file systems fails
+     * with {@link AtomicMoveNotSupportedException}, and every failure leaves
+     * source and target unchanged. Atomic visibility is not a durability
+     * guarantee after a crash.
+     *
+     * @param source the entry to move; borrowed for the call
+     * @param target its new name; borrowed for the call
+     * @return {@code target}, the caller's own path
+     * @throws AtomicMoveNotSupportedException if the names are on different
+     *         file systems
+     * @throws IOException if the rename fails, for example for a non-empty
+     *         target directory or a missing source
+     */
+    public static Path moveAtomicReplacing(Path source, Path target) throws IOException {
+
+        String sourceText = source.toString();
+        String targetText = target.toString();
+        int error = moveAtomicValue(sourceText, targetText);
+        if (error != ERROR_NONE) throw moveFailure(sourceText, targetText, error);
+        return target;
+    }
+
+    /**
+     * Moves {@code source} to {@code target}, replacing an existing target,
+     * atomically when the host can rename. Only a regular file moved across
+     * file systems, where no rename exists, is copied instead: into a new
+     * exclusive temporary beside the target, with its mode and times, which
+     * then replaces the target atomically before the source is removed. Any
+     * failure before that replacement leaves the earlier target and the source
+     * unchanged. If the source cannot be removed afterwards, the target
+     * already holds the moved content and the method throws a
+     * {@link FileSystemException} whose reason is
+     * {@code "Target replaced; source not removed"}; it does not roll the
+     * target back. Other entries fail across file systems with
+     * {@link AtomicMoveNotSupportedException}.
+     *
+     * @param source the entry to move; borrowed for the call
+     * @param target its new name; borrowed for the call
+     * @return {@code target}, the caller's own path
+     * @throws AtomicMoveNotSupportedException if a non-regular entry would
+     *         cross file systems
+     * @throws IOException if the move fails or its source remains after the
+     *         replacement
+     */
+    public static Path moveReplacing(Path source, Path target) throws IOException {
+
+        String sourceText = source.toString();
+        String targetText = target.toString();
+        int error = moveReplacingValue(sourceText, targetText);
+        if (error != ERROR_NONE) throw moveFailure(sourceText, targetText, error);
+        return target;
+    }
+
+    /**
+     * Renames {@code source} to {@code target} only if no entry, not even a
+     * dangling link, exists at the target, deciding that and renaming in one
+     * atomic host operation, so a competing creator either wins and keeps its
+     * entry or loses. Files and directories may move. The host primitive is
+     * {@code renamex_np} with {@code RENAME_EXCL} on macOS and the
+     * {@code renameat2} system call with {@code RENAME_NOREPLACE} on Linux;
+     * where the kernel or file system lacks it, the call fails rather than
+     * checking and renaming separately.
+     *
+     * @param source the entry to move; borrowed for the call
+     * @param target its new name, which must not exist; borrowed for the call
+     * @return {@code target}, the caller's own path
+     * @throws FileAlreadyExistsException if the target exists, including when
+     *         both names denote the same file
+     * @throws AtomicMoveNotSupportedException if the host or file system
+     *         cannot rename exclusively, or the names are on different file
+     *         systems
+     * @throws IOException if the rename fails otherwise
+     */
+    public static Path moveAtomicNoReplace(Path source, Path target) throws IOException {
+
+        String sourceText = source.toString();
+        String targetText = target.toString();
+        int error = moveExclusiveValue(sourceText, targetText);
+        if (error != ERROR_NONE) throw moveFailure(sourceText, targetText, error);
+        return target;
+    }
+
+    private static IOException moveFailure(String source, String target, int error) {
+
+        if (error == ERROR_CROSS_DEVICE) {
+            return new AtomicMoveNotSupportedException(source, target, "Move across file systems");
+        }
+        if (error == ERROR_UNSUPPORTED) {
+            return new AtomicMoveNotSupportedException(source, target, "Exclusive rename not supported");
+        }
+        if (error == ERROR_SOURCE_RETAINED) {
+            return new FileSystemException(source, target, "Target replaced; source not removed");
+        }
+        if (error == ERROR_ALREADY_EXISTS) return new FileAlreadyExistsException(target);
+        if (error == ERROR_DIRECTORY_NOT_EMPTY) {
+            return new FileSystemException(source, target, "Directory not empty");
+        }
+        return failure(source, target, error);
     }
 
     /**
@@ -224,6 +493,33 @@ public final class Files {
 
         return fileKindNoFollow(path.toString()) == 3;
     }
+
+    /**
+     * Tells whether the entry exists and this process may read it, following
+     * symbolic links. The answer is advisory: it can change before a later
+     * read, which still reports its own failure.
+     *
+     * @param path the entry to check; borrowed for the call
+     * @return true if the host grants read access now, false otherwise,
+     *         including when the entry is missing
+     */
+    public static boolean isReadable(Path path) {
+
+        return accessValue(path.toString(), ACCESS_READ) != 0;
+    }
+
+    /**
+     * Tells whether the entry exists and this process may execute it, or
+     * search it when it is a directory, following symbolic links. The answer
+     * is advisory, as for {@link #isReadable(Path)}.
+     *
+     * @param path the entry to check; borrowed for the call
+     * @return true if the host grants execute access now, false otherwise
+     */
+    public static boolean isExecutable(Path path) {
+
+        return accessValue(path.toString(), ACCESS_EXECUTE) != 0;
+    }
     /** Creates a new directory stream. */
 
     public static DirectoryStream<Path> newDirectoryStream(Path directory) throws IOException {
@@ -235,6 +531,21 @@ public final class Files {
     public static BasicFileAttributes readAttributes(Path path) throws IOException {
 
         return readAttributes(path, true);
+    }
+
+    /**
+     * Reads the basic attributes of the entry itself, without following a
+     * final symbolic link: a link reports {@code isSymbolicLink()}. This
+     * Ironwood helper stands for Java's
+     * {@code readAttributes(path, BasicFileAttributes.class, NOFOLLOW_LINKS)}.
+     *
+     * @param path the entry to inspect; borrowed for the call
+     * @return fresh caller-owned attributes
+     * @throws IOException if the entry cannot be inspected
+     */
+    public static BasicFileAttributes readAttributesNoFollow(Path path) throws IOException {
+
+        return readAttributes(path, false);
     }
 
     /** Walks a file tree without following symbolic links. */
@@ -289,6 +600,10 @@ public final class Files {
             } catch (IOException failure) {
                 releaseVisitedAttributes(attributes);
                 return visitFailed(visitor, path, failure);
+            } catch (OutOfMemoryError failure) {
+                // This visit still owns its attributes when the check cannot allocate.
+                releaseVisitedAttributes(attributes);
+                throw failure;
             }
             if (loop) {
                 releaseVisitedAttributes(attributes);
@@ -303,6 +618,10 @@ public final class Files {
         } catch (IOException failure) {
             releaseVisitedAttributes(attributes);
             return visitFailed(visitor, path, failure);
+        } catch (OutOfMemoryError failure) {
+            // This visit still owns its attributes when the stream cannot be allocated.
+            releaseVisitedAttributes(attributes);
+            throw failure;
         }
 
         boolean closed = false;
@@ -563,6 +882,41 @@ public final class Files {
     private static long[] readAttributesValue(String path, boolean followLinks) {
 
         return null;
+    }
+
+    private static String createTempFileValue(String stem, String suffix) {
+
+        return null;
+    }
+
+    private static String createTempDirectoryValue(String stem) {
+
+        return null;
+    }
+
+    private static String realPathValue(String path) {
+
+        return null;
+    }
+
+    private static int accessValue(String path, int mode) {
+
+        return 0;
+    }
+
+    private static int moveAtomicValue(String source, String target) {
+
+        return ERROR_NONE;
+    }
+
+    private static int moveReplacingValue(String source, String target) {
+
+        return ERROR_NONE;
+    }
+
+    private static int moveExclusiveValue(String source, String target) {
+
+        return ERROR_NONE;
     }
 
     private static int lastError() {

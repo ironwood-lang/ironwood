@@ -1,0 +1,149 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// The port's Probes on the native driver's discovery set: argument 0 is the
+// LLVM home, argument 1 the M4.3 process helper. Prints the answers the Java
+// baseline's LlvmToolchain and MacNativeTools give (compared by the test
+// with docs/self-hosting/m4/driver-evidence/DiscoveryReference.java), then
+// the counters of a cold pass, a repeated pass in the same invocation, a
+// fresh invocation and the failure cases, and the elapsed nanoseconds of the
+// cold and repeated passes on stderr. Exit 42.
+import ironwood.compiler.port.Command;
+import ironwood.compiler.port.Probes;
+import ironwood.nio.file.Path;
+
+class Main {
+
+    static String llvmHome;
+    static String helper;
+    static boolean mac;
+
+    public static int main(String[] args) {
+
+        llvmHome = args[0];
+        helper = args[1];
+        String system = System.getProperty("os.name");
+        mac = system.startsWith("Mac");
+        free system;
+        long baseline = System.liveAllocationCount();
+        Probes probes = new Probes(null);
+        defer free probes;
+        long started = System.nanoTime();
+        discover(probes, true);
+        long cold = System.nanoTime() - started;
+        long retained = System.liveAllocationCount() - baseline;
+        report("cold", probes);
+        started = System.nanoTime();
+        discover(probes, false);
+        long repeated = System.nanoTime() - started;
+        report("repeated", probes);
+        probes.close();
+        Probes fresh = new Probes(null);
+        defer free fresh;
+        discover(fresh, false);
+        report("fresh invocation", fresh);
+        failures(fresh);
+        fresh.close();
+        System.err.println("elapsed cold " + cold + " repeated " + repeated + " retained allocations " + retained);
+        return 42;
+    }
+
+    // The LLVM, Clang and, on macOS, Apple SDK and linker probes; the
+    // answers print once.
+    static void discover(Probes probes, boolean print) {
+
+        StringBuilder failure = new StringBuilder();
+        defer free failure;
+        Path home = Path.of(llvmHome);
+        defer free home;
+        Path config = home.resolve("bin/llvm-config");
+        defer free config;
+        Command version = new Command(2);
+        defer free version;
+        version.add(config).add("--version");
+        answer(print, "llvm version ", probes.output(version, failure), false);
+        Path clang = home.resolve("bin/clang");
+        defer free clang;
+        Command clangVersion = new Command(2);
+        defer free clangVersion;
+        clangVersion.add(clang).add("--version");
+        answer(print, "clang ", probes.output(clangVersion, failure), true);
+        if (!mac) return;
+        Command sdkPath = new Command(4);
+        defer free sdkPath;
+        sdkPath.add("/usr/bin/xcrun").add("--sdk").add("macosx").add("--show-sdk-path");
+        String sdk = probes.output(sdkPath, failure);
+        answer(print, "sdk ", sdk, false);
+        Command linkerPath = new Command(5);
+        defer free linkerPath;
+        linkerPath.add("/usr/bin/xcrun").add("--sdk").add("macosx").add("--find").add("ld");
+        String linker = probes.output(linkerPath, failure);
+        answer(print, "linker ", linker, false);
+        String settings = sdk + "/SDKSettings.plist";
+        defer free settings;
+        Command plist = new Command(7);
+        defer free plist;
+        plist.add("/usr/bin/plutil").add("-extract").add("Version").add("raw").add("-o").add("-").add(settings);
+        answer(print, "sdkVersion ", probes.output(plist, failure), false);
+        Command linkerVersion = new Command(2);
+        defer free linkerVersion;
+        linkerVersion.add(linker).add("-v");
+        answer(print, "linkerVersion ", probes.output(linkerVersion, failure), true);
+    }
+
+    // A missing tool, a failing probe run twice (never kept) and output over
+    // the limit; every log is deleted.
+    static void failures(Probes probes) {
+
+        int before = probes.launches();
+        StringBuilder failure = new StringBuilder();
+        defer free failure;
+        Command missing = new Command(1);
+        defer free missing;
+        missing.add("/no/such/probe");
+        System.out.println("missing tool -> " + (probes.output(missing, failure) == null ? "failed" : "ran"));
+        Command failing = new Command(3);
+        defer free failing;
+        failing.add(helper).add("exit").add("3");
+        probes.output(failing, failure);
+        probes.output(failing, failure);
+        System.out.println("failing probe twice -> launches " + (probes.launches() - before));
+        Command large = new Command(3);
+        defer free large;
+        large.add(helper).add("large").add("600000");
+        StringBuilder oversized = new StringBuilder();
+        defer free oversized;
+        String result = probes.output(large, oversized);
+        String text = oversized.toString();
+        defer free text;
+        System.out.println("oversized output -> " + (result == null && text.startsWith("tool output exceeds 1048576 bytes")
+                ? "failed explicitly" : "accepted"));
+        report("after failures", probes);
+    }
+
+    static void answer(boolean print, String label, String value, boolean firstLine) {
+
+        if (!print) return;
+        if (value == null) {
+            System.out.println(label + "<failed>");
+            return;
+        }
+        int end = value.length();
+        if (firstLine) {
+            int newline = value.indexOf('\n');
+            int carriage = value.indexOf('\r');
+            if (newline >= 0) end = newline;
+            if (carriage >= 0 && carriage < end) end = carriage;
+        }
+        String shown = value.substring(0, end);
+        defer free shown;
+        System.out.println(label + shown);
+    }
+
+    static void report(String name, Probes probes) {
+
+        System.out.println(name + ": launches " + probes.launches() + " logs " + probes.logsCreated() + "/"
+                + probes.logsDeleted() + " bytes " + (probes.bytesRead() > 0L ? "read" : "none") + " retained "
+                + (probes.retainedUnits() > 0L ? "some" : "none"));
+        System.err.println(name + ": bytes " + probes.bytesRead() + " retained units " + probes.retainedUnits());
+    }
+}

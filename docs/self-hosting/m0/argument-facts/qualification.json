@@ -1,0 +1,40 @@
+{
+  "schema": 1,
+  "scope": "exact actual/formal types and literal/constant operands; no null/alias/lifetime inference for dynamic expressions",
+  "J0_seed_sha256": "2a8b10ab5575f84d3660b3824a4b80cba7f6f9110023e7e30db3b41103893ad7",
+  "tool_source_sha256": "834a6c33e51ebb0c5b7bbbb7db04831275d63a71549b2c7cd0085d9161c5422b",
+  "raw_sha256": "0c8878b9b6e8e69446a8ff85c68b33b4eacf74fb9fe289609b63282740980aab",
+  "raw_bytes": 31277956,
+  "rows": 53644,
+  "calls": 30979,
+  "commands": [
+    {
+      "argv": [
+        "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home/bin/javac",
+        "--release",
+        "21",
+        "-Xlint:all",
+        "-Werror",
+        "-d",
+        "/Users/developer/workspace-mba-m2/Ironwood/target/self-hosting-m0/argument-facts/classes",
+        "/Users/developer/workspace-mba-m2/Ironwood/scripts/self-hosting/ArgumentFacts.java"
+      ],
+      "returncode": 0
+    },
+    {
+      "argv": [
+        "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home/bin/java",
+        "-Xms256m",
+        "-Xmx4096m",
+        "-Xss8m",
+        "-XX:+UseG1GC",
+        "-cp",
+        "/Users/developer/workspace-mba-m2/Ironwood/target/self-hosting-m0/argument-facts/classes",
+        "ArgumentFacts",
+        "/Users/developer/workspace-mba-m2/Ironwood/target/self-hosting-m0/J0-final2",
+        "/Users/developer/workspace-mba-m2/Ironwood/target/self-hosting-m0/argument-facts/facts.tsv"
+      ],
+      "returncode": 0
+    }
+  ]
+}

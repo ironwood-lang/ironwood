@@ -1,0 +1,112 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// Texts against J0 and Java 21 (docs/self-hosting/m3/semantic-evidence/
+// TextHelpersReference.java, which calls the real StringPool.utf8Length by
+// reflection): UTF-8 lengths of every single UTF-16 unit, of every pair from
+// twelve boundary units and of seeded strings; Character.toCodePoint over all
+// surrogate pairs; the literal replaceFirst of FunctionAnalyzer.joinNotes;
+// String.join over lists. Every built text and list is freed. Exit 42.
+import ironwood.ds.ArrayList;
+import ironwood.compiler.port.Texts;
+
+class Main {
+
+    static long seed = 271828L;
+    static char[] boundary = {'A', '\u007f', '\u0080', '߿', 'ࠀ', '퟿', '\ud800', '\udbff', '\udc00',
+        '\udfff', '', '￿'};
+
+    static int next(int bound) {
+
+        seed = seed * 6364136223846793005L + 1442695040888963407L;
+        return (int) ((seed >>> 33) % bound);
+    }
+
+    static String units(char first, char second, int count) {
+
+        StringBuilder text = new StringBuilder();
+        defer free text;
+        text.append(first);
+        if (count > 1) text.append(second);
+        return text.toString();
+    }
+
+    static void lengths() {
+
+        long hash = 0;
+        for (int unit = 0; unit < 65536; unit++) {
+            String text = units((char) unit, 'x', 1);
+            hash = hash * 31 + Texts.utf8Length(text);
+            free text;
+        }
+        System.out.println("single " + hash);
+        for (int first = 0; first < boundary.length; first++) {
+            StringBuilder line = new StringBuilder();
+            defer free line;
+            line.append("pairs ").append(first);
+            for (int second = 0; second < boundary.length; second++) {
+                String text = units(boundary[first], boundary[second], 2);
+                line.append(' ').append(Texts.utf8Length(text));
+                free text;
+            }
+            System.out.println(line.toString());
+        }
+        for (int round = 0; round < 2000; round++) {
+            StringBuilder text = new StringBuilder();
+            defer free text;
+            int length = next(12);
+            for (int index = 0; index < length; index++) {
+                int pick = next(4);
+                text.append(pick == 0 ? boundary[next(boundary.length)] : pick == 1 ? (char) next(128)
+                        : (char) next(65536));
+            }
+            String value = text.toString();
+            System.out.println("random " + round + " " + value.length() + " " + Texts.utf8Length(value));
+            free value;
+        }
+    }
+
+    static void codePoints() {
+
+        long hash = 0;
+        for (int high = 0xD800; high <= 0xDBFF; high++) {
+            for (int low = 0xDC00; low <= 0xDFFF; low++) hash = hash * 31 + Texts.codePoint((char) high, (char) low);
+        }
+        System.out.println("codepoints " + hash);
+    }
+
+    static void replacements() {
+
+        String[] reasons = {"allocation escapes through argument 1 of method 'put'", "no match here",
+            "allocation escapes through allocation escapes through twice", "", "allocation escapes through ",
+            "prefix allocation escapes through suffix"};
+        defer free reasons;
+        for (int index = 0; index < reasons.length; index++) {
+            String replaced = Texts.replaceFirst(reasons[index], "allocation escapes through ", "the reference is stored in ");
+            System.out.println("replace " + index + " [" + replaced + "]");
+            free replaced;
+        }
+    }
+
+    static void joins() {
+
+        ArrayList<String> parts = new ArrayList<String>();
+        defer free parts;
+        for (int count = 0; count <= 4; count++) {
+            String joined = Texts.join(" or ", parts);
+            String lines = Texts.join("\n", parts);
+            System.out.println("join " + count + " [" + joined + "] " + lines.length());
+            free joined;
+            free lines;
+            parts.add(count % 2 == 0 ? "alpha" : "");
+        }
+    }
+
+    public static int main(String[] args) {
+
+        lengths();
+        codePoints();
+        replacements();
+        joins();
+        return 42;
+    }
+}

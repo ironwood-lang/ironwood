@@ -1,0 +1,41 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.ast;
+
+import ironwood.compiler.source.SourceSpan;
+
+/**
+ * Compiler-owned enum construction action inserted at the start of {@code <clinit>}.
+ * It ports the Java frontend AST record {@code EnumConstantInitialization}. Components
+ * keep the record's order; {@code Optional} components are nullable, and list
+ * components are frozen, independent copies that the node borrows for the invocation.
+ */
+public final class EnumConstantInitialization implements Statement {
+
+    private final EnumConstant constant;
+    private final SourceSpan span;
+
+    /** Creates the node from its components in record order. */
+    public EnumConstantInitialization(EnumConstant constant, SourceSpan span) {
+
+        this.constant = constant;
+        this.span = span;
+    }
+
+    /** @return the {@code constant} component */
+    public EnumConstant constant() {
+
+        return this.constant;
+    }
+
+    /** @return the {@code span} component */
+    @Override public SourceSpan span() {
+
+        return this.span;
+    }
+
+    @Override public StatementVariant statementVariant() {
+
+        return StatementVariant.ENUM_CONSTANT_INITIALIZATION;
+    }
+}

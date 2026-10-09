@@ -111,6 +111,7 @@ import ironwood.compiler.ir.IrExceptionLandingPadInstruction;
 import ironwood.compiler.ir.IrExceptionCaughtInstruction;
 import ironwood.compiler.ir.IrEnsureTypeInitializedInstruction;
 import ironwood.compiler.ir.IrFunction;
+import ironwood.compiler.ir.IrDispatchSlot;
 import ironwood.compiler.ir.IrInstanceOfInstruction;
 import ironwood.compiler.ir.IrInstruction;
 import ironwood.compiler.ir.IrInterfaceCallInstruction;
@@ -227,6 +228,9 @@ final class FunctionAnalyzer {
     private IrOperand enclosingInstanceOperand;
     private IrOperand forwardedSuperEnclosingOperand;
     private final Set<IrOperand> provenNonNullOperands = new LinkedHashSet<>();
+    private final NullGuards nullGuards = new NullGuards();
+    private final Deque<Integer> openLoops = new ArrayDeque<>();
+    private int nextLoopId;
     private final Map<String, IrOperand> captureParameterOperands = new LinkedHashMap<>();
     private int nextValueId;
     private int nextSymbolId;
@@ -236,10 +240,16 @@ final class FunctionAnalyzer {
     private boolean evaluatingConstructorArguments;
     private boolean loweringInstanceInitializer;
     private final List<AllocationInfo> pendingYieldAllocations = new ArrayList<>();
+    private final List<ConstructorHelperArgument> constructorHelperArguments = new ArrayList<>();
     private List<PendingYieldEvidence> pendingYieldEvidence;
     private SourceSpan checkedCatchOrigin;
     private CleanupExit activeCleanupExit;
     private final List<Reclamation> reclamations = new ArrayList<>();
+    /**
+     * Rejected frees of locals by statement span, with the local's static type. They
+     * emit no instruction, so field proofs judge their destructors by type (D296).
+     */
+    private final Map<SourceSpan, IrType> rejectedFreeTypes = new LinkedHashMap<>();
     private final Map<IrOperand, AllocationInfo> allocationsByOperand = new LinkedHashMap<>();
     private final Set<IrOperand> ownedHelperBorrows = new LinkedHashSet<>();
     private final Map<IrOperand, String> ownedHelperBorrowTypes = new LinkedHashMap<>();
@@ -259,6 +269,7 @@ final class FunctionAnalyzer {
     private ClosedWorldEffectAnalyzer reclamationEffects;
     private boolean explainRejectedFree;
     private boolean explanationReady;
+    private boolean ownershipVerdicts = true;
     private RejectedFreeEvidence rejectedFreeEvidence;
     private SemanticAnalysisObserver observer;
     private final Set<IrOperand> unfreedFreshResults = new LinkedHashSet<>();
@@ -308,6 +319,12 @@ final class FunctionAnalyzer {
         return this;
     }
 
+    /** Lowers without reporting ownership verdicts, which need converged closed-world facts. */
+    FunctionAnalyzer withoutOwnershipVerdicts() {
+        ownershipVerdicts = false;
+        return this;
+    }
+
     FunctionAnalyzer withRejectedFreeExplanations(boolean enabled, boolean refinementCompleted,
                                                   RejectedFreeEvidence.Budget budget,
                                                   RejectedFreeEvidence.Limits limits,
@@ -326,6 +343,11 @@ final class FunctionAnalyzer {
 
     boolean hasRejectedFreeEvidence() {
         return rejectedFreeEvidence != null;
+    }
+
+    /** The frees of locals this lowering rejected, by statement span, with each local's static type. */
+    Map<SourceSpan, IrType> rejectedFreeTypes() {
+        return Map.copyOf(rejectedFreeTypes);
     }
 
     RejectedFreeEvidence rejectedFreeEvidence() {
@@ -729,6 +751,17 @@ final class FunctionAnalyzer {
                     blocks.values().stream().map(MutableBlock::freeze).toList(), function.span());
         }
 
+        if (isProcessRunIntrinsic()) {
+            IrValueReference result = newValue(IrType.I64, function.span());
+            emitCall(new ironwood.compiler.ir.IrProcessInstruction(result, parameters.get(0).value(),
+                    parameters.get(1).value(), parameters.get(2).value(), function.span()), function.span());
+            currentBlock.terminate(new IrReturnTerminator(Optional.of(result), function.span()));
+            exitScope();
+            return new IrFunction(function.ownerType(), function.sourceName(), function.linkageName(),
+                    function.returnType(), parameters,
+                    blocks.values().stream().map(MutableBlock::freeze).toList(), function.span());
+        }
+
         Optional<IrCharacterInstruction.Operation> characterOperation = characterIntrinsic();
         if (characterOperation.isPresent()) {
             IrValueReference result = newValue(IrType.I32, function.span());
@@ -1044,10 +1077,14 @@ final class FunctionAnalyzer {
         }
         exitScope();
 
+        validateConstructorHelperArguments();
         if (unfreed != null && !Diagnostic.hasErrors(diagnostics.subList(diagnosticStart, diagnostics.size()))) {
             diagnostics.addAll(unfreed.diagnostics());
         }
-        List<IrBasicBlock> frozenBlocks = blocks.values().stream().map(MutableBlock::freeze).toList();
+        nullGuards.verify(controlFlow(), fieldStores(), function.linkageName());
+        List<IrBasicBlock> frozenBlocks = RedundantNullChecks.omit(
+                blocks.values().stream().map(MutableBlock::freeze).toList(),
+                provenNonNullOperands, nullGuards);
         return new IrFunction(function.ownerType(), function.sourceName(), function.linkageName(),
                 function.returnType(), parameters, frozenBlocks, function.span());
     }
@@ -1561,10 +1598,12 @@ final class FunctionAnalyzer {
             return lowerPathSensitiveFlow(() -> lowerIf(ifStatement));
         }
         if (statement instanceof WhileStatement whileStatement) {
-            return lowerPathSensitiveFlow(() -> lowerWhile(whileStatement, null));
+            return lowerPathSensitiveFlow(() -> lowerOpenLoop(
+                    () -> lowerWhile(whileStatement, null)));
         }
         if (statement instanceof DoWhileStatement doWhileStatement) {
-            return lowerPathSensitiveFlow(() -> lowerDoWhile(doWhileStatement, null));
+            return lowerPathSensitiveFlow(() -> lowerOpenLoop(
+                    () -> lowerDoWhile(doWhileStatement, null)));
         }
         if (statement instanceof ForStatement forStatement) {
             FieldSymbol ownedElements = function.isDestructor()
@@ -1578,10 +1617,11 @@ final class FunctionAnalyzer {
                 currentBlock.addInstruction(new IrDestroyArrayElementsInstruction(array, statement.span()));
                 return true;
             }
-            return lowerPathSensitiveFlow(() -> lowerFor(forStatement, null));
+            return lowerPathSensitiveFlow(() -> lowerOpenLoop(() -> lowerFor(forStatement, null)));
         }
         if (statement instanceof EnhancedForStatement enhancedForStatement) {
-            return lowerPathSensitiveFlow(() -> lowerEnhancedFor(enhancedForStatement, null));
+            return lowerPathSensitiveFlow(() -> lowerOpenLoop(
+                    () -> lowerEnhancedFor(enhancedForStatement, null)));
         }
         if (statement instanceof LabeledStatement labeledStatement) {
             return lowerPathSensitiveFlow(() -> lowerLabeled(labeledStatement));
@@ -1987,7 +2027,20 @@ final class FunctionAnalyzer {
     private void lowerFreeOperand(LocalSymbol symbol, IrOperand operand, IrType targetType,
                                   String targetName, SourceSpan targetSpan, SourceSpan span,
                                   Set<LocalSymbol> expiredAliases) {
-        switch (probeFree(symbol, operand, targetType, expiredAliases)) {
+        FreeProof proof = probeFree(symbol, operand, targetType, expiredAliases);
+        // An owned field's proof assumed this free never runs (D297); reject it.
+        String contingent = proof instanceof FreeProof.Accepted && symbol != null
+                ? ownedArrayFields.contingentFree(source, span) : null;
+        if ((contingent != null || !(proof instanceof FreeProof.Accepted)) && symbol != null
+                && targetType.isReference()) {
+            rejectedFreeTypes.put(span, targetType);
+        }
+        if (contingent != null) {
+            ownershipVerdict(error(targetSpan, "cannot free " + targetName
+                    + ": it can run a destructor while " + contingent));
+            return;
+        }
+        switch (proof) {
             case FreeProof.Accepted accepted -> emitProvenFree(accepted.allocation(), operand, span);
             case FreeProof.NotReference ignored -> diagnostics.add(error(targetSpan,
                     "free target must have a class, interface, or array reference type, not "
@@ -2073,7 +2126,7 @@ final class FunctionAnalyzer {
                 .filter(entry -> entry.getValue() == allocation)
                 .map(Map.Entry::getKey)
                 .filter(slot -> slot.container() != allocation)
-                // Snapshot maps do not preserve the original store order.
+                // Prefer slot index, then container allocation order, independently of store order.
                 .min(Comparator.comparingInt(ArraySlot::index)
                         .thenComparingInt(slot -> allocations.indexOf(slot.container())))
                 .orElse(null);
@@ -2152,7 +2205,7 @@ final class FunctionAnalyzer {
                         + "is not proved", load.source(), load.span()));
                 appendFieldNotes(notes, fieldFailureNotes(load.field()));
             }
-            diagnostics.add(error(targetSpan, message).withNotes(notes));
+            ownershipVerdict(error(targetSpan, message).withNotes(notes));
         } else {
             rejectedFree(targetSpan, message, RejectedFreeExplanation.Missing.IDENTITY);
         }
@@ -2180,7 +2233,7 @@ final class FunctionAnalyzer {
                         + "Returning an external object is unsupported and does not promise pool cleanup"
                         : "lends this checked-out object here; return it to the same pool with release, "
                         + "or successfully destroy the pool to reclaim it";
-                diagnostics.add(error(targetSpan, message).withNotes(
+                ownershipVerdict(error(targetSpan, message).withNotes(
                         ownerNotes("pool", poolOwner, site.source(), site.span(), action)));
             }
         } else if (explainRejectedFree && explanationReady && rejectedFreeEvidence != null
@@ -2189,7 +2242,7 @@ final class FunctionAnalyzer {
                 && operand.sourceSpan() != null
                 && retainedBorrows.values().stream().noneMatch(children ->
                 children.contains(helperOwner))) {
-            diagnostics.add(error(targetSpan, message).withNotes(
+            ownershipVerdict(error(targetSpan, message).withNotes(
                     ownerNotes(isKnownContainer(helperOwner) ? "container" : "owner",
                             helperOwner, source, operand.sourceSpan(),
                             "lends a dependent helper acquired or propagated here; "
@@ -2208,7 +2261,7 @@ final class FunctionAnalyzer {
         RejectedFreeEvidence.Site site = rejectedFreeEvidence == null ? null
                 : rejectedFreeEvidence.retention(retainingOwner, allocation);
         if (explainRejectedFree && explanationReady && site != null) {
-            diagnostics.add(error(targetSpan, message).withNotes(
+            ownershipVerdict(error(targetSpan, message).withNotes(
                     ownerNotes(kind, retainingOwner, site.source(), site.span(),
                             "retains this allocation through this operation")));
         } else {
@@ -2226,7 +2279,7 @@ final class FunctionAnalyzer {
         if (pending == null) {
             rejectedFree(targetSpan, message, RejectedFreeExplanation.Missing.YIELD);
         } else {
-            diagnostics.add(error(targetSpan, message).withNotes(List.of(
+            ownershipVerdict(error(targetSpan, message).withNotes(List.of(
                     new DiagnosticNote("this pending yield result still observes "
                             + "the allocation during cleanup", source, pending.span()))));
         }
@@ -2238,11 +2291,11 @@ final class FunctionAnalyzer {
         RejectedFreeEvidence.Event event = rejectedFreeEvidence == null
                 ? null : rejectedFreeEvidence.event(allocation);
         if (joined != null) {
-            diagnostics.add(error(targetSpan, "cannot free " + targetName
+            ownershipVerdict(error(targetSpan, "cannot free " + targetName
                     + ": allocation was already freed").withNotes(joinNotes(allocation, joined)));
         } else if (explainRejectedFree && explanationReady && event != null
                 && event.kind() == RejectedFreeEvidence.EventKind.FREE) {
-            diagnostics.add(error(targetSpan, "cannot free " + targetName
+            ownershipVerdict(error(targetSpan, "cannot free " + targetName
                     + ": allocation was already freed")
                     .withNotes(List.of(new DiagnosticNote(
                             "the same allocation was freed here",
@@ -2261,7 +2314,7 @@ final class FunctionAnalyzer {
         RejectedFreeEvidence.Event event = rejectedFreeEvidence == null
                 ? null : rejectedFreeEvidence.event(allocation);
         if (joined != null) {
-            diagnostics.add(error(targetSpan, message).withNotes(joinNotes(allocation, joined)));
+            ownershipVerdict(error(targetSpan, message).withNotes(joinNotes(allocation, joined)));
         } else if (explainRejectedFree && explanationReady && event != null
                 && event.kind() == RejectedFreeEvidence.EventKind.REASON
                 && event.reason().equals(allocation.blockingReason)
@@ -2289,7 +2342,7 @@ final class FunctionAnalyzer {
                     }
                 }
             }
-            diagnostics.add(error(targetSpan, message).withNotes(notes));
+            ownershipVerdict(error(targetSpan, message).withNotes(notes));
         } else {
             rejectedFree(targetSpan, message, RejectedFreeExplanation.Missing.SELECTED_REASON);
         }
@@ -2312,7 +2365,7 @@ final class FunctionAnalyzer {
             if (load != null) {
                 appendFieldNotes(notes, fieldFailureNotes(load.field()));
             }
-            diagnostics.add(error(targetSpan, message).withNotes(notes));
+            ownershipVerdict(error(targetSpan, message).withNotes(notes));
         } else {
             rejectedFree(targetSpan, message, RejectedFreeExplanation.Missing.ATTACHED_FIELD);
         }
@@ -2326,7 +2379,7 @@ final class FunctionAnalyzer {
         RejectedFreeEvidence.Site store = rejectedFreeEvidence == null
                 ? null : rejectedFreeEvidence.arrayStore(storedAlias);
         if (explainRejectedFree && explanationReady && store != null) {
-            diagnostics.add(error(targetSpan, message).withNotes(List.of(new DiagnosticNote(
+            ownershipVerdict(error(targetSpan, message).withNotes(List.of(new DiagnosticNote(
                     "array element [" + storedAlias.index()
                             + "] receives a reference to this allocation here",
                     store.source(), store.span()))));
@@ -2342,7 +2395,7 @@ final class FunctionAnalyzer {
                 ? null : rejectedFreeEvidence.binding(alias);
         if (explainRejectedFree && explanationReady && binding != null
                 && binding.allocation() == allocation) {
-            diagnostics.add(error(targetSpan, "cannot free " + targetName + ": " + reason)
+            ownershipVerdict(error(targetSpan, "cannot free " + targetName + ": " + reason)
                     .withNotes(List.of(new DiagnosticNote(
                             "local '" + alias.name()
                                     + "' receives a reference to the same allocation here",
@@ -2482,7 +2535,7 @@ final class FunctionAnalyzer {
             List<DiagnosticNote> failure = explainRejectedFree && explanationReady
                     ? fieldFailureNotes(field) : List.of();
             if (!failure.isEmpty()) {
-                diagnostics.add(error(statement.value().span(), message)
+                ownershipVerdict(error(statement.value().span(), message)
                         .withNotes(failure));
             } else {
                 rejectedFree(statement.value().span(), message,
@@ -2510,6 +2563,7 @@ final class FunctionAnalyzer {
                 field.irField(), statement.value().span()));
         currentBlock.addInstruction(new IrFieldStoreInstruction(thisOperand, field.irField(),
                 defaultValue(field.type(), statement.value().span()), statement.value().span()));
+        nullGuards.stored(field.irField());
         currentBlock.addInstruction(new IrFreeInstruction(value, statement.span()));
     }
 
@@ -3298,6 +3352,7 @@ final class FunctionAnalyzer {
                 statement.elseBranch().map(Statement::span).orElse(statement.span()));
         MutableBlock mergeBlock = createBlock("if.merge", statement.span());
         currentBlock.terminate(new IrBranch(conditionOperand, thenBlock.label, elseBlock.label, statement.span()));
+        guardBranch(currentBlock, statement.condition());
 
         BranchFlow thenFlow = lowerBranch(thenBlock, statement.thenBranch(), before,
                 patternFlow.whenTrue());
@@ -4613,6 +4668,7 @@ final class FunctionAnalyzer {
         conditionEnd.terminate(alwaysTrue
                 ? new IrJump(body.label, statement.span())
                 : new IrBranch(conditionOperand, body.label, exit.label, statement.span()));
+        guardBranch(conditionEnd, statement.condition());
 
         LoopContext loop = new LoopContext(exit.label, header.label, List.copyOf(finallyContexts));
         breakContexts.push(loop);
@@ -4743,6 +4799,7 @@ final class FunctionAnalyzer {
             conditionEnd.terminate(alwaysTrue
                     ? new IrJump(body.label, statement.span())
                     : new IrBranch(conditionOperand, body.label, exit.label, statement.span()));
+            guardBranch(conditionEnd, statement.condition());
             conditionFlow = new BranchFlow(true, conditionEnd, conditionEnvironment, conditionOwnership);
             if (!(conditionOperand instanceof IrConstant constant && constant.value().intValue() == 0)) {
                 backEdges.add(conditionFlow);
@@ -4836,6 +4893,7 @@ final class FunctionAnalyzer {
         conditionEnd.terminate(alwaysTrue
                 ? new IrJump(body.label, statement.span())
                 : new IrBranch(condition, body.label, exit.label, statement.span()));
+        statement.condition().ifPresent(test -> guardBranch(conditionEnd, test));
 
         LoopContext loop = new LoopContext(exit.label, update.label, List.copyOf(finallyContexts));
         breakContexts.push(loop);
@@ -5147,19 +5205,19 @@ final class FunctionAnalyzer {
     private boolean lowerLabeled(LabeledStatement statement) {
         if (statement.body() instanceof WhileStatement loop) {
             diagnoseDuplicateLabel(statement);
-            return lowerWhile(loop, statement);
+            return lowerOpenLoop(() -> lowerWhile(loop, statement));
         }
         if (statement.body() instanceof DoWhileStatement loop) {
             diagnoseDuplicateLabel(statement);
-            return lowerDoWhile(loop, statement);
+            return lowerOpenLoop(() -> lowerDoWhile(loop, statement));
         }
         if (statement.body() instanceof ForStatement loop) {
             diagnoseDuplicateLabel(statement);
-            return lowerFor(loop, statement);
+            return lowerOpenLoop(() -> lowerFor(loop, statement));
         }
         if (statement.body() instanceof EnhancedForStatement loop) {
             diagnoseDuplicateLabel(statement);
-            return lowerEnhancedFor(loop, statement);
+            return lowerOpenLoop(() -> lowerEnhancedFor(loop, statement));
         }
 
         diagnoseDuplicateLabel(statement);
@@ -5507,7 +5565,7 @@ final class FunctionAnalyzer {
             AllocationInfo allocation = allocationOf(operand);
             AllocationInfo freed = allocation == null ? null : mayBeFreedIdentity(allocation);
             if (freed != null) {
-                diagnostics.add(useAfterFree(expression.span(), "cannot use '" + expression.name()
+                ownershipVerdict(useAfterFree(expression.span(), "cannot use '" + expression.name()
                         + "' after its allocation was freed", freed));
             }
             return new TypedValue(symbol.type(), operand);
@@ -5536,6 +5594,7 @@ final class FunctionAnalyzer {
             currentBlock.addInstruction(new IrFieldLoadInstruction(result, thisOperand,
                     field.irField(), expression.span()));
             trackOwnedFieldLoad(result, thisOperand, field);
+            noteFinalFieldLoad(result, thisOperand, field);
             return new TypedValue(field.type(), result);
         }
         LocalClassSemantics.VariableIdentity captured = currentClass.variableAt(expression.span())
@@ -5560,6 +5619,7 @@ final class FunctionAnalyzer {
             currentBlock.addInstruction(new IrFieldLoadInstruction(result, lexical.receiver(),
                     lexical.field().irField(), expression.span()));
             trackOwnedFieldLoad(result, lexical.receiver(), lexical.field());
+            noteFinalFieldLoad(result, lexical.receiver(), lexical.field());
             return new TypedValue(lexical.field().type(), result);
         }
         FieldSymbol imported = resolveStaticImportedField(expression.name(), expression.span(), true);
@@ -5580,6 +5640,7 @@ final class FunctionAnalyzer {
             currentBlock.addInstruction(new IrFieldLoadInstruction(result, target.receiver(),
                     target.field().irField(), expression.span()));
             trackOwnedFieldLoad(result, target.receiver(), target.field());
+            noteFinalFieldLoad(result, target.receiver(), target.field());
             return new TypedValue(target.field().type(), result);
         }
         ClassFieldResolution qualified = resolveClassField(expression);
@@ -5623,6 +5684,7 @@ final class FunctionAnalyzer {
         currentBlock.addInstruction(new IrFieldLoadInstruction(result, target.receiver(),
                 target.field().irField(), expression.span()));
         trackOwnedFieldLoad(result, target.receiver(), target.field());
+        noteFinalFieldLoad(result, target.receiver(), target.field());
         return new TypedValue(target.field().type(), result);
     }
 
@@ -5948,8 +6010,7 @@ final class FunctionAnalyzer {
     private TypedValue lowerSelectedConstructor(NewExpression expression,
                                                 InvocationPlan invocation) {
         planningContext.commitCaptures();
-        markAttachedOwnedFieldLoansUncertain(
-                "cannot prove object construction before private-field detachment is non-reentrant");
+        forgetUnaliasedOwnedFieldLoans();
         InvocationPlan.CandidatePlan selected = invocation.selected();
         CallableSymbol constructor = selected.candidate().callable()
                 .substitute(selected.inference().substitutions());
@@ -5987,6 +6048,13 @@ final class FunctionAnalyzer {
         }
         LoweredInvocationArguments arguments = lowerInvocationArguments(selected,
                 "constructor argument");
+
+        if (function.isConstructor()) {
+            for (int index = 0; index < arguments.values().size(); index++) {
+                constructorHelperArguments.add(new ConstructorHelperArgument(constructor, index,
+                        arguments.values().get(index).operand(), arguments.spans().get(index)));
+            }
+        }
 
         ensureTypeInitialized(targetClass.name(), expression.span());
         IrValueReference result = newValue(referenceType, expression.span());
@@ -6080,9 +6148,83 @@ final class FunctionAnalyzer {
         return new TypedValue(referenceType, result);
     }
 
+    private record ConstructorHelperArgument(CallableSymbol constructor, int index,
+                                             IrOperand value, SourceSpan span) { }
+
+    private void validateConstructorHelperArguments() {
+        // Defer until loop and branch phis contain all incoming values. A helper
+        // must not publish the parent that constructor unwind will reclaim.
+        for (ConstructorHelperArgument argument : constructorHelperArguments) {
+            if (isConstructingThisAlias(argument.value(), new LinkedHashSet<>())
+                    && !escapeSummaries.constructorArgumentIsConfined(argument.constructor(), argument.index())) {
+                ownershipVerdict(error(argument.span(),
+                        "constructor may publish in-progress 'this' through an unconfined helper argument"));
+            }
+        }
+    }
+
+    private boolean isConstructingThisAlias(IrOperand value, Set<IrOperand> visited) {
+        if (value == null || thisOperand == null || !visited.add(value)) return false;
+        if (value.equals(thisOperand)) return true;
+        for (MutableBlock block : blocks.values()) {
+            for (MutablePhi phi : block.phis) {
+                if (phi.result.equals(value)) {
+                    return phi.incoming.stream().anyMatch(incoming -> isConstructingThisAlias(incoming.value(), visited));
+                }
+            }
+            for (IrInstruction instruction : block.instructions) {
+                if (instruction instanceof IrReferenceConversionInstruction conversion && conversion.result().equals(value)) {
+                    return isConstructingThisAlias(conversion.value(), visited);
+                }
+                if (instruction instanceof IrPhiInstruction phi && phi.result().equals(value)) {
+                    return phi.incoming().stream().anyMatch(incoming -> isConstructingThisAlias(incoming.value(), visited));
+                }
+                if (callReturnsConstructingThis(instruction, value, visited)) return true;
+            }
+            if (block.terminator instanceof IrInvokeTerminator invoke
+                    && callReturnsConstructingThis(invoke.call(), value, visited)) return true;
+        }
+        return false;
+    }
+
+    private boolean callReturnsConstructingThis(IrInstruction instruction, IrOperand result, Set<IrOperand> visited) {
+        if (instruction instanceof IrCallInstruction call && call.result().filter(result::equals).isPresent()) {
+            return targetReturnsConstructingThis(call.targetLinkageName(), call.arguments(), visited);
+        }
+        IrDispatchSlot slot;
+        List<IrOperand> arguments;
+        if (instruction instanceof IrVirtualCallInstruction call && call.result().filter(result::equals).isPresent()) {
+            slot = call.slot();
+            arguments = call.arguments();
+        } else if (instruction instanceof IrInterfaceCallInstruction call && call.result().filter(result::equals).isPresent()) {
+            slot = call.slot();
+            arguments = call.arguments();
+        } else {
+            return false;
+        }
+        if (arguments.isEmpty() || !arguments.getFirst().type().isNominalReference()) return false;
+        for (TypeSymbol concrete : hierarchy.concreteSubtypes(arguments.getFirst().type().referenceName())) {
+            CallableSymbol target = hierarchy.resolveDispatchImplementation(concrete, slot.key()).orElse(null);
+            if (target != null && targetReturnsConstructingThis(target.linkageName(), arguments, visited)) return true;
+        }
+        return false;
+    }
+
+    private boolean targetReturnsConstructingThis(String linkage, List<IrOperand> arguments, Set<IrOperand> visited) {
+        CallableSymbol target = escapeSummaries.callable(linkage);
+        EscapeSummaryAnalyzer.EscapeSummary effects = escapeSummaries.summary(linkage);
+        if (target == null || effects == null) return false;
+        for (ReturnOrigin origin : effects.returnedOrigins()) {
+            int index = origin.kind() == ReturnOrigin.Kind.THIS ? 0
+                    : origin.kind() == ReturnOrigin.Kind.PARAMETER ? origin.parameterIndex() + (target.isStatic() ? 0 : 1) : -1;
+            if (index >= 0 && index < arguments.size()
+                    && isConstructingThisAlias(arguments.get(index), visited)) return true;
+        }
+        return false;
+    }
+
     private TypedValue lowerNew(NewExpression expression) {
-        markAttachedOwnedFieldLoansUncertain(
-                "cannot prove object construction before private-field detachment is non-reentrant");
+        forgetUnaliasedOwnedFieldLoans();
         TypedValue explicitEnclosing = expression.enclosingInstance()
                 .map(this::lowerExpression).orElse(null);
         if (explicitEnclosing != null && explicitEnclosing.type().isNominalReference()) {
@@ -6199,6 +6341,12 @@ final class FunctionAnalyzer {
         allocationsByOperand.put(result, allocation);
         if (constructor == null) {
             return new TypedValue(referenceType, result);
+        }
+        if (function.isConstructor()) {
+            for (int index = 0; index < arguments.size(); index++) {
+                constructorHelperArguments.add(new ConstructorHelperArgument(constructor, index,
+                        arguments.get(index).operand(), expression.arguments().get(index).span()));
+            }
         }
         checkCheckedExceptions(constructor, expression.span());
         if (!isAccessible(constructor.accessModifier(), targetClass.name(), targetClass.name(), false)) {
@@ -6415,6 +6563,7 @@ final class FunctionAnalyzer {
             IrValueReference result = newValue(IrType.I1, expression.span());
             currentBlock.addInstruction(new IrArrayTypeTestInstruction(result, operand,
                     targetType.erasure(), expression.span()));
+            nullGuards.tested(expression, operand, true);
             bindPattern(expression, targetType, operand);
             return new TypedValue(IrType.I1, result);
         }
@@ -6486,6 +6635,7 @@ final class FunctionAnalyzer {
         IrValueReference result = newValue(IrType.I1, expression.span());
         currentBlock.addInstruction(new IrInstanceOfInstruction(result, operand,
                 target.name(), target.typeId(), expression.span()));
+        nullGuards.tested(expression, operand, true);
         bindPattern(expression, resolveType(expression.targetType()), operand);
         return new TypedValue(IrType.I1, result);
     }
@@ -6630,8 +6780,19 @@ final class FunctionAnalyzer {
         }
         TypedValue left = lowerExpression(expression.left());
         TypedValue right = lowerExpression(expression.right());
-        return emitBinary(expression.operator(), left, right, expression.left().span(),
+        TypedValue result = emitBinary(expression.operator(), left, right, expression.left().span(),
                 expression.right().span(), expression.operatorSpan(), expression.span());
+        if ((expression.operator() == BinaryOperator.EQUAL
+                || expression.operator() == BinaryOperator.NOT_EQUAL)
+                && (isNullValue(left) || isNullValue(right))) {
+            nullGuards.tested(expression, isNullValue(right) ? left.operand() : right.operand(),
+                    expression.operator() == BinaryOperator.NOT_EQUAL);
+        }
+        return result;
+    }
+
+    private static boolean isNullValue(TypedValue value) {
+        return value.type().equals(IrType.NULL) || value.operand() instanceof IrNull;
     }
 
     private TypedValue emitBinary(BinaryOperator operator, TypedValue left, TypedValue right,
@@ -7320,6 +7481,7 @@ final class FunctionAnalyzer {
         currentBlock.terminate(new IrBranch(condition,
                 and ? rightBlock.label : shortBlock.label,
                 and ? shortBlock.label : rightBlock.label, expression.operatorSpan()));
+        guardBranch(currentBlock, expression.left());
 
         currentBlock = rightBlock;
         environment = new LinkedHashMap<>(before);
@@ -7413,6 +7575,7 @@ final class FunctionAnalyzer {
         MutableBlock merge = createBlock("conditional.merge", expression.span());
         currentBlock.terminate(new IrBranch(condition, trueBlock.label, falseBlock.label,
                 expression.questionSpan()));
+        guardBranch(currentBlock, expression.condition());
 
         currentBlock = trueBlock;
         environment = new LinkedHashMap<>(before);
@@ -7937,6 +8100,7 @@ final class FunctionAnalyzer {
             currentBlock.addInstruction(new IrFieldLoadInstruction(result, receiver,
                     field.irField(), span));
             trackOwnedFieldLoad(result, receiver, field);
+            noteFinalFieldLoad(result, receiver, field);
             return result;
         }, (value, writeSpan, valueSpan) -> {
             if (validateReceiverOnWrite) {
@@ -8003,13 +8167,62 @@ final class FunctionAnalyzer {
 
     private void emitNullCheck(IrOperand reference, SourceSpan span) {
         checkNotFreed(reference, span);
-        if (provenNonNullOperands.contains(reference)) {
+        if (provenNonNullOperands.contains(reference)
+                || nullGuards.guarded(reference, currentBlock.label, currentBlock.instructions.size(),
+                List.copyOf(openLoops), this::controlFlow)) {
             return;
         }
         IrValueReference valid = newValue(IrType.I1, span);
+        MutableBlock test = currentBlock;
         currentBlock.addInstruction(new IrNullCheckInstruction(valid, reference, span));
         emitRuntimeSafetyBranch(valid, "null.valid", "null.failure",
                 "ironwood.lang.NullPointerException", "null checks", span);
+        nullGuards.guard(reference, test.label, currentBlock.label, List.copyOf(openLoops));
+    }
+
+    /** Registers the null facts of a lowered condition at the targets of the branch ending {@code test}. */
+    private void guardBranch(MutableBlock test, Expression condition) {
+        if (!(test.terminator instanceof IrBranch branch)
+                || branch.trueTarget().equals(branch.falseTarget())) {
+            return;
+        }
+        NullGuards.Facts facts = nullGuards.facts(condition);
+        List<Integer> loops = List.copyOf(openLoops);
+        facts.whenTrue().forEach(reference ->
+                nullGuards.guard(reference, test.label, branch.trueTarget(), loops));
+        facts.whenFalse().forEach(reference ->
+                nullGuards.guard(reference, test.label, branch.falseTarget(), loops));
+    }
+
+    /** Lowers a loop as open, so guards met before it do not cover fields it may free (D287). */
+    private boolean lowerOpenLoop(java.util.function.BooleanSupplier loop) {
+        openLoops.push(nextLoopId++);
+        try {
+            return loop.getAsBoolean();
+        } finally {
+            openLoops.pop();
+        }
+    }
+
+    private List<NullGuards.Store> fieldStores() {
+        List<NullGuards.Store> stores = new ArrayList<>();
+        for (MutableBlock block : blocks.values()) {
+            for (int index = 0; index < block.instructions.size(); index++) {
+                if (block.instructions.get(index) instanceof IrFieldStoreInstruction store) {
+                    stores.add(new NullGuards.Store(block.label, index,
+                            store.field().ownerClass(), store.field().name()));
+                }
+            }
+        }
+        return stores;
+    }
+
+    private NullGuards.Graph controlFlow() {
+        Map<String, List<String>> successors = new LinkedHashMap<>();
+        for (MutableBlock block : blocks.values()) {
+            successors.put(block.label, NullGuards.successors(block.terminator));
+        }
+        return new NullGuards.Graph(blocks.keySet().iterator().next(), successors);
     }
 
     private void emitArrayBoundsCheck(IrOperand array, IrOperand index, SourceSpan span) {
@@ -8128,8 +8341,12 @@ final class FunctionAnalyzer {
     private void markConstructorPublications(CallableSymbol constructor, TypeSymbol target,
                                              List<TypedValue> arguments,
                                              List<SourceSpan> argumentSpans) {
-        arguments.forEach(argument -> exposeContainerContents(argument.operand(),
-                "constructor can observe stored data-structure references"));
+        List<FreshBorrowingFactoryAnalysis.Input> copiedItems = escapeSummaries.constructorBorrowedElements(constructor);
+        if (copiedItems != null && !factoryInputsHaveBorrowingCallbacks(copiedItems, null, arguments)) copiedItems = null;
+        if (copiedItems == null) {
+            arguments.forEach(argument -> exposeContainerContents(argument.operand(),
+                    "constructor can observe stored data-structure references"));
+        }
         EscapeSummaryAnalyzer.EscapeSummary summary = escapeSummaries.summary(constructor);
         boolean publishesReceiver = summary.thisEscapes();
         for (TypeSymbol parent = target.superclass().orElse(null); parent != null;
@@ -8155,6 +8372,42 @@ final class FunctionAnalyzer {
                                           List<TypedValue> arguments,
                                           List<SourceSpan> argumentSpans) {
         EscapeSummaryAnalyzer.EscapeSummary summary = escapeSummaries.summary(constructor);
+        List<FreshBorrowingFactoryAnalysis.Input> copiedItems = escapeSummaries.constructorBorrowedElements(constructor);
+        if (copiedItems != null && !factoryInputsHaveBorrowingCallbacks(copiedItems, null, arguments)) copiedItems = null;
+        if (copiedItems != null) {
+            owner.copiedContainerItems = true;
+            for (var input : copiedItems) {
+                IrOperand source = arguments.get(input.origin().parameterIndex()).operand();
+                AllocationInfo backing = allocationOf(source);
+                if (backing == null) continue;
+                if (!isDependentBorrow(source) && !exposedContainerContents.contains(backing)
+                        && backing.constructedType != null && backing.constructedType.isNominalReference()
+                        && (backing.constructedType.referenceName().equals("ironwood.ds.ArrayList")
+                            || MapCopyFactoryAnalysis.isMap(backing.constructedType)
+                            || SetCopyFactoryAnalysis.isSet(backing.constructedType))) {
+                    for (AllocationInfo child : retainedBorrows.getOrDefault(backing, Set.of())) {
+                        if (SetCopyFactoryAnalysis.isSet(backing.constructedType)
+                                || backing.possibleMapKeys != null && backing.possibleMapKeys.contains(child)) {
+                            recordPossibleMapKey(owner, child);
+                            if (input.keyCallbacks()) {
+                                exposeContainerContents(child, "snapshot key callbacks can observe nested data-structure contents",
+                                        Collections.newSetFromMap(new IdentityHashMap<>()));
+                            }
+                        }
+                        addRetainedBorrow(owner, child, argumentSpans.get(input.origin().parameterIndex()));
+                    }
+                } else {
+                    if (MapCopyFactoryAnalysis.isMap(input.type()) || SetCopyFactoryAnalysis.isSet(input.type())) {
+                        recordPossibleMapKey(owner, backing);
+                    }
+                    if (input.keyCallbacks()) {
+                        exposeContainerContents(backing, "snapshot callbacks can observe unknown key membership",
+                                Collections.newSetFromMap(new IdentityHashMap<>()));
+                    }
+                    addRetainedBorrow(owner, backing, argumentSpans.get(input.origin().parameterIndex()));
+                }
+            }
+        }
         for (int index = 0; index < arguments.size(); index++) {
             AllocationInfo argument = allocationOf(arguments.get(index).operand());
             if (argument == null || !arguments.get(index).type().isReference()) { continue; }
@@ -8276,8 +8529,7 @@ final class FunctionAnalyzer {
         SourceSpan span = prepared.span();
         IrOperand receiver = prepared.receiver();
         List<TypedValue> arguments = prepared.arguments();
-        markAttachedOwnedFieldLoansUncertain(
-                "cannot prove a call made before private-field detachment is non-reentrant");
+        forgetUnaliasedOwnedFieldLoans();
         if (prepared.nullCheckSpan() != null && receiver != null) {
             emitNullCheck(receiver, prepared.nullCheckSpan());
         }
@@ -8401,7 +8653,7 @@ final class FunctionAnalyzer {
                                          List<TypedValue> arguments, SourceSpan span) {
         if (isFileTreeWalk(callable) && !function.ownerType().equals("ironwood.nio.file.Files")
                 && !fileVisitorCallbacksBorrow(arguments.getLast().type())) {
-            diagnostics.add(error(span, "Files.walkFileTree visitor callbacks "
+            ownershipVerdict(error(span, "Files.walkFileTree visitor callbacks "
                     + "must not retain callback paths or attributes"));
         }
     }
@@ -8473,6 +8725,19 @@ final class FunctionAnalyzer {
             if (!toStringDoesNotPublishReceiver(type)) return false;
         }
         return true;
+    }
+
+    // ProcessRunner.runToFile reads the command's Strings only to encode them
+    // before the launch and retains none; String is final, so no element
+    // dispatch can publish them. The exact signature keeps other String[]
+    // parameters conservative.
+    private static boolean isBorrowingProcessCommand(CallableSymbol callable) {
+        IrType path = IrType.reference("ironwood.nio.file.Path");
+        return callable != null && callable.isStatic()
+                && callable.ownerType().equals("ironwood.process.ProcessRunner")
+                && callable.sourceName().equals("runToFile")
+                && callable.parameterTypes().equals(List.of(
+                        IrType.array(IrType.reference("ironwood.lang.String")), path, path));
     }
 
     private static boolean isPrintStreamObjectRendering(CallableSymbol callable) {
@@ -8954,6 +9219,39 @@ final class FunctionAnalyzer {
                                     List<CallableSymbol> possibleTargets,
                                     boolean possibleDispatch) {
         CallableSymbol resolved = useTargetMetadata ? escapeSummaries.callable(resolvedLinkageName) : null;
+        if (resolved != null && receiver != null && isDependentBorrow(receiver)
+                && allocationOf(receiver) != null && allocationOf(receiver).copiedContainerItems
+                && !resolved.ownerType().equals(allocationOf(receiver).constructedType.referenceName())
+                && escapeSummaries.primitivePayloadRead(resolved)
+                && !possibleTargets.isEmpty()
+                && possibleTargets.stream().allMatch(escapeSummaries::primitivePayloadRead)) return;
+        CopiedMapReadAnalysis.Read copiedRead = resolved == null || receiver == null ? null
+                : escapeSummaries.copiedMembershipRead(resolved);
+        if (copiedRead != null && (!copiedRead.keyCallbacks()
+                || hasBorrowingKeyCallbacks(receiver.type()) && arguments.stream().allMatch(argument ->
+                    hasBorrowingCallbacks(argument.type(), Map.of("hashCode", List.of(), "equals",
+                            List.of(IrType.reference("ironwood.lang.Object"))))))) {
+            AllocationInfo owner = allocationOf(receiver);
+            if (owner != null && owner.copiedContainerItems) {
+                if (copiedRead.keyCallbacks()) {
+                    if (owner.possibleMapKeys != null) {
+                        for (AllocationInfo key : retainedBorrows.getOrDefault(owner, Set.of())) {
+                            if (owner.possibleMapKeys.contains(key)) {
+                                exposeContainerContents(key, "snapshot lookup callbacks can observe stored key contents",
+                                        Collections.newSetFromMap(new IdentityHashMap<>()));
+                            }
+                        }
+                    }
+                    arguments.forEach(argument -> exposeContainerContents(argument.operand(),
+                            "snapshot lookup callbacks can observe nested key contents"));
+                }
+                if (result.isPresent() && result.orElseThrow().type().isReference()) {
+                    allocationsByOperand.put(result.orElseThrow(), owner);
+                    ownedHelperBorrows.add(result.orElseThrow());
+                }
+                return;
+            }
+        }
         if (resolved != null && recordSingleRootListGet(resolved, receiver, result)) return;
         if (resolved != null && recordFreshBorrowingFactory(resolved, receiver, arguments, result)) {
             return;
@@ -8990,7 +9288,7 @@ final class FunctionAnalyzer {
                     "borrowed call can observe reference-array elements"));
             return;
         }
-        if (!isBorrowingStringJoin(resolved, arguments)) {
+        if (!isBorrowingStringJoin(resolved, arguments) && !isBorrowingProcessCommand(resolved)) {
             exposeArrayElements(receiver, "call to method '" + methodName
                     + "' can observe reference-array elements");
             arguments.forEach(argument -> exposeArrayElements(argument.operand(),
@@ -9167,6 +9465,9 @@ final class FunctionAnalyzer {
                 if (child != null) {
                     addRetainedBorrow(owner, child,
                             callSites == null ? null : callSites.argument(index));
+                    if (index == 0 && MapCopyFactoryAnalysis.isMap(owner.constructedType)) {
+                        recordPossibleMapKey(owner, child);
+                    }
                 }
             }
         }
@@ -9222,8 +9523,17 @@ final class FunctionAnalyzer {
         if (result.isEmpty()) return false;
         FreshBorrowingFactoryAnalysis.Result proof = escapeSummaries.freshBorrowingFactory(method);
         if (proof == null) return false;
+        if (!factoryInputsHaveBorrowingCallbacks(proof.elements(), receiver, arguments)) return false;
         AllocationInfo owner = AllocationInfo.freshCall(controlFlowDepth);
         owner.constructedType = proof.type();
+        IrType resultType = result.orElseThrow().type();
+        if (resultType.isNominalReference() && proof.type().isNominalReference()
+                && resultType.referenceName().equals(proof.type().referenceName())) {
+            // The body proof uses declaration type parameters. The typed call
+            // already resolved their actual arguments; preserve them for later
+            // callback dispatch and container loan checks on the fresh result.
+            owner.constructedType = resultType;
+        }
         allocations.add(owner);
         pendingFreshResult = owner;
         recordAllocationOrigin(owner, result.orElseThrow().sourceSpan());
@@ -9247,7 +9557,43 @@ final class FunctionAnalyzer {
                     backing = next;
                 }
             }
-            borrows.add(new WrapperBorrow(owner, backing, result.orElseThrow().sourceSpan()));
+            if (input.containerElements() && input.fields().isEmpty()
+                    && !isDependentBorrow(source) && !exposedContainerContents.contains(backing)
+                    && backing.constructedType != null && backing.constructedType.isNominalReference()
+                    && (backing.constructedType.referenceName().equals("ironwood.ds.ArrayList")
+                        || MapCopyFactoryAnalysis.isMap(backing.constructedType)
+                        || SetCopyFactoryAnalysis.isSet(backing.constructedType))) {
+                // Copy the actual loans, including a self-item or a nested wrapper.
+                // Fresh storage does not erase any payload's lifetime dependency.
+                for (AllocationInfo child : retainedBorrows.getOrDefault(backing, Set.of())) {
+                    if (input.keyCallbacks() && (SetCopyFactoryAnalysis.isSet(backing.constructedType)
+                            || backing.possibleMapKeys != null && backing.possibleMapKeys.contains(child))) {
+                        exposeContainerContents(child, "copy key callbacks can observe nested data-structure contents",
+                                Collections.newSetFromMap(new IdentityHashMap<>()));
+                    }
+                    if (MapCopyFactoryAnalysis.isMap(proof.type()) && backing.possibleMapKeys != null
+                            && backing.possibleMapKeys.contains(child)) {
+                        recordPossibleMapKey(owner, child);
+                    }
+                    borrows.add(new WrapperBorrow(owner, child, result.orElseThrow().sourceSpan()));
+                }
+            } else {
+                if (MapCopyFactoryAnalysis.isMap(proof.type())) {
+                    // A whole source root represents unknown key membership.
+                    // Preserve it as a possible key for subsequent copies;
+                    // an empty metadata set never proves these keys absent.
+                    recordPossibleMapKey(owner, backing);
+                    if (input.keyCallbacks()) {
+                        exposeContainerContents(backing, "copy callbacks can observe unknown key membership",
+                                Collections.newSetFromMap(new IdentityHashMap<>()));
+                    }
+                }
+                if (SetCopyFactoryAnalysis.isSet(proof.type()) && input.keyCallbacks()) {
+                    exposeContainerContents(backing, "copy callbacks can observe unknown set membership",
+                            Collections.newSetFromMap(new IdentityHashMap<>()));
+                }
+                borrows.add(new WrapperBorrow(owner, backing, result.orElseThrow().sourceSpan()));
+            }
             for (var entry : proof.borrows().entrySet()) {
                 if (entry.getValue().equals(input)) owner.finalBorrowedFields.put(ownedFieldKey(entry.getKey()), backing);
             }
@@ -9262,6 +9608,21 @@ final class FunctionAnalyzer {
         return true;
     }
 
+    private boolean factoryInputsHaveBorrowingCallbacks(List<FreshBorrowingFactoryAnalysis.Input> inputs,
+                                                        IrOperand receiver, List<TypedValue> arguments) {
+        for (var input : inputs) {
+            if (!input.keyCallbacks()) continue;
+            IrOperand source = switch (input.origin().kind()) {
+                case THIS -> receiver;
+                case PARAMETER -> input.origin().parameterIndex() < arguments.size()
+                        ? arguments.get(input.origin().parameterIndex()).operand() : null;
+                case ELEMENT_OF_PARAMETER -> null;
+            };
+            if (source == null || !input.fields().isEmpty() || !hasBorrowingKeyCallbacks(source.type())) return false;
+        }
+        return true;
+    }
+
     private boolean recordSingleRootListGet(CallableSymbol method, IrOperand receiver,
                                             Optional<IrValueReference> result) {
         CallExpression guard = DataStructureSemantics.arrayListElementReadGuard(method);
@@ -9270,7 +9631,7 @@ final class FunctionAnalyzer {
         FieldSymbol storage = listType == null ? null : listType.declaredFields().get("array");
         if (storage == null || !ownedArrayFields.isOwned(storage)) return false;
         List<CallableSymbol> guards = escapeSummaries.boundTargets(method, guard);
-        if (guards.isEmpty() || guards.stream().anyMatch(target -> !target.returnType().equals(IrType.VOID)
+        if (guards.isEmpty() || guards.stream().anyMatch(target -> !DataStructureSemantics.isPureArrayListReadGuard(target)
                 || escapeSummaries.summary(target).thisEscapesWithoutReturn())) return false;
         AllocationInfo list = allocationOf(receiver);
         if (list == null || list.constructedType == null || !list.constructedType.isNominalReference()
@@ -9360,6 +9721,13 @@ final class FunctionAnalyzer {
 
     private record WrapperBorrow(AllocationInfo owner, AllocationInfo child, SourceSpan site) {}
 
+    private static void recordPossibleMapKey(AllocationInfo owner, AllocationInfo key) {
+        if (owner.possibleMapKeys == null) {
+            owner.possibleMapKeys = Collections.newSetFromMap(new IdentityHashMap<>());
+        }
+        owner.possibleMapKeys.add(key);
+    }
+
     private void exposeContainerContents(IrOperand operand, String reason) {
         AllocationInfo allocation = allocationOf(operand);
         if (allocation != null) {
@@ -9372,7 +9740,7 @@ final class FunctionAnalyzer {
                                          Set<AllocationInfo> visited) {
         if (!visited.add(allocation)) { return; }
         Set<AllocationInfo> children = retainedBorrows.getOrDefault(allocation, Set.of());
-        if (isKnownContainer(allocation)) {
+        if (isKnownContainer(allocation) || allocation.copiedContainerItems) {
             exposedContainerContents.add(allocation);
             for (AllocationInfo child : children) {
                 markEscaped(child, reason, Collections.newSetFromMap(new IdentityHashMap<>()));
@@ -9709,6 +10077,7 @@ final class FunctionAnalyzer {
         if (provenNonNullOperands.contains(value)) {
             provenNonNullOperands.add(result);
         }
+        nullGuards.converted(result, value);
         AllocationInfo allocation = allocationOf(value);
         if (allocation != null) {
             allocationsByOperand.put(result, allocation);
@@ -11785,7 +12154,7 @@ final class FunctionAnalyzer {
         String detail = capture.role() + " of this deferred call captured the allocation here"
                 + (capture.bindingName() == null ? "" : ", when '"
                 + capture.bindingName() + "' still referred to it");
-        diagnostics.add(error(span, message).withNotes(List.of(
+        ownershipVerdict(error(span, message).withNotes(List.of(
                 new DiagnosticNote(detail, source, capture.span()))));
     }
 
@@ -11815,7 +12184,7 @@ final class FunctionAnalyzer {
                 + "' and already schedules reclamation of the same allocation"
                 : "this deferred free is bound to '" + action.target().name()
                 + "' and schedules reclamation of the same allocation at block exit";
-        diagnostics.add(error(span, message).withNotes(List.of(
+        ownershipVerdict(error(span, message).withNotes(List.of(
                 new DiagnosticNote(detail, source, action.targetSpan()))));
     }
 
@@ -11827,14 +12196,14 @@ final class FunctionAnalyzer {
             return;
         }
         if (missing == RejectedFreeExplanation.Missing.IDENTITY) {
-            diagnostics.add(error(span, message).withNotes(List.of(new DiagnosticNote(
+            ownershipVerdict(error(span, message).withNotes(List.of(new DiagnosticNote(
                     "this local has no compiler-proven allocation identity at deferred-free "
                             + "registration", source, span))));
             return;
         }
         if (missing == RejectedFreeExplanation.Missing.BORROW_OWNER
                 && operand.sourceSpan() != null) {
-            diagnostics.add(error(span, message).withNotes(List.of(new DiagnosticNote(
+            ownershipVerdict(error(span, message).withNotes(List.of(new DiagnosticNote(
                     "this dependent helper was acquired here; it is borrowed from its owner "
                             + "and cannot be deferred for independent reclamation",
                     source, operand.sourceSpan()))));
@@ -11844,12 +12213,12 @@ final class FunctionAnalyzer {
             RejectedFreeEvidence.Join joined = selectedJoin(allocation);
             RejectedFreeEvidence.Event event = rejectedFreeEvidence.event(allocation);
             if (joined != null) {
-                diagnostics.add(error(span, message).withNotes(joinNotes(allocation, joined)));
+                ownershipVerdict(error(span, message).withNotes(joinNotes(allocation, joined)));
                 return;
             }
             if (event != null && event.kind() == RejectedFreeEvidence.EventKind.FREE
                     && event.source() != null && event.span() != null) {
-                diagnostics.add(error(span, message).withNotes(List.of(new DiagnosticNote(
+                ownershipVerdict(error(span, message).withNotes(List.of(new DiagnosticNote(
                         "the same allocation was already freed here",
                         event.source(), event.span()))));
                 return;
@@ -11860,7 +12229,7 @@ final class FunctionAnalyzer {
 
     private boolean rejectPendingFreeWrite(LocalSymbol symbol, SourceSpan span) {
         if (pendingDeferredFrees().noneMatch(action -> action.target().equals(symbol))) return false;
-        diagnostics.add(error(span, "cannot assign to or update local '" + symbol.name()
+        ownershipVerdict(error(span, "cannot assign to or update local '" + symbol.name()
                 + "' while its deferred free is pending"));
         return true;
     }
@@ -12312,7 +12681,7 @@ final class FunctionAnalyzer {
             if (owner == null) {
                 markEscaped(transfer.value(), "pooled object returned through an unknown pool");
             } else {
-                diagnostics.add(error(transfer.value().sourceSpan(),
+                ownershipVerdict(error(transfer.value().sourceSpan(),
                         "cannot transfer an object owned by another pool or containing object; "
                                 + "release must return a value checked out from this pool"));
             }
@@ -12389,6 +12758,22 @@ final class FunctionAnalyzer {
         if (site != null) rejectedFreeEvidence.origin(target, site.source(), site.span());
     }
 
+    /**
+     * Names a load of a final instance field by its receiver and field, so a null test of
+     * one load guards the others (D287). Constructors store final fields, so their loads
+     * stay unnamed; a destructor stores null when it frees an owned field of its class.
+     */
+    private void noteFinalFieldLoad(IrOperand loaded, IrOperand receiver, FieldSymbol field) {
+        if (!field.isFinal() || field.isStatic() || !loaded.type().isReference()
+                || function.isConstructor()) {
+            return;
+        }
+        boolean mayStore = function.isDestructor()
+                && field.ownerClass().equals(currentClass.name())
+                && ownedArrayFields.isOwned(field);
+        nullGuards.loadedFinalField(loaded, receiver, field.irField(), mayStore);
+    }
+
     private void trackOwnedFieldLoad(IrOperand loaded, IrOperand receiver, FieldSymbol field) {
         // References reached through a pooled value or helper must not outlive
         // the owner, including internal nodes and segment arrays.
@@ -12449,7 +12834,6 @@ final class FunctionAnalyzer {
             if (rejectionReason != null) {
                 AllocationInfo allocation = AllocationInfo.borrowedField(controlFlowDepth,
                         field.declaration().name());
-                selectUncertain(allocation, rejectionReason);
                 allocations.add(allocation);
                 recordAllocationOrigin(allocation, loaded.sourceSpan());
                 allocationsByOperand.put(loaded, allocation);
@@ -12484,19 +12868,16 @@ final class FunctionAnalyzer {
         borrowedOwnedFields.remove(key);
     }
 
-    private void markAttachedOwnedFieldLoansUncertain(String reason) {
-        var fields = borrowedOwnedFields.entrySet().iterator();
-        while (fields.hasNext()) {
-            Map.Entry<String, AllocationInfo> field = fields.next();
-            AllocationInfo allocation = field.getValue();
-            boolean liveLocalAlias = java.util.stream.Stream.concat(environment.values().stream(),
-                    pendingDeferredOperands()).anyMatch(value -> allocationOf(value) == allocation);
-            if (!liveLocalAlias) {
-                fields.remove();
-            } else if (!allocation.detached) {
-                selectUncertain(allocation, reason);
-            }
-        }
+    /**
+     * Before code that may replace an owned field runs, forgets each loan that no local
+     * still holds, so a later load starts a new one. An attached loan with a live alias
+     * cannot reach here: owned-field analysis rejects the field when code may run while
+     * one exists (D041, D281).
+     */
+    private void forgetUnaliasedOwnedFieldLoans() {
+        borrowedOwnedFields.values().removeIf(allocation -> java.util.stream.Stream.concat(
+                environment.values().stream(), pendingDeferredOperands())
+                .noneMatch(value -> allocationOf(value) == allocation));
     }
 
     private static String ownedFieldKey(FieldSymbol field) {
@@ -12516,7 +12897,7 @@ final class FunctionAnalyzer {
 
     private OwnershipSnapshot snapshotOwnership() {
         OwnershipSnapshot snapshot = new OwnershipSnapshot(snapshotAllocationStates(),
-                new LinkedHashMap<>(knownArraySlots),
+                knownArraySlots,
                 new LinkedHashMap<>(borrowedOwnedFields), new IdentityHashMap<>(retainedBorrows),
                 new IdentityHashMap<>(poolOwners), Set.copyOf(exposedContainerContents),
                 unfreed == null ? Set.of() : unfreed.snapshot());
@@ -12855,7 +13236,7 @@ final class FunctionAnalyzer {
                                 ? "this incoming loop path may carry a freed allocation; "
                                 + "a unique earlier free is unavailable"
                                 : "the earlier free on this incoming loop path was not retained");
-                        diagnostics.add(error(flow.block().span, message).withNotes(List.of(note)));
+                        ownershipVerdict(error(flow.block().span, message).withNotes(List.of(note)));
                     }
                 }
             }
@@ -12904,7 +13285,7 @@ final class FunctionAnalyzer {
                         notes.add(new DiagnosticNote("this free was reached during cleanup; "
                                 + "its exit detail was omitted by the evidence storage limit"));
                     }
-                    diagnostics.add(error(reclamation.span(), message).withNotes(notes));
+                    ownershipVerdict(error(reclamation.span(), message).withNotes(notes));
                 }
             }
         }
@@ -12954,7 +13335,7 @@ final class FunctionAnalyzer {
         if (allocation == null) return;
         AllocationInfo freed = mayBeFreedIdentity(allocation);
         if (freed != null) {
-            diagnostics.add(useAfterFree(span,
+            ownershipVerdict(useAfterFree(span,
                     "cannot use evaluated reference after its allocation was freed", freed));
         }
     }
@@ -13400,12 +13781,18 @@ final class FunctionAnalyzer {
         }
     }
 
+    private void ownershipVerdict(Diagnostic diagnostic) {
+        if (ownershipVerdicts) {
+            diagnostics.add(diagnostic);
+        }
+    }
+
     private void rejectedFree(SourceSpan span, String message,
                               RejectedFreeExplanation.Missing missing) {
         if (explainRejectedFree && explanationReady && rejectedFreeEvidence != null
                 && (rejectedFreeEvidence.localTruncated()
                 || rejectedFreeEvidence.invocationStopped())) {
-            diagnostics.add(error(span, message).withNotes(List.of(new DiagnosticNote(
+            ownershipVerdict(error(span, message).withNotes(List.of(new DiagnosticNote(
                     rejectedFreeEvidence.invocationStopped()
                             ? "the invocation evidence storage limit was reached; detailed "
                             + "source evidence was omitted for this rejection"
@@ -13413,8 +13800,8 @@ final class FunctionAnalyzer {
                             + "source evidence was omitted for this rejection"))));
             return;
         }
-        diagnostics.add(RejectedFreeExplanation.attach(error(span, message),
-                explainRejectedFree, explanationReady, missing));
+        ownershipVerdict(RejectedFreeExplanation.attach(error(span, message),
+                explainRejectedFree, missing));
     }
 
     private boolean isPrintStreamWriteIntrinsic() {
@@ -13655,6 +14042,20 @@ final class FunctionAnalyzer {
                         IrFileInstruction.Operation.FILE_SIZE);
                 case "lastError" -> fileIntrinsic(IrType.I32, List.of(),
                         IrFileInstruction.Operation.LAST_ERROR);
+                case "createTempFileValue" -> fileIntrinsic(string, List.of(string, string),
+                        IrFileInstruction.Operation.CREATE_TEMP_FILE);
+                case "createTempDirectoryValue" -> fileIntrinsic(string, List.of(string),
+                        IrFileInstruction.Operation.CREATE_TEMP_DIRECTORY);
+                case "realPathValue" -> fileIntrinsic(string, List.of(string),
+                        IrFileInstruction.Operation.REAL_PATH);
+                case "accessValue" -> fileIntrinsic(IrType.I32, List.of(string, IrType.I32),
+                        IrFileInstruction.Operation.ACCESS);
+                case "moveAtomicValue" -> fileIntrinsic(IrType.I32, List.of(string, string),
+                        IrFileInstruction.Operation.MOVE_ATOMIC);
+                case "moveReplacingValue" -> fileIntrinsic(IrType.I32, List.of(string, string),
+                        IrFileInstruction.Operation.MOVE_REPLACING);
+                case "moveExclusiveValue" -> fileIntrinsic(IrType.I32, List.of(string, string),
+                        IrFileInstruction.Operation.MOVE_EXCLUSIVE);
                 default -> Optional.empty();
             };
         }
@@ -13680,6 +14081,14 @@ final class FunctionAnalyzer {
             };
         }
         return Optional.empty();
+    }
+
+    private boolean isProcessRunIntrinsic() {
+        return function.ownerType().equals("ironwood.process.ProcessRunner")
+                && function.sourceName().equals("runProcessValue") && function.isStatic()
+                && function.returnType().equals(IrType.I64)
+                && function.parameterTypes().equals(List.of(ironwood.compiler.ir.IrProcessInstruction.COMMAND,
+                ironwood.compiler.ir.IrProcessInstruction.STRING, ironwood.compiler.ir.IrProcessInstruction.STRING));
     }
 
     private Optional<IrType> floatingParseIntrinsic() {
@@ -14185,6 +14594,11 @@ final class FunctionAnalyzer {
         private final String ownedFieldName;
         private final Map<String, AllocationInfo> finalBorrowedFields = new LinkedHashMap<>();
         private IrType constructedType;
+        private boolean copiedContainerItems;
+        // Monotonic observation metadata, independent of path restoration.
+        // Used only to expose possible key contents, intersected with current
+        // retained loans. It never establishes ownership or permits a free.
+        private Set<AllocationInfo> possibleMapKeys;
         /** For a ONE_OF identity, the allocations it may be, as known where it was made. */
         private Set<AllocationInfo> mayBe = Set.of();
         private boolean detached;
@@ -14258,12 +14672,21 @@ final class FunctionAnalyzer {
             Set<AllocationInfo> unfreedLive) {
         private OwnershipSnapshot {
             states = Map.copyOf(states);
-            knownArraySlots = Map.copyOf(knownArraySlots);
+            knownArraySlots = copyArraySlots(knownArraySlots);
             borrowedOwnedFields = Map.copyOf(borrowedOwnedFields);
             retainedBorrows = Map.copyOf(retainedBorrows);
             poolOwners = Map.copyOf(poolOwners);
             exposedContainerContents = Set.copyOf(exposedContainerContents);
             unfreedLive = Set.copyOf(unfreedLive);
+        }
+
+        private static Map<ArraySlot, AllocationInfo> copyArraySlots(
+                Map<ArraySlot, AllocationInfo> source) {
+            Map<ArraySlot, AllocationInfo> copy = new LinkedHashMap<>();
+            source.forEach((slot, allocation) -> copy.put(
+                    java.util.Objects.requireNonNull(slot),
+                    java.util.Objects.requireNonNull(allocation)));
+            return java.util.Collections.unmodifiableMap(copy);
         }
     }
 

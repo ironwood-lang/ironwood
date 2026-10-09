@@ -383,6 +383,7 @@ final class BorrowDispatchAnalysis {
             case IrStringHashCodeInstruction ignored -> { }
             case IrTlsInstruction ignored -> { } // Native state never retains managed arguments.
             case IrTcpInstruction ignored -> { } // Primitive results; buffers and output state never escape.
+            case ironwood.compiler.ir.IrProcessInstruction ignored -> { } // A primitive status; operands are borrowed.
             case IrMathUnaryInstruction ignored -> { }
             case IrMathBinaryInstruction ignored -> { }
             case IrNumericConversionInstruction ignored -> { }

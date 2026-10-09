@@ -127,6 +127,21 @@ int32_t ironwood_file_delete(const void *path, void *allocation_failure);
 int32_t ironwood_file_create_directories(const void *path, void *allocation_failure);
 int32_t ironwood_file_copy(const void *source, const void *target, void *allocation_failure);
 int32_t ironwood_file_move(const void *source, const void *target, void *allocation_failure);
+void *ironwood_file_create_temp_file(const void *stem, const void *suffix,
+        const void *string_type, void *allocation_failure);
+void *ironwood_file_create_temp_directory(const void *stem, const void *string_type,
+        void *allocation_failure);
+void *ironwood_file_real_path(const void *path, const void *string_type,
+        void *allocation_failure);
+int32_t ironwood_file_access(const void *path, int32_t mode, void *allocation_failure);
+int32_t ironwood_file_move_atomic(const void *source, const void *target,
+        void *allocation_failure);
+int32_t ironwood_file_move_replacing(const void *source, const void *target,
+        void *allocation_failure);
+int32_t ironwood_file_move_exclusive(const void *source, const void *target,
+        void *allocation_failure);
+int64_t ironwood_process_run(const void *command, const void *directory, const void *output,
+        void *allocation_failure);
 int64_t ironwood_directory_open(const void *path, void *allocation_failure);
 int32_t ironwood_directory_has_next(int64_t handle);
 void *ironwood_directory_next(int64_t handle, const void *string_type,

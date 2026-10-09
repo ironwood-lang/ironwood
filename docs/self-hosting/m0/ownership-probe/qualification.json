@@ -1,0 +1,89 @@
+{
+  "schema": 1,
+  "J0_revision": "6bde84df320e9dbc32977a2b665d214ac09bc2d4",
+  "J0_seed_sha256": "2a8b10ab5575f84d3660b3824a4b80cba7f6f9110023e7e30db3b41103893ad7",
+  "profile": [
+    "-Xms256m",
+    "-Xmx4096m",
+    "-Xss8m",
+    "-XX:+UseG1GC"
+  ],
+  "probe_sha256": "e58a294560747e07e828e26492176fbc1ccac7c147878aaab5d9e93a7e1ec964",
+  "helper_source_sha256": {
+    "KernelCapture.java": "388c32801b8f8c966e9ac920fe917a950293507eaa5dc03f25fa50113acd6577",
+    "OwnershipWork.java": "08f436a3a50d0b7df174092c01e599f98d2f2d64da7170ea616ad0168b385abd"
+  },
+  "cases": "all seven private snapshot copies; null source/key/value/member rejection; immutable independent membership; identity allocation keys, structural state and composite slot equality; shared immutable retained child sets; equal distinct unchanged state values from real before/changed branch snapshots, and distinct equal reason Strings",
+  "limits": "original private record and bounded actual branch operation contracts; array-slot encounter order has a separate D247 ordered seed qualification; no complete source free-proof analysis, resource or native lifetime result",
+  "commands": [
+    {
+      "argv": [
+        "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home/bin/javac",
+        "--release",
+        "21",
+        "-Xlint:all",
+        "-Werror",
+        "-cp",
+        "/Users/developer/workspace-mba-m2/Ironwood/target/self-hosting-m0/J0-final2/lib/ironwoodc.jar",
+        "-d",
+        "/Users/developer/workspace-mba-m2/Ironwood/target/self-hosting-m0/ownership-probe-classes",
+        "/Users/developer/workspace-mba-m2/Ironwood/scripts/self-hosting/OwnershipContractProbe.java",
+        "/Users/developer/workspace-mba-m2/Ironwood/scripts/self-hosting/KernelCapture.java",
+        "/Users/developer/workspace-mba-m2/Ironwood/scripts/self-hosting/OwnershipWork.java"
+      ],
+      "returncode": 0
+    },
+    {
+      "argv": [
+        "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home/bin/java",
+        "-Xms256m",
+        "-Xmx4096m",
+        "-Xss8m",
+        "-XX:+UseG1GC",
+        "-cp",
+        "/Users/developer/workspace-mba-m2/Ironwood/target/self-hosting-m0/ownership-probe-classes:/Users/developer/workspace-mba-m2/Ironwood/target/self-hosting-m0/J0-final2/lib/ironwoodc.jar",
+        "ironwood.compiler.semantic.OwnershipContractProbe"
+      ],
+      "returncode": 0
+    },
+    {
+      "argv": [
+        "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home/bin/java",
+        "-Xms256m",
+        "-Xmx4096m",
+        "-Xss8m",
+        "-XX:+UseG1GC",
+        "-cp",
+        "/Users/developer/workspace-mba-m2/Ironwood/target/self-hosting-m0/ownership-probe-classes:/Users/developer/workspace-mba-m2/Ironwood/target/self-hosting-m0/J0-final2/lib/ironwoodc.jar",
+        "ironwood.compiler.semantic.OwnershipContractProbe"
+      ],
+      "returncode": 0
+    },
+    {
+      "argv": [
+        "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home/bin/java",
+        "-Xms256m",
+        "-Xmx4096m",
+        "-Xss8m",
+        "-XX:+UseG1GC",
+        "-cp",
+        "/Users/developer/workspace-mba-m2/Ironwood/target/self-hosting-m0/ownership-probe-classes:/Users/developer/workspace-mba-m2/Ironwood/target/self-hosting-m0/J0-final2/lib/ironwoodc.jar",
+        "ironwood.compiler.semantic.OwnershipContractProbe"
+      ],
+      "returncode": 0
+    },
+    {
+      "argv": [
+        "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home/bin/java",
+        "-Xms256m",
+        "-Xmx4096m",
+        "-Xss8m",
+        "-XX:+UseG1GC",
+        "-cp",
+        "/Users/developer/workspace-mba-m2/Ironwood/target/self-hosting-m0/ownership-probe-classes:/Users/developer/workspace-mba-m2/Ironwood/target/self-hosting-m0/J0-final2/lib/ironwoodc.jar",
+        "ironwood.compiler.semantic.OwnershipContractProbe"
+      ],
+      "returncode": 0
+    }
+  ]
+}

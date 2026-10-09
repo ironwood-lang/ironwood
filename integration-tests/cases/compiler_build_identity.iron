@@ -1,0 +1,19 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// The generated build identity (scripts/self-hosting/build-identity.sh),
+// compiled with this program: prints "ironwoodc VERSION", the first line of
+// Main's --version output, which the test compares with
+// CompilerVersion.current() of the build made from the same VERSION input.
+// The version is a constant; reading it allocates nothing. Exit 42.
+import ironwood.compiler.port.BuildIdentity;
+
+class Main {
+
+    public static int main(String[] args) {
+
+        System.out.println("ironwoodc " + BuildIdentity.version());
+        long before = System.allocationCount();
+        int length = BuildIdentity.version().length();
+        return length > 0 && System.allocationCount() == before ? 42 : 1;
+    }
+}

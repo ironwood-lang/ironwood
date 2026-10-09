@@ -1,0 +1,130 @@
+{
+ "schema_version": 1,
+ "checkpoint": "M1 (M1.1, M1.2, M1.3) minimum pilot prerequisites",
+ "commit": "980ea94bf6608981beca3d5d812331569e1aab8b",
+ "tree": "fresh git archive of the commit",
+ "commands": [
+  "scripts/build.sh",
+  "javac --release 21 -encoding UTF-8 -Xlint:all -Werror -cp compiler/build/classes over every compiler/src/test/java source",
+  "java -ea ironwood.compiler.CompilerTests --test NAME for each selected test",
+  "git diff --check",
+  "scripts/check-licenses.sh",
+  "workspace bundle hasher: committed blob, working file and checkpoint-tree file must match"
+ ],
+ "results": {
+  "build": "exit 0 (standard library strict --unfreed=error)",
+  "test_compilation": "exit 0, no warnings",
+  "tests": "PASS: 55 compiler tests",
+  "diff_check": "clean",
+  "licenses": "passed",
+  "helper_bundle": {
+   "path": "docs/self-hosting/m1/HELPER_BUNDLE.json",
+   "sha256": "3e917b3415aeb24284ff39b89b0277bf9ac348d2493b4e9ddc02a1408949756c"
+  }
+ },
+ "tests": {
+  "m1_added": [
+   "independent list copies preserve membership iterator and allocation scaling",
+   "independent list copies match Java ArrayList copies across artifacts",
+   "independent map copies preserve keys values and callback loan safety",
+   "independent set copies preserve item loans and callback boundaries",
+   "independent set copy constructor and iterator proofs reject publication",
+   "constructor helper arguments reject observable rollback owners",
+   "confined constructor helpers reclaim normal and failed construction",
+   "receiver field aliases reject constructor and destructor publication",
+   "confined receiver field aliases remain accepted",
+   "reconstructed helper links reject receiver field publication",
+   "receiver field aliases reclaim normal and failed construction",
+   "independent set copies survive artifacts and allocation failures",
+   "independent map copy proofs reject changed traversal and publication",
+   "independent map copies survive artifacts and allocation failures",
+   "independent list copies preserve destination and nested payload loans",
+   "independent list copy failures reclaim partial construction",
+   "independent list copy proofs survive source class and archive reconstruction",
+   "independent list copy read proofs reject guard mutation and retention",
+   "independent list item projections require pure count queries",
+   "private compiler snapshots preserve copied payload loans",
+   "private keyed snapshots preserve payload aliases and shared child versions",
+   "private keyed snapshot reads reject unknown bodies and publishing callbacks",
+   "private keyed counts and lookups preserve stored callback exposure",
+   "private keyed snapshots survive artifacts and allocation failures",
+   "compiler work queue keeps queued items alive and its ring private",
+   "compiler worklists preserve FIFO and retain-filter order across artifacts and failures",
+   "compiler text blocks own only their normalized result",
+   "compiler text blocks match Java stripIndent across artifacts",
+   "seven-field ownership snapshots retire storage and keep payload safety",
+   "seven-field ownership snapshots match the M0 value contract across artifacts",
+   "seven-field ownership snapshot saves roll back every allocation failure",
+   "compiler value helpers keep ownership of results only",
+   "compiler value helpers match Java escapes counts lists and records",
+   "compiler value helpers leave no storage after allocation failure",
+   "proof snapshots own saved evidence and keep its ownership safe",
+   "snapshot-owned evidence retires every unit across budgets and artifacts",
+   "pilot variant lists match the Java operation model",
+   "pilot variant admission fails closed on untreated variants",
+   "pilot variant admission matches the model across artifacts",
+   "private compiler snapshot getter loans survive joins and delegation",
+   "private compiler snapshot proofs reject publication and unrecognized construction",
+   "private compiler snapshots survive artifacts and allocation failures",
+   "private logical bit snapshots preserve the maximum valid bit index"
+  ],
+  "earlier_consumers": [
+   "pool release helpers preserve borrows and allocation-free reuse",
+   "pool release helper proofs preserve mandatory safety",
+   "pool release helper proofs survive artifact reconstruction",
+   "destructor and constructor effects are checked closed-world",
+   "proven destructor receivers preserve mandatory safety",
+   "Throwable printing preserves lifetime and callback effects",
+   "temporary constructor helpers preserve mandatory ownership proofs",
+   "temporary constructor helper cleanup runs at O3",
+   "Java Bridge typed foreign calls preserve conservative effects and unwind edges",
+   "array snapshot joins preserve current store witness order",
+   "array snapshot joins preserve overwritten store witness order",
+   "rejected-free evidence snapshots retain identity and enforce storage limits"
+  ]
+ },
+ "logs": [
+  {
+   "retained": "docs/self-hosting/m1/checkpoint-evidence/logs/build.log.gz",
+   "sha256": "8c1457e3480e95b9415a7b48a41f653f955d6e62c05cf1053548522be368fe05",
+   "gzip_sha256": "778e4e1180e6a00bc6282024b360917ab41996751e15b5b3098eb07ffa79c1d6"
+  },
+  {
+   "retained": "docs/self-hosting/m1/checkpoint-evidence/logs/javac.log.gz",
+   "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "gzip_sha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64"
+  },
+  {
+   "retained": "docs/self-hosting/m1/checkpoint-evidence/logs/tests.log.gz",
+   "sha256": "13649d938684028452ef2eaf31e050b6ef0a95b664569c7bfdd75aed1c5c829a",
+   "gzip_sha256": "a7b181bb97a154533986e254e7c3875dfa6dec5ceaba4b26b0b7fceef6f2eae1"
+  },
+  {
+   "retained": "docs/self-hosting/m1/checkpoint-evidence/logs/diff-check.log.gz",
+   "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "gzip_sha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64"
+  },
+  {
+   "retained": "docs/self-hosting/m1/checkpoint-evidence/logs/licenses.log.gz",
+   "sha256": "baf5804aeb26498337c9c5223c199afeba5c3e2fc36ae219b9bf420e3775f673",
+   "gzip_sha256": "21fd3bcaf61e87e10822dd63176f2751a3282de06861c556f8ea5cb4d913c689"
+  },
+  {
+   "retained": "docs/self-hosting/m1/checkpoint-evidence/logs/bundle.log.gz",
+   "sha256": "ec052ca447b86dc919631c34d60aaff159815b0a04f2ff64f9cd287f02105b21",
+   "gzip_sha256": "685b56ec10e4182028f034f2d7e77892dfd422192f15384f690ab5645b91694a"
+  }
+ ],
+ "not_run": [
+  "unfiltered scripts/test.sh or CompilerTests",
+  "platform suites",
+  "hosted builds",
+  "native execution of unsafe programs (compile-only)",
+  "M2 or G1"
+ ],
+ "host_profile": {
+  "host": "macOS 27.0.1, arm64, Apple M5, 32 GiB",
+  "bootstrap": "Java 21.0.1",
+  "backend": "pinned LLVM 23.1.0"
+ }
+}

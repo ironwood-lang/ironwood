@@ -241,6 +241,12 @@ class Main {
                 || Double.doubleToLongBits(Double.NaN) != 0x7ff8000000000000L
                 || Double.doubleToLongBits(Double.longBitsToDouble(0x7ff0000000000001L))
                 != 0x7ff8000000000000L
+                || Double.doubleToRawLongBits(-0.0) != 0x8000000000000000L
+                || Double.doubleToRawLongBits(1.0) != 0x3ff0000000000000L
+                || Double.doubleToRawLongBits(Double.longBitsToDouble(0x7ff0000000000001L))
+                != 0x7ff0000000000001L
+                || Double.doubleToRawLongBits(Double.longBitsToDouble(0xfff8000000000123L))
+                != 0xfff8000000000123L
                 || Double.longBitsToDouble(0x3ff0000000000000L) != 1.0
                 || Float.hashCode(-0.0f) != 0x80000000
                 || Double.hashCode(1.0) != 1072693248) {

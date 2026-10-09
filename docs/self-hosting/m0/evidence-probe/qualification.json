@@ -1,0 +1,83 @@
+{
+  "schema": 1,
+  "J0_revision": "6bde84df320e9dbc32977a2b665d214ac09bc2d4",
+  "J0_seed_sha256": "2a8b10ab5575f84d3660b3824a4b80cba7f6f9110023e7e30db3b41103893ad7",
+  "profile": [
+    "-Xms256m",
+    "-Xmx4096m",
+    "-Xss8m",
+    "-XX:+UseG1GC"
+  ],
+  "probe_sha256": "e8b0354ef1505d2e6cb655c0abfee77b6c1c5f989048dccc01cfc8c2c72dc660",
+  "cases": "8/32/128 adversarial keys, forward/reverse insertion and path order; independent copies; identity/value intersection; atomic budget failure; close cleanup",
+  "limits": "no resource measurement; queue/GC retirement timing not forced or qualified",
+  "commands": [
+    {
+      "argv": [
+        "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home/bin/javac",
+        "--release",
+        "21",
+        "-Xlint:all",
+        "-Werror",
+        "-cp",
+        "/Users/developer/workspace-mba-m2/Ironwood/target/self-hosting-m0/J0-final2/lib/ironwoodc.jar",
+        "-d",
+        "/Users/developer/workspace-mba-m2/Ironwood/target/self-hosting-m0/evidence-probe-classes",
+        "/Users/developer/workspace-mba-m2/Ironwood/scripts/self-hosting/EvidenceOrderProbe.java"
+      ],
+      "returncode": 0
+    },
+    {
+      "argv": [
+        "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home/bin/java",
+        "-Xms256m",
+        "-Xmx4096m",
+        "-Xss8m",
+        "-XX:+UseG1GC",
+        "-cp",
+        "/Users/developer/workspace-mba-m2/Ironwood/target/self-hosting-m0/evidence-probe-classes:/Users/developer/workspace-mba-m2/Ironwood/target/self-hosting-m0/J0-final2/lib/ironwoodc.jar",
+        "ironwood.compiler.semantic.EvidenceOrderProbe"
+      ],
+      "returncode": 0
+    },
+    {
+      "argv": [
+        "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home/bin/java",
+        "-Xms256m",
+        "-Xmx4096m",
+        "-Xss8m",
+        "-XX:+UseG1GC",
+        "-cp",
+        "/Users/developer/workspace-mba-m2/Ironwood/target/self-hosting-m0/evidence-probe-classes:/Users/developer/workspace-mba-m2/Ironwood/target/self-hosting-m0/J0-final2/lib/ironwoodc.jar",
+        "ironwood.compiler.semantic.EvidenceOrderProbe"
+      ],
+      "returncode": 0
+    },
+    {
+      "argv": [
+        "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home/bin/java",
+        "-Xms256m",
+        "-Xmx4096m",
+        "-Xss8m",
+        "-XX:+UseG1GC",
+        "-cp",
+        "/Users/developer/workspace-mba-m2/Ironwood/target/self-hosting-m0/evidence-probe-classes:/Users/developer/workspace-mba-m2/Ironwood/target/self-hosting-m0/J0-final2/lib/ironwoodc.jar",
+        "ironwood.compiler.semantic.EvidenceOrderProbe"
+      ],
+      "returncode": 0
+    },
+    {
+      "argv": [
+        "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home/bin/java",
+        "-Xms256m",
+        "-Xmx4096m",
+        "-Xss8m",
+        "-XX:+UseG1GC",
+        "-cp",
+        "/Users/developer/workspace-mba-m2/Ironwood/target/self-hosting-m0/evidence-probe-classes:/Users/developer/workspace-mba-m2/Ironwood/target/self-hosting-m0/J0-final2/lib/ironwoodc.jar",
+        "ironwood.compiler.semantic.EvidenceOrderProbe"
+      ],
+      "returncode": 0
+    }
+  ]
+}

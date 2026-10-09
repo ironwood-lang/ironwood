@@ -1,0 +1,251 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.port;
+
+import ironwood.io.IOException;
+
+/**
+ * Purpose-specific scanners for the backend's three LLVM-text regexes, with
+ * the same matches as java.util.regex in its default multiline mode: a line
+ * starts at the beginning of the text or after {@code \n}, {@code \r\n},
+ * {@code \r}, U+0085, U+2028 or U+2029, and {@code $} matches before one of
+ * those or at the end. No regex engine is involved; inputs are borrowed and
+ * nothing is allocated except the returned Strings and exceptions.
+ *
+ * <ul>
+ *   <li>NativeTarget: {@code (?m)^target NAME = "([^"\r\n]+)"[\t ]*$}</li>
+ *   <li>OptimizedTraceMetadata.REGISTER_DECLARATION:
+ *     {@code (?m)^declare void @ironwood_trace_register_current\(ptr, i32\)[^\n]*\n}</li>
+ *   <li>OptimizedTraceMetadata.FUNCTION:
+ *     {@code (?m)^define\s+[^\n]*?(@(?:"(?:\\[0-9A-Fa-f]{2}|\\.|[^"])*"|[A-Za-z$._][A-Za-z$._0-9-]*))\(}</li>
+ * </ul>
+ */
+public final class LlvmScan {
+
+    private static final String REGISTER = "declare void @ironwood_trace_register_current(ptr, i32)";
+
+    private LlvmScan() {
+
+    }
+
+    /**
+     * NativeTarget.specification: the value of the only {@code target NAME = "..."} line.
+     *
+     * @throws IOException "Clang did not emit target NAME" when absent and
+     *     "duplicate target NAME" when a second line matches
+     */
+    public static String specification(String llvm, String name) throws IOException {
+
+        int[] bounds = new int[2];
+        defer free bounds;
+        int end = findTarget(llvm, name, 0, bounds);
+        if (end < 0) throw new IOException("Clang did not emit target " + name);
+        String value = llvm.substring(bounds[0], bounds[1]);
+        if (findTarget(llvm, name, end, bounds) >= 0) {
+            free value;
+            throw new IOException("duplicate target " + name);
+        }
+        return value;
+    }
+
+    /**
+     * NativeTarget.attach: the module unchanged when its only target line has
+     * the configured value, or the module with a new first line when it has
+     * none.
+     *
+     * @throws IOException "LLVM module target NAME disagrees with configured Clang"
+     *     for a different or duplicated target line
+     */
+    public static String attach(String llvm, String name, String value) throws IOException {
+
+        int[] bounds = new int[2];
+        defer free bounds;
+        int end = findTarget(llvm, name, 0, bounds);
+        if (end >= 0) {
+            if (bounds[1] - bounds[0] != value.length() || !llvm.startsWith(value, bounds[0])
+                    || findTarget(llvm, name, end, bounds) >= 0) {
+                throw new IOException("LLVM module target " + name + " disagrees with configured Clang");
+            }
+            return llvm.substring(0);
+        }
+        return "target " + name + " = \"" + value + "\"\n" + llvm;
+    }
+
+    /**
+     * {@code REGISTER_DECLARATION.matcher(llvm).replaceFirst("")}: removes the
+     * first line that starts with the registration declaration, through its
+     * {@code \n}.
+     */
+    public static String removeRegisterDeclaration(String llvm) {
+
+        int from = 0;
+        while (from <= llvm.length()) {
+            int start = llvm.indexOf(REGISTER, from);
+            if (start < 0) break;
+            if (lineStart(llvm, start)) {
+                int newline = llvm.indexOf('\n', start + REGISTER.length());
+                if (newline < 0) break;
+                return llvm.substring(0, start) + llvm.substring(newline + 1);
+            }
+            from = start + 1;
+        }
+        return llvm.substring(0);
+    }
+
+    /**
+     * The next FUNCTION match at or after {@code from}: writes the symbol's
+     * bounds into {@code symbol[0..1]} and returns the match end (just after
+     * the opening parenthesis), or -1 when there is none.
+     */
+    public static int nextFunction(String llvm, int from, int[] symbol) {
+
+        int length = llvm.length();
+        int search = from;
+        while (search < length) {
+            int define = llvm.indexOf("define", search);
+            if (define < 0) return -1;
+            search = define + 1;
+            if (!lineStart(llvm, define)) continue;
+            int position = define + 6;
+            int spaces = position;
+            while (spaces < length && regexSpace(llvm.charAt(spaces))) spaces++;
+            if (spaces == position) continue;
+            // Lazy [^\n]*?: candidate symbol starts up to the end of the line.
+            for (int at = spaces; at < length && llvm.charAt(at) != '\n'; at++) {
+                if (llvm.charAt(at) != '@') continue;
+                int end = symbolEnd(llvm, at);
+                if (end >= 0) {
+                    symbol[0] = at;
+                    symbol[1] = end;
+                    return end + 1;
+                }
+            }
+        }
+        return -1;
+    }
+
+    // The end of a symbol at '@' that is directly followed by '(', or -1.
+    private static int symbolEnd(String llvm, int at) {
+
+        int length = llvm.length();
+        if (at + 1 >= length) return -1;
+        char first = llvm.charAt(at + 1);
+        if (first == '"') return quotedEnd(llvm, at + 2);
+        if (!plainStart(first)) return -1;
+        int index = at + 2;
+        while (index < length && plainPart(llvm.charAt(index))) index++;
+        return index < length && llvm.charAt(index) == '(' ? index : -1;
+    }
+
+    /*
+     * The quoted body (?:\\[0-9A-Fa-f]{2}|\\.|[^"])* and its closing "(, as
+     * java.util.regex's backtracking finds them: from each position the three
+     * alternatives are tried in order, each followed as far as it leads, and
+     * the loop exits at that position only when all of them fail. That search
+     * depends on the position alone, so it is evaluated right to left over the
+     * reachable span, which ends at the first '"' that no escape can consume
+     * (one not preceded by a backslash inside the body). Matching UTF-16 units
+     * instead of code points gives the same result: a surrogate is never a
+     * quote, a backslash or a hexadecimal digit. Returns the '(' index or -1.
+     */
+    private static int quotedEnd(String llvm, int start) {
+
+        int length = llvm.length();
+        int limit = start;
+        while (limit < length && (llvm.charAt(limit) != '"' || limit > start && llvm.charAt(limit - 1) == '\\')) {
+            limit++;
+        }
+        // The closing quote that the search from position + 1, + 2 and + 3 reaches, or -1.
+        int next = -1;
+        int second = -1;
+        int third = -1;
+        for (int position = limit; position >= start; position--) {
+            int found = -1;
+            if (position < length) {
+                char character = llvm.charAt(position);
+                if (character == '\\' && position + 2 < length && hexDigit(llvm.charAt(position + 1))
+                        && hexDigit(llvm.charAt(position + 2))) found = third;
+                if (found < 0 && character == '\\' && position + 1 < length
+                        && !lineTerminator(llvm.charAt(position + 1))) found = second;
+                if (found < 0 && character != '"') found = next;
+                if (found < 0 && character == '"' && position + 1 < length && llvm.charAt(position + 1) == '(') {
+                    found = position;
+                }
+            }
+            third = second;
+            second = next;
+            next = found;
+        }
+        return next < 0 ? -1 : next + 1;
+    }
+
+    // Writes a matching target line's value bounds; returns the match end or -1.
+    private static int findTarget(String llvm, String name, int from, int[] bounds) {
+
+        int length = llvm.length();
+        int search = from;
+        while (search <= length) {
+            int start = llvm.indexOf("target ", search);
+            if (start < 0) return -1;
+            search = start + 1;
+            if (!lineStart(llvm, start)) continue;
+            int index = start + 7;
+            if (!llvm.startsWith(name, index)) continue;
+            index = index + name.length();
+            if (!llvm.startsWith(" = \"", index)) continue;
+            index = index + 4;
+            int valueStart = index;
+            while (index < length && llvm.charAt(index) != '"' && llvm.charAt(index) != '\r'
+                    && llvm.charAt(index) != '\n') index++;
+            if (index == valueStart || index >= length || llvm.charAt(index) != '"') continue;
+            int valueEnd = index;
+            index++;
+            while (index < length && (llvm.charAt(index) == '\t' || llvm.charAt(index) == ' ')) index++;
+            if (index < length && !lineTerminator(llvm.charAt(index))) continue;
+            bounds[0] = valueStart;
+            bounds[1] = valueEnd;
+            return index;
+        }
+        return -1;
+    }
+
+    // Java's multiline '^': the text start or right after a line terminator,
+    // where "\r\n" is one terminator.
+    private static boolean lineStart(String llvm, int index) {
+
+        if (index == 0) return true;
+        char previous = llvm.charAt(index - 1);
+        if (previous == '\r') return index >= llvm.length() || llvm.charAt(index) != '\n';
+        return lineTerminator(previous);
+    }
+
+    private static boolean lineTerminator(char character) {
+
+        return character == '\n' || character == '\r' || character == '\u0085' || character == '\u2028'
+                || character == '\u2029';
+    }
+
+    // Unflagged regex \s: space, tab, newline, vertical tab, form feed, carriage return.
+    private static boolean regexSpace(char character) {
+
+        return character == ' ' || character == '\t' || character == '\n' || character == '\u000b'
+                || character == '\f' || character == '\r';
+    }
+
+    private static boolean hexDigit(char character) {
+
+        return character >= '0' && character <= '9' || character >= 'a' && character <= 'f'
+                || character >= 'A' && character <= 'F';
+    }
+
+    private static boolean plainStart(char character) {
+
+        return character >= 'A' && character <= 'Z' || character >= 'a' && character <= 'z' || character == '$'
+                || character == '.' || character == '_';
+    }
+
+    private static boolean plainPart(char character) {
+
+        return plainStart(character) || character >= '0' && character <= '9' || character == '-';
+    }
+}

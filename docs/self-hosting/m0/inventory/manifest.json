@@ -1,0 +1,46 @@
+{
+  "calls.tsv": {
+    "rows": 72975,
+    "uncompressed_sha256": "58a3eadd9959d98cd44304bbf44627e578296c84a607aa6c0d56614ad23f7856"
+  },
+  "captures.tsv": {
+    "rows": 3054,
+    "uncompressed_sha256": "dc9dd5a07549c22f91d86bc772a3395b30fee0e064fd45f00d9db3798131cf20"
+  },
+  "containers.tsv": {
+    "rows": 4338,
+    "uncompressed_sha256": "442f6c0b120d880afbaef0e911814ec93bd1f97e1e0a4f6add99c355cd6c56bc"
+  },
+  "dependencies-discovery.tsv": {
+    "rows": 712,
+    "uncompressed_sha256": "86417a1d763222da877f7d1511babe15fb85bfa4185a88412977212b4ee08428"
+  },
+  "flow.tsv": {
+    "rows": 270129,
+    "uncompressed_sha256": "64b71fe0ab5ab5aec82de0b9c862e105f714856d11819f5ef59ad09130e779fc"
+  },
+  "hash-sources-discovery.tsv": {
+    "rows": 849,
+    "uncompressed_sha256": "7769db79bfd79b860e1c505e0e59c822ef2a81c909948cc53fe2382a6474b64c"
+  },
+  "hash-traversals-discovery.tsv": {
+    "rows": 2957,
+    "uncompressed_sha256": "3c198d408ee23c9a97f77877d3d6d88bd3948a845d0af100f55aadf76a2fcb1a"
+  },
+  "ordering-discovery.tsv": {
+    "rows": 2259,
+    "uncompressed_sha256": "25dcb171087752c2917dd31aca2fe35c49e0c39a54d904e1d4292da997c16d1a"
+  },
+  "references.tsv": {
+    "rows": 17636,
+    "uncompressed_sha256": "5a24349aa1a9cc8ede59cdbe8f939ef1c6dd2867e34ab76acda2df3cae00af49"
+  },
+  "syntax.tsv": {
+    "rows": 12413,
+    "uncompressed_sha256": "faa9b7094808b44b7a2c7851d953bd4f3fe3f0fe1b7dee48946994023e36b9b0"
+  },
+  "traversals.tsv": {
+    "rows": 12113,
+    "uncompressed_sha256": "f82045d821fc8551721fe3c68f12d9a4c372e18c966ba551bc9a2b97337c5e7e"
+  }
+}

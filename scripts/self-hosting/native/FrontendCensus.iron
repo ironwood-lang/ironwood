@@ -1,0 +1,121 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+import ironwood.compiler.ast.AstLists;
+import ironwood.compiler.diagnostic.Diagnostic;
+import ironwood.compiler.port.SnapshotInts;
+import ironwood.compiler.port.SnapshotList;
+import ironwood.compiler.source.SourcePosition;
+import ironwood.ds.ArrayList;
+import ironwood.ds.IdentityHashSet;
+import ironwood.ds.IntArrayList;
+
+/**
+ * Test-only allocation census for the native frontend pilot. The retained
+ * output graph is walked once by the wire writer; each distinct object adds
+ * its calibrated allocation cost. Objects that exist before the measured
+ * phase are pre-marked: string literals (one canonical identity each), the
+ * shared empty AST lists and note list, and, implicitly, source files. The
+ * live-allocation increase over the phase minus this census is the number of
+ * temporaries the phase left behind; it must be zero.
+ */
+final class FrontendCensus {
+
+    private final IdentityHashSet<Object> seen = new IdentityHashSet<Object>();
+    private long total;
+    private long listCost;
+    private long intsCost;
+    private long stringCost;
+    private long objectCost;
+
+    FrontendCensus() {
+
+        this.calibrate();
+        FrontendLiterals.mark(this.seen);
+        this.seen.add(Diagnostic.NO_NOTES);
+        this.seen.add(AstLists.NO_COUNTS);
+        this.seen.add(AstLists.NO_CATCH_CLAUSES);
+        this.seen.add(AstLists.NO_CONSTRUCTOR_DECLARATIONS);
+        this.seen.add(AstLists.NO_ENUM_CONSTANTS);
+        this.seen.add(AstLists.NO_EXPRESSIONS);
+        this.seen.add(AstLists.NO_FIELD_DECLARATIONS);
+        this.seen.add(AstLists.NO_IMPORT_DECLARATIONS);
+        this.seen.add(AstLists.NO_INSTANCE_INITIALIZATIONS);
+        this.seen.add(AstLists.NO_INTERFACE_METHOD_DECLARATIONS);
+        this.seen.add(AstLists.NO_METHOD_DECLARATIONS);
+        this.seen.add(AstLists.NO_PARAMETERS);
+        this.seen.add(AstLists.NO_STATEMENTS);
+        this.seen.add(AstLists.NO_STATIC_INITIALIZATIONS);
+        this.seen.add(AstLists.NO_SWITCH_GROUPS);
+        this.seen.add(AstLists.NO_SWITCH_LABELS);
+        this.seen.add(AstLists.NO_SWITCH_RULES);
+        this.seen.add(AstLists.NO_TYPE_DECLARATIONS);
+        this.seen.add(AstLists.NO_TYPE_NAMES);
+        this.seen.add(AstLists.NO_TYPE_PARAMETERS);
+        this.seen.add(AstLists.NO_TYPE_REFERENCES);
+    }
+
+    // Measures one allocation of each counted kind with the allocator counter.
+    private void calibrate() {
+
+        ArrayList<String> builder = new ArrayList<String>(4);
+        defer free builder;
+        builder.add("calibration");
+        IntArrayList ints = new IntArrayList(4);
+        defer free ints;
+        ints.add(1);
+        long before = System.allocationCount();
+        SnapshotList<String> list = new SnapshotList<String>(builder);
+        this.listCost = System.allocationCount() - before;
+        free list;
+        before = System.allocationCount();
+        SnapshotInts counts = new SnapshotInts(ints);
+        this.intsCost = System.allocationCount() - before;
+        free counts;
+        before = System.allocationCount();
+        String text = "calibration".substring(1, 4);
+        this.stringCost = System.allocationCount() - before;
+        free text;
+        before = System.allocationCount();
+        SourcePosition position = new SourcePosition(0, 1, 1);
+        this.objectCost = System.allocationCount() - before;
+        free position;
+    }
+
+    void count(Object value, long cost) {
+
+        if (value == null || this.seen.contains(value)) return;
+        this.seen.add(value);
+        this.total += cost * this.objectCost;
+    }
+
+    long listCost() {
+
+        return this.listCost / this.objectCost;
+    }
+
+    long intsCost() {
+
+        return this.intsCost / this.objectCost;
+    }
+
+    long stringCost() {
+
+        return this.stringCost / this.objectCost;
+    }
+
+    long total() {
+
+        return this.total;
+    }
+
+    String calibration() {
+
+        return "list " + this.listCost + " ints " + this.intsCost + " string " + this.stringCost + " object "
+                + this.objectCost;
+    }
+
+    destructor {
+
+        free this.seen;
+    }
+}

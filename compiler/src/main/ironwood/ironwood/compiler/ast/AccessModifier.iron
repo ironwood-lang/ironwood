@@ -1,0 +1,15 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.ast;
+
+/**
+ * Declared access of a type or member. Ports the Java enum {@code AccessModifier} with the same constants in the same
+ * order.
+ */
+public enum AccessModifier {
+
+    PUBLIC,
+    PROTECTED,
+    PRIVATE,
+    PACKAGE_PRIVATE
+}

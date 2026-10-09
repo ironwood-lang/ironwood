@@ -1,0 +1,16 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+class Parent {
+    static Parent saved;
+    private int marker = 7;
+    Parent() { publish(this); }
+    static void publish(Parent value) { saved = value; throw Main.failure; }
+    int value() { return this.marker; }
+}
+class Main {
+    static RuntimeException failure = new RuntimeException();
+    public static int main(String[] args) {
+        try { new Parent(); }
+        catch (RuntimeException expected) { return Parent.saved.value(); }
+        return 0;
+    }
+}

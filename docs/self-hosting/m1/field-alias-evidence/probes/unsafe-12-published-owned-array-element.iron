@@ -1,0 +1,38 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+class Child {
+    private Parent parent;
+    private int index;
+    Child(Parent parent, int index) { this.parent = parent; this.index = index; }
+    int marker() { return this.parent.base() + this.index; }
+}
+class Parent {
+    private final Child[] children;
+    private int base = 40;
+    Parent(int count, boolean fail) {
+        this.children = new Child[count];
+        for (int index = 0; index < this.children.length; index++) {
+            Child child = new Child(this, index);
+            this.children[index] = child;
+            Main.leaked = this.children[index];
+        }
+        if (fail) throw Main.failure;
+    }
+    int base() { return this.base; }
+    Child at(int index) { return this.children[index]; }
+    destructor {
+        for (int index = 0; index < this.children.length; index++) {
+            free this.children[index];
+        }
+        free this.children;
+    }
+}
+class Main {
+    static RuntimeException failure = new RuntimeException();
+    static Child leaked;
+    public static int main(String[] args) {
+        Parent parent = new Parent(3, false);
+        int observed = parent.at(2).marker();
+        try { new Parent(3, true); } catch (RuntimeException expected) { return observed; }
+        return 0;
+    }
+}

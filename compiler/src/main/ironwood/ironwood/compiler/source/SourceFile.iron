@@ -1,0 +1,102 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.source;
+
+import ironwood.compiler.port.SnapshotList;
+import ironwood.ds.ArrayList;
+
+/**
+ * Decoded source text with a logical display path. Ports the in-memory
+ * {@code SourceFile.of} and {@code lineText} slice of the Java class; reading
+ * from the file system ({@code SourceFile.read}) is later work. Source files
+ * keep identity: two files with equal text are distinct. The display path is
+ * kept as text, and its file name is derived lexically as
+ * {@code Path.getFileName()} does for the relative logical names the pilot
+ * admits.
+ */
+public final class SourceFile {
+
+    private final String path;
+    private final String fileName;
+    private final String content;
+    private final SnapshotList<String> lines;
+
+    private SourceFile(String path, String content) {
+
+        this.path = path;
+        this.fileName = fileNameOf(path);
+        this.content = content;
+        this.lines = splitLines(content);
+    }
+
+    /**
+     * Creates an in-memory source file.
+     *
+     * @param displayPath the logical path, borrowed for the file's lifetime
+     * @param content the decoded text, borrowed for the file's lifetime
+     * @return the new source file
+     */
+    public static SourceFile of(String displayPath, String content) {
+
+        if (displayPath == null || content == null) throw new NullPointerException();
+        return new SourceFile(displayPath, content);
+    }
+
+    /** @return the logical display path */
+    public String path() {
+
+        return this.path;
+    }
+
+    /** @return the last name element of the display path */
+    public String fileName() {
+
+        return this.fileName;
+    }
+
+    /** @return the decoded source text */
+    public String content() {
+
+        return this.content;
+    }
+
+    /**
+     * Returns one line without its terminator.
+     *
+     * @param oneBasedLine the line number
+     * @return the borrowed line text, or the empty string outside the file
+     */
+    public String lineText(int oneBasedLine) {
+
+        if (oneBasedLine < 1 || oneBasedLine > this.lines.size()) return "";
+        return this.lines.get(oneBasedLine - 1);
+    }
+
+    private static String fileNameOf(String path) {
+
+        int end = path.length();
+        while (end > 1 && path.charAt(end - 1) == '/') end--;
+        int separator = path.lastIndexOf('/', end - 1);
+        return path.substring(separator + 1, end);
+    }
+
+    // Lines end at \n, \r or \r\n; the text after the last terminator is the
+    // final line, possibly empty.
+    private static SnapshotList<String> splitLines(String content) {
+
+        ArrayList<String> result = new ArrayList<String>();
+        // The builder retires on every exit; the line strings move to the snapshot.
+        defer free result;
+        int start = 0;
+        for (int index = 0; index < content.length(); index++) {
+            char current = content.charAt(index);
+            if (current == '\n' || current == '\r') {
+                result.add(content.substring(start, index));
+                if (current == '\r' && index + 1 < content.length() && content.charAt(index + 1) == '\n') index++;
+                start = index + 1;
+            }
+        }
+        result.add(content.substring(start));
+        return new SnapshotList<String>(result);
+    }
+}

@@ -1,0 +1,281 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// The compiler port's Bridge text conversions (BridgeText) and patterns
+// (BridgePatterns, BridgeIdentity.isHash) against JDK 21 and the Java
+// baseline's generators
+// (docs/self-hosting/m6/text-evidence/BridgeTextReference.java).
+// `program <corpus>` reads the reference's corpus (float and double bit
+// patterns and integers in hex, strings as UTF-16 hex) and prints the
+// reference's transcript: each bit pattern's hex string and
+// BridgeJavaSources.literal spelling, each integer's octal and \u escapes,
+// and for each string BridgeJavaSources.quote's and
+// BridgeBootstrapSources.cString's expressions rebuilt on BridgeText, its
+// stripped form and its seven pattern verdicts; and for each llvm-readelf
+// output the ReadelfScan results of BridgeLinuxPayload.auditDynamic's
+// searches. Every result is freed after
+// it is printed, so the live allocation count returns to its baseline. Exit 42.
+import ironwood.compiler.port.BridgeIdentity;
+import ironwood.compiler.port.BridgePatterns;
+import ironwood.compiler.port.BridgeText;
+import ironwood.compiler.port.ReadelfScan;
+import ironwood.compiler.port.Splits;
+import ironwood.compiler.port.TextList;
+import ironwood.io.IOException;
+import ironwood.nio.file.Files;
+import ironwood.nio.file.Path;
+
+class Main {
+
+    static String hex(String text) {
+
+        if (text.isEmpty()) return new String("-");
+        StringBuilder out = new StringBuilder();
+        defer free out;
+        for (int index = 0; index < text.length(); index++) {
+            int unit = text.charAt(index);
+            for (int shift = 12; shift >= 0; shift = shift - 4) out.append("0123456789abcdef".charAt((unit >>> shift) & 15));
+        }
+        return out.toString();
+    }
+
+    static String decode(String text, int start) {
+
+        if (text.length() - start == 1 && text.charAt(start) == '-') return new String("");
+        char[] units = new char[(text.length() - start) / 4];
+        defer free units;
+        for (int index = 0; index < units.length; index++) {
+            int value = 0;
+            for (int digit = 0; digit < 4; digit++) value = value * 16 + Character.digit(text.charAt(start + index * 4 + digit), 16);
+            units[index] = (char) value;
+        }
+        return new String(units);
+    }
+
+    static long parseHex(String text, int start) {
+
+        long value = 0;
+        for (int index = start; index < text.length(); index++) value = value * 16 + Character.digit(text.charAt(index), 16);
+        return value;
+    }
+
+    // BridgeJavaSources.literal's F32 case.
+    static String floatLiteral(float real) {
+
+        if (Float.isNaN(real)) return new String("(0.0f / 0.0f)");
+        if (real == Float.POSITIVE_INFINITY) return new String("(1.0f / 0.0f)");
+        if (real == Float.NEGATIVE_INFINITY) return new String("(-1.0f / 0.0f)");
+        String text = BridgeText.floatHex(real);
+        defer free text;
+        return text + "f";
+    }
+
+    // BridgeJavaSources.literal's F64 case.
+    static String doubleLiteral(double real) {
+
+        if (Double.isNaN(real)) return new String("(0.0d / 0.0d)");
+        if (real == Double.POSITIVE_INFINITY) return new String("(1.0d / 0.0d)");
+        if (real == Double.NEGATIVE_INFINITY) return new String("(-1.0d / 0.0d)");
+        return BridgeText.doubleHex(real);
+    }
+
+    // BridgeJavaSources.quote's expression.
+    static String quote(String value) {
+
+        StringBuilder text = new StringBuilder();
+        defer free text;
+        text.append('"');
+        for (int index = 0; index < value.length(); index++) {
+            char character = value.charAt(index);
+            if (character == '"') {
+                text.append("\\\"");
+            } else if (character == '\\') {
+                text.append("\\\\");
+            } else if (character == '\n') {
+                text.append("\\n");
+            } else if (character == '\r') {
+                text.append("\\r");
+            } else if (character == '\t') {
+                text.append("\\t");
+            } else if (character == '\b') {
+                text.append("\\b");
+            } else if (character == '\f') {
+                text.append("\\f");
+            } else if (character < 32 || character == 127) {
+                BridgeText.appendOctalEscape(text, character);
+            } else if (character > 126) {
+                BridgeText.appendUnicodeEscape(text, character);
+            } else {
+                text.append(character);
+            }
+        }
+        text.append('"');
+        return text.toString();
+    }
+
+    // BridgeBootstrapSources.cString's expression: modified UTF-8 of each unit, octal escaped.
+    static String cString(String value) {
+
+        StringBuilder text = new StringBuilder();
+        defer free text;
+        text.append('"');
+        for (int index = 0; index < value.length(); index++) {
+            int unit = value.charAt(index);
+            if (unit >= 1 && unit <= 127) {
+                BridgeText.appendOctalEscape(text, unit);
+            } else if (unit <= 2047) {
+                BridgeText.appendOctalEscape(text, 0xC0 | unit >> 6);
+                BridgeText.appendOctalEscape(text, 0x80 | unit & 0x3F);
+            } else {
+                BridgeText.appendOctalEscape(text, 0xE0 | unit >> 12);
+                BridgeText.appendOctalEscape(text, 0x80 | unit >> 6 & 0x3F);
+                BridgeText.appendOctalEscape(text, 0x80 | unit & 0x3F);
+            }
+        }
+        text.append('"');
+        return text.toString();
+    }
+
+    static void floatLine(String line) {
+
+        float real = Float.intBitsToFloat((int) parseHex(line, 6));
+        String hexText = BridgeText.floatHex(real);
+        defer free hexText;
+        String literal = floatLiteral(real);
+        defer free literal;
+        System.out.println("float " + hexText + " " + literal);
+    }
+
+    static void doubleLine(String line) {
+
+        double real = Double.longBitsToDouble(parseHex(line, 7));
+        String hexText = BridgeText.doubleHex(real);
+        defer free hexText;
+        String literal = doubleLiteral(real);
+        defer free literal;
+        System.out.println("double " + hexText + " " + literal);
+    }
+
+    static void integerLine(String line) {
+
+        int value = (int) parseHex(line, 8);
+        StringBuilder text = new StringBuilder();
+        defer free text;
+        text.append("integer ");
+        BridgeText.appendOctalEscape(text, value);
+        text.append(' ');
+        BridgeText.appendOctalEscape(text, value);
+        text.append(' ');
+        BridgeText.appendUnicodeEscape(text, value);
+        text.append(' ');
+        BridgeText.appendUnicodeEscape(text, value);
+        String printed = text.toString();
+        defer free printed;
+        System.out.println(printed);
+    }
+
+    static void stringLine(String line) {
+
+        String value = decode(line, 7);
+        defer free value;
+        String quoted = quote(value);
+        defer free quoted;
+        String quotedHex = hex(quoted);
+        defer free quotedHex;
+        String c = cString(value);
+        defer free c;
+        String cHex = hex(c);
+        defer free cHex;
+        String stripped = BridgeText.stripTrailing(value);
+        defer free stripped;
+        String strippedHex = hex(stripped);
+        defer free strippedHex;
+        StringBuilder verdicts = new StringBuilder();
+        defer free verdicts;
+        verdicts.append(BridgePatterns.isMavenGroup(value) ? '1' : '0');
+        verdicts.append(BridgePatterns.isMavenCoordinate(value) ? '1' : '0');
+        verdicts.append(BridgePatterns.isRootName(value) ? '1' : '0');
+        verdicts.append(BridgeIdentity.isHash(value) ? '1' : '0');
+        verdicts.append(BridgePatterns.isMinimumVersion(value) ? '1' : '0');
+        verdicts.append(BridgePatterns.isDependencyPath(value) ? '1' : '0');
+        verdicts.append(BridgePatterns.isEnsureMethod(value) ? '1' : '0');
+        String matches = verdicts.toString();
+        defer free matches;
+        System.out.println("string " + quotedHex + " " + cHex + " " + strippedHex + " " + matches);
+    }
+
+    // A collected set: its size, then each member in String order as hex.
+    static void appendSet(StringBuilder out, TextList values) {
+
+        out.append(' ');
+        out.append(values.size());
+        for (int index = 0; index < values.size(); index++) {
+            String value = values.get(index);
+            defer free value;
+            String encoded = hex(value);
+            defer free encoded;
+            out.append(' ');
+            out.append(encoded);
+        }
+    }
+
+    static void readelfLine(String line) {
+
+        String text = decode(line, 8);
+        defer free text;
+        TextList paths = new TextList();
+        defer free paths;
+        ReadelfScan.lookupPaths(text, paths);
+        TextList libraries = new TextList();
+        defer free libraries;
+        ReadelfScan.sharedLibraries(text, libraries);
+        TextList versions = new TextList();
+        defer free versions;
+        ReadelfScan.glibcVersions(text, versions);
+        StringBuilder out = new StringBuilder();
+        defer free out;
+        out.append("readelf ");
+        out.append(ReadelfScan.flagsNow(text));
+        appendSet(out, paths);
+        appendSet(out, libraries);
+        appendSet(out, versions);
+        String printed = out.toString();
+        defer free printed;
+        System.out.println(printed);
+    }
+
+    static void corpus(String corpus) {
+
+        int[] lines = Splits.bounds(corpus, '\n', 0);
+        defer free lines;
+        for (int line = 0; line < Splits.count(lines); line++) {
+            String text = Splits.field(corpus, lines, line);
+            defer free text;
+            if (text.startsWith("float ")) {
+                floatLine(text);
+            } else if (text.startsWith("double ")) {
+                doubleLine(text);
+            } else if (text.startsWith("integer ")) {
+                integerLine(text);
+            } else if (text.startsWith("readelf ")) {
+                readelfLine(text);
+            } else {
+                stringLine(text);
+            }
+        }
+    }
+
+    public static int main(String[] args) {
+
+        long live = System.liveAllocationCount();
+        try {
+            Path path = Path.of(args[0]);
+            defer free path;
+            String text = Files.readString(path);
+            defer free text;
+            corpus(text);
+        } catch (IOException failure) {
+            return 1;
+        }
+        return System.liveAllocationCount() == live ? 42 : 2;
+    }
+}

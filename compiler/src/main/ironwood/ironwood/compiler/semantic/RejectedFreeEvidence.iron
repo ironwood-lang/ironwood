@@ -1,0 +1,1206 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.semantic;
+
+import ironwood.compiler.port.OperationVariants;
+import ironwood.compiler.port.SnapshotIdentityMap;
+import ironwood.compiler.port.SnapshotList;
+import ironwood.compiler.port.SnapshotMap;
+import ironwood.compiler.source.SourceFile;
+import ironwood.compiler.source.SourceSpan;
+import ironwood.ds.ArrayList;
+import ironwood.ds.HashMap;
+import ironwood.ds.IdentityHashMap;
+import ironwood.ds.LinkedHashMap;
+import ironwood.util.Iterator;
+
+/**
+ * Optional function-local diagnostic facts, separate from ownership proof
+ * snapshots. Ports the Java {@code RejectedFreeEvidence} store for the pilot's
+ * selected roles: the six association maps (origins, bindings, events, array
+ * stores, retentions, joins), saved versions, budgets and limits. Field loads,
+ * call payloads and join alternatives are later-only; this role's events carry
+ * no call and its joins no alternatives.
+ *
+ * <p>Java keys saved versions by a weak reference to the proof snapshot and
+ * retires collected versions from a reference queue. Natively each version
+ * owner holds the {@link Saved} that {@link #save()} returns and passes it back
+ * explicitly (D259); {@link #release(Saved)} performs the retirement Java's
+ * queue would, before the owner frees the version. Sites, bindings, events and
+ * joins carry their own reference counts, which equality ignores, in place of
+ * Java's identity count maps. Budget arithmetic, truncation and every
+ * association count follow Java exactly. Payload objects are invocation-lived.
+ */
+public final class RejectedFreeEvidence {
+
+    /** The default function-local unit limit. */
+    public static final int DEFAULT_LOCAL_LIMIT = 65536;
+    /** The default saved-association limit. */
+    public static final int DEFAULT_SNAPSHOT_LIMIT = 65536;
+    /** The default invocation unit limit. */
+    public static final int DEFAULT_INVOCATION_LIMIT = 1048576;
+
+    private final Budget invocation;
+    private final int localLimit;
+    private final int snapshotLimit;
+    private final IdentityHashMap<Object, Site> origins = new IdentityHashMap<Object, Site>();
+    private final IdentityHashMap<Object, Binding> bindings = new IdentityHashMap<Object, Binding>();
+    private final IdentityHashMap<Object, Event> events = new IdentityHashMap<Object, Event>();
+    private final HashMap<Object, Site> arrayStores = new HashMap<Object, Site>();
+    private final HashMap<Retention, Site> retentions = new HashMap<Retention, Site>();
+    private final IdentityHashMap<Object, Join> joins = new IdentityHashMap<Object, Join>();
+    private int liveUnits;
+    private int highWater;
+    private int snapshotUnits;
+    private int snapshotHighWater;
+    private boolean functionTruncated;
+    private boolean snapshotTruncated;
+    private boolean closed;
+
+    /**
+     * @param invocation the borrowed invocation budget
+     * @param localLimit the function-local unit limit
+     * @param snapshotLimit the saved-association limit
+     */
+    public RejectedFreeEvidence(Budget invocation, int localLimit, int snapshotLimit) {
+
+        this.invocation = invocation;
+        this.localLimit = localLimit;
+        this.snapshotLimit = snapshotLimit;
+    }
+
+    /** An owner of one saved version: a proof snapshot or another version key. */
+    public interface Version {
+
+        /** @return the saved evidence this owner holds, or null if none was saved */
+        Saved savedEvidence();
+    }
+
+    /**
+     * The predecessor versions of a join, lent by their owner in path order.
+     * Java passes a list of version keys; a native list passed to an analyzed
+     * method would leave every listed version unfreeable (D262).
+     */
+    public interface Paths {
+
+        /** @return the number of predecessors */
+        int pathCount();
+
+        /**
+         * @param position a path position
+         * @return the saved evidence of that predecessor, or null if none was saved
+         */
+        Saved savedPath(int position);
+    }
+
+    /** Units shared by every store of one invocation. Ports {@code RejectedFreeEvidence.Budget}. */
+    public static final class Budget {
+
+        private final int limit;
+        private int live;
+        private int highWater;
+        private boolean stopped;
+
+        /**
+         * @param limit the positive unit limit
+         * @throws IllegalArgumentException if the limit is not positive
+         */
+        public Budget(int limit) {
+
+            if (limit < 1) throw new IllegalArgumentException("positive evidence limit required");
+            this.limit = limit;
+        }
+
+        boolean reserve(int units) {
+
+            if (this.stopped || units > this.limit - this.live) {
+                this.stopped = true;
+                return false;
+            }
+            this.live += units;
+            this.highWater = Math.max(this.highWater, this.live);
+            return true;
+        }
+
+        void release(int units) {
+
+            this.live -= units;
+        }
+
+        /** @return the largest live unit count */
+        public int highWater() {
+
+            return this.highWater;
+        }
+
+        /** @return the live unit count */
+        public int live() {
+
+            return this.live;
+        }
+
+        /** @return whether a reservation has failed */
+        public boolean stopped() {
+
+            return this.stopped;
+        }
+    }
+
+    /** A source location. Ports the record {@code Site}: source identity and span value; the count is not compared. */
+    public static final class Site {
+
+        private final SourceFile source;
+        private final SourceSpan span;
+        private int references;
+
+        Site(SourceFile source, SourceSpan span) {
+
+            this.source = source;
+            this.span = span;
+        }
+
+        /** @return the borrowed source */
+        public SourceFile source() {
+
+            return this.source;
+        }
+
+        /** @return the borrowed span */
+        public SourceSpan span() {
+
+            return this.span;
+        }
+
+        @Override public boolean equals(Object value) {
+
+            if (!(value instanceof Site)) return false;
+            Site other = (Site) value;
+            if (this.source != other.source) return false;
+            return this.span == null ? other.span == null : this.span.equals(other.span);
+        }
+
+        @Override public int hashCode() {
+
+            return System.identityHashCode(this.source) * 31 + (this.span == null ? 0 : this.span.hashCode());
+        }
+    }
+
+    /** A local's bound allocation. Ports the record {@code Binding}; stored bindings keep identity. */
+    public static final class Binding {
+
+        private final Object allocation;
+        private final SourceFile source;
+        private final SourceSpan span;
+        private int references;
+
+        Binding(Object allocation, SourceFile source, SourceSpan span) {
+
+            this.allocation = allocation;
+            this.source = source;
+            this.span = span;
+        }
+
+        /** @return the borrowed allocation */
+        public Object allocation() {
+
+            return this.allocation;
+        }
+
+        /** @return the borrowed source */
+        public SourceFile source() {
+
+            return this.source;
+        }
+
+        /** @return the borrowed span */
+        public SourceSpan span() {
+
+            return this.span;
+        }
+    }
+
+    /** A selected reason. Ports the record {@code Event} without a call payload; stored events keep identity. */
+    public static final class Event {
+
+        private final OperationVariants.EventKind kind;
+        private final String reason;
+        private final SourceFile source;
+        private final SourceSpan span;
+        private int references;
+
+        Event(OperationVariants.EventKind kind, String reason, SourceFile source, SourceSpan span) {
+
+            this.kind = kind;
+            this.reason = reason;
+            this.source = source;
+            this.span = span;
+        }
+
+        /** @return the event kind */
+        public OperationVariants.EventKind kind() {
+
+            return this.kind;
+        }
+
+        /** @return the borrowed reason, or null */
+        public String reason() {
+
+            return this.reason;
+        }
+
+        /** @return the borrowed source, or null */
+        public SourceFile source() {
+
+            return this.source;
+        }
+
+        /** @return the borrowed span, or null */
+        public SourceSpan span() {
+
+            return this.span;
+        }
+
+        int units() {
+
+            return 1;
+        }
+    }
+
+    /** A join explanation. Ports the record {@code Join} without alternatives; stored joins keep identity. */
+    public static final class Join {
+
+        private final String state;
+        private final String reason;
+        private final int omitted;
+        private final String classification;
+        private final boolean complete;
+        private int references;
+
+        /**
+         * @param state the joined state name
+         * @param reason the borrowed reason, or null
+         * @param omitted the omitted alternative count
+         * @param classification the borrowed classification
+         * @param complete whether every path had evidence
+         */
+        public Join(String state, String reason, int omitted, String classification, boolean complete) {
+
+            this.state = state;
+            this.reason = reason;
+            this.omitted = omitted;
+            this.classification = classification;
+            this.complete = complete;
+        }
+
+        /** @return the joined state name */
+        public String state() {
+
+            return this.state;
+        }
+
+        /** @return the reason, or null */
+        public String reason() {
+
+            return this.reason;
+        }
+
+        /** @return the omitted alternative count */
+        public int omitted() {
+
+            return this.omitted;
+        }
+
+        /** @return the classification */
+        public String classification() {
+
+            return this.classification;
+        }
+
+        /** @return whether every path had evidence */
+        public boolean complete() {
+
+            return this.complete;
+        }
+
+        int alternatives() {
+
+            return 0;
+        }
+    }
+
+    /** An owner and child pair. Ports the record {@code Retention}: both by identity, hashed by their own hashes. */
+    public static final class Retention {
+
+        private final Object owner;
+        private final Object child;
+
+        Retention(Object owner, Object child) {
+
+            this.owner = owner;
+            this.child = child;
+        }
+
+        @Override public boolean equals(Object value) {
+
+            if (!(value instanceof Retention)) return false;
+            Retention other = (Retention) value;
+            return this.owner == other.owner && this.child == other.child;
+        }
+
+        @Override public int hashCode() {
+
+            return this.owner.hashCode() * 31 + this.child.hashCode();
+        }
+    }
+
+    /**
+     * One saved version: independent shallow copies of the six maps with their
+     * keys in the live maps' order, and the reserved units. Ports the record
+     * {@code Saved}. The owner holds it; payloads are borrowed.
+     */
+    public static final class Saved {
+
+        private final SnapshotIdentityMap<Object, Site> origins;
+        private final SnapshotList<Object> originKeys;
+        private final SnapshotIdentityMap<Object, Binding> bindings;
+        private final SnapshotList<Object> bindingKeys;
+        private final SnapshotIdentityMap<Object, Event> events;
+        private final SnapshotList<Object> eventKeys;
+        private final SnapshotMap<Object, Site> arrayStores;
+        private final SnapshotList<Object> arrayStoreKeys;
+        private final SnapshotMap<Retention, Site> retentions;
+        private final SnapshotList<Retention> retentionKeys;
+        private final SnapshotIdentityMap<Object, Join> joins;
+        private final SnapshotList<Object> joinKeys;
+        private final int units;
+        private final int associations;
+
+        Saved(RejectedFreeEvidence store, int units, int associations) {
+
+            this.origins = new SnapshotIdentityMap<Object, Site>(store.origins);
+            this.originKeys = keys(store.origins);
+            this.bindings = new SnapshotIdentityMap<Object, Binding>(store.bindings);
+            this.bindingKeys = bindingKeys(store.bindings);
+            this.events = new SnapshotIdentityMap<Object, Event>(store.events);
+            this.eventKeys = eventKeys(store.events);
+            this.arrayStores = new SnapshotMap<Object, Site>(store.arrayStores);
+            this.arrayStoreKeys = storeKeys(store.arrayStores);
+            this.retentions = new SnapshotMap<Retention, Site>(store.retentions);
+            this.retentionKeys = retentionKeys(store.retentions);
+            this.joins = new SnapshotIdentityMap<Object, Join>(store.joins);
+            this.joinKeys = joinKeys(store.joins);
+            this.units = units;
+            this.associations = associations;
+        }
+
+        /** @return the saved association count */
+        public int associations() {
+
+            return this.associations;
+        }
+
+        int units() {
+
+            return this.units;
+        }
+
+        destructor {
+
+            free this.joinKeys;
+            free this.joins;
+            free this.retentionKeys;
+            free this.retentions;
+            free this.arrayStoreKeys;
+            free this.arrayStores;
+            free this.eventKeys;
+            free this.events;
+            free this.bindingKeys;
+            free this.bindings;
+            free this.originKeys;
+            free this.origins;
+        }
+    }
+
+    /**
+     * Records an allocation's origin unless one is present.
+     *
+     * @return whether it was recorded
+     */
+    public boolean origin(Object allocation, SourceFile source, SourceSpan span) {
+
+        if (this.origins.containsKey(allocation) || !this.reserve(2, false, 0)) return false;
+        Site site = new Site(source, span);
+        this.origins.put(allocation, site);
+        site.references = 1;
+        return true;
+    }
+
+    /** @return the allocation's origin, or null */
+    public Site origin(Object allocation) {
+
+        return this.origins.get(allocation);
+    }
+
+    /**
+     * Binds a local to an allocation, replacing an earlier binding.
+     *
+     * @return whether a binding is now recorded or none was requested
+     */
+    public boolean bind(Object local, Object allocation, SourceFile source, SourceSpan span) {
+
+        this.unbind(local);
+        if (allocation == null) return true;
+        if (!this.reserve(2, false, 0)) return false;
+        Binding binding = new Binding(allocation, source, span);
+        this.bindings.put(local, binding);
+        binding.references = 1;
+        return true;
+    }
+
+    /** @param local the local whose binding is removed */
+    public void unbind(Object local) {
+
+        Binding old = this.bindings.remove(local);
+        if (old != null) {
+            this.liveUnits--;
+            this.invocation.release(1);
+            this.releaseBinding(old);
+        }
+    }
+
+    /** @return the local's binding, or null */
+    public Binding binding(Object local) {
+
+        return this.bindings.get(local);
+    }
+
+    /** @return the local's binding in a saved version, or null */
+    public Binding binding(Version version, Object local) {
+
+        Saved saved = version.savedEvidence();
+        return saved == null ? null : saved.bindings.get(local);
+    }
+
+    /** @return whether the reason without a location was recorded */
+    public boolean selectedReason(Object allocation, String reason) {
+
+        return this.replaceEvent(allocation, OperationVariants.EventKind.REASON, reason, null, null);
+    }
+
+    /** @return whether the located reason was recorded */
+    public boolean selectedReason(Object allocation, String reason, SourceFile source, SourceSpan span) {
+
+        return this.replaceEvent(allocation, OperationVariants.EventKind.REASON, reason, source, span);
+    }
+
+    /** @return the allocation's event, or null */
+    public Event event(Object allocation) {
+
+        return this.events.get(allocation);
+    }
+
+    /** @return the allocation's event in a saved version, or null */
+    public Event event(Version version, Object allocation) {
+
+        Saved saved = version.savedEvidence();
+        return saved == null ? null : saved.events.get(allocation);
+    }
+
+    /** @return the allocation's join, or null */
+    public Join join(Object allocation) {
+
+        return this.joins.get(allocation);
+    }
+
+    /** @return the allocation's join in a saved version, or null */
+    public Join join(Version version, Object allocation) {
+
+        Saved saved = version.savedEvidence();
+        return saved == null ? null : saved.joins.get(allocation);
+    }
+
+    /**
+     * Records a join, replacing an earlier one.
+     *
+     * @param join the borrowed join, kept by the store when recorded
+     * @return whether it was recorded
+     */
+    public boolean joined(Object allocation, Join join) {
+
+        this.clearJoin(allocation);
+        int units = 2 + join.alternatives();
+        if (!this.reserve(units, false, 0)) return false;
+        this.joins.put(allocation, join);
+        join.references = 1;
+        return true;
+    }
+
+    private void clearJoin(Object allocation) {
+
+        Join old = this.joins.remove(allocation);
+        if (old == null) return;
+        this.liveUnits--;
+        this.invocation.release(1);
+        this.releaseJoin(old);
+    }
+
+    /** @return whether the slot's store site was recorded */
+    public boolean arrayStore(Object slot, SourceFile source, SourceSpan span) {
+
+        this.clearArrayStore(slot);
+        if (!this.reserve(2, false, 0)) return false;
+        Site site = new Site(source, span);
+        this.arrayStores.put(slot, site);
+        site.references = 1;
+        return true;
+    }
+
+    /** @param slot the slot whose store site is removed */
+    public void clearArrayStore(Object slot) {
+
+        Site old = this.arrayStores.remove(slot);
+        if (old != null) {
+            this.liveUnits--;
+            this.invocation.release(1);
+            this.releaseSite(old);
+        }
+    }
+
+    /**
+     * Keeps only the store sites of slots that are still known.
+     *
+     * @param liveSlots the borrowed live slot map, whose keys are the known slots
+     */
+    public void retainArrayStores(LinkedHashMap<ArraySlot, AllocationInfo> liveSlots) {
+
+        ArrayList<Object> removed = new ArrayList<Object>(8);
+        defer free removed;
+        Iterator<Site> sites = this.arrayStores.iterator();
+        while (sites.hasNext()) {
+            sites.next();
+            Object slot = this.arrayStores.getCurrIteratorKey();
+            boolean live = slot instanceof ArraySlot known && liveSlots.containsKey(known);
+            if (!live) removed.add(slot);
+        }
+        for (int index = 0; index < removed.size(); index++) {
+            Site old = this.arrayStores.remove(removed.get(index));
+            this.liveUnits--;
+            this.invocation.release(1);
+            this.releaseSite(old);
+        }
+    }
+
+    /** @return the slot's store site in a saved version, or null */
+    public Site arrayStore(Version version, Object slot) {
+
+        Saved saved = version.savedEvidence();
+        return saved == null ? null : saved.arrayStores.get(slot);
+    }
+
+    /** @return the slot's store site, or null */
+    public Site arrayStore(Object slot) {
+
+        return this.arrayStores.get(slot);
+    }
+
+    /** @return whether the retention site was recorded */
+    public boolean retain(Object owner, Object child, SourceFile source, SourceSpan span) {
+
+        Retention key = new Retention(owner, child);
+        this.clearRetention(key);
+        if (source == null || span == null || !this.reserve(2, false, 0)) {
+            free key;
+            return false;
+        }
+        Site site = new Site(source, span);
+        this.retentions.put(key, site);
+        site.references = 1;
+        return true;
+    }
+
+    /** @return the retention's site, or null */
+    public Site retention(Object owner, Object child) {
+
+        Retention key = new Retention(owner, child);
+        defer free key;
+        return this.retentions.get(key);
+    }
+
+    private void clearRetention(Retention key) {
+
+        Site old = this.retentions.remove(key);
+        if (old == null) return;
+        this.liveUnits--;
+        this.invocation.release(1);
+        this.releaseSite(old);
+    }
+
+    private boolean replaceEvent(Object allocation, OperationVariants.EventKind kind, String reason,
+                                 SourceFile source, SourceSpan span) {
+
+        this.clearJoin(allocation);
+        Event old = this.events.remove(allocation);
+        if (old != null) {
+            this.liveUnits--;
+            this.invocation.release(1);
+            this.releaseEvent(old);
+        }
+        Event event = new Event(kind, reason, source, span);
+        if (!this.reserve(1 + event.units(), false, 0)) {
+            free event;
+            return false;
+        }
+        this.events.put(allocation, event);
+        event.references = 1;
+        return true;
+    }
+
+    /**
+     * Saves the current associations as a new version, reserving its units
+     * first, or saves nothing.
+     *
+     * @return the caller-owned saved version, or null when a limit stopped it
+     */
+    public Saved save() {
+
+        int associations = this.origins.size() + this.bindings.size() + this.events.size()
+                + this.arrayStores.size() + this.retentions.size() + this.joins.size();
+        int units = 2 + associations;
+        if (!this.reserve(units, true, associations)) return null;
+        Saved saved = new Saved(this, units, associations);
+        retainSites(this.origins);
+        retainBindings(this.bindings);
+        retainEvents(this.events);
+        retainSites(this.arrayStores);
+        retainRetentionSites(this.retentions);
+        retainJoins(this.joins);
+        return saved;
+    }
+
+    /**
+     * Replaces the current associations with a saved version's.
+     *
+     * @param version the borrowed owner of the saved version
+     * @return whether they were restored; false when nothing was saved or a limit stopped the copy
+     */
+    public boolean restore(Version version) {
+
+        Saved saved = version.savedEvidence();
+        this.clearCurrent();
+        if (saved == null) {
+            this.snapshotTruncated = true;
+            return false;
+        }
+        return this.copyIntoCurrent(saved);
+    }
+
+    /**
+     * Replaces the current associations with those every incoming version
+     * agrees on: equal sites and bindings, the same event and join objects.
+     *
+     * @param incoming the borrowed owner of the predecessor versions
+     * @return false when a predecessor saved nothing or a limit stopped the copy
+     */
+    public boolean merge(Paths incoming) {
+
+        Common common = new Common();
+        defer free common;
+        for (int index = 0; index < incoming.pathCount(); index++) {
+            Saved saved = incoming.savedPath(index);
+            if (saved == null) {
+                this.clearCurrent();
+                this.snapshotTruncated = true;
+                return false;
+            }
+            if (index == 0) {
+                common.load(saved);
+            } else {
+                common.intersect(saved);
+            }
+        }
+        if (incoming.pathCount() == 0) return true;
+        this.clearCurrent();
+        return this.copyIntoCurrent(common);
+    }
+
+    /**
+     * Retires a saved version before its owner frees it: the units and
+     * association counts it reserved and its payload references, as Java's
+     * collector-driven retirement does. A closed store has nothing to release.
+     *
+     * @param saved the borrowed version, or null
+     */
+    public void release(Saved saved) {
+
+        if (saved == null || this.closed) return;
+        this.liveUnits -= saved.units;
+        this.snapshotUnits -= saved.associations;
+        this.invocation.release(saved.units);
+        for (int index = 0; index < saved.originKeys.size(); index++) {
+            this.releaseSite(saved.origins.get(saved.originKeys.get(index)));
+        }
+        for (int index = 0; index < saved.bindingKeys.size(); index++) {
+            this.releaseBinding(saved.bindings.get(saved.bindingKeys.get(index)));
+        }
+        for (int index = 0; index < saved.eventKeys.size(); index++) {
+            this.releaseEvent(saved.events.get(saved.eventKeys.get(index)));
+        }
+        for (int index = 0; index < saved.arrayStoreKeys.size(); index++) {
+            this.releaseSite(saved.arrayStores.get(saved.arrayStoreKeys.get(index)));
+        }
+        for (int index = 0; index < saved.retentionKeys.size(); index++) {
+            this.releaseSite(saved.retentions.get(saved.retentionKeys.get(index)));
+        }
+        for (int index = 0; index < saved.joinKeys.size(); index++) {
+            this.releaseJoin(saved.joins.get(saved.joinKeys.get(index)));
+        }
+    }
+
+    private boolean copyIntoCurrent(Saved saved) {
+
+        int units = saved.originKeys.size() + saved.bindingKeys.size() + saved.eventKeys.size()
+                + saved.arrayStoreKeys.size() + saved.retentionKeys.size() + saved.joinKeys.size();
+        if (!this.reserve(units, false, 0)) return false;
+        for (int index = 0; index < saved.originKeys.size(); index++) {
+            Object key = saved.originKeys.get(index);
+            Site site = saved.origins.get(key);
+            this.origins.put(key, site);
+            site.references++;
+        }
+        for (int index = 0; index < saved.bindingKeys.size(); index++) {
+            Object key = saved.bindingKeys.get(index);
+            Binding binding = saved.bindings.get(key);
+            this.bindings.put(key, binding);
+            binding.references++;
+        }
+        for (int index = 0; index < saved.eventKeys.size(); index++) {
+            Object key = saved.eventKeys.get(index);
+            Event event = saved.events.get(key);
+            this.events.put(key, event);
+            event.references++;
+        }
+        for (int index = 0; index < saved.arrayStoreKeys.size(); index++) {
+            Object key = saved.arrayStoreKeys.get(index);
+            Site site = saved.arrayStores.get(key);
+            this.arrayStores.put(key, site);
+            site.references++;
+        }
+        for (int index = 0; index < saved.retentionKeys.size(); index++) {
+            Retention key = saved.retentionKeys.get(index);
+            Site site = saved.retentions.get(key);
+            this.retentions.put(key, site);
+            site.references++;
+        }
+        for (int index = 0; index < saved.joinKeys.size(); index++) {
+            Object key = saved.joinKeys.get(index);
+            Join join = saved.joins.get(key);
+            this.joins.put(key, join);
+            join.references++;
+        }
+        return true;
+    }
+
+    private boolean copyIntoCurrent(Common common) {
+
+        int units = common.origins.size() + common.bindings.size() + common.events.size()
+                + common.arrayStores.size() + common.retentions.size() + common.joins.size();
+        if (!this.reserve(units, false, 0)) return false;
+        Iterator<Site> origins = common.origins.iterator();
+        while (origins.hasNext()) {
+            Site site = origins.next();
+            this.origins.put(common.origins.getCurrIteratorKey(), site);
+            site.references++;
+        }
+        Iterator<Binding> bindings = common.bindings.iterator();
+        while (bindings.hasNext()) {
+            Binding binding = bindings.next();
+            this.bindings.put(common.bindings.getCurrIteratorKey(), binding);
+            binding.references++;
+        }
+        Iterator<Event> events = common.events.iterator();
+        while (events.hasNext()) {
+            Event event = events.next();
+            this.events.put(common.events.getCurrIteratorKey(), event);
+            event.references++;
+        }
+        Iterator<Site> stores = common.arrayStores.iterator();
+        while (stores.hasNext()) {
+            Site site = stores.next();
+            this.arrayStores.put(common.arrayStores.getCurrIteratorKey(), site);
+            site.references++;
+        }
+        Iterator<Site> retentions = common.retentions.iterator();
+        while (retentions.hasNext()) {
+            Site site = retentions.next();
+            this.retentions.put(common.retentions.getCurrIteratorKey(), site);
+            site.references++;
+        }
+        Iterator<Join> joins = common.joins.iterator();
+        while (joins.hasNext()) {
+            Join join = joins.next();
+            this.joins.put(common.joins.getCurrIteratorKey(), join);
+            join.references++;
+        }
+        return true;
+    }
+
+    private void clearCurrent() {
+
+        int associations = this.origins.size() + this.bindings.size() + this.events.size()
+                + this.arrayStores.size() + this.retentions.size() + this.joins.size();
+        Iterator<Site> origins = this.origins.iterator();
+        while (origins.hasNext()) this.releaseSite(origins.next());
+        Iterator<Binding> bindings = this.bindings.iterator();
+        while (bindings.hasNext()) this.releaseBinding(bindings.next());
+        Iterator<Event> events = this.events.iterator();
+        while (events.hasNext()) this.releaseEvent(events.next());
+        Iterator<Site> stores = this.arrayStores.iterator();
+        while (stores.hasNext()) this.releaseSite(stores.next());
+        Iterator<Site> retentions = this.retentions.iterator();
+        while (retentions.hasNext()) this.releaseSite(retentions.next());
+        Iterator<Join> joins = this.joins.iterator();
+        while (joins.hasNext()) this.releaseJoin(joins.next());
+        this.origins.clear();
+        this.bindings.clear();
+        this.events.clear();
+        this.arrayStores.clear();
+        this.retentions.clear();
+        this.joins.clear();
+        this.liveUnits -= associations;
+        this.invocation.release(associations);
+    }
+
+    private static void retainSites(IdentityHashMap<Object, Site> sites) {
+
+        Iterator<Site> values = sites.iterator();
+        while (values.hasNext()) values.next().references++;
+    }
+
+    private static void retainSites(HashMap<Object, Site> sites) {
+
+        Iterator<Site> values = sites.iterator();
+        while (values.hasNext()) values.next().references++;
+    }
+
+    private static void retainRetentionSites(HashMap<Retention, Site> sites) {
+
+        Iterator<Site> values = sites.iterator();
+        while (values.hasNext()) values.next().references++;
+    }
+
+    private static void retainBindings(IdentityHashMap<Object, Binding> bindings) {
+
+        Iterator<Binding> values = bindings.iterator();
+        while (values.hasNext()) values.next().references++;
+    }
+
+    private static void retainEvents(IdentityHashMap<Object, Event> events) {
+
+        Iterator<Event> values = events.iterator();
+        while (values.hasNext()) values.next().references++;
+    }
+
+    private static void retainJoins(IdentityHashMap<Object, Join> joins) {
+
+        Iterator<Join> values = joins.iterator();
+        while (values.hasNext()) values.next().references++;
+    }
+
+    private void releaseSite(Site site) {
+
+        site.references--;
+        if (site.references == 0) {
+            this.liveUnits--;
+            this.invocation.release(1);
+        }
+    }
+
+    private void releaseBinding(Binding binding) {
+
+        binding.references--;
+        if (binding.references == 0) {
+            this.liveUnits--;
+            this.invocation.release(1);
+        }
+    }
+
+    private void releaseEvent(Event event) {
+
+        event.references--;
+        if (event.references == 0) {
+            this.liveUnits -= event.units();
+            this.invocation.release(event.units());
+        }
+    }
+
+    private void releaseJoin(Join join) {
+
+        join.references--;
+        if (join.references == 0) {
+            int units = 1 + join.alternatives();
+            this.liveUnits -= units;
+            this.invocation.release(units);
+        }
+    }
+
+    private boolean reserve(int units, boolean snapshot, int associations) {
+
+        if (this.closed || this.functionTruncated || snapshot && this.snapshotTruncated) return false;
+        if (units > this.localLimit - this.liveUnits) {
+            this.functionTruncated = true;
+            return false;
+        }
+        if (snapshot && associations > this.snapshotLimit - this.snapshotUnits) {
+            this.snapshotTruncated = true;
+            return false;
+        }
+        if (!this.invocation.reserve(units)) return false;
+        this.liveUnits += units;
+        this.highWater = Math.max(this.highWater, this.liveUnits);
+        if (snapshot) {
+            this.snapshotUnits += associations;
+            this.snapshotHighWater = Math.max(this.snapshotHighWater, this.snapshotUnits);
+        }
+        return true;
+    }
+
+    /** Closes the store: every association and live unit is released once. */
+    public void close() {
+
+        if (this.closed) return;
+        this.closed = true;
+        this.origins.clear();
+        this.bindings.clear();
+        this.events.clear();
+        this.arrayStores.clear();
+        this.retentions.clear();
+        this.joins.clear();
+        this.invocation.release(this.liveUnits);
+        this.liveUnits = 0;
+        this.snapshotUnits = 0;
+    }
+
+    /** @return the largest function-local unit count */
+    public int highWater() {
+
+        return this.highWater;
+    }
+
+    /** @return the largest saved-association count */
+    public int snapshotHighWater() {
+
+        return this.snapshotHighWater;
+    }
+
+    /** @return whether a local or saved-association limit stopped recording */
+    public boolean localTruncated() {
+
+        return this.functionTruncated || this.snapshotTruncated;
+    }
+
+    /** @return whether the invocation budget stopped recording */
+    public boolean invocationStopped() {
+
+        return this.invocation.stopped();
+    }
+
+    /** @return the invocation budget's largest live unit count */
+    public int invocationHighWater() {
+
+        return this.invocation.highWater();
+    }
+
+    destructor {
+
+        free this.joins;
+        free this.retentions;
+        free this.arrayStores;
+        free this.events;
+        free this.bindings;
+        free this.origins;
+    }
+
+    private static SnapshotList<Object> keys(IdentityHashMap<Object, Site> map) {
+
+        ArrayList<Object> builder = new ArrayList<Object>(map.size() + 1);
+        defer free builder;
+        Iterator<Site> values = map.iterator();
+        while (values.hasNext()) {
+            values.next();
+            builder.add(map.getCurrIteratorKey());
+        }
+        return new SnapshotList<Object>(builder);
+    }
+
+    private static SnapshotList<Object> bindingKeys(IdentityHashMap<Object, Binding> map) {
+
+        ArrayList<Object> builder = new ArrayList<Object>(map.size() + 1);
+        defer free builder;
+        Iterator<Binding> values = map.iterator();
+        while (values.hasNext()) {
+            values.next();
+            builder.add(map.getCurrIteratorKey());
+        }
+        return new SnapshotList<Object>(builder);
+    }
+
+    private static SnapshotList<Object> eventKeys(IdentityHashMap<Object, Event> map) {
+
+        ArrayList<Object> builder = new ArrayList<Object>(map.size() + 1);
+        defer free builder;
+        Iterator<Event> values = map.iterator();
+        while (values.hasNext()) {
+            values.next();
+            builder.add(map.getCurrIteratorKey());
+        }
+        return new SnapshotList<Object>(builder);
+    }
+
+    private static SnapshotList<Object> storeKeys(HashMap<Object, Site> map) {
+
+        ArrayList<Object> builder = new ArrayList<Object>(map.size() + 1);
+        defer free builder;
+        Iterator<Site> values = map.iterator();
+        while (values.hasNext()) {
+            values.next();
+            builder.add(map.getCurrIteratorKey());
+        }
+        return new SnapshotList<Object>(builder);
+    }
+
+    private static SnapshotList<Retention> retentionKeys(HashMap<Retention, Site> map) {
+
+        ArrayList<Retention> builder = new ArrayList<Retention>(map.size() + 1);
+        defer free builder;
+        Iterator<Site> values = map.iterator();
+        while (values.hasNext()) {
+            values.next();
+            builder.add(map.getCurrIteratorKey());
+        }
+        return new SnapshotList<Retention>(builder);
+    }
+
+    private static SnapshotList<Object> joinKeys(IdentityHashMap<Object, Join> map) {
+
+        ArrayList<Object> builder = new ArrayList<Object>(map.size() + 1);
+        defer free builder;
+        Iterator<Join> values = map.iterator();
+        while (values.hasNext()) {
+            values.next();
+            builder.add(map.getCurrIteratorKey());
+        }
+        return new SnapshotList<Object>(builder);
+    }
+
+    // The maps a merge builds from its first predecessor and narrows by each
+    // later one; Java's six "common" maps, owned and freed by the merge.
+    private static final class Common {
+
+        private final IdentityHashMap<Object, Site> origins = new IdentityHashMap<Object, Site>();
+        private final IdentityHashMap<Object, Binding> bindings = new IdentityHashMap<Object, Binding>();
+        private final IdentityHashMap<Object, Event> events = new IdentityHashMap<Object, Event>();
+        private final HashMap<Object, Site> arrayStores = new HashMap<Object, Site>();
+        private final HashMap<Retention, Site> retentions = new HashMap<Retention, Site>();
+        private final IdentityHashMap<Object, Join> joins = new IdentityHashMap<Object, Join>();
+
+        Common() {
+
+        }
+
+        void load(Saved saved) {
+
+            for (int index = 0; index < saved.originKeys.size(); index++) {
+                Object key = saved.originKeys.get(index);
+                this.origins.put(key, saved.origins.get(key));
+            }
+            for (int index = 0; index < saved.bindingKeys.size(); index++) {
+                Object key = saved.bindingKeys.get(index);
+                this.bindings.put(key, saved.bindings.get(key));
+            }
+            for (int index = 0; index < saved.eventKeys.size(); index++) {
+                Object key = saved.eventKeys.get(index);
+                this.events.put(key, saved.events.get(key));
+            }
+            for (int index = 0; index < saved.arrayStoreKeys.size(); index++) {
+                Object key = saved.arrayStoreKeys.get(index);
+                this.arrayStores.put(key, saved.arrayStores.get(key));
+            }
+            for (int index = 0; index < saved.retentionKeys.size(); index++) {
+                Retention key = saved.retentionKeys.get(index);
+                this.retentions.put(key, saved.retentions.get(key));
+            }
+            for (int index = 0; index < saved.joinKeys.size(); index++) {
+                Object key = saved.joinKeys.get(index);
+                this.joins.put(key, saved.joins.get(key));
+            }
+        }
+
+        void intersect(Saved saved) {
+
+            ArrayList<Object> removed = new ArrayList<Object>(8);
+            defer free removed;
+            Iterator<Site> origins = this.origins.iterator();
+            while (origins.hasNext()) {
+                Site site = origins.next();
+                Object key = this.origins.getCurrIteratorKey();
+                if (!site.equals(saved.origins.get(key))) removed.add(key);
+            }
+            for (int index = 0; index < removed.size(); index++) this.origins.remove(removed.get(index));
+            removed.clear();
+            Iterator<Binding> bindings = this.bindings.iterator();
+            while (bindings.hasNext()) {
+                Binding binding = bindings.next();
+                Object key = this.bindings.getCurrIteratorKey();
+                Binding next = saved.bindings.get(key);
+                if (next == null || binding.allocation() != next.allocation() || binding.source() != next.source()
+                        || !binding.span().equals(next.span())) {
+                    removed.add(key);
+                }
+            }
+            for (int index = 0; index < removed.size(); index++) this.bindings.remove(removed.get(index));
+            removed.clear();
+            Iterator<Event> events = this.events.iterator();
+            while (events.hasNext()) {
+                Event event = events.next();
+                Object key = this.events.getCurrIteratorKey();
+                if (event != saved.events.get(key)) removed.add(key);
+            }
+            for (int index = 0; index < removed.size(); index++) this.events.remove(removed.get(index));
+            removed.clear();
+            Iterator<Site> stores = this.arrayStores.iterator();
+            while (stores.hasNext()) {
+                Site site = stores.next();
+                Object key = this.arrayStores.getCurrIteratorKey();
+                if (!site.equals(saved.arrayStores.get(key))) removed.add(key);
+            }
+            for (int index = 0; index < removed.size(); index++) this.arrayStores.remove(removed.get(index));
+            removed.clear();
+            ArrayList<Retention> lost = new ArrayList<Retention>(8);
+            defer free lost;
+            Iterator<Site> retentions = this.retentions.iterator();
+            while (retentions.hasNext()) {
+                Site site = retentions.next();
+                Retention key = this.retentions.getCurrIteratorKey();
+                if (!site.equals(saved.retentions.get(key))) lost.add(key);
+            }
+            for (int index = 0; index < lost.size(); index++) this.retentions.remove(lost.get(index));
+            Iterator<Join> joins = this.joins.iterator();
+            while (joins.hasNext()) {
+                Join join = joins.next();
+                Object key = this.joins.getCurrIteratorKey();
+                if (join != saved.joins.get(key)) removed.add(key);
+            }
+            for (int index = 0; index < removed.size(); index++) this.joins.remove(removed.get(index));
+        }
+
+        destructor {
+
+            free this.joins;
+            free this.retentions;
+            free this.arrayStores;
+            free this.events;
+            free this.bindings;
+            free this.origins;
+        }
+    }
+}

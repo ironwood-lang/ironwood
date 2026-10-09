@@ -1,0 +1,435 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.port;
+
+/**
+ * An owned list of texts kept back to back in one UTF-16 buffer, for the
+ * archive services' entry names, type names and relative paths. Java keeps
+ * Lists, Sets and TreeMaps of Strings there; a native collection would expose
+ * every String it holds, so none could be freed, while this owner stores
+ * only primitive storage and makes a fresh String only when one is asked for.
+ *
+ * <p>Texts are addressed by their position. Two orders can be applied to the
+ * positions: String order ({@code String.compareTo}, UTF-16 units) and code
+ * point order, which is the unsigned UTF-8 byte order Java's Path sorting
+ * uses. Both sorts are stable. {@link #find} needs String order and distinct
+ * texts; {@link #indexOf} hashes as Java's String does and answers only while
+ * the list is unsorted. Inputs are borrowed for each call.
+ */
+public final class TextList {
+
+    private char[] chars;
+    private int used;
+    // Start and end of each stored text.
+    private int[] bounds;
+    // Position to stored text.
+    private int[] order;
+    // Each stored text's String hash, and an open-addressing table of stored
+    // index plus one (0 is empty) with a power-of-two size above twice count.
+    private int[] hashes;
+    private int[] slots;
+    private int count;
+    private boolean sorted;
+
+    /** Creates an empty list. */
+    public TextList() {
+
+        this.chars = new char[256];
+        this.bounds = new int[32];
+        this.order = new int[16];
+        this.hashes = new int[16];
+        this.slots = new int[64];
+    }
+
+    /** @return the number of texts */
+    public int size() {
+
+        return this.count;
+    }
+
+    /**
+     * Appends a copy of text.
+     *
+     * @param text the text; borrowed
+     */
+    public void add(String text) {
+
+        this.addRange(text, 0, text.length());
+    }
+
+    /**
+     * Appends a copy of {@code text[start, end)}.
+     *
+     * @param text the text; borrowed
+     * @param start the first unit
+     * @param end the unit after the last
+     */
+    public void addRange(String text, int start, int end) {
+
+        if (start < 0 || start > end || end > text.length()) throw new IndexOutOfBoundsException();
+        this.reserve(end - start);
+        int begin = this.used;
+        for (int index = start; index < end; index++) {
+            // Read before indexing the field, so the store needs no call between load and write.
+            char unit = text.charAt(index);
+            this.chars[this.used] = unit;
+            this.used++;
+        }
+        this.record(begin);
+    }
+
+    /**
+     * Appends the decoding of well-formed UTF-8 bytes, as validated by
+     * {@link #wellFormed}.
+     *
+     * @param bytes the encoded text; borrowed
+     * @param offset its first byte
+     * @param length its byte count
+     */
+    public void addUtf8(byte[] bytes, int offset, int length) {
+
+        if (offset < 0 || length < 0 || length > bytes.length - offset) throw new IndexOutOfBoundsException();
+        // A UTF-8 text never has more UTF-16 units than bytes.
+        this.reserve(length);
+        int begin = this.used;
+        int index = offset;
+        int end = offset + length;
+        while (index < end) {
+            int lead = bytes[index] & 0xFF;
+            int point = 0;
+            int size = 1;
+            if (lead < 0x80) {
+                point = lead;
+            } else if (lead < 0xE0) {
+                point = (lead & 0x1F) << 6 | bytes[index + 1] & 0x3F;
+                size = 2;
+            } else if (lead < 0xF0) {
+                point = (lead & 0x0F) << 12 | (bytes[index + 1] & 0x3F) << 6 | bytes[index + 2] & 0x3F;
+                size = 3;
+            } else {
+                point = (lead & 0x07) << 18 | (bytes[index + 1] & 0x3F) << 12 | (bytes[index + 2] & 0x3F) << 6
+                        | bytes[index + 3] & 0x3F;
+                size = 4;
+            }
+            if (point >= 0x10000) {
+                this.chars[this.used] = (char) (0xD800 + ((point - 0x10000) >> 10));
+                this.chars[this.used + 1] = (char) (0xDC00 + ((point - 0x10000) & 0x3FF));
+                this.used = this.used + 2;
+            } else {
+                this.chars[this.used] = (char) point;
+                this.used++;
+            }
+            index = index + size;
+        }
+        this.record(begin);
+    }
+
+    /**
+     * Whether {@code bytes[offset, offset + length)} is well-formed UTF-8
+     * (Unicode Table 3-7): no overlong forms, surrogates, values above
+     * U+10FFFF, stray continuation bytes or truncated sequences. Java's
+     * reporting UTF-8 decoder accepts exactly these.
+     */
+    public static boolean wellFormed(byte[] bytes, int offset, int length) {
+
+        int index = offset;
+        int end = offset + length;
+        while (index < end) {
+            int lead = bytes[index] & 0xFF;
+            if (lead < 0x80) {
+                index++;
+            } else {
+                int size = lead >= 0xC2 && lead <= 0xDF ? 2 : lead >= 0xE0 && lead <= 0xEF ? 3
+                        : lead >= 0xF0 && lead <= 0xF4 ? 4 : 0;
+                if (size == 0 || size > end - index) return false;
+                int second = bytes[index + 1] & 0xFF;
+                int low = lead == 0xE0 ? 0xA0 : lead == 0xF0 ? 0x90 : 0x80;
+                int high = lead == 0xED ? 0x9F : lead == 0xF4 ? 0x8F : 0xBF;
+                if (second < low || second > high) return false;
+                for (int next = 2; next < size; next++) {
+                    int value = bytes[index + next] & 0xFF;
+                    if (value < 0x80 || value > 0xBF) return false;
+                }
+                index = index + size;
+            }
+        }
+        return true;
+    }
+
+    /** @return a fresh String holding the text at position index, owned by the caller */
+    public String get(int index) {
+
+        int stored = this.order[index];
+        return new String(this.chars, this.bounds[stored * 2], this.bounds[stored * 2 + 1] - this.bounds[stored * 2]);
+    }
+
+    /** @return the insertion index of the text now at position index */
+    public int stored(int index) {
+
+        return this.order[index];
+    }
+
+    /** @return the text's length in UTF-16 units */
+    public int length(int index) {
+
+        int stored = this.order[index];
+        return this.bounds[stored * 2 + 1] - this.bounds[stored * 2];
+    }
+
+    /** @return unit {@code position} of the text at {@code index} */
+    public char charAt(int index, int position) {
+
+        int stored = this.order[index];
+        if (position < 0 || position >= this.bounds[stored * 2 + 1] - this.bounds[stored * 2]) {
+            throw new IndexOutOfBoundsException();
+        }
+        return this.chars[this.bounds[stored * 2] + position];
+    }
+
+    /** Appends the text at index to target. */
+    public void appendTo(int index, StringBuilder target) {
+
+        int stored = this.order[index];
+        for (int unit = this.bounds[stored * 2]; unit < this.bounds[stored * 2 + 1]; unit++) {
+            target.append(this.chars[unit]);
+        }
+    }
+
+    /** @return whether the text at index equals text */
+    public boolean equalsText(int index, String text) {
+
+        return this.compareText(index, text) == 0;
+    }
+
+    /** @return whether the text at index starts with prefix */
+    public boolean startsWith(int index, String prefix) {
+
+        int stored = this.order[index];
+        int start = this.bounds[stored * 2];
+        if (this.bounds[stored * 2 + 1] - start < prefix.length()) return false;
+        for (int unit = 0; unit < prefix.length(); unit++) {
+            if (this.chars[start + unit] != prefix.charAt(unit)) return false;
+        }
+        return true;
+    }
+
+    /** @return whether the text at index ends with suffix */
+    public boolean endsWith(int index, String suffix) {
+
+        int stored = this.order[index];
+        int end = this.bounds[stored * 2 + 1];
+        int start = end - suffix.length();
+        if (start < this.bounds[stored * 2]) return false;
+        for (int unit = 0; unit < suffix.length(); unit++) {
+            if (this.chars[start + unit] != suffix.charAt(unit)) return false;
+        }
+        return true;
+    }
+
+    /** @return the text at index compared with text in String order */
+    public int compareText(int index, String text) {
+
+        return this.compareStoredText(this.order[index], text);
+    }
+
+    private int compareStoredText(int stored, String text) {
+
+        int start = this.bounds[stored * 2];
+        int length = this.bounds[stored * 2 + 1] - start;
+        int common = length < text.length() ? length : text.length();
+        for (int unit = 0; unit < common; unit++) {
+            int difference = this.chars[start + unit] - text.charAt(unit);
+            if (difference != 0) return difference;
+        }
+        return length - text.length();
+    }
+
+    /** @return the texts at two positions compared in String order */
+    public int compare(int first, int second) {
+
+        return this.compareStored(this.order[first], this.order[second], false);
+    }
+
+    /** Orders the positions by String order, keeping equal texts in their order. */
+    public void sortStrings() {
+
+        this.sort(false);
+    }
+
+    /** Orders the positions by code point order, keeping equal texts in their order. */
+    public void sortCodePoints() {
+
+        this.sort(true);
+    }
+
+    /**
+     * @return the position of the first text equal to text, or -1
+     * @throws IllegalStateException once the list has been sorted
+     */
+    public int indexOf(String text) {
+
+        if (this.sorted) throw new IllegalStateException("indexOf needs an unsorted text list");
+        int hash = 0;
+        for (int unit = 0; unit < text.length(); unit++) hash = 31 * hash + text.charAt(unit);
+        int mask = this.slots.length - 1;
+        int slot = (hash ^ (hash >>> 16)) & mask;
+        while (this.slots[slot] != 0) {
+            int stored = this.slots[slot] - 1;
+            if (this.hashes[stored] == hash && this.compareStoredText(stored, text) == 0) return stored;
+            slot = (slot + 1) & mask;
+        }
+        return -1;
+    }
+
+    /**
+     * @return the position of text in a list sorted by String order with
+     *     distinct texts, or -1
+     */
+    public int find(String text) {
+
+        int low = 0;
+        int high = this.count - 1;
+        while (low <= high) {
+            int middle = (low + high) >>> 1;
+            int difference = this.compareText(middle, text);
+            if (difference == 0) return middle;
+            if (difference < 0) {
+                low = middle + 1;
+            } else {
+                high = middle - 1;
+            }
+        }
+        return -1;
+    }
+
+    private int compareStored(int first, int second, boolean codePoints) {
+
+        int a = this.bounds[first * 2];
+        int aEnd = this.bounds[first * 2 + 1];
+        int b = this.bounds[second * 2];
+        int bEnd = this.bounds[second * 2 + 1];
+        while (a < aEnd && b < bEnd) {
+            char left = this.chars[a];
+            char right = this.chars[b];
+            if (left != right) {
+                // In code point order a surrogate (a supplementary character)
+                // sorts after every other BMP unit.
+                if (codePoints && (left >= 0xD800 && left <= 0xDFFF) != (right >= 0xD800 && right <= 0xDFFF)) {
+                    return left >= 0xD800 && left <= 0xDFFF ? 1 : -1;
+                }
+                return left - right;
+            }
+            a++;
+            b++;
+        }
+        return (aEnd - a) - (bEnd - b);
+    }
+
+    // Stable merge sort of the positions.
+    private void sort(boolean codePoints) {
+
+        this.sorted = true;
+        int[] scratch = new int[this.count];
+        defer free scratch;
+        for (int width = 1; width < this.count; width = width * 2) {
+            for (int start = 0; start < this.count - width; start = start + width * 2) {
+                int middle = start + width;
+                int end = middle + width < this.count ? middle + width : this.count;
+                int left = start;
+                int right = middle;
+                int target = start;
+                while (left < middle && right < end) {
+                    if (this.compareStored(this.order[right], this.order[left], codePoints) < 0) {
+                        scratch[target] = this.order[right];
+                        right++;
+                    } else {
+                        scratch[target] = this.order[left];
+                        left++;
+                    }
+                    target++;
+                }
+                while (left < middle) {
+                    scratch[target] = this.order[left];
+                    left++;
+                    target++;
+                }
+                while (right < end) {
+                    scratch[target] = this.order[right];
+                    right++;
+                    target++;
+                }
+                for (int index = start; index < end; index++) this.order[index] = scratch[index];
+            }
+        }
+    }
+
+    private void reserve(int units) {
+
+        if (units <= this.chars.length - this.used) return;
+        long capacity = (long) this.chars.length * 2;
+        if (capacity < (long) this.used + units) capacity = (long) this.used + units;
+        if (capacity > 0x7FFFFFF0L) capacity = 0x7FFFFFF0L;
+        if (capacity < (long) this.used + units) throw new IllegalStateException("text list exceeds the array range");
+        char[] previous = this.chars;
+        this.chars = new char[(int) capacity];
+        System.arraycopy(previous, 0, this.chars, 0, this.used);
+        free previous;
+    }
+
+    private void record(int begin) {
+
+        if (this.count * 2 == this.bounds.length) {
+            int[] previousBounds = this.bounds;
+            this.bounds = new int[previousBounds.length * 2];
+            System.arraycopy(previousBounds, 0, this.bounds, 0, previousBounds.length);
+            free previousBounds;
+        }
+        if (this.count == this.order.length) {
+            int[] previousOrder = this.order;
+            this.order = new int[previousOrder.length * 2];
+            System.arraycopy(previousOrder, 0, this.order, 0, previousOrder.length);
+            free previousOrder;
+            int[] previousHashes = this.hashes;
+            this.hashes = new int[previousHashes.length * 2];
+            System.arraycopy(previousHashes, 0, this.hashes, 0, previousHashes.length);
+            free previousHashes;
+        }
+        if ((this.count + 1) * 2 > this.slots.length) this.rehash(this.slots.length * 2);
+        int hash = 0;
+        for (int unit = begin; unit < this.used; unit++) hash = 31 * hash + this.chars[unit];
+        this.bounds[this.count * 2] = begin;
+        this.bounds[this.count * 2 + 1] = this.used;
+        this.order[this.count] = this.count;
+        this.hashes[this.count] = hash;
+        this.insert(this.count);
+        this.count++;
+    }
+
+    // Adds a stored text to the hash table.
+    private void insert(int stored) {
+
+        int mask = this.slots.length - 1;
+        int hash = this.hashes[stored];
+        int slot = (hash ^ (hash >>> 16)) & mask;
+        while (this.slots[slot] != 0) slot = (slot + 1) & mask;
+        this.slots[slot] = stored + 1;
+    }
+
+    // Rebuilds the hash table with size slots, keeping insertion order along each probe.
+    private void rehash(int size) {
+
+        int[] previous = this.slots;
+        this.slots = new int[size];
+        free previous;
+        for (int stored = 0; stored < this.count; stored++) this.insert(stored);
+    }
+
+    destructor {
+
+        free this.chars;
+        free this.bounds;
+        free this.order;
+        free this.hashes;
+        free this.slots;
+    }
+}

@@ -1,0 +1,49 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.lexer;
+
+import ironwood.compiler.diagnostic.Diagnostic;
+import ironwood.compiler.port.SnapshotList;
+import ironwood.ds.ArrayList;
+
+/**
+ * The tokens and lexical diagnostics of one source. Ports the Java record
+ * {@code LexResult}: both lists are independent copies of the lexer's
+ * builders, owned by the result; tokens and diagnostics are borrowed.
+ */
+public final class LexResult {
+
+    private final SnapshotList<Token> tokens;
+    private final SnapshotList<Diagnostic> diagnostics;
+
+    /**
+     * Copies the lexer's builders.
+     *
+     * @param tokens the borrowed token builder
+     * @param diagnostics the borrowed diagnostic builder
+     * @throws NullPointerException if either builder is null
+     */
+    public LexResult(ArrayList<Token> tokens, ArrayList<Diagnostic> diagnostics) {
+
+        this.tokens = new SnapshotList<Token>(tokens);
+        this.diagnostics = new SnapshotList<Diagnostic>(diagnostics);
+    }
+
+    /** @return the tokens, ending with one end-of-file token */
+    public SnapshotList<Token> tokens() {
+
+        return this.tokens;
+    }
+
+    /** @return the lexical diagnostics in source order */
+    public SnapshotList<Diagnostic> diagnostics() {
+
+        return this.diagnostics;
+    }
+
+    destructor {
+
+        free this.diagnostics;
+        free this.tokens;
+    }
+}

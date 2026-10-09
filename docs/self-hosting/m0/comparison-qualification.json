@@ -1,0 +1,20 @@
+[
+  {
+    "mutation": "diagnostic",
+    "detected": [
+      "diagnostics.json: $[0].message: value differs"
+    ]
+  },
+  {
+    "mutation": "ir-edge",
+    "detected": [
+      "final-typed-ir.json: $.optional.functions[45].blocks[2].terminator: fields differ"
+    ]
+  },
+  {
+    "mutation": "llvm",
+    "detected": [
+      "output.ll: bytes or presence differ"
+    ]
+  }
+]

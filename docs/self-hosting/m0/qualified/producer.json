@@ -1,0 +1,19 @@
+{
+  "argv": [
+    "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home/bin/java",
+    "-Xms256m",
+    "-Xmx4096m",
+    "-Xss8m",
+    "-XX:+UseG1GC",
+    "-cp",
+    "/Users/developer/workspace-mba-m2/Ironwood/target/self-hosting-m0/tooling:/Users/developer/workspace-mba-m2/Ironwood/target/self-hosting-m0/J0-final2/lib/ironwoodc.jar",
+    "ironwood.compiler.ReferenceCapture",
+    "{input}",
+    "{output}",
+    "{explain}"
+  ],
+  "cwd": "/Users/developer/workspace-mba-m2/Ironwood",
+  "environment": {
+    "IRONWOOD_STDLIB_HOME": "/Users/developer/workspace-mba-m2/Ironwood/target/self-hosting-m0/J0-final2"
+  }
+}

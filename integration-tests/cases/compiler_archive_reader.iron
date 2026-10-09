@@ -1,0 +1,181 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// The compiler port's IronClass and IronJar readers (D275) printing what the
+// Java baseline's readers print, so the test can compare them:
+//   --corpus <label> <file>...  one line per M5.1 corpus variant, in the
+//       format of docs/self-hosting/m5/archive-evidence/java-verdicts.txt,
+//       class variants read from memory as corpus/<name>.ironclass;
+//   --class <file>...           each class artifact's sorted types, entry
+//       point, source path and source digest;
+//   --jar <file>                an archive's entries, then each indexed type's
+//       payload source path and digest.
+// Errors print as `error <message>`. Digests are SHA-256 prefixes of the
+// source's UTF-8 bytes. Every artifact, payload, name and digest is freed
+// after it is printed. Exit 42.
+import ironwood.compiler.port.IronClassArtifact;
+import ironwood.compiler.port.IronJarArchive;
+import ironwood.compiler.port.Inflate;
+import ironwood.compiler.port.Sha256;
+import ironwood.compiler.port.TextList;
+import ironwood.io.IOException;
+import ironwood.nio.file.Files;
+import ironwood.nio.file.Path;
+
+class Main {
+
+    static String prefix(Sha256 digest, String text) {
+
+        digest.updateUtf8(text);
+        String hex = digest.hexDigest();
+        defer free hex;
+        return hex.substring(0, 16);
+    }
+
+    // "ok types=<sorted> entry=<type or -> path=<source path> source=<digest>"
+    static void describe(Sha256 digest, IronClassArtifact artifact, StringBuilder line) {
+
+        TextList types = new TextList();
+        defer free types;
+        for (int index = 0; index < artifact.typeCount(); index++) {
+            String type = artifact.type(index);
+            defer free type;
+            types.add(type);
+        }
+        types.sortStrings();
+        line.append("ok types=");
+        for (int index = 0; index < types.size(); index++) {
+            if (index > 0) line.append(',');
+            types.appendTo(index, line);
+        }
+        line.append(" entry=").append(artifact.entryPoint() == null ? "-" : artifact.entryPoint());
+        String path = artifact.sourcePath();
+        defer free path;
+        String source = prefix(digest, artifact.source());
+        defer free source;
+        line.append(" path=").append(path).append(" source=").append(source);
+    }
+
+    static void classVariant(Inflate inflate, Sha256 digest, String label, String file) {
+
+        StringBuilder line = new StringBuilder();
+        defer free line;
+        line.append(label).append(' ');
+        try {
+            Path path = Path.of(file);
+            defer free path;
+            byte[] bytes = Files.readAllBytes(path);
+            defer free bytes;
+            String display = "corpus/" + label.substring(6) + ".ironclass";
+            defer free display;
+            IronClassArtifact artifact = new IronClassArtifact(bytes, display, inflate);
+            defer free artifact;
+            describe(digest, artifact, line);
+        } catch (IOException failure) {
+            line.append("error ").append(failure.getMessage());
+        }
+        System.out.println(line.toString());
+    }
+
+    static void sources(Inflate inflate, Sha256 digest, IronJarArchive archive, StringBuilder line) {
+
+        for (int type = 0; type < archive.typeCount(); type++) {
+            String name = archive.type(type);
+            defer free name;
+            line.append("\n  source ").append(name).append(' ');
+            try {
+                IronClassArtifact payload = archive.payload(name, inflate);
+                defer free payload;
+                String path = payload.sourcePath();
+                defer free path;
+                String source = prefix(digest, payload.source());
+                defer free source;
+                line.append("ok path=").append(path).append(" source=").append(source);
+            } catch (IOException failure) {
+                line.append("error ").append(failure.getMessage());
+            }
+        }
+    }
+
+    static void entries(Sha256 digest, IronJarArchive archive, StringBuilder line) {
+
+        int count = archive.entryCount();
+        line.append("ok entries=");
+        if (count > 20) {
+            for (int index = 0; index < count; index++) {
+                String name = archive.entryName(index);
+                defer free name;
+                if (index > 0) digest.update('\n');
+                digest.updateUtf8(name);
+            }
+            String hex = digest.hexDigest();
+            defer free hex;
+            String names = hex.substring(0, 16);
+            defer free names;
+            line.append(count).append(" names=").append(names);
+            return;
+        }
+        for (int index = 0; index < count; index++) {
+            String name = archive.entryName(index);
+            defer free name;
+            if (index > 0) line.append(',');
+            line.append(name);
+        }
+    }
+
+    static void jarVariant(Inflate inflate, Sha256 digest, String label, String file) {
+
+        StringBuilder line = new StringBuilder();
+        defer free line;
+        line.append(label).append(' ');
+        try {
+            Path path = Path.of(file);
+            defer free path;
+            IronJarArchive archive = new IronJarArchive(path, inflate);
+            defer free archive;
+            entries(digest, archive, line);
+            sources(inflate, digest, archive, line);
+        } catch (IOException failure) {
+            line.append("error ").append(failure.getMessage());
+        }
+        System.out.println(line.toString());
+    }
+
+    static void classFile(Inflate inflate, Sha256 digest, String file) {
+
+        StringBuilder line = new StringBuilder();
+        defer free line;
+        line.append(file).append(' ');
+        try {
+            Path path = Path.of(file);
+            defer free path;
+            IronClassArtifact artifact = IronClassArtifact.read(path, inflate);
+            defer free artifact;
+            describe(digest, artifact, line);
+        } catch (IOException failure) {
+            line.append("error ").append(failure.getMessage());
+        }
+        System.out.println(line.toString());
+    }
+
+    public static int main(String[] args) {
+
+        Inflate inflate = new Inflate();
+        defer free inflate;
+        Sha256 digest = new Sha256();
+        defer free digest;
+        if (args[0].equals("--corpus")) {
+            for (int index = 1; index + 1 < args.length; index = index + 2) {
+                if (args[index].startsWith("class.")) {
+                    classVariant(inflate, digest, args[index], args[index + 1]);
+                } else {
+                    jarVariant(inflate, digest, args[index], args[index + 1]);
+                }
+            }
+        } else if (args[0].equals("--class")) {
+            for (int index = 1; index < args.length; index++) classFile(inflate, digest, args[index]);
+        } else {
+            jarVariant(inflate, digest, "archive", args[1]);
+        }
+        return 42;
+    }
+}

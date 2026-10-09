@@ -1,0 +1,95 @@
+[
+  {
+    "argv": [
+      "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home/bin/java",
+      "-jar",
+      "/Users/developer/workspace-mba-m2/Ironwood/workspace/m1/set-rollback-qualified/ironwoodc.jar",
+      "integration-tests/cases/constructor_confined_helper_rollback.iron",
+      "--unfreed=error",
+      "-d",
+      "/Users/developer/workspace-mba-m2/Ironwood/workspace/m1/set-rollback-qualified/helper"
+    ],
+    "log": "workspace/m1/set-rollback-qualified/helper-compile.log",
+    "exit": 0,
+    "expected_exit": 0,
+    "cwd": "/Users/developer/workspace-mba-m2/Ironwood"
+  },
+  {
+    "argv": [
+      "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home/bin/java",
+      "-cp",
+      "/Users/developer/workspace-mba-m2/Ironwood/workspace/m1/set-rollback-qualified/ironwoodc.jar",
+      "ironwood.compiler.IronJarMain",
+      "--create",
+      "--file",
+      "/Users/developer/workspace-mba-m2/Ironwood/workspace/m1/set-rollback-qualified/helper.ironjar",
+      "/Users/developer/workspace-mba-m2/Ironwood/workspace/m1/set-rollback-qualified/helper"
+    ],
+    "log": "workspace/m1/set-rollback-qualified/helper-archive.log",
+    "exit": 0,
+    "expected_exit": 0,
+    "cwd": "/Users/developer/workspace-mba-m2/Ironwood"
+  },
+  {
+    "argv": [
+      "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home/bin/java",
+      "-jar",
+      "/Users/developer/workspace-mba-m2/Ironwood/workspace/m1/set-rollback-qualified/ironwoodc.jar",
+      "--link",
+      "-cp",
+      "/Users/developer/workspace-mba-m2/Ironwood/workspace/m1/set-rollback-qualified/helper",
+      "--main-class",
+      "Main",
+      "--unfreed=error",
+      "-O3",
+      "--emit-llvm",
+      "/Users/developer/workspace-mba-m2/Ironwood/workspace/m1/set-rollback-qualified/helper-classes.ll",
+      "-o",
+      "/Users/developer/workspace-mba-m2/Ironwood/workspace/m1/set-rollback-qualified/helper-classes"
+    ],
+    "log": "workspace/m1/set-rollback-qualified/helper-classes-link.log",
+    "exit": 0,
+    "expected_exit": 0,
+    "cwd": "/Users/developer/workspace-mba-m2/Ironwood"
+  },
+  {
+    "argv": [
+      "/Users/developer/workspace-mba-m2/Ironwood/workspace/m1/set-rollback-qualified/helper-classes"
+    ],
+    "log": "workspace/m1/set-rollback-qualified/helper-classes-run.log",
+    "exit": 42,
+    "expected_exit": 42,
+    "cwd": "/Users/developer/workspace-mba-m2/Ironwood"
+  },
+  {
+    "argv": [
+      "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home/bin/java",
+      "-jar",
+      "/Users/developer/workspace-mba-m2/Ironwood/workspace/m1/set-rollback-qualified/ironwoodc.jar",
+      "--link",
+      "-cp",
+      "/Users/developer/workspace-mba-m2/Ironwood/workspace/m1/set-rollback-qualified/helper.ironjar",
+      "--main-class",
+      "Main",
+      "--unfreed=error",
+      "-O3",
+      "--emit-llvm",
+      "/Users/developer/workspace-mba-m2/Ironwood/workspace/m1/set-rollback-qualified/helper-archive.ll",
+      "-o",
+      "/Users/developer/workspace-mba-m2/Ironwood/workspace/m1/set-rollback-qualified/helper-archive"
+    ],
+    "log": "workspace/m1/set-rollback-qualified/helper-archive-link.log",
+    "exit": 0,
+    "expected_exit": 0,
+    "cwd": "/Users/developer/workspace-mba-m2/Ironwood"
+  },
+  {
+    "argv": [
+      "/Users/developer/workspace-mba-m2/Ironwood/workspace/m1/set-rollback-qualified/helper-archive"
+    ],
+    "log": "workspace/m1/set-rollback-qualified/helper-archive-run.log",
+    "exit": 42,
+    "expected_exit": 42,
+    "cwd": "/Users/developer/workspace-mba-m2/Ironwood"
+  }
+]

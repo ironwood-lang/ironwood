@@ -1,0 +1,459 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.semantic;
+
+import ironwood.compiler.ir.IrBasicBlock;
+import ironwood.compiler.ir.IrCallInstruction;
+import ironwood.compiler.ir.IrForeignCallInstruction;
+import ironwood.compiler.ir.IrFunction;
+import ironwood.compiler.ir.IrInstruction;
+import ironwood.compiler.ir.IrOperand;
+import ironwood.compiler.ir.IrReturnTerminator;
+import ironwood.compiler.ir.IrTerminator;
+import ironwood.compiler.ir.IrValueReference;
+import ironwood.compiler.port.BitRows;
+import ironwood.compiler.port.OperationVariants;
+import ironwood.compiler.port.SnapshotList;
+import ironwood.compiler.port.WorkQueue;
+import ironwood.ds.HashMap;
+import ironwood.ds.HashSet;
+
+/**
+ * Closed-world fixed-point callable effects. Ports the Java
+ * {@code ClosedWorldEffectAnalyzer} for the M2 pilot's admitted input: classes
+ * empty, unique ordered function names, one entry block per function, direct
+ * and foreign calls and value returns (OPERATION_MODEL). The pilot input
+ * factory rejects every other role before construction; inside the analyzer,
+ * dispatch is an exhaustive switch whose rejected arms fail closed.
+ *
+ * <p>The fixed point, its Gauss-Seidel order (a function sees the summaries
+ * of functions already updated in the same round, and its own previous one),
+ * origin propagation and call effects follow Java exactly. Java allocates new
+ * {@code BitSet}s for every origin, effect and summary in every round and
+ * leaves the old ones to its collector. Natively the analyzer owns all of its
+ * bit vectors: one row per summary vector, updated in place after each
+ * comparison, and reusable scratch rows for origins and effects. A direct
+ * call's target is resolved once at construction, because the input IR is
+ * immutable, as Java's own target cache assumes. Rounds therefore allocate
+ * nothing, and destroying the analyzer reclaims every vector.
+ */
+public final class ClosedWorldEffectAnalyzer {
+
+    private static final int PUBLISHED = 0;
+    private static final int RETURNED = 1;
+    private static final int RECLAIMED = 2;
+    // Scratch rows: the summary being built, then a value, inputs and an argument origin.
+    private static final int VALUE = 3;
+    private static final int INPUTS = 4;
+    private static final int ARGUMENT = 5;
+
+    private final SnapshotList<IrFunction> functions;
+    private final SemanticAnalysisObserver observer;
+    private final long observerToken;
+    private final boolean[] allocates;
+    private final boolean[] throwsOutward;
+    private final BitRows summaries;
+    private final BitRows scratch;
+    private final BitRows origins;
+    private final int[] instructionBase;
+    private final int[] callTargets;
+    private final HashSet<String> reachable = new HashSet<String>(8);
+    private final WorkQueue<String> pending = new WorkQueue<String>();
+    private final HashMap<String, IrBasicBlock> blocks = new HashMap<String, IrBasicBlock>(8);
+    private boolean scratchAllocates;
+    private boolean scratchThrowsOutward;
+    private boolean analyzed;
+
+    /**
+     * Creates the analyzer. Every function's summary starts empty, as Java's
+     * {@code Summary.empty()}.
+     *
+     * @param functions the borrowed admitted functions in input order
+     * @param observer the borrowed observer held for the analyzer's lifetime, or null
+     * @param observerToken the token reported to the observer
+     * @param phase the reported phase
+     */
+    public ClosedWorldEffectAnalyzer(SnapshotList<IrFunction> functions, SemanticAnalysisObserver observer,
+                                     long observerToken, OperationVariants.AnalyzerPhase phase) {
+
+        this.functions = functions;
+        this.observer = observer;
+        this.observerToken = observerToken;
+        if (observer != null) observer.analyzerCreated(observerToken, OperationVariants.AnalyzerKind.EFFECT, phase);
+        int count = functions.size();
+        int width = maximumWidth(functions);
+        this.allocates = new boolean[count];
+        this.throwsOutward = new boolean[count];
+        this.summaries = new BitRows(count * 3, width);
+        this.scratch = new BitRows(6, width);
+        this.origins = new BitRows(maximumValueId(functions) + 1, width);
+        this.instructionBase = new int[count];
+        this.callTargets = new int[instructionCount(functions)];
+        this.resolveTargets();
+    }
+
+    /** Runs rounds until no summary changes. */
+    public void analyze() {
+
+        boolean changed = false;
+        int round = 0;
+        do {
+            if (this.observer != null) {
+                this.observer.analyzerRound(this.observerToken, OperationVariants.AnalyzerKind.EFFECT, round);
+                round++;
+            }
+            changed = false;
+            for (int index = 0; index < this.functions.size(); index++) {
+                this.summarize(index);
+                if (!this.sameAsSummary(index)) {
+                    this.installSummary(index);
+                    changed = true;
+                }
+            }
+        } while (changed);
+        this.analyzed = true;
+    }
+
+    /**
+     * @param linkageName a function's linkage name
+     * @return whether the function's summary neither allocates nor throws outward
+     */
+    public boolean nonThrowingAndAllocationFree(String linkageName) {
+
+        int index = this.indexOf(linkageName);
+        return this.analyzed && index >= 0 && !this.allocates[index] && !this.throwsOutward[index];
+    }
+
+    /** @return the observer token */
+    public long observerToken() {
+
+        return this.observerToken;
+    }
+
+    /**
+     * Appends a function's summary as Java's record {@code toString} renders it.
+     *
+     * @param index the function's input position
+     * @param out the borrowed text builder
+     */
+    public void appendSummary(int index, StringBuilder out) {
+
+        out.append("Summary[allocates=");
+        out.append(this.allocates[index]);
+        out.append(", throwsOutward=");
+        out.append(this.throwsOutward[index]);
+        out.append(", publishedParameters=");
+        this.summaries.appendRow(index * 3 + PUBLISHED, out);
+        out.append(", returnedParameters=");
+        this.summaries.appendRow(index * 3 + RETURNED, out);
+        out.append(", reclaimedParameters=");
+        this.summaries.appendRow(index * 3 + RECLAIMED, out);
+        out.append(']');
+    }
+
+    // Builds the function's next summary in the scratch rows and flags.
+    private void summarize(int index) {
+
+        IrFunction function = this.functions.get(index);
+        this.reachableBlocks(function);
+        this.origins.clear();
+        for (int parameter = 0; parameter < function.parameters().size(); parameter++) {
+            this.origins.set(function.parameters().get(parameter).value().id(), parameter);
+        }
+        this.scratch.clearRow(PUBLISHED);
+        this.scratch.clearRow(RETURNED);
+        this.scratch.clearRow(RECLAIMED);
+        this.scratchAllocates = false;
+        this.scratchThrowsOutward = false;
+        boolean originChanged = false;
+        do {
+            originChanged = false;
+            int cursor = this.instructionBase[index];
+            for (int block = 0; block < function.blocks().size(); block++) {
+                IrBasicBlock current = function.blocks().get(block);
+                SnapshotList<IrInstruction> instructions = current.instructions();
+                if (!this.reachable.contains(current.label())) {
+                    cursor += instructions.size();
+                    continue;
+                }
+                for (int position = 0; position < instructions.size(); position++) {
+                    if (this.propagateResultOrigins(instructions.get(position), this.callTargets[cursor])) {
+                        originChanged = true;
+                    }
+                    cursor++;
+                }
+            }
+        } while (originChanged);
+
+        int cursor = this.instructionBase[index];
+        for (int block = 0; block < function.blocks().size(); block++) {
+            IrBasicBlock current = function.blocks().get(block);
+            SnapshotList<IrInstruction> instructions = current.instructions();
+            if (!this.reachable.contains(current.label())) {
+                cursor += instructions.size();
+                continue;
+            }
+            for (int position = 0; position < instructions.size(); position++) {
+                this.applyCallEffect(instructions.get(position), this.callTargets[cursor]);
+                cursor++;
+            }
+            this.applyTerminator(current.terminator());
+        }
+    }
+
+    // Java's reachableBlocks: a FIFO walk from the entry block (D255).
+    private void reachableBlocks(IrFunction function) {
+
+        this.reachable.clear();
+        this.pending.clear();
+        this.blocks.clear();
+        for (int block = 0; block < function.blocks().size(); block++) {
+            IrBasicBlock current = function.blocks().get(block);
+            this.blocks.put(current.label(), current);
+        }
+        this.pending.add(function.blocks().get(0).label());
+        while (!this.pending.isEmpty()) {
+            String label = this.pending.removeFirst();
+            if (!this.reachable.add(label)) continue;
+            IrTerminator terminator = this.blocks.get(label).terminator();
+            boolean returns = switch (terminator.terminatorVariant()) {
+                case RETURN -> true;
+                case BRANCH, INVOKE, JUMP, SWITCH, THROW, UNREACHABLE -> rejected();
+            };
+        }
+    }
+
+    // The ordered instanceof chain that replaces Java's selector tests, for
+    // the admitted variants; every other variant was rejected before entry.
+    private boolean propagateResultOrigins(IrInstruction instruction, int target) {
+
+        if (instruction instanceof IrForeignCallInstruction call) {
+            this.foreignOrigins(call.arguments(), INPUTS);
+            IrValueReference result = call.result();
+            if (result == null || !result.type().isReference()) return false;
+            return this.origins.orRow(result.id(), this.scratch, INPUTS);
+        }
+        if (instruction instanceof IrCallInstruction call) {
+            IrValueReference result = call.result();
+            if (result == null || target < 0) return false;
+            SnapshotList<IrOperand> arguments = call.arguments();
+            this.scratch.clearRow(VALUE);
+            int returned = target * 3 + RETURNED;
+            for (int parameter = this.summaries.nextSetBit(returned, 0); parameter >= 0;
+                 parameter = this.summaries.nextSetBit(returned, parameter + 1)) {
+                if (parameter < arguments.size()) this.orOrigin(arguments.get(parameter), VALUE);
+            }
+            return this.origins.orRow(result.id(), this.scratch, VALUE);
+        }
+        return rejected();
+    }
+
+    private void applyCallEffect(IrInstruction instruction, int target) {
+
+        if (instruction instanceof IrForeignCallInstruction call) {
+            this.foreignOrigins(call.arguments(), INPUTS);
+            this.scratchAllocates = true;
+            this.scratchThrowsOutward = true;
+            this.scratch.orRow(PUBLISHED, this.scratch, INPUTS);
+            this.scratch.orRow(RECLAIMED, this.scratch, INPUTS);
+            return;
+        }
+        if (instruction instanceof IrCallInstruction call) {
+            if (target < 0) return;
+            SnapshotList<IrOperand> arguments = call.arguments();
+            if (this.allocates[target]) this.scratchAllocates = true;
+            if (this.throwsOutward[target]) this.scratchThrowsOutward = true;
+            int reclaimed = target * 3 + RECLAIMED;
+            for (int parameter = this.summaries.nextSetBit(reclaimed, 0); parameter >= 0;
+                 parameter = this.summaries.nextSetBit(reclaimed, parameter + 1)) {
+                if (parameter >= arguments.size()) continue;
+                this.scratch.clearRow(ARGUMENT);
+                this.orOrigin(arguments.get(parameter), ARGUMENT);
+                if (parameter == 1 && this.isRenderedStringRelease(this.functions.get(target))) rejected();
+                this.scratch.orRow(RECLAIMED, this.scratch, ARGUMENT);
+            }
+            int published = target * 3 + PUBLISHED;
+            for (int parameter = this.summaries.nextSetBit(published, 0); parameter >= 0;
+                 parameter = this.summaries.nextSetBit(published, parameter + 1)) {
+                if (parameter < arguments.size()) this.orOrigin(arguments.get(parameter), PUBLISHED);
+            }
+            return;
+        }
+        rejected();
+    }
+
+    private void applyTerminator(IrTerminator terminator) {
+
+        if (terminator instanceof IrReturnTerminator result) {
+            if (result.value() != null) this.orOrigin(result.value(), RETURNED);
+            return;
+        }
+        rejected();
+    }
+
+    // Java's isRenderedStringRelease shape test. Its body instruction is not an
+    // admitted variant, so the shape never matches an admitted target.
+    private boolean isRenderedStringRelease(IrFunction target) {
+
+        if (target.parameters().size() != 2 || target.blocks().size() != 1) return false;
+        SnapshotList<IrInstruction> body = target.blocks().get(0).instructions();
+        return body.size() == 1
+                && body.get(0).instructionVariant() == OperationVariants.Instruction.RELEASE_OWNED_TO_STRING_RESULT;
+    }
+
+    // Java's foreignOrigins: the union of the reference arguments' origins.
+    private void foreignOrigins(SnapshotList<IrOperand> arguments, int row) {
+
+        this.scratch.clearRow(row);
+        for (int index = 0; index < arguments.size(); index++) {
+            IrOperand argument = arguments.get(index);
+            if (argument.type().isReference()) this.orOrigin(argument, row);
+        }
+    }
+
+    // Java's origin(operand), ored into a scratch row instead of cloned.
+    private void orOrigin(IrOperand operand, int row) {
+
+        boolean valueReference = switch (operand.operandVariant()) {
+            case VALUE_REFERENCE -> true;
+            case CONSTANT, ENUM_CONSTANT, IMMORTAL_OBJECT, NULL, STRING_CONSTANT -> false;
+        };
+        if (!valueReference) return;
+        IrValueReference value = (IrValueReference) operand;
+        this.scratch.orRow(row, this.origins, value.id());
+    }
+
+    private boolean sameAsSummary(int index) {
+
+        return this.allocates[index] == this.scratchAllocates
+                && this.throwsOutward[index] == this.scratchThrowsOutward
+                && this.summaries.rowEquals(index * 3 + PUBLISHED, this.scratch, PUBLISHED)
+                && this.summaries.rowEquals(index * 3 + RETURNED, this.scratch, RETURNED)
+                && this.summaries.rowEquals(index * 3 + RECLAIMED, this.scratch, RECLAIMED);
+    }
+
+    private void installSummary(int index) {
+
+        this.allocates[index] = this.scratchAllocates;
+        this.throwsOutward[index] = this.scratchThrowsOutward;
+        this.summaries.copyRow(index * 3 + PUBLISHED, this.scratch, PUBLISHED);
+        this.summaries.copyRow(index * 3 + RETURNED, this.scratch, RETURNED);
+        this.summaries.copyRow(index * 3 + RECLAIMED, this.scratch, RECLAIMED);
+    }
+
+    // Resolves each direct call's target, by linkage name as Java's map does.
+    private void resolveTargets() {
+
+        int cursor = 0;
+        for (int index = 0; index < this.functions.size(); index++) {
+            this.instructionBase[index] = cursor;
+            IrFunction function = this.functions.get(index);
+            for (int block = 0; block < function.blocks().size(); block++) {
+                SnapshotList<IrInstruction> instructions = function.blocks().get(block).instructions();
+                for (int position = 0; position < instructions.size(); position++) {
+                    IrInstruction instruction = instructions.get(position);
+                    int target = -1;
+                    if (instruction instanceof IrCallInstruction call) target = this.indexOf(call.targetLinkageName());
+                    this.callTargets[cursor] = target;
+                    cursor++;
+                }
+            }
+        }
+    }
+
+    private int indexOf(String linkageName) {
+
+        for (int index = 0; index < this.functions.size(); index++) {
+            if (this.functions.get(index).linkageName().equals(linkageName)) return index;
+        }
+        return -1;
+    }
+
+    private static int maximumWidth(SnapshotList<IrFunction> functions) {
+
+        int width = 1;
+        for (int index = 0; index < functions.size(); index++) {
+            width = Math.max(width, functions.get(index).parameters().size());
+        }
+        return width;
+    }
+
+    // Every referenced value id gets an origin row: Java's map lookup of an
+    // id no instruction defines yields an empty set, never a failure.
+    private static int maximumValueId(SnapshotList<IrFunction> functions) {
+
+        int maximum = 0;
+        for (int index = 0; index < functions.size(); index++) {
+            IrFunction function = functions.get(index);
+            for (int parameter = 0; parameter < function.parameters().size(); parameter++) {
+                maximum = Math.max(maximum, function.parameters().get(parameter).value().id());
+            }
+            for (int block = 0; block < function.blocks().size(); block++) {
+                IrBasicBlock body = function.blocks().get(block);
+                SnapshotList<IrInstruction> instructions = body.instructions();
+                for (int position = 0; position < instructions.size(); position++) {
+                    IrInstruction instruction = instructions.get(position);
+                    IrValueReference result = null;
+                    SnapshotList<IrOperand> arguments = null;
+                    if (instruction instanceof IrCallInstruction call) {
+                        result = call.result();
+                        arguments = call.arguments();
+                    }
+                    if (instruction instanceof IrForeignCallInstruction foreign) {
+                        result = foreign.result();
+                        arguments = foreign.arguments();
+                    }
+                    if (result != null) maximum = Math.max(maximum, result.id());
+                    if (arguments != null) maximum = Math.max(maximum, maximumOperandId(arguments));
+                }
+                if (body.terminator() instanceof IrReturnTerminator returned
+                        && returned.value() instanceof IrValueReference value) {
+                    maximum = Math.max(maximum, value.id());
+                }
+            }
+        }
+        return maximum;
+    }
+
+    private static int maximumOperandId(SnapshotList<IrOperand> operands) {
+
+        int maximum = 0;
+        for (int index = 0; index < operands.size(); index++) {
+            if (operands.get(index) instanceof IrValueReference value) maximum = Math.max(maximum, value.id());
+        }
+        return maximum;
+    }
+
+    private static int instructionCount(SnapshotList<IrFunction> functions) {
+
+        int count = 0;
+        for (int index = 0; index < functions.size(); index++) {
+            IrFunction function = functions.get(index);
+            for (int block = 0; block < function.blocks().size(); block++) {
+                count += function.blocks().get(block).instructions().size();
+            }
+        }
+        return count;
+    }
+
+    // A variant outside the admitted roles reached the analyzer: the input
+    // factory admits none, so this fails closed instead of guessing.
+    private static boolean rejected() {
+
+        throw new IllegalStateException("effect analyzer reached a variant the pilot input factory rejects");
+    }
+
+    destructor {
+
+        free this.blocks;
+        free this.pending;
+        free this.reachable;
+        free this.callTargets;
+        free this.instructionBase;
+        free this.origins;
+        free this.scratch;
+        free this.summaries;
+        free this.throwsOutward;
+        free this.allocates;
+    }
+}

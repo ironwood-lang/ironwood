@@ -1,0 +1,70 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// Ordered copies borrow elements, keep the source iterator position, and own
+// their backing. Exit 42 after checking independence and zero live allocations.
+import ironwood.ds.ArrayList;
+import ironwood.util.Iterator;
+
+class Item {
+
+}
+
+class Main {
+
+    static void checkScale(int count) {
+
+        Item item = new Item();
+        defer free item;
+        ArrayList<Item> source = new ArrayList<Item>(1);
+        defer free source;
+        for (int index = 0; index < count; index++) {
+            source.add(item);
+        }
+        long before = System.allocationCount();
+        ArrayList<Item> copied = source.copy();
+        defer free copied;
+        long allocations = System.allocationCount() - before;
+        if (copied.size() != count || copied.get(count - 1) != item) throw new IllegalStateException();
+        copied.removeLast();
+        if (copied.size() != count - 1 || source.size() != count) throw new IllegalStateException();
+        System.out.print(count);
+        System.out.print(":");
+        System.out.println(allocations);
+    }
+
+    static void checkIterator() {
+
+        ArrayList<String> source = new ArrayList<String>(2, 2.0f);
+        defer free source;
+        source.add("first");
+        source.add("second");
+        source.add("third");
+        Iterator<String> iterator = source.iterator();
+        if (!iterator.next().equals("first")) throw new IllegalStateException();
+        ArrayList<String> copied = source.copy();
+        defer free copied;
+        if (!iterator.next().equals("second")) throw new IllegalStateException();
+        if (!iterator.next().equals("third") || iterator.hasNext()) throw new IllegalStateException();
+        copied.set(0, "changed");
+        source.removeLast();
+        if (!source.get(0).equals("first") || copied.size() != 3) throw new IllegalStateException();
+        ArrayList<String> empty = new ArrayList<String>();
+        defer free empty;
+        ArrayList<String> emptyCopy = empty.copy();
+        defer free emptyCopy;
+        if (!emptyCopy.isEmpty()) throw new IllegalStateException();
+        if (copied.getInitialCapacity() != 3 || copied.getGrowthFactor() != 1.75f) throw new IllegalStateException();
+    }
+
+    public static int main(String[] args) {
+
+        long baseline = System.liveAllocationCount();
+        checkIterator();
+        checkScale(8);
+        checkScale(32);
+        checkScale(128);
+        checkScale(512);
+        if (System.liveAllocationCount() != baseline) return 1;
+        return 42;
+    }
+}

@@ -1,0 +1,24 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// M4.3 process-group behavior: runs the helper (argument 0) in its
+// "sleep-pid" mode, which records its id in argument 1 and sleeps, while the
+// test signals this program's process group or this program alone. Prints
+// the result if the wait ever returns. Exit 42.
+import ironwood.nio.file.Path;
+import ironwood.process.ProcessResult;
+import ironwood.process.ProcessRunner;
+
+class Main {
+
+    public static int main(String[] args) throws Exception {
+
+        String[] command = {args[0], "sleep-pid", args[1]};
+        defer free command;
+        Path output = Path.of("group.log");
+        defer free output;
+        ProcessResult result = ProcessRunner.runToFile(command, null, output);
+        defer free result;
+        System.out.println("waited " + result.exitValue());
+        return 42;
+    }
+}

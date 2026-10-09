@@ -1,0 +1,222 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// Callback allocation and cleanup for the native ownership pilot (M2.2). The
+// pilot's callback service is SemanticAnalysisObserver. It is immediate when a
+// helper builds an analyzer around it and retires that analyzer before
+// returning, and field-retained when a long-lived FunctionOwnership keeps it
+// across snapshots and restores. Each case counts the callback's own
+// allocations, its captured-state helpers and the allocations its calls add,
+// by comparing a run without the callback. A named observer that owns its
+// counter retires completely; an anonymous observer that captures a local
+// holder can be freed, but the captured holder stays invocation-lived, since
+// freeing a callback never frees what it captured. Prints one line per
+// measurement and exits 42 when every count and callback result holds.
+import ironwood.compiler.ir.IrBasicBlock;
+import ironwood.compiler.ir.IrCallInstruction;
+import ironwood.compiler.ir.IrForeignCallInstruction;
+import ironwood.compiler.ir.IrFunction;
+import ironwood.compiler.ir.IrInstruction;
+import ironwood.compiler.ir.IrOperand;
+import ironwood.compiler.ir.IrParameter;
+import ironwood.compiler.ir.IrReturnTerminator;
+import ironwood.compiler.ir.IrType;
+import ironwood.compiler.ir.IrValueReference;
+import ironwood.compiler.port.OperationVariants;
+import ironwood.compiler.port.SnapshotList;
+import ironwood.compiler.semantic.AllocationInfo;
+import ironwood.compiler.semantic.ClosedWorldEffectAnalyzer;
+import ironwood.compiler.semantic.FunctionOwnership;
+import ironwood.compiler.semantic.OwnershipSnapshot;
+import ironwood.compiler.semantic.PilotInputs;
+import ironwood.compiler.semantic.SemanticAnalysisObserver;
+import ironwood.compiler.source.SourceFile;
+import ironwood.compiler.source.SourcePosition;
+import ironwood.compiler.source.SourceSpan;
+import ironwood.ds.ArrayList;
+
+/** A named observer whose counter is its own owned field. */
+final class CountingObserver implements SemanticAnalysisObserver {
+
+    private final int[] calls = new int[1];
+
+    CountingObserver() {
+
+    }
+
+    int calls() {
+
+        return this.calls[0];
+    }
+
+    @Override public void analyzerCreated(long token, OperationVariants.AnalyzerKind kind,
+                                          OperationVariants.AnalyzerPhase phase) {
+
+        this.calls[0]++;
+    }
+
+    @Override public void analyzerRound(long token, OperationVariants.AnalyzerKind kind, int round) {
+
+        this.calls[0]++;
+    }
+
+    @Override public void evidenceSnapshot(boolean saved, boolean sharedEmpty, int associations) {
+
+        this.calls[0]++;
+    }
+
+    destructor {
+
+        free this.calls;
+    }
+}
+
+class Main {
+
+    static final int SNAPSHOTS = 16;
+
+    public static int main(String[] args) {
+
+        SourceSpan span = SourceSpan.at(new SourcePosition(0, 1, 1));
+        SnapshotList<IrFunction> functions = chain(span);
+        defer free functions;
+        PilotInputs.admitEffectFunctions(functions);
+        SourceFile source = SourceFile.of("Callbacks.iron", "class Callbacks {}\n");
+        boolean valid = true;
+
+        // Immediate: the analyzer that calls the observer retires inside analyze().
+        long baseline = analyze(functions, null);
+        long start = System.allocationCount();
+        CountingObserver named = new CountingObserver();
+        long namedAllocations = System.allocationCount() - start;
+        long namedCalls = analyze(functions, named) - baseline;
+        valid = valid && named.calls() == functions.size() + 2;
+        free named;
+        report("immediate.named.callback", namedAllocations);
+        report("immediate.named.captured", 0);
+        report("immediate.named.calls", namedCalls);
+
+        start = System.allocationCount();
+        int[] rounds = new int[1];
+        long holderAllocations = System.allocationCount() - start;
+        start = System.allocationCount();
+        SemanticAnalysisObserver capturing = new SemanticAnalysisObserver() {
+            @Override public void analyzerCreated(long token, OperationVariants.AnalyzerKind kind,
+                                                  OperationVariants.AnalyzerPhase phase) {
+
+            }
+
+            @Override public void analyzerRound(long token, OperationVariants.AnalyzerKind kind, int round) {
+
+                rounds[0]++;
+            }
+
+            @Override public void evidenceSnapshot(boolean saved, boolean sharedEmpty, int associations) {
+
+            }
+        };
+        long capturingAllocations = System.allocationCount() - start;
+        long capturingCalls = analyze(functions, capturing) - baseline;
+        valid = valid && rounds[0] == functions.size() + 1;
+        // The callback retires; its captured holder stays invocation-lived.
+        free capturing;
+        report("immediate.capturing.callback", capturingAllocations);
+        report("immediate.capturing.captured", holderAllocations);
+        report("immediate.capturing.calls", capturingCalls);
+
+        // Field-retained: one analyzer keeps the observer across every snapshot.
+        // The observer, its holder and the loop share this frame; a helper
+        // frame that loops over the holder would leave the observer
+        // conservatively escaping (the retained D253 summary limit).
+        long unobserved = snapshots(source, null);
+        start = System.allocationCount();
+        CountingObserver retained = new CountingObserver();
+        long retainedAllocations = System.allocationCount() - start;
+        FunctionOwnership holder = new FunctionOwnership(source, null, null, retained);
+        AllocationInfo node = new AllocationInfo(0);
+        holder.allocations().add(node);
+        start = System.allocationCount();
+        for (int index = 0; index < SNAPSHOTS; index++) {
+            OwnershipSnapshot snapshot = holder.snapshotOwnership();
+            defer free snapshot;
+            holder.restoreOwnership(snapshot);
+        }
+        long retainedCalls = System.allocationCount() - start - unobserved;
+        free holder;
+        valid = valid && retained.calls() == SNAPSHOTS * 2;
+        free retained;
+        report("retained.named.callback", retainedAllocations);
+        report("retained.named.captured", 0);
+        report("retained.named.calls", retainedCalls);
+        return valid ? 42 : 1;
+    }
+
+    // Allocations made while one analyzer is built, run and retired.
+    static long analyze(SnapshotList<IrFunction> functions, SemanticAnalysisObserver observer) {
+
+        long start = System.allocationCount();
+        ClosedWorldEffectAnalyzer analyzer = new ClosedWorldEffectAnalyzer(functions, observer, 3,
+                OperationVariants.AnalyzerPhase.INITIAL);
+        defer free analyzer;
+        analyzer.analyze();
+        return System.allocationCount() - start;
+    }
+
+    // Allocations made by snapshots and restores of one long-lived analyzer
+    // without an observer.
+    static long snapshots(SourceFile source, SemanticAnalysisObserver observer) {
+
+        FunctionOwnership analyzer = new FunctionOwnership(source, null, null, observer);
+        defer free analyzer;
+        AllocationInfo node = new AllocationInfo(0);
+        analyzer.allocations().add(node);
+        long start = System.allocationCount();
+        for (int index = 0; index < SNAPSHOTS; index++) {
+            OwnershipSnapshot snapshot = analyzer.snapshotOwnership();
+            defer free snapshot;
+            analyzer.restoreOwnership(snapshot);
+        }
+        return System.allocationCount() - start;
+    }
+
+    static void report(String name, long value) {
+
+        System.out.println(name + "=" + value);
+    }
+
+    // F0 calls F1, which makes the fixed foreign call.
+    static SnapshotList<IrFunction> chain(SourceSpan span) {
+
+        IrType reference = IrType.reference("Node");
+        IrValueReference value = new IrValueReference(0, reference, span);
+        ArrayList<IrParameter> parameterBuilder = new ArrayList<IrParameter>(1);
+        defer free parameterBuilder;
+        parameterBuilder.add(new IrParameter("p0", value, span));
+        ArrayList<IrOperand> argumentBuilder = new ArrayList<IrOperand>(1);
+        defer free argumentBuilder;
+        argumentBuilder.add(value);
+        SnapshotList<IrParameter> parameters = new SnapshotList<IrParameter>(parameterBuilder);
+        SnapshotList<IrOperand> arguments = new SnapshotList<IrOperand>(argumentBuilder);
+        ArrayList<IrFunction> functions = new ArrayList<IrFunction>(2);
+        defer free functions;
+        for (int index = 0; index < 2; index++) {
+            IrValueReference result = new IrValueReference(1, reference, span);
+            ArrayList<IrInstruction> calls = new ArrayList<IrInstruction>(1);
+            defer free calls;
+            if (index == 1) {
+                calls.add(new IrForeignCallInstruction(result, PilotInputs.FOREIGN_TARGET, reference, arguments, span));
+            } else {
+                calls.add(new IrCallInstruction(result, "F1", reference, arguments, OperationVariants.CallKind.DIRECT,
+                        span));
+            }
+            ArrayList<IrBasicBlock> blocks = new ArrayList<IrBasicBlock>(1);
+            defer free blocks;
+            blocks.add(new IrBasicBlock("entry", new SnapshotList<IrInstruction>(calls),
+                    new IrReturnTerminator(result, span), span));
+            String name = "F" + index;
+            functions.add(new IrFunction("Node", name, name, reference, parameters,
+                    new SnapshotList<IrBasicBlock>(blocks), span, IrFunction.UNKNOWN_SOURCE,
+                    OperationVariants.CallableKind.METHOD));
+        }
+        return new SnapshotList<IrFunction>(functions);
+    }
+}

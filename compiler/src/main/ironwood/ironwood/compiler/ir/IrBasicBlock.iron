@@ -1,0 +1,50 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.ir;
+
+import ironwood.compiler.port.SnapshotList;
+import ironwood.compiler.source.SourceSpan;
+
+/** A basic block. Ports the Java record {@code IrBasicBlock}; the instruction list is frozen and borrowed. */
+public final class IrBasicBlock {
+
+    private final String label;
+    private final SnapshotList<IrInstruction> instructions;
+    private final IrTerminator terminator;
+    private final SourceSpan sourceSpan;
+
+    /** Creates the block from its components in record order. */
+    public IrBasicBlock(String label, SnapshotList<IrInstruction> instructions, IrTerminator terminator,
+                        SourceSpan sourceSpan) {
+
+        if (instructions == null) throw new NullPointerException();
+        this.label = label;
+        this.instructions = instructions;
+        this.terminator = terminator;
+        this.sourceSpan = sourceSpan;
+    }
+
+    /** @return the label */
+    public String label() {
+
+        return this.label;
+    }
+
+    /** @return the borrowed ordered instructions */
+    public SnapshotList<IrInstruction> instructions() {
+
+        return this.instructions;
+    }
+
+    /** @return the terminator */
+    public IrTerminator terminator() {
+
+        return this.terminator;
+    }
+
+    /** @return the span */
+    public SourceSpan sourceSpan() {
+
+        return this.sourceSpan;
+    }
+}

@@ -910,6 +910,22 @@ preserves complete closed-world analysis and avoids promising a stable typed-IR
 ABI before that representation has been designed. There is no runtime class
 path or class loading.
 
+The ZIP entry method is a writer profile, not part of the format (D275). The
+Java bootstrap writes `.ironclass` entries DEFLATED and `.ironjar` entries
+STORED; the compiler port's native writers store every entry, spelled as
+Java's ZipOutputStream writes a STORED entry with time 0, so a native archive
+built from the same class files equals the Java one byte for byte. Every
+reader accepts both methods, including DEFLATED class payloads inside a STORED
+archive, through the compiler-private RFC 1951 decoder in the port; no zlib is
+linked for archives. The frozen container contract is
+[the M5.1 record](self-hosting/m5/ARCHIVES.md); the port's IronClass and
+IronJar services that keep each profile's Java checks and messages, and the
+standard-library discovery they serve, are recorded in D276. The port's Bridge
+JAR writer (D294) stores entries the same way, the manifest first, verifies
+the staged jar and publishes it with an atomic replacement; identities over
+entry contents match the Java bootstrap's DEFLATED jars, while identities over
+whole jars, such as the values companion's, differ.
+
 The compiler build also compiles declarations below `stdlib/src/main/ironwood`
 into ordinary format-1 `.ironclass` files and packages them deterministically as
 `compiler/build/ironwood-stdlib.ironjar`; installed distributions place that
@@ -1572,7 +1588,8 @@ than synthesizing a `null` assignment. Simple assignment may replace the dead
 local value and start tracking a new identity; every operation that reads the
 old value, including a second free or compound assignment, is rejected.
 Constructor escape checking is closed-world and rejects publication of
-in-progress `this` across direct and indirect calls. `this(...)` delegation
+in-progress `this` across direct and indirect calls, for an exact instance of
+each constructor's own class (D282). `this(...)` delegation
 shares one allocation identity.
 Loops may allocate, use, and free an allocation entirely within one iteration.
 Arrays allocated locally use the same identity proof, and freeing one releases
@@ -1607,7 +1624,17 @@ and returned-origin summaries to a fixed point over direct calls and all
 closed-world virtual/interface targets and active-use class-initialization
 prerequisites. It rejects allocating destructors, outward exceptions,
 destructor resurrection/publication, and constructor publication. A locally
-caught exceptional call remains permitted.
+caught exceptional call remains permitted. Those verdicts use a summary for an
+exact instance of the checked constructor's or destructor's own class: calls
+whose receiver is exactly that object dispatch on the class and reuse the same
+exact summaries for their callees and exceptional edges (D282, D283). For the
+same verdicts, `ValueClasses` limits the destructors a `free` or owned-element
+destruction may run to the classes its value may be (D284). It is a closed-world,
+object-sensitive value flow: objects are allocation sites qualified by the object
+their allocating body ran on, bodies are analyzed per object in their first
+parameter, and a constructor or destructor is checked per object of its class it
+runs on, in the effect summaries and in `ReceiverPublicationAnalysis` alike (D285,
+D286). It runs only when a context-free summary flags a destructor or constructor.
 
 Within one effect analysis, instruction targets are cached against its fixed IR
 and class snapshot. Virtual/interface implementations, initializer prerequisites,
@@ -1904,6 +1931,53 @@ object when storage is unavailable. Field operations become typed
 typed null predicate and exceptional branch; successful paths then access or
 dispatch without a separate runtime check call.
 
+`FunctionAnalyzer` omits a null check that cannot fail (D287). A reference
+compared with `null`, tested with `instanceof` or already checked is non-null on
+the branch edge that outcome selects, through `!`, `&&` and `||`; `NullGuards`
+records that edge's target, whose only predecessor is the test, and a later check
+of the same SSA value, of a reference conversion of it, or of a final instance
+field loaded again from the same receiver value is omitted where the target
+dominates it in the graph built so far. Constructor loads of final fields are not
+named; in a destructor, freeing an owned field of its class ends that field's
+guards and a guard does not cover a loop entered after it. Each omission is
+checked again on the finished function graph, including that no store to a
+guarded field lies between the guard and the use, and a failure is an internal
+compiler error.
+
+A value merged at a join or loop header is a phi that no single test dominates, and
+a loop header's back edges are unknown while its body is lowered. After lowering,
+`RedundantNullChecks` therefore solves the references known non-null at each block
+entry over the finished graph (D288): a block keeps what every reached predecessor
+knows on its edge into it, an edge adds what its null test, `instanceof` test, null
+check or recorded condition proves, and a phi is non-null when each incoming value
+is non-null on its edge. Loop headers start from every fact and keep only what each
+back edge preserves, a store to a final field ends that field's facts and, when the
+stored value is known non-null, starts the fact for its object, and allocation
+results are never null. A null check whose reference is known non-null becomes a
+jump to its valid path, and failure blocks that only it reached are removed with
+their phi entries. Ownership analysis has already run, so only typed-IR consumers
+and LLVM see the shorter graph.
+
+After the final lowering, `ConstructedFields` finds the final reference fields that
+every store keeps non-null after construction (D289): each store is a constructor
+of the field's class storing, into its own object, a value that `RedundantNullChecks`
+proves non-null at that point, apart from the null that the class's destructor
+stores when it frees an owned field. Definite assignment makes every completed
+construction store each such field. Each destructor is then solved again with those
+fields of its object, from its own class and its superclasses, known non-null at
+entry; its own free ends the fact where it stores null. Subclass fields are not
+trusted, because a subclass destructor runs first and may free them.
+
+A method may run during construction or after a free, so its own code keeps its
+checks; the destructor verdict judges the methods it runs on its object instead
+(D290). `ClosedWorldEffectAnalyzer` summarizes a flagged destructor with its object's
+constructed fields known at entry, and each call whose first argument is the object
+passes on the fields that the caller still knows there, so a field freed before the
+call is not passed. The callee is summarized as a view of its body with the checks
+those fields prove removed, in the exact-class and value-flow contexts alike, and the
+superclass destructor chain carries the fields a subclass destructor left in place.
+The emitted code does not change.
+
 Both allocators are declared `noalias nonnull`, the receiver parameter of every
 instance callable is `nonnull noundef`, and `ironwood_throw` is `noreturn cold`,
 so LLVM folds redundant null checks on fresh objects and receivers and lays out
@@ -1913,8 +1987,9 @@ from the runtime string layout rather than calling the runtime.
 Failure paths are outlined. A block that allocates an exception, runs its
 constructor and throws with no local handler, and the lowering of
 `throw new X(...)` outside any local handler (type-initialization barrier,
-allocation, constructor invoke with rollback landing pad, null check and throw),
-each become one call to a shared `ironwood.throw.<constructor>` helper marked
+allocation, constructor invoke with rollback landing pad, and throw, with or
+without the null check of the fresh object that D288 omits), each become one
+call to a shared `ironwood.throw.<constructor>` helper marked
 `cold noinline noreturn`, followed by `unreachable`. The helper takes the
 constructor arguments, performs the same allocation, construction, rollback and
 throw sequence, and carries no trace probes, so on-demand traces skip its frame
@@ -2089,6 +2164,20 @@ Audited fresh path-helper results may initialize a path's owned String directly;
 constructor rollback therefore reclaims only the final owner's completed
 storage. File/path operations remain visible to allocation-effect analysis,
 including native fallback allocation, and cannot bypass destructor restrictions.
+
+M4 adds `IrFileInstruction` operations for exclusive temporary files and
+directories, real paths, access checks and the three publication moves (D270,
+D271), with the same audited borrowing and fresh-result classification. A
+temporary or real path is adopted inside its UnixPath constructor, so no
+managed allocation follows the native creation. `ProcessRunner.runToFile`
+lowers its private launch to `IrProcessInstruction` (D272): an I64 status from
+a String[] command, a nullable directory String and an output String, emitted
+as `ironwood_process_run` with an unwind edge for argument-encoding allocation
+failure and counted as a closed-world effect, so an unused result still
+launches. Two audited contracts admit the command's elements: by exact
+signature, `runToFile` borrows the array's Strings without exposing them, and
+the creation-array proof (D163) lets an owner lend its storage to that one
+call (D273). Every other call keeps the conservative array rules.
 
 `Float.parseFloat` and `Double.parseDouble` validate Java-shaped syntax in the
 library facade, then lower the private conversion step to
@@ -2268,6 +2357,8 @@ abandonment findings to errors before writing output; `off` disables only this
 check. Repeated selections use the last value. Invalid values are usage errors.
 Class and archive source reconstruction reruns the check at final link, so the
 selection is per invocation and is not stored in `.ironclass` or `.ironjar`.
+The check covers every analyzed source, including dependencies and the bundled
+standard library that `CompilerPipeline` adds, in every entry path (D280).
 The local `@SuppressUnfreed` directive instead survives in preserved source and
 exempts its initializer's tracked allocation at either stage, even in strict
 mode. Its AST flag is consumed only by the diagnostic tracker; it adds no IR,
@@ -2280,7 +2371,12 @@ D140 adds diagnostic severity to the compiler API and IDE transport. A
 `OFF` or `ERROR`. Warnings preserve `CompilationArtifact.valid()` and
 `successful()` when the corresponding program/LLVM outputs exist. Allocation
 findings use source spans and are collected only during final semantic lowering,
-after provisional call binding has refined escape and ownership summaries.
+after provisional call binding has refined escape and ownership summaries. Since
+D278 that refinement also runs after earlier errors; when it does not converge,
+final lowering still reports other errors but no ownership verdict or finding.
+Since D279 a reported missing implementation is completed by a placeholder that
+the closed-world effect analysis treats as possibly reclaiming its reference
+arguments, so no finding depends on how the method is eventually written.
 
 D184 adds immutable `DiagnosticNote` entries to the shared `Diagnostic` API.
 The existing constructors and primary accessors remain available, while full
@@ -2299,8 +2395,9 @@ additional compile time even when compilation succeeds, but success prints no
 explanation report. M1c provides eligibility and boundary notes at each
 rejected `free`, deferred registration, destructor field, loop back
 edge, or owned-element validation site. Completed refinement reports a
-category-specific unsupported-detail boundary; skipped refinement reports
-the fixed limited-analysis note. Parser, name, type, wrong-pool, pending-write,
+category-specific unsupported-detail boundary. Since D278 every shown rejection
+follows completed refinement, so the former limited-analysis note for skipped
+refinement no longer exists. Parser, name, type, wrong-pool, pending-write,
 and standalone use-after-free errors remain note-free. M1d adds located local
 alias and earlier-free notes where a unique current path supports them.
 M2a adds selected direct field/static/array store sites, a conditional-reference

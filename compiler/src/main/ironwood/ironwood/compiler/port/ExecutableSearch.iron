@@ -1,0 +1,54 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.port;
+
+import ironwood.nio.file.Files;
+import ironwood.nio.file.Path;
+
+/**
+ * The native driver's executable discovery, equal to the Java seed's
+ * ExecutableSearch (D272): ProcessRunner never searches PATH, so a caller
+ * that needs a tool such as brew resolves it here. Entries are tried in
+ * order; an empty entry is skipped rather than meaning the working
+ * directory, a relative entry is resolved against the working directory
+ * without lexical normalization, and the first regular file this process
+ * may execute wins.
+ */
+public final class ExecutableSearch {
+
+    private ExecutableSearch() {
+
+    }
+
+    /**
+     * @param name the tool's file name, without a separator
+     * @param pathValue the PATH value, or null
+     * @param workingDirectory the directory relative entries resolve against
+     * @return a fresh caller-owned path of the tool, or null
+     */
+    public static Path find(String name, String pathValue, Path workingDirectory) {
+
+        if (pathValue == null || name.isEmpty() || name.indexOf('/') >= 0) return null;
+        int start = 0;
+        while (start <= pathValue.length()) {
+            int end = pathValue.indexOf(':', start);
+            if (end < 0) end = pathValue.length();
+            if (end > start) {
+                Path candidate = candidate(pathValue, start, end, name, workingDirectory);
+                if (Files.isRegularFile(candidate) && Files.isExecutable(candidate)) return candidate;
+                free candidate;
+            }
+            start = end + 1;
+        }
+        return null;
+    }
+
+    private static Path candidate(String pathValue, int start, int end, String name, Path workingDirectory) {
+
+        String entry = pathValue.substring(start, end);
+        defer free entry;
+        Path directory = workingDirectory.resolve(entry);
+        defer free directory;
+        return directory.resolve(name);
+    }
+}

@@ -1,0 +1,56 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.ast;
+
+import ironwood.compiler.source.SourceSpan;
+
+/**
+ * Port of the Java frontend AST record {@code FieldAccessExpression}. Components keep
+ * the record's order; {@code Optional} components are nullable, and list components
+ * are frozen, independent copies that the node borrows for the invocation.
+ */
+public final class FieldAccessExpression implements Expression {
+
+    private final Expression receiver;
+    private final String fieldName;
+    private final SourceSpan fieldNameSpan;
+    private final SourceSpan span;
+
+    /** Creates the node from its components in record order. */
+    public FieldAccessExpression(Expression receiver, String fieldName, SourceSpan fieldNameSpan, SourceSpan span) {
+
+        this.receiver = receiver;
+        this.fieldName = fieldName;
+        this.fieldNameSpan = fieldNameSpan;
+        this.span = span;
+    }
+
+    /** @return the {@code receiver} component */
+    public Expression receiver() {
+
+        return this.receiver;
+    }
+
+    /** @return the {@code fieldName} component */
+    public String fieldName() {
+
+        return this.fieldName;
+    }
+
+    /** @return the {@code fieldNameSpan} component */
+    public SourceSpan fieldNameSpan() {
+
+        return this.fieldNameSpan;
+    }
+
+    /** @return the {@code span} component */
+    @Override public SourceSpan span() {
+
+        return this.span;
+    }
+
+    @Override public ExpressionVariant expressionVariant() {
+
+        return ExpressionVariant.FIELD_ACCESS_EXPRESSION;
+    }
+}

@@ -1,0 +1,24 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.nio.file;
+
+/**
+ * Signals that a move cannot be performed with the guarantee its caller
+ * selected: an atomic rename across file systems, or an exclusive
+ * (no-replace) rename on a host or file system that cannot supply one. The
+ * move has changed nothing.
+ */
+public class AtomicMoveNotSupportedException extends FileSystemException {
+
+    /**
+     * Creates the exception.
+     *
+     * @param source the source path text, or null
+     * @param target the target path text, or null
+     * @param reason why the move could not be atomic, or null
+     */
+    public AtomicMoveNotSupportedException(String source, String target, String reason) {
+
+        super(source, target, reason);
+    }
+}

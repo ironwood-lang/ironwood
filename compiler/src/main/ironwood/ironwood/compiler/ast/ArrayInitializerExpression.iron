@@ -1,0 +1,43 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.ast;
+
+import ironwood.compiler.port.SnapshotList;
+import ironwood.compiler.source.SourceSpan;
+
+/**
+ * A contextually typed declaration or nested array initializer. It ports the Java
+ * frontend AST record {@code ArrayInitializerExpression}. Components keep the record's
+ * order; {@code Optional} components are nullable, and list components are frozen,
+ * independent copies that the node borrows for the invocation.
+ */
+public final class ArrayInitializerExpression implements Expression {
+
+    private final SnapshotList<Expression> elements;
+    private final SourceSpan span;
+
+    /** Creates the node from its components in record order. */
+    public ArrayInitializerExpression(SnapshotList<Expression> elements, SourceSpan span) {
+
+        if (elements == null) throw new NullPointerException();
+        this.elements = elements;
+        this.span = span;
+    }
+
+    /** @return the {@code elements} component */
+    public SnapshotList<Expression> elements() {
+
+        return this.elements;
+    }
+
+    /** @return the {@code span} component */
+    @Override public SourceSpan span() {
+
+        return this.span;
+    }
+
+    @Override public ExpressionVariant expressionVariant() {
+
+        return ExpressionVariant.ARRAY_INITIALIZER_EXPRESSION;
+    }
+}

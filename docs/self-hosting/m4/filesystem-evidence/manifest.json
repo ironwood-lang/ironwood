@@ -1,0 +1,290 @@
+{
+ "schema_version": 1,
+ "increment": "M4.1/M4.2 filesystem checkpoint: B3 scratch, cleanup, real-path, access and publication services ready for M5 publication",
+ "commit": "10c9a98d7932ee28999fd2665018e9fb2432360e",
+ "host": "macOS 27.0.1 arm64 (this machine); Linux x86-64 estonia (kernel 4.15, glibc 2.27, JDK 21.0.1, LLVM 23.1.0)",
+ "java": "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home",
+ "llvm": "/opt/homebrew/opt/llvm@23",
+ "reproduce": "docs/self-hosting/m4/filesystem-evidence/run-evidence.sh 10c9a98d",
+ "status": [
+  "build exit=0",
+  "javac exit=0",
+  "tests exit=0",
+  "classification exit=0",
+  "classification-recorded exit=0",
+  "classification-M3.1-unchanged exit=0",
+  "classification-M3.2-unchanged exit=0",
+  "classification-M3.3-unchanged exit=0",
+  "base-build exit=0",
+  "llvm-functions-stdlib_file_mutations exit=0",
+  "llvm-functions-stdlib_u5_directory_foundation exit=0",
+  "port-compile exit=0",
+  "port-diagnostics exit=0",
+  "diff-check exit=0",
+  "licenses exit=0",
+  "linux-ship exit=0",
+  "linux: linux-tests exit=0",
+  "linux: abi-harness exit=0",
+  "linux: glibc-baseline exit=0",
+  "linux: no-newer-wrappers exit=0"
+ ],
+ "sources": [
+  {
+   "path": "runtime/src/ironwood_runtime.c",
+   "sha256": "54bfb9beac36cc66bd2da503bd78902bb4d7f63b9c369d30c34d3f4df3768638"
+  },
+  {
+   "path": "runtime/include/ironwood_runtime.h",
+   "sha256": "132148b073179c221966ded9514813f8e1b055af65192a4a5f083216360365e0"
+  },
+  {
+   "path": "stdlib/src/main/ironwood/ironwood/nio/file/Files.iron",
+   "sha256": "9cc322355c1f324ab77bfc26414c868b7adb4e862695f817aa2e10a14e153b59"
+  },
+  {
+   "path": "stdlib/src/main/ironwood/ironwood/nio/file/Path.iron",
+   "sha256": "7f2fda6374d0c2aa5f32244ce692ee68bd0e994a22334b83fd4bd22342c7bd67"
+  },
+  {
+   "path": "stdlib/src/main/ironwood/ironwood/nio/file/UnixPath.iron",
+   "sha256": "4930c664c37e2c4b9b8c610fd0b7d97f6ad7a7b28e4c5615437791688268dd9d"
+  },
+  {
+   "path": "stdlib/src/main/ironwood/ironwood/nio/file/AtomicMoveNotSupportedException.iron",
+   "sha256": "7ccafc43fbaafe8490ae1b946714358950c519b1593faf8d76894856c64cd9c8"
+  },
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/port/TreeDeletion.iron",
+   "sha256": "99618ae962d30986316f8591ef9f2cfb1ec55604cc092afe38bd48ef59886548"
+  },
+  {
+   "path": "compiler/src/main/java/ironwood/compiler/ir/IrFileInstruction.java",
+   "sha256": "fab4ae743a0a37f54083f4892132b41d7aed8338add2aaa2d4af2afac34c2c7d"
+  },
+  {
+   "path": "compiler/src/main/java/ironwood/compiler/semantic/FunctionAnalyzer.java",
+   "sha256": "f21217197657410b5080d336902cb7a963f5192c89e1f79b2afbdfada93d0bca"
+  },
+  {
+   "path": "compiler/src/main/java/ironwood/compiler/semantic/EscapeSummaryAnalyzer.java",
+   "sha256": "64db81d9653e54d9e7a2b7e1f7651f48740d184b24cf3d6203f2efcc479019ab"
+  },
+  {
+   "path": "compiler/src/main/java/ironwood/compiler/semantic/AllocationResultSemantics.java",
+   "sha256": "d2f2d0c201beea5cdf01af820e7e0cb9186b5d9019d272593d55f3fd6059bc30"
+  },
+  {
+   "path": "compiler/src/main/java/ironwood/compiler/TypeDependencyScanner.java",
+   "sha256": "e078bfd6670dee59cac56ca1f7bec95cb656239f65307f1d5139d2d9c655ae83"
+  },
+  {
+   "path": "compiler/src/main/java/ironwood/compiler/backend/LlvmEmitter.java",
+   "sha256": "b064b520182f701733e09687d82da20fdc827f6ceb2142acc8e3851890d31b2a"
+  },
+  {
+   "path": "compiler/src/test/java/ironwood/compiler/FilesystemServicesTests.java",
+   "sha256": "630609202e30c0de73b2a00296bb49328e8514cbbee4216ce7346557c6280033"
+  },
+  {
+   "path": "compiler/src/test/java/ironwood/compiler/PublicationTests.java",
+   "sha256": "f8cb99073a854cf0f4c3d16d1cf108878e86a20a1d8f6cfcda3f0698fa8bbbdf"
+  },
+  {
+   "path": "integration-tests/runtime/filesystem_services.c",
+   "sha256": "1c66f025cf043f8f65ab473aac17f6bf3c6dfd189d50da5a9fab69d7e405bf71"
+  },
+  {
+   "path": "integration-tests/cases/stdlib_scratch_paths.iron",
+   "sha256": "601d8e2ad111c5665cf705d9d31177c05917cf5a916a46aa0f4e5addaabe79fd"
+  },
+  {
+   "path": "integration-tests/cases/stdlib_scratch_paths_failure.iron",
+   "sha256": "58e116152cc012d6c8bf25cd38a01bc647a5a853dd36833fdc4b1076f9d6a828"
+  },
+  {
+   "path": "integration-tests/cases/compiler_tree_deletion.iron",
+   "sha256": "32a714272698b9ca061afab0eb98bb6980e4c8eb9b08be12f0a8588a3c061a50"
+  },
+  {
+   "path": "integration-tests/cases/stdlib_publication.iron",
+   "sha256": "3ed6aa11c02c20bffc9ba19c00d922a2b0c8e6012cde522d5aac5b6838233ded"
+  },
+  {
+   "path": "integration-tests/cases/stdlib_publication_failure.iron",
+   "sha256": "2e33f1a77d1b546dd9e05f1b8d2103b2e6337b594e82cdf9547b9f387201d09f"
+  },
+  {
+   "path": "docs/self-hosting/m4/scratch-evidence/ScratchPathsReference.java",
+   "sha256": "2c42da611d4e3a04d3c8340af5089485498656d455b8b4f9a624ce30274d25f3"
+  },
+  {
+   "path": "docs/self-hosting/m4/scratch-evidence/TreeDeletionReference.java",
+   "sha256": "0d6df76547f0e7834e463d6ae2cb3060d3c753850f32c6b33a0e49040d07b7d5"
+  },
+  {
+   "path": "docs/self-hosting/m4/publication-evidence/PublicationReference.java",
+   "sha256": "a26e565036481b66a96eacf3ba181ffc86e64bf04cd84accbd91432c75786b37"
+  },
+  {
+   "path": "docs/self-hosting/m4/compare_functions.py",
+   "sha256": "c84c115c9b8018820d985aab087469b6d3c431d8e9fc772ade91cbb4e4498a3c"
+  },
+  {
+   "path": "docs/self-hosting/m3/classify.py",
+   "sha256": "6eec6fd3e5a1ecdf246247c7218f66e2058eb8ebdbfd7efdfc2993df1bc46ead"
+  },
+  {
+   "path": "docs/self-hosting/m4/CLASSIFICATION_M4.1-M4.2.md",
+   "sha256": "7a379cc6ae36e3f3f88d76050a2ce08335a1020a3c74e50c833ba24b8f8d5b26"
+  },
+  {
+   "path": "docs/self-hosting/m4/filesystem-evidence/run-evidence.sh",
+   "sha256": "03f4585b000ed484992f4ebaf3654f0902e17073ed9434d1f029f944fdb05015"
+  },
+  {
+   "path": "docs/self-hosting/m4/filesystem-evidence/linux-evidence.sh",
+   "sha256": "ffcd321088e1b4781f4fd8825b3cb810dbfef0ea5d3ac9645ee7002b8a5b8949"
+  }
+ ],
+ "logs": [
+  {
+   "log": "commit.txt",
+   "retained": "docs/self-hosting/m4/filesystem-evidence/logs/commit.txt.gz",
+   "sha256": "d4ef675c6486f4aad342522eaf2117404cb11eea39ac4c431487b01face200f8",
+   "gzip_sha256": "250c86e41dc1f8fc6e96cb77f5352e8952b7fe9cad8ab7b2fe6bac7d3c955816"
+  },
+  {
+   "log": "status.txt",
+   "retained": "docs/self-hosting/m4/filesystem-evidence/logs/status.txt.gz",
+   "sha256": "5611a06050afa3d8ec7138a3de6b33de7bc2f649c5a5a2f842cba35a12c75992",
+   "gzip_sha256": "a2b7ec64a81f271ff83a8502d5577811c6105ed289d1670d6ac8b846b0517f44"
+  },
+  {
+   "log": "host.txt",
+   "retained": "docs/self-hosting/m4/filesystem-evidence/logs/host.txt.gz",
+   "sha256": "801d48b31bd74253bdd420e242362ec2f5293c04de5f89ff01116ae25d1ff5e9",
+   "gzip_sha256": "8e493918d0b80fac481ba09a63637f157292b45803f1016178535214965bc0c0"
+  },
+  {
+   "log": "build.log",
+   "retained": "docs/self-hosting/m4/filesystem-evidence/logs/build.log.gz",
+   "sha256": "93cc8a01b350655a91f7f0b2eba958de6f5b3fc41a6eca1e1a04b0cf1485d5e8",
+   "gzip_sha256": "aa374a913155026082e0265d80cb2a11b32d60263c47dddbe296b760bd86ca30"
+  },
+  {
+   "log": "build-identity.txt",
+   "retained": "docs/self-hosting/m4/filesystem-evidence/logs/build-identity.txt.gz",
+   "sha256": "28d0c05bfea7a28c0967050c51c18fa298a6cf6e3869086d6641655b9dbbd6a7",
+   "gzip_sha256": "6511e6f11f4a7805d480a102f7d76a6acadc1fa7c944d13f7bb8d4d6cccf320d"
+  },
+  {
+   "log": "javac.log",
+   "retained": "docs/self-hosting/m4/filesystem-evidence/logs/javac.log.gz",
+   "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "gzip_sha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64"
+  },
+  {
+   "log": "tests.log",
+   "retained": "docs/self-hosting/m4/filesystem-evidence/logs/tests.log.gz",
+   "sha256": "4467580106a8dfb2905b40f3601ff60eed915e6d62424d3353c4d89d848d0813",
+   "gzip_sha256": "302eda99478579515f817c42fbc91f0b5a781cd0ca81a390de4b7501a5911803"
+  },
+  {
+   "log": "classification.log",
+   "retained": "docs/self-hosting/m4/filesystem-evidence/logs/classification.log.gz",
+   "sha256": "4130fe1e014ada855d2a9ec96d5845ee3038c128e37ff6dc7c4a8e1176bcb31f",
+   "gzip_sha256": "cae850b204c827d94a54bb1f01174743bc515c51dcb1e7d47f81f6aad546d5c7"
+  },
+  {
+   "log": "classification.md",
+   "retained": "docs/self-hosting/m4/filesystem-evidence/logs/classification.md.gz",
+   "sha256": "7a379cc6ae36e3f3f88d76050a2ce08335a1020a3c74e50c833ba24b8f8d5b26",
+   "gzip_sha256": "a63570cab84690b535101cbbdf32d3dbf7f0af68691f4f63442f107cda8ae5f8"
+  },
+  {
+   "log": "base-build.log",
+   "retained": "docs/self-hosting/m4/filesystem-evidence/logs/base-build.log.gz",
+   "sha256": "a76f82c558f1001da2eb64333702d74a26c21bf952e77c3a6cb7fffebf1c26f6",
+   "gzip_sha256": "69a5e38d2e90c7514a6cc5787d8e1ac2bf2b8ca49388f1cd2bfbcbec7aaa2012"
+  },
+  {
+   "log": "llvm-functions.log",
+   "retained": "docs/self-hosting/m4/filesystem-evidence/logs/llvm-functions.log.gz",
+   "sha256": "9bd27d089c27d139985fad667310c70948468edf937cf6055d529f9827145ef0",
+   "gzip_sha256": "b5dc4e8d5b07f79212d37b908e0b09fecaf359fd525964ad1640313784a136f9"
+  },
+  {
+   "log": "port-sources.txt",
+   "retained": "docs/self-hosting/m4/filesystem-evidence/logs/port-sources.txt.gz",
+   "sha256": "50fbab0004abfc4b6c42bd7a6b402b4e68859f4d2c1d25e04743146f4c52078e",
+   "gzip_sha256": "09459dc631c019fa1be19dab4db9a1cbfb965d3f31ab5e17fc6860f6beeb74fb"
+  },
+  {
+   "log": "port-compile.log",
+   "retained": "docs/self-hosting/m4/filesystem-evidence/logs/port-compile.log.gz",
+   "sha256": "f2c601959c383081af468c6261cef1b3e24781ca607b09073d7a29e7dc2d08d2",
+   "gzip_sha256": "ca55b6e710a3527b915686988d0843db372e86a67acf2c0c8f734eaabad30879"
+  },
+  {
+   "log": "port-diagnostics.txt",
+   "retained": "docs/self-hosting/m4/filesystem-evidence/logs/port-diagnostics.txt.gz",
+   "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+   "gzip_sha256": "89ed3b723e0e40d8957a2df55fcb04d57b6d95fa665c5fe67b098df7f29694ae"
+  },
+  {
+   "log": "diff-check.log",
+   "retained": "docs/self-hosting/m4/filesystem-evidence/logs/diff-check.log.gz",
+   "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "gzip_sha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64"
+  },
+  {
+   "log": "licenses.log",
+   "retained": "docs/self-hosting/m4/filesystem-evidence/logs/licenses.log.gz",
+   "sha256": "baf5804aeb26498337c9c5223c199afeba5c3e2fc36ae219b9bf420e3775f673",
+   "gzip_sha256": "21fd3bcaf61e87e10822dd63176f2751a3282de06861c556f8ea5cb4d913c689"
+  },
+  {
+   "log": "linux-status.txt",
+   "retained": "docs/self-hosting/m4/filesystem-evidence/logs/linux-status.txt.gz",
+   "sha256": "ae53448d48366e45ee2700741fea46a91ee8114687cdb76709bd83f8b9b05b8e",
+   "gzip_sha256": "1853b11ecb85c743a67e4c8b0b15e459c62314bb50aeba9fd7fcf8f71f33e56f"
+  },
+  {
+   "log": "linux-host.txt",
+   "retained": "docs/self-hosting/m4/filesystem-evidence/logs/linux-host.txt.gz",
+   "sha256": "fc3ce47f08ccfa29a0876858223cc1a810e0a005764db1233f068bc7368731cf",
+   "gzip_sha256": "a1f24783cb5f906861bd30e3d0c04d2b7f5048d26ba7d4f8ddb77b4b1d210841"
+  },
+  {
+   "log": "linux-tests.log",
+   "retained": "docs/self-hosting/m4/filesystem-evidence/logs/linux-tests.log.gz",
+   "sha256": "953d4a6a2fa27fa2016d395bbe367ff6fd6f225af6a897fb448f596d5d23545a",
+   "gzip_sha256": "0f30927f99a6bb7522321e938eac60aebb5483e1dd141cd10c7d8fabc5617c38"
+  },
+  {
+   "log": "linux-abi-build.log",
+   "retained": "docs/self-hosting/m4/filesystem-evidence/logs/linux-abi-build.log.gz",
+   "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "gzip_sha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64"
+  },
+  {
+   "log": "linux-runtime-undefined.txt",
+   "retained": "docs/self-hosting/m4/filesystem-evidence/logs/linux-runtime-undefined.txt.gz",
+   "sha256": "2ca5be988ec7e16b577d4aa287342fe125b7b14c83bf3618fdf5daae986f210c",
+   "gzip_sha256": "b812bb5f0a3e4f0861febb23b87a4629a54421f0c62536bcfffaa28ac536eef5"
+  },
+  {
+   "log": "linux-glibc-versions.txt",
+   "retained": "docs/self-hosting/m4/filesystem-evidence/logs/linux-glibc-versions.txt.gz",
+   "sha256": "316933ca7abf3c272a3794f8d855f841949006c09983b4472261acc724d66121",
+   "gzip_sha256": "9ab3872b83a1070f06c7e1f1dda92631ca24403dbf2bf7d0e3c28d1b553b0a79"
+  }
+ ],
+ "macos_tests": 29,
+ "linux_tests": 12,
+ "m4_1_m4_2_patterns": 95,
+ "m4_1_m4_2_calls": 361,
+ "port_sources": 169,
+ "port_diagnostics": 0,
+ "glibc_max": "GLIBC_2.17"
+}

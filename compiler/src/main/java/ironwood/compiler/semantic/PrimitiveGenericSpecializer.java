@@ -423,6 +423,12 @@ final class PrimitiveGenericSpecializer {
                     value.arguments().stream().map(item -> operand(item, substitutions, function)).toList(),
                     value.outputFields(), value.sourceSpan());
         }
+        if (instruction instanceof ironwood.compiler.ir.IrProcessInstruction value) {
+            return new ironwood.compiler.ir.IrProcessInstruction(value(value.result(), substitutions),
+                    operand(value.command(), substitutions, function),
+                    operand(value.directory(), substitutions, function),
+                    operand(value.output(), substitutions, function), value.sourceSpan());
+        }
         if (instruction instanceof IrFileInstruction value) {
             return new IrFileInstruction(value(value.result(), substitutions), value.operation(),
                     value.path().map(path -> operand(path, substitutions, function)),

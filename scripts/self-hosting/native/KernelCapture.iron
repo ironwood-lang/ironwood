@@ -1,0 +1,872 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+import ironwood.compiler.ir.IrBasicBlock;
+import ironwood.compiler.ir.IrCallInstruction;
+import ironwood.compiler.ir.IrForeignCallInstruction;
+import ironwood.compiler.ir.IrFunction;
+import ironwood.compiler.ir.IrInstruction;
+import ironwood.compiler.ir.IrOperand;
+import ironwood.compiler.ir.IrParameter;
+import ironwood.compiler.ir.IrReturnTerminator;
+import ironwood.compiler.ir.IrType;
+import ironwood.compiler.ir.IrValueReference;
+import ironwood.compiler.port.OperationVariants;
+import ironwood.compiler.port.SnapshotList;
+import ironwood.compiler.semantic.AllocationInfo;
+import ironwood.compiler.semantic.ArraySlot;
+import ironwood.compiler.semantic.ClosedWorldEffectAnalyzer;
+import ironwood.compiler.semantic.FunctionOwnership;
+import ironwood.compiler.semantic.OwnershipPaths;
+import ironwood.compiler.semantic.OwnershipSnapshot;
+import ironwood.compiler.semantic.PilotInputs;
+import ironwood.compiler.semantic.RejectedFreeEvidence;
+import ironwood.compiler.semantic.SemanticAnalysisObserver;
+import ironwood.compiler.semantic.UnfreedAllocationTracker;
+import ironwood.compiler.source.SourceFile;
+import ironwood.compiler.source.SourcePosition;
+import ironwood.compiler.source.SourceSpan;
+import ironwood.ds.ArrayList;
+import ironwood.nio.file.Files;
+import ironwood.nio.file.Path;
+
+/**
+ * Test-only native counterpart of scripts/self-hosting/KernelCapture.java for
+ * the M2.2 pilot. Usage:
+ *
+ * <pre>
+ * KernelCapture ownership SIZE SHAPE explain-on|explain-off OUTPUT
+ * KernelCapture evidence SIZE 1 observer-off OUTPUT
+ * KernelCapture effect|effect-cycle COUNT WIDTH observer-on|observer-off OUTPUT
+ * KernelCapture inputs 2 1 observer-off OUTPUT
+ * </pre>
+ *
+ * Construction is outside the measured phase. The phase runs the ported
+ * operations; verification then writes OUTPUT/result.txt, which must equal the
+ * retained J0 result, and OUTPUT/metrics.txt with the phase time, the phase's
+ * allocation count and the live-allocation observations after setup, after
+ * the phase and after every snapshot and saved version is retired. What stays
+ * live after retirement is the invocation-lived payload of D262 plus the
+ * result text; the ownership kernel calibrates one child version's cost and
+ * counts the explanation events its joins recorded. Snapshot versions are held in recursion frames, so all
+ * of them stay live until verification, as Java's strong keys keep them, and
+ * each retires by an ordinary local proof. Exit 0 when every check holds.
+ */
+class KernelCapture {
+
+    static long liveAfterSetup;
+    static long liveAfterPhase;
+    static long liveAfterRetirement;
+    static long phaseNanos;
+    static long phaseStart;
+    static long allocationsAtStart;
+    static long phaseAllocations;
+    static long childVersionAllocations;
+    static long recordedEvents;
+
+    public static int main(String[] args) {
+
+        if (args.length != 5) {
+            System.err.println("usage: KernelCapture KIND SIZE WIDTH-OR-SHAPE FLAG OUTPUT");
+            return 2;
+        }
+        try {
+            String result = run(args[0], Integer.parseInt(args[1]), Integer.parseInt(args[2]), args[3]);
+            String metrics = "phaseNanos=" + phaseNanos + "\nphaseAllocations=" + phaseAllocations
+                    + "\nliveAfterSetup=" + liveAfterSetup + "\nliveAfterPhase=" + liveAfterPhase
+                    + "\nliveAfterRetirement=" + liveAfterRetirement + "\nchildVersionAllocations="
+                    + childVersionAllocations + "\nrecordedEvents=" + recordedEvents + "\n";
+            write(args[4] + "/result.txt", result);
+            write(args[4] + "/metrics.txt", metrics);
+            free metrics;
+            return 0;
+        } catch (Exception failure) {
+            System.err.println("kernel failed: " + failure.toString());
+            return 1;
+        }
+    }
+
+    private static String run(String kind, int size, int width, String flag) {
+
+        // J0 references stop at 128; larger sizes are native-only scale points (M2.3).
+        require(size >= 2 && size <= 4096 && width >= 1 && width <= 257);
+        if (kind.equals("inputs")) return InputKernel.run();
+        if (kind.equals("ownership")) {
+            require(flag.equals("explain-on") || flag.equals("explain-off"));
+            return OwnershipKernel.run(size, width, flag.equals("explain-on"));
+        }
+        if (kind.equals("evidence")) {
+            require(flag.equals("observer-off"));
+            return EvidenceKernel.run(size);
+        }
+        require(kind.equals("effect") || kind.equals("effect-cycle"));
+        require(flag.equals("observer-on") || flag.equals("observer-off"));
+        return EffectKernel.run(size, width, flag.equals("observer-on"), kind.equals("effect-cycle"));
+    }
+
+    static void require(boolean condition) {
+
+        if (!condition) throw new IllegalStateException("kernel contract");
+    }
+
+    static void startPhase() {
+
+        liveAfterSetup = System.liveAllocationCount();
+        allocationsAtStart = System.allocationCount();
+        phaseStart = System.nanoTime();
+    }
+
+    static void endPhase() {
+
+        phaseNanos = System.nanoTime() - phaseStart;
+        phaseAllocations = System.allocationCount() - allocationsAtStart;
+        liveAfterPhase = System.liveAllocationCount();
+    }
+
+    private static void write(String path, String text) throws Exception {
+
+        Path file = Path.of(path);
+        defer free file;
+        Files.writeString(file, text);
+    }
+}
+
+/** The OwnershipWork port: actual snapshot, mutate, restore and join over 64 iterations. */
+final class OwnershipKernel {
+
+    static final int ITERATIONS = 64;
+
+    private final int size;
+    private final boolean reverse;
+    private final boolean tight;
+    private final SourceFile source = SourceFile.of("SnapshotHost.iron", "class SnapshotHost {}\n");
+    private final SourceSpan span = SourceSpan.at(new SourcePosition(0, 1, 1));
+    private final UnfreedAllocationTracker<AllocationInfo> unfreed;
+    private final RejectedFreeEvidence.Budget budget;
+    private final RejectedFreeEvidence evidence;
+    private final FunctionOwnership analyzer;
+    private final AllocationInfo[] nodes;
+    private final ArraySlot[] slots;
+    private long copiedEntries;
+    private int completed;
+    private int versions;
+    private String result;
+
+    OwnershipKernel(int size, int shape, boolean explain) {
+
+        KernelCapture.require(size >= 8 && size <= 4096 && shape >= 1 && shape <= 4);
+        this.size = size;
+        this.reverse = shape % 2 == 0;
+        this.tight = shape >= 3;
+        this.unfreed = new UnfreedAllocationTracker<AllocationInfo>(this.source, OperationVariants.UnfreedMode.WARN);
+        this.budget = explain ? new RejectedFreeEvidence.Budget(this.tight ? 20 : 1048576) : null;
+        this.evidence = explain ? new RejectedFreeEvidence(this.budget, 1048576, 1048576) : null;
+        this.analyzer = new FunctionOwnership(this.source, this.unfreed, this.evidence, null);
+        this.nodes = new AllocationInfo[size];
+        this.slots = new ArraySlot[size];
+    }
+
+    static String run(int size, int shape, boolean explain) {
+
+        // Holds the analyzer's input nodes, invocation-lived under D262, to process exit.
+        @SuppressUnfreed OwnershipKernel ownership = new OwnershipKernel(size, shape, explain);
+        ownership.setUp();
+        KernelCapture.startPhase();
+        ownership.iterate(0, null, null);
+        KernelCapture.liveAfterRetirement = System.liveAllocationCount();
+        return ownership.result;
+    }
+
+    private void setUp() {
+
+        for (int index = 0; index < this.size; index++) {
+            AllocationInfo node = new AllocationInfo(index % 3);
+            PilotInputs.admitAllocation(node);
+            this.nodes[index] = node;
+            this.analyzer.allocations().add(node);
+        }
+        for (int step = 0; step < this.size; step++) {
+            int index = this.reverse ? this.size - step - 1 : step;
+            ArraySlot slot = new ArraySlot(this.nodes[7], index * 65537);
+            this.slots[index] = slot;
+            this.analyzer.knownArraySlots().put(slot, this.nodes[(index + 3) % this.size]);
+            this.analyzer.borrowedOwnedFields().put("field" + index, this.nodes[index]);
+            this.unfreed.register(this.nodes[index], this.span, "allocation", true);
+            if (this.evidence != null) {
+                this.evidence.origin(this.nodes[index], this.source, this.span);
+                this.evidence.arrayStore(slot, this.source, this.span);
+            }
+        }
+        this.analyzer.poolOwners().put(this.nodes[4], this.nodes[5]);
+        // Calibrates the live cost of one two-member child version, as the phase builds them.
+        long before = System.liveAllocationCount();
+        SnapshotList<AllocationInfo> calibration = children(this.nodes[1], this.nodes[2], null);
+        KernelCapture.childVersionAllocations = System.liveAllocationCount() - before;
+        free calibration;
+        this.analyzer.retainedBorrows().put(this.nodes[7], children(this.nodes[1], this.nodes[2], null));
+        this.analyzer.exposedContainerContents().add(this.nodes[1]);
+    }
+
+    // One iteration per frame. The frame's creation-array owner holds this
+    // iteration's two versions (and the last frame the merged version) until
+    // every deeper frame, verification and projection are done, then retires
+    // them. Versions stay live until verification, as Java's list keeps them.
+    private void iterate(int iteration, OwnershipSnapshot firstBefore, OwnershipSnapshot firstChanged) {
+
+        if (iteration == ITERATIONS) {
+            if (this.evidence != null) this.evidence.close();
+            KernelCapture.endPhase();
+            return;
+        }
+        OwnershipPaths paths = new OwnershipPaths(2);
+        defer free paths;
+        defer this.analyzer.releaseOwnership(paths);
+        this.analyzer.captureOwnership(paths);
+        OwnershipSnapshot before = paths.version(0);
+        this.versions++;
+        KernelCapture.require(before.stateCount() == this.size && before.slotCount() == this.size);
+        ArraySlot equalSlot = new ArraySlot(this.nodes[7], 0);
+        defer free equalSlot;
+        ArraySlot otherSlot = new ArraySlot(this.nodes[6], 0);
+        defer free otherSlot;
+        KernelCapture.require(equalSlot.equals(this.slots[0])
+                && this.analyzer.knownArraySlots().get(equalSlot) == this.nodes[3]);
+        KernelCapture.require(!otherSlot.equals(equalSlot));
+        this.nodes[0].setState(OperationVariants.AllocationState.ESCAPED);
+        this.nodes[1].setDetached(true);
+        this.analyzer.knownArraySlots().remove(equalSlot);
+        this.analyzer.borrowedOwnedFields().remove("field0");
+        this.analyzer.poolOwners().put(this.nodes[4], this.nodes[6]);
+        this.analyzer.retainedBorrows().put(this.nodes[7], children(this.nodes[2], this.nodes[3], null));
+        this.analyzer.exposedContainerContents().clear();
+        this.analyzer.exposedContainerContents().add(this.nodes[2]);
+        this.unfreed.consumed(this.nodes[2]);
+        // Reverse shapes visit the changed predecessor first.
+        this.analyzer.captureOwnership(paths, this.reverse ? 0 : 1);
+        OwnershipSnapshot changed = paths.version(1);
+        this.versions++;
+        // The saved state value must not read the subsequently mutated node.
+        KernelCapture.require(before.state(this.nodes[0]).state() == OperationVariants.AllocationState.ACTIVE);
+        KernelCapture.require(before.knownArraySlot(equalSlot) == this.nodes[3]);
+        KernelCapture.require(before.hasBorrowedOwnedField("field0"));
+        KernelCapture.require(before.poolOwner(this.nodes[4]) == this.nodes[5]);
+        KernelCapture.require(sameMembers(before.retainedBorrows(this.nodes[7]), this.nodes[1], this.nodes[2], null));
+        KernelCapture.require(before.exposedCount() == 1 && before.exposed(this.nodes[1]));
+        KernelCapture.require(before.live(this.nodes[2]));
+        this.analyzer.restoreOwnership(before);
+        KernelCapture.require(this.nodes[0].state() == OperationVariants.AllocationState.ACTIVE
+                && !this.nodes[1].detached());
+        this.analyzer.mergeOwnership(before, paths, "kernel conflict");
+        this.countEvents();
+        OperationVariants.AllocationState uncertain = OperationVariants.AllocationState.UNCERTAIN;
+        KernelCapture.require(this.nodes[0].state() == uncertain && this.nodes[1].state() == uncertain);
+        KernelCapture.require(this.nodes[3].state() == uncertain && this.nodes[5].state() == uncertain
+                && this.nodes[6].state() == uncertain);
+        KernelCapture.require(!this.analyzer.knownArraySlots().containsKey(equalSlot)
+                && this.analyzer.knownArraySlots().size() == this.size - 1);
+        KernelCapture.require(!this.analyzer.borrowedOwnedFields().containsKey("field0")
+                && this.analyzer.borrowedOwnedFields().size() == this.size - 1);
+        KernelCapture.require(this.analyzer.poolOwners().get(this.nodes[4]) == (this.reverse ? this.nodes[6] : this.nodes[5]));
+        KernelCapture.require(sameMembers(this.analyzer.retainedBorrows().get(this.nodes[7]), this.nodes[1],
+                this.nodes[2], this.nodes[3]));
+        KernelCapture.require(this.analyzer.exposedContainerContents().size() == 2
+                && this.analyzer.exposedContainerContents().contains(this.nodes[1])
+                && this.analyzer.exposedContainerContents().contains(this.nodes[2])
+                && this.unfreed.liveCount() == this.size - 1);
+        this.copiedEntries += (long) this.size * 8 + 3;
+        if (iteration == ITERATIONS - 1) {
+            OwnershipSnapshot merged = this.analyzer.snapshotOwnership();
+            defer free merged;
+            defer this.analyzer.releaseOwnership(merged);
+            this.analyzer.restoreOwnership(before);
+            this.completed++;
+            this.iterate(iteration + 1, firstBefore, firstChanged);
+            this.verify(firstBefore, firstChanged, merged);
+            return;
+        }
+        this.analyzer.restoreOwnership(before);
+        this.completed++;
+        if (iteration == 0) {
+            this.iterate(iteration + 1, before, changed);
+            return;
+        }
+        this.iterate(iteration + 1, firstBefore, firstChanged);
+    }
+
+    // The join records a selected-reason event for each of the five nodes it
+    // makes uncertain or blocks while the explanation budget allows; restoring
+    // the event-free pre-branch version clears them again.
+    private void countEvents() {
+
+        if (this.evidence == null) return;
+        if (this.evidence.event(this.nodes[0]) != null) KernelCapture.recordedEvents++;
+        if (this.evidence.event(this.nodes[1]) != null) KernelCapture.recordedEvents++;
+        if (this.evidence.event(this.nodes[3]) != null) KernelCapture.recordedEvents++;
+        if (this.evidence.event(this.nodes[5]) != null) KernelCapture.recordedEvents++;
+        if (this.evidence.event(this.nodes[6]) != null) KernelCapture.recordedEvents++;
+    }
+
+    private void verify(OwnershipSnapshot before, OwnershipSnapshot changed, OwnershipSnapshot merged) {
+
+        KernelCapture.require(this.completed == ITERATIONS && this.versions == ITERATIONS * 2);
+        KernelCapture.require(this.nodes[0].state() == OperationVariants.AllocationState.ACTIVE
+                && this.analyzer.knownArraySlots().size() == this.size
+                && this.analyzer.borrowedOwnedFields().size() == this.size);
+        KernelCapture.require(this.analyzer.poolOwners().get(this.nodes[4]) == this.nodes[5]
+                && this.analyzer.exposedContainerContents().size() == 1
+                && this.analyzer.exposedContainerContents().contains(this.nodes[1]));
+        KernelCapture.require(this.unfreed.liveCount() == this.size);
+        if (this.budget != null) KernelCapture.require(this.budget.live() == 0 && this.budget.stopped() == this.tight);
+        StringBuilder out = new StringBuilder();
+        defer free out;
+        out.append("iterations=");
+        out.append(this.completed);
+        out.append("\nversions=");
+        out.append(this.versions);
+        out.append("\nsize=");
+        out.append(this.size);
+        out.append("\nreverse=");
+        out.append(this.reverse);
+        out.append("\ntight=");
+        out.append(this.tight);
+        out.append("\nexplain=");
+        out.append(this.evidence != null);
+        out.append("\nretainedVersionEntries=");
+        out.append(this.copiedEntries);
+        out.append("\nfinalBudgetLive=");
+        out.append(this.budget == null ? 0 : this.budget.live());
+        out.append("\nbudgetHighWater=");
+        out.append(this.budget == null ? 0 : this.budget.highWater());
+        out.append('\n');
+        this.projection(out, "before", before);
+        this.projection(out, "changed", changed);
+        this.projection(out, "merged", merged);
+        this.result = out.toString();
+    }
+
+    // Keyed input identity order projects extensional facts, never diagnostics or IR.
+    private void projection(StringBuilder out, String label, OwnershipSnapshot version) {
+
+        for (int index = 0; index < this.size; index++) {
+            AllocationInfo node = this.nodes[index];
+            String prefix = label + "." + index + ".";
+            defer free prefix;
+            out.append(prefix);
+            out.append("state=");
+            out.append(version.state(node).state().name());
+            out.append('\n');
+            out.append(prefix);
+            out.append("reason=");
+            String reason = version.state(node).blockingReason();
+            out.append(reason == null ? "null" : reason);
+            out.append('\n');
+            out.append(prefix);
+            out.append("detached=");
+            out.append(version.state(node).detached());
+            out.append('\n');
+            out.append(prefix);
+            out.append("slot=");
+            out.append(this.identity(version.knownArraySlot(this.slots[index])));
+            out.append('\n');
+            String field = "field" + index;
+            defer free field;
+            out.append(prefix);
+            out.append("field=");
+            out.append(this.identity(version.borrowedOwnedField(field)));
+            out.append('\n');
+            out.append(prefix);
+            out.append("pool=");
+            out.append(this.identity(version.poolOwner(node)));
+            out.append('\n');
+            out.append(prefix);
+            out.append("children=");
+            SnapshotList<AllocationInfo> children = version.retainedBorrows(node);
+            if (children != null) {
+                for (int member = 0; member < this.size; member++) {
+                    if (contains(children, this.nodes[member])) {
+                        out.append(member);
+                        out.append(',');
+                    }
+                }
+            }
+            out.append('\n');
+            out.append(prefix);
+            out.append("exposed=");
+            out.append(version.exposed(node));
+            out.append('\n');
+            out.append(prefix);
+            out.append("live=");
+            out.append(version.live(node));
+            out.append('\n');
+        }
+    }
+
+    private int identity(AllocationInfo node) {
+
+        if (node == null) return -1;
+        for (int index = 0; index < this.size; index++) {
+            if (this.nodes[index] == node) return index;
+        }
+        throw new IllegalStateException("unknown result node");
+    }
+
+    // An immutable child version, as Java's Set.of: up to three members.
+    private static SnapshotList<AllocationInfo> children(AllocationInfo first, AllocationInfo second,
+                                                         AllocationInfo third) {
+
+        ArrayList<AllocationInfo> members = new ArrayList<AllocationInfo>(3);
+        defer free members;
+        members.add(first);
+        members.add(second);
+        if (third != null) members.add(third);
+        return new SnapshotList<AllocationInfo>(members);
+    }
+
+    // Set equality with Set.of(first, second[, third]).
+    private static boolean sameMembers(SnapshotList<AllocationInfo> members, AllocationInfo first,
+                                       AllocationInfo second, AllocationInfo third) {
+
+        int expected = third == null ? 2 : 3;
+        if (members == null || members.size() != expected) return false;
+        return contains(members, first) && contains(members, second) && (third == null || contains(members, third));
+    }
+
+    private static boolean contains(SnapshotList<AllocationInfo> members, AllocationInfo node) {
+
+        for (int index = 0; index < members.size(); index++) {
+            if (members.get(index) == node) return true;
+        }
+        return false;
+    }
+}
+
+/** A node whose hash always collides, as Java's EvidenceWork.Node. */
+final class CollidingNode {
+
+    CollidingNode() {
+
+    }
+
+    @Override public int hashCode() {
+
+        return 0;
+    }
+}
+
+/** Java's EvidenceWork Slot record: node identity and index. */
+final class EvidenceSlot {
+
+    private final CollidingNode node;
+    private final int index;
+
+    EvidenceSlot(CollidingNode node, int index) {
+
+        this.node = node;
+        this.index = index;
+    }
+
+    @Override public boolean equals(Object value) {
+
+        if (!(value instanceof EvidenceSlot)) return false;
+        EvidenceSlot other = (EvidenceSlot) value;
+        return this.node == other.node && this.index == other.index;
+    }
+
+    @Override public int hashCode() {
+
+        return this.node.hashCode() * 31 + this.index;
+    }
+}
+
+/** A strongly held version key that owns the evidence saved for it (D259). */
+final class EvidenceKey implements RejectedFreeEvidence.Version {
+
+    private final RejectedFreeEvidence.Saved saved;
+
+    EvidenceKey(RejectedFreeEvidence store) {
+
+        this.saved = store.save();
+    }
+
+    @Override public RejectedFreeEvidence.Saved savedEvidence() {
+
+        return this.saved;
+    }
+
+    destructor {
+
+        free this.saved;
+    }
+}
+
+/** One iteration's two keys, owned in a creation array and lent in path order. */
+final class EvidenceKeys implements RejectedFreeEvidence.Paths {
+
+    private final EvidenceKey[] keys = new EvidenceKey[2];
+    private int count;
+
+    EvidenceKeys() {
+
+    }
+
+    void save(RejectedFreeEvidence store) {
+
+        EvidenceKey value = new EvidenceKey(store);
+        this.keys[this.count++] = value;
+    }
+
+    EvidenceKey key(int index) {
+
+        return this.keys[index];
+    }
+
+    @Override public int pathCount() {
+
+        return this.count;
+    }
+
+    @Override public RejectedFreeEvidence.Saved savedPath(int position) {
+
+        return this.key(position).savedEvidence();
+    }
+
+    void release(RejectedFreeEvidence store) {
+
+        for (int index = 0; index < this.count; index++) store.release(this.key(index).savedEvidence());
+    }
+
+    destructor {
+
+        for (int index = 0; index < this.keys.length; index++) {
+            free this.keys[index];
+        }
+        free this.keys;
+    }
+}
+
+/** The EvidenceWork port: six associations per node, saved, merged and restored 64 times. */
+final class EvidenceKernel {
+
+    static final int ITERATIONS = 64;
+
+    private final RejectedFreeEvidence.Budget budget = new RejectedFreeEvidence.Budget(1048576);
+    private final RejectedFreeEvidence store = new RejectedFreeEvidence(this.budget, 1048576, 1048576);
+    private final SourceFile source = SourceFile.of("kernel.iron", "class Kernel {}\n");
+    private final SourceSpan span = SourceSpan.at(new SourcePosition(0, 1, 1));
+    private final CollidingNode[] nodes;
+    private long associations;
+    private int exactIntersections;
+
+    EvidenceKernel(int size) {
+
+        this.nodes = new CollidingNode[size];
+        for (int index = 0; index < size; index++) this.nodes[index] = new CollidingNode();
+        for (int index = 0; index < size; index++) {
+            CollidingNode node = this.nodes[index];
+            KernelCapture.require(this.store.origin(node, this.source, this.span));
+            KernelCapture.require(this.store.bind(node, node, this.source, this.span));
+            KernelCapture.require(this.store.arrayStore(new EvidenceSlot(node, index * 65537), this.source, this.span));
+            KernelCapture.require(this.store.retain(node, this.nodes[(index + 1) % size], this.source, this.span));
+            KernelCapture.require(this.store.selectedReason(node, "reason", this.source, this.span));
+            KernelCapture.require(this.store.joined(node, new RejectedFreeEvidence.Join("state", "reason", 0,
+                    "complete", true)));
+        }
+    }
+
+    static String run(int size) {
+
+        // Holds the store whose evidence payloads are invocation-lived under D262.
+        @SuppressUnfreed EvidenceKernel evidence = new EvidenceKernel(size);
+        KernelCapture.startPhase();
+        evidence.iterate(0);
+        return evidence.verify();
+    }
+
+    // One iteration per frame: its keys stay live until the store closes, as
+    // Java's strong keys do, and then retire with the frame.
+    private void iterate(int iteration) {
+
+        if (iteration == ITERATIONS) {
+            this.store.close();
+            KernelCapture.endPhase();
+            return;
+        }
+        EvidenceKeys keys = new EvidenceKeys();
+        defer free keys;
+        // Java's collector would retire the versions after close; release is a no-op then.
+        defer keys.release(this.store);
+        keys.save(this.store);
+        // The store's fixed snapshot limit stops saving above about 1,365 nodes.
+        KernelCapture.require(keys.key(0).savedEvidence() != null);
+        int saved = keys.key(0).savedEvidence().associations();
+        KernelCapture.require(saved == this.nodes.length * 6);
+        this.associations += saved;
+        KernelCapture.require(this.store.selectedReason(this.nodes[0], "reason", this.source, this.span));
+        KernelCapture.require(this.store.joined(this.nodes[0], new RejectedFreeEvidence.Join("state", "reason", 0,
+                "complete", true)));
+        keys.save(this.store);
+        KernelCapture.require(keys.key(1).savedEvidence() != null && keys.key(1).savedEvidence().associations() == saved);
+        this.associations += saved;
+        KernelCapture.require(this.store.merge(keys));
+        if (this.store.event(this.nodes[0]) == null && this.store.join(this.nodes[0]) == null
+                && this.store.event(this.nodes[1]) != null && this.store.join(this.nodes[1]) != null
+                && this.store.binding(this.nodes[0]).allocation() == this.nodes[0]) {
+            this.exactIntersections++;
+        }
+        KernelCapture.require(this.store.restore(keys.key(0)));
+        this.iterate(iteration + 1);
+    }
+
+    private String verify() {
+
+        KernelCapture.liveAfterRetirement = System.liveAllocationCount();
+        KernelCapture.require(this.associations == (long) ITERATIONS * 2 * this.nodes.length * 6);
+        KernelCapture.require(this.exactIntersections == ITERATIONS && this.budget.live() == 0);
+        KernelCapture.require(!this.store.localTruncated() && !this.budget.stopped());
+        return "associations=" + this.associations + "\nexactIntersections=" + this.exactIntersections
+                + "\nbudgetHighWater=" + this.budget.highWater() + "\nsnapshotHighWater="
+                + this.store.snapshotHighWater() + "\nfinalBudgetLive=" + this.budget.live() + "\n";
+    }
+}
+
+/** The fixture's retained observer: counts creation and rounds, as Java's Counter. */
+final class RoundCounter implements SemanticAnalysisObserver {
+
+    int created;
+    int rounds;
+
+    RoundCounter() {
+
+    }
+
+    @Override public void analyzerCreated(long token, OperationVariants.AnalyzerKind kind,
+                                          OperationVariants.AnalyzerPhase phase) {
+
+        this.created++;
+    }
+
+    @Override public void analyzerRound(long token, OperationVariants.AnalyzerKind kind, int round) {
+
+        KernelCapture.require(round == this.rounds);
+        this.rounds++;
+    }
+
+    @Override public void evidenceSnapshot(boolean saved, boolean sharedEmpty, int associations) {
+
+    }
+}
+
+/** The EffectWork port: direct-call chains or cycles seeded by one foreign call. */
+final class EffectKernel {
+
+    private final SourceSpan span = SourceSpan.at(new SourcePosition(0, 1, 1));
+    private final IrType reference = IrType.reference("Node");
+    private final ArrayList<IrFunction> functions = new ArrayList<IrFunction>();
+    private final int width;
+    private final RoundCounter observer;
+
+    EffectKernel(int count, int width, boolean observed, boolean cyclic) {
+
+        this.width = width;
+        this.observer = observed ? new RoundCounter() : null;
+        ArrayList<IrParameter> parameterBuilder = new ArrayList<IrParameter>(width);
+        defer free parameterBuilder;
+        ArrayList<IrOperand> argumentBuilder = new ArrayList<IrOperand>(width);
+        defer free argumentBuilder;
+        for (int index = 0; index < width; index++) {
+            IrValueReference value = new IrValueReference(index, this.reference, this.span);
+            parameterBuilder.add(new IrParameter("p" + index, value, this.span));
+            argumentBuilder.add(value);
+        }
+        SnapshotList<IrParameter> parameters = new SnapshotList<IrParameter>(parameterBuilder);
+        SnapshotList<IrOperand> arguments = new SnapshotList<IrOperand>(argumentBuilder);
+        for (int index = 0; index < count; index++) {
+            IrValueReference result = new IrValueReference(width, this.reference, this.span);
+            ArrayList<IrInstruction> calls = new ArrayList<IrInstruction>(2);
+            // Loop-local builder: retires at the end of each iteration.
+            defer free calls;
+            if (index + 1 == count) {
+                calls.add(new IrForeignCallInstruction(result, PilotInputs.FOREIGN_TARGET, this.reference, arguments,
+                        this.span));
+            } else {
+                calls.add(new IrCallInstruction(result, "F" + (index + 1), this.reference, arguments,
+                        OperationVariants.CallKind.DIRECT, this.span));
+            }
+            // The foreign seed feeds a real call cycle; every parameter escapes around it.
+            if (cyclic && index + 1 == count) {
+                calls.add(new IrCallInstruction(null, "F0", this.reference, arguments, OperationVariants.CallKind.DIRECT,
+                        this.span));
+            }
+            ArrayList<IrBasicBlock> blocks = new ArrayList<IrBasicBlock>(1);
+            defer free blocks;
+            blocks.add(new IrBasicBlock("entry", new SnapshotList<IrInstruction>(calls),
+                    new IrReturnTerminator(result, this.span), this.span));
+            this.functions.add(new IrFunction("Node", "F" + index, "F" + index, this.reference, parameters,
+                    new SnapshotList<IrBasicBlock>(blocks), this.span, IrFunction.UNKNOWN_SOURCE,
+                    OperationVariants.CallableKind.METHOD));
+        }
+    }
+
+    static String run(int count, int width, boolean observed, boolean cyclic) {
+
+        EffectKernel kernel = new EffectKernel(count, width, observed, cyclic);
+        SnapshotList<IrFunction> functions = new SnapshotList<IrFunction>(kernel.functions);
+        defer free functions;
+        PilotInputs.admitEffectFunctions(functions);
+        String result = kernel.analyze(functions);
+        KernelCapture.liveAfterRetirement = System.liveAllocationCount();
+        return result;
+    }
+
+    // The analyzer and its summaries retire before the input list.
+    private String analyze(SnapshotList<IrFunction> functions) {
+
+        KernelCapture.startPhase();
+        ClosedWorldEffectAnalyzer analyzer = new ClosedWorldEffectAnalyzer(functions, this.observer, 17,
+                OperationVariants.AnalyzerPhase.INITIAL);
+        defer free analyzer;
+        analyzer.analyze();
+        KernelCapture.endPhase();
+        return this.verify(analyzer, functions);
+    }
+
+    // Explicit input order serializes an extensional projection, not diagnostics or IR.
+    private String verify(ClosedWorldEffectAnalyzer analyzer, SnapshotList<IrFunction> functions) {
+
+        StringBuilder all = new StringBuilder();
+        defer free all;
+        all.append('{');
+        for (int bit = 0; bit < this.width; bit++) {
+            if (bit > 0) all.append(", ");
+            all.append(bit);
+        }
+        all.append('}');
+        String every = all.toString();
+        defer free every;
+        String published = "publishedParameters=" + every;
+        defer free published;
+        String returned = "returnedParameters=" + every;
+        defer free returned;
+        String reclaimed = "reclaimedParameters=" + every;
+        defer free reclaimed;
+        StringBuilder out = new StringBuilder();
+        defer free out;
+        StringBuilder fact = new StringBuilder();
+        defer free fact;
+        for (int index = 0; index < functions.size(); index++) {
+            fact.setLength(0);
+            analyzer.appendSummary(index, fact);
+            String text = fact.toString();
+            defer free text;
+            KernelCapture.require(text.contains(published) && text.contains(returned) && text.contains(reclaimed));
+            KernelCapture.require(text.contains("allocates=true, throwsOutward=true"));
+            out.append(functions.get(index).linkageName());
+            out.append('=');
+            out.append(text);
+            out.append('\n');
+        }
+        if (this.observer != null) {
+            KernelCapture.require(this.observer.created == 1 && this.observer.rounds == functions.size() + 1);
+        }
+        return out.toString();
+    }
+}
+
+/**
+ * The input factory's boundary: one admitted two-function chain, then one
+ * deviation per selected rule, each rejected by PilotInputs before any
+ * analyzer exists. Rejected inputs and their exceptions are invocation-lived.
+ */
+final class InputKernel {
+
+    static final int DEFECTS = 8;
+
+    private final SourceSpan span = SourceSpan.at(new SourcePosition(0, 1, 1));
+    private final IrType reference = IrType.reference("Node");
+    private final StringBuilder out = new StringBuilder();
+
+    InputKernel() {
+
+    }
+
+    static String run() {
+
+        // Owns the span and type that the invocation-lived rejected inputs borrow.
+        @SuppressUnfreed InputKernel inputs = new InputKernel();
+        for (int defect = 0; defect <= DEFECTS; defect++) inputs.check(defect);
+        // An allocation node is an invocation-lived analyzer input (D262).
+        @SuppressUnfreed AllocationInfo node = new AllocationInfo(0);
+        PilotInputs.admitAllocation(node);
+        inputs.out.append("admitted allocation\n");
+        node.setState(OperationVariants.AllocationState.FREED);
+        try {
+            PilotInputs.admitAllocation(node);
+            inputs.out.append("admitted freed allocation\n");
+        } catch (IllegalArgumentException rejected) {
+            inputs.out.append(rejected.getMessage());
+            inputs.out.append('\n');
+        }
+        return inputs.out.toString();
+    }
+
+    private void check(int defect) {
+
+        SnapshotList<IrFunction> functions = this.functions(defect);
+        defer free functions;
+        try {
+            PilotInputs.admitEffectFunctions(functions);
+            this.out.append("admitted chain ");
+            this.out.append(defect);
+            this.out.append('\n');
+        } catch (IllegalArgumentException rejected) {
+            this.out.append(rejected.getMessage());
+            this.out.append('\n');
+        }
+    }
+
+    // F0 calls F1, which makes the fixed foreign call; one defect is applied.
+    private SnapshotList<IrFunction> functions(int defect) {
+
+        IrValueReference value = new IrValueReference(defect == 8 ? -1 : 0, this.reference, this.span);
+        ArrayList<IrParameter> parameterBuilder = new ArrayList<IrParameter>(1);
+        defer free parameterBuilder;
+        parameterBuilder.add(new IrParameter("p0", value, this.span));
+        ArrayList<IrOperand> argumentBuilder = new ArrayList<IrOperand>(1);
+        defer free argumentBuilder;
+        argumentBuilder.add(value);
+        SnapshotList<IrParameter> parameters = new SnapshotList<IrParameter>(parameterBuilder);
+        SnapshotList<IrOperand> arguments = new SnapshotList<IrOperand>(argumentBuilder);
+        ArrayList<IrFunction> functions = new ArrayList<IrFunction>(2);
+        defer free functions;
+        for (int index = 0; index < 2; index++) {
+            IrValueReference result = new IrValueReference(1, this.reference, this.span);
+            ArrayList<IrInstruction> calls = new ArrayList<IrInstruction>(1);
+            defer free calls;
+            if (index == 1) {
+                String target = defect == 5 ? "ironwood_bridge_callback_unselected" : PilotInputs.FOREIGN_TARGET;
+                calls.add(new IrForeignCallInstruction(defect == 6 ? null : result, target, this.reference, arguments,
+                        this.span));
+            } else {
+                OperationVariants.CallKind kind = defect == 4 ? OperationVariants.CallKind.DEVIRTUALIZED_VIRTUAL
+                        : OperationVariants.CallKind.DIRECT;
+                calls.add(new IrCallInstruction(result, "F1", this.reference, arguments, kind, this.span));
+            }
+            ArrayList<IrBasicBlock> blocks = new ArrayList<IrBasicBlock>(2);
+            defer free blocks;
+            IrOperand returned = defect == 7 && index == 0 ? null : result;
+            blocks.add(new IrBasicBlock("entry", new SnapshotList<IrInstruction>(calls),
+                    new IrReturnTerminator(returned, this.span), this.span));
+            if (defect == 3 && index == 0) {
+                ArrayList<IrInstruction> none = new ArrayList<IrInstruction>(1);
+                defer free none;
+                blocks.add(new IrBasicBlock("exit", new SnapshotList<IrInstruction>(none),
+                        new IrReturnTerminator(result, this.span), this.span));
+            }
+            String name = defect == 1 ? "F0" : "F" + index;
+            OperationVariants.CallableKind kind = defect == 2 && index == 0 ? OperationVariants.CallableKind.CONSTRUCTOR
+                    : OperationVariants.CallableKind.METHOD;
+            functions.add(new IrFunction("Node", name, name, this.reference, parameters,
+                    new SnapshotList<IrBasicBlock>(blocks), this.span, IrFunction.UNKNOWN_SOURCE, kind));
+        }
+        return new SnapshotList<IrFunction>(functions);
+    }
+}

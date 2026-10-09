@@ -1,0 +1,121 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.process;
+
+import ironwood.io.IOException;
+import ironwood.nio.file.AccessDeniedException;
+import ironwood.nio.file.FileSystemException;
+import ironwood.nio.file.NoSuchFileException;
+import ironwood.nio.file.Path;
+
+/**
+ * Runs an external program synchronously. This is a narrower facility than
+ * Java's {@code ProcessBuilder} and {@code Process}: the caller names the
+ * executable by absolute path, the program inherits the environment, reads
+ * end-of-file from standard input and writes standard output and standard
+ * error to one file, and the call returns only after the program has ended
+ * and been reaped.
+ */
+public final class ProcessRunner {
+
+    private static final int OUTPUT = 1;
+    private static final int DIRECTORY = 4;
+    private static final int EXECUTE = 5;
+    private static final int NO_SUCH_FILE = 1;
+    private static final int PERMISSION = 2;
+    private static final int NOT_DIRECTORY = 3;
+    private static final int IS_DIRECTORY = 4;
+    private static final int EXEC_FORMAT = 5;
+    private static final int TOO_BIG = 6;
+    private static final int RESOURCE = 7;
+    private static final int LOOP = 8;
+    private static final int NAME_TOO_LONG = 9;
+
+    private ProcessRunner() {
+
+    }
+
+    /**
+     * Runs {@code command} and waits for it to end. {@code command[0]} must
+     * be an absolute path to the executable; it is executed directly, with
+     * no PATH search and no shell, so every element, including spaces,
+     * quotes and shell metacharacters, reaches the program literally. The
+     * program inherits the environment and runs in {@code directory}, or in
+     * this process's working directory when it is null; this process's own
+     * working directory never changes. Its standard input is empty, and its
+     * standard output and standard error are merged into {@code output},
+     * which is created or truncated first and is resolved against this
+     * process's directory, not the program's. Strings are passed to the host
+     * as UTF-8, an unpaired surrogate as U+FFFD.
+     *
+     * <p>A program that starts and exits, whatever its status (including
+     * 127), or that a signal ends, is a completed result. A program that
+     * cannot start fails with an exception instead: a missing or
+     * non-executable file, an executable format the host rejects (there is
+     * no shell fallback), a directory that cannot be entered, or an output
+     * file that cannot be opened. The program stays in this process's
+     * process group, so a terminal interrupt reaches both; a signal sent to
+     * this process alone does not stop the program.
+     *
+     * <p>The arguments are borrowed for the call; nothing is retained.
+     *
+     * @param command the executable's absolute path followed by its arguments
+     * @param directory the program's working directory, or null
+     * @param output the file receiving the program's merged output
+     * @return a fresh caller-owned result
+     * @throws IllegalArgumentException if the command is empty, an element
+     *         contains NUL, or the executable path is not absolute
+     * @throws NoSuchFileException if the executable, the directory or the
+     *         output's parent does not exist
+     * @throws AccessDeniedException if permission to execute, enter the
+     *         directory or open the output is denied
+     * @throws IOException if the program cannot start for another reason
+     */
+    public static ProcessResult runToFile(String[] command, Path directory, Path output) throws IOException {
+
+        if (command == null || output == null) throw new NullPointerException();
+        if (command.length == 0) throw new IllegalArgumentException("empty command");
+        for (int index = 0; index < command.length; index++) {
+            if (command[index] == null) throw new NullPointerException();
+            if (command[index].indexOf(0) >= 0) {
+                throw new IllegalArgumentException("command element contains NUL");
+            }
+        }
+        if (command[0].isEmpty() || command[0].charAt(0) != '/') {
+            throw new IllegalArgumentException("executable path is not absolute");
+        }
+        String directoryText = directory == null ? null : directory.toString();
+        String outputText = output.toString();
+        long status = runProcessValue(command, directoryText, outputText);
+        if (status < 0L) throw failure((int) -status, command[0], directoryText, outputText);
+        return new ProcessResult((int) status);
+    }
+
+    private static IOException failure(int code, String executable, String directory, String output) {
+
+        int stage = code / 16;
+        int reason = code % 16;
+        String file = stage == OUTPUT ? output : stage == DIRECTORY ? directory
+                : stage == EXECUTE ? executable : null;
+        if (file == null) {
+            return new IOException(reason == RESOURCE ? "cannot start process: resources unavailable"
+                    : "cannot start process");
+        }
+        if (reason == NO_SUCH_FILE) return new NoSuchFileException(file);
+        if (reason == PERMISSION) return new AccessDeniedException(file, null, "Permission denied");
+        String text = reason == NOT_DIRECTORY ? "Not a directory"
+                : reason == IS_DIRECTORY ? "Is a directory"
+                : reason == EXEC_FORMAT ? "Exec format error"
+                : reason == TOO_BIG ? "Argument list too long"
+                : reason == RESOURCE ? "Resources unavailable"
+                : reason == LOOP ? "Too many levels of symbolic links"
+                : reason == NAME_TOO_LONG ? "File name too long"
+                : "I/O error";
+        return new FileSystemException(file, null, text);
+    }
+
+    private static long runProcessValue(String[] command, String directory, String output) {
+
+        return -1L;
+    }
+}

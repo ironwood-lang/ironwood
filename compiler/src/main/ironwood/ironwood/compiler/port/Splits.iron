@@ -1,0 +1,75 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.port;
+
+/**
+ * Java 21 {@code String.split} for a regex that matches one literal
+ * character, as the compiler's {@code split("\\.")}, {@code split("/")},
+ * {@code split(":")}, line, tab and path-separator calls do. Instead of a
+ * fresh String per field, the result is one int array of
+ * {@code [start, end)} pairs into the borrowed text, so callers compare
+ * fields in place or take only the substrings they keep.
+ *
+ * <p>Field selection follows the Java contract: with no delimiter the only
+ * field is the whole text, even when it is empty; a delimiter at the start
+ * yields an empty leading field; a positive limit applies the delimiter at
+ * most {@code limit - 1} times, leaving the rest in the last field; a zero
+ * limit removes trailing empty fields; a negative limit keeps them.
+ */
+public final class Splits {
+
+    private Splits() {
+
+    }
+
+    /**
+     * @param text the borrowed text
+     * @param delimiter the literal delimiter
+     * @param limit Java's split limit
+     * @return a fresh array of {@code 2 * fieldCount} field bounds, owned by
+     *     the caller
+     */
+    public static int[] bounds(String text, char delimiter, int limit) {
+
+        int length = text.length();
+        int fields = 1;
+        for (int index = 0; index < length && (limit <= 0 || fields < limit); index++) {
+            if (text.charAt(index) == delimiter) fields++;
+        }
+        int[] all = new int[fields * 2];
+        int start = 0;
+        int field = 0;
+        for (int index = 0; index < length && field < fields - 1; index++) {
+            if (text.charAt(index) == delimiter) {
+                all[field * 2] = start;
+                all[field * 2 + 1] = index;
+                field++;
+                start = index + 1;
+            }
+        }
+        all[field * 2] = start;
+        all[field * 2 + 1] = length;
+        int kept = fields;
+        if (limit == 0 && fields > 1) {
+            while (kept > 0 && all[kept * 2 - 1] == all[kept * 2 - 2]) kept--;
+        }
+        if (kept == fields) return all;
+        // Only trailing empty fields were removed; copy the kept prefix.
+        defer free all;
+        int[] result = new int[kept * 2];
+        for (int index = 0; index < kept * 2; index++) result[index] = all[index];
+        return result;
+    }
+
+    /** @return the number of fields in a bounds array */
+    public static int count(int[] bounds) {
+
+        return bounds.length / 2;
+    }
+
+    /** @return a fresh String holding one field; the caller owns it */
+    public static String field(String text, int[] bounds, int field) {
+
+        return text.substring(bounds[field * 2], bounds[field * 2 + 1]);
+    }
+}

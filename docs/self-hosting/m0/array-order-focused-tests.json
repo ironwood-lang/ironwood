@@ -1,0 +1,33 @@
+{
+  "schema": 1,
+  "base_revision": "1a2c95f3",
+  "original_J0_revision": "6bde84df320e9dbc32977a2b665d214ac09bc2d4",
+  "command": [
+    "env",
+    "-u",
+    "JAVA_TOOL_OPTIONS",
+    "-u",
+    "JDK_JAVA_OPTIONS",
+    "-u",
+    "_JAVA_OPTIONS",
+    "JAVA_HOME=/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home",
+    "IRONWOOD_STDLIB_HOME=/Users/developer/workspace-mba-m2/Ironwood/target/self-hosting-m0/J0-final2",
+    "./scripts/test.sh",
+    "--test",
+    "array snapshot joins preserve current store witness order",
+    "--test",
+    "safe free accounts for reference-array element aliases",
+    "--test",
+    "rejected free preserves escape and uncertainty reason selection",
+    "--test",
+    "rejected free preserves branch reclamation and field proof boundaries"
+  ],
+  "returncode": 0,
+  "log_sha256": "68b630b8160289a9cc16b69112d752067e85234417af60012cdab66224c6832f",
+  "profile_note": "repository behavior tests use script JVM defaults with the explicit Java 21 override; these are not resource measurements",
+  "changed_source_sha256": {
+    "compiler/src/main/java/ironwood/compiler/semantic/FunctionAnalyzer.java": "8bd284de9d8d9004e083c714ae83edf54c52b2277b0e37559feb2fde409c7243",
+    "compiler/src/test/java/ironwood/compiler/ArraySnapshotOrderTests.java": "1aecc40e99602b13f21253da287caede5df692405284c4ac4a2d3bf8850f98ea",
+    "compiler/src/test/java/ironwood/compiler/CompilerTests.java": "c91b50c6e8fe069b59659990de66e164d77bbdcc598088ed8a18572e3b4a8e78"
+  }
+}

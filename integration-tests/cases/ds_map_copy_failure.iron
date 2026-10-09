@@ -1,0 +1,50 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// Inject OOM through each map constructor and its independent copy, including
+// entry-pool preloading. Exit 42 on OOM and 43 on success, with no live delta.
+import ironwood.ds.*;
+class Main {
+
+    static void copyHashMap() {
+
+        HashMap<String, String> source = new HashMap<String, String>(4, 1.0f);
+        defer free source;
+        source.put("one", "one"); source.put("two", "two");
+        source.put("three", "three"); source.put("four", "four");
+        HashMap<String, String> copied = source.copy();
+        defer free copied;
+        if (copied.size() != 4) throw new IllegalStateException();
+    }
+    static void copyIdentityHashMap() {
+
+        IdentityHashMap<String, String> source = new IdentityHashMap<String, String>(4, 1.0f);
+        defer free source;
+        source.put("one", "one"); source.put("two", "two");
+        source.put("three", "three"); source.put("four", "four");
+        IdentityHashMap<String, String> copied = source.copy();
+        defer free copied;
+        if (copied.size() != 4) throw new IllegalStateException();
+    }
+    static void copyLinkedHashMap() {
+
+        LinkedHashMap<String, String> source = new LinkedHashMap<String, String>(4, 1.0f);
+        defer free source;
+        source.put("one", "one"); source.put("two", "two");
+        source.put("three", "three"); source.put("four", "four");
+        LinkedHashMap<String, String> copied = source.copy();
+        defer free copied;
+        if (copied.size() != 4) throw new IllegalStateException();
+    }
+    public static int main(String[] args) {
+
+        long baseline = System.liveAllocationCount();
+        boolean failed = false;
+        try { copyHashMap(); copyIdentityHashMap(); copyLinkedHashMap(); }
+        catch (OutOfMemoryError failure) {
+
+           failed = true;
+       }
+        if (System.liveAllocationCount() != baseline) return 1;
+        return failed ? 42 : 43;
+    }
+}

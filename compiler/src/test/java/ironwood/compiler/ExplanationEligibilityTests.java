@@ -81,13 +81,21 @@ final class ExplanationEligibilityTests {
         CompilationArtifact on = new CompilerPipeline(UnfreedMode.OFF, true, null)
                 .analyze(List.of(skipped));
         require(samePrimaries(off, on) && !on.valid(),
-                "skipped analysis changed primary diagnostics");
+                "earlier error changed primary diagnostics");
         require(on.diagnostics().stream().anyMatch(diagnostic ->
                         diagnostic.message().contains("@Override") && diagnostic.notes().isEmpty()),
                 "unrelated override error gained notes");
+        // Refinement still runs, so the rejection keeps the explanation of the
+        // corrected declaration rather than a note about earlier errors.
         Diagnostic free = oneFree(on);
-        require(free.notes().size() == 1 && free.notes().getFirst().message().equals(LIMITED),
-                "skipped rejection lacks its exact limited-analysis note");
+        Diagnostic correctedFree = oneFree(new CompilerPipeline(UnfreedMode.OFF, true, null)
+                .analyze(List.of(SourceFile.of("Skipped.iron", skipped.content().replace(
+                        "class Skipped extends Base {\n    void keep",
+                        "class Skipped extends Base {\n    @Override void keep")))));
+        require(free.message().equals(correctedFree.message()) && !free.notes().isEmpty()
+                        && noteMessages(free).equals(noteMessages(correctedFree))
+                        && !noteMessages(free).contains(LIMITED),
+                "earlier error changed the rejection's explanation: " + free + " versus " + correctedFree);
 
         SourceFile safe = SourceFile.of("Safe.iron", """
                 class Safe {
@@ -339,8 +347,8 @@ final class ExplanationEligibilityTests {
                 """);
         SemanticObserverBridge.Counts counts = new SemanticObserverBridge.Counts();
         CompilationArtifact on = new CompilerPipeline(UnfreedMode.OFF, true,
-                (mode, sources, explain) -> SemanticObserverBridge.create(
-                        mode, sources, explain, counts, late.path())).analyze(List.of(late));
+                (mode, explain) -> SemanticObserverBridge.create(
+                        mode, explain, counts, late.path())).analyze(List.of(late));
         CompilationArtifact off = new CompilerPipeline(UnfreedMode.OFF, false, null)
                 .analyze(List.of(late));
         require(!on.valid() && samePrimaries(off, on) && counts.completed(),
@@ -442,6 +450,10 @@ final class ExplanationEligibilityTests {
                 """, "cannot prove owned elements of 'items'");
     }
 
+    private static List<String> noteMessages(Diagnostic diagnostic) {
+        return diagnostic.notes().stream().map(note -> note.message()).toList();
+    }
+
     private static void skipped(String name, String source, String prefix) {
         String earlier = """
                 class EarlyBase { void ping() {} }
@@ -452,12 +464,25 @@ final class ExplanationEligibilityTests {
                 .analyze(List.of(input));
         CompilationArtifact on = new CompilerPipeline(UnfreedMode.OFF, true, null)
                 .analyze(List.of(input));
-        require(!on.valid() && samePrimaries(off, on), name + " changed skipped primaries");
-        List<Diagnostic> matches = on.diagnostics().stream()
-                .filter(d -> d.message().startsWith(prefix)).toList();
-        require(!matches.isEmpty() && matches.stream().allMatch(d -> d.notes().size() == 1
-                        && d.notes().getFirst().message().equals(LIMITED)),
-                name + " lost exact skipped note: " + on.diagnostics());
+        require(!on.valid() && samePrimaries(off, on), name + " changed primaries after an earlier error");
+        // The earlier error leaves refinement in place: every rejection keeps
+        // the explanation it has once the declaration is corrected.
+        CompilationArtifact corrected = new CompilerPipeline(UnfreedMode.OFF, true, null)
+                .analyze(List.of(SourceFile.of(name + ".iron", earlier.replace(
+                        "extends EarlyBase { void ping", "extends EarlyBase { @Override void ping")
+                        + source)));
+        List<String> matches = on.diagnostics().stream()
+                .filter(d -> d.message().startsWith(prefix)).map(d -> d.message() + " @ "
+                        + d.span().start().line() + ":" + d.span().start().column() + " "
+                        + noteMessages(d)).toList();
+        List<String> correctedMatches = corrected.diagnostics().stream()
+                .filter(d -> d.message().startsWith(prefix)).map(d -> d.message() + " @ "
+                        + d.span().start().line() + ":" + d.span().start().column() + " "
+                        + noteMessages(d)).toList();
+        require(!matches.isEmpty() && matches.equals(correctedMatches)
+                        && matches.stream().noneMatch(match -> match.contains(LIMITED)),
+                name + " changed its explanation after an earlier error: " + on.diagnostics()
+                        + " versus " + corrected.diagnostics());
         require(on.diagnostics().stream().filter(d -> d.message().contains("@Override"))
                         .allMatch(d -> d.notes().isEmpty()),
                 name + " gave unrelated error a note");

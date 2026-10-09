@@ -1,0 +1,18 @@
+{
+  "schema": 1,
+  "base_revision": "28664736270f19a73c0a79a2f845bac916953471",
+  "exact_test": "array snapshot joins preserve overwritten store witness order",
+  "returncode": 0,
+  "log_sha256": "67b7e75d68ab6994acac0b877c79aeb0370714fc893e45e429785f950e098e03",
+  "environment": {
+    "JAVA_HOME": "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home",
+    "IRONWOOD_STDLIB_HOME": "/Users/developer/workspace-mba-m2/Ironwood/target/self-hosting-m0/J0-final2"
+  },
+  "cleared_environment": [
+    "JAVA_TOOL_OPTIONS",
+    "JDK_JAVA_OPTIONS",
+    "_JAVA_OPTIONS"
+  ],
+  "limits": "repository test script JVM defaults; not a resource measurement",
+  "test_source_sha256": "b20fba384583479c238638a94073226c356333b41ad8d1ee5acf09f0928350f6"
+}

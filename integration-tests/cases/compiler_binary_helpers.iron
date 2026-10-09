@@ -1,0 +1,324 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// Compiler-private binary helpers and the little-endian ByteBuffer reads of
+// SharedTraceOrder against Java 21
+// (docs/self-hosting/m3/backend-evidence/BinaryReference.java): unsigned
+// widening of every byte, boundary and seeded shorts and ints; unsigned long
+// and byte-array order over boundary and 2,000 seeded pairs, including null,
+// prefix and 0x7f/0x80 cases; in-bounds slices; the US-ASCII name comparison
+// with bytes above 0x7f; every absolute little-endian short, int and long
+// read, from Bytes and from a wrapping ByteBuffer, and a few big-endian
+// ones; and the trace-root
+// order, a stable sort by unsigned GUID and then unsigned payload, of 600
+// seeded groups with tied GUIDs and payloads, which stay invocation-lived.
+// Native-only checks then cover independent slice storage, range rejections
+// and allocation: comparison and widening allocate nothing, a slice one
+// array, a wrapped buffer one object that leaves its array alive; the twelve
+// caught range exceptions stay allocated. Prints the shared transcript;
+// exit 42.
+import ironwood.compiler.port.Bytes;
+import ironwood.ds.ArrayList;
+import ironwood.nio.ByteBuffer;
+import ironwood.nio.ByteOrder;
+import ironwood.util.Comparator;
+
+class Group {
+
+    private final long guid;
+    private final byte[] bytes;
+    private final int index;
+
+    Group(long guid, byte[] bytes, int index) {
+
+        this.guid = guid;
+        this.bytes = bytes;
+        this.index = index;
+    }
+
+    long guid() {
+
+        return this.guid;
+    }
+
+    byte[] bytes() {
+
+        return this.bytes;
+    }
+
+    int index() {
+
+        return this.index;
+    }
+}
+
+// SharedTraceOrder.ordered's comparator.
+class RootOrder implements Comparator<Group> {
+
+    @Override
+    public int compare(Group first, Group second) {
+
+        int order = Long.compareUnsigned(first.guid(), second.guid());
+        return order != 0 ? order : Bytes.compareUnsigned(first.bytes(), second.bytes());
+    }
+}
+
+class Main {
+
+    static long seed = 161803L;
+    static long[] longs = {0L, 1L, 2L, 0x7fL, 0x80L, 0xffL, 0x7fffffffL, 0x80000000L, 0xffffffffL,
+        0x7fffffffffffffffL, 0x8000000000000000L, 0x8000000000000001L, -2L, -1L};
+    static byte[] values = {0, 1, 0x7f, (byte) 0x80, (byte) 0xfe, (byte) 0xff};
+    // Process-lived tables: rows of a local table could not be freed by index,
+    // and a wrapped array escapes into its buffer.
+    static byte[][] fixed = {null, {}, {0}, {0x7f}, {(byte) 0x80}, {(byte) 0xff}, {0, 0}, {0x7f, (byte) 0x80},
+        {(byte) 0x80, 0x7f}, {1, 2, 3}, {1, 2}, {1, 2, 4}, {(byte) 0xff, (byte) 0xff}};
+    static byte[] object = new byte[40];
+    static byte[] wrappedStorage = {1, 2, 3, 4};
+
+    static int next() {
+
+        seed = seed * 6364136223846793005L + 1442695040888963407L;
+        return (int) (seed >>> 33);
+    }
+
+    static long nextLong() {
+
+        return ((long) next() << 33) ^ ((long) next() << 2) ^ next();
+    }
+
+    static byte[] seeded(int maximum) {
+
+        byte[] bytes = new byte[next() % (maximum + 1)];
+        for (int index = 0; index < bytes.length; index++) bytes[index] = values[next() % values.length];
+        return bytes;
+    }
+
+    static void widening() {
+
+        for (int value = -128; value < 128; value++) {
+            System.out.println("byte " + value + " " + Bytes.toUnsignedInt((byte) value));
+        }
+        for (int index = 0; index < longs.length; index++) {
+            short narrow = (short) longs[index];
+            int word = (int) longs[index];
+            System.out.println("short " + narrow + " " + Bytes.toUnsignedInt(narrow));
+            System.out.println("int " + word + " " + Bytes.toUnsignedLong(word));
+        }
+        for (int index = 0; index < 1000; index++) {
+            short narrow = (short) next();
+            int word = next() ^ (next() << 16);
+            System.out.println("short " + narrow + " " + Bytes.toUnsignedInt(narrow));
+            System.out.println("int " + word + " " + Bytes.toUnsignedLong(word));
+        }
+    }
+
+    static void unsignedOrder() {
+
+        for (int first = 0; first < longs.length; first++) {
+            for (int second = 0; second < longs.length; second++) {
+                System.out.println("long " + first + " " + second + " "
+                        + Long.compareUnsigned(longs[first], longs[second]));
+            }
+        }
+        for (int index = 0; index < 1000; index++) {
+            long first = nextLong();
+            long second = index % 3 == 0 ? first : nextLong();
+            System.out.println("long seeded " + Long.compareUnsigned(first, second));
+        }
+    }
+
+    static void arrayOrder() {
+
+        for (int first = 0; first < fixed.length; first++) {
+            for (int second = 0; second < fixed.length; second++) {
+                System.out.println("bytes " + first + " " + second + " "
+                        + Bytes.compareUnsigned(fixed[first], fixed[second]));
+            }
+        }
+        for (int index = 0; index < 2000; index++) {
+            byte[] first = seeded(6);
+            byte[] second = seeded(6);
+            System.out.println("bytes seeded " + Bytes.compareUnsigned(first, second));
+            free second;
+            free first;
+        }
+    }
+
+    static void slices() {
+
+        byte[] source = new byte[12];
+        defer free source;
+        for (int index = 0; index < source.length; index++) source[index] = (byte) (index * 37 - 100);
+        for (int from = 0; from <= source.length; from = from + 3) {
+            for (int to = from; to <= source.length; to = to + 4) {
+                byte[] slice = Bytes.slice(source, from, to);
+                StringBuilder text = new StringBuilder();
+                text.append("slice ").append(from).append(' ').append(to);
+                for (int index = 0; index < slice.length; index++) text.append(' ').append(slice[index]);
+                free slice;
+                String line = text.toString();
+                free text;
+                System.out.println(line);
+                free line;
+            }
+        }
+    }
+
+    static void names() {
+
+        byte[] probe = {'.', 'p', 's', 'e', 'u', 'd', 'o', '_', 'p', 'r', 'o', 'b', 'e', (byte) 0x80, (byte) 0xff,
+            '_', '_', 'p', 'r', 'o', 'b', 'e', 's', 0};
+        defer free probe;
+        char[] replacement = {'\ufffd'};
+        defer free replacement;
+        char[] mixed = {'e', '\ufffd', '\ufffd', '_'};
+        defer free mixed;
+        String unknown = new String(replacement);
+        defer free unknown;
+        String around = new String(mixed);
+        defer free around;
+        for (int from = 0; from <= probe.length; from++) {
+            for (int to = from; to <= probe.length; to++) {
+                System.out.println("ascii " + from + " " + to + " " + Bytes.asciiEquals(probe, from, to, ".pseudo_probe")
+                        + " " + Bytes.asciiEquals(probe, from, to, "__probes") + " "
+                        + Bytes.asciiEquals(probe, from, to, "") + " " + Bytes.asciiEquals(probe, from, to, unknown)
+                        + " " + Bytes.asciiEquals(probe, from, to, around));
+            }
+        }
+    }
+
+    // Each little-endian read twice: Bytes and a wrapping ByteBuffer.
+    static void reads() {
+
+        for (int index = 0; index < object.length; index++) object[index] = (byte) (index * 53 + 0x91);
+        ByteBuffer data = ByteBuffer.wrap(object);
+        defer free data;
+        ByteBuffer big = ByteBuffer.wrap(object);
+        defer free big;
+        data.order(ByteOrder.LITTLE_ENDIAN);
+        for (int index = 0; index + 2 <= object.length; index++) {
+            System.out.println("short " + index + " " + data.getShort(index) + " " + Bytes.littleShort(object, index));
+        }
+        for (int index = 0; index + 4 <= object.length; index++) {
+            System.out.println("int " + index + " " + data.getInt(index) + " " + Bytes.littleInt(object, index));
+        }
+        for (int index = 0; index + 8 <= object.length; index++) {
+            System.out.println("long " + index + " " + data.getLong(index) + " " + Bytes.littleLong(object, index));
+        }
+        for (int index = 0; index + 8 <= object.length; index = index + 8) {
+            System.out.println("big " + index + " " + big.getShort(index) + " " + big.getInt(index) + " "
+                    + big.getLong(index));
+        }
+    }
+
+    // The groups and their payloads stay invocation-lived: the sorted list
+    // exposes its items, so they are never freed (1,200 live allocations).
+    static void traceOrder() {
+
+        ArrayList<Group> groups = new ArrayList<Group>();
+        defer free groups;
+        long[] guids = {0L, 1L, 0x7fffffffffffffffL, 0x8000000000000000L, -1L, 42L};
+        defer free guids;
+        for (int index = 0; index < 600; index++) {
+            long guid = next() % 4 == 0 ? nextLong() : guids[next() % guids.length];
+            groups.add(new Group(guid, seeded(4), index));
+        }
+        RootOrder order = new RootOrder();
+        groups.sortWithComparator(order);
+        free order;
+        StringBuilder text = new StringBuilder();
+        text.append("order");
+        for (int index = 0; index < groups.size(); index++) text.append(' ').append(groups.get(index).index());
+        String line = text.toString();
+        free text;
+        System.out.println(line);
+        free line;
+    }
+
+    // Native-only contract checks; the transcript above is the Java comparison.
+    static boolean contract() {
+
+        byte[] source = {1, 2, 3, 4};
+        defer free source;
+        long before = System.allocationCount();
+        int order = Bytes.compareUnsigned(source, source) + Bytes.toUnsignedInt(source[0])
+                + (int) Bytes.toUnsignedLong(-1) + (Bytes.asciiEquals(source, 0, 4, "abcd") ? 1 : 0);
+        if (System.allocationCount() != before || order != 0) return false;
+        long live = System.liveAllocationCount();
+        byte[] copy = Bytes.slice(source, 1, 3);
+        copy[0] = 9;
+        boolean independent = source[1] == 2 && copy.length == 2 && copy[1] == 3
+                && System.liveAllocationCount() == live + 1;
+        free copy;
+        ByteBuffer wrapped = ByteBuffer.wrap(wrappedStorage);
+        boolean wrappedCounted = System.liveAllocationCount() == live + 1;
+        free wrapped;
+        return independent && wrappedCounted && wrappedStorage[3] == 4 && System.liveAllocationCount() == live;
+    }
+
+    // Each rejected range leaves its caught exception allocated.
+    static int rejections() {
+
+        byte[] source = new byte[4];
+        defer free source;
+        int[] froms = {-1, 3, 0, 5};
+        defer free froms;
+        int[] tos = {2, 2, 5, 5};
+        defer free tos;
+        int rejected = 0;
+        for (int index = 0; index < froms.length; index++) {
+            try {
+                byte[] slice = Bytes.slice(source, froms[index], tos[index]);
+                free slice;
+            } catch (IndexOutOfBoundsException expected) {
+                rejected++;
+            }
+            try {
+                if (Bytes.asciiEquals(source, froms[index], tos[index], "")) return -1;
+            } catch (IndexOutOfBoundsException expected) {
+                rejected++;
+            }
+        }
+        try {
+            Bytes.littleShort(source, 3);
+            return -1;
+        } catch (IndexOutOfBoundsException expected) {
+            rejected++;
+        }
+        try {
+            Bytes.littleInt(source, 1);
+            return -1;
+        } catch (IndexOutOfBoundsException expected) {
+            rejected++;
+        }
+        try {
+            Bytes.littleLong(source, 0);
+            return -1;
+        } catch (IndexOutOfBoundsException expected) {
+            rejected++;
+        }
+        try {
+            Bytes.littleShort(source, -1);
+            return -1;
+        } catch (IndexOutOfBoundsException expected) {
+            rejected++;
+        }
+        return rejected;
+    }
+
+    public static int main(String[] args) {
+
+        long live = System.liveAllocationCount();
+        widening();
+        unsignedOrder();
+        arrayOrder();
+        slices();
+        names();
+        reads();
+        traceOrder();
+        if (System.liveAllocationCount() != live + 1200 || !contract()) return 1;
+        int rejected = rejections();
+        if (rejected != 12 || System.liveAllocationCount() != live + 1212) return 2;
+        return 42;
+    }
+}

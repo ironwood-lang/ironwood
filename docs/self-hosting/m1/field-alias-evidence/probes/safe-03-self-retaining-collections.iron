@@ -1,0 +1,26 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+import ironwood.ds.HashSet;
+import ironwood.ds.ArrayList;
+class Parent {
+    private final HashSet<String> names;
+    private final ArrayList<String> order;
+    Parent(boolean fail) {
+        this.names = new HashSet<String>();
+        this.order = new ArrayList<String>();
+        this.names.add("a"); this.order.add("a");
+        for (String name : this.names) { this.order.add(name); }
+        if (fail) throw Main.failure;
+    }
+    int size() { return this.order.size(); }
+    destructor { free this.names; free this.order; }
+}
+class Main {
+    static RuntimeException failure = new RuntimeException();
+    public static int main(String[] args) {
+        Parent parent = new Parent(false);
+        int observed = parent.size();
+        free parent;
+        try { new Parent(true); } catch (RuntimeException expected) { return observed + 40; }
+        return 0;
+    }
+}

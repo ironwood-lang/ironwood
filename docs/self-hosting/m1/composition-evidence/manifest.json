@@ -1,0 +1,134 @@
+{
+ "schema_version": 1,
+ "increment": "D257 seven-field ownership snapshot composition and traversal",
+ "base_commit": "035f81e126e229897a6a0f310121a1e336c869af",
+ "producing_compiler": {
+  "path": "/Users/developer/workspace-mba-m2/Ironwood/workspace/m1/keyed-final/stage/compiler/build/ironwoodc.jar",
+  "sha256": "ab50fe2c128137005c4dbac8263bc1190ab956c1012bf5a285940709655a54b2",
+  "role": "compiler sources identical to base commit"
+ },
+ "sources": [
+  {
+   "path": "integration-tests/cases/compiler_ownership_snapshot.iron",
+   "sha256": "b98217fa6906612829ea94bc09a3f872d55144459b79b433390b8a02686fa5f9"
+  },
+  {
+   "path": "integration-tests/cases/compiler_ownership_snapshot_scaling.iron",
+   "sha256": "51dc0a7044ae6371150e02119dec34f460c05754a74e1284b66043524526d2c9"
+  },
+  {
+   "path": "integration-tests/cases/compiler_ownership_operations.iron",
+   "sha256": "811d45d254d0ec6b4662c201588617d7c819ac3cb2d4e76beee7827cdab4b2bf"
+  },
+  {
+   "path": "compiler/src/test/java/ironwood/compiler/OwnershipSnapshotTests.java",
+   "sha256": "4cabc9929ede0167cfc9efab3c61857230bb4bcf4c961be4e83c1c98bfa0ddd3"
+  }
+ ],
+ "java_references": [
+  {
+   "path": "docs/self-hosting/m1/composition-evidence/OwnershipOperationsReference.java",
+   "sha256": "b17309691bc2b2292ee32a2a1400b731ee35e4898e4ea5c0b1dc681b6fa3fdc1",
+   "runs": 4,
+   "result": "projection byte-identical to native"
+  },
+  {
+   "path": "scripts/self-hosting/OwnershipContractProbe.java",
+   "sha256": "e58a294560747e07e828e26492176fbc1ccac7c147878aaab5d9e93a7e1ec964",
+   "role": "M0 47-check J0 probe, unchanged"
+  }
+ ],
+ "logs": [
+  {
+   "retained": "docs/self-hosting/m1/composition-evidence/logs/compiler_ownership_operations-compile.log.gz",
+   "sha256": "374c09085b57bad9616121530f03c0f3de048c82f376e09bc595e5a226ca03a5",
+   "gzip_sha256": "582cf8578ecdcd6886862f750324e00f318c4f6d80af7b52147cebf75e623991"
+  },
+  {
+   "retained": "docs/self-hosting/m1/composition-evidence/logs/compiler_ownership_operations-link.log.gz",
+   "sha256": "172669800cd22e1fd9bec017d18936fe29c9550254ac2def2cf0e2f3bd84074b",
+   "gzip_sha256": "72f1bb6d1d3f760a9f1a39bd2a284a3b7596270979b575568f8c106c471f990b"
+  },
+  {
+   "retained": "docs/self-hosting/m1/composition-evidence/logs/compiler_ownership_operations-run.log.gz",
+   "sha256": "6facf0f887a67336958493739f7aad2d8dc6038eba80ca6f9c5205475edc626e",
+   "gzip_sha256": "457af596f430d64100d5314d5af18c544a61761932777878be9eb987e36be90b"
+  },
+  {
+   "retained": "docs/self-hosting/m1/composition-evidence/logs/compiler_ownership_snapshot-compile.log.gz",
+   "sha256": "65f2cbc42c2cef924d2426295042c262e912873efc133cf9b1f24b61d3ee5620",
+   "gzip_sha256": "ca22c9cfec19e88255e594c752e1d2a5b6aa851186ab63e1de6312afa9331f54"
+  },
+  {
+   "retained": "docs/self-hosting/m1/composition-evidence/logs/compiler_ownership_snapshot-link.log.gz",
+   "sha256": "5a0642acec26eed010b986dbf3d97d3333b46375d3fedfe700acb691f9b9c226",
+   "gzip_sha256": "309a494ced82a6decec390a663412600910c215c5dfbc816aa8feb59672ae9b0"
+  },
+  {
+   "retained": "docs/self-hosting/m1/composition-evidence/logs/compiler_ownership_snapshot-run.log.gz",
+   "sha256": "e9ac90c1feadc86587bbefbde890147a0de40988aee25ef35d3c99f43db6e0fd",
+   "gzip_sha256": "d3714384023e94260046ecb8e3ec9b47b6aba7a52aac1ed9d4639933d3b43ace"
+  },
+  {
+   "retained": "docs/self-hosting/m1/composition-evidence/logs/compiler_ownership_snapshot_scaling-compile.log.gz",
+   "sha256": "52f04fcf096d0252395fe5ccad7d68e4ca929ed9d06cd3b268c34af41c3f2375",
+   "gzip_sha256": "1317639caea68a62a857e23f1b3497c55bc83412f53471eff00e0388ee9b37fc"
+  },
+  {
+   "retained": "docs/self-hosting/m1/composition-evidence/logs/compiler_ownership_snapshot_scaling-link.log.gz",
+   "sha256": "0404d5e8bb75e52af712e9db4b3a382d27e47a125d5722d61ea266ca082c0137",
+   "gzip_sha256": "2a6cff3a7a6b06339bf1ba734e63cf368404d83ae78464043ed62b27cca5af5a"
+  },
+  {
+   "retained": "docs/self-hosting/m1/composition-evidence/logs/compiler_ownership_snapshot_scaling-run.log.gz",
+   "sha256": "a732926c039442b11fa74756e2f28441045038a293bb38e9913ae6e35a5b21a5",
+   "gzip_sha256": "aa436315af9d23efa20b5a73c4b30897475f5a4b5c380c00411df76287a42776"
+  },
+  {
+   "retained": "docs/self-hosting/m1/composition-evidence/logs/diff-check.log.gz",
+   "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "gzip_sha256": "f61f27bd17de546264aa58f40f3aafaac7021e0ef69c17f6b1b4cd7664a037ec"
+  },
+  {
+   "retained": "docs/self-hosting/m1/composition-evidence/logs/java-reference.log.gz",
+   "sha256": "6facf0f887a67336958493739f7aad2d8dc6038eba80ca6f9c5205475edc626e",
+   "gzip_sha256": "457af596f430d64100d5314d5af18c544a61761932777878be9eb987e36be90b"
+  },
+  {
+   "retained": "docs/self-hosting/m1/composition-evidence/logs/licenses.log.gz",
+   "sha256": "baf5804aeb26498337c9c5223c199afeba5c3e2fc36ae219b9bf420e3775f673",
+   "gzip_sha256": "c33bdaafc40ae52137c7119d2922a14fd4f4f340cea86e19094625617947bf77"
+  },
+  {
+   "retained": "docs/self-hosting/m1/composition-evidence/logs/tests-permutation.log.gz",
+   "sha256": "9702cbbe5fbeac1ff9d2e4e24ffebedeed6b0b04b93af1dba82fbc98b33e4926",
+   "gzip_sha256": "2846f148e0741c5f8273836e9c62d65f5465f23468dfd11f4ea1fb0b306fab6f"
+  },
+  {
+   "retained": "docs/self-hosting/m1/composition-evidence/logs/tests.log.gz",
+   "sha256": "9fbc7e7ef2271c154e24230a8a33fe8a18de5410aeeb73a575c64d033d681a74",
+   "gzip_sha256": "508774351c32d2ed0429d5fd833473c8e684953c63eb14e191339a79958a2494"
+  }
+ ],
+ "results": {
+  "tests": "PASS: 2 compiler tests (controls all modes; artifacts classes/archive for three fixtures)",
+  "checks": "43 native value-contract checks",
+  "operations": "restored/changed/merged projection identical to Java",
+  "allocation": "snapshot storage 8:123 32:267 128:843 (6n+75); save totals 159/351/1041",
+  "unfreed_warn": "one diagnostic per compile and per link in each fixture: the deliberately retained live analyzer state ('state')",
+  "licensing": "passed",
+  "unsafe_native_execution": false,
+  "order_and_collisions": "reversed insertion, capacity 1 in both orders and capacity 64 print the identical projection",
+  "tests_after_permutation": "PASS: 2 compiler tests (controls updated for Live(capacity))"
+ },
+ "boundaries": [
+  "nodes, state versions and child versions read through a snapshot are invocation-lived",
+  "real save/restore/join are ported in M2.2",
+  "full M1 open"
+ ],
+ "host_profile": {
+  "host": "macOS 27.0.1, arm64, Apple M5, 32 GiB",
+  "bootstrap": "Java 21.0.1",
+  "backend": "pinned LLVM 23.1.0"
+ }
+}

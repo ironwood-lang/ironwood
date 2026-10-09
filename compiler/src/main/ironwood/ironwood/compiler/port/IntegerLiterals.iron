@@ -1,0 +1,188 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.port;
+
+/**
+ * Bounded replacement for IntegerLiteralDecoder's {@code BigInteger}
+ * decoding of integer literal spellings. Every underscore is removed first; a
+ * final {@code l} or {@code L} selects 64 bits, otherwise 32; {@code 0x} and
+ * {@code 0b} select radix 16 and 2, anything else radix 10. Digits are the
+ * UTF-16 units that {@code Character.digit} accepts in the radix, as
+ * {@code new BigInteger(digits, radix)} reads them, so non-ASCII decimal
+ * digits count. The scan keeps an unsigned 64-bit magnitude and a saturating
+ * overflow flag, so arbitrarily long spellings are checked without a
+ * big-integer value or allocation.
+ *
+ * <p>Results match the Java decoder: a malformed spelling (an empty digit
+ * string or any non-digit) fails before range checks; a decimal magnitude
+ * above the signed maximum, or above the maximum plus one when negated,
+ * fails; a hexadecimal or binary magnitude wider than the type fails, and
+ * otherwise its bits are the two's-complement value, negated with wrapping.
+ * Signs are malformed here: INTEGER tokens never contain {@code +} or
+ * {@code -} (Lexer.scanNumber consumes neither in an integral literal), so
+ * {@code BigInteger}'s sign grammar is unreachable at every call site.
+ */
+public final class IntegerLiterals {
+
+    /** The spelling decodes. */
+    public static final int VALID = 0;
+    /** The digits are empty or contain a character that is not a digit. */
+    public static final int MALFORMED = 1;
+    /** A decimal magnitude is outside the signed range. */
+    public static final int OUT_OF_RANGE = 2;
+    /** A hexadecimal or binary magnitude is wider than the type. */
+    public static final int TOO_WIDE = 3;
+
+    private IntegerLiterals() {
+
+    }
+
+    /** @return whether the spelling, without underscores, ends in l or L */
+    public static boolean isLong(String spelling) {
+
+        for (int index = spelling.length() - 1; index >= 0; index--) {
+            char character = spelling.charAt(index);
+            if (character != '_') return character == 'l' || character == 'L';
+        }
+        return false;
+    }
+
+    /** @return VALID, MALFORMED, OUT_OF_RANGE or TOO_WIDE, without allocation */
+    public static int status(String spelling, boolean negated) {
+
+        return scan(spelling, negated);
+    }
+
+    /**
+     * @return the decoded value for a VALID spelling, sign-extended to long
+     * @throws IllegalArgumentException if the spelling is not VALID
+     */
+    public static long value(String spelling, boolean negated) {
+
+        if (scan(spelling, negated) != VALID) throw new IllegalArgumentException("invalid integer literal");
+        boolean longLiteral = isLong(spelling);
+        int radix = radix(spelling);
+        long magnitude = magnitude(spelling, radix, longLiteral);
+        if (radix == 10) return negated ? -magnitude : magnitude;
+        long bits = longLiteral ? magnitude : (long) (int) magnitude;
+        if (!negated) return bits;
+        return longLiteral ? -bits : (long) (int) -bits;
+    }
+
+    /** @return the Java decoder's diagnostic for an invalid spelling, or null */
+    public static String error(String spelling, boolean negated) {
+
+        int status = scan(spelling, negated);
+        String width = isLong(spelling) ? "64" : "32";
+        if (status == MALFORMED) return "malformed integer literal '" + spelling + "'";
+        if (status == OUT_OF_RANGE) return "integer literal is outside the signed " + width + "-bit range";
+        if (status == TOO_WIDE) {
+            String kind = radix(spelling) == 16 ? "hexadecimal" : "binary";
+            return kind + " integer literal exceeds " + width + " bits";
+        }
+        return null;
+    }
+
+    // The radix from the first two non-underscore units.
+    private static int radix(String spelling) {
+
+        int first = -1;
+        int second = -1;
+        for (int index = 0; index < spelling.length() && second < 0; index++) {
+            char character = spelling.charAt(index);
+            if (character == '_') continue;
+            if (first < 0) {
+                first = character;
+            } else {
+                second = character;
+            }
+        }
+        if (first != '0') return 10;
+        if (second == 'x' || second == 'X') return 16;
+        if (second == 'b' || second == 'B') return 2;
+        return 10;
+    }
+
+    // Unsigned magnitude of a scanned VALID spelling; overflow cannot occur.
+    private static long magnitude(String spelling, int radix, boolean longLiteral) {
+
+        long magnitude = 0;
+        int skipped = 0;
+        int last = lastDigitIndex(spelling, longLiteral);
+        for (int index = 0; index <= last; index++) {
+            char character = spelling.charAt(index);
+            if (character == '_') continue;
+            if (radix != 10 && skipped < 2) {
+                skipped++;
+                continue;
+            }
+            magnitude = magnitude * radix + Character.digit(character, radix);
+        }
+        return magnitude;
+    }
+
+    // Index of the last unit before the long suffix.
+    private static int lastDigitIndex(String spelling, boolean longLiteral) {
+
+        int last = spelling.length() - 1;
+        if (!longLiteral) return last;
+        while (spelling.charAt(last) == '_') last--;
+        return last - 1;
+    }
+
+    // Whether magnitude * radix + digit exceeds 2^64 - 1, compared unsigned.
+    // The limit is floor((2^64 - 1) / radix) and the slack its remainder.
+    private static boolean overflows(long magnitude, int radix, int digit) {
+
+        long limit = radix == 16 ? 0x0FFFFFFFFFFFFFFFL : radix == 10 ? 1844674407370955161L : 0x7FFFFFFFFFFFFFFFL;
+        int slack = radix == 16 ? 15 : radix == 10 ? 5 : 1;
+        int order = Long.compareUnsigned(magnitude, limit);
+        return order > 0 || order == 0 && digit > slack;
+    }
+
+    private static int scan(String spelling, boolean negated) {
+
+        boolean longLiteral = isLong(spelling);
+        int radix = radix(spelling);
+        int last = lastDigitIndex(spelling, longLiteral);
+        int width = longLiteral ? 64 : 32;
+        int skipped = 0;
+        int digits = 0;
+        boolean malformed = false;
+        boolean overflow = false;
+        // Unsigned magnitude while it fits in 64 bits.
+        long magnitude = 0;
+        for (int index = 0; index <= last; index++) {
+            char character = spelling.charAt(index);
+            if (character == '_') continue;
+            if (radix != 10 && skipped < 2) {
+                skipped++;
+                continue;
+            }
+            int digit = Character.digit(character, radix);
+            if (digit < 0) {
+                malformed = true;
+                continue;
+            }
+            digits++;
+            if (overflow) continue;
+            if (overflows(magnitude, radix, digit)) {
+                overflow = true;
+            } else {
+                magnitude = magnitude * radix + digit;
+            }
+        }
+        if (malformed || digits == 0) return MALFORMED;
+        if (radix == 10) {
+            long maximum = longLiteral ? Long.MAX_VALUE : Integer.MAX_VALUE;
+            if (overflow) return OUT_OF_RANGE;
+            // The negated maximum plus one is the minimum's magnitude.
+            if (Long.compareUnsigned(magnitude, maximum) > 0
+                    && !(negated && Long.compareUnsigned(magnitude, maximum + 1) == 0)) return OUT_OF_RANGE;
+            return VALID;
+        }
+        if (overflow) return TOO_WIDE;
+        if (width == 32 && Long.compareUnsigned(magnitude, 0xFFFFFFFFL) > 0) return TOO_WIDE;
+        return VALID;
+    }
+}

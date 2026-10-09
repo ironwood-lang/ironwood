@@ -12,9 +12,27 @@ final class ExplanationObserverTests {
     private ExplanationObserverTests() {
     }
 
+    private static final String SKIP = """
+            class Base {
+                void keep(Object value) {
+                }
+            }
+            class Skip extends Base {
+                void keep(Object value) {
+                }
+                static void check() {
+                    Object value = new Object();
+                    Skip.saved = value;
+                    free value;
+                }
+                static Object saved;
+            }
+            """;
+
     static void runAll() {
         verifyCompleted();
-        verifySkipped();
+        verifyAfterEarlierError();
+        verifyUnconverged();
         verifyCallableKinds();
     }
 
@@ -96,8 +114,8 @@ final class ExplanationObserverTests {
                 """);
         SemanticObserverBridge.Counts acceptedCounts = new SemanticObserverBridge.Counts();
         CompilationArtifact acceptedOn = new CompilerPipeline(UnfreedMode.OFF, true,
-                (mode, sources, explain) -> SemanticObserverBridge.createWithLimits(
-                        mode, sources, explain, acceptedCounts, accepted.path(), 100, 100, 1))
+                (mode, explain) -> SemanticObserverBridge.createWithLimits(
+                        mode, explain, acceptedCounts, accepted.path(), 100, 100, 1))
                 .compile(List.of(accepted));
         CompilationArtifact acceptedOff = new CompilerPipeline(UnfreedMode.OFF, false, null)
                 .compile(List.of(accepted));
@@ -146,12 +164,12 @@ final class ExplanationObserverTests {
                 .analyze(combined);
         SemanticObserverBridge.Counts combinedCounts = new SemanticObserverBridge.Counts();
         CompilationArtifact combinedOn = new CompilerPipeline(UnfreedMode.OFF, true,
-                (mode, sources, explain) -> SemanticObserverBridge.create(
-                        mode, sources, explain, combinedCounts, chain.path())).analyze(combined);
+                (mode, explain) -> SemanticObserverBridge.create(
+                        mode, explain, combinedCounts, chain.path())).analyze(combined);
         SemanticObserverBridge.Counts stoppedCombinedCounts = new SemanticObserverBridge.Counts();
         CompilationArtifact stoppedCombined = new CompilerPipeline(UnfreedMode.OFF, true,
-                (mode, sources, explain) -> SemanticObserverBridge.createWithLimits(
-                        mode, sources, explain, stoppedCombinedCounts, chain.path(),
+                (mode, explain) -> SemanticObserverBridge.createWithLimits(
+                        mode, explain, stoppedCombinedCounts, chain.path(),
                         65_536, 65_536, 1)).analyze(combined);
         require(!combinedOff.valid()
                         && samePrimaries(combinedOff.diagnostics(), combinedOn.diagnostics())
@@ -190,8 +208,8 @@ final class ExplanationObserverTests {
                                                SemanticObserverBridge.Counts counts,
                                                int local, int snapshots, int invocation) {
         return new CompilerPipeline(UnfreedMode.OFF, explain,
-                (mode, sources, enabled) -> SemanticObserverBridge.createWithLimits(
-                        mode, sources, enabled, counts, source.path(),
+                (mode, enabled) -> SemanticObserverBridge.createWithLimits(
+                        mode, enabled, counts, source.path(),
                         local, snapshots, invocation)).analyze(List.of(source));
     }
 
@@ -207,12 +225,12 @@ final class ExplanationObserverTests {
                 """);
         SemanticObserverBridge.Counts counts = new SemanticObserverBridge.Counts();
         CompilationArtifact observed = new CompilerPipeline(UnfreedMode.OFF, true,
-                (mode, sources, explain) -> SemanticObserverBridge.create(
-                        mode, sources, explain, counts, source.path())).compile(List.of(source));
+                (mode, explain) -> SemanticObserverBridge.create(
+                        mode, explain, counts, source.path())).compile(List.of(source));
         SemanticObserverBridge.Counts disabledCounts = new SemanticObserverBridge.Counts();
         CompilationArtifact disabledObserved = new CompilerPipeline(UnfreedMode.OFF, false,
-                (mode, sources, explain) -> SemanticObserverBridge.create(
-                        mode, sources, explain, disabledCounts, source.path())).compile(List.of(source));
+                (mode, explain) -> SemanticObserverBridge.create(
+                        mode, explain, disabledCounts, source.path())).compile(List.of(source));
         CompilationArtifact plain = new CompilerPipeline(UnfreedMode.OFF, true, null)
                 .compile(List.of(source));
         require(observed.valid() && plain.valid() && disabledObserved.valid(),
@@ -270,51 +288,53 @@ final class ExplanationObserverTests {
                 "selected proof projections changed with explanation mode");
     }
 
-    private static void verifySkipped() {
-        SourceFile source = SourceFile.of("Skip.iron", """
-                class Base {
-                    void keep(Object value) {
-                    }
-                }
-                class Skip extends Base {
-                    void keep(Object value) {
-                    }
-                    static void check() {
-                        Object value = new Object();
-                        Skip.saved = value;
-                        free value;
-                    }
-                    static Object saved;
-                }
-                """);
+    private static void verifyAfterEarlierError() {
+        SourceFile source = SourceFile.of("Skip.iron", SKIP);
         SemanticObserverBridge.Counts counts = new SemanticObserverBridge.Counts();
         CompilationArtifact observed = new CompilerPipeline(UnfreedMode.OFF, true,
-                (mode, sources, explain) -> SemanticObserverBridge.create(
-                        mode, sources, explain, counts, source.path())).analyze(List.of(source));
+                (mode, explain) -> SemanticObserverBridge.create(
+                        mode, explain, counts, source.path())).analyze(List.of(source));
         CompilationArtifact plain = new CompilerPipeline(UnfreedMode.OFF, true, null)
                 .analyze(List.of(source));
         require(!observed.valid() && samePrimaries(observed.diagnostics(), plain.diagnostics())
                         && sameNotes(observed.diagnostics(), plain.diagnostics()),
-                "skipped control changed diagnostics");
+                "observer changed diagnostics after an earlier error");
+        // The missing directive does not skip refinement or its evidence.
+        require(counts.entered() > 0 && counts.finished() == 1 && counts.completed(),
+                "earlier error skipped refinement");
+        require(counts.lowerings().stream().anyMatch(lowering -> lowering.finalPhase()
+                        && lowering.refinementCompleted() && lowering.collectorPresent()),
+                "final lowering after an earlier error lacked refined evidence");
+    }
+
+    private static void verifyUnconverged() {
+        SourceFile source = SourceFile.of("Skip.iron", SKIP.replace(
+                "class Skip extends Base {\n    void keep", "class Skip extends Base {\n    @Override void keep"));
+        SemanticObserverBridge.Counts counts = new SemanticObserverBridge.Counts();
+        CompilationArtifact observed = new CompilerPipeline(UnfreedMode.OFF, true,
+                (mode, explain) -> SemanticObserverBridge.createWithRefinementPassLimit(
+                        mode, explain, counts, source.path(), 0)).analyze(List.of(source));
+        // Without converged facts only the failure itself is reported.
+        require(!observed.valid() && observed.diagnostics().size() == 1
+                        && observed.diagnostics().getFirst().message().equals(
+                        "cannot prove ownership: field and return analysis did not converge")
+                        && observed.diagnostics().getFirst().notes().isEmpty(),
+                "unconverged analysis reported ownership verdicts: " + observed.diagnostics());
         require(counts.entered() == 0 && counts.outcomes() == 0
                 && counts.finished() == 1 && !counts.completed(),
-                "skipped refinement entered an iteration");
-        require(counts.lowerings().stream().noneMatch(lowering -> !lowering.finalPhase()),
-                "skipped refinement performed provisional lowering");
+                "unconverged refinement entered an iteration");
         require(counts.lowerings().stream().anyMatch(lowering -> lowering.finalPhase()
                         && !lowering.refinementCompleted() && !lowering.collectorPresent()),
-                "skipped final lowering was not observed");
-        require(counts.created("ESCAPE") == 2 && counts.created("SYMBOLIC_RETURN") == 2
-                && counts.created("OWNED_FIELD") == 2
-                && counts.created("EFFECT") == 1
-                && counts.phases("REFINEMENT") == 0
+                "unconverged final lowering was not observed");
+        require(counts.phases("REFINEMENT") == 0
                 && counts.fieldComparisons() == 0
+                && counts.created("EFFECT") == 1
                 && counts.selectedInstancesWereCreated()
-                && counts.summaryEvidencePresent() == 0,
-                "skipped run created provisional analyzers or lost final selection");
+                && counts.summaryEvidenceRetired() && counts.fieldEvidenceRetired(),
+                "unconverged run validated effects, refined, or leaked evidence");
         require(counts.projections().keySet().containsAll(
                         java.util.Set.of("ESCAPE", "SYMBOLIC_RETURN", "OWNED_FIELD")),
-                "skipped run lost selected proof projections: " + counts.projections().keySet());
+                "unconverged run lost selected proof projections: " + counts.projections().keySet());
     }
 
     private static void verifyCallableKinds() {
@@ -329,8 +349,8 @@ final class ExplanationObserverTests {
                 """);
         SemanticObserverBridge.Counts counts = new SemanticObserverBridge.Counts();
         CompilationArtifact observed = new CompilerPipeline(UnfreedMode.OFF, true,
-                (mode, sources, explain) -> SemanticObserverBridge.create(
-                        mode, sources, explain, counts, source.path())).analyze(List.of(source));
+                (mode, explain) -> SemanticObserverBridge.create(
+                        mode, explain, counts, source.path())).analyze(List.of(source));
         CompilationArtifact plain = new CompilerPipeline(UnfreedMode.OFF, true, null)
                 .analyze(List.of(source));
         require(observed.valid() && plain.valid()

@@ -1,0 +1,190 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// Inject allocation failure into the M6.1 Bridge helpers: the export
+// selection's request copy, package set and diagnostics; text map growth and
+// replacement; identity, byte and content digests; pairing-manifest
+// serialization, loading and the canonical check; JAR manifest writing,
+// reading and lookup; the generators' hex floats, escapes and stripped
+// text; the readelf scans' collected sets; and a jar's manifest found as
+// JarInputStream finds it. Every failure unwinds to the live-allocation
+// baseline.
+// Exit 42 on allocation failure with every check intact, 43 on success.
+import ironwood.compiler.port.BridgeExports;
+import ironwood.compiler.port.BridgeIdentity;
+import ironwood.compiler.port.BridgePatterns;
+import ironwood.compiler.port.BridgeProperties;
+import ironwood.compiler.port.BridgeText;
+import ironwood.compiler.port.Inflate;
+import ironwood.compiler.port.JarManifest;
+import ironwood.compiler.port.JarStreams;
+import ironwood.compiler.port.JavaNames;
+import ironwood.compiler.port.ReadelfScan;
+import ironwood.compiler.port.TextList;
+import ironwood.compiler.port.TextMap;
+import ironwood.compiler.port.ZipWriter;
+import ironwood.io.IOException;
+
+class Main {
+
+    static void exports() {
+
+        TextList requested = new TextList();
+        defer free requested;
+        requested.add("b.c");
+        requested.add("ironwood.bridge");
+        requested.add("a.int");
+        requested.add("b.c");
+        requested.add("a");
+        BridgeExports inputs = new BridgeExports(requested, false);
+        defer free inputs;
+        BridgeExports surface = new BridgeExports(requested, true);
+        defer free surface;
+        String first = surface.packageName(0);
+        defer free first;
+        String message = surface.diagnostic(0);
+        defer free message;
+        if (inputs.packageCount() != 3 || surface.packageCount() != 2 || inputs.diagnosticCount() != 1
+                || !first.equals("a") || !message.startsWith("ironwood.bridge is reserved")) {
+            throw new IllegalStateException();
+        }
+    }
+
+    static void inventories() throws IOException {
+
+        TextMap map = new TextMap();
+        defer free map;
+        for (int index = 0; index < 20; index++) {
+            String key = "key " + index;
+            defer free key;
+            map.put(key, "x=y:z#é");
+        }
+        map.put("key 3", "replaced");
+        if (map.putIfAbsent("key 4", "kept") || map.size() != 20) throw new IllegalStateException();
+        String digest = BridgeIdentity.digest(map);
+        defer free digest;
+        byte[] serialized = BridgeProperties.serialize(map);
+        defer free serialized;
+        String bytes = BridgeIdentity.bytesDigest(serialized, 0, serialized.length);
+        defer free bytes;
+        TextMap loaded = new TextMap();
+        defer free loaded;
+        BridgeProperties.load(serialized, 0, serialized.length, loaded);
+        if (!BridgeProperties.canonical(serialized, 0, serialized.length, loaded)) throw new IllegalStateException();
+        TextMap files = new TextMap();
+        defer free files;
+        files.put("a/b.c", bytes);
+        String content = BridgeIdentity.contentIdentity(files);
+        defer free content;
+        JarManifest manifest = new JarManifest();
+        defer free manifest;
+        manifest.putValue("Manifest-Version", "1.0");
+        manifest.putValue("Automatic-Module-Name", content);
+        manifest.putValue("X-Text", "é中é中é中é中é中é中é中é中é中é中é中é中é中é中é中é中é中é中é中é中é中é中");
+        byte[] written = manifest.write();
+        defer free written;
+        JarManifest read = new JarManifest(written, 0, written.length);
+        defer free read;
+        String version = read.getValue("manifest-version");
+        defer free version;
+        String module = read.getValue("Automatic-Module-Name");
+        defer free module;
+        if (!version.equals("1.0") || !module.equals(content) || digest.length() != 64) throw new IllegalStateException();
+    }
+
+    static void text() {
+
+        String floatText = BridgeText.floatHex(1.4e-45f);
+        defer free floatText;
+        String doubleText = BridgeText.doubleHex(-0.1);
+        defer free doubleText;
+        StringBuilder escapes = new StringBuilder();
+        defer free escapes;
+        BridgeText.appendOctalEscape(escapes, 7);
+        BridgeText.appendUnicodeEscape(escapes, 0x4e2d);
+        String stripped = BridgeText.stripTrailing("state \n\t ");
+        defer free stripped;
+        if (!floatText.equals("0x0.000002p-126") || !doubleText.equals("-0x1.999999999999ap-4")
+                || escapes.length() != 10 || !stripped.equals("state") || !BridgePatterns.isMavenGroup("org.example")) {
+            throw new IllegalStateException();
+        }
+        String output = "Shared library: [libc.so.6]\nShared library: [libm.so.6]\nLibrary runpath: [$ORIGIN/lib]\n"
+                + "Name: GLIBC_2.17\nName: GLIBC_2.2.5\nFLAGS BIND_NOW\n";
+        TextList libraries = new TextList();
+        defer free libraries;
+        ReadelfScan.sharedLibraries(output, libraries);
+        TextList paths = new TextList();
+        defer free paths;
+        ReadelfScan.lookupPaths(output, paths);
+        TextList versions = new TextList();
+        defer free versions;
+        ReadelfScan.glibcVersions(output, versions);
+        if (libraries.size() != 2 || paths.size() != 1 || versions.size() != 2 || !ReadelfScan.flagsNow(output)) {
+            throw new IllegalStateException();
+        }
+    }
+
+    static void companion() throws IOException {
+
+        byte[] manifest = "Manifest-Version: 1.0\r\nImplementation-Version: 1\r\n\r\n".getBytes();
+        defer free manifest;
+        ZipWriter writer = new ZipWriter();
+        defer free writer;
+        writer.add("META-INF/", manifest, 0, 0);
+        writer.add("META-INF/MANIFEST.MF", manifest, 0, manifest.length);
+        byte[] jar = writer.finish();
+        defer free jar;
+        Inflate inflate = new Inflate();
+        defer free inflate;
+        JarManifest found = JarStreams.manifest(jar, inflate, "values");
+        if (found == null) throw new IllegalStateException();
+        defer free found;
+        String version = found.getValue("Implementation-Version");
+        defer free version;
+        if (!version.equals("1")) throw new IllegalStateException();
+    }
+
+    static void exercise() throws IOException {
+
+        exports();
+        inventories();
+        text();
+        companion();
+    }
+
+    public static int main(String[] args) {
+
+        // The identifier tables, keyword list and SHA-256 round constants are
+        // process-lived after their first use.
+        try {
+            if (!JavaNames.isName("a.b")) return 3;
+            byte[] empty = new byte[0];
+            String warm = BridgeIdentity.bytesDigest(empty, 0, 0);
+            free warm;
+            ZipWriter writer = new ZipWriter();
+            writer.add("a", empty, 0, 0);
+            byte[] jar = writer.finish();
+            free writer;
+            Inflate inflate = new Inflate();
+            JarManifest none = JarStreams.manifest(jar, inflate, "warm");
+            if (none != null) throw new IllegalStateException();
+            free inflate;
+            free jar;
+            free empty;
+        } catch (OutOfMemoryError failure) {
+            return 42;
+        } catch (IOException failure) {
+            return 4;
+        }
+        long baseline = System.liveAllocationCount();
+        boolean failed = false;
+        try {
+            exercise();
+        } catch (OutOfMemoryError failure) {
+            failed = true;
+        } catch (IOException failure) {
+            return 4;
+        }
+        if (System.liveAllocationCount() != baseline) return 1;
+        return failed ? 42 : 43;
+    }
+}

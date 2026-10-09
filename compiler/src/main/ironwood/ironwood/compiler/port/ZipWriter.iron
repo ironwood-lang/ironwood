@@ -1,0 +1,214 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.port;
+
+import ironwood.io.IOException;
+import ironwood.util.zip.CRC32;
+
+/**
+ * Compiler-private ZIP writer for the native STORED writer profile (D275): it
+ * spells every entry and end record exactly as Java's ZipOutputStream writes
+ * a STORED entry with explicit size and CRC and time 0, the bytes the M5.1
+ * archive contract freezes: version 10, the UTF-8 name flag, DOS date
+ * 1980-01-01 at 00:00, the 9-byte extended timestamp with modification time
+ * 0, no data descriptor, no comments and zero attributes, followed by the
+ * central directory and an end record, with ZIP64 end records from 65,535
+ * entries on. The checksum is the public CRC32 (D274).
+ *
+ * <p>Entries are written in the order they are added; the caller supplies a
+ * profile's order and distinct names, which the writer does not check. The
+ * archive is assembled in one owned buffer, so it is limited to the array
+ * range and never needs ZIP64 sizes or offsets. Names and data are borrowed
+ * for each call; {@link #finish()} returns a fresh copy.
+ */
+public final class ZipWriter {
+
+    // The extended timestamp extra field: tag 0x5455, size 5, flags 1, time 0.
+    private static final int[] TIMESTAMP = {0x55, 0x54, 0x05, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00};
+
+    private byte[] buffer;
+    private int size;
+    // Per entry: local header offset, name offset and length, CRC, data length.
+    private int[] entries;
+    private int count;
+    private CRC32 crc;
+
+    /** Creates an empty archive. */
+    public ZipWriter() {
+
+        this.buffer = new byte[4096];
+        this.entries = new int[5 * 16];
+        this.crc = new CRC32();
+    }
+
+    /**
+     * Appends a STORED entry.
+     *
+     * @param name the entry name, written as UTF-8; borrowed
+     * @param data the entry's bytes; borrowed
+     * @param offset the first byte of the entry
+     * @param length the entry's length
+     * @throws IOException if the name's encoding exceeds 65,535 bytes or the
+     *     archive would exceed the array range
+     * @throws IndexOutOfBoundsException unless the range is inside data
+     */
+    public void add(String name, byte[] data, int offset, int length) throws IOException {
+
+        if (offset < 0 || length < 0 || length > data.length - offset) throw new IndexOutOfBoundsException();
+        byte[] encoded = name.getBytes();
+        defer free encoded;
+        if (encoded.length > 0xFFFF) throw new IOException("ZIP entry name is too long: " + name);
+        this.crc.reset();
+        this.crc.update(data, offset, length);
+        int checksum = (int) this.crc.getValue();
+        this.reserve((long) 30 + encoded.length + TIMESTAMP.length + length);
+        if (this.count * 5 == this.entries.length) this.growEntries();
+        int base = this.count * 5;
+        this.entries[base] = this.size;
+        this.int32(0x04034b50);
+        this.int16(10);
+        this.int16(0x0800);
+        this.int16(0);
+        this.int16(0);
+        this.int16(0x0021);
+        this.int32(checksum);
+        this.int32(length);
+        this.int32(length);
+        this.int16(encoded.length);
+        this.int16(TIMESTAMP.length);
+        this.entries[base + 1] = this.size;
+        this.entries[base + 2] = encoded.length;
+        this.entries[base + 3] = checksum;
+        this.entries[base + 4] = length;
+        System.arraycopy(encoded, 0, this.buffer, this.size, encoded.length);
+        this.size = this.size + encoded.length;
+        this.timestamp();
+        System.arraycopy(data, offset, this.buffer, this.size, length);
+        this.size = this.size + length;
+        this.count++;
+    }
+
+    /**
+     * Writes the central directory and end records.
+     *
+     * @return a fresh array holding the complete archive, owned by the caller
+     * @throws IOException if the archive would exceed the array range
+     */
+    public byte[] finish() throws IOException {
+
+        int directory = this.size;
+        for (int entry = 0; entry < this.count; entry++) {
+            int base = entry * 5;
+            int nameLength = this.entries[base + 2];
+            this.reserve((long) 46 + nameLength + TIMESTAMP.length);
+            this.int32(0x02014b50);
+            this.int16(10);
+            this.int16(10);
+            this.int16(0x0800);
+            this.int16(0);
+            this.int16(0);
+            this.int16(0x0021);
+            this.int32(this.entries[base + 3]);
+            this.int32(this.entries[base + 4]);
+            this.int32(this.entries[base + 4]);
+            this.int16(nameLength);
+            this.int16(TIMESTAMP.length);
+            this.int16(0);
+            this.int16(0);
+            this.int16(0);
+            this.int32(0);
+            this.int32(this.entries[base]);
+            System.arraycopy(this.buffer, this.entries[base + 1], this.buffer, this.size, nameLength);
+            this.size = this.size + nameLength;
+            this.timestamp();
+        }
+        int directorySize = this.size - directory;
+        this.reserve(56 + 20 + 22);
+        if (this.count >= 0xFFFF) {
+            int record = this.size;
+            this.int32(0x06064b50);
+            this.int64(44);
+            this.int16(45);
+            this.int16(45);
+            this.int32(0);
+            this.int32(0);
+            this.int64(this.count);
+            this.int64(this.count);
+            this.int64(directorySize);
+            this.int64(directory);
+            this.int32(0x07064b50);
+            this.int32(0);
+            this.int64(record);
+            this.int32(1);
+        }
+        int recorded = this.count >= 0xFFFF ? 0xFFFF : this.count;
+        this.int32(0x06054b50);
+        this.int16(0);
+        this.int16(0);
+        this.int16(recorded);
+        this.int16(recorded);
+        this.int32(directorySize);
+        this.int32(directory);
+        this.int16(0);
+        byte[] result = new byte[this.size];
+        System.arraycopy(this.buffer, 0, result, 0, this.size);
+        return result;
+    }
+
+    // Makes room for more bytes within the array range.
+    private void reserve(long more) throws IOException {
+
+        long needed = (long) this.size + more;
+        if (needed > 0x7FFFFFF0L) throw new IOException("ZIP archive exceeds the array size limit");
+        if (needed <= this.buffer.length) return;
+        long capacity = (long) this.buffer.length * 2;
+        if (capacity < needed) capacity = needed;
+        if (capacity > 0x7FFFFFF0L) capacity = 0x7FFFFFF0L;
+        byte[] previous = this.buffer;
+        this.buffer = new byte[(int) capacity];
+        System.arraycopy(previous, 0, this.buffer, 0, this.size);
+        free previous;
+    }
+
+    private void growEntries() {
+
+        int[] previous = this.entries;
+        this.entries = new int[previous.length * 2];
+        System.arraycopy(previous, 0, this.entries, 0, previous.length);
+        free previous;
+    }
+
+    private void timestamp() {
+
+        for (int index = 0; index < TIMESTAMP.length; index++) {
+            this.buffer[this.size] = (byte) TIMESTAMP[index];
+            this.size++;
+        }
+    }
+
+    private void int16(int value) {
+
+        this.buffer[this.size] = (byte) value;
+        this.buffer[this.size + 1] = (byte) (value >>> 8);
+        this.size = this.size + 2;
+    }
+
+    private void int32(int value) {
+
+        this.int16(value & 0xFFFF);
+        this.int16(value >>> 16);
+    }
+
+    private void int64(long value) {
+
+        this.int32((int) value);
+        this.int32((int) (value >>> 32));
+    }
+
+    destructor {
+
+        free this.buffer;
+        free this.entries;
+        free this.crc;
+    }
+}

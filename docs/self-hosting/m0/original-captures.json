@@ -1,0 +1,168 @@
+[
+  {
+    "fixture": "BranchJoin",
+    "run": "1",
+    "classification": "failed entrypoint attempt; excluded from accepted references",
+    "status": [
+      false,
+      false
+    ],
+    "diagnostics": [
+      {
+        "severity": "ERROR",
+        "message": "main(String[] args) must be public"
+      },
+      {
+        "severity": "ERROR",
+        "message": "main must declare exactly one String[] parameter"
+      },
+      {
+        "severity": "ERROR",
+        "message": "cannot free 'printer': allocation escapes through receiver of method 'print'"
+      },
+      {
+        "severity": "ERROR",
+        "message": "cannot free 'printer': allocation has conflicting ownership across exceptional paths"
+      }
+    ]
+  },
+  {
+    "fixture": "BranchJoin",
+    "run": "corrected",
+    "classification": "original J0 reference before any ordering refactor",
+    "status": [
+      true,
+      true
+    ],
+    "diagnostics": [],
+    "input_sha256": "18110c147af2cc26deb53bd665fb2162c2ac6a61ff92ef9bf539eefaa336d1ac"
+  },
+  {
+    "fixture": "BranchJoin",
+    "run": "qualified-2",
+    "classification": "original J0 reference before any ordering refactor",
+    "status": [
+      true,
+      true
+    ],
+    "diagnostics": [],
+    "input_sha256": "18110c147af2cc26deb53bd665fb2162c2ac6a61ff92ef9bf539eefaa336d1ac"
+  },
+  {
+    "fixture": "BranchJoin",
+    "run": "qualified-3",
+    "classification": "original J0 reference before any ordering refactor",
+    "status": [
+      true,
+      true
+    ],
+    "diagnostics": [],
+    "input_sha256": "18110c147af2cc26deb53bd665fb2162c2ac6a61ff92ef9bf539eefaa336d1ac"
+  },
+  {
+    "fixture": "BranchJoin",
+    "run": "final-1",
+    "classification": "original J0 reference before any ordering refactor",
+    "status": [
+      true,
+      true
+    ],
+    "diagnostics": [],
+    "input_sha256": "18110c147af2cc26deb53bd665fb2162c2ac6a61ff92ef9bf539eefaa336d1ac"
+  },
+  {
+    "fixture": "SlotOrder",
+    "run": "1",
+    "classification": "failed entrypoint attempt; excluded from accepted references",
+    "status": [
+      false,
+      false
+    ],
+    "diagnostics": [
+      {
+        "severity": "ERROR",
+        "message": "main(String[] args) must be public"
+      },
+      {
+        "severity": "ERROR",
+        "message": "main must declare exactly one String[] parameter"
+      },
+      {
+        "severity": "ERROR",
+        "message": "cannot free 'node': allocation may still be observed through an array element on an incoming control-flow path"
+      },
+      {
+        "severity": "ERROR",
+        "message": "cannot free 'printer': allocation escapes through receiver of method 'print'"
+      },
+      {
+        "severity": "ERROR",
+        "message": "cannot free 'printer': allocation has conflicting ownership across exceptional paths"
+      }
+    ]
+  },
+  {
+    "fixture": "SlotOrder",
+    "run": "corrected",
+    "classification": "original J0 reference before any ordering refactor",
+    "status": [
+      false,
+      false
+    ],
+    "diagnostics": [
+      {
+        "severity": "ERROR",
+        "message": "cannot free 'node': allocation may still be observed through an array element on an incoming control-flow path"
+      }
+    ],
+    "input_sha256": "09a9b5895b93b22657920322a75440ee182fcf6bfdfd8d077b8ff32141a6a027"
+  },
+  {
+    "fixture": "SlotOrder",
+    "run": "qualified-2",
+    "classification": "original J0 reference before any ordering refactor",
+    "status": [
+      false,
+      false
+    ],
+    "diagnostics": [
+      {
+        "severity": "ERROR",
+        "message": "cannot free 'node': allocation may still be observed through an array element on an incoming control-flow path"
+      }
+    ],
+    "input_sha256": "09a9b5895b93b22657920322a75440ee182fcf6bfdfd8d077b8ff32141a6a027"
+  },
+  {
+    "fixture": "SlotOrder",
+    "run": "qualified-3",
+    "classification": "original J0 reference before any ordering refactor",
+    "status": [
+      false,
+      false
+    ],
+    "diagnostics": [
+      {
+        "severity": "ERROR",
+        "message": "cannot free 'node': allocation may still be observed through an array element on an incoming control-flow path"
+      }
+    ],
+    "input_sha256": "09a9b5895b93b22657920322a75440ee182fcf6bfdfd8d077b8ff32141a6a027"
+  },
+  {
+    "fixture": "SlotOrder",
+    "run": "final-1",
+    "classification": "original J0 reference before any ordering refactor",
+    "status": [
+      false,
+      false
+    ],
+    "diagnostics": [
+      {
+        "severity": "ERROR",
+        "message": "cannot free 'node': allocation may still be observed through an array element on an incoming control-flow path"
+      }
+    ],
+    "input_sha256": "09a9b5895b93b22657920322a75440ee182fcf6bfdfd8d077b8ff32141a6a027"
+  }
+]

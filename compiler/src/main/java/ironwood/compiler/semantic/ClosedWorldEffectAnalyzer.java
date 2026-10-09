@@ -26,6 +26,15 @@ final class ClosedWorldEffectAnalyzer {
     // Targets depend only on this analysis's immutable IR and class snapshot.
     // Cache the graph, never the evolving allocation/publication summaries.
     private final Map<IrInstruction, List<IrFunction>> targetCache = new IdentityHashMap<>();
+    // Placeholders for missing implementations: their real behavior is unknown, so
+    // they may reclaim their reference arguments, which only suppresses findings.
+    private final Set<String> placeholders;
+    private Map<String, IrClass> classesByName;
+    // Possible classes of released values; only validation has the final owned fields.
+    private ValueClasses valueClasses;
+    // Fields constructed non-null, and bodies viewed with an object's fields known (D290).
+    private ConstructedFields constructedFields;
+    private final Map<Entry<String>, View> views = new java.util.HashMap<>();
 
     ClosedWorldEffectAnalyzer(List<IrFunction> functions, List<IrClass> classes) {
         this(functions, classes, null, 0,
@@ -35,6 +44,14 @@ final class ClosedWorldEffectAnalyzer {
     ClosedWorldEffectAnalyzer(List<IrFunction> functions, List<IrClass> classes,
                               SemanticAnalysisObserver observer, long observerToken,
                               SemanticAnalysisObserver.AnalyzerPhase phase) {
+        this(functions, classes, observer, observerToken, phase, Set.of());
+    }
+
+    ClosedWorldEffectAnalyzer(List<IrFunction> functions, List<IrClass> classes,
+                              SemanticAnalysisObserver observer, long observerToken,
+                              SemanticAnalysisObserver.AnalyzerPhase phase,
+                              Set<String> placeholders) {
+        this.placeholders = Set.copyOf(placeholders);
         this.observer = observer;
         this.observerToken = observerToken;
         if (observer != null) {
@@ -46,33 +63,324 @@ final class ClosedWorldEffectAnalyzer {
         functions.forEach(function -> summaries.put(function.linkageName(), Summary.empty()));
     }
 
-    void validate(Map<String, TypeSymbol> types, List<Diagnostic> diagnostics) {
+    /** Owned fields are compiler-proven exclusive; their arrays are never shared. */
+    void validate(Map<String, TypeSymbol> types, Set<IrField> ownedFields, List<Diagnostic> diagnostics) {
+        validate(types, ownedFields, null, diagnostics);
+    }
+
+    /**
+     * @param entryPoint the linkage name of a closed executable's entry point, or
+     *        {@code null} when other callers may exist
+     */
+    void validate(Map<String, TypeSymbol> types, Set<IrField> ownedFields, String entryPoint,
+                  List<Diagnostic> diagnostics) {
+        validate(types, ownedFields, entryPoint, null, diagnostics);
+    }
+
+    /**
+     * @param constructed the fields that construction leaves non-null, which a destructor
+     *        and the bodies it runs on its object may trust until it frees them (D289, D290)
+     */
+    void validate(Map<String, TypeSymbol> types, Set<IrField> ownedFields, String entryPoint,
+                  ConstructedFields constructed, List<Diagnostic> diagnostics) {
+        constructedFields = constructed;
         analyze();
+        // Receiver identity may also return through fields that a constructor
+        // filled without publishing them; see ReceiverPublicationAnalysis.
+        ReceiverPublicationAnalysis contextFree = new ReceiverPublicationAnalysis(
+                this, List.copyOf(functions.values()), ownedFields);
+        contextFree.analyze();
+        ReceiverPublicationAnalysis receivers = contextFree;
+        if (functions.values().stream().anyMatch(function -> flagged(function, contextFree))) {
+            // Value flow only narrows these verdicts, so it runs only when one is at stake.
+            Set<String> privateCallables = new java.util.HashSet<>();
+            for (TypeSymbol type : types.values()) {
+                java.util.stream.Stream.concat(type.declaredMethods().values().stream(),
+                                type.constructors().stream())
+                        .filter(callable -> callable.accessModifier()
+                                == ironwood.compiler.ast.AccessModifier.PRIVATE)
+                        .forEach(callable -> privateCallables.add(callable.linkageName()));
+            }
+            valueClasses = new ValueClasses(functions.values(), entryPoint, privateCallables,
+                    this::targets, this::classByName, (subclass, superclass) -> {
+                        IrClass type = classByName(subclass);
+                        return type != null && isSubtype(type, superclass);
+                    });
+            targetCache.clear();
+            summaries.replaceAll((name, summary) -> Summary.empty());
+            analyze();
+            receivers = new ReceiverPublicationAnalysis(this, List.copyOf(functions.values()), ownedFields);
+            receivers.analyze();
+        }
         for (IrFunction function : functions.values()) {
             Summary summary = summaries.get(function.linkageName());
             TypeSymbol owner = types.get(function.ownerClass());
             if (owner == null) {
                 continue;
             }
+            boolean mayPublish = summary.publishedParameters().get(0)
+                    || receivers.publishesReceiver(function.linkageName());
+            // Context-free facts select the constructors and destructors to check; the
+            // verdict is for an exact instance of their class (D282, D283), and for each
+            // object of that class they run on when the program allocates any (D285, D286).
+            List<ValueClasses.Pair> objects = valueClasses == null ? List.of()
+                    : valueClasses.objectContexts(function.linkageName(), function.ownerClass());
             if (function.kind() == IrCallableKind.DESTRUCTOR) {
-                if (summary.allocates()) {
+                Summary exact = summary.allocates() || summary.throwsOutward() || mayPublish
+                        ? objectsSummary(function, objects) : summary;
+                if (exact.allocates()) {
                     diagnostics.add(Diagnostic.error(owner.source(), function.sourceSpan(),
                             "destructor may allocate; destructor cleanup must be allocation-free"));
                 }
-                if (summary.throwsOutward()) {
+                if (exact.throwsOutward()) {
                     diagnostics.add(Diagnostic.error(owner.source(), function.sourceSpan(),
                             "an exception may escape this destructor"));
                 }
-                if (summary.publishedParameters().get(0)) {
+                if (mayPublish && (exact.publishedParameters().get(0)
+                        || receiverPublished(receivers, function, objects))) {
                     diagnostics.add(Diagnostic.error(owner.source(), function.sourceSpan(),
                             "destructor may publish or resurrect 'this'"));
                 }
-            } else if (function.kind() == IrCallableKind.CONSTRUCTOR
-                    && summary.publishedParameters().get(0)) {
+            } else if (function.kind() == IrCallableKind.CONSTRUCTOR && mayPublish
+                    && (objectsSummary(function, objects).publishedParameters().get(0)
+                    || receiverPublished(receivers, function, objects))) {
                 diagnostics.add(Diagnostic.error(owner.source(), function.sourceSpan(),
                         "constructor may publish in-progress 'this' before construction completes"));
             }
         }
+    }
+
+    private boolean flagged(IrFunction function, ReceiverPublicationAnalysis receivers) {
+        Summary summary = summaries.get(function.linkageName());
+        boolean mayPublish = summary.publishedParameters().get(0)
+                || receivers.publishesReceiver(function.linkageName());
+        return function.kind() == IrCallableKind.DESTRUCTOR
+                && (summary.allocates() || summary.throwsOutward() || mayPublish)
+                || function.kind() == IrCallableKind.CONSTRUCTOR && mayPublish;
+    }
+
+    /**
+     * A summary taken while the summarized function's first argument is an object whose
+     * exact class is {@code type}: a call whose receiver is exactly that object dispatches
+     * on {@code type} and takes its callee's summary from {@code objectSummaries}. With a
+     * {@code pair}, the body runs in that value-flow context instead, and every call takes
+     * the bodies value flow recorded for it, with summaries from {@code pairSummaries}. A
+     * call on the object passes on the object's fields that {@code callFields} knows
+     * non-null there (D290).
+     */
+    private record ObjectContext(String type,
+                                 java.util.function.Function<Entry<String>, Summary> objectSummaries,
+                                 ValueClasses.Pair pair,
+                                 java.util.function.Function<Entry<ValueClasses.Pair>, Summary> pairSummaries,
+                                 Map<IrInstruction, Set<ConstructedFields.Field>> callFields) {
+    }
+
+    /** A body, or a value-flow pair, entered with the object's fields known non-null. */
+    private record Entry<T>(T target, Set<ConstructedFields.Field> fields) {
+    }
+
+    /**
+     * A body as it runs on an object whose fields are known non-null at entry: the null
+     * checks those fields prove removed, and the fields still known at each call.
+     */
+    private record View(IrFunction function, Map<IrInstruction, Set<ConstructedFields.Field>> callFields) {
+    }
+
+    /** A body a call runs, with the summary that applies to that call. */
+    private record Callee(IrFunction target, Summary summary) {
+    }
+
+    /**
+     * A constructor or destructor for the objects of its class it runs on, each in its
+     * value-flow context with that object's fields and arrays (D285, D286); without such
+     * objects, for any exact instance of the class (D282, D283).
+     */
+    private Summary objectsSummary(IrFunction root, List<ValueClasses.Pair> objects) {
+        if (objects.isEmpty()) return objectSummary(root);
+        Map<Entry<ValueClasses.Pair>, Summary> values = new LinkedHashMap<>();
+        Set<ConstructedFields.Field> fields = rootFields(root);
+        objects.forEach(pair -> values.put(new Entry<>(pair, fields), Summary.empty()));
+        boolean changed;
+        do {
+            changed = false;
+            for (Entry<ValueClasses.Pair> entry : List.copyOf(values.keySet())) {
+                IrFunction function = functions.get(entry.target().function());
+                if (function == null) continue;
+                int known = values.size();
+                View view = view(function, entry.fields());
+                Summary next = summarize(view.function(), new ObjectContext(null, null, entry.target(),
+                        callee -> values.computeIfAbsent(callee, ignored -> Summary.empty()),
+                        view.callFields()));
+                changed |= !next.equals(values.put(entry, next)) || values.size() != known;
+            }
+        } while (changed);
+        boolean allocates = false;
+        boolean throwsOutward = false;
+        BitSet published = new BitSet();
+        for (ValueClasses.Pair pair : objects) {
+            Summary summary = values.get(new Entry<>(pair, fields));
+            allocates |= summary.allocates();
+            throwsOutward |= summary.throwsOutward();
+            published.or(summary.publishedParameters());
+        }
+        return new Summary(allocates, throwsOutward, published, new BitSet(), new BitSet());
+    }
+
+    /** The receiver-field publication verdict, per object when there are any. */
+    private boolean receiverPublished(ReceiverPublicationAnalysis receivers, IrFunction function,
+                                      List<ValueClasses.Pair> objects) {
+        return objects.isEmpty() ? receivers.objectPublishes(function)
+                : receivers.objectPublishes(valueClasses, objects);
+    }
+
+    /**
+     * The bodies an operation runs, each with its summary: those value flow recorded for
+     * the context's pair, those an exact receiver dispatches to, or the ordinary targets.
+     */
+    private List<Callee> callees(IrFunction function, Map<Integer, IrOperand> conversions,
+                                 IrInstruction instruction, ObjectContext context) {
+        List<IrFunction> targets = targets(instruction);
+        if (targets.isEmpty()) return List.of();
+        if (context != null && context.pair() != null) {
+            List<ValueClasses.Pair> pairs = valueClasses.callees(context.pair(), instruction);
+            if (pairs != null) {
+                List<IrOperand> arguments = callArguments(instruction);
+                Set<ConstructedFields.Field> fields = !arguments.isEmpty()
+                        && exactParameter(function, conversions, arguments.getFirst()).orElse(-1) == 0
+                        ? context.callFields().getOrDefault(instruction, Set.of()) : Set.of();
+                List<Callee> result = new ArrayList<>();
+                for (ValueClasses.Pair pair : pairs) {
+                    IrFunction target = functions.get(pair.function());
+                    if (target != null) {
+                        result.add(new Callee(target, context.pairSummaries().apply(new Entry<>(pair, fields))));
+                    }
+                }
+                return result;
+            }
+        } else if (onObject(function, conversions, instruction, context)) {
+            Set<ConstructedFields.Field> fields = context.callFields().getOrDefault(instruction, Set.of());
+            return exactTargets(instruction, context.type()).stream()
+                    .map(target -> new Callee(target,
+                            context.objectSummaries().apply(new Entry<>(target.linkageName(), fields))))
+                    .toList();
+        }
+        return targets.stream()
+                .map(target -> new Callee(target, summaries.getOrDefault(target.linkageName(), Summary.empty())))
+                .toList();
+    }
+
+    /**
+     * The summary of a constructor or destructor for an exact instance of its own class
+     * (D282, D283). Calls on the object dispatch on that class, so a subclass override
+     * counts for the subclass's construction or destruction, not for the superclass code
+     * that calls it. Callees that receive the object first are summarized in the same
+     * context; every other call keeps its ordinary summary.
+     */
+    private Summary objectSummary(IrFunction root) {
+        Map<Entry<String>, Summary> values = new LinkedHashMap<>();
+        Entry<String> start = new Entry<>(root.linkageName(), rootFields(root));
+        values.put(start, Summary.empty());
+        boolean changed;
+        do {
+            changed = false;
+            for (Entry<String> entry : List.copyOf(values.keySet())) {
+                IrFunction function = functions.get(entry.target());
+                if (function == null) continue;
+                int known = values.size();
+                View view = view(function, entry.fields());
+                Summary next = summarize(view.function(), new ObjectContext(root.ownerClass(),
+                        callee -> values.computeIfAbsent(callee, ignored -> Summary.empty()),
+                        null, null, view.callFields()));
+                changed |= !next.equals(values.put(entry, next)) || values.size() != known;
+            }
+        } while (changed);
+        return values.get(start);
+    }
+
+    /**
+     * The fields a constructor or destructor's object has non-null at its entry: none
+     * during construction, and those construction leaves non-null for destruction.
+     */
+    private Set<ConstructedFields.Field> rootFields(IrFunction root) {
+        return root.kind() == IrCallableKind.DESTRUCTOR && constructedFields != null
+                ? Set.copyOf(constructedFields.objectFields(root.ownerClass())) : Set.of();
+    }
+
+    /**
+     * The body as it runs on an object whose fields are known non-null at entry. The
+     * object is the first parameter; the fields hold for the whole call, since only
+     * constructors and the object's own destructor store them (D290).
+     */
+    private View view(IrFunction function, Set<ConstructedFields.Field> fields) {
+        if (fields.isEmpty() || function.parameters().isEmpty() || function.blocks().isEmpty()) {
+            return new View(function, Map.of());
+        }
+        return views.computeIfAbsent(new Entry<>(function.linkageName(), fields), ignored -> {
+            IrValueReference object = function.parameters().getFirst().value();
+            Set<RedundantNullChecks.FieldKey> entry = new LinkedHashSet<>();
+            fields.forEach(field -> entry.add(
+                    new RedundantNullChecks.FieldKey(object, field.owner(), field.name())));
+            RedundantNullChecks facts = RedundantNullChecks.solve(function.blocks(), Set.of(object), entry);
+            Map<IrInstruction, Set<ConstructedFields.Field>> calls = new IdentityHashMap<>();
+            for (IrBasicBlock block : function.blocks()) {
+                List<Set<RedundantNullChecks.FieldKey>> positions = facts.fieldsByPosition(block.label());
+                if (positions.isEmpty()) continue;
+                for (int index = 0; index < block.instructions().size(); index++) {
+                    IrInstruction instruction = block.instructions().get(index);
+                    if (!callArguments(instruction).isEmpty()) {
+                        calls.put(instruction, objectFields(positions.get(index), object));
+                    }
+                }
+                if (block.terminator() instanceof IrInvokeTerminator invoke) {
+                    calls.put(invoke.call(), objectFields(positions.getLast(), object));
+                }
+            }
+            List<IrBasicBlock> blocks = facts.rewritten();
+            IrFunction body = blocks == function.blocks() ? function
+                    : new IrFunction(function.ownerClass(), function.sourceName(), function.linkageName(),
+                    function.returnType(), function.parameters(), blocks, function.sourceSpan(),
+                    function.sourceFileName(), function.kind());
+            return new View(body, calls);
+        });
+    }
+
+    private static Set<ConstructedFields.Field> objectFields(Set<RedundantNullChecks.FieldKey> keys,
+                                                             IrOperand object) {
+        Set<ConstructedFields.Field> result = new LinkedHashSet<>();
+        for (RedundantNullChecks.FieldKey key : keys) {
+            if (key.object().equals(object)) {
+                result.add(new ConstructedFields.Field(key.owner(), key.name()));
+            }
+        }
+        return Set.copyOf(result);
+    }
+
+    /** Whether a call's receiver is exactly the object a context describes. */
+    private static boolean onObject(IrFunction function, Map<Integer, IrOperand> conversions,
+                                    IrInstruction instruction, ObjectContext context) {
+        List<IrOperand> arguments = callArguments(instruction);
+        return context != null && context.type() != null && !arguments.isEmpty()
+                && exactParameter(function, conversions, arguments.getFirst()).orElse(-1) == 0;
+    }
+
+    private IrClass classByName(String name) {
+        if (classesByName == null) {
+            classesByName = new LinkedHashMap<>();
+            classes.forEach(irClass -> classesByName.put(irClass.name(), irClass));
+        }
+        return classesByName.get(name);
+    }
+
+    /** The targets of a call whose receiver is an object of exact class {@code type}. */
+    List<IrFunction> exactTargets(IrInstruction instruction, String type) {
+        IrDispatchSlot slot = instruction instanceof IrVirtualCallInstruction call ? call.slot()
+                : instruction instanceof IrInterfaceCallInstruction call ? call.slot() : null;
+        IrClass exact = classByName(type);
+        if (slot == null || exact == null) return targets(instruction);
+        return exact.dispatchEntries().stream()
+                .filter(entry -> entry.slot().index() == slot.index())
+                .map(entry -> functions.get(entry.targetLinkageName()))
+                .filter(java.util.Objects::nonNull).toList();
     }
 
     void analyze() {
@@ -110,38 +418,24 @@ final class ClosedWorldEffectAnalyzer {
     }
 
     private Summary summarize(IrFunction function) {
-        Set<String> reachable = reachableBlocks(function);
-        Map<Integer, BitSet> origins = new LinkedHashMap<>();
-        for (int index = 0; index < function.parameters().size(); index++) {
-            BitSet origin = new BitSet();
-            origin.set(index);
-            origins.put(function.parameters().get(index).value().id(), origin);
-        }
+        return summarize(function, null);
+    }
+
+    private Summary summarize(IrFunction function, ObjectContext context) {
+        Set<String> reachable = reachableBlocks(function, context);
+        Map<Integer, BitSet> origins = parameterOrigins(function, reachable);
         BitSet published = new BitSet();
         BitSet returned = new BitSet();
         BitSet reclaimed = new BitSet();
         boolean allocates = false;
         boolean throwsOutward = false;
         Map<Integer, IrOperand> conversions = referenceConversions(function);
-        boolean originChanged;
-        do {
-            originChanged = false;
-            for (IrBasicBlock block : function.blocks()) {
-                if (!reachable.contains(block.label())) continue;
-                for (IrInstruction instruction : block.instructions()) {
-                    originChanged |= propagateResultOrigins(instruction, origins);
-                }
-                if (block.terminator() instanceof IrInvokeTerminator invoke) {
-                    originChanged |= propagateResultOrigins(invoke.call(), origins);
-                }
-            }
-        } while (originChanged);
 
         for (IrBasicBlock block : function.blocks()) {
             if (!reachable.contains(block.label())) continue;
             for (IrInstruction instruction : block.instructions()) {
                 allocates |= locallyAllocates(instruction);
-                Effect callEffect = callEffect(function, conversions, instruction, origins);
+                Effect callEffect = callEffect(function, conversions, instruction, origins, context);
                 allocates |= callEffect.allocates();
                 throwsOutward |= callEffect.throwsOutward();
                 published.or(callEffect.published());
@@ -156,19 +450,7 @@ final class ClosedWorldEffectAnalyzer {
                 if (instruction instanceof IrReleaseOwnedToStringResultInstruction text) {
                     reclaimed.or(releasedRenderedOrigin(function, conversions, text, origins));
                 }
-                if (instruction instanceof IrFieldStoreInstruction store) {
-                    BitSet receiver = origin(store.receiver(), origins);
-                    if (function.kind() != IrCallableKind.CONSTRUCTOR || !receiver.get(0)) {
-                        published.or(origin(store.value(), origins));
-                    }
-                } else if (instruction instanceof IrStaticFieldStoreInstruction store) {
-                    published.or(origin(store.value(), origins));
-                } else if (instruction instanceof IrArrayStoreInstruction store) {
-                    BitSet array = origin(store.array(), origins);
-                    if (function.kind() != IrCallableKind.CONSTRUCTOR || !array.get(0)) {
-                        published.or(origin(store.value(), origins));
-                    }
-                }
+                published.or(storedOrigins(function, instruction, origins));
             }
             IrTerminator terminator = block.terminator();
             if (terminator instanceof IrReturnTerminator result) {
@@ -182,7 +464,7 @@ final class ClosedWorldEffectAnalyzer {
                 }
             } else if (terminator instanceof IrInvokeTerminator invoke) {
                 allocates |= locallyAllocates(invoke.call());
-                Effect effect = callEffect(function, conversions, invoke.call(), origins);
+                Effect effect = callEffect(function, conversions, invoke.call(), origins, context);
                 allocates |= effect.allocates();
                 published.or(effect.published());
                 reclaimed.or(effect.reclaimed());
@@ -190,13 +472,69 @@ final class ClosedWorldEffectAnalyzer {
                 // appears as an IrThrowTerminator without another local unwind target.
             }
         }
+        if (placeholders.contains(function.linkageName())) {
+            for (int index = 0; index < function.parameters().size(); index++) {
+                if (function.parameters().get(index).value().type().isReference()) reclaimed.set(index);
+            }
+        }
         return new Summary(allocates, throwsOutward, published, returned, reclaimed);
+    }
+
+    /** The parameters each reference value may be, from the function's reachable blocks. */
+    private Map<Integer, BitSet> parameterOrigins(IrFunction function, Set<String> reachable) {
+        Map<Integer, BitSet> origins = new LinkedHashMap<>();
+        for (int index = 0; index < function.parameters().size(); index++) {
+            BitSet origin = new BitSet();
+            origin.set(index);
+            origins.put(function.parameters().get(index).value().id(), origin);
+        }
+        boolean originChanged;
+        do {
+            originChanged = false;
+            for (IrBasicBlock block : function.blocks()) {
+                if (!reachable.contains(block.label())) continue;
+                for (IrInstruction instruction : block.instructions()) {
+                    originChanged |= propagateResultOrigins(instruction, origins);
+                }
+                if (block.terminator() instanceof IrInvokeTerminator invoke) {
+                    originChanged |= propagateResultOrigins(invoke.call(), origins);
+                }
+            }
+        } while (originChanged);
+        return origins;
+    }
+
+    /**
+     * The parameters a store publishes. A constructor's stores into its own object or
+     * its own arrays keep the value inside the object under construction.
+     */
+    private static BitSet storedOrigins(IrFunction function, IrInstruction instruction,
+                                        Map<Integer, BitSet> origins) {
+        boolean constructor = function.kind() == IrCallableKind.CONSTRUCTOR;
+        if (instruction instanceof IrFieldStoreInstruction store) {
+            return constructor && origin(store.receiver(), origins).get(0)
+                    ? new BitSet() : origin(store.value(), origins);
+        }
+        if (instruction instanceof IrStaticFieldStoreInstruction store) {
+            return origin(store.value(), origins);
+        }
+        if (instruction instanceof IrArrayStoreInstruction store) {
+            return constructor && origin(store.array(), origins).get(0)
+                    ? new BitSet() : origin(store.value(), origins);
+        }
+        return new BitSet();
     }
 
     // Cleanup landing pads are emitted before the closed-world throw proof is known.
     // Recompute reachability with each fixed-point iteration; a newly throwing callee
     // makes its unwind path reachable on the next iteration, including recursive calls.
-    private Set<String> reachableBlocks(IrFunction function) {
+    Set<String> reachableBlocks(IrFunction function) {
+        return reachableBlocks(function, null);
+    }
+
+    private Set<String> reachableBlocks(IrFunction function, ObjectContext context) {
+        Map<Integer, IrOperand> conversions = context == null ? Map.of()
+                : referenceConversions(function);
         Map<String, IrBasicBlock> blocks = new LinkedHashMap<>();
         function.blocks().forEach(block -> blocks.put(block.label(), block));
         Set<String> reachable = new LinkedHashSet<>();
@@ -218,10 +556,26 @@ final class ClosedWorldEffectAnalyzer {
                 thrown.unwindTarget().ifPresent(pending::add);
             } else if (terminator instanceof IrInvokeTerminator invoke) {
                 pending.add(invoke.normalTarget());
-                if (mayUnwind(invoke.call())) pending.add(invoke.unwindTarget());
+                if (mayUnwind(function, conversions, invoke.call(), context)) {
+                    pending.add(invoke.unwindTarget());
+                }
             }
         }
         return reachable;
+    }
+
+    /** {@link #mayUnwind(IrInstruction)}, with calls resolved in a context. */
+    private boolean mayUnwind(IrFunction function, Map<Integer, IrOperand> conversions,
+                              IrInstruction instruction, ObjectContext context) {
+        boolean call = instruction instanceof IrCallInstruction
+                || instruction instanceof IrVirtualCallInstruction
+                || instruction instanceof IrInterfaceCallInstruction
+                || instruction instanceof IrEnsureTypeInitializedInstruction;
+        if (context == null || !call) return mayUnwind(instruction);
+        List<Callee> callees = callees(function, conversions, instruction, context);
+        if (callees.isEmpty()) return mayUnwind(instruction);
+        return callees.stream().anyMatch(callee ->
+                callee.summary().throwsOutward() || callee.summary().allocates());
     }
 
     boolean mayUnwind(IrInstruction instruction) {
@@ -239,7 +593,7 @@ final class ClosedWorldEffectAnalyzer {
         });
     }
 
-    private static boolean isCatchAllFallback(IrFunction function, IrBasicBlock fallback) {
+    static boolean isCatchAllFallback(IrFunction function, IrBasicBlock fallback) {
         if (!fallback.label().startsWith("catch.next")) {
             return false;
         }
@@ -289,13 +643,14 @@ final class ClosedWorldEffectAnalyzer {
     }
 
     private Effect callEffect(IrFunction function, Map<Integer, IrOperand> conversions,
-                              IrInstruction instruction, Map<Integer, BitSet> origins) {
+                              IrInstruction instruction, Map<Integer, BitSet> origins,
+                              ObjectContext context) {
         if (instruction instanceof IrForeignCallInstruction call) {
             BitSet inputs = foreignOrigins(call, origins);
             return new Effect(true, true, inputs, (BitSet) inputs.clone());
         }
-        List<IrFunction> targets = targets(instruction);
-        if (targets.isEmpty()) {
+        List<Callee> callees = callees(function, conversions, instruction, context);
+        if (callees.isEmpty()) {
             return Effect.NONE;
         }
         List<IrOperand> arguments = callArguments(instruction);
@@ -303,8 +658,9 @@ final class ClosedWorldEffectAnalyzer {
         boolean throwsOutward = false;
         BitSet published = new BitSet();
         BitSet reclaimed = new BitSet();
-        for (IrFunction target : targets) {
-            Summary summary = summaries.getOrDefault(target.linkageName(), Summary.empty());
+        for (Callee callee : callees) {
+            IrFunction target = callee.target();
+            Summary summary = callee.summary();
             allocates |= summary.allocates();
             throwsOutward |= summary.throwsOutward();
             BitSet targetReclaimed = summary.reclaimedParameters();
@@ -372,7 +728,7 @@ final class ClosedWorldEffectAnalyzer {
         return result;
     }
 
-    private List<IrFunction> targets(IrInstruction instruction) {
+    List<IrFunction> targets(IrInstruction instruction) {
         if (instruction instanceof IrCallInstruction call) {
             IrFunction target = functions.get(call.targetLinkageName());
             return target == null ? List.of() : List.of(target);
@@ -400,8 +756,10 @@ final class ClosedWorldEffectAnalyzer {
             slot = call.slot().index();
         } else if (instruction instanceof IrDestroyArrayElementsInstruction destroy) {
             IrType elementType = destroy.array().type().elementType().erasure();
+            Set<String> possible = valueClasses == null ? null : valueClasses.released(destroy);
             return classes.stream().filter(type -> elementType.isNominalReference()
-                            && isSubtype(type, elementType.referenceName()))
+                            && isSubtype(type, elementType.referenceName())
+                            && (possible == null || possible.contains(type.name())))
                     .flatMap(type -> type.destructorChain().stream())
                     .map(functions::get).filter(java.util.Objects::nonNull).distinct().toList();
         } else if (instruction instanceof IrFreeInstruction free) {
@@ -409,12 +767,7 @@ final class ClosedWorldEffectAnalyzer {
             if (staticType.isArray() || !staticType.isNominalReference()) {
                 return List.of();
             }
-            LinkedHashSet<IrFunction> destructors = new LinkedHashSet<>();
-            classes.stream().filter(type -> isSubtype(type, staticType.referenceName()))
-                    .flatMap(type -> type.destructorChain().stream())
-                    .map(functions::get).filter(java.util.Objects::nonNull)
-                    .forEach(destructors::add);
-            return List.copyOf(destructors);
+            return freeDestructors(staticType, valueClasses == null ? null : valueClasses.released(free));
         } else {
             return List.of();
         }
@@ -424,6 +777,28 @@ final class ClosedWorldEffectAnalyzer {
                 .map(entry -> functions.get(entry.targetLinkageName()))
                 .filter(java.util.Objects::nonNull).forEach(result::add);
         return List.copyOf(result);
+    }
+
+    /** The destructors of the classes of {@code staticType}, limited to {@code possible} when known. */
+    private List<IrFunction> freeDestructors(IrType staticType, Set<String> possible) {
+        LinkedHashSet<IrFunction> destructors = new LinkedHashSet<>();
+        classes.stream().filter(type -> isSubtype(type, staticType.referenceName())
+                        && (possible == null || possible.contains(type.name())))
+                .flatMap(type -> type.destructorChain().stream())
+                .map(functions::get).filter(java.util.Objects::nonNull)
+                .forEach(destructors::add);
+        return List.copyOf(destructors);
+    }
+
+    /**
+     * Whether freeing a value whose static type is {@code staticType} may run a
+     * destructor, judged without a free instruction: some class of that type in the
+     * closed world has one. Every free of such a value has a subset of these targets.
+     * Arrays and other types stay possible, since freeing them can destroy elements.
+     */
+    boolean freeMayRunDestructor(IrType staticType) {
+        IrType erased = staticType.erasure();
+        return erased.isArray() || !erased.isNominalReference() || !freeDestructors(erased, null).isEmpty();
     }
 
     private void collectInitializationTargets(String typeName, Set<String> visited,
@@ -474,7 +849,7 @@ final class ClosedWorldEffectAnalyzer {
         return parent != null && isSubtype(parent, targetName, visited);
     }
 
-    private static List<IrOperand> callArguments(IrInstruction instruction) {
+    static List<IrOperand> callArguments(IrInstruction instruction) {
         if (instruction instanceof IrCallInstruction call) {
             return call.arguments();
         }
@@ -490,7 +865,7 @@ final class ClosedWorldEffectAnalyzer {
         return List.of();
     }
 
-    private static IrValueReference callResult(IrInstruction instruction) {
+    static IrValueReference callResult(IrInstruction instruction) {
         if (instruction instanceof IrCallInstruction call) {
             return call.result().orElse(null);
         }
@@ -528,6 +903,7 @@ final class ClosedWorldEffectAnalyzer {
                         && stream.operation() == IrStreamInstruction.Operation.OPEN
                 || instruction instanceof IrFileInstruction file
                         && file.operation() != IrFileInstruction.Operation.LAST_ERROR
+                || instruction instanceof ironwood.compiler.ir.IrProcessInstruction
                 || instruction instanceof IrStringConcatInstruction;
     }
 
@@ -550,7 +926,7 @@ final class ClosedWorldEffectAnalyzer {
     }
 
     /** Each reference conversion's result id mapped to the value it converts. */
-    private static Map<Integer, IrOperand> referenceConversions(IrFunction function) {
+    static Map<Integer, IrOperand> referenceConversions(IrFunction function) {
         Map<Integer, IrOperand> conversions = new LinkedHashMap<>();
         for (IrBasicBlock block : function.blocks()) {
             for (IrInstruction instruction : block.instructions()) {
@@ -567,9 +943,9 @@ final class ClosedWorldEffectAnalyzer {
      * reference conversion keeps identity, so the chain is followed through it; a
      * join or a call result is never exact.
      */
-    private static java.util.OptionalInt exactParameter(IrFunction function,
-                                                        Map<Integer, IrOperand> conversions,
-                                                        IrOperand operand) {
+    static java.util.OptionalInt exactParameter(IrFunction function,
+                                                Map<Integer, IrOperand> conversions,
+                                                IrOperand operand) {
         while (operand instanceof IrValueReference value) {
             for (int index = 0; index < function.parameters().size(); index++) {
                 if (function.parameters().get(index).value().id() == value.id()) {

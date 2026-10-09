@@ -1,0 +1,55 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// Allocation-failure sweep for the native frontend pilot (M2.1). The harness
+// runs this program under every IRONWOOD_ALLOCATION_LIMIT from zero upward.
+// Lexing and parsing a source that reaches strings, escapes, a text block,
+// generics, both switch forms, a try statement, arrays and an anonymous class
+// either completes, exiting 43 when the token, diagnostic and declaration
+// counts match the successful parse, or fails with OutOfMemoryError while
+// every builder and parser holder is retired by its defer, exiting 42. A
+// crash, a different exception or a wrong count is a failure. The partial
+// syntax tree of a failed parse is invocation-lived, as successful output is.
+import ironwood.compiler.lexer.LexResult;
+import ironwood.compiler.lexer.Lexer;
+import ironwood.compiler.parser.ParseResult;
+import ironwood.compiler.parser.Parser;
+import ironwood.compiler.source.SourceFile;
+
+class Main {
+
+    private static final String SOURCE = "package p.q;\n"
+            + "import a.b.C;\n"
+            + "class Sample<T extends Comparable<T>> implements Runnable {\n"
+            + "    private final java.util.Map<String, int[]> values = null;\n"
+            + "    static final String TEXT = \"\"\"\n        one\\t\n          two\n        \"\"\";\n"
+            + "    @Override public void run() {\n"
+            + "        int total = 0x1F + 0b101 + 1_000 + 'x' + \"esc\\n\".length();\n"
+            + "        switch (total) { case 1, 2: total++; break; default: total--; }\n"
+            + "        int kind = switch (total) { case 3 -> 4; default -> { yield 5; } };\n"
+            + "        try { new Runnable() { public void run() { } }; } catch (E1 | E2 failure) { }\n"
+            + "        int[][] grid = new int[][] {{1}, {2, 3}};\n"
+            + "        for (int i = 0; i < 3; i++) { if (i >> 1 > 0) continue; }\n"
+            + "    }\n"
+            + "}\n";
+
+    public static int main(String[] args) {
+
+        try {
+            SourceFile source = SourceFile.of("Sample.iron", SOURCE);
+            Lexer lexer = new Lexer(source);
+            LexResult lexed = lexer.lex();
+            free lexer;
+            Parser parser = new Parser(source, lexed.tokens());
+            ParseResult parsed = parser.parse();
+            free parser;
+            boolean complete = lexed.tokens().size() == 199 && lexed.diagnostics().size() == 0
+                    && parsed.diagnostics().size() == 0 && parsed.unit() != null
+                    && parsed.unit().declarations().size() == 1;
+            free parsed;
+            free lexed;
+            return complete ? 43 : 1;
+        } catch (OutOfMemoryError failure) {
+            return 42;
+        }
+    }
+}

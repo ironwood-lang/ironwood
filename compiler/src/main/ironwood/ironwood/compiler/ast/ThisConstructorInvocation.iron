@@ -1,0 +1,52 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.ast;
+
+import ironwood.compiler.port.SnapshotList;
+import ironwood.compiler.source.SourceSpan;
+
+/**
+ * Port of the Java frontend AST record {@code ThisConstructorInvocation}. Components
+ * keep the record's order; {@code Optional} components are nullable, and list
+ * components are frozen, independent copies that the node borrows for the invocation.
+ */
+public final class ThisConstructorInvocation implements Statement {
+
+    private final SnapshotList<TypeName> typeArguments;
+    private final SnapshotList<Expression> arguments;
+    private final SourceSpan span;
+
+    /** Creates the node from its components in record order. */
+    public ThisConstructorInvocation(SnapshotList<TypeName> typeArguments, SnapshotList<Expression> arguments,
+                                     SourceSpan span) {
+
+        if (typeArguments == null) typeArguments = AstLists.NO_TYPE_NAMES;
+        if (arguments == null) throw new NullPointerException();
+        this.typeArguments = typeArguments;
+        this.arguments = arguments;
+        this.span = span;
+    }
+
+    /** @return the {@code typeArguments} component */
+    public SnapshotList<TypeName> typeArguments() {
+
+        return this.typeArguments;
+    }
+
+    /** @return the {@code arguments} component */
+    public SnapshotList<Expression> arguments() {
+
+        return this.arguments;
+    }
+
+    /** @return the {@code span} component */
+    @Override public SourceSpan span() {
+
+        return this.span;
+    }
+
+    @Override public StatementVariant statementVariant() {
+
+        return StatementVariant.THIS_CONSTRUCTOR_INVOCATION;
+    }
+}

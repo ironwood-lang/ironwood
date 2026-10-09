@@ -343,6 +343,14 @@ public final class LlvmEmitter {
         output.append("declare i32 @ironwood_file_create_directories(ptr, ptr)\n");
         output.append("declare i32 @ironwood_file_copy(ptr, ptr, ptr)\n");
         output.append("declare i32 @ironwood_file_move(ptr, ptr, ptr)\n");
+        output.append("declare ptr @ironwood_file_create_temp_file(ptr, ptr, ptr, ptr)\n");
+        output.append("declare ptr @ironwood_file_create_temp_directory(ptr, ptr, ptr)\n");
+        output.append("declare ptr @ironwood_file_real_path(ptr, ptr, ptr)\n");
+        output.append("declare i32 @ironwood_file_access(ptr, i32, ptr)\n");
+        output.append("declare i32 @ironwood_file_move_atomic(ptr, ptr, ptr)\n");
+        output.append("declare i32 @ironwood_file_move_replacing(ptr, ptr, ptr)\n");
+        output.append("declare i32 @ironwood_file_move_exclusive(ptr, ptr, ptr)\n");
+        output.append("declare i64 @ironwood_process_run(ptr, ptr, ptr, ptr)\n");
         output.append("declare i64 @ironwood_directory_open(ptr, ptr)\n");
         output.append("declare i32 @ironwood_directory_has_next(i64)\n");
         output.append("declare ptr @ironwood_directory_next(i64, ptr, ptr)\n");
@@ -978,6 +986,10 @@ public final class LlvmEmitter {
         }
         if (instruction instanceof IrFileInstruction file) {
             emitFileInstruction(output, file, "call", "");
+            return;
+        }
+        if (instruction instanceof ironwood.compiler.ir.IrProcessInstruction process) {
+            emitProcessInstruction(output, process, "call", "");
             return;
         }
         if (instruction instanceof IrFloatingParseInstruction parse) {
@@ -2039,6 +2051,10 @@ public final class LlvmEmitter {
             emitFileInstruction(output, file, "invoke", suffix);
             return;
         }
+        if (call instanceof ironwood.compiler.ir.IrProcessInstruction process) {
+            emitProcessInstruction(output, process, "invoke", suffix);
+            return;
+        }
         if (call instanceof IrCallInstruction direct) {
             direct.result().ifPresent(result -> output.append(operand(result)).append(" = "));
             output.append("invoke ").append(llvmType(direct.returnType())).append(' ')
@@ -2097,6 +2113,7 @@ public final class LlvmEmitter {
                 || instruction instanceof IrThrowableTraceInstruction trace
                 && trace.operation() == IrThrowableTraceInstruction.Operation.ARRAY
                 || instruction instanceof IrFileInstruction
+                || instruction instanceof ironwood.compiler.ir.IrProcessInstruction
                 || instruction instanceof IrStreamInstruction;
     }
 
@@ -2162,6 +2179,15 @@ public final class LlvmEmitter {
         output.append(operand(tcp.result())).append(" = call ").append(llvmType(tcp.result().type()))
                 .append(" @").append(tcp.operation().runtimeName()).append('(')
                 .append(String.join(", ", parameters)).append(')');
+    }
+
+    private void emitProcessInstruction(StringBuilder output, ironwood.compiler.ir.IrProcessInstruction process,
+                                        String callKind, String suffix) {
+        output.append(operand(process.result())).append(" = ").append(callKind)
+                .append(" i64 @ironwood_process_run(ptr ").append(operand(process.command()))
+                .append(", ptr ").append(operand(process.directory())).append(", ptr ")
+                .append(operand(process.output())).append(", ptr ").append(allocationFailureName())
+                .append(')').append(suffix);
     }
 
     private void emitFileInstruction(StringBuilder output, IrFileInstruction file,
@@ -2264,6 +2290,28 @@ public final class LlvmEmitter {
             case ABSOLUTE_PATH -> output.append("ptr @ironwood_path_absolute(ptr ")
                     .append(operand(file.path().orElseThrow())).append(", ptr ")
                     .append(typeInfoName("ironwood.lang.String")).append(", ptr ")
+                    .append(allocationFailureName()).append(')');
+            case CREATE_TEMP_FILE -> output.append("ptr @ironwood_file_create_temp_file(ptr ")
+                    .append(operand(file.path().orElseThrow())).append(", ptr ")
+                    .append(operand(file.value().orElseThrow())).append(", ptr ")
+                    .append(typeInfoName("ironwood.lang.String")).append(", ptr ")
+                    .append(allocationFailureName()).append(')');
+            case CREATE_TEMP_DIRECTORY -> output.append("ptr @ironwood_file_create_temp_directory(ptr ")
+                    .append(operand(file.path().orElseThrow())).append(", ptr ")
+                    .append(typeInfoName("ironwood.lang.String")).append(", ptr ")
+                    .append(allocationFailureName()).append(')');
+            case REAL_PATH -> output.append("ptr @ironwood_file_real_path(ptr ")
+                    .append(operand(file.path().orElseThrow())).append(", ptr ")
+                    .append(typeInfoName("ironwood.lang.String")).append(", ptr ")
+                    .append(allocationFailureName()).append(')');
+            case ACCESS -> output.append("i32 @ironwood_file_access(ptr ")
+                    .append(operand(file.path().orElseThrow())).append(", i32 ")
+                    .append(operand(file.value().orElseThrow())).append(", ptr ")
+                    .append(allocationFailureName()).append(')');
+            case MOVE_ATOMIC, MOVE_REPLACING, MOVE_EXCLUSIVE -> output.append("i32 @ironwood_file_")
+                    .append(file.operation().name().toLowerCase(java.util.Locale.ROOT)).append("(ptr ")
+                    .append(operand(file.path().orElseThrow())).append(", ptr ")
+                    .append(operand(file.value().orElseThrow())).append(", ptr ")
                     .append(allocationFailureName()).append(')');
         }
         output.append(suffix);
@@ -3330,7 +3378,8 @@ public final class LlvmEmitter {
      * Matches the lowering of `throw new X(...)` outside any local handler:
      * optional type-initialization barrier and allocation, a constructor invoke
      * whose unwind edge rolls the allocation back and rethrows, and a normal
-     * edge that null-checks the fresh object before throwing it.
+     * edge that throws the fresh object, after a null check of it unless the
+     * typed IR has omitted that check (D288).
      */
     private ExplicitThrow matchExplicitThrow(IrBasicBlock block, Map<String, IrBasicBlock> blocks,
                                              Map<String, Integer> references) {
@@ -3362,25 +3411,32 @@ public final class LlvmEmitter {
                 || !sameValue(rethrow.exception(), landing.exceptionObject())) {
             return null;
         }
-        if (continuation.instructions().size() != 1
-                || !(continuation.instructions().getFirst() instanceof IrNullCheckInstruction check)
-                || !sameValue(check.receiver(), allocate.result())
-                || !(continuation.terminator() instanceof IrBranch branch)
-                || !sameValue(branch.condition(), check.result())) {
+        IrBasicBlock valid;
+        List<String> absorbed;
+        if (continuation.instructions().isEmpty() && continuation.terminator() instanceof IrJump jump) {
+            // The typed IR omits the null check of the fresh object (D288).
+            valid = blocks.get(jump.target());
+            absorbed = List.of(rollback.label(), continuation.label(), jump.target());
+        } else if (continuation.instructions().size() == 1
+                && continuation.instructions().getFirst() instanceof IrNullCheckInstruction check
+                && sameValue(check.receiver(), allocate.result())
+                && continuation.terminator() instanceof IrBranch branch
+                && sameValue(branch.condition(), check.result())
+                && blocks.get(branch.falseTarget()) != null
+                && matchBundledThrow(blocks.get(branch.falseTarget())) != null) {
+            valid = blocks.get(branch.trueTarget());
+            absorbed = List.of(rollback.label(), continuation.label(),
+                    branch.trueTarget(), branch.falseTarget());
+        } else {
             return null;
         }
-        IrBasicBlock valid = blocks.get(branch.trueTarget());
-        IrBasicBlock failure = blocks.get(branch.falseTarget());
-        if (valid == null || failure == null
+        if (valid == null
                 || !valid.instructions().isEmpty()
                 || !(valid.terminator() instanceof IrThrowTerminator thrown)
                 || thrown.unwindTarget().isPresent()
-                || !sameValue(thrown.exception(), allocate.result())
-                || matchBundledThrow(failure) == null) {
+                || !sameValue(thrown.exception(), allocate.result())) {
             return null;
         }
-        List<String> absorbed = List.of(rollback.label(), continuation.label(),
-                valid.label(), failure.label());
         for (String label : absorbed) {
             if (references.getOrDefault(label, 0) != 1) {
                 return null;

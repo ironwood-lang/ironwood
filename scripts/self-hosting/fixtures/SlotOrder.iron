@@ -1,0 +1,28 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// Original ordering reference: free must be rejected because a branch stores the
+// same allocation in two array slots. Explain mode retains the selected store.
+class SlotNode {
+    int value = 1;
+}
+
+class SlotOrder {
+    static boolean branch(int value) {
+        return value == 1;
+    }
+
+    public static int main(String[] args) {
+        SlotNode node = new SlotNode();
+        SlotNode[] slots = new SlotNode[2];
+        if (branch(1)) {
+            slots[0] = node;
+            slots[1] = node;
+        } else {
+            slots[0] = null;
+            slots[1] = null;
+        }
+        free node;
+        free slots;
+        return 0;
+    }
+}

@@ -1,0 +1,79 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// The compiler port's STORED ZIP writer (D275). `program <output> <name>
+// <file>...` writes one archive whose entries are the named files' bytes in
+// argument order; `program --synthetic <output> <count>` writes count empty
+// entries named e00000, e00001 and so on, around Java's 65,535-entry ZIP64
+// threshold. The test compares the bytes with Java's ZipOutputStream and
+// opens them with Java's readers and tools. Native-only checks: each entry's
+// data is freed after it is added, adding allocates only the transient name
+// encoding, and finishing allocates only the result. Exit 42 on success, 1 on
+// an I/O failure, 2 when an allocation check fails.
+import ironwood.compiler.port.ZipWriter;
+import ironwood.io.IOException;
+import ironwood.nio.file.Files;
+import ironwood.nio.file.Path;
+
+class Main {
+
+    static boolean quiet = true;
+
+    static void addFile(ZipWriter writer, String name, String file) throws IOException {
+
+        Path path = Path.of(file);
+        defer free path;
+        byte[] data = Files.readAllBytes(path);
+        defer free data;
+        long live = System.liveAllocationCount();
+        writer.add(name, data, 0, data.length);
+        if (System.liveAllocationCount() != live) quiet = false;
+    }
+
+    static String synthetic(int index) {
+
+        char[] digits = {'e', '0', '0', '0', '0', '0'};
+        defer free digits;
+        int value = index;
+        for (int position = 5; position >= 1; position--) {
+            digits[position] = (char) ('0' + value % 10);
+            value = value / 10;
+        }
+        return new String(digits);
+    }
+
+    static void write(ZipWriter writer, String output) throws IOException {
+
+        long live = System.liveAllocationCount();
+        byte[] archive = writer.finish();
+        defer free archive;
+        if (System.liveAllocationCount() != live + 1) quiet = false;
+        Path path = Path.of(output);
+        defer free path;
+        Files.write(path, archive);
+    }
+
+    public static int main(String[] args) {
+
+        ZipWriter writer = new ZipWriter();
+        defer free writer;
+        try {
+            if (args[0].equals("--synthetic")) {
+                int count = Integer.parseInt(args[2]);
+                byte[] empty = new byte[0];
+                defer free empty;
+                for (int index = 0; index < count; index++) {
+                    String name = synthetic(index);
+                    defer free name;
+                    writer.add(name, empty, 0, 0);
+                }
+                write(writer, args[1]);
+            } else {
+                for (int index = 1; index + 1 < args.length; index = index + 2) addFile(writer, args[index], args[index + 1]);
+                write(writer, args[0]);
+            }
+        } catch (IOException failure) {
+            return 1;
+        }
+        return quiet ? 42 : 2;
+    }
+}

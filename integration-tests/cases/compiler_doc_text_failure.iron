@@ -1,0 +1,81 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// Inject allocation failure into the M5.4 documentation helpers: every fresh
+// result of DocText (splits, head and tail, prefixes, entities, removals,
+// collapses, stripLeading, anchors) and a link callback's fresh Markdown.
+// Every failure unwinds to the live-allocation baseline. Exit 42 on
+// allocation failure with every check intact, 43 on success.
+import ironwood.compiler.port.DocText;
+import ironwood.compiler.port.JavaIdentifiers;
+import ironwood.compiler.port.LinkRenderer;
+
+final class Brackets implements LinkRenderer {
+
+    @Override
+    public String link(String reference, boolean code) {
+
+        return (code ? "[`" : "[") + reference + (code ? "`]" : "]");
+    }
+}
+
+class Main {
+
+    // Calls the callback through the interface, as DocComment.render does.
+    static String render(LinkRenderer links, String reference) {
+
+        return links.link(reference, true);
+    }
+
+    static void exercise() {
+
+        // Ironwood string literals have no \u escapes; NEL and LS come from char
+        // literals. The constant concatenation is an immortal literal.
+        String text = " * &lt;code&gt;x&#x1F600;</code>" + '\u0085' + " a \r\n b" + '\u2028' + "c `` d.e#f(g)";
+        int[] fields = DocText.lineFields(text);
+        defer free fields;
+        String head = DocText.head(text);
+        defer free head;
+        String tail = DocText.tail(text);
+        defer free tail;
+        String star = DocText.stripCommentStar(text);
+        defer free star;
+        String code = DocText.stripCodeTags(star);
+        defer free code;
+        String entities = DocText.entities(text);
+        defer free entities;
+        String nospace = DocText.removeSpace(text);
+        defer free nospace;
+        String collapse = DocText.collapseLineBreaks(text);
+        defer free collapse;
+        String stripped = DocText.stripLeading(text);
+        defer free stripped;
+        String anchor = DocText.anchor(text);
+        defer free anchor;
+        Brackets renderer = new Brackets();
+        defer free renderer;
+        String link = render(renderer, "d.e#f");
+        defer free link;
+        if (fields.length != 8 || !link.equals("[`d.e#f`]") || DocText.tagEnd("@param x") != 6) {
+            throw new IllegalStateException();
+        }
+    }
+
+    public static int main(String[] args) {
+
+        // The identifier table is process-lived after its first use.
+        try {
+            JavaIdentifiers.isJavaIdentifierPart(0x4e2d);
+        } catch (OutOfMemoryError failure) {
+            return 42;
+        }
+        long baseline = System.liveAllocationCount();
+        boolean failed = false;
+        try {
+            exercise();
+        } catch (OutOfMemoryError failure) {
+            failed = true;
+        }
+        if (System.liveAllocationCount() != baseline) return 1;
+        return failed ? 42 : 43;
+    }
+}

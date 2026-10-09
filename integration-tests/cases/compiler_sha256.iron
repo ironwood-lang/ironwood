@@ -1,0 +1,189 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// Compiler-private SHA-256 against Java 21 MessageDigest
+// (docs/self-hosting/m3/semantic-evidence/Sha256Reference.java): the
+// standard's vectors including one million 'a', every length 0-300 across
+// the 55/56/64-byte padding boundaries, every byte value, UTF-8 text with
+// surrogate pairs and unpaired surrogates, and 64 MiB streamed through one
+// reused buffer. Native-only checks then cover every two-way split, offsets,
+// reset, reuse and range failures, and allocation: a digest costs four
+// allocations, hashing none, a fresh result one array; the three caught range
+// exceptions are the only allocations left. Prints the shared transcript;
+// exit 42.
+import ironwood.compiler.port.Sha256;
+
+class Main {
+
+    static void line(String name, Sha256 digest) {
+
+        String hex = digest.hexDigest();
+        System.out.println(name + " " + hex);
+        free hex;
+    }
+
+    static byte[] pattern(int length) {
+
+        byte[] data = new byte[length];
+        for (int index = 0; index < length; index++) data[index] = (byte) (index * 31 + 7);
+        return data;
+    }
+
+    static void vectors(Sha256 digest) {
+
+        line("empty", digest);
+        digest.updateUtf8("abc");
+        line("abc", digest);
+        digest.updateUtf8("abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq");
+        line("448", digest);
+        digest.updateUtf8("abcdefghbcdefghicdefghijdefghijkefghijklfghijklmghijklmnhijklmnoijklmnopjklmnopqklmnopqrlmnopqrsmnopqrstnopqrstu");
+        line("896", digest);
+        for (int index = 0; index < 1000000; index++) digest.update('a');
+        line("million", digest);
+    }
+
+    static void lengths(Sha256 digest) {
+
+        byte[] data = pattern(300);
+        defer free data;
+        for (int length = 0; length <= 300; length++) {
+            digest.update(data, 0, length);
+            line("length " + length, digest);
+        }
+        for (int value = 0; value < 256; value++) {
+            digest.update(value);
+            line("byte " + value, digest);
+        }
+    }
+
+    // Ironwood string literals have no \u escape, so texts with surrogates
+    // are built from character literals in a process-lived table.
+    static char[][] spelled = {{}, {'a', 's', 'c', 'i', 'i'}, {'c', 'a', 'f', '\u00e9'}, {'\u4e2d', '\u6587'},
+        {'\ud83d', '\ude00'}, {'\ud800'}, {'\udc00'}, {'a', '\ud800'}, {'\ud800', '\ud800', '\udc00'},
+        {'\udbff', '\udfff'}, {'x', '\udc00', '\ud800', 'y'}, {'\u007f', '\u0080', '\u07ff', '\u0800', '\uffff'}};
+
+    static void texts(Sha256 digest) {
+
+        for (int index = 0; index < spelled.length; index++) {
+            String text = new String(spelled[index]);
+            digest.updateUtf8(text);
+            free text;
+            line("text " + index, digest);
+        }
+    }
+
+    static void streamed(Sha256 digest) {
+
+        byte[] buffer = new byte[65536];
+        defer free buffer;
+        for (int chunk = 0; chunk < 1024; chunk++) {
+            for (int index = 0; index < buffer.length; index++) buffer[index] = (byte) (chunk + index);
+            digest.update(buffer, 0, buffer.length);
+        }
+        line("streamed", digest);
+    }
+
+    static boolean same(byte[] first, byte[] second) {
+
+        for (int index = 0; index < 32; index++) {
+            if (first[index] != second[index]) return false;
+        }
+        return true;
+    }
+
+    // Native-only contract checks; the transcript above is the Java comparison.
+    static boolean contract(Sha256 digest) {
+
+        byte[] data = pattern(200);
+        defer free data;
+        byte[] whole = new byte[32];
+        defer free whole;
+        byte[] parts = new byte[32];
+        defer free parts;
+        digest.update(data, 0, 200);
+        digest.digest(whole, 0);
+        for (int split = 0; split <= 200; split++) {
+            digest.update(data, 0, split);
+            digest.update(data, split, 200 - split);
+            digest.digest(parts, 0);
+            if (!same(whole, parts)) return false;
+        }
+        digest.update(data, 13, 100);
+        digest.digest(parts, 0);
+        byte[] slice = new byte[100];
+        defer free slice;
+        for (int index = 0; index < 100; index++) slice[index] = data[13 + index];
+        digest.update(slice, 0, 100);
+        digest.digest(whole, 0);
+        if (!same(whole, parts)) return false;
+        digest.update(data, 0, 77);
+        digest.reset();
+        digest.update(slice, 0, 100);
+        digest.digest(parts, 0);
+        if (!same(whole, parts)) return false;
+        long before = System.allocationCount();
+        digest.update(data, 0, 200);
+        digest.digest(parts, 0);
+        if (System.allocationCount() != before) return false;
+        long live = System.liveAllocationCount();
+        byte[] fresh = digest.digest();
+        boolean freshCounted = System.liveAllocationCount() == live + 1;
+        free fresh;
+        return freshCounted && System.liveAllocationCount() == live;
+    }
+
+    // Each rejected range leaves its caught exception allocated.
+    static int rejections(Sha256 digest) {
+
+        byte[] data = pattern(200);
+        defer free data;
+        byte[] result = new byte[32];
+        defer free result;
+        int rejected = 0;
+        try {
+            digest.update(data, -1, 1);
+        } catch (IndexOutOfBoundsException expected) {
+            rejected++;
+        }
+        try {
+            digest.update(data, 150, 51);
+        } catch (IndexOutOfBoundsException expected) {
+            rejected++;
+        }
+        try {
+            digest.digest(result, 1);
+        } catch (IndexOutOfBoundsException expected) {
+            rejected++;
+        }
+        return rejected;
+    }
+
+    // Hashes everything with one digest; returns 42 when every check holds.
+    static int run(long live) {
+
+        long before = System.allocationCount();
+        Sha256 digest = new Sha256();
+        defer free digest;
+        long construction = System.allocationCount() - before;
+        vectors(digest);
+        lengths(digest);
+        texts(digest);
+        streamed(digest);
+        boolean valid = contract(digest) && construction == 4;
+        if (System.liveAllocationCount() != live + 4) return 1;
+        long beforeRejections = System.liveAllocationCount();
+        boolean rejected = rejections(digest) == 3 && System.liveAllocationCount() == beforeRejections + 3;
+        return valid && rejected ? 42 : 2;
+    }
+
+    public static int main(String[] args) {
+
+        // The first digest runs the one-time, process-lived round-constant
+        // initialization; take the baseline after it.
+        Sha256 warm = new Sha256();
+        free warm;
+        long live = System.liveAllocationCount();
+        int status = run(live);
+        if (System.liveAllocationCount() != live + 3) return 1;
+        return status;
+    }
+}

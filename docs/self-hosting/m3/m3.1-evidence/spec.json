@@ -1,0 +1,23 @@
+{
+ "evidence": "docs/self-hosting/m3/m3.1-evidence",
+ "run": "workspace/m3/m3.1-evidence",
+ "increment": "M3.1 handoff: helpers ready for their S2 consumers",
+ "reproduce": "docs/self-hosting/m3/m3.1-evidence/run-evidence.sh cbed323d",
+ "sources": [
+  "stdlib/src/main/ironwood/ironwood/ds/ArrayList.iron",
+  "compiler/src/main/ironwood/ironwood/compiler/port/IrModel.iron",
+  "compiler/src/main/ironwood/ironwood/compiler/port/Lists.iron",
+  "compiler/src/main/ironwood/ironwood/compiler/port/ScopeStack.iron",
+  "compiler/src/main/ironwood/ironwood/compiler/port/Splits.iron",
+  "compiler/src/main/ironwood/ironwood/compiler/port/SnapshotSet.iron",
+  "compiler/src/main/ironwood/ironwood/compiler/port/StringOrder.iron",
+  "compiler/src/main/ironwood/ironwood/compiler/port/Extremes.iron",
+  "compiler/src/main/ironwood/ironwood/compiler/port/Maps.iron",
+  "docs/self-hosting/m3/classify.py",
+  "docs/self-hosting/m3/CLASSIFICATION_M3.1.md",
+  "docs/self-hosting/m3/m3.1-evidence/run-evidence.sh"
+ ],
+ "logs": ["commit.txt", "status.txt", "build.log", "build-identity.txt", "javac.log", "tests.log",
+  "classification.log", "classification.md", "diff-check.log", "licenses.log"],
+ "extra": {"tests": 31, "m3_1_patterns": 319, "m3_1_calls": 13622}
+}

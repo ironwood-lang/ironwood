@@ -1,0 +1,73 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// Inject allocation failure into list construction, growth and the sort
+// workspace. Elements are literals, which are never allocated or freed. When
+// the workspace cannot be allocated, the list keeps its original order. Every
+// failure unwinds to the live-allocation baseline. Exit 44 when the workspace
+// allocation failed with membership intact, 42 for any other allocation
+// failure and 43 when the sort succeeds.
+import ironwood.ds.ArrayList;
+import ironwood.util.Comparator;
+
+final class Natural implements Comparator<String> {
+
+    @Override
+    public int compare(String first, String second) {
+
+        return first.compareTo(second);
+    }
+}
+
+class Main {
+
+    static boolean workspaceFailed;
+
+    static String key(int index) {
+
+        return switch (index % 8) {
+            case 0 -> "h";
+            case 1 -> "c";
+            case 2 -> "f";
+            case 3 -> "a";
+            case 4 -> "g";
+            case 5 -> "b";
+            case 6 -> "e";
+            default -> "d";
+        };
+    }
+
+    static void sortList() {
+
+        Natural natural = new Natural();
+        defer free natural;
+        ArrayList<String> list = new ArrayList<String>(4);
+        defer free list;
+        for (int index = 0; index < 40; index++) list.add(key(index));
+        try {
+            list.sortWithComparator(natural);
+        } catch (OutOfMemoryError failure) {
+            for (int index = 0; index < 40; index++) {
+                if (list.get(index) != key(index)) throw new IllegalStateException();
+            }
+            workspaceFailed = true;
+            throw failure;
+        }
+        for (int index = 1; index < 40; index++) {
+            if (list.get(index - 1).compareTo(list.get(index)) > 0) throw new IllegalStateException();
+        }
+    }
+
+    public static int main(String[] args) {
+
+        long baseline = System.liveAllocationCount();
+        boolean failed = false;
+        try {
+            sortList();
+        } catch (OutOfMemoryError failure) {
+            failed = true;
+        }
+        if (System.liveAllocationCount() != baseline) return 1;
+        if (workspaceFailed) return 44;
+        return failed ? 42 : 43;
+    }
+}

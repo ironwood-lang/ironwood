@@ -1,0 +1,81 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.port;
+
+import ironwood.io.IOException;
+import ironwood.nio.file.Path;
+
+/**
+ * The runtime source inventory selection of the Java baseline's
+ * BridgeDistributionInputs.read and BridgeProducerInputs.read (B3, S7):
+ * {@code Files.walk(root)} filtered to regular files whose spelling ends with
+ * {@code .c} or {@code .h}, sorted in Path order. It is B3's walkFileTree
+ * replacement through two {@link FileCollector} walks, merged and sorted in
+ * code point order, which is Java's Path order. Links to files count when
+ * their target is a regular file, as {@code Files.isRegularFile} follows
+ * them; links to directories are not entered. Relative names are spelled
+ * after the root with {@code /}, the separator on every supported host, as the
+ * callers' {@code relativize(...).toString().replace(separatorChar, '/')}
+ * spells them. A traversal failure propagates as an IOException.
+ */
+public final class SourceFiles {
+
+    private TextList paths;
+    private int rootLength;
+
+    /**
+     * Walks root and keeps its C sources and headers. A failure, including an
+     * allocation failure, rolls back the partly built inventory.
+     *
+     * @param root the runtime directory; borrowed
+     * @throws IOException if an entry cannot be read
+     */
+    public SourceFiles(Path root) throws IOException {
+
+        this.paths = new TextList();
+        String spelling = root.toString();
+        this.rootLength = spelling.length();
+        if (!spelling.endsWith("/")) this.rootLength++;
+        FileCollector sources = new FileCollector(root, ".c");
+        defer free sources;
+        FileCollector headers = new FileCollector(root, ".h");
+        defer free headers;
+        this.add(sources);
+        this.add(headers);
+        this.paths.sortCodePoints();
+    }
+
+    /** @return the number of files kept */
+    public int size() {
+
+        return this.paths.size();
+    }
+
+    /** @return a fresh String holding file index's spelling, in Path order */
+    public String file(int index) {
+
+        return this.paths.get(index);
+    }
+
+    /** @return a fresh String holding file index's name relative to the root */
+    public String relative(int index) {
+
+        String file = this.paths.get(index);
+        defer free file;
+        return file.substring(this.rootLength);
+    }
+
+    private void add(FileCollector collector) {
+
+        for (int index = 0; index < collector.size(); index++) {
+            String file = collector.file(index);
+            defer free file;
+            this.paths.add(file);
+        }
+    }
+
+    destructor {
+
+        free this.paths;
+    }
+}

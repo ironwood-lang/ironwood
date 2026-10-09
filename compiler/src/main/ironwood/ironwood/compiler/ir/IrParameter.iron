@@ -1,0 +1,43 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.ir;
+
+import ironwood.compiler.source.SourceSpan;
+
+/** A function parameter. Ports the Java record {@code IrParameter}; components are borrowed. */
+public final class IrParameter {
+
+    private final String name;
+    private final IrValueReference value;
+    private final SourceSpan sourceSpan;
+
+    /**
+     * @param name the parameter name
+     * @param value the parameter's value reference
+     * @param sourceSpan the span
+     */
+    public IrParameter(String name, IrValueReference value, SourceSpan sourceSpan) {
+
+        this.name = name;
+        this.value = value;
+        this.sourceSpan = sourceSpan;
+    }
+
+    /** @return the parameter name */
+    public String name() {
+
+        return this.name;
+    }
+
+    /** @return the parameter's value reference */
+    public IrValueReference value() {
+
+        return this.value;
+    }
+
+    /** @return the span */
+    public SourceSpan sourceSpan() {
+
+        return this.sourceSpan;
+    }
+}

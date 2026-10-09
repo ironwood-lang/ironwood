@@ -1,0 +1,22 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.port;
+
+/**
+ * The link callback of DocComment.render, replacing its
+ * {@code BiFunction<String, Boolean, String>} (B7's section 3 callback design):
+ * MarkdownDoclet supplies the implementation that resolves a
+ * {@code {@link}}, {@code {@linkplain}} or {@code @see} reference against the
+ * documented types. The primitive boolean replaces Java's boxed argument.
+ */
+public interface LinkRenderer {
+
+    /**
+     * Renders a reference.
+     *
+     * @param reference the reference text and optional label; borrowed
+     * @param code whether the label is set as code ({@code {@link}}) or as text ({@code {@linkplain}})
+     * @return a fresh String holding the Markdown, owned by the caller
+     */
+    String link(String reference, boolean code);
+}

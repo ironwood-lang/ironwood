@@ -1,0 +1,8 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// Frozen M5.1 serialization fixture: a class without an entry point.
+package q;
+
+class C {
+
+}

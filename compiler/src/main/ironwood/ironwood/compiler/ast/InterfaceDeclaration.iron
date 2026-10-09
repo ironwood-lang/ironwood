@@ -1,0 +1,114 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.ast;
+
+import ironwood.compiler.port.SnapshotList;
+import ironwood.compiler.source.SourceSpan;
+
+/**
+ * Port of the Java frontend AST record {@code InterfaceDeclaration}. Components keep
+ * the record's order; {@code Optional} components are nullable, and list components
+ * are frozen, independent copies that the node borrows for the invocation.
+ */
+public final class InterfaceDeclaration implements TypeDeclaration {
+
+    private final AccessModifier accessModifier;
+    private final boolean isStatic;
+    private final String name;
+    private final SourceSpan nameSpan;
+    private final SnapshotList<TypeParameter> typeParameters;
+    private final SnapshotList<TypeReference> extendedInterfaces;
+    private final SnapshotList<FieldDeclaration> fields;
+    private final SnapshotList<InterfaceMethodDeclaration> methods;
+    private final SnapshotList<TypeDeclaration> memberTypes;
+    private final SourceSpan span;
+
+    /** Creates the node from its components in record order. */
+    public InterfaceDeclaration(AccessModifier accessModifier, boolean isStatic, String name, SourceSpan nameSpan,
+                                SnapshotList<TypeParameter> typeParameters,
+                                SnapshotList<TypeReference> extendedInterfaces, SnapshotList<FieldDeclaration> fields,
+                                SnapshotList<InterfaceMethodDeclaration> methods,
+                                SnapshotList<TypeDeclaration> memberTypes, SourceSpan span) {
+
+        if (typeParameters == null) throw new NullPointerException();
+        if (extendedInterfaces == null) throw new NullPointerException();
+        if (fields == null) throw new NullPointerException();
+        if (methods == null) throw new NullPointerException();
+        if (memberTypes == null) throw new NullPointerException();
+        this.accessModifier = accessModifier;
+        this.isStatic = isStatic;
+        this.name = name;
+        this.nameSpan = nameSpan;
+        this.typeParameters = typeParameters;
+        this.extendedInterfaces = extendedInterfaces;
+        this.fields = fields;
+        this.methods = methods;
+        this.memberTypes = memberTypes;
+        this.span = span;
+    }
+
+    /** @return the {@code accessModifier} component */
+    @Override public AccessModifier accessModifier() {
+
+        return this.accessModifier;
+    }
+
+    /** @return the {@code isStatic} component */
+    @Override public boolean isStatic() {
+
+        return this.isStatic;
+    }
+
+    /** @return the {@code name} component */
+    @Override public String name() {
+
+        return this.name;
+    }
+
+    /** @return the {@code nameSpan} component */
+    @Override public SourceSpan nameSpan() {
+
+        return this.nameSpan;
+    }
+
+    /** @return the {@code typeParameters} component */
+    @Override public SnapshotList<TypeParameter> typeParameters() {
+
+        return this.typeParameters;
+    }
+
+    /** @return the {@code extendedInterfaces} component */
+    public SnapshotList<TypeReference> extendedInterfaces() {
+
+        return this.extendedInterfaces;
+    }
+
+    /** @return the {@code fields} component */
+    public SnapshotList<FieldDeclaration> fields() {
+
+        return this.fields;
+    }
+
+    /** @return the {@code methods} component */
+    public SnapshotList<InterfaceMethodDeclaration> methods() {
+
+        return this.methods;
+    }
+
+    /** @return the {@code memberTypes} component */
+    @Override public SnapshotList<TypeDeclaration> memberTypes() {
+
+        return this.memberTypes;
+    }
+
+    /** @return the {@code span} component */
+    @Override public SourceSpan span() {
+
+        return this.span;
+    }
+
+    @Override public TypeDeclarationVariant typeDeclarationVariant() {
+
+        return TypeDeclarationVariant.INTERFACE_DECLARATION;
+    }
+}

@@ -9435,3 +9435,2883 @@ occurrence order. If no
 - **Evidence:** The 2026-10-03 full compiler suites on macOS ARM64, Linux ARM64
   and Linux x86-64 pass after three test-only fixes, each rerun on all three
   platforms; `LOCAL_TESTING.md` describes the platform workflow.
+
+## D247 - Preserve current array-store order through ownership snapshots
+
+- **Status:** Implemented as the M0 preparatory ordering contract on 2026-10-04.
+- **Decision:** FunctionAnalyzer's immutable array-slot snapshot preserves the
+  current-store insertion order of its LinkedHashMap builder. A store removes
+  and reinserts its slot, so overwriting a slot updates that current-store order.
+  Ownership merges retain incoming-path list precedence, then traverse each
+  path's slot membership in that order before choosing a blocking store witness.
+  Use an independent ordered shallow copy with immutable membership and null
+  entry rejection. ArraySlot equality remains container identity plus index;
+  allocation values remain identity references. Minimum-index/container-allocation
+  precedence in the ordinary free probe stays explicit and unchanged.
+- **Reason:** Original Map.copyOf erased the builder order. Fresh M0 resource
+  processes chose either of two incoming array stores for the same SlotOrder
+  explanation, while preserving its mandatory error. JDK hash iteration must
+  not choose the first explanation store or become a native compatibility rule.
+- **Boundary:** This changes the selected diagnostic witness, not mandatory
+  safety, ownership, alias facts, or emitted runtime bookkeeping. It does not
+  settle other snapshot maps, retained-owner traversal or optional-budget
+  prefixes. No earlier decision is superseded. Original J0 inputs and differing
+  evidence are retained; repaired references need a distinct source/seed identity.
+- **Verification:** The focused array-snapshot regression covers immutable
+  independent membership/null rejection and forward/reverse stores over
+  8/32/128 slots, all missing-free modes, explain parity and accepted fully
+  detached controls. Results and the focused existing-consumer checks are
+  recorded in the M0 qualification record; this decision does not establish S0.
+
+
+## D248 - Derive list copy item loans from verified storage reads
+
+- **Status:** Implemented during M1.1 on 2026-10-04.
+- **Decision:** Add `ironwood.ds.ArrayList.copy()` with independent ordered
+  mutable membership and iterator storage, borrowed non-null items, default
+  growth factor and `max(1, size())` initial capacity. Use indexed traversal and
+  explicit failure cleanup; do not touch the source reusable iterator.
+- **Proof:** Extend the existing body-verified fresh borrowing factory proof
+  with a container-element input. It requires the exact audited bounds-checked
+  ArrayList read, owned private storage, the exact private read-only primitive
+  bounds guard and a single
+  resolved target. At the caller, an exact unexposed local ArrayList supplies
+  its actual item loans to the fresh result. Self-items and nested containers
+  remain loans. Unknown, dependent or exposed sources retain the conservative
+  source root. Temporary-list summaries do not treat element inputs as a
+  single source-root value. No method spelling receives a copy exemption.
+- **Reason:** The previous factory proof classified reads from owned list
+  storage as unknown results and exposed all caller items. The structural
+  distinction permits builder retirement while preserving destination loans.
+  Exact-sized storage avoids geometric growth allocations in snapshot copying.
+- **Boundary:** Existing removal, publication, subclass and callback restrictions
+  remain intact. This does not qualify arbitrary map copies, private snapshot
+  constructors or S1/G1. No runtime bookkeeping or lowering changes are added.
+  D129's copy deferral is fulfilled only for this method; its other deferred
+  operations remain absent. No other earlier decision is superseded.
+- **Verification:** Focused accepted/rejected lifetime checks in all unfreed
+  modes, nested/self/publishing-subclass controls, delegated factory acceptance,
+  source/class/archive reconstruction, native ordered membership and iterator
+  continuation, 8/32/128/512 allocation scaling, and every allocation-failure
+  boundary. See [the M1 list-copy record](self-hosting/m1/ARRAY_LIST.md).
+
+## D249 - Prove private copied membership and its read lifetimes structurally
+
+- **Status:** Implemented during M1.1 on 2026-10-05.
+- **Decision:** Add compiler-private `SnapshotList` and `SnapshotBits` helpers.
+  A list snapshot owns independent ordered storage and borrows its items; its
+  read interface lends aliases under the snapshot lifetime. Logical bit copies
+  use existing BitSet construction and `or`, with capacity pre-sizing for
+  nonempty ordinary bounds, one-word empty storage and overflow-safe growth.
+- **Proof:** Recognize a final Object-derived wrapper with one private final
+  owned field, no captured owner/delegation/initializer, a null-only guard and
+  one body-proved list-copy assignment. Transfer actual local list item loans,
+  retaining whole roots for unknown/exposed/dependent sources. Verify primitive
+  count purity only for item projections. A single delegated owned-list read
+  lends reference results under the wrapper. Unknown wrapper methods expose
+  copied payloads conservatively. Proved primitive payload observations do not
+  expose wrapper membership; every resolved override must satisfy that proof.
+- **Reason:** Ordinary constructor exposure rejected safe builder retirement.
+  Merely suppressing it left getter aliases untracked and admitted a use after
+  free. Construction, reads and conservative exposure therefore form one
+  qualified contract. No method-name ownership exemption or runtime metadata
+  is introduced, and LLVM lowering is unchanged.
+- **Boundary:** List aliases may conservatively require a live snapshot even
+  when the payload has its own owner. Unknown mutation/publication keeps ordinary
+  safety checks. The BitSet capacity query costs roughly one nanosecond in the
+  measured one-word case and removes a growth allocation for wider sets; measured
+  wider copies are faster. M1 map/set, composition, traversal and B7 work remain.
+  This extends D248 for the private wrapper and count proof only. It does not
+  supersede other decisions or establish S1/G1.
+- **Verification:** All-mode alias/nested/self rejection, primitive observation
+  and publication/override pairs, unrecognized constructor controls, Java 21
+  contract checks, class/archive loan reconstruction, null and trailing-zero
+  cases, maximum-bit overflow, native allocation scaling and every representative
+  failure boundary. See [the private snapshot record](self-hosting/m1/SNAPSHOTS.md).
+
+## D250 - Derive independent map-copy loans from direct membership traversal
+
+- **Status:** Implemented during M1.2 on 2026-10-05.
+- **Decision:** Add original `copy()` helpers to value, identity and linked maps,
+  with independently owned storage and borrowed non-null key/value references.
+  Traverse private membership without touching the source iterator. Preserve
+  linked order and ordinary value-key callback behavior, including exceptions.
+- **Proof:** Qualify the actual constructor, traversal, insertion and cleanup
+  bodies. Preserve concrete typed-call result arguments for callback analysis.
+  Transfer current local item loans, retaining whole roots for unknown sources.
+  Monotonic possible-key observation metadata preserves nested callback exposure
+  across joins/copies without misclassifying ordinary nested values. Fallback
+  roots remain possible keys; metadata cannot establish reclamation safety.
+- **Boundary:** Existing getter/cursor exposure and individual-removal limits
+  remain conservative. No runtime bookkeeping or lowering change is introduced.
+  This extends D248's fresh membership proofs; it supersedes no earlier decision
+  and establishes neither a complete M1 checkpoint nor S1/G1.
+- **Verification:** All-mode lifetime/publication pairs, conditional insertion,
+  copy-of-copy, nested key/value controls, source/class/archive reconstruction,
+  Java 21 logical contracts, geometric allocation counts, every representative
+  OOM boundary and ordinary throwing-callback cleanup. See [the map-copy record](self-hosting/m1/MAPS.md).
+
+## D251 - Prove set copying through owned backend and confined iterator construction
+
+- **Status:** Implemented during M1.2 on 2026-10-05.
+- **Decision:** Add original `copy()` helpers to value, identity and linked
+  sets using independent map storage and a fresh owned iterator. Borrow non-null
+  items, preserve linked order and source cursor state, and propagate ordinary
+  value callbacks after failure cleanup. Identity copying invokes no callbacks.
+- **Proof:** Require the actual private two-assignment constructor, a proved
+  backend copy and confined iterator owner capture. Carry callback obligations
+  on borrowing inputs through delegation and copied-wrapper construction, with
+  actual value-item dispatch checked at each caller. Transfer local item loans;
+  retain whole roots for unknown/exposed/dependent sources and preserve nested
+  key publication. The original general constructor boundary is superseded by
+  D252's mandatory helper-confinement correction. Bodyless copy
+  targets receive no proof and bad-source diagnostics do not crash the compiler.
+- **Boundary:** Clear/destruction and retained aliases govern item lifetime;
+  individual removal does not discharge loans. Combined lookup on an exposed
+  source's copy remains conservative. No runtime bookkeeping or lowering change
+  is introduced. This extends D250 for selected sets, supersedes no earlier
+  decision and establishes neither full M1 nor S1/G1.
+- **Verification:** All-mode safe/unsafe lifetime and callback controls,
+  constructor/reset publication, Java logical contracts, source/class/archive
+  reconstruction, geometric allocation counts, ordinary callback failures and
+  every representative OOM boundary. See [the set-copy record](self-hosting/m1/SETS.md).
+
+## D252 - Confine helper captures of an in-progress constructor receiver
+
+- **Status:** Implemented during M1.2 on 2026-10-05.
+- **Problem:** A set iterator's reset can publish its retained parent and throw.
+  Previously, programs without explicit frees admitted this construction under
+  off/warn; error only diagnosed a missing free. Automatic rollback then reclaims
+  the observable incomplete parent. No unsafe admitted native program was run.
+- **Decision:** Require argument confinement when a constructor passes its
+  in-progress receiver or a proved alias to another constructor. A retained
+  argument must live only in a private encapsulated helper field. Reuse the
+  existing confinement proof; do not bypass ordinary ownership or publication
+  rules. Apply the check in every unfreed mode without requiring caller frees.
+- **Proof:** Validate after all branch and loop phis are complete. Follow
+  reference conversions and returned receiver/parameter origins, including all
+  possible virtual/interface implementations. Cover both ordinary and planned
+  generic constructor lowering. Confined captures and throwing helpers remain
+  valid. The check changes diagnostics only; valid typed IR and native lowering
+  gain no runtime bookkeeping.
+- **Supersedes:** D251's unchanged general-constructor boundary and its earlier
+  admitted publishing-reset control. Independent storage and item-loan contracts
+  remain. This correction establishes neither full M1 nor S1/G1.
+- **Verification:** All-mode source/class/archive publication-and-throw
+  rejection, direct/converted/joined/loop/returned/dispatch aliases, accepted
+  confined counterparts, native normal/failure cleanup and focused shared
+  consumers. See [the set-copy correction](self-hosting/m1/SETS.md).
+
+## D253 - Follow receiver identity through constructor-held fields
+
+- **Status:** Implemented during M1.2 on 2026-10-05.
+- **Problem:** After D252, a constructor could store `this` in a private self
+  field and pass, publish or call through that field. The typed effect check
+  exempted constructor stores into the receiver's own fields but gave later
+  loads no origin. It also accepted a store target that only may be `this`,
+  and it lost what helper constructors stored. Ten compile-only probes were
+  admitted, including a static store of a self field, a static or virtual call
+  on it, a helper built in an instance method, a joined store target and a
+  published local helper. Linking a publishing helper from classes or an
+  archive was admitted even under `--unfreed=error`. Destructors could likewise
+  resurrect `this` through a self field or a caught exception. No admitted
+  program was executed.
+- **Decision:** Keep D252's argument check and add a retention-aware
+  publication analysis to the mandatory constructor and destructor checks.
+  Each value tracks the parameters it may be, the parameter identities it may
+  reach through fields, and the parameters whose contents it may reach. Only a
+  constructor store into exactly its receiver, or into an element of that
+  receiver's compiler-proven owned array, is retention. Every other store,
+  static store, outward throw and foreign call publishes everything the value
+  can reach. Locally thrown values reach the function's landing pads.
+- **Proof:** Closed-world field marks only grow. A field a constructor wrote
+  with its receiver or a retainer may return its holder; a field written with
+  parameter-derived data may return what the holder retains. Constructor
+  summaries expose retained parameters, so building a helper records what it
+  holds, publishing the helper publishes those arguments, and a helper method
+  that publishes held content publishes them as well. Callees cannot see
+  retention established by their callers, so content effects resolve at the
+  caller. The existing effect kernel's reclamation, returned-origin and
+  projection facts are unchanged, so relowering, Bridge cleanup and the M0
+  effect workload keep their inputs.
+- **Boundary:** Diagnostics only: valid typed IR and LLVM are byte-identical
+  and no runtime bookkeeping is added. The analysis is conservative: an array
+  element store outside an owned receiver array still publishes its value.
+  Existing escape-summary limits that keep some confined parents unfreeable are
+  unchanged. This completes D252's rollback confinement without superseding it
+  and establishes neither full M1 nor S1/G1.
+- **Verification:** Fourteen unsafe probes are rejected in off/warn/error from
+  source, and publishing helpers are rejected from class and archive links.
+  Safe self fields, confined helpers, self-retaining collections, owned child
+  arrays and a dropped caught `this` keep identical LLVM and native exits. The
+  strict library, all 79 example/project trees, the D252 suite and focused
+  copy/snapshot/pool/Bridge consumers pass. See [the field-alias record](self-hosting/m1/FIELD_ALIAS.md).
+
+## D254 - Prove private keyed snapshot reads from copied bucket bodies
+
+- **Status:** Implemented during M1.2 on 2026-10-05.
+- **Decision:** Add compiler-private `SnapshotMap`, `SnapshotIdentityMap`,
+  `SnapshotLinkedMap` and `SnapshotIdentitySet`. Each final wrapper owns one
+  D250/D251 copy, borrows keys, values and immutable child versions, and
+  exposes only size, emptiness and lookup. No iterator or mutable view escapes.
+  Null sources fail before storage acquisition.
+- **Proof:** Reuse D249's one-field copied-wrapper constructor proof for map
+  and set copies. Lookup bodies are proved structurally: they may read owned
+  private buckets, entries, stored keys and values, private key helpers and
+  null guards, and may return only stored entry values. Count reads must be
+  pure primitive field expressions. Value-key `hashCode`/`equals` calls are
+  reported as callbacks; each caller must then prove its actual key and query
+  dispatch non-retaining. Callback-bearing lookups expose stored and queried
+  key contents. Copied stored keys stay possible keys through nested copies.
+  Lookup aliases conservatively retain the wrapper. Unknown, changed or
+  publishing bodies keep ordinary effects, and no method name grants a proof.
+- **Boundary:** Ordered traversal and restore are not part of this API; the
+  seven-field operation composition adds them separately. Identity lookup runs
+  no callbacks. No runtime bookkeeping or lowering change is introduced. This
+  extends D249-D251 and D253 without superseding them and establishes neither
+  full M1 nor S1/G1.
+- **Verification:** All-mode loan, shared-child, changed-body, publishing
+  callback, stored count/lookup callback and nested publication controls;
+  class/archive loan reconstruction; Java 21 reference; native allocation
+  scaling, membership, null rollback, callback failure and every OOM limit
+  0-80. See [the keyed snapshot record](self-hosting/m1/KEYED.md).
+
+## D255 - Use a compiler-private ring FIFO for the selected pilot worklist
+
+- **Status:** Implemented during M1.2 on 2026-10-05.
+- **Decision:** Replace the effect analyzer's selected `ArrayDeque` FIFO
+  (WORKLIST_CONTRACTS Q20) with compiler-private `WorkQueue<E>`: append at the
+  tail, take from the head, `isEmpty`, `size` and `clear`. Null items throw
+  `NullPointerException` and an empty take throws `NoSuchElementException`, as
+  in Java. A power-of-two ring reuses consumed slots, so takes never shift
+  membership and storage is bounded by the largest simultaneous membership.
+  Growth installs the doubled ring before copying and leaves the queue
+  unchanged if allocation fails. The selected evidence-store iterator removal
+  uses the existing `HashMap` iterator `remove()` and current-key accessor.
+- **Proof:** No analysis change. The ring is an ordinary owned array field
+  with the existing detached-backing growth shape. Queued items escape
+  conservatively: freeing one while queued is rejected, and so is a later free
+  after the queue is gone. The selected consumer queues block labels owned by
+  the IR, so no loan discharge is needed.
+- **Boundary:** No stack, general deque, sorting or iterator type is added; no
+  stack consumer is reached by the pilot. Other WORKLIST_CONTRACTS queues stay
+  with their M3/M6 owners. Item loan discharge remains conditional on a
+  demonstrated consumer. This establishes neither full M1 nor S1/G1.
+- **Verification:** Java `ArrayDeque` transcript parity for wraparound,
+  growth and the analyzer's CFG order; zero allocations over 16,000 bounded
+  adds/takes; ordinary null/empty failure lifetimes; every OOM limit; all-mode
+  ownership controls; class/archive artifacts; retain-filter parity with the
+  Java `retainArrayStores` loop. See [the worklist record](self-hosting/m1/WORKLIST.md).
+
+## D256 - Normalize text blocks with a private stripIndent helper
+
+- **Status:** Implemented during M1.3 on 2026-10-05.
+- **Decision:** Add compiler-private `TextBlocks.stripIndent(String)` with
+  Java 21 `String.stripIndent()` behavior, as the lexer's text-block step
+  requires (FRONTEND_CONTRACTS API0166). Lines end at `\n`, `\r` or `\r\n`;
+  incidental indentation is the minimum leading `Character.isWhitespace` count
+  over nonblank lines and a blank last line; a trailing terminator disables
+  outdent and is kept as one `\n`; trailing whitespace is removed and blank
+  lines become empty. Escapes are untouched, so cooked decoding still follows.
+  The implementation is original and is not a public `String` API.
+- **Proof:** No analysis change. The input is borrowed; the result is a fresh
+  owned String and the intermediate builder is freed before return.
+- **Boundary:** Cooked escape decoding, raw/cooked token construction and the
+  rest of the lexer remain M2.1 port work. This establishes neither full M1
+  nor S1/G1.
+- **Verification:** 20,012 inputs, including all terminator forms, tab, form
+  feed, vertical tab, em space and non-whitespace no-break space, match Java 21
+  exactly from classes and archive at `-O3`; each call leaves only its result
+  live. All-mode ownership controls pass. See [the text-block record](self-hosting/m1/TEXT.md).
+
+## D257 - Compose seven-field ownership snapshots from private snapshot helpers
+
+- **Status:** Implemented during M1.1/M1.2 on 2026-10-05.
+- **Decision:** The native `OwnershipSnapshot` is a final composite of the
+  qualified helpers. States, retained-child versions and pool owners use
+  identity maps; array slots and borrowed-field names use linked maps; the
+  diagnostic live set uses an identity set. Keyed snapshots expose no
+  iteration, so every field that restore or join traverses also keeps a
+  `SnapshotList` of keys or members copied when the snapshot is taken: slot
+  keys in D247 current-store order, and field names, retained-borrow owners,
+  pool values, exposed members and live members in the live container's own
+  order. States need no list: restore and join walk the append-only allocation
+  list and look each node up. Exposed membership is only traversed, so it is a
+  list alone. Retained-child versions are immutable `SnapshotList`s shared by
+  reference; a join builds a new version rather than mutating one. State
+  values are immutable versions owned by the invocation: snapshots share a
+  node's current version, and a state change installs a new one. Value records
+  and slot keys have explicit `equals`/`hashCode`; nodes keep identity. Live
+  borrowed fields use a `LinkedHashMap`, so restore order is deterministic
+  where Java's `Map.copyOf` order is incidental and later-only. Native builders
+  reject null keys, values and members at insertion
+  (`IllegalArgumentException`), so copies only see the non-null domain that
+  Java's copies enforce with `NullPointerException`.
+- **Proof:** No analysis change. Builders and traversal lists retire through
+  ordinary local proofs; a snapshot retires exactly the storage it acquired; a
+  null at any constructor position rolls back the fields already copied.
+  Nodes, state versions and child versions read through a composite are
+  conservatively exposed, so their later frees are rejected; they are
+  invocation-lived, as the analyzer's own state is. Freeing a node or child
+  version while a snapshot observes it, or using a retired snapshot, is
+  rejected in every mode.
+- **Boundary:** Retiring allocation nodes and versions is the M2.2 native
+  lifetime proof the M0 handoff assigns to M2; this decision does not choose
+  it. Sharing state versions changes only object identity of equal values,
+  which no consumer compares. The fixtures' join is a demonstration of
+  sufficiency; the real save, restore and join are ported in M2.2. No runtime
+  bookkeeping or lowering change is introduced. This establishes neither full
+  M1 nor S1/G1.
+- **Verification:** A native save/mutate/save/restore/join projection equal to
+  a Java reference of FunctionAnalyzer's seven-field rules; a 43-check native
+  replay of the M0 value/null/copy contract; D247 order; snapshot storage of
+  exactly 6n+75 allocations at n = 8/32/128 with full retirement; all-mode
+  safe/unsafe controls; classes/archive at `-O3` with one classified
+  `--unfreed=warn` diagnostic per fixture. See [the composition record](self-hosting/m1/COMPOSITION.md).
+
+## D258 - Provide M1.3 value helpers and fix the pilot port conventions
+
+- **Status:** Implemented during M1.3 on 2026-10-05.
+- **Decision:** Add compiler-private `CharEscapes.decodeSimple` (the lexer's
+  simple escapes as an `int` UTF-16 unit, or `ABSENT`, instead of a nullable
+  boxed `Character`), `SnapshotInts` (an immutable int sequence replacing
+  immutable `List<Integer>` segment counts, with wrapping sum and the
+  specified `List.hashCode`) and `Lists.single` (a null-rejecting immutable
+  one-item list). Ironwood rejects unchecked generic casts, so there is no
+  generic shared empty list: each element type that needs one declares a
+  process-lived static empty `SnapshotList`, which holders borrow and never
+  free. Record value semantics become hand-written `equals`/`hashCode` on final
+  classes, comparing each component as Java's record does: `==` for primitives
+  and for classes without an equality override (allocation nodes, source
+  files, evidence events), value equality for records and Strings, null-safe
+  for nullable components, logical `BitSet` equality for summaries; compact
+  constructor checks keep their order and messages.
+- **Conventions:** The pilot port also applies these source rewrites, none of
+  which needs a helper. `Optional` fields and results become nullable
+  references, presence branches evaluate a fallback or projection exactly once,
+  and the parser's two `orElseThrow` sites keep `NoSuchElementException`;
+  `OptionalInt` becomes an index with -1 for absent. Streams, `forEach`,
+  lambdas and method references become ordered loops with the same
+  short-circuiting and empty-input results. `contiguousKinds(TokenKind...)`
+  becomes fixed two- and three-argument overloads. The keyword table becomes a
+  `switch` on the lexeme with identifier fallback, allocating nothing per
+  token. Evidence counters are primitive. `var` gets its declared type, and
+  each uninitialized local gets an explicit initial value without changing its
+  guarded assignments. Joined and restored states walk the append-only
+  allocation list. `String.matches` in the operation factory admits only its
+  fixed literal target by equality; general regex stays with M3.1.
+- **Boundary:** Ported record classes, the lexer's cooked string assembly and
+  the keyword switch itself are M2.1/M2.2 consumer code. The generic singleton
+  factory conservatively exposes its item. Eight M2.2 RECORD inventory rows
+  whose simple names merely coincide with selected records (Binding, Site,
+  Origin, Summary in Bridge, binder, scope and borrow-analysis classes) are
+  excluded from the pilot. No runtime bookkeeping or lowering change is
+  introduced. This establishes neither full M1 nor S1/G1.
+- **Verification:** A native transcript equal to a Java 21 reference in four
+  fresh JVMs: all 131,072 escape inputs against the real
+  `Lexer.decodeSimpleEscape`, 64 generated sequences against
+  `List.copyOf`/`IntStream.sum`/`List.hashCode`, `List.of(item)` behavior, and
+  record semantics against the real `SourcePosition`/`SourceSpan` plus records
+  with the selected component types. All-mode ownership controls and
+  classes/archive artifacts with zero `--unfreed=warn` diagnostics. See
+  [the value helper record](self-hosting/m1/VALUES.md).
+
+## D259 - Let proof snapshots own their saved explanation evidence
+
+- **Status:** Implemented during M1.1/M1.3 on 2026-10-05.
+- **Problem:** RejectedFreeEvidence keys saved versions by a `WeakReference`
+  to the proof snapshot, hashes it with `System.identityHashCode` and retires
+  dead versions by polling a `ReferenceQueue`. Ironwood has no garbage
+  collector, and a map-keyed native store could not free a saved version it
+  removes, because a value taken out of a map is not a proven fresh allocation.
+- **Decision:** Each native proof snapshot owns its optional saved evidence as a
+  private field installed from the store's fresh-or-null `save()` factory.
+  Version identity is the snapshot object; no identity hash, weak reference,
+  queue or registry remains. Before freeing a snapshot, its owner calls the
+  store's explicit release (the E6 unit, association and reference-count
+  release); destroying the snapshot frees the saved storage. Saving reserves
+  the whole version before copying (E2) or saves nothing; restoring a snapshot
+  without evidence clears current state and reports truncation, as Java does
+  for an absent version. Sites carry primitive reference counts that equality
+  ignores; `close` releases the current associations.
+- **Boundary:** This is the mechanism and its ownership proof, demonstrated on
+  origin associations. The real store's six maps, budget arithmetic, merge
+  intersections and limits are ported in M2.2. Java's collector could retire a
+  version earlier than its last use; the selected pilot holds every version
+  until verification, so accounting at close is unchanged. Sites remain
+  invocation-lived. No runtime bookkeeping or lowering change is introduced.
+  This establishes neither full M1 nor S1/G1.
+- **Verification:** Budgets admitting two, one and zero saved versions all
+  return every unit and site reference to zero and restore the storage
+  baseline; all-mode controls accept retirement and reject a saved-version
+  alias after its snapshot is freed, a separate free of the owned version and
+  use of a freed store; classes/archive at `-O3` with zero `--unfreed=warn`
+  diagnostics. See [the evidence store record](self-hosting/m1/EVIDENCE_STORE.md).
+
+## D260 - Enforce the pilot's finite input model with exhaustive variant switches
+
+- **Status:** Implemented during M1.3 on 2026-10-05.
+- **Decision:** Add compiler-private `OperationVariants`, with one closed enum
+  per restricted operation-model declaration: the `IrInstruction`,
+  `IrTerminator` and `IrOperand` sealed roots and the `IrCallKind`,
+  `IrCallableKind`, `IrType.Kind`, `AllocationOrigin`, `AllocationState`,
+  `EventKind`, observer kind/phase and `UnfreedMode` enums. Each admission
+  function is a `switch` expression without `default` whose rejection arm
+  names every non-admitted variant, so the compiler's own exhaustiveness check
+  is the variant coverage check: a new variant or a deleted treatment fails
+  compilation. Native pilot input factories must reject any input whose
+  variant is not admitted before analyzer entry. The effect analyzer's pattern
+  `switch` over instructions becomes an ordered `instanceof` chain that
+  evaluates its selector once and keeps the `null` default.
+- **Admitted:** direct and foreign calls, value-returning returns, value
+  references, DIRECT calls, METHOD callables, REFERENCE types, LOCAL_NEW
+  origins, ACTIVE/ESCAPED inputs with UNCERTAIN as a join result, REASON
+  events, the EFFECT/INITIAL observer and WARN mode, as OPERATION_MODEL states.
+- **Boundary:** M2 writes the factories and consumers that call these
+  functions; the frontend's AST variant treatments use the same exhaustive
+  pattern in M2.1. Later-only roles keep their M3.1 gates. No runtime
+  bookkeeping or lowering change is introduced. This establishes neither full
+  M1 nor S1/G1.
+- **Verification:** A test derives every list from the live Java sealed roots
+  and enums by reflection and requires equality; removing a rejection, adding
+  an untreated variant and dropping an admitted arm each fail compilation in
+  every mode; the native admitted sets equal the model from classes and
+  archive. See [the variant record](self-hosting/m1/VARIANTS.md).
+
+## D261 - Port the frontend slice with frozen child lists and invocation-lived trees
+
+- **Status:** Implemented during M2.1 on 2026-10-05.
+- **Decision:** The selected Java frontend slice (in-memory `SourceFile.of` and
+  `lineText`, source positions and spans, diagnostics and notes, tokens, the
+  lexer, the parser with its ten private records, and the AST model) is ported
+  under `compiler/src/main/ironwood/ironwood/compiler/`. Records become final
+  classes with private final fields and accessors in record order; `Optional`
+  components are nullable; list components are frozen `SnapshotList`s, and
+  `List<Integer>` segment counts are `SnapshotInts`. `AstLists` freezes a
+  builder into a fresh independent copy, or into the element type's
+  process-lived empty constant for an empty builder, which mirrors
+  `List.copyOf`. Nodes borrow their frozen lists. The parser owns every
+  builder and parser-private holder and retires each with `defer` or `free` on
+  every exit; nodes, frozen lists, tokens, spans and text are invocation-lived.
+  Each sealed root becomes an interface whose implementations report a variant
+  enum, and consumers dispatch with a `switch` expression without `default`
+  (D260). The `destructor` record component is renamed
+  `destructorDeclaration` because `destructor` is an Ironwood keyword.
+- **Conventions:** The D258 rewrites apply. In addition, numeric validation and
+  line-terminator normalization read index ranges of the source instead of
+  substrings; the constructor-body statements are collected once instead of
+  rebuilt into a second block; the type-argument and switch-label holders
+  carry their span as its two positions, because no output retains that span;
+  `defer free` reads its expression directly instead of building a discarded
+  `FreeStatement`; and a labeled statement's message is built only when it is
+  reported. Each rewrite keeps Java's tokens, spans, tree, diagnostics and
+  their order.
+- **Boundary:** `SourceFile.read`, `DiagnosticFormatter`, `TypeName` display and
+  qualifier splitting, `DeclaredType`, `DeclaredTypes` and `PatternFlow` stay
+  later-only (M3.1/M3.3). Java leaves three conversion residues and the
+  subtrees abandoned by error recovery to its collector; natively they are
+  invocation-lived and counted exactly: the receiver name of a qualified
+  `this` or interface `super` (one allocation), a qualified superclass
+  invocation expression and its span (two), and the subtree a failed class
+  parse discards. Native code computes no digest: the test-only wire adapter
+  prints the SHA-256 the harness supplies, and B5 SHA-256 stays with M3.2. No
+  analysis, runtime or lowering change is introduced. This establishes M2.1,
+  not S1/G1.
+- **Verification:** Tokens, lexical diagnostics, ASTs and parse diagnostics are
+  byte-identical to J0 for the 36 frozen frontend workloads, for the 125-unit
+  combined source bundle, for every tracked `.iron` source and for 3,000 seeded
+  mutations; `Character.isDigit`, `isWhitespace` and `digit(_, 16)` equal Java
+  21 for all 65,536 UTF-16 units. The 376-method closure and the 119-declaration
+  model are reconciled to native treatments. The pilot compiles and links under
+  `--unfreed=warn` with no findings; an allocation census shows no temporaries
+  left by accepted inputs; every allocation failure unwinds cleanly; paired
+  ownership controls hold in every mode; and all runs fit the fixed frontend
+  budget. See [the frontend record](self-hosting/m2/FRONTEND.md).
+
+## D262 - Port the ownership slice with join owners and invocation-lived payloads
+
+- **Status:** Implemented during M2.2 on 2026-10-05.
+- **Decision:** The selected ownership, explanation and effect operations are
+  ported under `compiler/src/main/ironwood/ironwood/compiler/` (`ir`,
+  `semantic`, and `port/BitRows`). `FunctionOwnership` holds the seven
+  ownership fields with Java's snapshot, restore, join, blocking and
+  array-store rules; `RejectedFreeEvidence` keeps the six maps, budgets,
+  limits and merge intersections on D259 snapshot-owned saved versions;
+  `UnfreedAllocationTracker` keeps registration order and the live set; and
+  `ClosedWorldEffectAnalyzer` computes Java's fixed point over the admitted IR
+  with an ordered `instanceof` chain for its pattern switch. Records become
+  final classes with nullable `Optional` components; streams and lambdas are
+  ordered loops (D258); `PilotInputs` admits only the D260 variants and rejects
+  every other input role before an analyzer exists.
+- **Native lifetime proof:** Allocation nodes, state versions, child versions,
+  evidence payloads (sites, bindings, events, joins and retention keys) and the
+  admitted IR are invocation-lived, as the plan's lifetime table starts shared
+  graphs; nodes, child versions and IR enter the analyzer's live containers,
+  where a later `free` is rejected. Everything else retires by an ordinary
+  local proof: snapshots with their copies, key lists and saved evidence,
+  join owners, builders, the evidence merge's common maps, and the effect
+  analyzer with its summaries and scratch rows. Before a version is freed its
+  saved evidence is released through the analyzer
+  (`FunctionOwnership.releaseOwnership`), so a closed store ends at zero units.
+- **Representation:** Java passes `mergeOwnership` a list of snapshots, but a
+  native list lent to an analyzed method exposes its contents and leaves
+  every listed version unfreeable (the retained M1 limit). A join's
+  predecessors therefore live in an `OwnershipPaths` owner: a private D163
+  creation array of fresh snapshots, recorded once by
+  `FunctionOwnership.captureOwnership`, lent through direct indexed getters,
+  visited in path order (a capture may be inserted at any position) and
+  retired by the destructor loop; the store's merge reads them through the
+  `RejectedFreeEvidence.Paths` interface. The snapshot constructor takes the
+  borrowed fields and services, not the analyzer, and builds from
+  `SnapshotBuilders` made in the caller's frame, since builders freed in the
+  frame that copies them stay lent. The analyzer has no getter for its
+  borrowed services: such a getter, like a helper frame that loops over a
+  holder, leaves every service the holder retains conservatively escaping
+  (the retained D253 summary limit). The effect analyzer keeps three
+  summary rows per function in one analyzer-owned `BitRows` matrix and
+  updates them in place each round instead of allocating vectors.
+- **Boundary:** Nonempty join paths and alternatives, non-`LOCAL_NEW`
+  allocation origins, and every IR role outside the effect fixture remain
+  later-only (OPERATION_MODEL). Retiring nodes and versions individually would
+  need precise loans through the live containers, which no consumer has shown
+  to be worth the analysis; the measured payload is bounded per operation.
+  No analysis, runtime or lowering change is introduced. This establishes
+  M2.2, not S1/G1.
+- **Verification:** Native results are byte-identical to the retained J0
+  kernel results for all 47 configurations (24 ownership, 3 evidence, 10
+  effect chains and 10 effect cycles) from classes and archive. After
+  retirement exactly the derived payload and result text stay live: per
+  ownership iteration 7 state versions, 2 child versions of 4 allocations
+  and, with recorded explanations, 5 events; per evidence iteration one join
+  and one event; zero temporaries otherwise. The input boundary rejects seven
+  effect-input deviations and a freed allocation. Callback counts are
+  recorded separately, paired controls hold in every mode, every allocation
+  failure unwinds cleanly, and all runs fit the fixed budgets within a 32-KiB
+  stack. See [the ownership record](self-hosting/m2/OWNERSHIP.md).
+
+## D263 - Sort array lists stably with an explicit comparator
+
+- **Status:** Implemented during M3.1 on 2026-10-05.
+- **Decision:** Add `ironwood.ds.ArrayList.sortWithComparator(Comparator<?
+  super E>)`, B2's list-level sort. It sorts `[0, size())` stably in place,
+  never touches inactive slots, keeps size, capacity, growth and the reusable
+  iterator's index, and frees no element. A null comparator throws
+  `NullPointerException` even for an empty list. The distinct name keeps
+  D122's Comparable-bounded array sorts and their null-comparator natural
+  order unchanged and claims no Java `List.sort(null)` behavior; `sort` and
+  `toArray` stay absent (D129). The original implementation is a top-down
+  merge sort with insertion-sorted runs of at most sixteen and a skipped merge
+  when the halves are already ordered: O(n log n) comparisons, n - 1 for
+  sorted input, and one `size() / 2` workspace array for longer lists, freed
+  on every exit. Every access re-reads the backing field, because a
+  comparator that grows the list frees the old array; each helper restores a
+  permutation in `finally`, so a throwing comparator leaves the same elements
+  in an unspecified order.
+- **Proof:** No analysis change. The method is not an audited container
+  operation, so a call conservatively exposes the stored elements, as an
+  unaudited read does: they cannot be freed afterwards, and a retaining or
+  publishing comparator keeps its ordinary effects. The list, the comparator
+  and the workspace retire by ordinary proofs. Copying the left run uses an
+  element loop, because an `arraycopy` into a parameter array escapes it.
+- **Boundary:** An audited sort proof would only help lists whose elements
+  have a single lifetime root, since a multi-root `get` already exposes them;
+  no consumer needs it. The port keeps sorted elements invocation-lived.
+  Programs that do not call the method keep the same functions and bodies;
+  only the closed-world type IDs, dispatch slots and string-constant names
+  are renumbered. No runtime bookkeeping is added. Supersedes no decision.
+- **Verification:** A 720-line transcript of seeded lists with many equal
+  keys under three comparators equals Java 21 `ArrayList.sort` in four JVMs,
+  from classes and archive at `-O3`; native checks of null comparators,
+  inactive slots, capacity, the iterator, every comparator failure point,
+  workspace allocations, comparison bounds, a supertype comparator and a
+  list-growing comparator; every allocation failure unwinds; all-mode
+  ownership pairs; O3 code shows the devirtualized comparator inlined into
+  one compare. See [the sort record](self-hosting/m3/SORT.md).
+
+## D264 - Provide the M3.1 stack, order, value and callback helpers
+
+- **Status:** Implemented during M3.1 on 2026-10-05.
+- **Decision:** Add compiler-private helpers under
+  `compiler/src/main/ironwood/ironwood/compiler/port/` for the S2 and S3
+  consumers that the M0 inventory assigns to M3.1. `ScopeStack<E>` replaces
+  the analyzers' LIFO `ArrayDeque`s (WORKLIST_CONTRACTS Q21-Q41): head
+  push/pop/peek, depth-from-head reads for innermost-first traversal,
+  head-to-tail `snapshot()` like `List.copyOf(deque)` and `restore()` like
+  `restoreDeque`, `NoSuchElementException` on an empty pop and null from an
+  empty peek. The FIFO queues keep D255's `WorkQueue`. `StringOrder` is
+  natural UTF-16 String order for the `TreeMap`/`TreeSet` and `sorted()`
+  rewrites, which sort a hash container's keys at each observation;
+  `Extremes` keeps Java's first-tie rule for `Stream.min` and `max`.
+  `SnapshotSet` is the value-set member of the D254 family for `Set.copyOf`
+  lookups. `Lists.of` with two to four items, `Lists.equal`/`hash` and
+  `Maps.equal`/`hash` give Java list and map value semantics over snapshots
+  and their D257 key lists. `BooleanSource`, `Mapper`, `Condition`,
+  `Action`, `Source`, `PairAction` and `IdentityMapper` replace the surviving
+  `java.util.function` uses (CALLBACK_CONTRACTS); every port generic spells
+  `extends Object`.
+- **Proof:** No analysis change. `ScopeStack` reuses the owned-array growth
+  shape of `WorkQueue`; its restore pushes each saved item, because storing a
+  snapshot read straight into the owned array makes the array's ownership
+  uncertain. Stacked items escape as queued items do. The set snapshot reuses
+  D251's copy and D254's lookup proof shape. Fixed-arity lists expose their
+  items conservatively, as `Lists.single` does (D258). Holders free before
+  the callbacks they retain; captured state stays invocation-lived, as M2
+  found, because freeing a callback never frees what it captured.
+- **Boundary:** No public API, runtime bookkeeping or lowering change.
+  Primitive `Arrays.sort` stays an insertion sort; the Integer natural-order
+  sites sort small inputs, and a faster primitive sort waits for a measured
+  need (B2). Consumer rewrites are S2/S3 work. Supersedes no decision.
+- **Verification:** Native transcripts equal Java 21 for 3,000 seeded
+  `ArrayDeque` stack operations, for String order over surrogates and U+E000,
+  first-tie extremes, list and map equality and hashes and set membership,
+  and for every callback shape, from classes and archive at `-O3` with no
+  diagnostics; allocation checks (a stack costs two allocations, a callback
+  one, a call none); every allocation-failure limit unwinds; all-mode
+  ownership pairs; an audit that every port generic has a reference bound and
+  primitive arguments are rejected. See [the helper record](self-hosting/m3/HELPERS.md).
+
+## D265 - Share a generated, checked IR variant inventory
+
+- **Status:** Implemented during M3.1 on 2026-10-05.
+- **Decision:** `compiler/src/main/ironwood/ironwood/compiler/port/IrModel.iron`
+  is the shared variant inventory for every native IR consumer. It lists all
+  113 Java IR records and all 20 IR enums, with each record's sealed root, its
+  components in declaration order, the components that the reflective walkers
+  (`ClosedWorldPruner.scanRecord`, `SemanticAnalyzer.collectArrayTypes`)
+  follow, and each enum's constants. Every function is an exhaustive switch
+  without `default` (D260), so a record or enum without a treatment, or a
+  deleted treatment, fails compilation. The file is generated by the
+  test-side `IrModelInventory` from the Java model declarations by
+  reflection, independently of every dispatch arm, and checked in; native
+  builds only compile it, so no self-build depends on Java. A test fails
+  while the file and the Java model disagree, and checks that the pilot root
+  lists in `OperationVariants` have the same sizes as the shared lists.
+- **Walk contract:** The S2 walkers must follow exactly
+  `IrModel.walked(record)`: IR types, operands, string constants, dispatch
+  slots, enum constants, fields, static fields and nested IR records, directly
+  or through `Optional` and `List`/`Set`. Maps, text, primitives, enums and
+  source spans are not followed, which is the reflective walkers' behavior
+  today (for example `IrCallInstruction.specializationArguments`). A changed
+  rule needs a recorded decision and a regenerated inventory.
+- **Boundary:** No analysis, runtime or lowering change; the pilot admission
+  functions keep their D260 lists. The explicit walkers themselves need the
+  complete IR model and are S2 work: S2 first replaces the Java baseline's
+  reflection, then ports the same traversal against this inventory.
+  Supersedes no decision.
+- **Verification:** The generated source equals the checked-in file; removing
+  a root, walked or constants arm, adding an untreated record or adding an
+  untreated enum fails compilation in every unfreed mode; a native program
+  prints the whole inventory identically to the Java-derived transcript from
+  classes and archive at `-O3`. See [the variant record](self-hosting/m3/VARIANTS.md).
+
+## D266 - Bring split bounds, prefix copies and IR names forward to M3.1
+
+- **Status:** Implemented during M3.1 on 2026-10-05.
+- **Decision:** The S2 `TypeName` rendering that M2 left later-only is M3.1's
+  first consumer of three helpers, so they move ahead of their M3.2/M3.3
+  phases. `Splits.bounds(text, delimiter, limit)` implements Java 21
+  `String.split` for a regex matching one literal character, with Java's
+  no-match, leading-empty, positive-limit and trailing-empty rules, and
+  returns one fresh `int[]` of field bounds instead of a String per field;
+  `Splits.field` takes only the substrings a caller keeps. It also serves
+  `TypeResolver` (S3) and `CommandLine.parsePathList` (S4). `Lists.prefix`
+  copies the first items of a `SnapshotList` or a `SnapshotInts`, for the
+  `subList(0, count)` record components of `qualifierReference`.
+  `IrModel.javaName(record)` (generated, D265) gives the Java simple name for
+  the Bridge diagnostics that print `getClass().getSimpleName()`.
+- **Proof:** No analysis change. Bounds and prefix copies are fresh results
+  of builders freed on every exit; a trimmed split frees its first array.
+- **Boundary:** No regex engine: the multi-character and Unicode
+  line-separator patterns (`\R`, `\s+`) stay with their M5 documentation
+  consumers. Supersedes no decision.
+- **Verification:** Every string over four characters up to length five,
+  split on two delimiters with limits -1 to 3 (13,650 cases), equals Java 21;
+  prefix copies, their hashes and the out-of-range rejection equal
+  `List.copyOf(subList)`; the generated names equal the Java simple names;
+  the allocation-failure sweep covers both; classes and archive at `-O3`. See
+  [the helper record](self-hosting/m3/HELPERS.md).
+
+## D267 - Provide the M3.2 numeric, text and SHA-256 helpers
+
+- **Status:** Implemented during M3.2 on 2026-10-05.
+- **Decision:** Add compiler-private S3 prerequisites. `IntegerLiterals`
+  replaces IntegerLiteralDecoder's `BigInteger` with a scan that removes
+  underscores, reads digits with `Character.digit` (so non-ASCII decimal
+  digits count, as `BigInteger` reads them) and keeps an unsigned 64-bit
+  magnitude with a saturating overflow flag, so arbitrarily long spellings
+  are checked without big integers; it reports Java's diagnostics in Java's
+  order (malformed before range). `IntegralConstants` folds in I32 or I64
+  with Java's wrapping arithmetic, which equals J0's exact arithmetic
+  followed by `wrapIntegral` because every operand already lies in its
+  promoted range; `MIN / -1` and `MIN % -1` wrap without native signed
+  division, and division by zero yields no constant. `Texts` supplies
+  StringPool's UTF-8 length (an unpaired surrogate counts as U+FFFD),
+  `toCodePoint`, a literal `replaceFirst` and `join` over lists. `Sha256` is
+  an independent FIPS 180-4 implementation, its constants recomputed from
+  their definition, with a reusable state, no per-block allocation, a
+  caller-supplied or fresh result, reset on finalization, a streaming UTF-8
+  update that matches `getBytes(UTF_8)` (an unpaired surrogate becomes `?`)
+  and a lowercase `hexDigest` for every `HexFormat.formatHex` site. The
+  existing `Double`/`Float` text and parsing already equal Java 21.
+- **Narrowing:** The literal scan treats `+` and `-` as malformed. Every
+  caller passes an INTEGER token's lexeme, and `Lexer.scanNumber` consumes
+  neither sign in an integral literal, so `BigInteger`'s sign grammar is
+  unreachable.
+- **Proof:** No analysis change. Results are fresh; inputs are borrowed for
+  one call. The digest owns its arrays and frees them in its destructor.
+- **Boundary:** No public API, big-integer library, regex engine or locale
+  subsystem. The floating-to-integral casts and constant representation stay
+  with the S2/S3 consumers. J0 (6bde84df) cannot compile the accumulated
+  port: it lacks the M1 library additions and proofs (D248-D254), so S3's
+  capacity tracking needs a newer, recorded seed. Supersedes no decision.
+- **Verification:** 42,058 literal and fold lines equal J0's own
+  IntegerLiteralDecoder and FunctionAnalyzer folds called by reflection;
+  SHA-256 equals `MessageDigest` on the standard vectors, every length 0-300,
+  every byte, surrogate text and 64 MiB streamed, with split, reset, range and
+  allocation checks; UTF-8 lengths equal J0's StringPool over every unit and
+  boundary pair; floating text equals Java on 399,136 conversions; J0 trusts
+  the ByteView declaration from source, class and archive, distrusts four
+  changed copies (comment, rename, CRLF, final newline), and the native digest
+  gives the same digests and verdicts; every allocation failure unwinds. See
+  [the semantic helper record](self-hosting/m3/SEMANTIC.md).
+
+## D268 - Provide the M3.3 backend helpers
+
+- **Status:** Implemented during M3.3 on 2026-10-05.
+- **Decision:** Add compiler-private S4 prerequisites. `Md5` is an
+  independent RFC 1321 implementation whose sine table is computed from its
+  definition; `linkageGuid` returns the little-endian first eight digest
+  bytes of a linkage name's UTF-8 encoding, as OptimizedTraceMetadata and
+  LlvmEmitter's TracePlan compute pseudo-probe GUIDs, with no allocation.
+  `Bytes` supplies unsigned widening, Java's unsigned byte-array order, a
+  bounded range copy, a US-ASCII name comparison without decoding, and
+  little-endian short, int and long reads. `LlvmText` spells
+  `0x%016X` raw bits, `%.17e` (Java's Formatter pads the `Double.toString`
+  digits to eighteen), LlvmEmitter's byte escapes and
+  OptimizedTraceMetadata's symbol decoding (each UTF-16 unit encoded alone,
+  so every surrogate becomes `?`, then UTF-8 decoding with U+FFFD).
+  `LlvmScan` replaces NativeTarget's and OptimizedTraceMetadata's three
+  regexes with scanners that keep java.util.regex's multiline anchors and
+  line terminators; the quoted-symbol alternative's greedy backtracking
+  depends only on its position, so it is evaluated right to left over the
+  reachable span. `PropertiesText` parses the admitted `key=value` format of
+  the pinned and generated inventories with `Properties.load`'s whitespace,
+  separator, comment, terminator and duplicate rules, and owns a copy of its
+  text. `HeaderScan.defines` is the sysroot check's two `String.matches`
+  patterns. `Double.doubleToRawLongBits` is added to the standard library
+  with Java's contract: the binary64 layout, NaN sign and payload included;
+  it inlines to a bit move.
+- **Narrowing:** `Bytes.slice` never zero-pads, since all three callers
+  validate their extents; `PropertiesText` rejects any backslash (an escape
+  or continuation), which no admitted file contains; `LlvmText.scientific`
+  rejects NaN and infinities, which the emitter spells as bits; the scanners
+  and `decodeSymbol` return fresh Strings where Java may return its input,
+  and `decodeSymbol` of the bare prefix `@"`, which no FUNCTION match yields,
+  returns an empty name where Java throws.
+- **Proof:** No analysis change. Inputs are borrowed for one call; results
+  are fresh; a digest owns its arrays and a parse its copy and bounds. Two
+  conservative limits shape the API: a wrapping `ByteBuffer` keeps its array
+  from being freed, so SharedTraceOrder reads the object bytes directly, and
+  a parse that borrowed its text would keep the text from being freed.
+- **Boundary:** No regex engine, format or locale subsystem, Properties
+  class or ByteBuffer change. `stringPropertyNames()` iterates in hash
+  order; a consumer whose report depends on the first failing entry must
+  establish that order itself. Supersedes no decision.
+- **Verification:** MD5 equals `MessageDigest` on the RFC suite, every length
+  0-300, every byte, surrogate text and 64 MiB streamed, and 2,018 GUIDs equal
+  both Java implementations, called by reflection; the binary helpers,
+  little-endian reads and the trace-root sort of 600 groups equal Java 21;
+  100,030 floating constants, 2,257 escapes and 3,014 decoded symbols equal
+  the Java emitter's own methods; the scanners equal the Java patterns on
+  663 corpus files (Clang and opt output, five line-terminator variants and
+  adversarial and seeded texts); the Properties subset equals
+  `Properties.load` on 445 files; the header check equals `String.matches`
+  on 4,013 texts; every allocation failure unwinds. See
+  [the backend helper record](self-hosting/m3/BACKEND.md).
+
+## D269 - Give the source-only route explicit installation and identity inputs
+
+- **Status:** Implemented during M3.3 on 2026-10-05.
+- **Decision:** The native compiler takes its installation from the launcher
+  and its version from generated source, and links without the
+  runtime-object cache.
+  - **Installation.** The launcher passes the compiler's canonical location
+    (its executable or directory), which stands where Java reads its jar or
+    class directory through the code source. `Installation.runtimeSource`
+    and `librarySourceRoots` repeat RuntimeLibrary.discover and
+    StandardLibrary.discover's source roots: the IRONWOOD_RUNTIME_HOME and
+    IRONWOOD_STDLIB_HOME overrides, the location's root and then the current
+    directory with their ancestors, and Java's messages. `LibraryRoots` owns
+    the roots in a D163 creation array. Archive and class roots stay S6
+    facilities, so the source-only route never prefers an installed archive.
+  - **Build identity.** `scripts/self-hosting/build-identity.sh` generates
+    `BuildIdentity.version()` from IRONWOOD_VERSION or VERSION with
+    scripts/build.sh's own whitespace removal, validation and messages, so it
+    equals `CompilerVersion.current()` of a jar built from the same input. The
+    output is byte-identical across runs and needs no Java tool. Java's
+    `unknown` fallback has no native counterpart: without a valid version the
+    build fails, as build.sh does.
+  - **Runtime objects.** The native port compiles each runtime object
+    directly and omits `RUNTIME_OBJECTS` with its key, including the
+    SHA-256 of every runtime header. A link prepares each object once under a
+    distinct key (four, five with TLS, since the key holds the source path),
+    so a process that links once never reuses one. The Java bootstrap keeps
+    its cache. ByteView's, the TLS SDK's and Bridge's SHA-256 consumers are
+    unchanged; the TLS file hash streams `Files.newInputStream` into
+    `Sha256`.
+  - **Shell driver.** In the source-only route the shell driver owns a
+    link's temporary LLVM file and output alias check and supplies SDKROOT in
+    place of the xcrun probe. Linux Bridge support delivery runs only after a
+    shared link, which only Bridge production (S7) makes. Their native forms
+    remain M4.1-M4.3 and S7 work.
+- **Proof:** No analysis change. Every intermediate Path is freed on every
+  exit, including allocation failure; recorded roots are fresh copies that
+  no call has seen, as the creation-array proof requires.
+- **Boundary:** Implements B5's proposed cache omission and B7's
+  installation and build identity rows for the native port only. The
+  launcher must canonicalize the location, as Java's class path entry is.
+  Supersedes no decision.
+- **Verification:** Ten scenarios (checkout classes and jar, installed and
+  bare layouts, two roots, valid, invalid, blank and relative overrides, an
+  unknown location) print the Java baseline's discovery results (those
+  sources are unchanged since J0) from classes and archive links; generation is reproducible, honors IRONWOOD_VERSION and
+  fails with build.sh's messages, and the generated version equals
+  `CompilerVersion.current()`; a fresh process's first link inserts four
+  distinct runtime objects and reuses none, a second link reuses all four,
+  and direct compilation equals the cached bytes twice. See
+  [the backend helper record](self-hosting/m3/BACKEND.md).
+
+## D270 - Provide exclusive temporary paths, real paths and access checks
+
+- **Status:** Implemented during M4.1 on 2026-10-06.
+- **Decision:** `ironwood.nio.file` gains the B3 scratch, cleanup, real-path
+  and access surface, and the compiler port replaces reverse-sorted
+  `Files.walk` cleanup with a post-order visitor.
+  - **Temporary files and directories.** `Files.createTempFile(Path, String,
+    String)`, `createTempFile(String, String)`, `createTempDirectory(Path,
+    String)` and `createTempDirectory(String)` create the entry exclusively
+    (`O_CREAT | O_EXCL | O_CLOEXEC` or `mkdir`) with mode 0600 or 0700 before
+    the umask, retrying a bounded number of existing names. The name is the
+    prefix, an unsigned decimal 64-bit value and the suffix, Java's spelling.
+    The value comes only from a secure source: `arc4random_buf` on macOS, the
+    raw `getrandom` syscall on Linux (guarded numbers, no glibc 2.25 wrapper)
+    or `/dev/urandom` when the kernel lacks it; without one the call fails.
+    Prefix null means empty and a file suffix null means `.tmp`; NUL throws
+    InvalidPathException and a name with a parent IllegalArgumentException,
+    in Java's order. The default-directory overloads use `java.io.tmpdir`
+    (nonempty `TMPDIR`, else `/tmp`) and never fall back further.
+    Attribute-varargs overloads are omitted.
+  - **Real paths.** `Path.toRealPath()` resolves the path's own spelling
+    with `realpath(3)`, the empty path as the current directory; a non-UTF-8
+    result fails. The LinkOption overload is omitted.
+  - **Access, deletion and attributes.** `Files.isReadable` and
+    `isExecutable` are advisory `access(2)` checks; `deleteIfExists` returns
+    false only for absence; `readAttributesNoFollow` is an Ironwood helper for
+    Java's no-follow `readAttributes` call.
+  - **Ownership.** The returned UnixPath is allocated before the native
+    creation and adopts the fresh native String in its constructor, so no
+    managed allocation follows creation; a failed String allocation removes
+    the entry before propagating. Every new facade borrows its parameters
+    (audited `isBorrowingFilesFacade` entries), and temporary paths, real
+    paths and no-follow attributes are fresh results.
+  - **Traversal rewrite.** The port's `TreeDeletion` deletes entries on visit
+    and directories in `postVisitDirectory`, root last, links unfollowed,
+    with NativeBackend's best-effort policy or Bridge staging's propagating
+    one. Unlike the Java stream, the quiet policy also skips an unreadable
+    subtree instead of letting UncheckedIOException escape.
+- **Proof:** New typed `IrFileInstruction` operations (CREATE_TEMP_FILE,
+  CREATE_TEMP_DIRECTORY, REAL_PATH, ACCESS) reuse the existing file
+  machinery; no analysis rule or hot lowering changed. Programs that do not
+  call the new members keep identical function bodies once closed-world and
+  debug numbering is normalized.
+- **Boundary:** Java's per-user Darwin `java.io.tmpdir` and Linux `/tmp` are
+  not reproduced; a creation failure names the directory, not the generated
+  path. Ironwood's SimpleFileVisitor lacks Java's `throws IOException` on
+  `visitFile` and `preVisitDirectory` (a compile-time gap). A caught
+  exception cannot be freed, so each failure ignored by the quiet deletion
+  keeps its exception. Supersedes no decision.
+- **Verification:** A 74-case fixture prints Java 21's lines from class and
+  archive links (links, dangling links and loops, locked and read-only
+  directories, Unicode, NUL and separator names), the created entries' modes
+  match Java's, and six `TMPDIR` settings select Java's directory for the same
+  `java.io.tmpdir`. Every allocation limit unwinds to the baseline without a
+  leftover entry; the native harness covers collisions, exhaustion, a failed
+  close, a failed String after creation, long stems and invalid UTF-8; the
+  tree deletion matches NativeBackend.deleteTree and Bridge staging cleanup on
+  eight trees. See [the M4.1 record](self-hosting/m4/SCRATCH.md).
+
+## D271 - Publish with three distinct move guarantees
+
+- **Status:** Implemented during M4.2 on 2026-10-06.
+- **Decision:** `ironwood.nio.file.Files` gains three distinctly named
+  publication moves, one per B3 policy, and `AtomicMoveNotSupportedException`.
+  None falls back to a weaker guarantee.
+  - **Atomic replacement.** `moveAtomicReplacing(source, target)` is one
+    `rename(2)`: it replaces an existing target atomically, renames a link
+    itself, leaves names that already denote one file alone, and fails across
+    file systems with AtomicMoveNotSupportedException without copying
+    (BridgeJarArchive.publish's policy).
+  - **Permitted fallback.** `moveReplacing(source, target)` renames the same
+    way; only a regular file across file systems is copied, with mode and
+    times, into an exclusive temporary beside the target, which replaces the
+    target atomically before the source is unlinked (IronJar.write's
+    policy). A failure before that replacement keeps the earlier target and
+    the source. A source that cannot be unlinked afterwards is reported as a
+    FileSystemException with the reason `Target replaced; source not
+    removed`, and the target is not rolled back. Directories and links have
+    no fallback.
+  - **No-replace.** `moveAtomicNoReplace(source, target)` decides and renames
+    in one host operation: `renamex_np(RENAME_EXCL)` on macOS (10.12+, within
+    the 11.0 baseline) and the raw `renameat2` syscall with
+    `RENAME_NOREPLACE` on Linux (kernel 3.15+ and filesystem support; the
+    glibc 2.28 wrapper is excluded by the 2.17 baseline; syscall numbers are
+    guarded per architecture). An existing target, including the same file
+    on every host, fails with FileAlreadyExistsException; ENOTSUP, ENOSYS,
+    and an EINVAL that is not a directory moved into itself fail with
+    AtomicMoveNotSupportedException, as does a cross-device move. There is
+    never a check-then-rename fallback (Bridge distribution and support
+    staging's policy). The link-and-unlink alternative is not used: it cannot
+    publish directories.
+  - **Existing move.** `Files.move` keeps Java's default behavior, a check
+    followed by a rename, and is documented as not atomic under a competing
+    creator; no race fix changes it.
+  - **Ownership.** Each move borrows both paths (audited
+    `isBorrowingFilesFacade` entries) and returns the caller's target as an
+    alias, exactly as `Files.move` does.
+- **Proof:** Three new typed `IrFileInstruction` operations (MOVE_ATOMIC,
+  MOVE_REPLACING, MOVE_EXCLUSIVE) reuse the existing file machinery; no
+  analysis rule or hot lowering changed. The runtime's new error categories
+  (cross-device, unsupported, source retained) are set only by these moves.
+- **Boundary:** Atomic visibility is not crash durability; no fsync policy is
+  added. Java's `REPLACE_EXISTING` move also copies links and empty
+  directories across file systems, and Java's default move copies and
+  treats the same file as a no-op; these helpers do not. Supersedes no
+  decision.
+- **Verification:** Sixteen cases per move print Java 21's lines and leave
+  Java's trees from class and archive links, differing only where an
+  exclusive target is the same file; a second real file system (an HFS+
+  image on macOS, tmpfs on Linux) shows the cross-device behavior and the
+  copy's mode and times; eight competing processes over 40 rounds of files
+  and directories admit exactly one winner whose content survives; a native
+  harness demonstrates Files.move's check-then-rename race and covers
+  competing creators, unsupported and cross-device results and every failure
+  of the copy; every allocation failure of a staged publication unwinds
+  without leftovers. See [the M4.2 record](self-hosting/m4/PUBLICATION.md).
+
+## D272 - Run external programs synchronously by absolute path
+
+- **Status:** Implemented during M4.3 on 2026-10-06.
+- **Decision:** `ironwood.process` provides B4's narrower synchronous
+  facility, `ProcessRunner.runToFile(String[] command, Path directory, Path
+  output)` returning a primitive-only `ProcessResult`, ahead of roadmap item
+  4's reduced ProcessBuilder/Process, which it neither implements nor
+  cancels.
+  - **Contract.** `command[0]` is an absolute executable executed directly
+    (no PATH search, no shell); the environment is inherited; a null
+    directory keeps the caller's; standard input is empty; standard output
+    and error are merged into `output`, opened by the caller so a relative
+    spelling is the caller's. Empty commands, relative executables and NUL
+    throw IllegalArgumentException before launch. A completed program, any
+    exit status including 127 or a signal, is a result with Java's POSIX
+    `exitValue` (128 plus the signal) and explicit `signaled`/`signal`; a
+    launch failure (executable, directory, output, ENOEXEC without shell
+    fallback, resources) is an exception naming the failing path.
+  - **Native design.** One `fork`/`execv` implementation serves macOS and
+    glibc 2.17: `posix_spawn` lacks a spawn-time `chdir` on that glibc, and
+    one code path is qualified on both hosts. The command, directory and
+    output spellings are encoded into one block before forking; the child
+    only redirects descriptors, changes directory and executes, reporting a
+    pre-exec failure through a close-on-exec pipe; the parent retries EINTR
+    and always reaps. Runtime descriptors are close-on-exec and kept clear of
+    0-2.
+  - **Signals.** The program stays in the caller's process group, so a
+    terminal interrupt reaches both; no global signal machinery is added. A
+    signal sent to the caller alone, or an uncatchable termination, does not
+    stop a running program.
+  - **Caller adaptations.** Executable discovery stays in compiler callers.
+    The Java seed's TlsDependency now launches `/usr/bin/xcrun` (shared
+    with MacNativeTools as `MacNativeTools.XCRUN`) when `SDKROOT` is unset
+    or blank, so a PATH-selected `xcrun` is no longer used, and
+    LlvmToolchain resolves `brew` with the compiler-owned
+    `ExecutableSearch` before launching it by absolute path. The search
+    tries PATH entries in order, skips empty entries (never the working
+    directory), resolves relative entries against the working directory
+    without lexical normalization and takes the first executable regular
+    file; without one, Homebrew discovery finds nothing, as before.
+  - **Compiler.** A typed `IrProcessInstruction` (I64 status; String[],
+    String and String operands) is bound only to the exact
+    `ProcessRunner.runProcessValue` intrinsic and joins closed-world effects,
+    allocation-failure reachability, borrow dispatch, specialization, CFG
+    renaming, invoke and LLVM emission. `runToFile` has an audited borrowing
+    contract for its parameters and, by exact signature, for the command's
+    elements (String is final, and the launch encodes and retains nothing);
+    other `String[]` parameters keep exposing their elements.
+- **Proof:** The element contract is the only analysis change; paired
+  regressions free a Path spelling and a fresh String placed in a command
+  after the call, and reject freeing an element while the array is live,
+  freeing an element of a published array, double free and use after free of
+  the result, and an ordinary method taking `String[]` (the negative
+  control).
+- **Boundary:** Descriptors the caller inherited without close-on-exec reach
+  the program (Java's launcher closes them). Environment maps, pipes,
+  asynchronous waits, timeouts and kill APIs are deferred. Arguments use the
+  runtime's host encoding (U+FFFD for an unpaired surrogate). Supersedes no
+  decision.
+- **Verification:** Twenty-eight cases against a controlled helper from
+  class and archive links (exit codes, signals, literal argv, environment,
+  child and inherited directories, parent-relative output, empty stdin,
+  2 MiB of output, descriptors, missing, non-executable, directory and
+  ENOEXEC executables, scripts, directory and output failures, invalid
+  commands, 300 repeated launches) with a PATH of empty entries and decoys
+  that never run; a native harness injecting open, pipe, fork and encoding
+  failures, interrupting waits with a real signal and checking reaping and
+  descriptors over 200 launches; SIGINT to the job's process group ends the
+  program and its tool, SIGTERM to the program alone leaves the tool; every
+  allocation failure unwinds. ExecutableSearch's candidate rules hold on
+  real trees, a child JVM with empty, non-executable and decoy PATH entries
+  launches the resolved absolute `brew` (and finds no prefix without one),
+  and TLS and Apple tool discovery run only `/usr/bin/xcrun` under a PATH
+  offering another. See [the M4.3 record](self-hosting/m4/PROCESS.md).
+
+## D273 - Drive native tools through invocation-scoped port adapters
+
+- **Status:** Implemented during M4.3 on 2026-10-06.
+- **Decision:** The compiler port gains the native driver's process adapters
+  that S4 and S7 consumers use in place of the Java baseline's
+  `ProcessBuilder` readers; the Java seed is unchanged by this decision.
+  - **Command.** One tool invocation's arguments in a private creation array
+    of exactly the command's length (D163): each slot receives a fresh copy,
+    an indexed getter lends it, the destructor loop retires it, and a run
+    lends the storage to `ProcessRunner.runToFile`. The creation-array proof
+    admits exactly that call as the storage's one consumer, because D272's
+    audited contract borrows the array and its Strings for the call only;
+    every other call still may not receive creation-array storage.
+  - **Probes.** One invocation's discovery context. An uncached probe writes
+    its merged output to a fresh log in one lazily created scratch directory
+    (B3 temporary paths), is read back within 1 MiB (more is an explicit
+    failure, never a truncated answer), decoded with replacement as Java
+    decodes tool output, stripped, and its log deleted on every path. Each
+    probe is a `ProbeRecord` whose constructor runs it and owns its key and
+    output, so no allocation failure strands either; a successful record is
+    reused for the same command, PATH, SDKROOT and DEVELOPER_DIR, a failed
+    one never. `close()` removes the empty scratch directory without
+    allocating, falling back to TreeDeletion only for leftovers; outputs are
+    lent until the context is freed. No static cache, process handle or log
+    outlives the invocation.
+  - **ExecutableSearch.** The port's PATH search equals the Java seed's
+    (D272), for brew and other caller-owned discovery.
+  - **LlvmPipeline.** NativeBackend's O3 executable pipeline (target probe,
+    `LlvmScan` target application, `llvm-as`, `opt`, finalization, `llvm-as`,
+    `llc`, Linux section rename, four runtime objects compiled directly per
+    D269, Clang link) with every stage launched by absolute path, logged in
+    a scratch directory beside the output and reported as NativeBackend
+    reports it. Staged files are deleted as their scopes end and the empty
+    directory afterwards, without allocating. Trace finalization stays an
+    explicit executable step until S4's native mode exists.
+- **Proof:** The creation-array admission of `runToFile` is the only analysis
+  change; paired cases accept an owner lending its storage to that call and
+  reject the same storage passed to `String.join`, freeing a lent argument,
+  using an argument or probe output after its owner is freed, and double
+  free.
+- **Boundary:** An allocation failure inside the pipeline's own cleanup ends
+  the process through the runtime's emergency path and leaves its staging
+  directory. The reuse key holds the full PATH, so retained memory grows
+  with the environment. The shell driver of D269 remains available; these
+  adapters are prerequisites, not S4's port of NativeBackend, LlvmToolchain
+  or MacNativeTools. Supersedes no decision.
+- **Verification:** The adapters own and lend as specified in every unfreed
+  mode; the port search equals the Java seed on the same trees; the probes
+  answer as LlvmToolchain and MacNativeTools do, launch nothing when
+  repeated, probe again in a new invocation, never keep a failure, fail
+  explicitly on oversized output and leave no log or scratch directory; the
+  pipeline links the Java compiler's emitted module into an executable whose
+  output, status and stack trace equal the Java link's, from class and
+  archive links, and names a failing stage with the tool's output without
+  leaving output or staging; every allocation failure of the adapters
+  unwinds without leftovers. See [the M4.3 record](self-hosting/m4/PROCESS.md).
+
+## D274 - Provide the public CRC32 slice of compression and checksums
+
+- **Status:** Implemented during M5.1 on 2026-10-06.
+- **Decision:** `ironwood.util.zip.CRC32` is the first public slice of
+  STDLIB_ROADMAP item 5, ahead of its ZIP and GZIP APIs, which it neither
+  implements nor cancels. B5's archive services and the compiler port consume
+  it; MD5 and SHA-256 stay compiler-private (D267, D268).
+  - **Surface.** `CRC32()`, `reset()`, `update(int)`, `update(byte[])`,
+    `update(byte[], int, int)` and `getValue()`, with Java 21's behavior for
+    every admitted call: a new or reset value is 0; the integer update uses the
+    argument's low eight bits, including widened byte, short, char and
+    negative values; `getValue()` is the unsigned 32-bit value in a `long` and
+    does not disturb further updates. A null array throws
+    NullPointerException, and a negative offset or length, or a range past
+    the end, throws ArrayIndexOutOfBoundsException with Java's
+    `Range [off, off + len) out of bounds for length n` text before any byte
+    is consumed.
+  - **Dispatch.** The class is not final, as Java's is not. `update(byte[])`
+    is declared on the class instead of inherited from `Checksum`, and calls
+    `update(b, 0, b.length)` dynamically as Java's default method does, so a
+    subclass overriding the range update observes whole-array updates; the
+    range update never calls `update(int)`.
+  - **Omissions.** The `Checksum` interface and `update(ByteBuffer)` are
+    absent, so a Java call using either fails to compile rather than failing
+    at run time.
+  - **Implementation.** Original code from the CRC-32/ISO-HDLC definition
+    (reflected polynomial `0xEDB88320`, initial and final value
+    `0xFFFFFFFF`), processing eight bytes per step with eight 256-entry tables
+    built at class initialization. The tables are one process-lived
+    allocation on first use; updates, reads and resets allocate nothing and
+    borrow their array for the call. One length test before the loop lets the
+    optimizer drop every table bounds check, and reading each group's last
+    byte first leaves one array bounds check per eight bytes at `-O3`. No
+    hardware CRC instruction is used.
+- **Proof:** No analysis, runtime or lowering change. The ordinary analysis
+  accepts freeing an array after an update, also in a program that has a
+  retaining subclass, and rejects freeing it after an update through a
+  retaining override, reached directly, through whole-array delegation or
+  through a CRC32 reference.
+- **Boundary:** A null whole-array argument reports a NullPointerException
+  without Java's helpful-message text. Supersedes no decision.
+- **Verification:** A 675-line transcript equals Java 21's from class and
+  archive links: the check value, every length 0-300 and byte value, widened
+  and negative integers, 81 offset and length pairs, every two-piece split,
+  repeated reads, reset, 64 MiB streamed through one buffer, null and range
+  failures with Java's types and text, and the dispatch of three subclasses.
+  The ownership pairs hold in every unfreed mode, omitted members fail to
+  compile, updates allocate nothing, and every allocation failure unwinds.
+  See [the M5.1 record](self-hosting/m5/CRC32.md).
+
+## D275 - Read legacy archives with Ironwood inflate and write STORED entries natively
+
+- **Status:** Accepted during M5.2 on 2026-10-06. The decoder and writer are
+  implemented in the compiler port; the reader policies below take effect in
+  M5.3's archive services. The Java bootstrap's writers are unchanged.
+- **Decision:** B6's reader and writer profiles for every native archive
+  consumer, chosen against the frozen [M5.1 contract](self-hosting/m5/ARCHIVES.md).
+  - **Reader profile.** Native readers accept STORED and DEFLATED entries in
+    all three profiles, including DEFLATED class payloads nested in STORED
+    `.ironjar` entries and wholly DEFLATED legacy archives. DEFLATE data is
+    decoded by the port's `Inflate`, an original RFC 1951 decoder that admits
+    exactly the code sets Java's zlib-based Inflater admits. Each profile keeps
+    its Java container model: IronClass reads local headers in order, as
+    `ZipInputStream` does, and IronJar reads the central directory, as
+    `ZipFile` does, with the contract's verdicts, apart from four explicit
+    native policies: every entry read has its CRC-32 and size verified in both
+    models (Java's `ZipFile` verifies neither); a malformed UTF-8 entry name is
+    an artifact error rather than an unchecked exception escaping the reader;
+    an archive or decoded entry beyond the array range fails with a size-policy
+    message, the same bound Java's byte-array readers have; and
+    container-level messages are native and name the artifact, while
+    profile-level messages keep Java's text.
+  - **Writer profile.** Native `.ironclass`, `.ironjar` and Bridge `.jar`
+    output use STORED entries spelled exactly as Java's ZipOutputStream writes
+    a STORED entry with explicit size and CRC and time 0: version 10, the
+    UTF-8 name flag, DOS date 1980-01-01 at 00:00, the 9-byte extended
+    timestamp with time 0, no descriptor, zero attributes, no comments, and
+    ZIP64 end records from 65,535 entries. Each profile's entry order is
+    unchanged: IronClass's fixed order, IronJar's sorted order, and Bridge's
+    manifest first, then sorted. A STORED writer never narrows a reader.
+  - **Options.** (a) Ironwood inflate with STORED writers, chosen: no codec
+    dependency and no compressor. (b) A pinned zlib behind a typed runtime
+    boundary, with the existing 1.3.1 Bridge support source pin as the
+    candidate: not needed once (a) met the contract, so no zlib release, build
+    flags or notices are selected. (c) Ironwood inflate and deflate: compressor
+    work that no requirement justifies. The existing delivery of zlib source
+    with the Linux Bridge support files is unaffected.
+  - **Byte and identity effects.** A native `.ironjar` built from the same
+    `.ironclass` payloads equals the Java archive byte for byte. Native
+    `.ironclass` and Bridge JAR bytes differ from the Java bootstrap's
+    DEFLATED output while their decoded entries, names, order and timestamps
+    agree; archives that embed native class artifacts therefore differ too, and
+    any identity computed over those bytes changes with the writer, which
+    M6.2 records for Bridge. Cross-writer byte equality is required only for
+    `.ironjar` from equal payloads; every writer stays deterministic. STORED
+    output makes the standard library's 252 class artifacts 3.0 times larger
+    (431,739 to 1,312,492 bytes) and its archive about 2.0 times (887,851 to
+    about 1,768,604 bytes); reading and writing it does no compression work.
+  - **Boundary of the package.** `Inflate` and `ZipWriter` are compiler-private
+    (`ironwood.compiler.port`); the public surface stays CRC32 (D274), and no
+    public ZIP, GZIP, Deflater or Inflater API is added or implied. No runtime,
+    native library, build or packaging change is made; programs that use no
+    archive code keep none of it.
+- **Proof:** No analysis, runtime or lowering change. Two conservative
+  rejections were met in source form: a field-element store whose value comes
+  from a call on the same object is uncertain to the destructor proof, so the
+  value is read first; and an array used as a copy destination cannot be freed
+  in that frame, so such copies are returned from a helper.
+- **Boundary:** Decoding is one-shot over an in-memory range, not a stream
+  that arrives in pieces; the writer builds the archive in memory and so never
+  needs ZIP64 sizes or offsets; the writer does not check distinct names,
+  which each profile guarantees. This refines D023's and D024's container
+  description and supersedes no decision.
+- **Verification:** The decoder gives Java 21's Inflater verdict on 194
+  streams: 160 from eight inputs at six levels, three strategies and two
+  flush modes, four trailing, truncated and empty inputs, and 30 hand-built
+  stored, fixed and dynamic blocks covering each defect zlib rejects; 171 are
+  accepted with Java's bytes and consumed lengths and 23 rejected. Natively
+  each accepted stream also decodes at an offset inside other bytes and into
+  an exact-size array, and fails with an off-by-one size or a truncated
+  prefix. The writer reproduces the
+  frozen `lib.ironjar`, equals Java's STORED bytes for a class artifact,
+  Unicode, empty and missing entries and 65,534 to 65,536 entries, and its
+  STORED class artifact and JAR open in IronClass.read, ZipFile, JarFile,
+  JarInputStream, the `jar` tool, `java -jar` and a class loader. Ownership
+  pairs hold in every unfreed mode and every allocation failure unwinds. See
+  [the M5.2 record](self-hosting/m5/CODEC.md).
+
+## D276 - Give the compiler port its archive services and library discovery
+
+- **Status:** Implemented during M5.3 on 2026-10-06.
+- **Decision:** The compiler port gains the S6 artifact services on D275's
+  profiles, so the ports of IronClass, IronJar, SourceSetLoader,
+  StandardLibrary, Main's class outputs and IronJarMain can use them; the Java
+  seed is unchanged.
+  - **Containers.** `ZipStream` reads local headers in order, as
+    `ZipInputStream` does for IronClass, and `ZipArchive` reads the central
+    directory, as `ZipFile` does for IronJar (end-record search tolerating
+    trailing bytes whose directory checks out, ZIP64 end records and extras,
+    prefixes, iteration by directory size), each with D275's native policies.
+    Archive bytes are passed to each call, never kept by a view.
+  - **Profiles.** `IronClassArtifact` reads with IronClass.read's checks,
+    order and messages and writes STORED entries directly to the destination,
+    from the fields Java derives from the parsed unit (type, kind, entry point,
+    source name and content). `IronJarArchive` reads with IronJar.read's
+    checks, order and messages, looks payloads up lazily through nested class
+    artifacts (DEFLATED or STORED), and creates archives with IronJar.create's
+    input handling and messages, then publishes them staged beside the
+    destination with `Files.moveReplacing` (D271), deleting the stage on
+    every other exit. Inputs and licenses are `TextList` owners: a String
+    array parameter exposes its elements to every analyzed call, so a caller
+    could never free them.
+  - **Helpers.** `TextList` owns many texts in one UTF-16 buffer with String
+    and code point (Java Path) orders, binary search and a String-hash index;
+    `ArchiveEntries` owns names and contents of an archive being built;
+    `FileCollector` is B3's walk replacing `Files.walk` inventories, keeping
+    spellings of regular files (links followed) with an extension, in Path
+    order.
+  - **Discovery.** `Installation.libraryArchives` and `libraryClassRoots` add
+    StandardLibrary.discover's archive and class roots that D269 left to S6,
+    and `LibraryTypes` its owned types: the core types, archive indexes, and
+    class and source root inventories, with Java's names.
+  - **Walk fix.** `Files.walkFileTree` now releases a directory's visited
+    attributes when an allocation failure interrupts building its stream or its
+    traversal-loop check; before, each such failure kept them.
+- **Recorded differences from the Java baseline:** CRC and size are verified
+  for every entry read (Java's `ZipFile` verifies neither); a malformed entry
+  name is an artifact error (Java's `ZipInputStream` lets an unchecked
+  IllegalArgumentException escape `IronClass.read`); container messages are
+  native; when several indexed entries are missing, the first in index order
+  is named (Java names the first in HashSet order); a traversal failure in an
+  archive input or library root is an IOException, so creation reports it and
+  discovery skips the root (Java's stream throws an unchecked exception);
+  native class artifacts are STORED (D275). Profile messages are Java's text.
+- **Proof:** No analysis, runtime or lowering change. Three conservative
+  rejections shaped the code: a field-element store whose value or index comes
+  from a call, which leaves the field's ownership uncertain (computed into a
+  local first); a copy destination freed in the copying frame (copies come
+  from `Bytes.slice` or the decoder's fresh result); and a String array
+  parameter, which exposes its elements (owners instead). Readers and
+  collectors do their work in constructors, whose rollback releases a partly
+  built object on any failure.
+- **Boundary:** Archives and decoded entries are held in memory, limited to
+  the array range; a native archive build holds each input's bytes, the
+  entry contents and the assembled archive at once. The AST-derived class
+  fields, the source file wrapper and `StandardLibrary.locate`'s search order
+  remain S6's port. A caught exception cannot be freed, so each archive or
+  root discovery skips keeps its exception and message. Supersedes no
+  decision.
+- **Verification:** On 144 corpus variants the native readers give the frozen
+  Java verdicts, profile messages exactly, apart from the five recorded policy
+  cases; every Java-built standard-library class artifact and archive and the
+  frozen fixtures read natively with Java's types, entry points, sources and
+  paths; native rewrites of all 252 standard-library class artifacts equal
+  Java's STORED spelling and read back in Java; a native archive of Java's
+  class directory equals Java's standard-library archive byte for byte, and
+  one of the native class directory reads back in Java; repeated, directory
+  and reordered-file builds are byte-identical; 14 invalid creations report
+  Java's messages and publish nothing; publication replaces, keeps the
+  earlier archive on failure, creates parents and leaves no stage; ownership
+  pairs hold in every unfreed mode; every allocation failure unwinds with no
+  stage left; discovery equals Java's in eight layouts; and the walk sweep
+  that leaked before the fix now unwinds. See
+  [the M5.3 record](self-hosting/m5/ARTIFACTS.md).
+
+## D277 - Provide the S6 documentation and command-line helpers
+
+- **Status:** Implemented during M5.4 on 2026-10-06.
+- **Decision:** The compiler port gains B7's S6 helpers for the ports of
+  DocComment, DocModel, MarkdownDoclet, IronDoc, IronDocOptions and
+  IronJarMain; the Java seed is unchanged.
+  - **DocText.** Purpose-specific scans with Java 21's semantics for exactly
+    the expressions they replace: `split("\\R", -1)` (CRLF one break; LF, VT,
+    FF, CR, U+0085, U+2028, U+2029), the `split("\\s+", 2)` head and tail
+    (unflagged `\s` only), `replaceFirst("^\\s*\\* ?", "")`, the
+    `(?i)^<code>` and `(?i)</code>$` strips (ASCII-only case, `$` before one
+    final terminator), the entity replacement with `parseInt` and
+    `Character.toChars` semantics and its diagnostic, the backtick run,
+    `replaceAll("\\s+", "")`, `replaceAll("\\s*\\R\\s*", " ")`, the
+    identifier-run matcher, IronDoc's package-name regex, `stripLeading`,
+    `regionMatches(true, ...)`, DocModel's member anchors and DocComment's tag
+    scan, which keeps the UTF-16 `char` scan with the part predicate at the
+    first position and never pairs surrogates.
+  - **JavaIdentifiers.** Java 21's `Character.isJavaIdentifierPart` for chars
+    and code points, as 798 ranges generated from JDK 21's answer for every
+    code point and checked by regeneration; S7's qualified-name validator
+    (M6.1) shares it and adds the start predicate and keyword rules.
+  - **LinkRenderer.** DocComment.render's link callback, with a primitive
+    boolean instead of `BiFunction<String, Boolean, String>`.
+  - **FileCollector.** Public, with a bounded depth for IronDoc's depth-one
+    package selection.
+  - **Conventions.** IronDoc's version resource is the generated
+    BuildIdentity (D269); IronDocOptions' `splitAsStream` path list is
+    `Splits.bounds(value, ':', 0)` and its `split(":", -1)` lists keep -1;
+    MarkdownDoclet's banner `formatted` concatenates its literal pieces;
+    `Locale.ROOT` casing is the fixed en_US casing (D117), equal to ROOT;
+    `ArrayDeque` lists are ScopeStack (D264); Path-keyed TreeMaps and
+    TreeSets sort in TextList code point order (D276); the remaining calls
+    follow the M3 conventions.
+- **Proof:** No analysis, runtime or lowering change. A concatenation of
+  constants is an immortal literal and is not freed; an interface-typed alias
+  kept in scope holds its object, so callbacks are invoked through a parameter.
+- **Boundary:** The scans implement their call sites' expressions, not a
+  regular-expression engine. `regionMatchesIgnoreCase` compares UTF-16 units,
+  which equals Java for the ASCII literals its callers pass. Supersedes no
+  decision.
+- **Provenance:** Original code under the default license. The identifier
+  ranges are Unicode 15.0 character data observed through JDK 21's
+  `Character` with no OpenJDK source consulted, treated as the project
+  treats observed Character data, and carry the Unicode notice in
+  `LICENSES/Unicode-15.0.txt` (SOURCE_PROVENANCE and THIRD_PARTY_NOTICES).
+- **Verification:** For 3,083 corpus inputs, 438 tag suffixes, every char and
+  every code point, the 47,935-line transcript equals the Java tools' own
+  methods and expressions from class and archive links; IronDoc's depth-one
+  and recursive walks select and order Java's files; the table regenerates
+  exactly; ownership pairs hold in every unfreed mode; every allocation
+  failure unwinds. See [the M5.4 record](self-hosting/m5/DOC.md).
+
+## D278 - Refine ownership facts after declaration errors
+
+- **Status:** Accepted and implemented; its boundary for missing
+  implementations is superseded by D279. Supersedes the readiness rule of D184's
+  M1c milestone, which attached a limited-analysis note to every ownership
+  rejection after an earlier error, and resolves the limitation recorded in
+  [EXPLAIN_REJECTED_FREE.md](EXPLAIN_REJECTED_FREE.md) section 3.3.
+- **Context:** Closed-world ownership refinement ran only when no error had been
+  reported before it. After any declaration error, final lowering still ran with
+  the initial facts, without borrow dispatch, temporary-borrow or reclamation
+  effects, and reported their consequences as final rejections and missing-free
+  findings, contrary to D096 and D140. One unrelated declaration error gave every
+  program false rejections in bundled `Throwable`, gave about a quarter of the
+  examples false errors in their own code, reported genuine errors with vaguer
+  messages, and could hide them behind a conservative rejection probed first.
+- **Decision:** Refinement runs whenever analysis reaches it; only an inheritance
+  cycle still stops earlier. Ownership verdicts are reported only from converged
+  facts: rejected and deferred frees, destructor, loop and owned-element proofs,
+  use after free, pool transfer, publication and effect validation, and
+  missing-free findings. When refinement does not converge, final lowering still
+  reports other errors but no ownership verdict, and the non-convergence error is
+  reported only when no earlier error exists, because earlier errors may cause it.
+  A program is built only from converged facts. The limited-analysis note is
+  removed; explanations always describe refined evidence.
+- **Analysis:** Refinement already tolerated method-body errors. Over declaration
+  errors it describes the declarations as written: erroneous declarations are
+  omitted, substituted or left without targets, so verdicts for code that does not
+  use them equal those of the corrected program. A failing compilation's ownership
+  diagnostics are therefore not exhaustive: verdicts that depend on an erroneous
+  declaration or on an unconverged analysis appear once the errors are fixed. A
+  failing compilation never certifies ownership.
+- **Boundary:** A polymorphic call whose candidate class lacks the called
+  implementation, from a missing interface or abstract method implementation,
+  leaves its target unknown, so frees around that call and in callers whose
+  summaries depend on it can still be rejected next to the declaration error;
+  suppressing those cascades is a separate change. No safety proof, reclamation,
+  runtime or lowering of a valid program changes, and error-free compilations are
+  identical. No unfreed mode or explanation setting can produce output after an
+  error.
+- **Verification:** 72 examples, each compiled with one of 11 kinds of unrelated
+  declaration error, report nothing outside the file holding that error; the old
+  gate added 74 errors in the examples' own code and 472 in bundled code for every
+  kind that reached it. 1,120 source fragments from the compiler's tests compile
+  without a crash or non-convergence, the 187 valid ones unchanged, and each
+  diagnostic the change adds equals the output of the same program without its
+  declaration error, including two leaks the old path missed. 160 programs with
+  genuine ownership errors keep identical diagnostics beside two kinds of
+  unrelated error. 51 examples linked with a main class lacking `main` report
+  only that error, where the gate added 200. Focused tests cover unrelated and
+  used declaration errors in `off` and `error` modes, the command-line and link
+  paths, non-convergence through an injected pass budget, and the explanation,
+  dependency, bundled-source and observer contracts; the standard library still
+  builds with `--unfreed=error`.
+
+## D279 - Complete missing implementations with permissive placeholders
+
+- **Status:** Accepted and implemented. Supersedes D278's boundary for missing
+  implementations.
+- **Context:** A class missing an implementation is omitted from a call's target
+  set. When every candidate lacked it, the empty set meant an unknown call that may
+  retain its arguments, so frees around the call, and in callers whose summaries
+  depend on it, were rejected next to the declaration error with messages that do
+  not name it, such as "allocation escapes through argument 2 of method
+  'passTwice'". Suppressing rejections by function or by message would also hide
+  genuine errors in the same body.
+- **Decision:** After a missing interface or abstract method implementation is
+  reported, the class gets a compiler placeholder for it; an abstract method
+  declared in a concrete class is replaced by one. Ownership analysis treats a
+  placeholder as the most permissive implementation a correction could have: it
+  retains, allocates and throws nothing, and its reference result counts as a fresh
+  allocation the caller may free. It may also reclaim its reference arguments and
+  return null, which only suppresses missing-free findings, including through
+  callers. Placeholder bodies add no diagnostics.
+- **Analysis:** Rejections and effect checks only grow with what a callee does,
+  so those that remain hold for every correction. Missing-free findings shrink with
+  it, so the possible reclamation and null result keep them from depending on the
+  correction. The placeholder applies the
+  completion that mixed target sets already had to every analyzer, without new rules
+  in ownership analysis: D140's nullable fresh results never justify an abandonment
+  finding, and the closed-world may-reclaim effect suppresses such findings without
+  permitting or rejecting a free.
+- **Boundary:** A class that already declares a static or private method with the
+  required signature, or that inherits unrelated default methods, gets no
+  placeholder for that requirement; its declaration error remains, and no cascade
+  from those cases has been observed. Valid programs never contain placeholders, so their compilation is
+  unchanged, and no program with a placeholder is built.
+- **Verification:** Of 13 kinds of broken declaration used around a `free`, each
+  with a corrected twin that compiles cleanly, all now report only their
+  declaration errors; the two missing-implementation kinds previously added
+  rejections. Calls that reach a placeholder two methods away are proved while a
+  genuine error in the same body remains; a leak is reported only once the
+  implementation exists; a retaining sibling implementation still rejects; freed,
+  deferred, wrapped and discarded results add nothing, and a published one is
+  rejected for its publication; generic, anonymous and primitive-returning
+  requirements and destructor checks behave as their corrections do. 72 examples
+  with three kinds of unrelated declaration error, including a missing
+  implementation, report exactly one diagnostic each, and 1,120 compiler-test
+  fragments give the same output as before this decision, the 187 valid ones
+  unchanged from before D278.
+
+## D280 - Check missing frees across the whole analyzed program in every entry path
+
+- **Status:** Accepted and implemented. Amends D140's scope, which its implementation
+  limited to the sources a caller passed to the pipeline.
+- **Context:** The command line loads bundled standard-library and class-path
+  sources as inputs, so its missing-free checks covered them. The in-process
+  compiler API and the language server pass only their own sources and let the
+  pipeline add bundled units, which the check then skipped. The same program could
+  therefore report a leak through one path and not through another. Leaving bundled
+  code out was reasonable while the standard library had unrepaired omissions
+  (D140); it is now built with `--unfreed=error`.
+- **Decision:** `--unfreed` governs proven abandonment in the whole analyzed
+  program: application sources, class-path and archive dependencies, and the
+  bundled standard library, identically in a command-line compile or link, the
+  language server, the bridge producer and the in-process API. The per-source
+  filter is removed from `SemanticAnalyzer` and `CompilerPipeline`.
+- **Analysis:** D140 already re-checks reconstructed dependency bodies at final
+  link, and mandatory safety errors already report closed-world consequences in
+  bundled code, such as a library destructor that a retaining user override makes
+  unprovable. A leak in library code that user code causes is a leak of the final
+  program, so strict mode must not succeed while one is proved. Only definite
+  abandonment is reported (D140), so uncertain library facts produce no finding.
+- **Boundary:** No safety proof, lowering or runtime behavior changes; only which
+  existing findings are reported. The language server publishes a finding to the
+  file that contains it, as it already does for bundled safety errors.
+- **Verification:** A leak planted in a copy of the standard library is reported
+  identically through the command line and the in-process pipeline as a warning
+  or an error, and by neither with `off`; before this change only the command line
+  reported it. Under refined facts, compiling 72 examples, 1,120 compiler-test
+  fragments and 160 stability programs through the command line, which already
+  checked bundled code, produced no bundled missing-free finding, so in-process
+  and language-server results for those programs are unchanged.
+
+## D281 - A field loan cannot cross any code that may run while it is aliased
+
+- **Status:** Accepted and implemented. Amends D041's reentrancy rule, which its
+  implementation applied only to source calls and constructions.
+- **Context:** D041 lets a method free a private field's superseded storage after
+  detaching it, provided an attached loan cannot cross a potentially reentrant call.
+  The owned-field proof checked that syntactically, so code that runs without a
+  source call went unseen; a reentrant free of the field then left a live local
+  alias dangling. Thirteen shapes compiled and, at run time, freed an array twice or
+  wrote into a freed one: string conversion of an object (`"x" + hook`,
+  `text += hook`), the first use of another class's non-constant static field, enum
+  constant or interface field (class initialization), enhanced-for iteration over an
+  `Iterable`, an element store whose value runs such code, a loop condition that runs
+  after the body made an alias, a catch handler entered while the try body's alias
+  is live, a deferred call that runs at scope exit while an alias is live, a static
+  initializer that holds an alias across a call, and a destructor that publishes the
+  field before freeing it. The per-loan check in function lowering that seemed to
+  cover calls never applied: uncertainty is not recorded for owned-field loans.
+- **Decision:** While a local alias of an attached field allocation is live, no code
+  other than fixed runtime operations may run. The proof takes the operations that
+  may run code from the provisional typed IR, where implicit ones are explicit:
+  calls of every kind, class initialization of a type with an initializer,
+  destructors of a freed value or element, construction rollback and foreign calls.
+  An audited list names the operations that run only fixed runtime code; a new kind
+  of operation counts as running code until it is classified. Three operations stay
+  fixed: constructing the six exception types that lowering emits for failed runtime
+  checks, whose constructors reach only `Throwable()` or `Throwable(String)`; class
+  initialization of the running code's own class or superclasses, which has already
+  started; and exact `System.arraycopy`, as before. Loops are scanned until the
+  aliases live at the start of an iteration stop growing; catch handlers start with
+  any alias the try body may have made; while a deferred action is pending, no
+  local declared outside its scope may hold a live alias, since that local outlives
+  the action; and the static initializers and destructors of the owning nest are
+  scanned like its methods. Freeing anything but the alias may run a
+  destructor unless typed IR shows that the value has none. Function lowering's
+  no-op check is removed; it only forgets loans that no local holds.
+- **Analysis:** The rule keeps its kind: D041 already rejected every source call
+  while an alias is attached. Each new rejection is the field's ownership-proof
+  failure, which `--explain-rejected-free` shows for the free that needed it. Safe
+  forms stay accepted, among them the same code before the load or after the
+  detaching store, element reads, casts, division, String and primitive
+  concatenation and the owner's own statics inside a loan. Implicit code that cannot
+  in fact reach the field is rejected like an explicit call that cannot. No runtime
+  instruction, check or cost changes.
+- **Verification:** Each of the 13 shapes now fails the field's proof for its own
+  reason and its safe twin compiles; the previous compiler accepted all 13, and
+  probes of them crashed under Guard Malloc while a safe control ran cleanly. The
+  standard library builds with `--unfreed=error`, its owned-field facts (161 owned
+  fields and every borrow and rejection entry) are identical before and after, and
+  74 examples compile identically.
+
+## D282 - Report construction publication at the class whose construction publishes
+
+- **Status:** Accepted and implemented. Refines where the existing in-progress
+  publication error is reported; the rule itself is unchanged.
+- **Context:** Both publication analyses summarize each constructor once, for every
+  class whose construction may run it, so a call on the object reaches the
+  overrides of every subclass. One user exception class whose `fillInStackTrace`
+  override stores `this` therefore made 55 bundled exception constructors, which
+  all reach `Throwable()`, report the error, although building any of those classes
+  never runs that override. Only the user's class was at fault.
+- **Decision:** A constructor is reported when building an exact instance of its
+  own class through it publishes the object. While the object is exactly the
+  constructor's own receiver or a callee's first argument derived from it, calls
+  on it dispatch on that class and the callees are evaluated in the same context;
+  every other call keeps its ordinary summary, so a receiver that may be another
+  object keeps every override. The existing context-free results still select the
+  constructors to check. An override that publishes is reported at the subclass
+  whose construction runs it; a superclass constructor is reported only when its
+  own class's construction publishes.
+- **Analysis:** Every construction of a concrete class is still checked, at that
+  class's constructors, with the dispatch it actually performs, so no publishing
+  construction goes unreported. A superclass whose own construction publishes is
+  reported together with each subclass that runs it, as before. Abstract classes
+  are checked with their own implementations, so a hook that only a subclass
+  implements counts for that subclass. No runtime behavior changes.
+- **Verification:** The user exception example reports one error at the user's
+  class instead of 55. Overrides, abstract and interface hooks, delegating
+  constructors and a field round trip through an override are reported only at the
+  subclass; publication by a base constructor itself, also through its own field,
+  is reported at the base and each subclass as before; a receiver that may be
+  another object stays reported; a safe override is accepted. The standard library
+  builds with `--unfreed=error` without diagnostics, and 74 examples compile
+  identically.
+
+## D283 - Report destructor effects at the class whose destruction has them
+
+- **Status:** Accepted and implemented. Applies D282 to destructors; the
+  destructor rules themselves are unchanged.
+- **Context:** A destructor must not allocate, let an exception escape, or publish
+  or resurrect `this`, and every subclass destructor runs its superclass
+  destructor. The effect summaries took each destructor once for every class whose
+  destruction may run it, so an override called on the object counted for every
+  superclass. One subclass whose override of a cleanup hook allocated, threw or
+  published `this` made the base destructor and every other subclass's destructor
+  report the error, although destroying none of those classes runs that override.
+- **Decision:** A destructor is reported when destroying an exact instance of its
+  own class through it allocates, lets an exception escape or publishes the object.
+  Constructors and destructors now share one exact-class summary: while the object
+  is exactly the summarized function's first argument, calls on it dispatch on that
+  class, use the same exact summaries for their callees, and also decide whether an
+  exceptional edge is reachable, so a hook wrapped in `finally` counts only where
+  it can throw. Every other call keeps its ordinary summary, so a receiver that may
+  be another object keeps every override. The context-free summaries still select
+  the functions to check.
+- **Analysis:** Every destruction of a concrete class runs that class's destructor
+  with the dispatch it actually performs, and that destructor is checked, so no
+  allocating, throwing or publishing destruction goes unreported. A base destructor
+  that allocates by itself is reported at the base and at each subclass, as before.
+  Effects reached through a field whose declared type has subclasses are unchanged:
+  `free` of such a field still considers every subclass destructor.
+- **Verification:** For one overriding subclass among others, allocation, an
+  escaping exception, publication and a throwing hook under `finally` are each
+  reported only at that subclass, where three or six errors were reported before.
+  A base destructor's own allocation and a receiver that may be another object
+  report as before, a safe override is accepted, and the D282 constructor cases are
+  unchanged on the shared summary. The standard library builds with
+  `--unfreed=error` without diagnostics, and 74 examples compile identically.
+
+## D284 - Release only the classes a freed value may be
+
+- **Status:** Accepted and implemented. Supersedes D283's limitation that `free` of a
+  field whose declared type has subclasses considers every subclass destructor.
+- **Context:** A `free` or owned-element destruction was taken to run the destructor
+  of every subclass of the operand's static type. Pooled objects are erased to
+  `Object`, so one user class with an allocating destructor made the bundled
+  `ArrayObjectPool`, `HashMap` and `HashSet` destructors report it, although none of
+  them can hold that class; a destructor freeing an owned field that only ever holds
+  an exact class was blamed for every subclass the same way.
+- **Decision:** For the destructor and constructor verdicts, a free or element
+  destruction runs only the destructors of the classes its value may be, as a
+  closed-world, context-insensitive value flow over typed IR proves them. An object
+  allocation gives its class and an array allocation its own site; fields join what
+  is stored into them, calls what their targets return, and each array site what is
+  stored into arrays that may be it. A store into an array of unknown origin joins
+  every site whose element type it fits. Parameters join their call arguments where
+  every caller is visible: for private methods and constructors, and for all
+  callables of an executable with an entry point and no foreign calls; the entry
+  point, destructors and rollbacks keep unknown parameters, as does every other
+  source. `System.arraycopy` is modeled at its calls as a copy.
+- **Analysis:** The flow is a sound over-approximation: reference fields are written
+  only by field stores, since immortal objects carry primitive field values and the
+  runtime keeps traces and secondary exceptions in its own tables; arrays reach code
+  only through tracked values or as arrays of unknown origin; and unknown values keep
+  every subclass. Precision is per class and allocation site, not per instance, so a
+  pool that really holds a misbehaving class still makes every holder of that pool
+  class report it. Provisional analyses keep their targets; no safety proof, lowering
+  or runtime behavior changes. A small program compiles about 8 percent slower.
+- **Verification:** A user map subclass with an allocating destructor beside
+  `HashSet` reports one error instead of four, also in a library without an entry
+  point; an owned field of the base class leaves its holder unreported. A holder of
+  the misbehaving class, a pool built with it, an array of unknown origin and a
+  builder handing out an array element of it all stay reported. The standard library
+  builds with `--unfreed=error` without diagnostics and identical timing, and 74
+  examples compile identically.
+
+## D285 - Check destructors per object with object-sensitive value flow
+
+- **Status:** Accepted and implemented. Supersedes D284's limitation that a pool
+  holding a misbehaving class makes every holder of that pool class report it, and
+  its value flow running on every compilation.
+- **Context:** D284's value flow merged all instances of a class: every
+  `ArrayObjectPool` shared one builder field and one set of creation-array elements.
+  Pooling a user class with an allocating destructor therefore made `HashMap` and
+  `HashSet` report it through their own pools of map entries.
+- **Decision:** Value flow is object-sensitive. An object is an allocation site
+  qualified by the object its allocating body ran on, so each pool keeps its builder
+  and its arrays. A body is analyzed once per object in its first parameter, and a
+  call whose first argument is a known object dispatches on that object's class and
+  passes it alone. Every allocated object may be destroyed, so each object's
+  destructor runs on it, and a destructor flagged by the context-free summary is
+  judged for each object of its class the program allocates, through the bodies value
+  flow recorded for that object; a class with no allocated object keeps the D283
+  verdict. Static fields join their initial value and stores. A closed executable
+  is analyzed from its entry point and class initializers; elsewhere every
+  non-private body is also called by unseen code with unknown arguments. Value flow
+  runs only when a context-free summary flags a destructor or constructor, since it
+  can only narrow those verdicts.
+- **Analysis:** The flow stays a sound over-approximation for the code it analyzes:
+  every way a body runs is followed, through calls, dispatch, class initialization,
+  frees, element destruction and rollback, and unknown receivers, arguments and
+  arrays keep every object they could be. Each destruction of an object is judged
+  with that object's contents, so no allocating, throwing or publishing destruction
+  goes unreported. Code that never runs in a closed executable no longer contributes,
+  so an unused constructor that installs a misbehaving part does not implicate the
+  objects that exist. Compilations without such a verdict skip value flow.
+- **Verification:** A pool of a user class with an allocating destructor, beside
+  `HashSet`, reports the class and that pool but not `HashMap` or `HashSet`. A
+  holder of a pool with a quiet builder stays unreported beside a holder of a pool of
+  the misbehaving class; boxes built only with the base part stay unreported, and a
+  loud box makes them reported. A public method storing into an array it receives,
+  a holder of the misbehaving class and a builder handing out an array element keep
+  their reports. Correct programs compile as fast as before D284, a program with a
+  destructor error about 6 percent slower than with D284, and the standard library
+  builds with `--unfreed=error` without diagnostics.
+
+## D286 - Judge construction and destruction publication per object
+
+- **Status:** Accepted and implemented. Extends D285's per-object verdicts to
+  publication of an object under construction or destruction.
+- **Context:** D285 judged destructor allocation and escaping exceptions per object,
+  but publication still had class-wide parts: the constructor verdict summarized
+  each constructor for any exact instance of its class (D282), and the receiver-field
+  analysis judged constructors and destructors the same way for both. A call on an
+  argument or field then reached every implementation in the program, so a
+  constructor `Wrapper(Sink sink) { sink.accept(this); }` was rejected because some
+  `Sink` stores its argument, although only quiet sinks were ever passed; a
+  destructor calling `listener.closed(this)` was rejected the same way.
+- **Decision:** A flagged constructor or destructor is judged for each object of its
+  class that it runs on, in that object's value-flow context, in the effect summaries
+  and in the receiver-field analysis: every call, free and element destruction takes
+  the bodies value flow recorded for that object, solved in their own contexts. A
+  constructor that builds no object of its class in the analyzed program, such as an
+  unused one or a base constructor only subclasses run, keeps the exact-class verdict.
+- **Analysis:** Value flow follows every object that reaches a constructor or
+  destructor through calls, fields and arrays, and unknown values keep every
+  implementation, so a publishing implementation that can be passed in is still
+  reported. Publication through a subclass override stays attributed to the subclass
+  (D282, D283). No proof, lowering or runtime behavior changes.
+- **Verification:** The constructor given only quiet sinks and the destructor holding
+  only quiet listeners are no longer reported for publication; given a storing
+  implementation, both are. An unused publishing constructor and a base constructor
+  run only by subclasses keep their verdicts, and the D282 to D285 cases are
+  unchanged. The standard library builds with `--unfreed=error` without diagnostics,
+  and 74 examples compile identically.
+
+## D287 - Omit null checks that a dominating null test makes redundant
+
+- **Status:** Accepted and implemented. Narrows the nullable-receiver effect of
+  destructor validation (D283 to D286) without changing any proof.
+- **Context:** Lowering checked every explicit dereference for null unless the
+  reference was `this` or a conversion of it. A destructor written the Java way,
+  `if (listener != null) { listener.closed(this); }`, kept the receiver check: the
+  test and the call load the final field separately, and even a local tested for
+  null was checked again. The check's failure path allocates and throws a
+  `NullPointerException`, so the closed-world validation reported "destructor may
+  allocate" and "an exception may escape this destructor" for a destructor that can
+  do neither. Ordinary bodies carried the same infeasible paths into the typed IR
+  that ownership analysis and the effect summaries read.
+- **Decision:** A reference compared with `null`, tested with `instanceof` or checked
+  for null is non-null on the branch edge that the outcome selects, through `!`,
+  `&&` and `||` as for pattern variables. Lowering records that edge's target,
+  whose only predecessor is the test, and omits a later null check of the same
+  reference wherever the target dominates it in the control-flow graph built so
+  far. A reference is an SSA value, a reference conversion of one, or a final
+  instance field loaded again from the same receiver value. Constructors may store
+  final fields, so their loads are not named. A destructor that frees an owned
+  field of its class stores null into it, so the field's guards end where the free
+  is lowered and do not cover a loop entered after the guard. The use-after-free
+  check still runs where a null check is omitted.
+- **Analysis:** SSA values never change, and outside constructors a final field
+  changes only through such a destructor free. Lowering places code in a block only
+  after every forward edge into it exists; later edges are loop back edges, which do
+  not change dominance, and the only way a later free can reach an earlier use. At
+  the end of each function every omission is checked again on the finished graph:
+  the guard edge must still be its target's only entry, the target must dominate the
+  check, and no store to a guarded field may lie between them. A failure is an
+  internal compiler error, never emitted code. Only checks that cannot fail are
+  removed, so `NullPointerException` behavior and its throwing site are unchanged,
+  and nothing is added on valid paths (D132, D133); infeasible failure paths no
+  longer reach ownership analysis or the effect summaries. A value merged at a join
+  or loop header is not covered by a guard of its inputs, and an unguarded call on
+  an owned field that is never null keeps the null-check effects.
+- **Verification:** Destructors that guard a final field, a local, an `&&` or `||`
+  operand, a conditional arm or a pattern binding, an owned field before its free,
+  or a field inside the loop that frees it are accepted, as is the destructor
+  holding quiet listeners (D286). An unguarded field, a guarded mutable field, a
+  local reassigned after its guard, a use after the guarded branch, an owned field
+  freed before its use, a free in a loop entered after the guard and a loop
+  condition after the guard keep both reports. Typed IR loses only guarded checks,
+  and a native program at `-O0` and `-O3` throws the same catchable
+  `NullPointerException`s for reassigned values, merges, loops, catch handlers,
+  labeled breaks, switch fallthrough and `finally`. At `-O3` LLVM had already folded
+  the guarded checks of the inspected code, whose machine code is unchanged apart
+  from fewer trace sites; the deterministic benchmarks lose unreachable failure
+  paths and run within noise. The standard library builds with `--unfreed=error`,
+  79 examples and projects compile with identical diagnostics, and the 72 linked
+  examples run with identical output.
+
+## D288 - Omit null checks that every merged value makes redundant
+
+- **Status:** Accepted and implemented. Extends D287 to values merged at joins and
+  loop headers; D287's omission under a dominating test is unchanged.
+- **Context:** D287 omits a null check only where one null test dominates it.
+  Lowering gives every local a new phi at each loop header and merges differing
+  values at joins, so a local guarded before a loop was checked again inside it, and
+  a value merged from guarded values or an allocation, such as
+  `a != null ? a : new Node(...)`, kept its check with its `NullPointerException`
+  allocation and throw. A destructor that guarded a local and then used it in a loop
+  was still reported as allocating and throwing. A loop header's back edges are not
+  known while its body is lowered, so lowering cannot decide these checks without
+  speculating.
+- **Decision:** After lowering, `RedundantNullChecks` solves the references known
+  non-null at each block entry over the finished graph of the function, as the
+  greatest fixed point of a must analysis. A block keeps what every reached
+  predecessor knows on its edge into it; an edge adds what its null comparison,
+  `instanceof` test, null check or recorded D287 condition proves; a phi is non-null
+  when each incoming value is non-null on its edge. Allocation results and the
+  references lowering proves are never null, facts follow reference conversions and
+  D287's final-field loads, and a store to a final field ends that field's facts. A
+  null check whose reference is known becomes a jump to its valid path, and the
+  failure blocks that only it reached are removed with their phi entries. The
+  emitter outlines `throw new X(...)` with or without the null check of the fresh
+  object.
+- **Analysis:** Loop headers start from every fact and keep only what each back edge
+  preserves, so a value reassigned in a loop to anything not proven non-null is still
+  checked. The greatest fixed point is sound because a merged value is always one of
+  its incoming values. Facts name SSA values, which never change, and final fields,
+  which change only through a destructor free whose store the analysis sees. The
+  pass runs after ownership analysis, so it weakens no proof and affects only
+  typed-IR consumers and LLVM. `NullPointerException` behavior and its throwing site
+  are unchanged, and nothing is added on valid paths (D132, D133). Without the
+  emitter change, omitting the check in `throw new` stopped its outlining, so the
+  throw sequences of `Integer.parseInt` were emitted inline and changed inlining
+  and register allocation enough for a deterministic benchmark's hot loop to reload
+  its array from the stack. With it, the benchmark programs compile to the same
+  machine code as under D287 apart from fewer trace sites and cold helpers.
+- **Verification:** Guarded locals used in or after loops, nested loops, a loop exit
+  after a break, joins of guarded values, a join and a conditional with an
+  allocation, and a destructor fallback merged from a guarded final field lose their
+  checks. A loop that advances or nulls the value, a join with a possibly-null
+  value and a destructor that advances its local keep them, and the D287 cases are
+  unchanged. Native programs at `-O0` and `-O3` throw the same catchable
+  `NullPointerException`s, and an explicit throw stays outlined. The standard
+  library builds with `--unfreed=error`, 79 examples and projects compile with
+  identical diagnostics, every linked example program runs with identical output,
+  and build time is unchanged.
+
+## D289 - Trust final fields that construction leaves non-null in destructors
+
+- **Status:** Accepted and implemented. Extends D287 and D288 to final fields that no
+  test guards in the destructor.
+- **Context:** A destructor written `private final Part part = new Part(); destructor
+  { part.touch(); free part; }` kept the null check on `part`, so validation reported
+  "destructor may allocate" and "an exception may escape this destructor" although no
+  constructed object can reach the destructor with `part` null. D287 and D288 only
+  trust values a test, a check or a merge proves non-null within the function.
+- **Decision:** After the final lowering, `ConstructedFields` keeps a final reference
+  instance field as constructed non-null when each of its stores is a constructor of
+  its class storing, into its own object, a value that `RedundantNullChecks` proves
+  non-null at that point, apart from the null that its class's destructor stores when
+  it frees an owned field. Each destructor is solved again with those fields of its
+  object, declared by its class or a superclass, known non-null at entry, and the
+  checks they prove are removed. `RedundantNullChecks` now names final fields of one
+  object from the loads in the IR, through reference conversions, in every function,
+  and a store of a value known non-null to a final field starts that field's fact.
+- **Analysis:** The language makes every constructor that completes normally assign
+  each blank final field of its class exactly once, and runs field initializers in
+  every constructor that does not delegate, so each completed construction stores
+  such a field a non-null value. A destructor runs only on a fully constructed
+  object, and the subclass destructors that run before it cannot store the fields of
+  its class or its superclasses, so those fields keep their values until its own
+  free, whose store ends the fact, also across loop back edges. A subclass field is
+  not trusted in a superclass destructor, since the subclass destructor runs first
+  and may free it, and methods are not covered, since one may run during
+  construction or after the free. The pass only removes checks after ownership
+  analysis and adds nothing on valid paths (D132, D133); the deterministic benchmarks
+  compile to the same machine code as under D288.
+- **Verification:** Destructors using a field initialized or constructor-assigned with
+  an allocation, a field assigned a parameter checked for null, or an inherited field
+  are accepted. A field assigned an unchecked parameter, a field one constructor sets
+  to null, a use after the free, a free inside a loop, a subclass field read by the
+  superclass destructor and a field used through a method keep both reports. A native
+  program at `-O0` and `-O3` runs those destructors and rejects a null argument. The
+  standard library builds with `--unfreed=error`, 79 examples and projects compile
+  with identical diagnostics, every linked example program runs with identical
+  output, and build time is unchanged.
+
+## D290 - Judge the methods a destructor runs on its object with its constructed fields
+
+- **Status:** Accepted and implemented. Extends D289 from the destructor body to the
+  methods it calls on its object.
+- **Context:** D289 trusts constructed non-null fields only in destructor bodies. A
+  destructor written `destructor { flush(); free buffer; }`, where `flush` uses
+  `buffer`, was still reported as allocating and throwing, because `flush` keeps its
+  null check: a method may also run during construction, before the field is
+  assigned, or after the free.
+- **Decision:** The destructor verdict judges the methods it runs on its object with
+  the fields known there, and their code keeps its checks. `ClosedWorldEffectAnalyzer`
+  summarizes a flagged destructor with its object's constructed fields known at
+  entry. A call whose first argument is the object passes on the fields the caller's
+  dataflow still knows at that call, and the callee is summarized, in the exact-class
+  and value-flow contexts alike, as a view of its body with the null checks those
+  fields prove removed. Summaries are kept per body and set of known fields.
+- **Analysis:** Only constructors and the object's own destructors store its final
+  fields, so the fields known at a call stay non-null for the whole call, through
+  nested calls on the object. A field freed before the call is no longer known there,
+  and the superclass destructor chain receives only the fields a subclass destructor
+  left in place, so an override reached after a subclass free keeps its report. Calls
+  on other objects, or with the object in another position, pass no fields. The
+  views only exclude failure paths that cannot run during that destruction, so no
+  allocation, escaping exception or publication goes unreported; emitted code and
+  ownership proofs are unchanged (D132, D133). A superclass destructor is now also
+  judged with the fields a subclass destructor leaves in place, so destroying a
+  subclass that never frees a field no longer reports the superclass's use of it.
+- **Verification:** Destructors calling a method, nested methods or a static method
+  given the object before the free are accepted, as is a subclass destructor calling
+  its own method before its free. A method called after the free, an override that
+  the superclass destructor reaches after the subclass freed the field, and a method
+  of another object keep both reports. The standard library builds with
+  `--unfreed=error`, 79 examples and projects compile with identical diagnostics, 69
+  examples emit identical LLVM, and the standard library compiles in slightly more
+  CPU time.
+
+## D291 - Validate Bridge export names with Java 21's qualified-name rules in the port
+
+- **Status:** Implemented during M6.1 on 2026-10-07.
+- **Decision:** The compiler port gains B7's Java 21 qualified-name validation
+  for the S7 ports of BridgePackageInputs and BridgeExportSurface; the Java seed
+  keeps `SourceVersion.isName`.
+  - **JavaIdentifiers.** Adds `isJavaIdentifierStart(int)`: 683 ranges generated,
+    like D277's 798 part ranges, from JDK 21's answer for every code point by the
+    same generator and checked by the same regeneration test.
+  - **JavaNames.** `isName` splits at every dot, empty components included, and
+    accepts a component when its first code point is an identifier start, every
+    later one an identifier part (surrogates paired as `codePointAt` pairs them,
+    an unpaired surrogate neither) and it is not a keyword: JLS 21's reserved
+    keywords, `_` included, and `true`, `false` and `null`. Contextual keywords
+    are identifiers. The Ironwood lexer's narrower grammar is not used, and
+    DocComment's UTF-16 tag scan is unchanged.
+  - **BridgeExports.** Both callers' export loops: request order for
+    diagnostics, `invalid Java Bridge export package: '<name>'`, the export
+    surface's separate `ironwood.bridge` reservation, the package inputs'
+    `Java Bridge requires at least one exact export package`, and accepted
+    packages kept once each in String order. A native request list has no null
+    element, so the callers' null branch has no native input.
+- **Proof:** No analysis, runtime or lowering change. The selection is built in
+  its constructor, so any failure rolls it back; names and diagnostics are
+  handed out as fresh Strings.
+- **Boundary:** The validator needs no `javax.lang.model` API or JDK at run
+  time. Callers that stop on a diagnostic ignore the accepted packages, as the
+  Java callers do. Supersedes no decision.
+- **Provenance:** Original code under the default license; the start ranges are
+  Unicode 15.0 character data observed through JDK 21's `Character` with no
+  OpenJDK source consulted, carrying the Unicode notice like D277's part ranges.
+  The keyword list comes from JLS 21 sections 3.9 and 3.10.
+- **Verification:** For 4,245 names (every reserved and contextual keyword,
+  keyword-qualified forms, empty, leading, trailing and repeated dots,
+  non-ASCII letters and digits, identifier-ignorable characters, combining
+  marks, letter numbers, paired and isolated surrogates, and 4,000 seeded
+  mixes), 70 export groups for both callers, and the start and part predicates
+  over every code point, the 6,224-line transcript equals JDK 21's
+  `SourceVersion` and the callers' loops from class and archive links; the
+  ownership pairs hold in every unfreed mode and every allocation failure
+  unwinds. See [the M6.1 names record](self-hosting/m6/NAMES.md).
+
+## D292 - Serialize Bridge identities, inventories and manifests exactly in the port
+
+- **Status:** Implemented during M6.1 on 2026-10-07.
+- **Decision:** The compiler port gains B5, B6 and B7's exact Bridge
+  serialization helpers for the S7 ports of BridgeGeneration,
+  BridgePackageManifest, BridgePairedArchive, BridgeAssembler,
+  BridgeDistributionCommand, BridgeJarArchive and BridgeValuesLibrary; the Java
+  seed is unchanged.
+  - **TextMap.** An owned String-ordered map of texts for the inventories Java
+    keeps in `TreeMap<String, String>`: `put` replaces, `putIfAbsent` refuses,
+    lookups and positions hand out fresh Strings or lend single units, so the
+    map never exposes Strings it holds (the TextList precedent of D276).
+  - **BridgeIdentity.** `BridgeGeneration.digest`'s framing (the domain string
+    `ironwood-java-bridge-identity-v1`, then every key and value in String
+    order, each as a big-endian 32-bit UTF-16 count and big-endian units),
+    `bytesDigest` and `contentIdentity` with its three failure texts, over
+    D267's `Sha256`; `isHash` is the `[0-9a-f]{64}` check.
+  - **BridgeProperties.** BridgePackageManifest's canonical writer (header,
+    String order, `\u` and four lowercase hex digits for every unit at or below
+    space, above `~` or among `\:=#!`, US-ASCII), a reader with
+    `Properties.load(InputStream)`'s semantics written from its published
+    specification (ISO-8859-1, comments, continuations, separators, escapes,
+    later keys replacing earlier ones, and its `Malformed \uxxxx encoding.`
+    failure), and the pairing readers' canonical check.
+  - **JarManifest.** `Manifest.write` for a main section (version first, other
+    attributes in insertion order, lines broken after 72 and then every 71
+    UTF-8 bytes even inside a character, CRLF, a closing empty line, nothing
+    else without a version) and a reader with Java's verdicts and messages for
+    the whole manifest (512-byte lines, CR, LF and CRLF ends, an ignored
+    unterminated short tail, space continuations joined before UTF-8 decoding,
+    case-insensitive `Name:` sections), keeping main attributes with
+    `Attributes.Name`'s case-insensitive names.
+- **Proof:** No analysis, runtime or lowering change. Two element loads whose
+  index was a call failed the field-ownership proof (D281); the index is now a
+  local first. A JAR manifest's bytes collect as units so its result is the
+  last allocation, after the allocation sweep found the first version leaking
+  its result when a later line failed.
+- **Boundary:** Java logs a warning for a repeated manifest attribute; the
+  reader keeps the later value without logging. The Linux support manifest,
+  whose `stringPropertyNames()` Java visits in hash order, is read in String
+  order, so a native consumer naming the first changed file names the first in
+  String order (M3.3's precedent). TLS's own inventory keeps D268's
+  `PropertiesText`. Supersedes no decision.
+- **Provenance:** Original code under the default license, written from the
+  `Properties`, `Manifest` and JAR File Specification documentation and JDK 21's
+  observed behavior; no OpenJDK source was consulted.
+- **Verification:** For 414 maps, 66 byte vectors, 2,559 properties texts
+  (hand-picked edge cases, the pinned TLS and Bridge support inventories, every
+  map's canonical form, 1,500 seeded texts and 600 mutations of canonical
+  ones), 211 attribute lists and 1,483 manifest texts, the 13,591-line
+  transcript equals the baseline's BridgeGeneration and BridgePackageManifest
+  methods and JDK 21's `Properties` and `Manifest` from class and archive
+  links; the ownership pairs hold in every unfreed mode and every allocation
+  failure unwinds. See [the M6.1 inventories record](self-hosting/m6/INVENTORIES.md).
+
+## D293 - Give the port the Bridge generators' text conversions, patterns and file inventories
+
+- **Status:** Implemented during M6.1 on 2026-10-07.
+- **Decision:** The compiler port gains B7's last Bridge text helpers and B3's
+  Bridge file-inventory selection for S7; the Java seed is unchanged.
+  - **BridgeText.** `Float.toHexString` and `Double.toHexString` from the
+    binary layout as Java 21 documents them (subnormal floats keep `p-126`,
+    every other float prints as its exact double), `String.format`'s
+    `\%03o` and `\u%04x` escapes as unsigned 32-bit values, and
+    `stripTrailing` with Java's white-space set.
+  - **BridgePatterns.** The Bridge's `String.matches` patterns as scans: the
+    Maven group, Maven artifact and version, the C root name, the macOS
+    minimum version, the extracted dependency path and the ensure method;
+    `[0-9a-f]{64}` is D292's `BridgeIdentity.isHash`.
+  - **ReadelfScan.** BridgeLinuxPayload.auditDynamic's four regular
+    expressions over `llvm-readelf` output (`FLAGS[^\n]*NOW`, the rpath and
+    runpath brackets, shared libraries, `Name: GLIBC_([0-9.]+)`) with
+    `Matcher.find`'s retry and resume semantics, collecting distinct groups
+    in String order as the caller's `TreeSet` does.
+  - **SourceFiles.** BridgeDistributionInputs' and BridgeProducerInputs'
+    runtime selection, `Files.walk` filtered to regular `.c` and `.h` files in
+    Path order with `/`-spelled relative names, as two D276 `FileCollector`
+    walks merged in code point order. The other Bridge walks and listings use
+    `FileCollector` directly: export package directories and the distribution
+    stage at depth one, the assembler's compiled classes recursively; staging
+    cleanups use M4.1's `TreeDeletion`.
+  - **Conventions.** `BridgeGeneration.constant` hashes a float constant's raw
+    bits; the native constant representation keeps those bits (an `int`
+    payload, as D268 kept double payloads) instead of adding a public
+    `Float.floatToRawIntBits`. Generated Java and C stay byte for byte;
+    `Character.toUpperCase` only capitalizes a primitive type name for JNI's
+    `Get<Kind>ArrayRegion`, which is ASCII casing.
+- **Proof:** No analysis, runtime or lowering change.
+- **Boundary:** The scans implement exactly their call sites' patterns, not a
+  regular-expression engine. A public `Float.floatToRawIntBits`, like D268's
+  double method, remains a separate public API decision. Supersedes no
+  decision.
+- **Provenance:** Original code under the default license, from Java 21's API
+  documentation and observed results; no OpenJDK source was consulted.
+- **Verification:** For 4,523 float and 4,518 double bit patterns (zeros,
+  subnormals, normal boundaries, extremes, infinities, NaN payloads and seeded
+  patterns), 810 integers, 3,353 strings and 607 `llvm-readelf` outputs, the
+  13,811-line transcript equals JDK 21's conversions, patterns and regular
+  expressions and the baseline's own `quote` and `cString`; on a tree with links to files, directories and nothing,
+  directories named like sources and Unicode names, the runtime inventory,
+  identity, listings and class walk equal Java's `Files.walk` and
+  `Files.list`; the ownership pairs hold and every allocation failure unwinds.
+  See [the M6.1 text and inventories record](self-hosting/m6/TEXT.md).
+
+## D294 - Write and verify Bridge JARs natively in the STORED profile
+
+- **Status:** Implemented during M6.2 on 2026-10-07. The native producer's JDK
+  selection is D295.
+- **Decision:** The compiler port gains BridgeJarArchive.publish's writer
+  profile and the values companion's manifest lookup for S7; the Java seed is
+  unchanged.
+  - **BridgeJar.** Contents with `Map.put` semantics, each copied once.
+    Publishing checks every name in String order with the baseline's rule
+    (nonempty; no backslash or NUL; no empty, `.` or `..` part), requires a
+    `META-INF/MANIFEST.MF` that reads as a manifest (D292's messages pass
+    through) with main `Manifest-Version: 1.0`, and refuses a destination that
+    exists without following a final link and is not a regular file
+    (`Files.isSymbolicLink` or `exists` and not `isRegularFile`). It stages
+    `createTempFile(parent, ".ironwood-bridge-", ".jar")` with the manifest
+    first and the other entries in String order, all STORED in Java's spelling
+    with time 0 (D275), reads the stage back with `ZipArchive` and compares
+    the entry count and each entry's presence, size and bytes, then publishes
+    with `moveAtomicReplacing` (D271) and deletes the stage on every exit.
+    Comparing bytes replaces the baseline's comparison of their SHA-256
+    digests.
+  - **JarStreams.** `JarInputStream.getManifest()`: the first entry, or the
+    second after a `META-INF/` directory entry, named `META-INF/MANIFEST.MF`
+    without regard to case, read by `ZipStream`.
+  - **JDK tools.** S7's producer runs `javac` and `javadoc` by absolute path
+    through D273's `Command` and D272's `runToFile` with BridgeBuildTools'
+    flags; with the same JDK they write the in-process tools' class files,
+    pages and diagnostics.
+- **Identity effects:** STORED Bridge jars hold the Java bootstrap's entry
+  bytes, so every identity over entry contents is unchanged
+  (`content.sha256.<entry>`, `native.sha256`, the projection and distribution
+  input identities). Identities over whole jars change: the values
+  companion's `java.values.sha256`, the distribution inventory's
+  `sha256.<file>`, and the companion bytes that BridgeValuesLibrary.copy and
+  assembly compare, so a Java-built and a native-built companion are not
+  interchangeable in one output directory or one assembly. Assembly already
+  refuses mixed producers through `compiler.sha256`, which S7's producer
+  identity design replaces.
+- **Proof:** No analysis, runtime or lowering change. An element load whose
+  index was a call failed D281's field proof and is now computed into a local;
+  the allocation sweep found JarStreams leaking an entry's bytes when its name
+  check failed, now released before the failure propagates.
+- **Boundary:** No fsync or durability policy. JarStreams does not verify jar
+  signatures, which the companion never carries. A staged jar that fails to
+  parse reports the native container message. Supersedes no decision.
+- **Provenance:** Original code under the default license; Java 21's API
+  documentation and observed behavior are the references.
+- **Verification:** For four content sets (a paired artifact with a loadable
+  class, companions, a values jar and 3,000 entries), native jars list
+  Java's entries in Java's order with Java's bytes, equal Java's STORED
+  spelling byte for byte, and open in `ZipFile`, `JarFile`, `JarInputStream`,
+  a class loader, `jar tf` and `jar --describe-module`; 20 invalid names and
+  manifests and three non-regular destinations give the publisher's messages
+  and keep the earlier jar, while a lowercase `manifest-version` publishes as
+  in Java; a read-only parent keeps the earlier jar; every
+  allocation failure keeps it and leaves no stage; 144 companion and metadata
+  combinations give BridgeValuesLibrary.validate's verdicts; the distribution
+  inventory and the assembler's target order match; and `javac` and `javadoc`
+  through `runToFile` equal the in-process tools. See
+  [the M6.2 record](self-hosting/m6/JAR.md).
+
+## D295 - Select the native Bridge producer's JDK as the Java producer's launcher does
+
+- **Status:** Accepted by the maintainer on 2026-10-07 (option B with R2 of
+  [the M6.2 options](self-hosting/m6/JDK_SELECTION.md)) and implemented in the
+  compiler port during M6.2. Extends D239's selection to the native producer;
+  the Java producer, its launchers and `scripts/jdk.sh` are unchanged.
+- **Decision:** The port's `JdkSelection` gives the native producer the JDK
+  the Java producer's launcher would give it.
+  - **Selection.** A nonempty `JAVA_HOME` selects `$JAVA_HOME/bin/java`, and an
+    invalid one fails without fallback (`selected Java is missing; set
+    JAVA_HOME to a JDK: <path>`); otherwise the installation's
+    `toolchain/lib/jvm/bin/java` when it is executable; otherwise `java` found
+    on `PATH` by D273's ExecutableSearch (`... JDK: java on PATH` when none
+    is). Relative spellings resolve against the working directory.
+  - **Inspection and recording.** The selected `java
+    -XshowSettings:properties -version` runs through `runToFile` into a scratch
+    log, read within 1 MiB and always deleted. Its `java.home`,
+    `java.specification.version`, `java.runtime.version` and `java.vendor`
+    give the home, the feature release and the `jdk.version` and `jdk.vendor`
+    identity inputs, the values the Java producer records from its running JVM;
+    a nonzero exit or a missing value gives `could not inspect selected Java:
+    <path>`.
+  - **Gates and tools.** BridgeBuildTools' checks keep their messages: feature
+    21 to 25, the `javac` and `javadoc` launchers in place of the in-process
+    tools, and the JNI headers. `javac` and `javadoc` run by absolute path with
+    BridgeBuildTools' flags (the assembler passes its host jar as the class
+    path), their diagnostics read back from a deleted log.
+- **Proof:** No analysis, runtime or lowering change. The inspected values
+  live in a TextList owner and are handed out as fresh Strings, because a
+  String field copied with `new String(field)` or used through a local alias
+  during calls fails the field-ownership proof.
+- **Boundary:** `PATH` empty entries are skipped, as the native driver's
+  ExecutableSearch does, where `command -v` would search the working
+  directory. A selected program that cannot start reports ProcessRunner's
+  failure instead of `could not inspect`. Where the native producer's
+  installation root comes from is S7 and S8 packaging. Usage documentation
+  changes when S7 ships the native producer. Supersedes no decision.
+- **Provenance:** Original code under the default license.
+- **Verification:** 31 selections (JAVA_HOME, the installation, PATH and their
+  precedence, empty, relative and missing selections, nothing on PATH, JDK
+  doubles that fail, omit a value, are out of range or lack javac, javadoc or
+  a header, and 13 installed JDKs from Oracle, GraalVM, Eclipse Temurin, IBM
+  Semeru and Azul Zulu, two of them out of range) select what
+  `scripts/jdk.sh` selects, report its messages, record each JDK's own
+  `System.getProperty` values and give BridgeBuildTools' gate messages;
+  `javac` and `javadoc` through the selection equal the in-process tools; the
+  ownership pairs hold; and 125 allocation limits each unwind and leave no
+  log. See [the M6.2 record](self-hosting/m6/JAR.md).
+
+## D296 - Judge a rejected free by its local's type in field-loan proofs
+
+- **Status:** Accepted and implemented. Amends D281.
+- **Context:** D281's field-loan proof counts a free inside a loan as code that
+  may run unless typed IR shows the freed value has no destructor. A free that
+  lowering rejects emits no instruction, so typed IR showed nothing and the
+  proof failed even for a class without a destructor. The free stayed
+  rejected, but the wrapper field lost its encapsulation proof, the
+  constructor argument then escaped, and that escape became the reported
+  reason in place of the live alias that observes the allocation (`cannot free
+  'x': allocation may still be observed through local 'k'`).
+- **Decision:** Provisional lowering records each rejected free of a local
+  with the local's static type, and the field-loan proof counts it as running
+  no code when no class of that type in the closed world has a destructor.
+  Those destructors include every one that any free of the local could run, so
+  the judgment holds even if a later lowering accepts the free. Arrays and
+  other types stay possible, since freeing them can destroy elements, and so
+  do frees of expressions other than a local.
+- **Boundary:** A free whose class has a destructor still fails the proof
+  while an alias is live. Freeing the owner `o` while `k` aliases `o.held`,
+  when its destructor frees `held`, stays rejected at the destructor's free
+  of the field, as D281 decided; `--explain-rejected-free` names `free o`.
+  (Superseded by D297, which rejects that free where it happens.)
+  Field facts change only where provisional lowering rejected a free of a
+  destructor-free local inside a loan. No runtime instruction, check or cost
+  changes. Supersedes no decision.
+- **Verification:** The four wrapper-field rejections in the safe-free tests
+  report the live alias again. D281's reentry routes gain a free that runs a
+  destructor, with its safe twin, and a paired test keeps a rejected free of a
+  class with a reentrant destructor failing the field's proof while a rejected
+  free of a class without one leaves only that free's own error and the field
+  owned; on the D281 analysis all three changed tests fail. The standard
+  library builds, every port source compiles without diagnostics, 69 examples
+  emit the same `-O3` LLVM as before, and the focused field, wrapper, owner and
+  pool tests pass.
+
+## D297 - Reject at the free what an owner's destructor would make a field-proof failure
+
+- **Status:** Accepted and implemented. Amends D281 and supersedes D296's
+  boundary that freeing the owner stays rejected at the destructor.
+- **Context:** Under D281 a free that may run code while a local alias of an
+  attached field allocation is live fails the field's ownership proof. When
+  the owner's destructor frees that field, the failure surfaced at the
+  destructor (`cannot prove destructor free of field 'held' safe: field
+  ownership is uncertain`), away from its cause. Before D281, freeing the owner
+  was rejected where it happened, for the alias it would leave dangling
+  (`cannot free 'o': allocation may still be observed through local 'k'`).
+- **Decision:** When the owner's own destructor frees the field in a top-level
+  statement, the ownership proof leaves such a free of a local to lowering:
+  it records the statement, by source and span, with the alias and field it
+  would cross, and the field stays owned unless something else fails.
+  Lowering rejects every recorded free. Its own proof usually does, as for the
+  owner, whose destructor would free the field the alias observes; otherwise
+  it reports `cannot free 'victim': it can run a destructor while local 'k'
+  aliases field 'held'`. Provisional proofs, which have no typed IR, and
+  encapsulation proofs keep D281's rejection.
+- **Analysis:** Without the exemption the field fails its proof, the
+  destructor's top-level free of it is an error, and the program is invalid.
+  With it, the recorded free is an error instead. A program with a recorded
+  free is therefore invalid either way: no recorded free runs during a loan,
+  and no valid program's field facts or code change. The destructor statement
+  is top-level so that lowering always reaches it and resolves it to the
+  field.
+- **Boundary:** A destructor that frees the field only through a call, a
+  deferred free, or a free of something other than a local keeps D281's
+  report (D298 recognizes calls and branches). A recorded free in an instance
+  initializer is rejected once for each constructor that lowers it. No runtime
+  instruction, check or cost changes.
+- **Verification:** The owner case in the wrapper-field safe-free test
+  reports the alias again. A new test rejects, at the free and with the field
+  still owned, freeing an object whose destructor reenters the owner during a
+  loan; its safe twin compiles; and freeing the owner names the alias. On the
+  D296 analysis both tests fail. Probes with a dead alias, a destructor that
+  frees the field through a call, and instance and static initializers behave
+  as described. The focused field, wrapper, owner, pool and explanation tests
+  pass, 69 examples emit the same `-O3` LLVM, the standard library builds and
+  every port source compiles without diagnostics.
+
+## D298 - Recognize a field's reclamation through methods and branches
+
+- **Status:** Accepted and implemented. Amends D297 and supersedes its boundary
+  that a destructor freeing the field through a call keeps D281's report.
+- **Context:** D297 rejects at the free a free of a local that may run code
+  during a loan, but only when the owner's destructor frees the field in a
+  top-level statement. A destructor that frees it inside a branch, or through
+  a method such as `release()` that detaches and frees the field, still
+  reported the failure at that method's free (`cannot prove free of 'old'
+  safe: ...`) instead of at `free o`.
+- **Decision:** The field's ownership counts as needed, and D297's handling
+  applies, when either witness holds. First, the owner's destructor frees the
+  field at any depth, as lowering resolves the name: `this.name`, or `name`
+  with no local of that name in scope. Second, one of the owner's instance
+  methods, other than its constructors and destructor, declares a local at its
+  top level from the field through `this`, never assigns it (D303: writes no
+  other value to it before the free), and frees it later at any depth. A
+  probe scan of the destructor or method finds both.
+- **Analysis:** Lowering reaches every such free (D302: except in a finally
+  block that no route reaches) and accepts it only for an owned field: a
+  destructor's free of the field is checked against the field's proof, and
+  in an instance method the receiver has no tracked allocation, so the
+  loaded value is detached only when the field is owned. Without
+  ownership each witness free is an error, so a program with a recorded free
+  is invalid either way, as in D297, and no valid program's facts or code
+  change. Java scoping makes every later free of that local name refer to the
+  top-level declaration.
+- **Boundary:** A reclamation outside both witnesses, such as a detached
+  local declared inside a branch, keeps D281's report at that reclamation
+  (D299 recognizes branch declarations). A free through another receiver is
+  no reclamation (D301). Supersedes no other decision.
+- **Verification:** Freeing the owner while `k` aliases `o.held` now names
+  the alias when the destructor frees the field in a branch or through a
+  top-level or guarded `release()`, each isolated on a store with no other
+  witness. D281's free route and D296's paired test moved to that store, where
+  they still fail the field's proof. A probe that frees a same-named local from
+  an earlier block stays valid. The focused field, wrapper, owner, pool and
+  explanation tests pass, 69 examples emit the same `-O3` LLVM, the standard
+  library builds and every port source compiles without diagnostics.
+
+## D299 - Recognize a detached local declared in a branch
+
+- **Status:** Accepted and implemented. Amends D298 and supersedes its
+  boundary that a detached local declared inside a branch keeps D281's report.
+- **Context:** D298's method witness required the local loaded from the
+  field to be declared at the method's top level. A method that detaches and
+  frees the field inside a check, `if (held != null) { Keeper old = held;
+  held = null; free old; }`, still left the failure at that free (`cannot
+  prove free of 'old' safe: ...`) instead of at the free of the owner.
+- **Decision:** The method witness accepts a local declared in any block of
+  the method, from the field through `this` as lowering resolves the name.
+  The probe scan records each such declaration with its block, and a free of
+  that name counts when it lies inside that block after the declaration and
+  the method never assigns the name.
+- **Analysis:** Java forbids redeclaring a local while it is in scope, so a
+  later free of that name inside the block refers to that local or makes the
+  program invalid. Its value is then the field loaded through a receiver with
+  no tracked allocation, which lowering frees only when the field is owned.
+  As in D297 and D298, a program with a recorded free is invalid either way,
+  and no valid program's facts or code change. A free of the same name in a
+  later sibling block refers to another local and does not count.
+- **Boundary:** A reclamation outside the witnesses, such as a detaching free
+  in a constructor or a deferred free, keeps D281's report at that
+  reclamation (D300 recognizes constructors and D301 deferred frees). A free
+  through another receiver is no reclamation (D301). Supersedes no other
+  decision.
+- **Verification:** Freeing the owner while `k` aliases `o.held` names the
+  alias when the destructor calls a method that detaches and frees the field
+  inside a branch, also isolated on a store whose only other reclamation is
+  in its constructor; on the D298 analysis that report stays at the method's
+  free. A method that frees a same-named fresh local in a later sibling block
+  stays valid. D281's free route and D296's paired test now use that store.
+  The focused field, wrapper, owner, pool and explanation tests pass, 69
+  examples emit the same `-O3` LLVM, the standard library builds and every
+  port source compiles without diagnostics.
+
+## D300 - Recognize a field's reclamation in constructors, initializers and destructors
+
+- **Status:** Accepted and implemented. Amends D299 and supersedes its
+  boundary that a detaching free in a constructor keeps D281's report.
+- **Context:** D298 and D299 limited their witness to instance methods,
+  excluding constructors in case lowering tracked the receiver under
+  construction. A class that detaches and frees the field in a constructor,
+  `int[] old = values; values = new int[2]; free old;`, still reported a free
+  that may run code during a loan at the constructor's free (`cannot prove
+  free of 'old' safe: ...`) instead of at that free.
+- **Decision:** The witness covers all of the owner's instance code: its
+  constructors, methods and destructor, each scanned by its own probe, and its
+  instance initializers, scanned together as one scope chain. A local declared
+  in a block from the field through `this`, never assigned in that code and
+  freed later in that block makes the field's ownership needed.
+- **Analysis:** Lowering never tracks an allocation for `this` (the
+  known-receiver path applies only to other receivers), so a field read through
+  `this` in any instance function is an attached loan that only an owned
+  field's detachment can free. Without ownership the witness free is an error,
+  so a program with a recorded free is invalid either way, as in D297-D299, and
+  no valid program's facts or code change.
+- **Boundary:** A deferred free of the detached local keeps D281's report
+  (D301 recognizes a deferred free that lowering reaches), and a free through
+  another receiver is no reclamation (D301). Supersedes no other decision.
+- **Verification:** A free that runs a destructor during a loan is rejected at
+  the free, with the field owned, when the store's only other reclamation is a
+  constructor or an instance initializer that detaches and frees the field; on
+  the D299 analysis the report stays at that reclamation. D281's free route and
+  D296's paired test now use a store that reclaims with a deferred free. The
+  focused field, wrapper, owner, pool and explanation tests pass, 69 examples
+  emit the same `-O3` LLVM, the standard library builds and every port source
+  compiles without diagnostics.
+
+## D301 - Recognize a field's reclamation by a deferred free
+
+- **Status:** Accepted and implemented. Amends D300 and supersedes its
+  boundary that a deferred free of the detached local keeps D281's report.
+- **Context:** D298-D300 counted only a `free` statement of a local loaded
+  from the field. A class that reclaims the field with `int[] old = values;
+  values = null; defer free old;` still reported a free that may run code
+  during a loan at the deferred free (`cannot defer free of 'old': target
+  must be a live, proven owned local reference`) instead of at that free.
+- **Decision:** A deferred free of such a local counts as the witness's free
+  when the statements after it in its block contain, at any statement depth,
+  no `while` or `do` loop whose condition is the literal `true` and no `for`
+  loop whose condition is absent or that literal. The other D300 conditions
+  are unchanged: the local is declared in a block from the field through
+  `this`, never assigned, and freed later in that block.
+- **Analysis:** Lowering frees a deferred target at the normal completion of
+  the rest of its block and at every return, break, continue, yield or
+  exception that leaves it. Only such a loop can make all of those
+  unreachable: lowering keeps a statement's normal completion reachable
+  whatever its expressions do, and a local class body is another function.
+  Each lowering of the deferred free accepts it only for a detached owned
+  field, as for a direct free; without ownership the local stays attached or
+  has no identity, so its registration or its lowering is an error. A program
+  with a recorded free is therefore invalid either way, as in D297-D300, and
+  no valid program's facts or code change.
+- **Boundary:** A deferred free after such a loop, even one the loop's
+  `break` leaves (D302 recognizes a loop with a route out), a deferred free
+  placed directly in an old-style switch group (D302: the parser rejects a
+  defer outside a braced block, and a braced case is recognized), and a local
+  assigned from the field after its declaration keep D281's report at that
+  reclamation. A free through another receiver is no
+  reclamation and has no D281 report to move: D041's loan exists only for
+  loads through `this`, so the field's ownership never proves a free of a
+  value read through another receiver, and assigning the field through
+  another receiver fails the field's proof by itself. The D298-D300
+  boundaries, which said such a free kept D281's report, are corrected to
+  match. Supersedes no other decision.
+- **Verification:** A free that runs a destructor during a loan is rejected
+  at the free, with the field owned, when the store's only other reclamation
+  is a deferred free at the end of its block or before a counted loop, and
+  each safe twin compiles; after a `while (true)` loop that breaks, D281
+  reports at the deferred free. D281's free route and D296's paired test now
+  use a store that frees a local assigned from the field after its
+  declaration, and assert the proof's failure note there. A store that also
+  assigns the field through another receiver fails the proof by that write
+  alone, and one that frees a value read through another receiver keeps the
+  field owned and rejects that free. On the D300 analysis the deferred cases
+  still report at the reclamations, while the relocated D281 and D296 checks
+  pass. The focused field, wrapper, owner, pool and explanation tests pass, 69
+  examples emit the same `-O3` LLVM, the standard library builds and every
+  port source compiles without diagnostics.
+
+## D302 - Count only witness frees that lowering reaches
+
+- **Status:** Accepted and implemented. Amends D298-D301: supersedes D301's
+  boundary that a deferred free after a literal-`true` loop keeps D281's
+  report, and corrects D298's analysis that lowering reaches every witness
+  free.
+- **Context:** D301 excluded a deferred free followed by a `while (true)`,
+  `do ... while (true)` or `for (;;)` loop even when a `break`, `return` or
+  `throw` leaves the loop, so those programs still reported a free that may
+  run code during a loan at the deferred free. Lowering also lowers a finally
+  block only on a route that reaches it, and the D298-D300 witness counted a
+  free there too. After a try body that never leaves, as in `try { while
+  (true) { } } finally { free old; }`, that free is never lowered, so the
+  program compiles under D281, and the witness made it an error at the free
+  during the loan: a valid program became invalid.
+- **Decision:** `LoweredRoutes` under-approximates the routes lowering takes
+  out of statements: their normal completion, where a loop ends without a
+  break only when its condition is not the literal `true`, or a return,
+  yield, break or continue that leaves them, or a throw outside every try
+  statement there, through finally blocks that complete. A witness probe
+  records a deferred free only when the rest of its block has such a route,
+  and records no free in a finally block, the destructor's free of the field
+  included, unless the try body completes or has such a route (a throw only
+  when the try statement has no catch clause) or a catch body transfers out.
+- **Analysis:** Lowering lowers a deferred action or a finally block on
+  exactly those routes, and every other statement where it stands, reporting
+  the unreachable ones; a catch body is analyzed even when its try body
+  cannot throw, with the finally context but no exception region, so only
+  its transfers count. Every route found is one lowering takes, so each
+  recorded free is lowered and, without ownership, rejected: a program with a
+  recorded free is invalid either way, and no valid program's facts or code
+  change (D297-D301). Exceptions from calls, the completion of catch bodies
+  and do-while exits through `continue` are not counted, which only leaves
+  D281's report in place.
+- **Boundary:** A deferred free whose remaining block has no such route, such
+  as an empty `while (true)` loop or one whose only `break` passes a finally
+  block that cannot complete, a free in a finally block that no such route
+  reaches, and a local assigned from the field after its declaration (D303
+  recognizes an assignment statement) keep D281's report. A deferred free
+  placed directly in an old-style switch group, which D301 listed, has no
+  report to move: the parser accepts a defer only as a direct statement of a
+  braced block (LANGUAGE.md), and in a braced case the rest of the block,
+  such as its `break`, routes out, so it is a witness. Supersedes no other
+  decision.
+- **Verification:** Deferred frees before a `while (true)` loop that a break
+  leaves, a `for (;;)` loop that returns and a `while (true)` loop that
+  throws, and one in a braced switch case, are witnesses, while an empty loop
+  and a break stopped by a finally block that cannot complete keep D281's
+  report; a defer placed directly in a switch group is rejected by the
+  parser. A program whose only reclamation frees in a finally block after an
+  empty `while (true)` loop compiles, as under D281, and a finally block
+  after a completing body is a witness. Through a field that escapes to a
+  sibling field, which keeps a load's identity attached, lowering reports
+  each free the witness counts and not the unreached finally block; a
+  29-case local differential of these shapes found no counted free that
+  lowering did not lower. On the D301 analysis the restored loop case fails.
+  The focused field, wrapper, owner, pool and explanation tests pass, 69
+  examples emit the same `-O3` LLVM, the standard library builds and every
+  port source compiles without diagnostics.
+
+## D303 - Recognize a field's reclamation through an assigned local
+
+- **Status:** Accepted and implemented. Amends D298-D302: supersedes D302's
+  boundary that a local assigned from the field after its declaration keeps
+  D281's report, and replaces the D298-D302 condition that the local is never
+  assigned with no write between the load and the free.
+- **Context:** The witness counted only a local declared from the field and
+  never assigned. A class that reclaims with `int[] old = null; old = values;
+  values = null; free old;`, frees a parameter it assigned from the field, or
+  sets the local to `null` after freeing it, still reported a free that may
+  run code during a loan at its reclamation instead of at that free.
+- **Decision:** A block statement that assigns the field through `this` to a
+  local or parameter with a plain `=` is a field load, like a declaration
+  from the field. A free of that local counts when it follows in the block
+  where lowering is certain to lower it (D302) and no write to the local lies
+  between the load's statement and the end of the block statement that holds
+  the free, or the end of a deferred free's block. The probe records the
+  position of every write to a local, and now also scans a fresh-borrowing
+  factory's return value for writes, so that record does not depend on that
+  proof's admitted shapes.
+- **Analysis:** The load's statement precedes the free on every path through
+  the block, and a write after the statement that holds the free runs only
+  after that free, which is reached again only through the load's statement.
+  The free therefore sees the loaded value, which without ownership is
+  attached or has no identity, so lowering rejects it: a program with a
+  recorded free is invalid either way, and no valid program's facts or code
+  change (D297-D302). Java forbids redeclaring a local in its scope, so the
+  freed name is that local.
+- **Boundary:** An assignment inside an expression, such as `if ((old =
+  values) != null)` (D304 recognizes one its statement always evaluates), a
+  cast (D305 recognizes it) or other expression around the load, another
+  write between the load and the free (D306 recognizes one that writes a
+  field load), and a free that no route is proven to reach keep D281's
+  report. Supersedes no other decision.
+- **Verification:** A free that runs a destructor during a loan is rejected
+  at the free, with the field owned, beside a reclamation through a local
+  assigned from the field, through an assigned parameter, and through a
+  declared local set to `null` after its free; each safe twin compiles, and
+  through a field that escapes to a sibling field lowering rejects each of
+  those frees. Another write between the assignment and the free keeps
+  D281's report. D281's free route and D296's paired test now use a store
+  that assigns the field inside a condition. On the D302 analysis the
+  assigned case reports at the reclamations, while the relocated D281 and
+  D296 checks pass. The focused field, wrapper, owner, pool and explanation
+  tests pass, 69 examples emit the same `-O3` LLVM, the standard library
+  builds and every port source compiles without diagnostics.
+
+## D304 - Recognize a field's reclamation through an assignment in an expression
+
+- **Status:** Accepted and implemented. Amends D303 and supersedes its
+  boundary that an assignment inside an expression keeps D281's report.
+- **Context:** D303 counted only a block statement that is itself the
+  assignment `old = values;`. The common form `if ((old = values) != null) {
+  values = null; free old; }`, or a load assigned in an initializer such as
+  `int size = (old = values).length;`, still reported a free that may run
+  code during a loan at its reclamation instead of at that free.
+- **Decision:** A plain `=` assignment of the field through `this` to a local
+  or parameter is a field load when a block statement always evaluates it
+  first: in an expression statement, a declaration's initializer, an `if` or
+  `while` condition, a `for` condition, an enhanced-for iterable or a switch
+  selector, reached through operands Java always evaluates (not the right of
+  `&&` or `||`, a conditional's branches, a switch expression's arms or an
+  anonymous class body). A free counts when it follows the assignment in
+  that statement's nested statements or in a later statement of the block,
+  where lowering is certain to lower it (D302), with no write to the local
+  between the assignment and the end of the block statement that holds the
+  free (D303). D303's statement form is the simplest case.
+- **Analysis:** Java evaluates operands left to right, so source order is
+  evaluation order. Such an assignment runs whenever control passes its
+  statement and before the statement's nested statements: a condition or
+  selector runs before its branches and arms, and a `while` or `for`
+  condition before each iteration of the body and before the loop ends. A
+  do-while condition runs after its body, so it is not searched. The free
+  therefore sees the loaded value, which lowering rejects unless the field is
+  owned: a program with a recorded free is invalid either way, and no valid
+  program's facts or code change (D297-D303).
+- **Boundary:** An assignment that may not run, such as one on the right of
+  `&&`, in a conditional's branch or in a do-while condition, a cast (D305
+  recognizes it) or other expression around the load, another write between
+  the load and the free (D306 recognizes one that writes a field load), and a
+  free that no route is proven to reach keep D281's report. Supersedes no
+  other decision.
+- **Verification:** A free that runs a destructor during a loan is rejected
+  at the free, with the field owned, beside reclamations that assign the
+  field in an `if` condition and free in the branch or after the `if`, in a
+  declaration's initializer, and in a switch selector; each safe twin
+  compiles, and through a field that escapes to a sibling field lowering
+  rejects each of those frees. An assignment on the right of `&&` keeps
+  D281's report. D281's free route and D296's paired test now use a store
+  that declares the local from a cast of the field. On the D303 analysis the
+  expression cases report at the reclamations, while the relocated D281 and
+  D296 checks pass. The focused field, wrapper, owner, pool and explanation
+  tests pass, 69 examples emit the same `-O3` LLVM, the standard library
+  builds and every port source compiles without diagnostics.
+
+## D305 - Recognize a field's reclamation through a cast load
+
+- **Status:** Accepted and implemented. Amends D304 and supersedes its
+  boundary that a cast around the load keeps D281's report.
+- **Context:** A class that reclaims with `int[] old = (int[]) values;
+  values = null; free old;`, or loads the field into an `Object` local
+  through a cast, still reported a free that may run code during a loan at
+  its reclamation instead of at that free.
+- **Decision:** A field load through `this` may sit under any number of
+  casts, in a declaration and in an assignment that D303 or D304 counts.
+- **Analysis:** A reference cast creates no object; a failed checked cast
+  throws, so the free is not reached on that path. Lowering gives an
+  assignable or checked reference cast's result the operand's allocation
+  identity, and an invalid cast's result none, with an error. Without
+  ownership the freed value is still attached or has no identity, so lowering
+  rejects the free: a program with a recorded free is invalid either way, and
+  no valid program's facts or code change (D297-D304).
+- **Boundary:** Another expression around the load, such as a conditional or
+  a copy through another local, an assignment that may not run, another
+  write between the load and the free, and a free that no route is proven to
+  reach keep D281's report (D306 recognizes copies, conditionals of loads and
+  writes that write a field load). Supersedes no other decision.
+- **Verification:** A free that runs a destructor during a loan is rejected
+  at the free, with the field owned, beside reclamations through
+  `(int[]) values`, through `(Object) this.values` into an `Object` local,
+  and through `(old = (int[]) values)` in a condition; each safe twin
+  compiles, and through a field that escapes to a sibling field lowering
+  rejects each of those frees. D281's free route and D296's paired test now
+  use a store that writes the local again between the load and the free. On
+  the D304 analysis the cast cases report at the reclamations, while the
+  relocated D281 and D296 checks pass. The focused field, wrapper, owner,
+  pool and explanation tests pass, 69 examples emit the same `-O3` LLVM, the
+  standard library builds and every port source compiles without
+  diagnostics.
+
+## D306 - Recognize a field's reclamation across writes that keep a field load
+
+- **Status:** Accepted and implemented. Amends D303-D305: supersedes their
+  boundaries that a write between the load and the free, a copy through
+  another local and a conditional around the load keep D281's report, and
+  replaces D303's rule of no write between the load and the free.
+- **Context:** The witness rejected any write to the local between its load
+  and its free. A reclamation that reloads the field in a branch, `int[] old
+  = values; if (grown) { old = values; } values = null; free old;`, or
+  writes `old = flag ? values : old`, still reported a free that may run code
+  during a loan at the reclamation instead of at that free, although the
+  local holds a load of the field on every path.
+- **Decision:** A local holds a field load where it is read or freed when a
+  load of it that dominates the point, as in D303 and D304, writes a holding
+  value and every write to the local after that load and up to the end of
+  the block statement that holds the point, or a deferred free's block,
+  writes one too. A holding value is a load of the field through `this`,
+  possibly under casts (D305), a local that holds a field load where the
+  value reads it, a conditional whose branches both hold one, or an
+  assignment of one. The probe takes the greatest set of such points and
+  counts a free of a local that holds a field load there, where lowering is
+  certain to lower the free (D302).
+- **Analysis:** Execution keeps every point in that set true: a read sees the
+  dominating load or a later write in the window, and that write's value is
+  read before it runs, so by induction over execution the value is a field
+  load; a write such as `old = old` is read inside its own window and keeps
+  the property. The freed value is therefore a load of the field, possibly
+  merged with others at joins, which lowering without ownership gives no
+  identity, an attached one or a merge of those, so it rejects the free: a
+  program with a recorded free is invalid either way, and no valid
+  program's facts or code change (D297-D305). A write of any other value,
+  such as `old = new int[2]`, excludes the free, so the program keeps its
+  D281 behavior.
+- **Boundary:** A write of a value that is not a field load, an assignment
+  that may not run, such as one in a switch expression's arm (D307 recognizes
+  one every path to the free runs), and a free that no route is proven to
+  reach keep D281's report. Supersedes no other decision.
+- **Verification:** A free that runs a destructor during a loan is rejected
+  at the free, with the field owned, beside reclamations that write `old =
+  old`, reload the field in a branch, or write `old = flag ? values : old`
+  between the load and the free; each safe twin compiles, and through a
+  field that escapes to a sibling field lowering rejects each of those frees.
+  A write of a new array between them leaves only the store's D281 report,
+  and another write of a parameter keeps D281's report at both reclamations.
+  D281's free route and D296's paired test now use a store that loads the
+  field in a switch expression's arm. The D302 differential of deferred and
+  finally shapes against lowering still agrees in every counted case. On the
+  D305 analysis the rewritten cases report at the reclamations, while the
+  relocated D281 and D296 checks pass. The focused field, wrapper, owner,
+  pool and explanation tests pass, 69 examples emit the same `-O3` LLVM, the
+  standard library builds and every port source compiles without
+  diagnostics.
+
+## D307 - Recognize a field's reclamation by a must-analysis of held field loads
+
+- **Status:** Accepted and implemented. Amends D297-D306: supersedes D306's
+  boundary that an assignment that may not run keeps D281's report, and
+  replaces the witness probes of D297-D306 (destructor frees of the field,
+  dominating loads, write windows and the holding fixed point) with one
+  analysis.
+- **Context:** D304 and D306 counted a load only where a block statement
+  always evaluates it. A reclamation that loads the field where a condition
+  or switch decides, as in `if (flag && (old = values) != null) { values =
+  null; free old; }` or a switch expression's arm, still reported a free that
+  may run code during a loan at its reclamation, although every path to the
+  free runs the load. Each new form needed another syntactic rule.
+- **Decision:** `HeldFieldLoads` runs a forward must-analysis over each
+  instance function and instance initializer of the owner: the set of locals
+  that hold a load of the field through `this` on every path lowering takes
+  to a point. A value holds one when it is such a load, possibly under casts,
+  a local that holds one, a conditional whose reachable branches both hold
+  one, a switch expression whose arms all yield one, or an assignment of one;
+  any other write, and a pattern binding, holds none. Conditions split the
+  state: the right operand of `&&` or `||` runs only when its left operand
+  selects it, so code the whole condition guards sees its writes. Loops
+  iterate to a fixed point and count frees only on its pass; break, continue
+  and yield carry their states to their targets less what finally blocks on
+  the way may write; a catch handler, and a finally block's check, start
+  from the meet of every state the try statement passed through; only a
+  literal `true` loop condition ends a path, as in lowering; and code the
+  analysis does not know writes every local. The field's ownership is needed
+  when a free of a value that holds a field load stands where lowering is
+  certain to lower it (D302), or a deferred free of such a local has a route
+  out of its block with no write to it there. This covers D297's destructor
+  free of the field and every D298-D306 form.
+- **Analysis:** Every path the analysis follows is one lowering follows, so
+  where the analysis says a local holds a field load, lowering's value for it
+  includes such a load on some incoming path, even where lowering merges the
+  paths of a condition that the analysis keeps apart. Without ownership a
+  field load is not freeable, and lowering's mandatory safety rejects a free
+  of any value that may be one, so every recorded free is rejected: a program
+  with one is invalid either way, and no valid program's facts or code change
+  (D297-D306). A pattern binding named like the field no longer passes for a
+  load of the field, which the D306 probe assumed.
+- **Boundary:** A write of a value that is not a field load, an assignment a
+  path to the free may skip, a pattern binding of the field (D308 recognizes
+  it), and a free that no route is proven to reach keep D281's report.
+  Supersedes no other decision.
+- **Verification:** Every D297-D306 witness and boundary test passes on the
+  new analysis. A free that runs a destructor during a loan is now rejected
+  at the free beside a reclamation that loads the field in a switch
+  expression's arm, whose safe twin compiles, and beside one guarded by
+  `flag && (old = values) != null`; through a field that escapes to a
+  sibling field lowering rejects both frees. A free the skipped assignment
+  may reach keeps D281's report. D281's free route and D296's paired test now
+  use a store that frees a pattern binding of the field. A 20-case local
+  differential of catch, finally, labeled break, loop, switch fallthrough,
+  `||` and pattern-binding shapes, and the D302 route differential, found no
+  counted free that lowering accepts without ownership. On the D306 analysis
+  the arm case reports at the reclamations, while the relocated D281 and
+  D296 checks pass. The focused field, wrapper, owner, pool and explanation
+  tests pass, 69 examples emit the same `-O3` LLVM, the standard library
+  builds and every port source compiles without diagnostics.
+
+## D308 - Recognize a field's reclamation through a pattern binding
+
+- **Status:** Accepted and implemented. Amends D307 and supersedes its
+  boundary that a pattern binding of the field keeps D281's report.
+- **Context:** D307 gave pattern bindings no field load. A reclamation such as
+  `if (values instanceof int[] old) { values = null; free old; }`, or one
+  that returns when `!(this.values instanceof int[] old)` and frees `old`
+  afterwards, still reported a free that may run code during a loan at its
+  reclamation instead of at that free.
+- **Decision:** A type test with a binding splits the state: where the test is
+  true the binding holds a field load when its operand does, and where it is
+  false the binding holds none. Outside a condition the binding holds none.
+  Writes to a binding are tracked like writes to any local, and a binding is
+  a local wherever its name is read; one named like the field makes later
+  reads of the field count as reads of the binding, which hold a load only if
+  the binding did.
+- **Analysis:** A matching type test binds its operand's value, as a checked
+  cast of it, and lowering gives the binding the operand's allocation
+  identity or none (D305), so where the analysis says the binding holds a
+  field load, lowering's value includes one, and without ownership it rejects
+  the free: a program with a recorded free is invalid either way, and no
+  valid program's facts or code change (D297-D307).
+- **Boundary:** A binding of a value that is not a field load, a write of
+  such a value, an assignment a path to the free may skip, and a free that no
+  route is proven to reach keep D281's report, as does a free in a catch
+  handler of a load that the try body's entry state lacks (D309 recognizes
+  one after the entry's null literal). Supersedes no other decision.
+- **Verification:** A free that runs a destructor during a loan is rejected
+  at the free, with the field owned, beside `if (values instanceof int[] old)
+  { values = null; free old; }` and beside a reclamation that returns when
+  `!(this.values instanceof int[] old)`; each safe twin compiles, and through
+  a field that escapes to a sibling field lowering rejects both frees. A
+  binding of a parameter keeps D281's report. D281's free route and D296's
+  paired test now use a store that frees, in a catch handler, a local loaded
+  in the try body. The D307 dataflow differential, now with seven binding
+  shapes, and the D302 route differential found no counted free that
+  lowering accepts without ownership. On the D307 analysis the pattern cases
+  report at the reclamations, while the relocated D281 and D296 checks pass.
+  The focused field, wrapper, owner, pool and explanation tests pass, 69
+  examples emit the same `-O3` LLVM, the standard library builds and every
+  port source compiles without diagnostics.
+
+## D309 - Start a catch handler from the states where lowering may throw
+
+- **Status:** Accepted and implemented. Amends D307 and D308: replaces their
+  rule that a catch handler starts from the meet of every state its try
+  statement passed through.
+- **Context:** A reclamation that loads the field in a try body before an
+  operation that may throw and frees it in the handler, as in `int[] old =
+  null; try { old = values; old[1] = 0; } catch (RuntimeException failure) {
+  values = null; free old; }`, still reported a free that may run code during
+  a loan at its reclamation: the handler's state included the try body's
+  entry, where `old` is null.
+- **Decision:** A try region also records the states where lowering may add
+  an exception edge: after the operands of a call, a construction, an array
+  access or creation, a cast, an arithmetic, comparison or string operator,
+  a compound assignment or update, a store that is not to a field of
+  `this`, a read of another receiver's field or of a name that may be a
+  static field, a switch selector, a throw, a free, each enhanced-for step,
+  and the completion of and transfers out of a block with pending deferred
+  actions. A catch handler starts from a local holding a field load when the
+  local holds one at every such state and, at the try body's entry, holds
+  one or is the null literal, which the analysis now tracks; with no such
+  state it starts from the entry. A finally block's check still starts from
+  every state the try statement passed through.
+- **Analysis:** Lowering adds exception edges only for calls and throws,
+  including the bundled exceptions of runtime checks, all of which arise at
+  recorded states, and starts a handler from its edges' states, or, when no
+  edge reaches it, from the try body's entry state. On an edge the local
+  holds a field load; from the entry it holds one or is null, and lowering
+  rejects freeing either without ownership, so a recorded free is rejected
+  and no valid program's facts or code change (D297-D308). A handler that no
+  edge reaches with a freeable value at the entry, such as a new array, is
+  why the entry still counts: lowering accepts that free.
+- **Boundary:** A free in a catch handler of a local that holds neither a
+  field load nor the null literal at the try body's entry, a write of a value
+  that is not a field load, an assignment a path to the free may skip (D310
+  recognizes it), and a free that no route is proven to reach keep D281's
+  report. Supersedes no other decision.
+- **Verification:** A free that runs a destructor during a loan is rejected
+  at the free, with the field owned, beside the reclamation above, whose safe
+  twin compiles, and through a field that escapes to a sibling field
+  lowering rejects that free. D281's free route and D296's paired test now
+  use a store whose handler frees a local that holds a parameter at the try
+  body's entry. The D307 dataflow differential, now with seven catch shapes,
+  found no counted free that lowering accepts without ownership, and showed
+  lowering accepting the free of a new array from the entry in a handler no
+  edge reaches, which the analysis does not count; the D302 route
+  differential still agrees. On the D308 analysis the catch case reports at
+  the reclamations, while the relocated D281 and D296 checks pass. The
+  focused field, wrapper, owner, pool and explanation tests pass, 69
+  examples emit the same `-O3` LLVM, the standard library builds and every
+  port source compiles without diagnostics.
+
+## D310 - Recognize a free that a skipped load may reach
+
+- **Status:** Accepted and implemented. Amends D307-D309: supersedes their
+  boundary that a free an assignment's skipped path may reach keeps D281's
+  report, and generalizes D309's null-literal rule for catch handlers.
+- **Context:** The analysis counted a free only when every path gave the
+  freed local a field load. `int[] old = null; if (flag && (old = values) !=
+  null) { values = null; } free old;`, or a load in one branch of an `if`
+  after `old = new int[1]`, still reported a free that may run code during a
+  loan at the reclamation instead of at that free.
+- **Decision:** The analysis tracks, beside a field load on every path,
+  whether some path gives a local a field load, whether every path gives it
+  a field load or the null literal, and whether every path gives it the null
+  literal; merges keep the first only where some path has it and the others
+  only where every path has them. A free counts when its value may be a
+  field load, or is a field load or the null literal on every path without
+  always being null. Try regions, the finally block's check and a catch
+  handler's entry keep only what holds at every one of their states,
+  including whether some path gives a load, so D309's rule becomes the
+  handler entry keeping a load or null literal that both its entry and its
+  exception edges carry. A free of a local that is always null, or never
+  holds a load, does not count.
+- **Analysis:** Every path the analysis follows is one lowering follows, so
+  where some path gives a field load, lowering's value at the free includes
+  that load, and lowering's mandatory safety rejects freeing a value that may
+  be a field's live storage without ownership; a sibling-escaped field shows
+  it rejecting a merge of a load with a new array or with null. Where every
+  path gives a load or null, no path gives a known allocation. A catch
+  handler that no edge reaches starts from the try body's entry instead of
+  the edges, so the handler entry keeps only properties both sources have.
+  A program with a recorded free is invalid either way, and no valid
+  program's facts or code change (D297-D309). With the field owned, lowering
+  cannot prove such a merged free either, so these programs are invalid
+  regardless, and only where the error is reported changes.
+- **Boundary:** A write of a value that is not a field load on every path to
+  the free, a free in a catch handler of a local that neither the try body's
+  entry nor every exception edge gives a load or null (D311 drops the entry
+  when an edge is certain), and a free that no route is proven to reach keep
+  D281's report. Supersedes no other decision.
+- **Verification:** A free that runs a destructor during a loan is rejected
+  at the free beside a reclamation whose `&&` may skip the load after `old =
+  null`, and beside one whose branch may skip it after `old = new int[1]`;
+  through a field that escapes to a sibling field lowering rejects both
+  frees. A free of a local that is always null, or only ever holds new
+  arrays, keeps D281's report. The D307 dataflow differential, now 39 shapes
+  with skipped loads and their copies, found no counted free that lowering
+  accepts without ownership, and the D302 route differential still agrees.
+  On the D309 analysis the skipped-load case reports at the reclamations,
+  while the D281 and D296 checks pass. The focused field, wrapper, owner,
+  pool and explanation tests pass, 69 examples emit the same `-O3` LLVM, the
+  standard library builds and every port source compiles without
+  diagnostics.
+
+## D311 - Start a catch handler from its edges when one is certain
+
+- **Status:** Accepted and implemented. Amends D309 and D310: supersedes their
+  boundary that a catch handler's free keeps D281's report when the try
+  body's entry gives the local neither a field load nor the null literal.
+- **Context:** A handler started from what holds at the try body's entry as
+  well as at its exception edges, because lowering analyzes a handler that no
+  edge reaches from that entry. `int[] old = spare; try { old = values;
+  old[1] = 0; } catch (RuntimeException failure) { values = null; free old;
+  }` therefore still reported a free that may run code during a loan at the
+  reclamation, although the array store gives lowering an edge.
+- **Decision:** A try body is live when, at a reachable point outside every
+  inner try statement and every finally block lowering may never reach, it
+  reaches a throw statement or an array element access. A live body's
+  handler starts from what holds at its recorded exception edges alone.
+- **Analysis:** Lowering lowers a throw statement with an exception edge to the
+  innermost region, and every array element access, read or written, with a
+  null check and a bounds check whose failure path constructs and throws a
+  bundled exception. Inside the try body, outside inner try statements, that
+  region is the try statement's own or a deferred action's, which rethrows to
+  it, so lowering starts the handler from its edges, all at recorded states.
+  Calls, other runtime checks and null checks that lowering may elide are
+  not counted as certain. A program with a recorded free is invalid either
+  way, and no valid program's facts or code change (D297-D310).
+- **Boundary:** A handler whose try body has only exception edges this
+  analysis does not count as certain, such as a call, an elidable null check
+  or an arithmetic check, still starts from the entry too, and a write of a
+  value that is not a field load and a free that no route is proven to reach
+  keep D281's report. Supersedes no other decision.
+- **Verification:** A free that runs a destructor during a loan is rejected
+  at the free, with the field owned, beside reclamations whose handler frees
+  a local that holds a parameter at the try's entry when the body reaches an
+  array store or a throw statement; each safe twin compiles, and through a
+  field that escapes to a sibling field lowering rejects both frees. D281's
+  free route and D296's paired test now use a store whose try body can throw
+  only through `old.length`. The D307 dataflow differential, now 44 shapes
+  with a new array at the entry beside certain edges, an earlier possible
+  throw, an edge inside a nested try and an elidable null check, found no
+  counted free that lowering accepts without ownership, and the D302 route
+  differential still agrees. On the D310 analysis the live catch cases
+  report at the reclamations, while the relocated D281 and D296 checks pass.
+  The focused field, wrapper, owner, pool and explanation tests pass, 69
+  examples emit the same `-O3` LLVM, the standard library builds and every
+  port source compiles without diagnostics.

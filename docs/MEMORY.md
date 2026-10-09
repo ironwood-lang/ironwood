@@ -54,6 +54,12 @@ files. Linking checks reconstructed source again, so compiling with
 `--unfreed=off` does not silence a later link: pass it to both commands when
 suppression is intended. Warnings are printed to standard error.
 
+Findings cover the whole analyzed program: application sources, class-path and
+archive dependencies, and the bundled standard library, in the same way for a
+command-line compile or link, the language server, and the in-process compiler
+API (D280). A finding in library code is a leak of the final program, which
+user code can cause, for example through an override the library calls.
+
 Every mode preserves mandatory errors for unsafe reclamation, use after free,
 and double free. If the compiler cannot prove a `free` safe, it rejects it.
 These options do not change runtime allocation behavior: unnamed temporaries
@@ -252,8 +258,19 @@ free after an external
 D104 does not promise cleanup of an external object. The compiler also attaches
 a boundary note to eligible ordinary/deferred frees, destructor field cleanup,
 loop back-edge checks, and owned-array element validation when its selected cause
-cannot be located. Skipped ownership refinement instead reports a
-limited-analysis note and asks for earlier errors to be fixed first.
+cannot be located. Ownership refinement also runs after earlier errors (D278),
+so these explanations always describe refined evidence, and the verdicts for
+code that does not use an erroneous declaration are those of the corrected
+program. If refinement does not converge, no ownership verdict is reported; the
+non-convergence error itself appears only when there is no earlier error. A
+failing compilation's ownership diagnostics are therefore not exhaustive:
+verdicts that depend on an erroneous declaration or on an unconverged analysis
+appear once the errors are fixed, and no program is built from unconverged facts.
+A reported missing implementation is completed by a compiler placeholder (D279)
+that retains, allocates and throws nothing and whose reference result counts as
+a fresh allocation the caller may free; it may also reclaim its arguments and
+return null, which only suppresses missing-free findings that would depend on
+the eventual implementation. Rejections that remain hold for every correction.
 Bounded incoming-path alternatives, deferred actions, cleanup exits, and loop
 back edges have their own supported notes. The late owned-element validator
 locates the selected failed load, store, copy, call, or exit when its source is
@@ -482,10 +499,13 @@ Array-backed pools and collections deterministically reclaim a superseded
 backing array after migration. The compiler first proves the private field's
 container identity is never published, tracks a local loan of the current array,
 requires a fresh replacement to detach that loan, and rejects `free` while any
-other local alias remains. Migration may copy or relink reference elements, but
-freeing the old array releases only the array container. Collections borrow user
-elements. D104 gives the two bundled pools a creation-only owning contract:
-`get()` lends an object, and `release(object)` returns a checkout for reuse.
+other local alias remains. Only loads through `this` take that loan, so it
+never proves a free of a value read from the field through another receiver, and
+assigning the field through another receiver fails its ownership proof.
+Migration may copy or relink reference elements, but freeing the old array
+releases only the array container. Collections borrow user elements. D104 gives
+the two bundled pools a creation-only owning contract: `get()` lends an object,
+and `release(object)` returns a checkout for reuse.
 Every non-null builder result is recorded once in a growing creation array.
 Pool destruction destroys those objects, including checked-out objects, and all
 private storage. Multi-array segment holders are recorded too; they shallow-free
@@ -692,7 +712,27 @@ safe-`free` restrictions as a qualified access through its declaring type.
 Calling an imported method likewise uses its ordinary escape summary. Static
 imports create no hidden reference, allocation, owner, borrow, or lifetime.
 
-A constructor may not publish in-progress `this`. If construction throws, the
+A constructor may not publish in-progress `this`. Each constructor is checked
+for building an exact instance of its own class: calls on that object dispatch
+on the class, so an override that publishes is reported at the subclass whose
+construction runs it, not at the superclass constructors that call it (D282).
+When the program builds objects of the class with that constructor, each one is
+checked with the objects it receives, so an argument class that would publish but
+is never passed implicates no constructor (D286).
+Passing that receiver or a
+proved alias to another constructor requires the argument to remain confined:
+retention in a helper is permitted only through a private encapsulated field.
+This check is mandatory even without an explicit `free` and in every unfreed
+mode. Converted, joined and returned aliases, including possible virtual and
+interface return targets, participate in the check. The typed publication
+check also follows identity stored in fields (D253). A constructor store into
+exactly its own receiver, or into an element of that receiver's compiler-proven
+owned array, is retention rather than publication. A later load of that field
+can return the stored receiver or helper. A constructed helper holds the
+arguments its constructor stored, so publishing the helper, or a helper method
+publishing held contents, publishes those arguments. Every other store, static
+store, outward throw or foreign call publishes everything the value can reach,
+and a locally thrown value reaches its catch variables. If construction throws, the
 `new` expression's exceptional edge invokes a compiler-generated rollback
 callable. It walks compiler-proven owned fields in reverse order, recursively
 destroys completed child allocations through their normal destructor entries,
@@ -862,7 +902,22 @@ live aliases, incompatible identities, and partial frees remain rejected.
 Fresh factory results participate in those joins and generated finally snapshots
 on the same basis as source allocations.
 
-An attached field loan cannot cross a retaining or unresolved reentrant call.
+An attached field loan cannot cross code that may run while a local alias of it
+is live: a call or construction, class initialization, string conversion of an
+object, enhanced-for iteration over an `Iterable`, a destructor, or a pending
+deferred action. Later loop iterations, catch handlers, and the static
+initializers and destructors of the owning nest count too (D281). Runtime-check
+failures, String and primitive conversion, exact `System.arraycopy`, and the
+owning class's own statics run no other code, and neither does a free of a value
+no class of whose type has a destructor, judged by the local's type when the
+free itself is rejected (D296). When the program needs the field owned, because
+the owner's instance code frees, by a free or deferred free that lowering
+certainly reaches, the field or a local that may hold a load of it on some path
+or holds a load or null on every path, such as one assigned a load, a cast or
+copy of one, a load in a condition that guards the free, a load a branch may
+skip, a pattern binding of the field, or a load a catch handler's exception
+edges carry, a free of a local that may run code during the loan is rejected at
+that free, naming the alias, instead of failing the field's proof (D297-D311).
 The compiler rejects unproven consumed parameters, arbitrary field-loaded
 references outside their declaring destructor, live aliases, published
 or conditionally replaced fields, escaping constructors or calls, uncertain
@@ -876,13 +931,35 @@ additional safe programs without weakening these guarantees.
 
 A destructor is a distinct callable kind in typed IR. It cannot allocate,
 publish or resurrect `this`, or let an exception escape; direct and indirect
-calls contribute effects through a closed-world fixed point. A caught exception
+calls contribute effects through a closed-world fixed point. Each destructor is
+checked for destroying an exact instance of its own class: calls on that object
+dispatch on the class, so an override that allocates, throws or publishes is
+reported at the subclass whose destruction runs it (D283). A `free` or owned-element
+destruction inside such code runs the destructors of the classes its value may be,
+as closed-world value flow proves them, so a misbehaving class is reported only
+where its objects can be released (D284). A destructor is checked for each object
+of its class that the program allocates, with that object's own fields and arrays,
+so one pool holding such a class does not implicate other pools (D285).
+Publication and resurrection are judged per object the same way, through the
+receiver-field analysis too (D286). Resurrection
+includes publishing a field that may hold the dying object or a holder of it,
+and publishing a caught exception that may be `this`. A caught exception
 is permitted when every path handles it locally. If an exception nevertheless
 crosses the backend destructor boundary, the runtime terminates immediately
 instead of deallocating through partially completed cleanup. Reading a field
 through the proven non-null `this` receiver or one of its direct SSA aliases does
-not add a synthetic null-allocation or exception effect. Nullable receivers
-remain checked and retain those effects.
+not add a synthetic null-allocation or exception effect, and neither does a call
+or field access on a reference that a dominating null test, `instanceof` test or
+earlier null check proves non-null, such as `if (listener != null) {
+listener.closed(); }` on a final field (D287), or on a value merged at a join or
+loop header from values that are each non-null, such as a guarded local used in a
+loop (D288). A destructor also trusts each final field of its object, declared by
+its class or a superclass, that every constructor sets to a value proven non-null,
+such as `private final Part part = new Part();` (D289), and so do the methods it
+calls on its object while those fields are still in place (D290). Freeing an owned
+field stores null into it, so neither a guard nor that trust covers uses after the
+free.
+Nullable receivers remain checked and retain those effects.
 
 The compiler may later replace a source `new` with stack allocation or scalar
 replacement when observable identity and `free` behavior remain unchanged.

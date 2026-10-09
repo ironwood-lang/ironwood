@@ -1,0 +1,447 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.port;
+
+import ironwood.io.IOException;
+
+/**
+ * Compiler-private raw DEFLATE decoder (RFC 1951) for the archive readers:
+ * ZIP entry data without a zlib or GZIP wrapper. It is written from the
+ * specification alone and decodes stored, fixed-Huffman and dynamic-Huffman
+ * blocks, back-references of lengths 3-258 and distances 1-32768 that may
+ * overlap the bytes they produce, and stops exactly after the final block.
+ *
+ * <p>The code sets it admits are the ones Java's zlib-based Inflater admits:
+ * the code-length code must be complete; a literal/length or distance code may
+ * be incomplete only when it is a single code of length 1, and a distance code
+ * may be empty; the literal/length code must give the end-of-block symbol a
+ * length; at most 286 literal/length and 30 distance codes are declared.
+ * Every other stream is rejected with an IOException naming the defect:
+ * invalid block types, stored lengths, code sets, repeats, symbols and
+ * distances, distances reaching before the start of the output, truncated
+ * input and output past the caller's size.
+ *
+ * <p>One decoder owns its tables and a scratch output that keeps the largest
+ * size decoded so far, and can decode many streams in turn. Decoding allocates
+ * only scratch growth and, for a stream of unknown size, its exact-size
+ * result. Inputs and outputs are borrowed for each call. Every consumer holds
+ * the whole entry in memory, so input is a byte range, not a stream that
+ * arrives in pieces.
+ */
+public final class Inflate {
+
+    private static final int[] LENGTH_BASE = {
+        3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 15, 17, 19, 23, 27, 31, 35, 43, 51, 59, 67, 83, 99, 115, 131, 163, 195,
+        227, 258
+    };
+    private static final int[] LENGTH_EXTRA = {
+        0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 0
+    };
+    private static final int[] DISTANCE_BASE = {
+        1, 2, 3, 4, 5, 7, 9, 13, 17, 25, 33, 49, 65, 97, 129, 193, 257, 385, 513, 769, 1025, 1537, 2049, 3073,
+        4097, 6145, 8193, 12289, 16385, 24577
+    };
+    private static final int[] DISTANCE_EXTRA = {
+        0, 0, 0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10, 11, 11, 12, 12, 13, 13
+    };
+    private static final int[] CODE_LENGTH_ORDER = {16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1, 15};
+
+    // Codes of up to FAST bits decode with one table lookup; longer ones and
+    // the gaps of an incomplete code take the canonical path.
+    private static final int FAST = 9;
+
+    // Huffman codes: 0 literal/length, 1 distance, 2 code-length code, 3 fixed
+    // literal/length, 4 fixed distance. Each has a fast table of
+    // (symbol << 4 | length) entries, 0 meaning the canonical path, the number
+    // of codes of each length, and its symbols in canonical order.
+    private int[] fastTables;
+    private int[] counts;
+    private int[] symbols;
+    private int[] lengths;
+    private int[] offsets;
+    private byte[] scratch;
+
+    private int position;
+    private int end;
+    private long bits;
+    private int bitCount;
+    private int produced;
+    private int limit;
+    private int consumed;
+
+    /** Creates a decoder with its tables, the fixed codes and an empty scratch output. */
+    public Inflate() {
+
+        this.fastTables = new int[5 << FAST];
+        this.counts = new int[5 * 16];
+        this.symbols = new int[5 * 320];
+        this.lengths = new int[320];
+        this.offsets = new int[16];
+        this.scratch = new byte[0];
+        this.buildFixed(3, 288);
+        // All 32 five-bit distance codes; 30 and 31 are rejected when used.
+        this.buildFixed(4, 32);
+    }
+
+    // The fixed codes (RFC 1951 3.2.6) are complete apart from their reserved
+    // symbols; they never fail.
+    private void buildFixed(int code, int count) {
+
+        for (int symbol = 0; symbol < count; symbol++) {
+            this.lengths[symbol] = code == 4 ? 5 : symbol < 144 ? 8 : symbol < 256 ? 9 : symbol < 280 ? 7 : 8;
+        }
+        try {
+            this.build(code, count, false);
+        } catch (IOException impossible) {
+            throw new IllegalStateException();
+        }
+    }
+
+    /**
+     * Decodes the raw DEFLATE stream at {@code input[offset, offset + length)}
+     * into all of {@code output}.
+     *
+     * @param input the compressed bytes; borrowed
+     * @param offset the first compressed byte
+     * @param length the number of compressed bytes available
+     * @param output receives exactly {@code output.length} decoded bytes; borrowed
+     * @return the number of input bytes the stream occupies, through its final
+     *     block's last byte; later bytes are left unread
+     * @throws IOException if the stream is malformed, ends early, or decodes to
+     *     more or fewer bytes than {@code output.length}
+     * @throws IndexOutOfBoundsException unless the range is inside input
+     */
+    public int inflate(byte[] input, int offset, int length, byte[] output) throws IOException {
+
+        this.start(input, offset, length, output.length);
+        this.ensure(output.length);
+        this.blocks(input, false);
+        if (this.produced != output.length) throw new IOException("DEFLATE data is shorter than its declared size");
+        System.arraycopy(this.scratch, 0, output, 0, this.produced);
+        return this.consumed;
+    }
+
+    /**
+     * Decodes a raw DEFLATE stream whose size is not known in advance.
+     *
+     * @param input the compressed bytes; borrowed
+     * @param offset the first compressed byte
+     * @param length the number of compressed bytes available
+     * @param maximum the largest decoded size accepted
+     * @return a fresh array of exactly the decoded bytes, owned by the caller;
+     *     {@link #consumed()} then reports the stream's input length
+     * @throws IOException if the stream is malformed, ends early, or decodes to
+     *     more than {@code maximum} bytes
+     * @throws IndexOutOfBoundsException unless the range is inside input
+     */
+    public byte[] inflate(byte[] input, int offset, int length, int maximum) throws IOException {
+
+        this.start(input, offset, length, maximum);
+        this.blocks(input, true);
+        byte[] result = new byte[this.produced];
+        System.arraycopy(this.scratch, 0, result, 0, this.produced);
+        return result;
+    }
+
+    /** @return the input length of the last decoded stream, through its final block */
+    public int consumed() {
+
+        return this.consumed;
+    }
+
+    private void start(byte[] input, int offset, int length, int maximum) {
+
+        if (offset < 0 || length < 0 || length > input.length - offset || maximum < 0) {
+            throw new IndexOutOfBoundsException();
+        }
+        this.position = offset;
+        this.end = offset + length;
+        this.bits = 0;
+        this.bitCount = 0;
+        this.produced = 0;
+        this.limit = maximum;
+        this.consumed = 0;
+    }
+
+    private void blocks(byte[] input, boolean growable) throws IOException {
+
+        int first = this.position;
+        boolean last = false;
+        while (!last) {
+            last = this.take(input, 1) == 1;
+            int type = this.take(input, 2);
+            if (type == 0) {
+                this.stored(input, growable);
+            } else if (type == 1) {
+                this.codes(input, 3, 4, growable);
+            } else if (type == 2) {
+                this.dynamic(input);
+                this.codes(input, 0, 1, growable);
+            } else {
+                throw new IOException("invalid block type");
+            }
+        }
+        // Whole bytes still buffered were read ahead and are not part of the stream.
+        this.consumed = this.position - (this.bitCount >> 3) - first;
+    }
+
+    // Buffers at least count bits; count is at most 32.
+    private void need(byte[] input, int count) throws IOException {
+
+        while (this.bitCount < count) {
+            if (this.position == this.end) throw new IOException("DEFLATE data ends before its final block");
+            this.bits = this.bits | (long) (input[this.position] & 0xFF) << this.bitCount;
+            this.position++;
+            this.bitCount = this.bitCount + 8;
+        }
+    }
+
+    // Buffers as many whole bytes as fit, without requiring any.
+    private void fill(byte[] input) {
+
+        while (this.bitCount <= 56 && this.position < this.end) {
+            this.bits = this.bits | (long) (input[this.position] & 0xFF) << this.bitCount;
+            this.position++;
+            this.bitCount = this.bitCount + 8;
+        }
+    }
+
+    private int take(byte[] input, int count) throws IOException {
+
+        this.need(input, count);
+        int value = (int) (this.bits & ((1L << count) - 1));
+        this.bits = this.bits >>> count;
+        this.bitCount = this.bitCount - count;
+        return value;
+    }
+
+    private void stored(byte[] input, boolean growable) throws IOException {
+
+        // Discard the rest of the current byte, then read LEN and NLEN.
+        this.take(input, this.bitCount & 7);
+        int length = this.take(input, 16);
+        int complement = this.take(input, 16);
+        if ((length ^ 0xFFFF) != complement) throw new IOException("invalid stored block lengths");
+        // Return the whole bytes read ahead so the copy starts at the stored data.
+        this.position = this.position - (this.bitCount >> 3);
+        this.bits = 0;
+        this.bitCount = 0;
+        if (length > this.end - this.position) throw new IOException("DEFLATE data ends before its final block");
+        this.reserve(length, growable);
+        System.arraycopy(input, this.position, this.scratch, this.produced, length);
+        this.position = this.position + length;
+        this.produced = this.produced + length;
+    }
+
+    // Makes room for count more output bytes within the limit.
+    private void reserve(int count, boolean growable) throws IOException {
+
+        if (count > this.limit - this.produced) {
+            if (growable) throw new IOException("DEFLATE data exceeds the size limit");
+            throw new IOException("DEFLATE data is longer than its declared size");
+        }
+        if (this.produced + count <= this.scratch.length) return;
+        long wanted = (long) this.scratch.length * 2;
+        if (wanted < 4096) wanted = 4096;
+        if (wanted < (long) this.produced + count) wanted = (long) this.produced + count;
+        if (wanted > this.limit) wanted = this.limit;
+        this.ensure((int) wanted);
+    }
+
+    // Grows the scratch output to at least size bytes, keeping what it holds.
+    private void ensure(int size) {
+
+        if (size <= this.scratch.length) return;
+        byte[] previous = this.scratch;
+        this.scratch = new byte[size];
+        System.arraycopy(previous, 0, this.scratch, 0, this.produced);
+        free previous;
+    }
+
+    private void dynamic(byte[] input) throws IOException {
+
+        int literals = this.take(input, 5) + 257;
+        int distances = this.take(input, 5) + 1;
+        int codeLengths = this.take(input, 4) + 4;
+        if (literals > 286 || distances > 30) throw new IOException("too many length or distance symbols");
+        for (int index = 0; index < 19; index++) this.lengths[index] = 0;
+        for (int index = 0; index < codeLengths; index++) {
+            // Read before indexing the field, so the store needs no call between load and write.
+            int length = this.take(input, 3);
+            this.lengths[CODE_LENGTH_ORDER[index]] = length;
+        }
+        this.build(2, 19, true);
+        int total = literals + distances;
+        int index = 0;
+        while (index < total) {
+            int symbol = this.decode(input, 2);
+            if (symbol < 16) {
+                this.lengths[index] = symbol;
+                index++;
+            } else {
+                int value = 0;
+                int repeat = 0;
+                if (symbol == 16) {
+                    if (index == 0) throw new IOException("invalid bit length repeat");
+                    value = this.lengths[index - 1];
+                    repeat = 3 + this.take(input, 2);
+                } else if (symbol == 17) {
+                    repeat = 3 + this.take(input, 3);
+                } else {
+                    repeat = 11 + this.take(input, 7);
+                }
+                if (repeat > total - index) throw new IOException("invalid bit length repeat");
+                for (int count = 0; count < repeat; count++) {
+                    this.lengths[index] = value;
+                    index++;
+                }
+            }
+        }
+        if (this.lengths[256] == 0) throw new IOException("invalid code -- missing end-of-block");
+        this.build(0, literals, false);
+        // The distance lengths follow the literal/length lengths.
+        for (int distance = 0; distance < distances; distance++) {
+            this.lengths[distance] = this.lengths[literals + distance];
+        }
+        this.build(1, distances, false);
+    }
+
+    // Builds Huffman code number code from lengths[0, count). Only the
+    // code-length code (strict) must be complete; the others may be a single
+    // code of length 1, and the distance code may be empty.
+    private void build(int code, int count, boolean strict) throws IOException {
+
+        int countBase = code * 16;
+        for (int length = 0; length < 16; length++) this.counts[countBase + length] = 0;
+        for (int symbol = 0; symbol < count; symbol++) {
+            int length = this.lengths[symbol];
+            this.counts[countBase + length] = this.counts[countBase + length] + 1;
+        }
+        this.counts[countBase] = 0;
+        int left = 1;
+        int longest = 0;
+        for (int length = 1; length < 16; length++) {
+            left = (left << 1) - this.counts[countBase + length];
+            if (left < 0) throw new IOException(code == 2 ? "invalid code lengths set" : "invalid code set");
+            if (this.counts[countBase + length] != 0) longest = length;
+        }
+        if (left > 0 && (strict || longest > 1) && !(code == 1 && longest == 0)) {
+            throw new IOException(code == 2 ? "invalid code lengths set" : code == 1 ? "invalid distances set"
+                    : "invalid literal/lengths set");
+        }
+        // Each length's first position among the symbols, then symbols in canonical order.
+        int offset = 0;
+        for (int length = 1; length < 16; length++) {
+            this.offsets[length] = offset;
+            offset = offset + this.counts[countBase + length];
+        }
+        int symbolBase = code * 320;
+        for (int symbol = 0; symbol < count; symbol++) {
+            int length = this.lengths[symbol];
+            if (length != 0) {
+                this.symbols[symbolBase + this.offsets[length]] = symbol;
+                this.offsets[length] = this.offsets[length] + 1;
+            }
+        }
+        int tableBase = code << FAST;
+        for (int entry = 0; entry < (1 << FAST); entry++) this.fastTables[tableBase + entry] = 0;
+        int canonical = 0;
+        int ordinal = 0;
+        for (int length = 1; length <= FAST; length++) {
+            for (int index = 0; index < this.counts[countBase + length]; index++) {
+                int entry = this.symbols[symbolBase + ordinal] << 4 | length;
+                // The stream holds a code's most significant bit first.
+                int reversed = 0;
+                for (int bit = 0; bit < length; bit++) reversed = reversed | ((canonical >>> bit) & 1) << (length - 1 - bit);
+                for (int slot = reversed; slot < (1 << FAST); slot = slot + (1 << length)) {
+                    this.fastTables[tableBase + slot] = entry;
+                }
+                canonical++;
+                ordinal++;
+            }
+            canonical = canonical << 1;
+        }
+    }
+
+    // Decodes one symbol of Huffman code number code.
+    private int decode(byte[] input, int code) throws IOException {
+
+        this.fill(input);
+        if (this.bitCount >= FAST) {
+            int entry = this.fastTables[(code << FAST) + (int) (this.bits & ((1 << FAST) - 1))];
+            if (entry != 0) {
+                int length = entry & 15;
+                this.bits = this.bits >>> length;
+                this.bitCount = this.bitCount - length;
+                return entry >>> 4;
+            }
+        }
+        return this.canonical(input, code);
+    }
+
+    // Reads a code bit by bit: RFC 1951 assigns consecutive codes by length, then symbol.
+    private int canonical(byte[] input, int code) throws IOException {
+
+        int countBase = code * 16;
+        int symbolBase = code * 320;
+        int value = 0;
+        int first = 0;
+        int index = 0;
+        for (int length = 1; length < 16; length++) {
+            value = value | this.take(input, 1);
+            int count = this.counts[countBase + length];
+            if (value - first < count) return this.symbols[symbolBase + index + value - first];
+            index = index + count;
+            first = (first + count) << 1;
+            value = value << 1;
+        }
+        throw new IOException(code == 1 || code == 4 ? "invalid distance code" : "invalid literal/length code");
+    }
+
+    // Decodes literal/length and distance symbols until the end of the block.
+    private void codes(byte[] input, int literalCode, int distanceCode, boolean growable) throws IOException {
+
+        while (true) {
+            int symbol = this.decode(input, literalCode);
+            if (symbol < 256) {
+                this.reserve(1, growable);
+                this.scratch[this.produced] = (byte) symbol;
+                this.produced++;
+            } else if (symbol == 256) {
+                return;
+            } else {
+                symbol = symbol - 257;
+                if (symbol >= 29) throw new IOException("invalid literal/length code");
+                int length = LENGTH_BASE[symbol] + this.take(input, LENGTH_EXTRA[symbol]);
+                int distanceSymbol = this.decode(input, distanceCode);
+                if (distanceSymbol >= 30) throw new IOException("invalid distance code");
+                int distance = DISTANCE_BASE[distanceSymbol] + this.take(input, DISTANCE_EXTRA[distanceSymbol]);
+                if (distance > this.produced) throw new IOException("invalid distance too far back");
+                this.reserve(length, growable);
+                this.copy(distance, length);
+            }
+        }
+    }
+
+    // Copies length bytes from distance back; an overlapping copy repeats them.
+    private void copy(int distance, int length) {
+
+        int from = this.produced - distance;
+        if (distance >= length) {
+            System.arraycopy(this.scratch, from, this.scratch, this.produced, length);
+        } else {
+            for (int index = 0; index < length; index++) this.scratch[this.produced + index] = this.scratch[from + index];
+        }
+        this.produced = this.produced + length;
+    }
+
+    destructor {
+
+        free this.fastTables;
+        free this.counts;
+        free this.symbols;
+        free this.lengths;
+        free this.offsets;
+        free this.scratch;
+    }
+}

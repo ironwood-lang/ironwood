@@ -1,0 +1,46 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.ast;
+
+import ironwood.compiler.port.SnapshotList;
+import ironwood.compiler.source.SourceSpan;
+
+/**
+ * Port of the Java frontend AST record {@code SwitchRule}. Components keep the
+ * record's order; {@code Optional} components are nullable, and list components are
+ * frozen, independent copies that the node borrows for the invocation.
+ */
+public final class SwitchRule {
+
+    private final SnapshotList<SwitchLabel> labels;
+    private final SwitchRuleBody body;
+    private final SourceSpan span;
+
+    /** Creates the node from its components in record order. */
+    public SwitchRule(SnapshotList<SwitchLabel> labels, SwitchRuleBody body, SourceSpan span) {
+
+        if (labels == null) throw new NullPointerException();
+        if (labels.isEmpty()) throw new IllegalArgumentException("switch rule requires at least one label");
+        this.labels = labels;
+        this.body = body;
+        this.span = span;
+    }
+
+    /** @return the {@code labels} component */
+    public SnapshotList<SwitchLabel> labels() {
+
+        return this.labels;
+    }
+
+    /** @return the {@code body} component */
+    public SwitchRuleBody body() {
+
+        return this.body;
+    }
+
+    /** @return the {@code span} component */
+    public SourceSpan span() {
+
+        return this.span;
+    }
+}

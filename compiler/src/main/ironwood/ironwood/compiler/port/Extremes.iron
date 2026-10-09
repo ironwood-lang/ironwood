@@ -1,0 +1,68 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.port;
+
+import ironwood.ds.ArrayList;
+import ironwood.util.Comparator;
+
+/**
+ * Stream {@code min} and {@code max} selection with Java's tie rule: among
+ * equal candidates the first in encounter order wins, for both directions.
+ * An empty input yields null, the port's absent value (D258). Candidates are
+ * borrowed; the comparator runs in encounter order and its failures propagate.
+ * Nothing is allocated.
+ */
+public final class Extremes {
+
+    private Extremes() {
+
+    }
+
+    /** @return the first minimal candidate, or null when there is none */
+    public static <E extends Object> E minimum(ArrayList<E> candidates, Comparator<? super E> order) {
+
+        if (order == null) throw new NullPointerException();
+        E best = null;
+        for (int index = 0; index < candidates.size(); index++) {
+            E candidate = candidates.get(index);
+            if (best == null || order.compare(best, candidate) > 0) best = candidate;
+        }
+        return best;
+    }
+
+    /** @return the first maximal candidate, or null when there is none */
+    public static <E extends Object> E maximum(ArrayList<E> candidates, Comparator<? super E> order) {
+
+        if (order == null) throw new NullPointerException();
+        E best = null;
+        for (int index = 0; index < candidates.size(); index++) {
+            E candidate = candidates.get(index);
+            if (best == null || order.compare(best, candidate) < 0) best = candidate;
+        }
+        return best;
+    }
+
+    /** @return the first minimal member, or null when there is none */
+    public static <E extends Object> E minimum(SnapshotList<E> candidates, Comparator<? super E> order) {
+
+        if (order == null) throw new NullPointerException();
+        E best = null;
+        for (int index = 0; index < candidates.size(); index++) {
+            E candidate = candidates.get(index);
+            if (best == null || order.compare(best, candidate) > 0) best = candidate;
+        }
+        return best;
+    }
+
+    /** @return the first maximal member, or null when there is none */
+    public static <E extends Object> E maximum(SnapshotList<E> candidates, Comparator<? super E> order) {
+
+        if (order == null) throw new NullPointerException();
+        E best = null;
+        for (int index = 0; index < candidates.size(); index++) {
+            E candidate = candidates.get(index);
+            if (best == null || order.compare(best, candidate) < 0) best = candidate;
+        }
+        return best;
+    }
+}

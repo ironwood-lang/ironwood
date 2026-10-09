@@ -80,8 +80,8 @@ final class FreeBundledSourceTests {
         var prior = off.diagnostics().getFirst();
         SemanticObserverBridge.Counts counts = new SemanticObserverBridge.Counts();
         CompilationArtifact on = new CompilerPipeline(UnfreedMode.OFF, true,
-                (mode, sources, explain) -> SemanticObserverBridge.create(
-                        mode, sources, explain, counts, prior.source().path()))
+                (mode, explain) -> SemanticObserverBridge.create(
+                        mode, explain, counts, prior.source().path()))
                 .analyze(List.of(user));
         require(!on.valid() && on.diagnostics().size() == 1,
                 "bundled explanation changed rejection count: " + on.diagnostics());
@@ -109,19 +109,21 @@ final class FreeBundledSourceTests {
                 .analyze(List.of(skippedUser));
         require(skippedOff.diagnostics().stream().map(d -> d.message()).toList().equals(
                         skippedOn.diagnostics().stream().map(d -> d.message()).toList()),
-                "bundled skipped run changed primaries");
-        var limited = skippedOn.diagnostics().stream()
+                "earlier error changed bundled primaries");
+        // The missing directive leaves refinement in place: the genuine bundled
+        // rejection keeps the explanation of the corrected user source.
+        var afterError = skippedOn.diagnostics().stream()
                 .filter(d -> d.message().startsWith("cannot prove destructor free of field 'scalar'"))
                 .findFirst().orElseThrow();
-        require(limited.source().path().equals(prior.source().path())
-                        && limited.notes().size() == 1
-                        && limited.notes().getFirst().message().equals(
-                        "ownership analysis was limited because of earlier errors; "
-                                + "fix those first and recompile; this rejection may be secondary")
+        require(afterError.source().path().equals(primary.source().path())
+                        && afterError.span().equals(primary.span())
+                        && afterError.notes().stream().map(note -> note.message()).toList().equals(
+                        primary.notes().stream().map(note -> note.message()).toList())
                         && skippedOn.diagnostics().stream()
                                 .filter(d -> d.message().contains("@Override"))
                                 .allMatch(d -> d.notes().isEmpty()),
-                "bundled skipped run missed limited-analysis boundary");
+                "bundled rejection changed its explanation after an earlier error: "
+                        + afterError + " versus " + primary);
     }
 
     static void fieldCallExplanations() {

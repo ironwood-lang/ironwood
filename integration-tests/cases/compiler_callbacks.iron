@@ -1,0 +1,334 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// Compiler-local callback interfaces in the CALLBACK_CONTRACTS shapes: an
+// immediate BooleanSource inside a depth-restoring flow helper, renamer
+// Mappers retained in fields, a short-circuiting Condition scan, Actions in
+// reverse candidate order, stored l-value Source/Action services evaluated
+// around a right-hand side, and a retained PairAction clone observer. The
+// transcript must equal docs/self-hosting/m3/helpers-evidence/
+// CallbacksReference.java, which uses java.util.function. Then the
+// allocation checks: a named or capturing callback costs one allocation and
+// an invocation none. Exit 42. Holders are freed before the callbacks they
+// retain; captured counters stay invocation-lived, because freeing a callback
+// never frees what it captured (the M2 boundary).
+import ironwood.ds.ArrayList;
+import ironwood.compiler.port.Action;
+import ironwood.compiler.port.BooleanSource;
+import ironwood.compiler.port.Condition;
+import ironwood.compiler.port.IdentityMapper;
+import ironwood.compiler.port.Mapper;
+import ironwood.compiler.port.PairAction;
+import ironwood.compiler.port.Source;
+
+final class Counter {
+
+    int value;
+}
+
+final class AtDepth implements BooleanSource {
+
+    @Override
+    public boolean get() {
+
+        Main.log("source depth " + Main.depth);
+        return Main.depth == 1;
+    }
+}
+
+final class Quiet implements BooleanSource {
+
+    @Override
+    public boolean get() {
+
+        return Main.depth == 0;
+    }
+}
+
+final class Failing implements BooleanSource {
+
+    @Override
+    public boolean get() {
+
+        throw Main.failure;
+    }
+}
+
+// Retains both mappers for its whole lifetime, as IrCfgRenamer does.
+final class Renamer {
+
+    private final Mapper<String, String> values;
+    private final Mapper<String, String> labels;
+
+    Renamer(Mapper<String, String> values, Mapper<String, String> labels) {
+
+        this.values = values;
+        this.labels = labels;
+    }
+
+    String operand(String value) {
+
+        return this.values.apply(value);
+    }
+
+    String label(String label) {
+
+        return this.labels.apply(label);
+    }
+}
+
+// An l-value keeps its read and write services, invoked after resolution.
+final class LValue {
+
+    private final Source<String> read;
+    private final Action<String> write;
+
+    LValue(Source<String> read, Action<String> write) {
+
+        this.read = read;
+        this.write = write;
+    }
+
+    String read() {
+
+        return this.read.get();
+    }
+
+    void write(String value) {
+
+        this.write.accept(value);
+    }
+}
+
+// A pass retains its clone observer for the whole run.
+final class Pass {
+
+    private final PairAction<String, String> cloned;
+
+    Pass(PairAction<String, String> cloned) {
+
+        this.cloned = cloned;
+    }
+
+    void run(String[] functions) {
+
+        for (int index = 0; index < functions.length; index++) {
+            if (functions[index].startsWith("f")) {
+                String clone = functions[index] + "$clone";
+                this.cloned.accept(functions[index], clone);
+                free clone;
+            }
+        }
+    }
+}
+
+class Main {
+
+    static int depth;
+    static RuntimeException failure = new RuntimeException("source failure");
+    static String variable = "v0";
+
+    static void log(String line) {
+
+        System.out.println(line);
+    }
+
+    // FunctionAnalyzer's flow helper: the depth is restored even on failure.
+    static boolean nested(BooleanSource source) {
+
+        depth++;
+        try {
+            return source.get();
+        } finally {
+            depth--;
+        }
+    }
+
+    static void flow() {
+
+        AtDepth atDepth = new AtDepth();
+        defer free atDepth;
+        log("nested " + nested(atDepth) + " after " + depth);
+        int threshold = 0;
+        BooleanSource capturing = new BooleanSource() {
+
+            @Override
+            public boolean get() {
+
+                return depth > threshold;
+            }
+        };
+        defer free capturing;
+        log("capturing " + nested(capturing) + " after " + depth);
+        Failing failing = new Failing();
+        defer free failing;
+        try {
+            nested(failing);
+        } catch (RuntimeException expected) {
+            log("failed " + (expected == failure) + " after " + depth);
+        }
+    }
+
+    static void rename() {
+
+        Counter fresh = new Counter();
+        Mapper<String, String> values = new Mapper<String, String>() {
+
+            @Override
+            public String apply(String value) {
+
+                if (value.startsWith("%p")) return value;
+                fresh.value++;
+                return "%r" + fresh.value;
+            }
+        };
+        IdentityMapper<String> identity = new IdentityMapper<String>();
+        Renamer renamer = new Renamer(values, identity);
+        String[] operands = {"%p0", "%t1", "%t2", "%p1", "%t3"};
+        for (int index = 0; index < operands.length; index++) {
+            log("operand " + operands[index] + " -> " + renamer.operand(operands[index]));
+        }
+        log("label entry -> " + renamer.label("entry") + " same " + (renamer.label("loop") == "loop"));
+        log("renamed " + fresh.value);
+        free operands;
+        free renamer;
+        free identity;
+        free values;
+    }
+
+    // TemporaryBorrowAnalysis.hasCandidate: stop at the first match.
+    static boolean anyMatch(String[] values, Condition<String> condition) {
+
+        for (int index = 0; index < values.length; index++) {
+            if (condition.test(values[index])) return true;
+        }
+        return false;
+    }
+
+    static void scan() {
+
+        Counter calls = new Counter();
+        Condition<String> isCall = new Condition<String>() {
+
+            @Override
+            public boolean test(String value) {
+
+                calls.value++;
+                return value.startsWith("call");
+            }
+        };
+        defer free isCall;
+        String[] instructions = {"load", "call f", "store", "call g"};
+        defer free instructions;
+        log("match " + anyMatch(instructions, isCall) + " calls " + calls.value);
+    }
+
+    // reclaimInOrder: accepted candidates in reverse order.
+    static void reclaim() {
+
+        Action<String> reclaimer = new Action<String>() {
+
+            @Override
+            public void accept(String value) {
+
+                log("reclaim " + value);
+            }
+        };
+        defer free reclaimer;
+        String[] candidates = {"t0", "keep", "t1", "t2"};
+        defer free candidates;
+        for (int index = candidates.length - 1; index >= 0; index--) {
+            if (!candidates[index].equals("keep")) reclaimer.accept(candidates[index]);
+        }
+    }
+
+    // A compound assignment reads before the right-hand side and writes after it.
+    static void assign() {
+
+        Source<String> read = new Source<String>() {
+
+            @Override
+            public String get() {
+
+                log("read " + variable);
+                return variable;
+            }
+        };
+        Action<String> write = new Action<String>() {
+
+            @Override
+            public void accept(String value) {
+
+                log("write " + value);
+                variable = value;
+            }
+        };
+        LValue target = new LValue(read, write);
+        String before = target.read();
+        log("rhs");
+        variable = "v1";
+        String combined = before + "+rhs";
+        target.write(combined);
+        log("variable " + variable);
+        free target;
+        free write;
+        free read;
+    }
+
+    static void clones() {
+
+        Counter seen = new Counter();
+        PairAction<String, String> observer = new PairAction<String, String>() {
+
+            @Override
+            public void accept(String original, String clone) {
+
+                seen.value++;
+                log("clone " + original + " -> " + clone);
+            }
+        };
+        Pass pass = new Pass(observer);
+        String[] functions = {"f1", "g", "f2"};
+        pass.run(functions);
+        log("clones " + seen.value);
+        free functions;
+        free pass;
+        free observer;
+    }
+
+    // One allocation per callback object, captures included; none per call.
+    static boolean allocations() {
+
+        long before = System.allocationCount();
+        Quiet named = new Quiet();
+        long namedCost = System.allocationCount() - before;
+        int limit = 3;
+        before = System.allocationCount();
+        Condition<String> capturing = new Condition<String>() {
+
+            @Override
+            public boolean test(String value) {
+
+                return value.length() < limit;
+            }
+        };
+        long capturingCost = System.allocationCount() - before;
+        before = System.allocationCount();
+        boolean first = named.get();
+        boolean second = capturing.test("ab");
+        long callCost = System.allocationCount() - before;
+        free capturing;
+        free named;
+        return namedCost == 1 && capturingCost == 1 && callCost == 0 && first && second;
+    }
+
+    public static int main(String[] args) {
+
+        flow();
+        rename();
+        scan();
+        reclaim();
+        assign();
+        clones();
+        return allocations() ? 42 : 1;
+    }
+}

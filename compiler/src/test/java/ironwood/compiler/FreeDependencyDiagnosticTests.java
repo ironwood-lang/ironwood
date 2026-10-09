@@ -115,8 +115,8 @@ final class FreeDependencyDiagnosticTests {
                         .analyze(loaded.sources());
                 SemanticObserverBridge.Counts counts = new SemanticObserverBridge.Counts();
                 CompilationArtifact on = new CompilerPipeline(UnfreedMode.OFF, true,
-                        (mode, sources, explain) -> SemanticObserverBridge.create(
-                                mode, sources, explain, counts, Path.of(display)))
+                        (mode, explain) -> SemanticObserverBridge.create(
+                                mode, explain, counts, Path.of(display)))
                         .analyze(loaded.sources());
                 require(!off.valid() && !on.valid()
                                 && off.diagnostics().stream().map(Diagnostic::message).toList().equals(
@@ -155,20 +155,22 @@ final class FreeDependencyDiagnosticTests {
                         .analyze(skippedLoaded.sources());
                 require(skippedOff.diagnostics().stream().map(Diagnostic::message).toList().equals(
                                 skippedOn.diagnostics().stream().map(Diagnostic::message).toList()),
-                        kind + " skipped dependency changed primaries");
-                Diagnostic limited = skippedOn.diagnostics().stream()
+                        kind + " earlier error changed dependency primaries");
+                // Keeper still retains the argument, so the rejection remains,
+                // with the explanation it has once the directive is restored.
+                Diagnostic afterError = skippedOn.diagnostics().stream()
                         .filter(d -> d.message().startsWith("cannot free 'data':"))
                         .findFirst().orElseThrow();
-                require(limited.source().path().toString().equals(display)
-                                && limited.notes().size() == 1
-                                && limited.notes().getFirst().message().equals(
-                                "ownership analysis was limited because of earlier errors; "
-                                        + "fix those first and recompile; this rejection may be secondary")
+                require(afterError.source().path().toString().equals(display)
+                                && afterError.span().equals(primary.span())
+                                && afterError.message().equals(primary.message())
+                                && afterError.notes().stream().map(note -> note.message()).toList()
+                                .equals(primary.notes().stream().map(note -> note.message()).toList())
                                 && skippedOn.diagnostics().stream()
                                         .filter(d -> d.message().contains("@Override"))
                                         .allMatch(d -> d.notes().isEmpty()),
-                        kind + " dependency missed skipped-refinement boundary: "
-                                + skippedOn.diagnostics());
+                        kind + " dependency rejection changed after an earlier error: "
+                                + afterError + " versus " + primary);
             }
         } finally {
             try (var paths = Files.walk(root)) {

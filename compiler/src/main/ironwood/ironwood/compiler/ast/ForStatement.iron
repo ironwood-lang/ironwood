@@ -1,0 +1,67 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.ast;
+
+import ironwood.compiler.port.SnapshotList;
+import ironwood.compiler.source.SourceSpan;
+
+/**
+ * Port of the Java frontend AST record {@code ForStatement}. Components keep the
+ * record's order; {@code Optional} components are nullable, and list components are
+ * frozen, independent copies that the node borrows for the invocation.
+ */
+public final class ForStatement implements Statement {
+
+    private final Statement initializer;
+    private final Expression condition;
+    private final SnapshotList<Expression> updates;
+    private final Statement body;
+    private final SourceSpan span;
+
+    /** Creates the node from its components in record order. */
+    public ForStatement(Statement initializer, Expression condition, SnapshotList<Expression> updates, Statement body,
+                        SourceSpan span) {
+
+        if (updates == null) throw new NullPointerException();
+        this.initializer = initializer;
+        this.condition = condition;
+        this.updates = updates;
+        this.body = body;
+        this.span = span;
+    }
+
+    /** @return the {@code initializer} component */
+    public Statement initializer() {
+
+        return this.initializer;
+    }
+
+    /** @return the {@code condition} component */
+    public Expression condition() {
+
+        return this.condition;
+    }
+
+    /** @return the {@code updates} component */
+    public SnapshotList<Expression> updates() {
+
+        return this.updates;
+    }
+
+    /** @return the {@code body} component */
+    public Statement body() {
+
+        return this.body;
+    }
+
+    /** @return the {@code span} component */
+    @Override public SourceSpan span() {
+
+        return this.span;
+    }
+
+    @Override public StatementVariant statementVariant() {
+
+        return StatementVariant.FOR_STATEMENT;
+    }
+}

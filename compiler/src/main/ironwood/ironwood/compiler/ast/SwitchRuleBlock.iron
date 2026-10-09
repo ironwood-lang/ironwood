@@ -1,0 +1,40 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.ast;
+
+import ironwood.compiler.source.SourceSpan;
+
+/**
+ * Port of the Java frontend AST record {@code SwitchRuleBlock}. Components keep the
+ * record's order; {@code Optional} components are nullable, and list components are
+ * frozen, independent copies that the node borrows for the invocation.
+ */
+public final class SwitchRuleBlock implements SwitchRuleBody {
+
+    private final Block block;
+    private final SourceSpan span;
+
+    /** Creates the node from its components in record order. */
+    public SwitchRuleBlock(Block block, SourceSpan span) {
+
+        this.block = block;
+        this.span = span;
+    }
+
+    /** @return the {@code block} component */
+    public Block block() {
+
+        return this.block;
+    }
+
+    /** @return the {@code span} component */
+    @Override public SourceSpan span() {
+
+        return this.span;
+    }
+
+    @Override public SwitchRuleBodyVariant switchRuleBodyVariant() {
+
+        return SwitchRuleBodyVariant.SWITCH_RULE_BLOCK;
+    }
+}

@@ -4,14 +4,19 @@ package ironwood.compiler.semantic;
 
 import ironwood.compiler.ast.AccessModifier;
 import ironwood.compiler.ast.ArrayAccessExpression;
+import ironwood.compiler.ast.BinaryExpression;
+import ironwood.compiler.ast.BinaryOperator;
 import ironwood.compiler.ast.CallExpression;
 import ironwood.compiler.ast.ExpressionStatement;
 import ironwood.compiler.ast.FieldAccessExpression;
 import ironwood.compiler.ast.FreeStatement;
+import ironwood.compiler.ast.IfStatement;
+import ironwood.compiler.ast.IntegerLiteralExpression;
 import ironwood.compiler.ast.NameExpression;
 import ironwood.compiler.ast.NewExpression;
 import ironwood.compiler.ast.ReturnStatement;
 import ironwood.compiler.ast.ThisExpression;
+import ironwood.compiler.ast.ThrowStatement;
 import ironwood.compiler.ir.IrType;
 import java.util.List;
 import java.util.Set;
@@ -55,6 +60,39 @@ final class DataStructureSemantics {
                 || !index.name().equals(method.parameters().getFirst().name())
                 || !checked.name().equals(index.name())) return null;
         return guard;
+    }
+
+    /** A read guard must leave live membership unchanged, not merely avoid
+     * publication. This exact primitive bounds shape has no normal-path call,
+     * assignment, callback, alias creation or virtual dispatch.
+     */
+    static boolean isPureArrayListReadGuard(CallableSymbol method) {
+        if (method.isStatic() || !method.ownerType().equals("ironwood.ds.ArrayList")
+                || method.accessModifier() != AccessModifier.PRIVATE
+                || !method.parameterTypes().equals(List.of(IrType.I32))
+                || !method.returnType().equals(IrType.VOID)) return false;
+        var body = method.body().orElse(null);
+        if (body == null || body.statements().size() != 1
+                || !(body.statements().getFirst() instanceof IfStatement branch)
+                || branch.elseBranch().isPresent()
+                || !(branch.condition() instanceof BinaryExpression condition)
+                || condition.operator() != BinaryOperator.LOGICAL_OR
+                || !(condition.left() instanceof BinaryExpression lower)
+                || lower.operator() != BinaryOperator.LESS
+                || !(lower.left() instanceof NameExpression lowerIndex)
+                || !lowerIndex.name().equals(method.parameters().getFirst().name())
+                || !(lower.right() instanceof IntegerLiteralExpression zero) || !zero.text().equals("0")
+                || !(condition.right() instanceof BinaryExpression upper)
+                || upper.operator() != BinaryOperator.GREATER_EQUAL
+                || !(upper.left() instanceof NameExpression upperIndex)
+                || !upperIndex.name().equals(lowerIndex.name())
+                || !(upper.right() instanceof FieldAccessExpression size)
+                || !(size.receiver() instanceof ThisExpression) || !size.fieldName().equals("currentSize")
+                || !(branch.thenBranch() instanceof ThrowStatement thrown)
+                || !(thrown.value() instanceof NewExpression failure)
+                || failure.enclosingInstance().isPresent() || failure.anonymousClassBody().isPresent()
+                || !failure.arguments().isEmpty()) return false;
+        return true;
     }
 
     static boolean isSizeQuery(CallableSymbol method) {

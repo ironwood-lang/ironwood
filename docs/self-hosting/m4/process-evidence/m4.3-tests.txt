@@ -1,0 +1,15 @@
+M4.3 process runner lowers to a typed process instruction
+M4.3 process runner borrows its command and paths and owns its result
+M4.3 process runner launches controlled programs across artifacts
+M4.3 native process launch survives injected failures and interrupted waits
+M4.3 terminal interrupts reach the tool through the process group
+M4.3 process runner unwinds every allocation failure without leftovers
+M4.3 executable search selects PATH candidates without normalizing them
+M4.3 Homebrew discovery launches the resolved absolute brew
+M4.3 Apple SDK discovery runs only /usr/bin/xcrun
+M4.3 driver adapters own arguments and lend probe outputs
+M4.3 port executable search matches the Java seed
+M4.3 discovery probes match Java answers and reuse results within one invocation
+M4.3 native LLVM pipeline links programs equal to the Java link
+M4.3 native LLVM pipeline reports failing stages and leaves nothing behind
+M4.3 driver adapters unwind every allocation failure without leftovers

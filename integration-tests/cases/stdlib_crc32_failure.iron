@@ -1,0 +1,42 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// Inject allocation failure into CRC32's allocations: the first use's
+// process-lived tables and each checksum object; updates allocate nothing.
+// Every failure unwinds to the live-allocation baseline taken before the
+// first use, apart from the tables once they exist. Exit 42 on allocation
+// failure with every check intact, 43 on success.
+import ironwood.util.zip.CRC32;
+
+class Main {
+
+    static long exercise() {
+
+        CRC32 first = new CRC32();
+        defer free first;
+        byte[] data = new byte[64];
+        defer free data;
+        for (int index = 0; index < data.length; index++) data[index] = (byte) index;
+        first.update(data);
+        CRC32 second = new CRC32();
+        defer free second;
+        second.update(data, 0, 32);
+        second.update(data, 32, 32);
+        if (first.getValue() != second.getValue()) throw new IllegalStateException();
+        return first.getValue();
+    }
+
+    public static int main(String[] args) {
+
+        long baseline = System.liveAllocationCount();
+        boolean failed = false;
+        try {
+            exercise();
+        } catch (OutOfMemoryError failure) {
+            failed = true;
+        }
+        // The tables stay once a first use created them.
+        long live = System.liveAllocationCount() - baseline;
+        if (live != 0 && live != 1) return 1;
+        return failed ? 42 : 43;
+    }
+}

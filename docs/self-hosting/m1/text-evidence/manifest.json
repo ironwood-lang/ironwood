@@ -1,0 +1,91 @@
+{
+ "schema_version": 1,
+ "increment": "D256 compiler-private text-block stripIndent",
+ "base_commit": "8873984dc2376b8a4af04c819cba06cc66805c76",
+ "producing_compiler": {
+  "path": "/Users/developer/workspace-mba-m2/Ironwood/workspace/m1/keyed-final/stage/compiler/build/ironwoodc.jar",
+  "sha256": "ab50fe2c128137005c4dbac8263bc1190ab956c1012bf5a285940709655a54b2",
+  "role": "compiler sources identical to base commit"
+ },
+ "sources": [
+  {
+   "path": "compiler/src/main/ironwood/ironwood/compiler/port/TextBlocks.iron",
+   "sha256": "f41541f62c570f487d2b670e8c308af3c40d286cecad9ec5ec41d0dc0d7310fa"
+  },
+  {
+   "path": "integration-tests/cases/compiler_text_blocks.iron",
+   "sha256": "8771a2ce7c4f43d7cff61ac6ad450740b1cce9a0545d0d41f99035140387f4a0"
+  },
+  {
+   "path": "compiler/src/test/java/ironwood/compiler/TextBlocksTests.java",
+   "sha256": "e336d351891ec8c3c7d9e5aaa5631598766a0a57218ea805da12f23f9d6a5dc7"
+  }
+ ],
+ "java_reference": {
+  "path": "docs/self-hosting/m1/text-evidence/TextBlocksReference.java",
+  "sha256": "1c5c0aea868227921670a1f3f226ce3c08e0459cf6827f9f9fee5017a2cd824b",
+  "runs": 4
+ },
+ "handoff_sites": {
+  "M1.3": "API0166 String.stripIndent at Lexer.scanTextBlock"
+ },
+ "logs": [
+  {
+   "retained": "docs/self-hosting/m1/text-evidence/logs/compile.log.gz",
+   "sha256": "99aaf2be2c07eb44f76385bedcb267bf5f2a13f1230d40c77f592ada9a6bfa22",
+   "gzip_sha256": "6d4745843c833fd327aa942f9c114ec289aedd552983dc5861e85c40d49b6edb"
+  },
+  {
+   "retained": "docs/self-hosting/m1/text-evidence/logs/diff-check.log.gz",
+   "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "gzip_sha256": "f61f27bd17de546264aa58f40f3aafaac7021e0ef69c17f6b1b4cd7664a037ec"
+  },
+  {
+   "retained": "docs/self-hosting/m1/text-evidence/logs/irondocs.log.gz",
+   "sha256": "28ccbe54b80ae9d4c496f6dd7926339062613809a1439059e67cca5c240d93ae",
+   "gzip_sha256": "1a43066d7ae2bb105dd885b7051b7541b131cc1edad5fa8d13cd8c1884fcb62c"
+  },
+  {
+   "retained": "docs/self-hosting/m1/text-evidence/logs/java-reference.txt.gz",
+   "sha256": "ba7d3152d942a6bc347ed08463b9698442d82df8fff5cbbb085eed8c61479e89",
+   "gzip_sha256": "e2326cdde0861ade64a61104c589279d648864d2b80733473d9455e317f00ad6"
+  },
+  {
+   "retained": "docs/self-hosting/m1/text-evidence/logs/licenses.log.gz",
+   "sha256": "baf5804aeb26498337c9c5223c199afeba5c3e2fc36ae219b9bf420e3775f673",
+   "gzip_sha256": "c33bdaafc40ae52137c7119d2922a14fd4f4f340cea86e19094625617947bf77"
+  },
+  {
+   "retained": "docs/self-hosting/m1/text-evidence/logs/link.log.gz",
+   "sha256": "d7406a6078a1c33fe8b30532750f9910c3df21aef99f5755c1eb29246fe63bae",
+   "gzip_sha256": "cd15e278d15b1bbc04fe0e81684828da51694b503a099a5358f30f20ee2f6ef4"
+  },
+  {
+   "retained": "docs/self-hosting/m1/text-evidence/logs/native.txt.gz",
+   "sha256": "ba7d3152d942a6bc347ed08463b9698442d82df8fff5cbbb085eed8c61479e89",
+   "gzip_sha256": "e2326cdde0861ade64a61104c589279d648864d2b80733473d9455e317f00ad6"
+  },
+  {
+   "retained": "docs/self-hosting/m1/text-evidence/logs/tests.log.gz",
+   "sha256": "538f69811649d6f3734869306ae28ad017e8534bf08325e9e9892e245bc0b431",
+   "gzip_sha256": "33f09c52c760fc26883ea24ac3267743b0527c60e7407928a46df0782ac7443b"
+  }
+ ],
+ "results": {
+  "tests": "PASS: 2 compiler tests",
+  "differential": "20,012 lines identical to Java 21, transcript sha256 ba7d3152d942a6bc347ed08463b9698442d82df8fff5cbbb085eed8c61479e89",
+  "allocation": "one live result per call; baseline restored",
+  "unfreed_warn": "0 diagnostics",
+  "irondocs": "1 type",
+  "licensing": "passed"
+ },
+ "boundaries": [
+  "cooked escapes and the lexer remain M2.1",
+  "full M1 open"
+ ],
+ "host_profile": {
+  "host": "macOS 27.0.1, arm64, Apple M5, 32 GiB",
+  "bootstrap": "Java 21.0.1",
+  "backend": "pinned LLVM 23.1.0"
+ }
+}

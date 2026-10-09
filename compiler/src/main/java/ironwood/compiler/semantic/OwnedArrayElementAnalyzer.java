@@ -100,16 +100,15 @@ final class OwnedArrayElementAnalyzer {
 
     static void validate(Map<String, TypeSymbol> types, List<IrFunction> functions,
                          OwnedArrayFieldAnalyzer ownership, EscapeSummaryAnalyzer summaries,
-                         List<Diagnostic> diagnostics, boolean explainRejectedFree,
-                         boolean refinementCompleted) {
+                         List<Diagnostic> diagnostics, boolean explainRejectedFree) {
         for (TypeSymbol owner : types.values()) {
             for (FieldSymbol field : fields(owner)) {
                 if (!ownership.isOwned(field)) { continue; }
                 for (IrFunction function : functions) {
-                    TypeSymbol functionOwner = explainRejectedFree && refinementCompleted
+                    TypeSymbol functionOwner = explainRejectedFree
                             ? types.get(function.ownerClass()) : null;
                     new Checker(owner, field, function, summaries, diagnostics,
-                            explainRejectedFree, refinementCompleted,
+                            explainRejectedFree,
                             functionOwner == null ? null : functionOwner.source()).check();
                 }
             }
@@ -123,7 +122,6 @@ final class OwnedArrayElementAnalyzer {
         private final EscapeSummaryAnalyzer summaries;
         private final List<Diagnostic> diagnostics;
         private final boolean explainRejectedFree;
-        private final boolean refinementCompleted;
         private final SourceFile functionSource;
         private final List<IrInstruction> instructions = new ArrayList<>();
         private final Map<IrOperand, IrOperand> roots = new HashMap<>();
@@ -137,15 +135,13 @@ final class OwnedArrayElementAnalyzer {
 
         Checker(TypeSymbol owner, FieldSymbol field, IrFunction function,
                 EscapeSummaryAnalyzer summaries, List<Diagnostic> diagnostics,
-                boolean explainRejectedFree, boolean refinementCompleted,
-                SourceFile functionSource) {
+                boolean explainRejectedFree, SourceFile functionSource) {
             this.owner = owner;
             this.field = field;
             this.function = function;
             this.summaries = summaries;
             this.diagnostics = diagnostics;
             this.explainRejectedFree = explainRejectedFree;
-            this.refinementCompleted = refinementCompleted;
             this.functionSource = functionSource;
         }
 
@@ -182,7 +178,7 @@ final class OwnedArrayElementAnalyzer {
                 if (instruction instanceof IrArrayLoadInstruction load && isArray(load.array())) {
                     CallableSymbol method = summaries.callable(function.linkageName());
                     if (method == null || !field.equals(borrowedElementField(owner, method))) {
-                        String detail = !failed && explainRejectedFree && refinementCompleted
+                        String detail = !failed && explainRejectedFree
                                 && functionSource != null
                                 ? "this element load is outside a direct dependent-borrow getter "
                                 + "or destructor loop in '" + function.traceCallableName() + "'"
@@ -218,8 +214,8 @@ final class OwnedArrayElementAnalyzer {
                 }
                 List<IrOperand> callArguments = arguments(instruction);
                 for (int index = 0; index < callArguments.size(); index++) {
-                    if (isArray(callArguments.get(index))) {
-                        String detail = !failed && explainRejectedFree && refinementCompleted
+                    if (isArray(callArguments.get(index)) && !(index == 0 && isProcessCommand(instruction))) {
+                        String detail = !failed && explainRejectedFree
                                 && functionSource != null
                                 ? "this call receives the creation-array storage as argument "
                                 + (index + 1) : null;
@@ -258,7 +254,7 @@ final class OwnedArrayElementAnalyzer {
                                 ? summaries.callable(call.targetLinkageName()) : null;
                         if (target == null || !target.isConstructor() || index != 0
                                 || summaries.summary(target).thisEscapesWithoutReturn()) {
-                            String detail = !failed && explainRejectedFree && refinementCompleted
+                            String detail = !failed && explainRejectedFree
                                     && functionSource != null
                                     ? "this call receives the recorded object as argument " + (index + 1)
                                     + "; no permitted confined constructor transfer was proved" : null;
@@ -269,7 +265,7 @@ final class OwnedArrayElementAnalyzer {
                             for (int input = 1; input < arguments.size(); input++) {
                                 if (root(arguments.get(input)).equals(root(receiver))
                                         && !summaries.constructorArgumentIsConfined(target, input - 1)) {
-                                    String detail = !failed && explainRejectedFree && refinementCompleted
+                                    String detail = !failed && explainRejectedFree
                                             && functionSource != null
                                             ? "this constructor receives the storage owner as argument "
                                             + (input + 1) + "; backlink confinement was not proved" : null;
@@ -440,7 +436,7 @@ final class OwnedArrayElementAnalyzer {
                 Diagnostic primary = Diagnostic.error(owner.source(),
                         field.declaration().nameSpan(), "cannot prove owned elements of '"
                                 + field.declaration().name() + "' safe: " + reason);
-                if (explainRejectedFree && refinementCompleted && functionSource != null
+                if (explainRejectedFree && functionSource != null
                         && detail != null
                         && site != null) {
                     List<DiagnosticNote> notes = new ArrayList<>();
@@ -454,8 +450,7 @@ final class OwnedArrayElementAnalyzer {
                     diagnostics.add(primary.withNotes(notes));
                 } else {
                     diagnostics.add(RejectedFreeExplanation.attach(primary,
-                            explainRejectedFree, refinementCompleted,
-                            RejectedFreeExplanation.Missing.OWNED_ELEMENT));
+                            explainRejectedFree, RejectedFreeExplanation.Missing.OWNED_ELEMENT));
                 }
                 failed = true;
             }
@@ -483,6 +478,21 @@ final class OwnedArrayElementAnalyzer {
             if (instruction instanceof IrReferenceConversionInstruction value) { return value.result(); }
             return null;
         }
+        // ProcessRunner.runToFile's audited contract borrows its command array
+        // and the array's Strings for the call only, so lending the storage to
+        // that exact call keeps every element owned here. No other call may
+        // receive creation-array storage.
+        private boolean isProcessCommand(IrInstruction instruction) {
+            if (!(instruction instanceof IrCallInstruction call)) return false;
+            CallableSymbol target = summaries.callable(call.targetLinkageName());
+            IrType path = IrType.reference("ironwood.nio.file.Path");
+            return target != null && target.isStatic()
+                    && target.ownerType().equals("ironwood.process.ProcessRunner")
+                    && target.sourceName().equals("runToFile")
+                    && target.parameterTypes().equals(List.of(
+                            IrType.array(IrType.reference("ironwood.lang.String")), path, path));
+        }
+
         private static List<IrOperand> arguments(IrInstruction instruction) {
             if (instruction instanceof IrCallInstruction call) { return call.arguments(); }
             if (instruction instanceof IrInterfaceCallInstruction call) { return call.arguments(); }

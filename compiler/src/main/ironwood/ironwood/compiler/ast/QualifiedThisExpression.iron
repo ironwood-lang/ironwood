@@ -1,0 +1,49 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.ast;
+
+import ironwood.compiler.source.SourceSpan;
+
+/**
+ * A lexically enclosing receiver such as {@code Outer.this}. It ports the Java
+ * frontend AST record {@code QualifiedThisExpression}. Components keep the record's
+ * order; {@code Optional} components are nullable, and list components are frozen,
+ * independent copies that the node borrows for the invocation.
+ */
+public final class QualifiedThisExpression implements Expression {
+
+    private final String typeName;
+    private final SourceSpan typeNameSpan;
+    private final SourceSpan span;
+
+    /** Creates the node from its components in record order. */
+    public QualifiedThisExpression(String typeName, SourceSpan typeNameSpan, SourceSpan span) {
+
+        this.typeName = typeName;
+        this.typeNameSpan = typeNameSpan;
+        this.span = span;
+    }
+
+    /** @return the {@code typeName} component */
+    public String typeName() {
+
+        return this.typeName;
+    }
+
+    /** @return the {@code typeNameSpan} component */
+    public SourceSpan typeNameSpan() {
+
+        return this.typeNameSpan;
+    }
+
+    /** @return the {@code span} component */
+    @Override public SourceSpan span() {
+
+        return this.span;
+    }
+
+    @Override public ExpressionVariant expressionVariant() {
+
+        return ExpressionVariant.QUALIFIED_THIS_EXPRESSION;
+    }
+}

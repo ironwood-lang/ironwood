@@ -1,0 +1,72 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// Deterministic sortWithComparator series: fixed-seed keys, sizes doubling
+// from 1,024 to 1,048,576, random and sorted input. Prints per size the
+// comparison count, workspace allocations and the best of five sort times
+// in nanoseconds per element. Comparison counts are deterministic; times
+// are measurements.
+import ironwood.ds.ArrayList;
+import ironwood.util.Comparator;
+
+final class Record {
+
+    final int key;
+
+    Record(int key) {
+
+        this.key = key;
+    }
+}
+
+final class ByKey implements Comparator<Record> {
+
+    long calls;
+
+    @Override
+    public int compare(Record first, Record second) {
+
+        this.calls++;
+        return Integer.compare(first.key, second.key);
+    }
+}
+
+class Main {
+
+    public static int main(String[] args) {
+
+        Record[] pool = new Record[1 << 20];
+        defer free pool;
+        long seed = 42;
+        for (int index = 0; index < pool.length; index++) {
+            seed = seed * 6364136223846793005L + 1442695040888963407L;
+            pool[index] = new Record((int) (seed >>> 33));
+        }
+        ByKey byKey = new ByKey();
+        defer free byKey;
+        boolean sortedTakesLinearWork = true;
+        for (int size = 1 << 10; size <= 1 << 20; size = size * 2) {
+            long best = Long.MAX_VALUE;
+            long calls = 0;
+            long allocations = 0;
+            for (int repeat = 0; repeat < 5; repeat++) {
+                ArrayList<Record> list = new ArrayList<Record>(size);
+                for (int index = 0; index < size; index++) list.add(pool[index]);
+                byKey.calls = 0;
+                long before = System.allocationCount();
+                long start = System.nanoTime();
+                list.sortWithComparator(byKey);
+                long elapsed = System.nanoTime() - start;
+                allocations = System.allocationCount() - before;
+                calls = byKey.calls;
+                if (elapsed < best) best = elapsed;
+                byKey.calls = 0;
+                list.sortWithComparator(byKey);
+                if (byKey.calls != size - 1) sortedTakesLinearWork = false;
+                free list;
+            }
+            System.out.println("n=" + size + " comparisons=" + calls + " workspace=" + allocations
+                    + " ns_per_element=" + (best * 1000 / size) / 1000.0);
+        }
+        return sortedTakesLinearWork ? 0 : 1;
+    }
+}

@@ -6,11 +6,14 @@ Assessment date: 2026-10-03. Source baseline:
 `37e2dda14a1de7088bd0a079492a6fbec6c156a7` (`0.6.1-beta`).
 The [preparation plan](BEFORE_SELF_HOSTING_PLAN.md) shares this source baseline.
 
-Status: proposed engineering plan based on a source audit. No compiler has been
-ported or bootstrapped by this work. The milestones below are pending, not
-implementation authorization or evidence of completed qualification. D008's
-Java bootstrap policy remains in effect; accepting a production cutover requires
-an explicit decision superseding the relevant part of D008.
+Status: proposed engineering plan based on a source audit. S0 and S1 passed
+through the preparation plan's M0 checkpoint and G1, whose pilot ported the
+lexer, parser and a bounded ownership slice; the preparation milestones M0-M6
+are complete ([final handoff](self-hosting/m6/HANDOFF_M6.md)). No compiler has
+been bootstrapped. S2-S8 are pending, not implementation authorization or
+evidence of completed qualification. D008's Java bootstrap policy remains in
+effect; accepting a production cutover requires an explicit decision
+superseding the relevant part of D008.
 
 ## 1. Recommendation and readiness
 
@@ -621,6 +624,14 @@ budgets from these measurements before evaluating the port against them. The
 J0 launcher profile, numeric limits/budgets, and measurement procedure must be
 recorded before S0 exits; unspecified JVM defaults do not satisfy this gate.
 
+Current local checkpoint: M0.1/M0.2/M0.3 and S0 passed on the qualified macOS
+arm64 Apple M5/32-GiB profile on 2026-10-04. The
+[checkpoint record](self-hosting/m0/M0_CHECKPOINT.md) links pinned original/D247
+inputs, exact source-backed deferred consumers, frozen fixtures, mismatch controls
+and fixed pilot budgets. [PILOT_HANDOFF.md](self-hosting/m0/PILOT_HANDOFF.md) permits
+only the selected B1/B7 M1 prerequisites. M1/M2 and native S1/G1 are not started;
+later unresolved contracts block their named consumers.
+
 ### S1. Prove portability and memory feasibility
 
 [B0](BEFORE_SELF_HOSTING_PLAN.md#3-b0-inventory-and-the-s1-pilot) details this pilot's prerequisite work and evidence; S1 remains the gate definition.
@@ -805,7 +816,11 @@ Port Bridge models/proofs, admission, native-entry transformations, generators,
 packaging, assembly, and distribution workflows after their prerequisites. Keep
 the generated Java/C API and lifetime protocols stable. Replace in-process Java
 tool APIs with selected JDK subprocesses, including argument-file handling where
-needed and the existing Java release/diagnostic flags.
+needed and the existing Java release/diagnostic flags. The preparation plan's
+[M6.2](self-hosting/m6/JAR.md) qualified that subprocess path in the port: its
+JDK selection follows the Java producer's launcher order and records the
+selected JDK's version and vendor (D295), and its `javac` and `javadoc` runs
+match the in-process tools.
 
 [`BridgeProducerInputs`](../compiler/src/main/java/ironwood/compiler/BridgeProducerInputs.java)
 currently requires `ironwood/compiler/Main.class` and a compiler resource in a

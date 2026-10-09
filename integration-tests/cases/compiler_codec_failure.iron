@@ -1,0 +1,78 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// Inject allocation failure into the M5.2 codec helpers: a decoder's tables,
+// its scratch growth and exact-size result, a fixed-size decode, and a ZIP
+// writer's buffers, name encoding and finished archive. The stream is a
+// STORED archive entry's data decoded back after a round trip through a
+// stored DEFLATE block. Every failure unwinds to the live-allocation baseline
+// taken after the one-time table and CRC32 initialization. Exit 42 on
+// allocation failure with every check intact, 43 on success.
+import ironwood.compiler.port.Inflate;
+import ironwood.compiler.port.ZipWriter;
+import ironwood.io.IOException;
+
+class Main {
+
+    // A final stored DEFLATE block holding data.
+    static byte[] storedBlock(byte[] data) {
+
+        byte[] block = new byte[data.length + 5];
+        block[0] = 1;
+        block[1] = (byte) data.length;
+        block[2] = (byte) (data.length >>> 8);
+        block[3] = (byte) ~data.length;
+        block[4] = (byte) (~data.length >>> 8);
+        for (int index = 0; index < data.length; index++) block[5 + index] = data[index];
+        return block;
+    }
+
+    static void exercise() throws IOException {
+
+        byte[] data = new byte[6000];
+        defer free data;
+        for (int index = 0; index < data.length; index++) data[index] = (byte) (index % 251);
+        ZipWriter writer = new ZipWriter();
+        defer free writer;
+        for (int entry = 0; entry < 20; entry++) writer.add("entries/café-" + entry, data, entry, data.length - entry);
+        byte[] archive = writer.finish();
+        defer free archive;
+        byte[] block = storedBlock(data);
+        defer free block;
+        Inflate inflate = new Inflate();
+        defer free inflate;
+        byte[] decoded = inflate.inflate(block, 0, block.length, 1 << 20);
+        defer free decoded;
+        byte[] exact = new byte[data.length];
+        defer free exact;
+        inflate.inflate(block, 0, block.length, exact);
+        for (int index = 0; index < data.length; index++) {
+            if (decoded[index] != data[index] || exact[index] != data[index]) throw new IllegalStateException();
+        }
+        if (archive.length < 20 * 6000) throw new IllegalStateException();
+    }
+
+    public static int main(String[] args) {
+
+        // The first decoder and writer run the one-time, process-lived table
+        // initialization; take the baseline after it.
+        try {
+            Inflate warmInflate = new Inflate();
+            free warmInflate;
+            ZipWriter warmWriter = new ZipWriter();
+            free warmWriter;
+        } catch (OutOfMemoryError failure) {
+            return 42;
+        }
+        long baseline = System.liveAllocationCount();
+        boolean failed = false;
+        try {
+            exercise();
+        } catch (OutOfMemoryError failure) {
+            failed = true;
+        } catch (IOException impossible) {
+            return 1;
+        }
+        if (System.liveAllocationCount() != baseline) return 1;
+        return failed ? 42 : 43;
+    }
+}

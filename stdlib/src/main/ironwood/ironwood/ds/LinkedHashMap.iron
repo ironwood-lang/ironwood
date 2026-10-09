@@ -199,6 +199,40 @@ public class LinkedHashMap<K extends Object, E extends Object> implements Iterab
 
         return count;
     }
+    /**
+     * Creates independent mutable membership with fresh entries and pool storage.
+     * Keys and values are non-null under the existing insertion contract and
+     * are borrowed, preserving identity. The source reusable
+     * iterator is untouched. The copy uses load factor 1.0 and at least one
+     * bucket; insertion follows this map's ordinary key comparison contract.
+     * Destroying either map never destroys caller-owned keys or values.
+     * The caller owns the result and keeps borrowed keys and values alive while
+     * observable. Current proofs retire membership loans on clear or destruction;
+     * retained aliases can still prevent reclamation. Individual removal does
+     * not currently retire a compiler-tracked loan.
+     * Copying reruns key hashCode and, for colliding keys, equals callbacks.
+     * Callback exceptions propagate after destination cleanup. Callbacks must
+     * not mutate the source membership during traversal.
+     * The copy preserves the source insertion order.
+     * Partial construction reclaims destination storage before rethrowing.
+     *
+     * @return an independently mutable shallow copy
+     */
+    public LinkedHashMap<K, E> copy() {
+
+        LinkedHashMap<K, E> result = new LinkedHashMap<K, E>(this.count > 0 ? this.count : 1, 1.0f);
+        try {
+            LinkedHashMapEntry<K, E> entry = this.head;
+            while (entry != null) {
+                result.put(entry.key, entry.value);
+                entry = entry.after;
+            }
+            return result;
+        } catch (RuntimeException | Error failure) {
+            free result;
+            throw failure;
+        }
+    }
     /** Returns whether this value is empty. */
 
     public boolean isEmpty() {

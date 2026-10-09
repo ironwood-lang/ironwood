@@ -1,0 +1,62 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.ast;
+
+import ironwood.compiler.port.SnapshotList;
+import ironwood.compiler.source.SourceSpan;
+
+/**
+ * Parser-only expression form normalized to a constructor invocation statement. It
+ * ports the Java frontend AST record {@code QualifiedSuperConstructorExpression}.
+ * Components keep the record's order; {@code Optional} components are nullable, and
+ * list components are frozen, independent copies that the node borrows for the
+ * invocation.
+ */
+public final class QualifiedSuperConstructorExpression implements Expression {
+
+    private final Expression enclosingInstance;
+    private final SnapshotList<TypeName> typeArguments;
+    private final SnapshotList<Expression> arguments;
+    private final SourceSpan span;
+
+    /** Creates the node from its components in record order. */
+    public QualifiedSuperConstructorExpression(Expression enclosingInstance, SnapshotList<TypeName> typeArguments,
+                                               SnapshotList<Expression> arguments, SourceSpan span) {
+
+        if (typeArguments == null) typeArguments = AstLists.NO_TYPE_NAMES;
+        if (arguments == null) throw new NullPointerException();
+        this.enclosingInstance = enclosingInstance;
+        this.typeArguments = typeArguments;
+        this.arguments = arguments;
+        this.span = span;
+    }
+
+    /** @return the {@code enclosingInstance} component */
+    public Expression enclosingInstance() {
+
+        return this.enclosingInstance;
+    }
+
+    /** @return the {@code typeArguments} component */
+    public SnapshotList<TypeName> typeArguments() {
+
+        return this.typeArguments;
+    }
+
+    /** @return the {@code arguments} component */
+    public SnapshotList<Expression> arguments() {
+
+        return this.arguments;
+    }
+
+    /** @return the {@code span} component */
+    @Override public SourceSpan span() {
+
+        return this.span;
+    }
+
+    @Override public ExpressionVariant expressionVariant() {
+
+        return ExpressionVariant.QUALIFIED_SUPER_CONSTRUCTOR_EXPRESSION;
+    }
+}

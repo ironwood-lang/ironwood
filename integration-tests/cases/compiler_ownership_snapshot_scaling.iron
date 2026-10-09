@@ -1,0 +1,268 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// Measures one seven-field snapshot save at the M0 pilot sizes. Each size fills
+// every live field with n entries over n identity nodes, then prints n, the
+// allocations made by save (snapshot storage plus transient key builders) and
+// the storage the snapshot retains. Freeing the snapshot must return exactly to
+// the pre-save live count. Payloads and the live state are invocation-lived.
+// Exit 42.
+import ironwood.ds.*;
+import ironwood.util.Iterator;
+import ironwood.compiler.port.*;
+
+final class StateValue {
+
+    private final int state;
+    private final String reason;
+    private final boolean detached;
+
+    StateValue(int state, String reason, boolean detached) {
+
+        this.state = state;
+        this.reason = reason;
+        this.detached = detached;
+    }
+
+    int state() {
+
+        return this.state;
+    }
+
+    String reason() {
+
+        return this.reason;
+    }
+
+    boolean detached() {
+
+        return this.detached;
+    }
+
+    @Override public boolean equals(Object value) {
+
+        if (!(value instanceof StateValue)) return false;
+        StateValue other = (StateValue) value;
+        if (this.state != other.state || this.detached != other.detached) return false;
+        return this.reason == null ? other.reason == null : other.reason != null && this.reason.equals(other.reason);
+    }
+
+    @Override public int hashCode() {
+
+        int text = this.reason == null ? 0 : this.reason.hashCode();
+        return (this.state * 31 + text) * 31 + (this.detached ? 1 : 0);
+    }
+}
+
+final class Node {
+
+    private final int id;
+    boolean present = true;
+    StateValue current;
+
+    Node(int id, StateValue initial) {
+
+        this.id = id;
+        this.current = initial;
+    }
+
+    int id() {
+
+        return this.id;
+    }
+}
+
+final class Slot {
+
+    private final Node container;
+    private final int index;
+
+    Slot(Node container, int index) {
+
+        this.container = container;
+        this.index = index;
+    }
+
+    Node container() {
+
+        return this.container;
+    }
+
+    int index() {
+
+        return this.index;
+    }
+
+    @Override public boolean equals(Object value) {
+
+        if (!(value instanceof Slot)) return false;
+        Slot other = (Slot) value;
+        return this.container == other.container && this.index == other.index;
+    }
+
+    @Override public int hashCode() {
+
+        return System.identityHashCode(this.container) * 31 + this.index;
+    }
+}
+
+// Live analyzer state, as fields of the native analyzer would hold it. The
+// fixture's static operations read these fields directly, so they are not
+// private owned fields; this object is retained to process exit and is the
+// fixture's one expected --unfreed=warn missing-free diagnostic.
+final class Live {
+
+    final ArrayList<Node> allocations = new ArrayList<Node>();
+    final LinkedHashMap<Slot, Node> slots = new LinkedHashMap<Slot, Node>(8);
+    final LinkedHashMap<String, Node> fields = new LinkedHashMap<String, Node>(8);
+    final IdentityHashMap<Node, SnapshotList<Node>> retained = new IdentityHashMap<Node, SnapshotList<Node>>(8);
+    final IdentityHashMap<Node, Node> pools = new IdentityHashMap<Node, Node>(8);
+    final IdentityHashSet<Node> exposed = new IdentityHashSet<Node>(8);
+    final IdentityHashSet<Node> live = new IdentityHashSet<Node>(8);
+    final IdentityHashSet<Node> blocked = new IdentityHashSet<Node>(8);
+}
+
+// The seven fields plus traversal lists. States are read by allocation-list
+// traversal and keyed lookup, so they need no list.
+final class OwnershipSnapshot {
+
+    private final SnapshotIdentityMap<Node, StateValue> states;
+    private final SnapshotLinkedMap<Slot, Node> slots;
+    private final SnapshotList<Slot> slotKeys;
+    private final SnapshotLinkedMap<String, Node> fields;
+    private final SnapshotList<String> fieldKeys;
+    private final SnapshotIdentityMap<Node, SnapshotList<Node>> retained;
+    private final SnapshotList<Node> retainedKeys;
+    private final SnapshotIdentityMap<Node, Node> pools;
+    private final SnapshotList<Node> poolKeys;
+    private final SnapshotList<Node> exposed;
+    private final SnapshotIdentitySet<Node> live;
+    private final SnapshotList<Node> liveItems;
+
+    OwnershipSnapshot(IdentityHashMap<Node, StateValue> states, Live state, ArrayList<Slot> slotKeys,
+                      ArrayList<String> fieldKeys, ArrayList<Node> retainedKeys, ArrayList<Node> poolKeys,
+                      ArrayList<Node> exposed, ArrayList<Node> liveItems) {
+
+        this.states = new SnapshotIdentityMap<Node, StateValue>(states);
+        this.slots = new SnapshotLinkedMap<Slot, Node>(state.slots);
+        this.slotKeys = new SnapshotList<Slot>(slotKeys);
+        this.fields = new SnapshotLinkedMap<String, Node>(state.fields);
+        this.fieldKeys = new SnapshotList<String>(fieldKeys);
+        this.retained = new SnapshotIdentityMap<Node, SnapshotList<Node>>(state.retained);
+        this.retainedKeys = new SnapshotList<Node>(retainedKeys);
+        this.pools = new SnapshotIdentityMap<Node, Node>(state.pools);
+        this.poolKeys = new SnapshotList<Node>(poolKeys);
+        this.exposed = new SnapshotList<Node>(exposed);
+        this.live = new SnapshotIdentitySet<Node>(state.live);
+        this.liveItems = new SnapshotList<Node>(liveItems);
+    }
+
+    StateValue state(Node node) { return this.states.get(node); }
+    Node slot(Slot slot) { return this.slots.get(slot); }
+    int slotCount() { return this.slotKeys.size(); }
+    Slot slotAt(int index) { return this.slotKeys.get(index); }
+    Node field(String name) { return this.fields.get(name); }
+    int fieldCount() { return this.fieldKeys.size(); }
+    String fieldAt(int index) { return this.fieldKeys.get(index); }
+    SnapshotList<Node> retained(Node owner) { return this.retained.get(owner); }
+    int retainedCount() { return this.retainedKeys.size(); }
+    Node retainedAt(int index) { return this.retainedKeys.get(index); }
+    Node pool(Node value) { return this.pools.get(value); }
+    int poolCount() { return this.poolKeys.size(); }
+    Node poolAt(int index) { return this.poolKeys.get(index); }
+    int exposedCount() { return this.exposed.size(); }
+    Node exposedAt(int index) { return this.exposed.get(index); }
+    boolean live(Node node) { return this.live.contains(node); }
+    int liveCount() { return this.liveItems.size(); }
+    Node liveAt(int index) { return this.liveItems.get(index); }
+
+    destructor {
+
+        free this.liveItems;
+        free this.live;
+        free this.exposed;
+        free this.poolKeys;
+        free this.pools;
+        free this.retainedKeys;
+        free this.retained;
+        free this.fieldKeys;
+        free this.fields;
+        free this.slotKeys;
+        free this.slots;
+        free this.states;
+    }
+}
+
+class Main {
+
+    // Builders retire on every exit, so a failed allocation leaks nothing.
+    static OwnershipSnapshot save(Live state) {
+
+        IdentityHashMap<Node, StateValue> states = new IdentityHashMap<Node, StateValue>(8);
+        defer free states;
+        for (int index = 0; index < state.allocations.size(); index++) {
+            Node node = state.allocations.get(index);
+            if (node.present) states.put(node, node.current);
+        }
+        ArrayList<Slot> slotKeys = new ArrayList<Slot>(8);
+        defer free slotKeys;
+        Iterator<Node> slotValues = state.slots.iterator();
+        while (slotValues.hasNext()) { slotValues.next(); slotKeys.add(state.slots.getCurrIteratorKey()); }
+        ArrayList<String> fieldKeys = new ArrayList<String>(8);
+        defer free fieldKeys;
+        Iterator<Node> fieldValues = state.fields.iterator();
+        while (fieldValues.hasNext()) { fieldValues.next(); fieldKeys.add(state.fields.getCurrIteratorKey()); }
+        ArrayList<Node> retainedKeys = new ArrayList<Node>(8);
+        defer free retainedKeys;
+        Iterator<SnapshotList<Node>> retainedValues = state.retained.iterator();
+        while (retainedValues.hasNext()) { retainedValues.next(); retainedKeys.add(state.retained.getCurrIteratorKey()); }
+        ArrayList<Node> poolKeys = new ArrayList<Node>(8);
+        defer free poolKeys;
+        Iterator<Node> poolValues = state.pools.iterator();
+        while (poolValues.hasNext()) { poolValues.next(); poolKeys.add(state.pools.getCurrIteratorKey()); }
+        ArrayList<Node> exposed = new ArrayList<Node>(8);
+        defer free exposed;
+        Iterator<Node> exposedItems = state.exposed.iterator();
+        while (exposedItems.hasNext()) exposed.add(exposedItems.next());
+        ArrayList<Node> liveItems = new ArrayList<Node>(8);
+        defer free liveItems;
+        Iterator<Node> liveValues = state.live.iterator();
+        while (liveValues.hasNext()) liveItems.add(liveValues.next());
+        return new OwnershipSnapshot(states, state, slotKeys, fieldKeys, retainedKeys, poolKeys, exposed, liveItems);
+    }
+
+    static boolean measure(int count, StateValue value) {
+
+        Live state = new Live();
+        ArrayList<Node> childItems = new ArrayList<Node>(1);
+        Node container = new Node(-1, value);
+        childItems.add(container);
+        SnapshotList<Node> child = new SnapshotList<Node>(childItems);
+        free childItems;
+        for (int index = 0; index < count; index++) {
+            Node node = new Node(index, value);
+            state.allocations.add(node);
+            state.slots.put(new Slot(container, index * 65537), node);
+            state.fields.put(Integer.toString(index), node);
+            state.retained.put(node, child);
+            state.pools.put(node, container);
+            state.exposed.add(node);
+            state.live.add(node);
+        }
+        long allocations = System.allocationCount();
+        long before = System.liveAllocationCount();
+        OwnershipSnapshot snapshot = save(state);
+        long made = System.allocationCount() - allocations;
+        long retained = System.liveAllocationCount() - before;
+        boolean complete = snapshot.slotCount() == count && snapshot.liveCount() == count;
+        free snapshot;
+        System.out.println(count + ":" + made + ":" + retained);
+        return complete && System.liveAllocationCount() == before;
+    }
+
+    public static int main(String[] args) {
+
+        StateValue value = new StateValue(0, "reason", false);
+        boolean passed = measure(8, value) && measure(32, value) && measure(128, value);
+        return passed ? 42 : 1;
+    }
+}

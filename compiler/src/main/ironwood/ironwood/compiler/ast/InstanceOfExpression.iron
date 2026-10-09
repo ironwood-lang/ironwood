@@ -1,0 +1,65 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.ast;
+
+import ironwood.compiler.source.SourceSpan;
+
+/**
+ * Port of the Java frontend AST record {@code InstanceOfExpression}. Components keep
+ * the record's order; {@code Optional} components are nullable, and list components
+ * are frozen, independent copies that the node borrows for the invocation.
+ */
+public final class InstanceOfExpression implements Expression {
+
+    private final Expression operand;
+    private final TypeName targetType;
+    private final TypePatternBinding binding;
+    private final SourceSpan operatorSpan;
+    private final SourceSpan span;
+
+    /** Creates the node from its components in record order. */
+    public InstanceOfExpression(Expression operand, TypeName targetType, TypePatternBinding binding,
+                                SourceSpan operatorSpan, SourceSpan span) {
+
+        this.operand = operand;
+        this.targetType = targetType;
+        this.binding = binding;
+        this.operatorSpan = operatorSpan;
+        this.span = span;
+    }
+
+    /** @return the {@code operand} component */
+    public Expression operand() {
+
+        return this.operand;
+    }
+
+    /** @return the {@code targetType} component */
+    public TypeName targetType() {
+
+        return this.targetType;
+    }
+
+    /** @return the {@code binding} component */
+    public TypePatternBinding binding() {
+
+        return this.binding;
+    }
+
+    /** @return the {@code operatorSpan} component */
+    public SourceSpan operatorSpan() {
+
+        return this.operatorSpan;
+    }
+
+    /** @return the {@code span} component */
+    @Override public SourceSpan span() {
+
+        return this.span;
+    }
+
+    @Override public ExpressionVariant expressionVariant() {
+
+        return ExpressionVariant.INSTANCE_OF_EXPRESSION;
+    }
+}

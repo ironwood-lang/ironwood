@@ -1,0 +1,101 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// Inject allocation failure into the M5.3 archive services. `program
+// <fixtures> <work>` reads the frozen DEFLATED class artifact, writes and
+// rereads it as a STORED artifact in <work>, reads the frozen archive and
+// each indexed payload, and creates an archive in <work> from the frozen
+// class directory and license, publishing through a staged file. Every
+// failure unwinds to the live-allocation baseline taken after the one-time
+// table initialization; the test also requires that no staged file remains
+// in <work>. Exit 42 on allocation failure with every check intact, 43 on
+// success, 1 on an unexpected I/O failure.
+import ironwood.compiler.port.Inflate;
+import ironwood.compiler.port.IronClassArtifact;
+import ironwood.compiler.port.IronJarArchive;
+import ironwood.compiler.port.TextList;
+import ironwood.compiler.port.ZipWriter;
+import ironwood.io.IOException;
+import ironwood.nio.file.Path;
+import ironwood.util.zip.CRC32;
+
+class Main {
+
+    static Path child(String directory, String name) {
+
+        Path base = Path.of(directory);
+        defer free base;
+        return base.resolve(name);
+    }
+
+    static void classes(String fixtures, String work, Inflate inflate) throws IOException {
+
+        Path frozen = child(fixtures, "classes/p/A.ironclass");
+        defer free frozen;
+        IronClassArtifact artifact = IronClassArtifact.read(frozen, inflate);
+        defer free artifact;
+        Path stored = child(work, "stored/p/A.ironclass");
+        defer free stored;
+        IronClassArtifact.write(stored, "p.A", false, artifact.entryPoint(), "A.iron", artifact.source());
+        IronClassArtifact again = IronClassArtifact.read(stored, inflate);
+        defer free again;
+        if (!again.source().equals(artifact.source()) || !again.declares("p.A")) throw new IllegalStateException();
+    }
+
+    static void archives(String fixtures, String work, Inflate inflate) throws IOException {
+
+        Path frozen = child(fixtures, "lib.ironjar");
+        defer free frozen;
+        IronJarArchive archive = new IronJarArchive(frozen, inflate);
+        defer free archive;
+        for (int type = 0; type < archive.typeCount(); type++) {
+            String name = archive.type(type);
+            defer free name;
+            IronClassArtifact payload = archive.payload(name, inflate);
+            defer free payload;
+            if (payload.source().isEmpty()) throw new IllegalStateException();
+        }
+        Path classDirectory = child(fixtures, "classes");
+        defer free classDirectory;
+        Path license = child(fixtures, "LICENSE.txt");
+        defer free license;
+        TextList inputs = new TextList();
+        defer free inputs;
+        inputs.add(classDirectory.toString());
+        TextList licenses = new TextList();
+        defer free licenses;
+        licenses.add(license.toString());
+        Path output = child(work, "created.ironjar");
+        defer free output;
+        IronJarArchive.create(output, inputs, licenses, inflate);
+    }
+
+    public static int main(String[] args) {
+
+        // The decoder's, writer's and checksum's first uses initialize their
+        // process-lived tables; take the baseline after them.
+        try {
+            Inflate warmInflate = new Inflate();
+            free warmInflate;
+            ZipWriter warmWriter = new ZipWriter();
+            free warmWriter;
+            CRC32 warmCrc = new CRC32();
+            free warmCrc;
+        } catch (OutOfMemoryError failure) {
+            return 42;
+        }
+        long baseline = System.liveAllocationCount();
+        boolean failed = false;
+        try {
+            Inflate inflate = new Inflate();
+            defer free inflate;
+            classes(args[0], args[1], inflate);
+            archives(args[0], args[1], inflate);
+        } catch (OutOfMemoryError failure) {
+            failed = true;
+        } catch (IOException unexpected) {
+            return 1;
+        }
+        if (System.liveAllocationCount() != baseline) return 2;
+        return failed ? 42 : 43;
+    }
+}

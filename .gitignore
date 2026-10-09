@@ -6,5 +6,7 @@
 target/
 *.class
 *.ironclass
+# The frozen Java-written class fixtures of the M5.1 archive contract.
+!docs/self-hosting/m5/archive-evidence/fixtures/classes/**/*.ironclass
 *.log
 .DS_Store

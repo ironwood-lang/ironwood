@@ -1,0 +1,58 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.ast;
+
+import ironwood.compiler.port.SnapshotList;
+import ironwood.compiler.source.SourceSpan;
+
+/**
+ * Port of the Java frontend AST record {@code TryStatement}. Components keep the
+ * record's order; {@code Optional} components are nullable, and list components are
+ * frozen, independent copies that the node borrows for the invocation.
+ */
+public final class TryStatement implements Statement {
+
+    private final Block body;
+    private final SnapshotList<CatchClause> catches;
+    private final Block finallyBlock;
+    private final SourceSpan span;
+
+    /** Creates the node from its components in record order. */
+    public TryStatement(Block body, SnapshotList<CatchClause> catches, Block finallyBlock, SourceSpan span) {
+
+        if (catches == null) throw new NullPointerException();
+        this.body = body;
+        this.catches = catches;
+        this.finallyBlock = finallyBlock;
+        this.span = span;
+    }
+
+    /** @return the {@code body} component */
+    public Block body() {
+
+        return this.body;
+    }
+
+    /** @return the {@code catches} component */
+    public SnapshotList<CatchClause> catches() {
+
+        return this.catches;
+    }
+
+    /** @return the {@code finallyBlock} component */
+    public Block finallyBlock() {
+
+        return this.finallyBlock;
+    }
+
+    /** @return the {@code span} component */
+    @Override public SourceSpan span() {
+
+        return this.span;
+    }
+
+    @Override public StatementVariant statementVariant() {
+
+        return StatementVariant.TRY_STATEMENT;
+    }
+}

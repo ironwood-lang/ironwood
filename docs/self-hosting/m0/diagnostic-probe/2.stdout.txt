@@ -1,0 +1,1 @@
+PASS: 27 original diagnostic contract checks

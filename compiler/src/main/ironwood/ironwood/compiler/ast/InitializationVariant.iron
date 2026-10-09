@@ -1,0 +1,14 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.ast;
+
+/**
+ * The closed variants of {@link InstanceInitialization} and {@link StaticInitialization}, one constant per permitted
+ * Java record. Dispatch uses a {@code switch} expression without {@code default},
+ * so an added variant or a missing treatment fails compilation (D260).
+ */
+public enum InitializationVariant {
+
+    BLOCK,
+    FIELD_DECLARATION
+}

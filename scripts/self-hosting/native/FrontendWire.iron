@@ -1,0 +1,1952 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+import ironwood.compiler.ast.*;
+import ironwood.compiler.diagnostic.Diagnostic;
+import ironwood.compiler.diagnostic.DiagnosticNote;
+import ironwood.compiler.lexer.Token;
+import ironwood.compiler.port.SnapshotInts;
+import ironwood.compiler.port.SnapshotList;
+import ironwood.compiler.source.SourceFile;
+import ironwood.compiler.source.SourcePosition;
+import ironwood.compiler.source.SourceSpan;
+
+/**
+ * Test-only structural wire writer for the native frontend pilot. It emits the
+ * same bytes as ReferenceCapture's reflective writer for tokens, diagnostics
+ * and the AST: records as objects with a "node" name and components in record
+ * order, Optional components as {"optional":...}, lists as arrays, int as
+ * Integer payloads, enums with their declaring type, and source files as the
+ * file name plus the UTF-8 SHA-256 of the input. Native code computes no
+ * digest: the harness supplies the input's hash and this writer prints it.
+ * While writing, the writer reports every object it reaches to the census,
+ * which counts each distinct allocation once.
+ * Every AST variant is dispatched by an exhaustive switch over its variant
+ * enum, so an untreated variant fails compilation (D260).
+ */
+final class FrontendWire {
+
+    private final StringBuilder out = new StringBuilder(65536);
+    private final SourceFile source;
+    private final String sourceHash;
+    private final FrontendCensus census;
+
+    FrontendWire(SourceFile source, String sourceHash, FrontendCensus census) {
+
+        this.source = source;
+        this.sourceHash = sourceHash;
+        this.census = census;
+    }
+
+    /** @return the accumulated text, borrowed until the next reset */
+    StringBuilder text() {
+
+        return this.out;
+    }
+
+    void reset() {
+
+        this.out.setLength(0);
+    }
+
+    void writeTokens(SnapshotList<Token> tokens) {
+
+        this.census.count(tokens, this.census.listCost());
+        this.openList();
+        for (int index = 0; index < tokens.size(); index++) {
+            this.element(index);
+            this.writeToken(tokens.get(index));
+        }
+        this.closeList();
+        this.out.append('\n');
+    }
+
+    void writeDiagnostics(SnapshotList<Diagnostic> diagnostics) {
+
+        this.census.count(diagnostics, this.census.listCost());
+        this.openList();
+        for (int index = 0; index < diagnostics.size(); index++) {
+            this.element(index);
+            this.writeDiagnostic(diagnostics.get(index));
+        }
+        this.closeList();
+        this.out.append('\n');
+    }
+
+    void writeUnit(CompilationUnit unit) {
+
+        this.openOptional();
+        this.writeCompilationUnit(unit);
+        this.closeOptional();
+        this.out.append('\n');
+    }
+
+    private boolean writeToken(Token value) {
+
+        if (value == null) return this.writeNull();
+        this.census.count(value, 1);
+        this.open("Token");
+        this.field("kind");
+        this.writeEnum("TokenKind", value.kind().name());
+        this.field("lexeme");
+        this.writeString(value.lexeme());
+        this.field("span");
+        this.writeSpan(value.span());
+        return this.close();
+    }
+
+    private boolean writeDiagnostic(Diagnostic value) {
+
+        if (value == null) return this.writeNull();
+        this.census.count(value, 1);
+        this.open("Diagnostic");
+        this.field("message");
+        this.writeString(value.message());
+        this.field("source");
+        this.writeSource(value.source());
+        this.field("span");
+        this.writeSpan(value.span());
+        this.field("severity");
+        this.writeEnum("Severity", value.severity().name());
+        this.field("notes");
+        SnapshotList<DiagnosticNote> notes = value.notes();
+        this.census.count(notes, this.census.listCost());
+        this.openList();
+        for (int index = 0; index < notes.size(); index++) {
+            this.element(index);
+            this.writeNote(notes.get(index));
+        }
+        this.closeList();
+        return this.close();
+    }
+
+    private boolean writeNote(DiagnosticNote value) {
+
+        if (value == null) return this.writeNull();
+        this.census.count(value, 1);
+        this.open("DiagnosticNote");
+        this.field("message");
+        this.writeString(value.message());
+        this.field("source");
+        this.writeSource(value.source());
+        this.field("span");
+        this.writeSpan(value.span());
+        return this.close();
+    }
+
+    private boolean writeSpan(SourceSpan value) {
+
+        if (value == null) return this.writeNull();
+        this.census.count(value, 1);
+        this.open("SourceSpan");
+        this.field("start");
+        this.writePosition(value.start());
+        this.field("end");
+        this.writePosition(value.end());
+        return this.close();
+    }
+
+    private boolean writePosition(SourcePosition value) {
+
+        if (value == null) return this.writeNull();
+        this.census.count(value, 1);
+        this.open("SourcePosition");
+        this.field("offset");
+        this.writeInteger(value.offset());
+        this.field("line");
+        this.writeInteger(value.line());
+        this.field("column");
+        this.writeInteger(value.column());
+        return this.close();
+    }
+
+    private boolean writeSource(SourceFile value) {
+
+        if (value == null) return this.writeNull();
+        if (value != this.source) throw new IllegalStateException("output refers to a different source file");
+        // Source files and their names exist before the measured phase.
+        this.out.append("{\"source\":");
+        this.writeText(value.fileName());
+        this.out.append(",\"sha256_utf8\":\"");
+        this.out.append(this.sourceHash);
+        this.out.append("\"}");
+        return true;
+    }
+
+    private boolean writeCounts(SnapshotInts values) {
+
+        if (values == null) return this.writeNull();
+        this.census.count(values, this.census.intsCost());
+        this.openList();
+        for (int index = 0; index < values.size(); index++) {
+            this.element(index);
+            this.writeInteger(values.get(index));
+        }
+        return this.closeList();
+    }
+
+    private boolean writeNull() {
+
+        this.out.append("null");
+        return true;
+    }
+
+    private boolean writeBoolean(boolean value) {
+
+        this.out.append(value ? "true" : "false");
+        return true;
+    }
+
+    private boolean writeInteger(int value) {
+
+        this.out.append("{\"number_kind\":\"Integer\",\"payload\":\"");
+        this.out.append(value);
+        this.out.append("\"}");
+        return true;
+    }
+
+    private boolean writeEnum(String declaringType, String name) {
+
+        if (name == null) return this.writeNull();
+        this.out.append("{\"enum\":\"");
+        this.out.append(declaringType);
+        this.out.append("\",\"name\":\"");
+        this.out.append(name);
+        this.out.append("\"}");
+        return true;
+    }
+
+    private boolean writeString(String value) {
+
+        if (value == null) return this.writeNull();
+        this.census.count(value, this.census.stringCost());
+        return this.writeText(value);
+    }
+
+    // Java's quote: escape quote and backslash, keep printable ASCII, and
+    // write every other UTF-16 unit as a lowercase four-digit \\u escape.
+    private boolean writeText(String value) {
+
+        if (value == null) return this.writeNull();
+        this.out.append('"');
+        for (int index = 0; index < value.length(); index++) {
+            char current = value.charAt(index);
+            if (current == '"' || current == '\\') {
+                this.out.append('\\');
+                this.out.append(current);
+            } else if (current >= 32 && current <= 126) {
+                this.out.append(current);
+            } else {
+                this.out.append("\\u");
+                for (int shift = 12; shift >= 0; shift -= 4) {
+                    this.out.append(Character.forDigit((current >> shift) & 15, 16));
+                }
+            }
+        }
+        this.out.append('"');
+        return true;
+    }
+
+    private void open(String node) {
+
+        this.out.append("{\"node\":\"");
+        this.out.append(node);
+        this.out.append('"');
+    }
+
+    private void field(String name) {
+
+        this.out.append(",\"");
+        this.out.append(name);
+        this.out.append("\":");
+    }
+
+    private boolean close() {
+
+        this.out.append('}');
+        return true;
+    }
+
+    private void openList() {
+
+        this.out.append('[');
+    }
+
+    private void element(int index) {
+
+        if (index > 0) this.out.append(',');
+    }
+
+    private boolean closeList() {
+
+        this.out.append(']');
+        return true;
+    }
+
+    private void openOptional() {
+
+        this.out.append("{\"optional\":");
+    }
+
+    private boolean closeOptional() {
+
+        this.out.append('}');
+        return true;
+    }
+
+    private boolean writeAnonymousClassBody(AnonymousClassBody value) {
+
+        if (value == null) return this.writeNull();
+        this.census.count(value, 1);
+        this.open("AnonymousClassBody");
+        this.field("fields");
+        this.writeFieldDeclarationList(value.fields());
+        this.field("instanceInitializations");
+        this.writeInstanceInitializationList(value.instanceInitializations());
+        this.field("staticInitializations");
+        this.writeStaticInitializationList(value.staticInitializations());
+        this.field("destructor");
+        this.writeOptionalDestructorDeclaration(value.destructorDeclaration());
+        this.field("methods");
+        this.writeMethodDeclarationList(value.methods());
+        this.field("memberTypes");
+        this.writeTypeDeclarationList(value.memberTypes());
+        this.field("span");
+        this.writeSpan(value.span());
+        return this.close();
+    }
+
+    private boolean writeArrayAccessExpression(ArrayAccessExpression value) {
+
+        if (value == null) return this.writeNull();
+        this.census.count(value, 1);
+        this.open("ArrayAccessExpression");
+        this.field("array");
+        this.writeExpression(value.array());
+        this.field("index");
+        this.writeExpression(value.index());
+        this.field("span");
+        this.writeSpan(value.span());
+        return this.close();
+    }
+
+    private boolean writeArrayCreationExpression(ArrayCreationExpression value) {
+
+        if (value == null) return this.writeNull();
+        this.census.count(value, 1);
+        this.open("ArrayCreationExpression");
+        this.field("elementType");
+        this.writeTypeName(value.elementType());
+        this.field("length");
+        this.writeOptionalExpression(value.length());
+        this.field("initializer");
+        this.writeOptionalArrayInitializerExpression(value.initializer());
+        this.field("span");
+        this.writeSpan(value.span());
+        return this.close();
+    }
+
+    private boolean writeArrayInitializerExpression(ArrayInitializerExpression value) {
+
+        if (value == null) return this.writeNull();
+        this.census.count(value, 1);
+        this.open("ArrayInitializerExpression");
+        this.field("elements");
+        this.writeExpressionList(value.elements());
+        this.field("span");
+        this.writeSpan(value.span());
+        return this.close();
+    }
+
+    private boolean writeAssignmentExpression(AssignmentExpression value) {
+
+        if (value == null) return this.writeNull();
+        this.census.count(value, 1);
+        this.open("AssignmentExpression");
+        this.field("target");
+        this.writeExpression(value.target());
+        this.field("operator");
+        this.writeEnum("AssignmentOperator", value.operator() == null ? null : value.operator().name());
+        this.field("operatorSpan");
+        this.writeSpan(value.operatorSpan());
+        this.field("value");
+        this.writeExpression(value.value());
+        this.field("span");
+        this.writeSpan(value.span());
+        return this.close();
+    }
+
+    private boolean writeAssignmentStatement(AssignmentStatement value) {
+
+        if (value == null) return this.writeNull();
+        this.census.count(value, 1);
+        this.open("AssignmentStatement");
+        this.field("target");
+        this.writeExpression(value.target());
+        this.field("equalsSpan");
+        this.writeSpan(value.equalsSpan());
+        this.field("value");
+        this.writeExpression(value.value());
+        this.field("span");
+        this.writeSpan(value.span());
+        return this.close();
+    }
+
+    private boolean writeBinaryExpression(BinaryExpression value) {
+
+        if (value == null) return this.writeNull();
+        this.census.count(value, 1);
+        this.open("BinaryExpression");
+        this.field("left");
+        this.writeExpression(value.left());
+        this.field("operator");
+        this.writeEnum("BinaryOperator", value.operator() == null ? null : value.operator().name());
+        this.field("right");
+        this.writeExpression(value.right());
+        this.field("operatorSpan");
+        this.writeSpan(value.operatorSpan());
+        this.field("span");
+        this.writeSpan(value.span());
+        return this.close();
+    }
+
+    private boolean writeBlock(Block value) {
+
+        if (value == null) return this.writeNull();
+        this.census.count(value, 1);
+        this.open("Block");
+        this.field("statements");
+        this.writeStatementList(value.statements());
+        this.field("span");
+        this.writeSpan(value.span());
+        return this.close();
+    }
+
+    private boolean writeBooleanLiteralExpression(BooleanLiteralExpression value) {
+
+        if (value == null) return this.writeNull();
+        this.census.count(value, 1);
+        this.open("BooleanLiteralExpression");
+        this.field("value");
+        this.writeBoolean(value.value());
+        this.field("span");
+        this.writeSpan(value.span());
+        return this.close();
+    }
+
+    private boolean writeBreakStatement(BreakStatement value) {
+
+        if (value == null) return this.writeNull();
+        this.census.count(value, 1);
+        this.open("BreakStatement");
+        this.field("label");
+        this.writeOptionalString(value.label());
+        this.field("labelSpan");
+        this.writeOptionalSourceSpan(value.labelSpan());
+        this.field("span");
+        this.writeSpan(value.span());
+        return this.close();
+    }
+
+    private boolean writeCallExpression(CallExpression value) {
+
+        if (value == null) return this.writeNull();
+        this.census.count(value, 1);
+        this.open("CallExpression");
+        this.field("receiver");
+        this.writeOptionalExpression(value.receiver());
+        this.field("typeArguments");
+        this.writeTypeNameList(value.typeArguments());
+        this.field("methodName");
+        this.writeString(value.methodName());
+        this.field("methodNameSpan");
+        this.writeSpan(value.methodNameSpan());
+        this.field("arguments");
+        this.writeExpressionList(value.arguments());
+        this.field("span");
+        this.writeSpan(value.span());
+        return this.close();
+    }
+
+    private boolean writeCastExpression(CastExpression value) {
+
+        if (value == null) return this.writeNull();
+        this.census.count(value, 1);
+        this.open("CastExpression");
+        this.field("targetType");
+        this.writeTypeName(value.targetType());
+        this.field("operand");
+        this.writeExpression(value.operand());
+        this.field("span");
+        this.writeSpan(value.span());
+        return this.close();
+    }
+
+    private boolean writeCatchClause(CatchClause value) {
+
+        if (value == null) return this.writeNull();
+        this.census.count(value, 1);
+        this.open("CatchClause");
+        this.field("types");
+        this.writeTypeNameList(value.types());
+        this.field("isFinal");
+        this.writeBoolean(value.isFinal());
+        this.field("variableName");
+        this.writeString(value.variableName());
+        this.field("variableNameSpan");
+        this.writeSpan(value.variableNameSpan());
+        this.field("body");
+        this.writeBlock(value.body());
+        this.field("span");
+        this.writeSpan(value.span());
+        return this.close();
+    }
+
+    private boolean writeCharacterLiteralExpression(CharacterLiteralExpression value) {
+
+        if (value == null) return this.writeNull();
+        this.census.count(value, 1);
+        this.open("CharacterLiteralExpression");
+        this.field("value");
+        this.writeInteger(value.value());
+        this.field("span");
+        this.writeSpan(value.span());
+        return this.close();
+    }
+
+    private boolean writeClassDeclaration(ClassDeclaration value) {
+
+        if (value == null) return this.writeNull();
+        this.census.count(value, 1);
+        this.open("ClassDeclaration");
+        this.field("accessModifier");
+        this.writeEnum("AccessModifier", value.accessModifier() == null ? null : value.accessModifier().name());
+        this.field("isStatic");
+        this.writeBoolean(value.isStatic());
+        this.field("isAbstract");
+        this.writeBoolean(value.isAbstract());
+        this.field("isFinal");
+        this.writeBoolean(value.isFinal());
+        this.field("name");
+        this.writeString(value.name());
+        this.field("nameSpan");
+        this.writeSpan(value.nameSpan());
+        this.field("typeParameters");
+        this.writeTypeParameterList(value.typeParameters());
+        this.field("superclass");
+        this.writeOptionalTypeReference(value.superclass());
+        this.field("implementedInterfaces");
+        this.writeTypeReferenceList(value.implementedInterfaces());
+        this.field("fields");
+        this.writeFieldDeclarationList(value.fields());
+        this.field("instanceInitializations");
+        this.writeInstanceInitializationList(value.instanceInitializations());
+        this.field("staticInitializations");
+        this.writeStaticInitializationList(value.staticInitializations());
+        this.field("constructors");
+        this.writeConstructorDeclarationList(value.constructors());
+        this.field("destructor");
+        this.writeOptionalDestructorDeclaration(value.destructorDeclaration());
+        this.field("methods");
+        this.writeMethodDeclarationList(value.methods());
+        this.field("memberTypes");
+        this.writeTypeDeclarationList(value.memberTypes());
+        this.field("enumType");
+        this.writeBoolean(value.enumType());
+        this.field("enumConstants");
+        this.writeEnumConstantList(value.enumConstants());
+        this.field("span");
+        this.writeSpan(value.span());
+        return this.close();
+    }
+
+    private boolean writeCompilationUnit(CompilationUnit value) {
+
+        if (value == null) return this.writeNull();
+        this.census.count(value, 1);
+        this.open("CompilationUnit");
+        this.field("source");
+        this.writeSource(value.source());
+        this.field("packageDeclaration");
+        this.writeOptionalPackageDeclaration(value.packageDeclaration());
+        this.field("imports");
+        this.writeImportDeclarationList(value.imports());
+        this.field("declarations");
+        this.writeTypeDeclarationList(value.declarations());
+        this.field("span");
+        this.writeSpan(value.span());
+        return this.close();
+    }
+
+    private boolean writeConditionalExpression(ConditionalExpression value) {
+
+        if (value == null) return this.writeNull();
+        this.census.count(value, 1);
+        this.open("ConditionalExpression");
+        this.field("condition");
+        this.writeExpression(value.condition());
+        this.field("whenTrue");
+        this.writeExpression(value.whenTrue());
+        this.field("whenFalse");
+        this.writeExpression(value.whenFalse());
+        this.field("questionSpan");
+        this.writeSpan(value.questionSpan());
+        this.field("span");
+        this.writeSpan(value.span());
+        return this.close();
+    }
+
+    private boolean writeConstructorDeclaration(ConstructorDeclaration value) {
+
+        if (value == null) return this.writeNull();
+        this.census.count(value, 1);
+        this.open("ConstructorDeclaration");
+        this.field("accessModifier");
+        this.writeEnum("AccessModifier", value.accessModifier() == null ? null : value.accessModifier().name());
+        this.field("typeParameters");
+        this.writeTypeParameterList(value.typeParameters());
+        this.field("name");
+        this.writeString(value.name());
+        this.field("nameSpan");
+        this.writeSpan(value.nameSpan());
+        this.field("parameters");
+        this.writeParameterList(value.parameters());
+        this.field("thrownTypes");
+        this.writeTypeNameList(value.thrownTypes());
+        this.field("superInvocation");
+        this.writeOptionalSuperConstructorInvocation(value.superInvocation());
+        this.field("thisInvocation");
+        this.writeOptionalThisConstructorInvocation(value.thisInvocation());
+        this.field("body");
+        this.writeBlock(value.body());
+        this.field("span");
+        this.writeSpan(value.span());
+        return this.close();
+    }
+
+    private boolean writeContinueStatement(ContinueStatement value) {
+
+        if (value == null) return this.writeNull();
+        this.census.count(value, 1);
+        this.open("ContinueStatement");
+        this.field("label");
+        this.writeOptionalString(value.label());
+        this.field("labelSpan");
+        this.writeOptionalSourceSpan(value.labelSpan());
+        this.field("span");
+        this.writeSpan(value.span());
+        return this.close();
+    }
+
+    private boolean writeDeferStatement(DeferStatement value) {
+
+        if (value == null) return this.writeNull();
+        this.census.count(value, 1);
+        this.open("DeferStatement");
+        this.field("call");
+        this.writeCallExpression(value.call());
+        this.field("span");
+        this.writeSpan(value.span());
+        return this.close();
+    }
+
+    private boolean writeDeferredFreeStatement(DeferredFreeStatement value) {
+
+        if (value == null) return this.writeNull();
+        this.census.count(value, 1);
+        this.open("DeferredFreeStatement");
+        this.field("target");
+        this.writeNameExpression(value.target());
+        this.field("span");
+        this.writeSpan(value.span());
+        return this.close();
+    }
+
+    private boolean writeDestructorDeclaration(DestructorDeclaration value) {
+
+        if (value == null) return this.writeNull();
+        this.census.count(value, 1);
+        this.open("DestructorDeclaration");
+        this.field("body");
+        this.writeBlock(value.body());
+        this.field("keywordSpan");
+        this.writeSpan(value.keywordSpan());
+        this.field("span");
+        this.writeSpan(value.span());
+        return this.close();
+    }
+
+    private boolean writeDoWhileStatement(DoWhileStatement value) {
+
+        if (value == null) return this.writeNull();
+        this.census.count(value, 1);
+        this.open("DoWhileStatement");
+        this.field("body");
+        this.writeStatement(value.body());
+        this.field("condition");
+        this.writeExpression(value.condition());
+        this.field("span");
+        this.writeSpan(value.span());
+        return this.close();
+    }
+
+    private boolean writeEmptyStatement(EmptyStatement value) {
+
+        if (value == null) return this.writeNull();
+        this.census.count(value, 1);
+        this.open("EmptyStatement");
+        this.field("span");
+        this.writeSpan(value.span());
+        return this.close();
+    }
+
+    private boolean writeEnhancedForStatement(EnhancedForStatement value) {
+
+        if (value == null) return this.writeNull();
+        this.census.count(value, 1);
+        this.open("EnhancedForStatement");
+        this.field("variableType");
+        this.writeTypeName(value.variableType());
+        this.field("variableFinal");
+        this.writeBoolean(value.variableFinal());
+        this.field("variableName");
+        this.writeString(value.variableName());
+        this.field("variableNameSpan");
+        this.writeSpan(value.variableNameSpan());
+        this.field("iterable");
+        this.writeExpression(value.iterable());
+        this.field("body");
+        this.writeStatement(value.body());
+        this.field("span");
+        this.writeSpan(value.span());
+        return this.close();
+    }
+
+    private boolean writeEnumConstant(EnumConstant value) {
+
+        if (value == null) return this.writeNull();
+        this.census.count(value, 1);
+        this.open("EnumConstant");
+        this.field("name");
+        this.writeString(value.name());
+        this.field("nameSpan");
+        this.writeSpan(value.nameSpan());
+        this.field("arguments");
+        this.writeExpressionList(value.arguments());
+        this.field("classBody");
+        this.writeOptionalAnonymousClassBody(value.classBody());
+        this.field("span");
+        this.writeSpan(value.span());
+        return this.close();
+    }
+
+    private boolean writeEnumConstantInitialization(EnumConstantInitialization value) {
+
+        if (value == null) return this.writeNull();
+        this.census.count(value, 1);
+        this.open("EnumConstantInitialization");
+        this.field("constant");
+        this.writeEnumConstant(value.constant());
+        this.field("span");
+        this.writeSpan(value.span());
+        return this.close();
+    }
+
+    private boolean writeExpressionStatement(ExpressionStatement value) {
+
+        if (value == null) return this.writeNull();
+        this.census.count(value, 1);
+        this.open("ExpressionStatement");
+        this.field("expression");
+        this.writeExpression(value.expression());
+        this.field("span");
+        this.writeSpan(value.span());
+        return this.close();
+    }
+
+    private boolean writeFieldAccessExpression(FieldAccessExpression value) {
+
+        if (value == null) return this.writeNull();
+        this.census.count(value, 1);
+        this.open("FieldAccessExpression");
+        this.field("receiver");
+        this.writeExpression(value.receiver());
+        this.field("fieldName");
+        this.writeString(value.fieldName());
+        this.field("fieldNameSpan");
+        this.writeSpan(value.fieldNameSpan());
+        this.field("span");
+        this.writeSpan(value.span());
+        return this.close();
+    }
+
+    private boolean writeFieldDeclaration(FieldDeclaration value) {
+
+        if (value == null) return this.writeNull();
+        this.census.count(value, 1);
+        this.open("FieldDeclaration");
+        this.field("accessModifier");
+        this.writeEnum("AccessModifier", value.accessModifier() == null ? null : value.accessModifier().name());
+        this.field("isStatic");
+        this.writeBoolean(value.isStatic());
+        this.field("isFinal");
+        this.writeBoolean(value.isFinal());
+        this.field("type");
+        this.writeTypeName(value.type());
+        this.field("name");
+        this.writeString(value.name());
+        this.field("nameSpan");
+        this.writeSpan(value.nameSpan());
+        this.field("initializer");
+        this.writeOptionalExpression(value.initializer());
+        this.field("span");
+        this.writeSpan(value.span());
+        return this.close();
+    }
+
+    private boolean writeFloatingLiteralExpression(FloatingLiteralExpression value) {
+
+        if (value == null) return this.writeNull();
+        this.census.count(value, 1);
+        this.open("FloatingLiteralExpression");
+        this.field("text");
+        this.writeString(value.text());
+        this.field("span");
+        this.writeSpan(value.span());
+        return this.close();
+    }
+
+    private boolean writeForStatement(ForStatement value) {
+
+        if (value == null) return this.writeNull();
+        this.census.count(value, 1);
+        this.open("ForStatement");
+        this.field("initializer");
+        this.writeOptionalStatement(value.initializer());
+        this.field("condition");
+        this.writeOptionalExpression(value.condition());
+        this.field("updates");
+        this.writeExpressionList(value.updates());
+        this.field("body");
+        this.writeStatement(value.body());
+        this.field("span");
+        this.writeSpan(value.span());
+        return this.close();
+    }
+
+    private boolean writeFreeStatement(FreeStatement value) {
+
+        if (value == null) return this.writeNull();
+        this.census.count(value, 1);
+        this.open("FreeStatement");
+        this.field("value");
+        this.writeExpression(value.value());
+        this.field("span");
+        this.writeSpan(value.span());
+        return this.close();
+    }
+
+    private boolean writeIfStatement(IfStatement value) {
+
+        if (value == null) return this.writeNull();
+        this.census.count(value, 1);
+        this.open("IfStatement");
+        this.field("condition");
+        this.writeExpression(value.condition());
+        this.field("thenBranch");
+        this.writeStatement(value.thenBranch());
+        this.field("elseBranch");
+        this.writeOptionalStatement(value.elseBranch());
+        this.field("span");
+        this.writeSpan(value.span());
+        return this.close();
+    }
+
+    private boolean writeImportDeclaration(ImportDeclaration value) {
+
+        if (value == null) return this.writeNull();
+        this.census.count(value, 1);
+        this.open("ImportDeclaration");
+        this.field("name");
+        this.writeString(value.name());
+        this.field("wildcard");
+        this.writeBoolean(value.wildcard());
+        this.field("staticImport");
+        this.writeBoolean(value.staticImport());
+        this.field("nameSpan");
+        this.writeSpan(value.nameSpan());
+        this.field("span");
+        this.writeSpan(value.span());
+        return this.close();
+    }
+
+    private boolean writeInstanceOfExpression(InstanceOfExpression value) {
+
+        if (value == null) return this.writeNull();
+        this.census.count(value, 1);
+        this.open("InstanceOfExpression");
+        this.field("operand");
+        this.writeExpression(value.operand());
+        this.field("targetType");
+        this.writeTypeName(value.targetType());
+        this.field("binding");
+        this.writeOptionalTypePatternBinding(value.binding());
+        this.field("operatorSpan");
+        this.writeSpan(value.operatorSpan());
+        this.field("span");
+        this.writeSpan(value.span());
+        return this.close();
+    }
+
+    private boolean writeIntegerLiteralExpression(IntegerLiteralExpression value) {
+
+        if (value == null) return this.writeNull();
+        this.census.count(value, 1);
+        this.open("IntegerLiteralExpression");
+        this.field("text");
+        this.writeString(value.text());
+        this.field("span");
+        this.writeSpan(value.span());
+        return this.close();
+    }
+
+    private boolean writeInterfaceDeclaration(InterfaceDeclaration value) {
+
+        if (value == null) return this.writeNull();
+        this.census.count(value, 1);
+        this.open("InterfaceDeclaration");
+        this.field("accessModifier");
+        this.writeEnum("AccessModifier", value.accessModifier() == null ? null : value.accessModifier().name());
+        this.field("isStatic");
+        this.writeBoolean(value.isStatic());
+        this.field("name");
+        this.writeString(value.name());
+        this.field("nameSpan");
+        this.writeSpan(value.nameSpan());
+        this.field("typeParameters");
+        this.writeTypeParameterList(value.typeParameters());
+        this.field("extendedInterfaces");
+        this.writeTypeReferenceList(value.extendedInterfaces());
+        this.field("fields");
+        this.writeFieldDeclarationList(value.fields());
+        this.field("methods");
+        this.writeInterfaceMethodDeclarationList(value.methods());
+        this.field("memberTypes");
+        this.writeTypeDeclarationList(value.memberTypes());
+        this.field("span");
+        this.writeSpan(value.span());
+        return this.close();
+    }
+
+    private boolean writeInterfaceMethodDeclaration(InterfaceMethodDeclaration value) {
+
+        if (value == null) return this.writeNull();
+        this.census.count(value, 1);
+        this.open("InterfaceMethodDeclaration");
+        this.field("accessModifier");
+        this.writeEnum("AccessModifier", value.accessModifier() == null ? null : value.accessModifier().name());
+        this.field("kind");
+        this.writeEnum("InterfaceMethodKind", value.kind() == null ? null : value.kind().name());
+        this.field("hasOverrideDirective");
+        this.writeBoolean(value.hasOverrideDirective());
+        this.field("typeParameters");
+        this.writeTypeParameterList(value.typeParameters());
+        this.field("returnType");
+        this.writeTypeName(value.returnType());
+        this.field("name");
+        this.writeString(value.name());
+        this.field("nameSpan");
+        this.writeSpan(value.nameSpan());
+        this.field("parameters");
+        this.writeParameterList(value.parameters());
+        this.field("thrownTypes");
+        this.writeTypeNameList(value.thrownTypes());
+        this.field("body");
+        this.writeOptionalBlock(value.body());
+        this.field("span");
+        this.writeSpan(value.span());
+        return this.close();
+    }
+
+    private boolean writeInterfaceSuperExpression(InterfaceSuperExpression value) {
+
+        if (value == null) return this.writeNull();
+        this.census.count(value, 1);
+        this.open("InterfaceSuperExpression");
+        this.field("interfaceName");
+        this.writeString(value.interfaceName());
+        this.field("interfaceNameSpan");
+        this.writeSpan(value.interfaceNameSpan());
+        this.field("span");
+        this.writeSpan(value.span());
+        return this.close();
+    }
+
+    private boolean writeLabeledStatement(LabeledStatement value) {
+
+        if (value == null) return this.writeNull();
+        this.census.count(value, 1);
+        this.open("LabeledStatement");
+        this.field("label");
+        this.writeString(value.label());
+        this.field("labelSpan");
+        this.writeSpan(value.labelSpan());
+        this.field("body");
+        this.writeStatement(value.body());
+        this.field("span");
+        this.writeSpan(value.span());
+        return this.close();
+    }
+
+    private boolean writeLocalClassDeclaration(LocalClassDeclaration value) {
+
+        if (value == null) return this.writeNull();
+        this.census.count(value, 1);
+        this.open("LocalClassDeclaration");
+        this.field("declaration");
+        this.writeClassDeclaration(value.declaration());
+        return this.close();
+    }
+
+    private boolean writeLocalVariableDeclaration(LocalVariableDeclaration value) {
+
+        if (value == null) return this.writeNull();
+        this.census.count(value, 1);
+        this.open("LocalVariableDeclaration");
+        this.field("type");
+        this.writeTypeName(value.type());
+        this.field("isFinal");
+        this.writeBoolean(value.isFinal());
+        this.field("hasSuppressUnfreedDirective");
+        this.writeBoolean(value.hasSuppressUnfreedDirective());
+        this.field("name");
+        this.writeString(value.name());
+        this.field("nameSpan");
+        this.writeSpan(value.nameSpan());
+        this.field("initializer");
+        this.writeExpression(value.initializer());
+        this.field("span");
+        this.writeSpan(value.span());
+        return this.close();
+    }
+
+    private boolean writeMethodDeclaration(MethodDeclaration value) {
+
+        if (value == null) return this.writeNull();
+        this.census.count(value, 1);
+        this.open("MethodDeclaration");
+        this.field("accessModifier");
+        this.writeEnum("AccessModifier", value.accessModifier() == null ? null : value.accessModifier().name());
+        this.field("isStatic");
+        this.writeBoolean(value.isStatic());
+        this.field("isAbstract");
+        this.writeBoolean(value.isAbstract());
+        this.field("isFinal");
+        this.writeBoolean(value.isFinal());
+        this.field("hasOverrideDirective");
+        this.writeBoolean(value.hasOverrideDirective());
+        this.field("hasTestDirective");
+        this.writeBoolean(value.hasTestDirective());
+        this.field("typeParameters");
+        this.writeTypeParameterList(value.typeParameters());
+        this.field("returnType");
+        this.writeTypeName(value.returnType());
+        this.field("name");
+        this.writeString(value.name());
+        this.field("nameSpan");
+        this.writeSpan(value.nameSpan());
+        this.field("parameters");
+        this.writeParameterList(value.parameters());
+        this.field("thrownTypes");
+        this.writeTypeNameList(value.thrownTypes());
+        this.field("body");
+        this.writeOptionalBlock(value.body());
+        this.field("span");
+        this.writeSpan(value.span());
+        return this.close();
+    }
+
+    private boolean writeModernSwitchStatement(ModernSwitchStatement value) {
+
+        if (value == null) return this.writeNull();
+        this.census.count(value, 1);
+        this.open("ModernSwitchStatement");
+        this.field("selector");
+        this.writeExpression(value.selector());
+        this.field("rules");
+        this.writeSwitchRuleList(value.rules());
+        this.field("span");
+        this.writeSpan(value.span());
+        return this.close();
+    }
+
+    private boolean writeNameExpression(NameExpression value) {
+
+        if (value == null) return this.writeNull();
+        this.census.count(value, 1);
+        this.open("NameExpression");
+        this.field("name");
+        this.writeString(value.name());
+        this.field("span");
+        this.writeSpan(value.span());
+        return this.close();
+    }
+
+    private boolean writeNewExpression(NewExpression value) {
+
+        if (value == null) return this.writeNull();
+        this.census.count(value, 1);
+        this.open("NewExpression");
+        this.field("classType");
+        this.writeTypeName(value.classType());
+        this.field("enclosingInstance");
+        this.writeOptionalExpression(value.enclosingInstance());
+        this.field("constructorTypeArguments");
+        this.writeTypeNameList(value.constructorTypeArguments());
+        this.field("diamond");
+        this.writeBoolean(value.diamond());
+        this.field("arguments");
+        this.writeExpressionList(value.arguments());
+        this.field("anonymousClassBody");
+        this.writeOptionalAnonymousClassBody(value.anonymousClassBody());
+        this.field("span");
+        this.writeSpan(value.span());
+        return this.close();
+    }
+
+    private boolean writeNullLiteralExpression(NullLiteralExpression value) {
+
+        if (value == null) return this.writeNull();
+        this.census.count(value, 1);
+        this.open("NullLiteralExpression");
+        this.field("span");
+        this.writeSpan(value.span());
+        return this.close();
+    }
+
+    private boolean writePackageDeclaration(PackageDeclaration value) {
+
+        if (value == null) return this.writeNull();
+        this.census.count(value, 1);
+        this.open("PackageDeclaration");
+        this.field("name");
+        this.writeString(value.name());
+        this.field("nameSpan");
+        this.writeSpan(value.nameSpan());
+        this.field("span");
+        this.writeSpan(value.span());
+        return this.close();
+    }
+
+    private boolean writeParameter(Parameter value) {
+
+        if (value == null) return this.writeNull();
+        this.census.count(value, 1);
+        this.open("Parameter");
+        this.field("type");
+        this.writeTypeName(value.type());
+        this.field("isFinal");
+        this.writeBoolean(value.isFinal());
+        this.field("name");
+        this.writeString(value.name());
+        this.field("nameSpan");
+        this.writeSpan(value.nameSpan());
+        this.field("span");
+        this.writeSpan(value.span());
+        return this.close();
+    }
+
+    private boolean writeQualifiedSuperConstructorExpression(QualifiedSuperConstructorExpression value) {
+
+        if (value == null) return this.writeNull();
+        this.census.count(value, 1);
+        this.open("QualifiedSuperConstructorExpression");
+        this.field("enclosingInstance");
+        this.writeExpression(value.enclosingInstance());
+        this.field("typeArguments");
+        this.writeTypeNameList(value.typeArguments());
+        this.field("arguments");
+        this.writeExpressionList(value.arguments());
+        this.field("span");
+        this.writeSpan(value.span());
+        return this.close();
+    }
+
+    private boolean writeQualifiedThisExpression(QualifiedThisExpression value) {
+
+        if (value == null) return this.writeNull();
+        this.census.count(value, 1);
+        this.open("QualifiedThisExpression");
+        this.field("typeName");
+        this.writeString(value.typeName());
+        this.field("typeNameSpan");
+        this.writeSpan(value.typeNameSpan());
+        this.field("span");
+        this.writeSpan(value.span());
+        return this.close();
+    }
+
+    private boolean writeReturnStatement(ReturnStatement value) {
+
+        if (value == null) return this.writeNull();
+        this.census.count(value, 1);
+        this.open("ReturnStatement");
+        this.field("value");
+        this.writeOptionalExpression(value.value());
+        this.field("span");
+        this.writeSpan(value.span());
+        return this.close();
+    }
+
+    private boolean writeStringLiteralExpression(StringLiteralExpression value) {
+
+        if (value == null) return this.writeNull();
+        this.census.count(value, 1);
+        this.open("StringLiteralExpression");
+        this.field("value");
+        this.writeString(value.value());
+        this.field("span");
+        this.writeSpan(value.span());
+        return this.close();
+    }
+
+    private boolean writeSuperConstructorInvocation(SuperConstructorInvocation value) {
+
+        if (value == null) return this.writeNull();
+        this.census.count(value, 1);
+        this.open("SuperConstructorInvocation");
+        this.field("enclosingInstance");
+        this.writeOptionalExpression(value.enclosingInstance());
+        this.field("typeArguments");
+        this.writeTypeNameList(value.typeArguments());
+        this.field("arguments");
+        this.writeExpressionList(value.arguments());
+        this.field("span");
+        this.writeSpan(value.span());
+        return this.close();
+    }
+
+    private boolean writeSuperExpression(SuperExpression value) {
+
+        if (value == null) return this.writeNull();
+        this.census.count(value, 1);
+        this.open("SuperExpression");
+        this.field("span");
+        this.writeSpan(value.span());
+        return this.close();
+    }
+
+    private boolean writeSwitchExpression(SwitchExpression value) {
+
+        if (value == null) return this.writeNull();
+        this.census.count(value, 1);
+        this.open("SwitchExpression");
+        this.field("selector");
+        this.writeExpression(value.selector());
+        this.field("groups");
+        this.writeSwitchGroupList(value.groups());
+        this.field("rules");
+        this.writeSwitchRuleList(value.rules());
+        this.field("arrowRules");
+        this.writeBoolean(value.arrowRules());
+        this.field("span");
+        this.writeSpan(value.span());
+        return this.close();
+    }
+
+    private boolean writeSwitchGroup(SwitchGroup value) {
+
+        if (value == null) return this.writeNull();
+        this.census.count(value, 1);
+        this.open("SwitchGroup");
+        this.field("labels");
+        this.writeSwitchLabelList(value.labels());
+        this.field("statements");
+        this.writeStatementList(value.statements());
+        this.field("span");
+        this.writeSpan(value.span());
+        return this.close();
+    }
+
+    private boolean writeSwitchLabel(SwitchLabel value) {
+
+        if (value == null) return this.writeNull();
+        this.census.count(value, 1);
+        this.open("SwitchLabel");
+        this.field("value");
+        this.writeOptionalExpression(value.value());
+        this.field("span");
+        this.writeSpan(value.span());
+        return this.close();
+    }
+
+    private boolean writeSwitchRule(SwitchRule value) {
+
+        if (value == null) return this.writeNull();
+        this.census.count(value, 1);
+        this.open("SwitchRule");
+        this.field("labels");
+        this.writeSwitchLabelList(value.labels());
+        this.field("body");
+        this.writeSwitchRuleBody(value.body());
+        this.field("span");
+        this.writeSpan(value.span());
+        return this.close();
+    }
+
+    private boolean writeSwitchRuleBlock(SwitchRuleBlock value) {
+
+        if (value == null) return this.writeNull();
+        this.census.count(value, 1);
+        this.open("SwitchRuleBlock");
+        this.field("block");
+        this.writeBlock(value.block());
+        this.field("span");
+        this.writeSpan(value.span());
+        return this.close();
+    }
+
+    private boolean writeSwitchRuleExpression(SwitchRuleExpression value) {
+
+        if (value == null) return this.writeNull();
+        this.census.count(value, 1);
+        this.open("SwitchRuleExpression");
+        this.field("expression");
+        this.writeExpression(value.expression());
+        this.field("span");
+        this.writeSpan(value.span());
+        return this.close();
+    }
+
+    private boolean writeSwitchRuleThrow(SwitchRuleThrow value) {
+
+        if (value == null) return this.writeNull();
+        this.census.count(value, 1);
+        this.open("SwitchRuleThrow");
+        this.field("statement");
+        this.writeThrowStatement(value.statement());
+        this.field("span");
+        this.writeSpan(value.span());
+        return this.close();
+    }
+
+    private boolean writeSwitchStatement(SwitchStatement value) {
+
+        if (value == null) return this.writeNull();
+        this.census.count(value, 1);
+        this.open("SwitchStatement");
+        this.field("selector");
+        this.writeExpression(value.selector());
+        this.field("groups");
+        this.writeSwitchGroupList(value.groups());
+        this.field("span");
+        this.writeSpan(value.span());
+        return this.close();
+    }
+
+    private boolean writeThisConstructorInvocation(ThisConstructorInvocation value) {
+
+        if (value == null) return this.writeNull();
+        this.census.count(value, 1);
+        this.open("ThisConstructorInvocation");
+        this.field("typeArguments");
+        this.writeTypeNameList(value.typeArguments());
+        this.field("arguments");
+        this.writeExpressionList(value.arguments());
+        this.field("span");
+        this.writeSpan(value.span());
+        return this.close();
+    }
+
+    private boolean writeThisExpression(ThisExpression value) {
+
+        if (value == null) return this.writeNull();
+        this.census.count(value, 1);
+        this.open("ThisExpression");
+        this.field("span");
+        this.writeSpan(value.span());
+        return this.close();
+    }
+
+    private boolean writeThrowStatement(ThrowStatement value) {
+
+        if (value == null) return this.writeNull();
+        this.census.count(value, 1);
+        this.open("ThrowStatement");
+        this.field("value");
+        this.writeExpression(value.value());
+        this.field("span");
+        this.writeSpan(value.span());
+        return this.close();
+    }
+
+    private boolean writeTryStatement(TryStatement value) {
+
+        if (value == null) return this.writeNull();
+        this.census.count(value, 1);
+        this.open("TryStatement");
+        this.field("body");
+        this.writeBlock(value.body());
+        this.field("catches");
+        this.writeCatchClauseList(value.catches());
+        this.field("finallyBlock");
+        this.writeOptionalBlock(value.finallyBlock());
+        this.field("span");
+        this.writeSpan(value.span());
+        return this.close();
+    }
+
+    private boolean writeTypeName(TypeName value) {
+
+        if (value == null) return this.writeNull();
+        this.census.count(value, 1);
+        this.open("TypeName");
+        this.field("kind");
+        this.writeEnum("Kind", value.kind() == null ? null : value.kind().name());
+        this.field("referenceName");
+        this.writeString(value.referenceName());
+        this.field("typeArguments");
+        this.writeTypeNameList(value.typeArguments());
+        this.field("typeArgumentSegmentCounts");
+        this.writeCounts(value.typeArgumentSegmentCounts());
+        this.field("elementType");
+        this.writeTypeName(value.elementType());
+        this.field("wildcardKind");
+        this.writeEnum("WildcardKind", value.wildcardKind() == null ? null : value.wildcardKind().name());
+        this.field("wildcardBound");
+        this.writeTypeName(value.wildcardBound());
+        this.field("span");
+        this.writeSpan(value.span());
+        return this.close();
+    }
+
+    private boolean writeTypeParameter(TypeParameter value) {
+
+        if (value == null) return this.writeNull();
+        this.census.count(value, 1);
+        this.open("TypeParameter");
+        this.field("name");
+        this.writeString(value.name());
+        this.field("upperBounds");
+        this.writeTypeNameList(value.upperBounds());
+        this.field("span");
+        this.writeSpan(value.span());
+        return this.close();
+    }
+
+    private boolean writeTypePatternBinding(TypePatternBinding value) {
+
+        if (value == null) return this.writeNull();
+        this.census.count(value, 1);
+        this.open("TypePatternBinding");
+        this.field("name");
+        this.writeString(value.name());
+        this.field("nameSpan");
+        this.writeSpan(value.nameSpan());
+        this.field("isFinal");
+        this.writeBoolean(value.isFinal());
+        return this.close();
+    }
+
+    private boolean writeTypeReference(TypeReference value) {
+
+        if (value == null) return this.writeNull();
+        this.census.count(value, 1);
+        this.open("TypeReference");
+        this.field("name");
+        this.writeString(value.name());
+        this.field("typeArguments");
+        this.writeTypeNameList(value.typeArguments());
+        this.field("typeArgumentSegmentCounts");
+        this.writeCounts(value.typeArgumentSegmentCounts());
+        this.field("span");
+        this.writeSpan(value.span());
+        return this.close();
+    }
+
+    private boolean writeUnaryExpression(UnaryExpression value) {
+
+        if (value == null) return this.writeNull();
+        this.census.count(value, 1);
+        this.open("UnaryExpression");
+        this.field("operator");
+        this.writeEnum("UnaryOperator", value.operator() == null ? null : value.operator().name());
+        this.field("operand");
+        this.writeExpression(value.operand());
+        this.field("operatorSpan");
+        this.writeSpan(value.operatorSpan());
+        this.field("span");
+        this.writeSpan(value.span());
+        return this.close();
+    }
+
+    private boolean writeUpdateExpression(UpdateExpression value) {
+
+        if (value == null) return this.writeNull();
+        this.census.count(value, 1);
+        this.open("UpdateExpression");
+        this.field("target");
+        this.writeExpression(value.target());
+        this.field("operator");
+        this.writeEnum("UpdateOperator", value.operator() == null ? null : value.operator().name());
+        this.field("prefix");
+        this.writeBoolean(value.prefix());
+        this.field("operatorSpan");
+        this.writeSpan(value.operatorSpan());
+        this.field("span");
+        this.writeSpan(value.span());
+        return this.close();
+    }
+
+    private boolean writeWhileStatement(WhileStatement value) {
+
+        if (value == null) return this.writeNull();
+        this.census.count(value, 1);
+        this.open("WhileStatement");
+        this.field("condition");
+        this.writeExpression(value.condition());
+        this.field("body");
+        this.writeStatement(value.body());
+        this.field("span");
+        this.writeSpan(value.span());
+        return this.close();
+    }
+
+    private boolean writeYieldStatement(YieldStatement value) {
+
+        if (value == null) return this.writeNull();
+        this.census.count(value, 1);
+        this.open("YieldStatement");
+        this.field("value");
+        this.writeExpression(value.value());
+        this.field("span");
+        this.writeSpan(value.span());
+        return this.close();
+    }
+
+    private boolean writeCatchClauseList(SnapshotList<CatchClause> values) {
+
+        if (values == null) return this.writeNull();
+        this.census.count(values, this.census.listCost());
+        this.openList();
+        for (int index = 0; index < values.size(); index++) {
+            this.element(index);
+            this.writeCatchClause(values.get(index));
+        }
+        return this.closeList();
+    }
+
+    private boolean writeConstructorDeclarationList(SnapshotList<ConstructorDeclaration> values) {
+
+        if (values == null) return this.writeNull();
+        this.census.count(values, this.census.listCost());
+        this.openList();
+        for (int index = 0; index < values.size(); index++) {
+            this.element(index);
+            this.writeConstructorDeclaration(values.get(index));
+        }
+        return this.closeList();
+    }
+
+    private boolean writeEnumConstantList(SnapshotList<EnumConstant> values) {
+
+        if (values == null) return this.writeNull();
+        this.census.count(values, this.census.listCost());
+        this.openList();
+        for (int index = 0; index < values.size(); index++) {
+            this.element(index);
+            this.writeEnumConstant(values.get(index));
+        }
+        return this.closeList();
+    }
+
+    private boolean writeExpressionList(SnapshotList<Expression> values) {
+
+        if (values == null) return this.writeNull();
+        this.census.count(values, this.census.listCost());
+        this.openList();
+        for (int index = 0; index < values.size(); index++) {
+            this.element(index);
+            this.writeExpression(values.get(index));
+        }
+        return this.closeList();
+    }
+
+    private boolean writeFieldDeclarationList(SnapshotList<FieldDeclaration> values) {
+
+        if (values == null) return this.writeNull();
+        this.census.count(values, this.census.listCost());
+        this.openList();
+        for (int index = 0; index < values.size(); index++) {
+            this.element(index);
+            this.writeFieldDeclaration(values.get(index));
+        }
+        return this.closeList();
+    }
+
+    private boolean writeImportDeclarationList(SnapshotList<ImportDeclaration> values) {
+
+        if (values == null) return this.writeNull();
+        this.census.count(values, this.census.listCost());
+        this.openList();
+        for (int index = 0; index < values.size(); index++) {
+            this.element(index);
+            this.writeImportDeclaration(values.get(index));
+        }
+        return this.closeList();
+    }
+
+    private boolean writeInstanceInitializationList(SnapshotList<InstanceInitialization> values) {
+
+        if (values == null) return this.writeNull();
+        this.census.count(values, this.census.listCost());
+        this.openList();
+        for (int index = 0; index < values.size(); index++) {
+            this.element(index);
+            this.writeInstanceInitialization(values.get(index));
+        }
+        return this.closeList();
+    }
+
+    private boolean writeInterfaceMethodDeclarationList(SnapshotList<InterfaceMethodDeclaration> values) {
+
+        if (values == null) return this.writeNull();
+        this.census.count(values, this.census.listCost());
+        this.openList();
+        for (int index = 0; index < values.size(); index++) {
+            this.element(index);
+            this.writeInterfaceMethodDeclaration(values.get(index));
+        }
+        return this.closeList();
+    }
+
+    private boolean writeMethodDeclarationList(SnapshotList<MethodDeclaration> values) {
+
+        if (values == null) return this.writeNull();
+        this.census.count(values, this.census.listCost());
+        this.openList();
+        for (int index = 0; index < values.size(); index++) {
+            this.element(index);
+            this.writeMethodDeclaration(values.get(index));
+        }
+        return this.closeList();
+    }
+
+    private boolean writeParameterList(SnapshotList<Parameter> values) {
+
+        if (values == null) return this.writeNull();
+        this.census.count(values, this.census.listCost());
+        this.openList();
+        for (int index = 0; index < values.size(); index++) {
+            this.element(index);
+            this.writeParameter(values.get(index));
+        }
+        return this.closeList();
+    }
+
+    private boolean writeStatementList(SnapshotList<Statement> values) {
+
+        if (values == null) return this.writeNull();
+        this.census.count(values, this.census.listCost());
+        this.openList();
+        for (int index = 0; index < values.size(); index++) {
+            this.element(index);
+            this.writeStatement(values.get(index));
+        }
+        return this.closeList();
+    }
+
+    private boolean writeStaticInitializationList(SnapshotList<StaticInitialization> values) {
+
+        if (values == null) return this.writeNull();
+        this.census.count(values, this.census.listCost());
+        this.openList();
+        for (int index = 0; index < values.size(); index++) {
+            this.element(index);
+            this.writeStaticInitialization(values.get(index));
+        }
+        return this.closeList();
+    }
+
+    private boolean writeSwitchGroupList(SnapshotList<SwitchGroup> values) {
+
+        if (values == null) return this.writeNull();
+        this.census.count(values, this.census.listCost());
+        this.openList();
+        for (int index = 0; index < values.size(); index++) {
+            this.element(index);
+            this.writeSwitchGroup(values.get(index));
+        }
+        return this.closeList();
+    }
+
+    private boolean writeSwitchLabelList(SnapshotList<SwitchLabel> values) {
+
+        if (values == null) return this.writeNull();
+        this.census.count(values, this.census.listCost());
+        this.openList();
+        for (int index = 0; index < values.size(); index++) {
+            this.element(index);
+            this.writeSwitchLabel(values.get(index));
+        }
+        return this.closeList();
+    }
+
+    private boolean writeSwitchRuleList(SnapshotList<SwitchRule> values) {
+
+        if (values == null) return this.writeNull();
+        this.census.count(values, this.census.listCost());
+        this.openList();
+        for (int index = 0; index < values.size(); index++) {
+            this.element(index);
+            this.writeSwitchRule(values.get(index));
+        }
+        return this.closeList();
+    }
+
+    private boolean writeTypeDeclarationList(SnapshotList<TypeDeclaration> values) {
+
+        if (values == null) return this.writeNull();
+        this.census.count(values, this.census.listCost());
+        this.openList();
+        for (int index = 0; index < values.size(); index++) {
+            this.element(index);
+            this.writeTypeDeclaration(values.get(index));
+        }
+        return this.closeList();
+    }
+
+    private boolean writeTypeNameList(SnapshotList<TypeName> values) {
+
+        if (values == null) return this.writeNull();
+        this.census.count(values, this.census.listCost());
+        this.openList();
+        for (int index = 0; index < values.size(); index++) {
+            this.element(index);
+            this.writeTypeName(values.get(index));
+        }
+        return this.closeList();
+    }
+
+    private boolean writeTypeParameterList(SnapshotList<TypeParameter> values) {
+
+        if (values == null) return this.writeNull();
+        this.census.count(values, this.census.listCost());
+        this.openList();
+        for (int index = 0; index < values.size(); index++) {
+            this.element(index);
+            this.writeTypeParameter(values.get(index));
+        }
+        return this.closeList();
+    }
+
+    private boolean writeTypeReferenceList(SnapshotList<TypeReference> values) {
+
+        if (values == null) return this.writeNull();
+        this.census.count(values, this.census.listCost());
+        this.openList();
+        for (int index = 0; index < values.size(); index++) {
+            this.element(index);
+            this.writeTypeReference(values.get(index));
+        }
+        return this.closeList();
+    }
+
+    private boolean writeOptionalAnonymousClassBody(AnonymousClassBody value) {
+
+        this.openOptional();
+        this.writeAnonymousClassBody(value);
+        return this.closeOptional();
+    }
+
+    private boolean writeOptionalArrayInitializerExpression(ArrayInitializerExpression value) {
+
+        this.openOptional();
+        this.writeArrayInitializerExpression(value);
+        return this.closeOptional();
+    }
+
+    private boolean writeOptionalBlock(Block value) {
+
+        this.openOptional();
+        this.writeBlock(value);
+        return this.closeOptional();
+    }
+
+    private boolean writeOptionalDestructorDeclaration(DestructorDeclaration value) {
+
+        this.openOptional();
+        this.writeDestructorDeclaration(value);
+        return this.closeOptional();
+    }
+
+    private boolean writeOptionalExpression(Expression value) {
+
+        this.openOptional();
+        this.writeExpression(value);
+        return this.closeOptional();
+    }
+
+    private boolean writeOptionalPackageDeclaration(PackageDeclaration value) {
+
+        this.openOptional();
+        this.writePackageDeclaration(value);
+        return this.closeOptional();
+    }
+
+    private boolean writeOptionalSourceSpan(SourceSpan value) {
+
+        this.openOptional();
+        this.writeSpan(value);
+        return this.closeOptional();
+    }
+
+    private boolean writeOptionalStatement(Statement value) {
+
+        this.openOptional();
+        this.writeStatement(value);
+        return this.closeOptional();
+    }
+
+    private boolean writeOptionalString(String value) {
+
+        this.openOptional();
+        this.writeString(value);
+        return this.closeOptional();
+    }
+
+    private boolean writeOptionalSuperConstructorInvocation(SuperConstructorInvocation value) {
+
+        this.openOptional();
+        this.writeSuperConstructorInvocation(value);
+        return this.closeOptional();
+    }
+
+    private boolean writeOptionalThisConstructorInvocation(ThisConstructorInvocation value) {
+
+        this.openOptional();
+        this.writeThisConstructorInvocation(value);
+        return this.closeOptional();
+    }
+
+    private boolean writeOptionalTypePatternBinding(TypePatternBinding value) {
+
+        this.openOptional();
+        this.writeTypePatternBinding(value);
+        return this.closeOptional();
+    }
+
+    private boolean writeOptionalTypeReference(TypeReference value) {
+
+        this.openOptional();
+        this.writeTypeReference(value);
+        return this.closeOptional();
+    }
+
+    private boolean writeExpression(Expression value) {
+
+        if (value == null) return this.writeNull();
+        return switch (value.expressionVariant()) {
+            case ARRAY_ACCESS_EXPRESSION -> this.writeArrayAccessExpression((ArrayAccessExpression) value);
+            case ARRAY_CREATION_EXPRESSION -> this.writeArrayCreationExpression((ArrayCreationExpression) value);
+            case ARRAY_INITIALIZER_EXPRESSION -> this.writeArrayInitializerExpression((ArrayInitializerExpression) value);
+            case ASSIGNMENT_EXPRESSION -> this.writeAssignmentExpression((AssignmentExpression) value);
+            case BINARY_EXPRESSION -> this.writeBinaryExpression((BinaryExpression) value);
+            case BOOLEAN_LITERAL_EXPRESSION -> this.writeBooleanLiteralExpression((BooleanLiteralExpression) value);
+            case CALL_EXPRESSION -> this.writeCallExpression((CallExpression) value);
+            case CAST_EXPRESSION -> this.writeCastExpression((CastExpression) value);
+            case CHARACTER_LITERAL_EXPRESSION -> this.writeCharacterLiteralExpression((CharacterLiteralExpression) value);
+            case CONDITIONAL_EXPRESSION -> this.writeConditionalExpression((ConditionalExpression) value);
+            case FIELD_ACCESS_EXPRESSION -> this.writeFieldAccessExpression((FieldAccessExpression) value);
+            case FLOATING_LITERAL_EXPRESSION -> this.writeFloatingLiteralExpression((FloatingLiteralExpression) value);
+            case INSTANCE_OF_EXPRESSION -> this.writeInstanceOfExpression((InstanceOfExpression) value);
+            case INTEGER_LITERAL_EXPRESSION -> this.writeIntegerLiteralExpression((IntegerLiteralExpression) value);
+            case INTERFACE_SUPER_EXPRESSION -> this.writeInterfaceSuperExpression((InterfaceSuperExpression) value);
+            case NAME_EXPRESSION -> this.writeNameExpression((NameExpression) value);
+            case NEW_EXPRESSION -> this.writeNewExpression((NewExpression) value);
+            case NULL_LITERAL_EXPRESSION -> this.writeNullLiteralExpression((NullLiteralExpression) value);
+            case QUALIFIED_SUPER_CONSTRUCTOR_EXPRESSION -> this.writeQualifiedSuperConstructorExpression((QualifiedSuperConstructorExpression) value);
+            case QUALIFIED_THIS_EXPRESSION -> this.writeQualifiedThisExpression((QualifiedThisExpression) value);
+            case STRING_LITERAL_EXPRESSION -> this.writeStringLiteralExpression((StringLiteralExpression) value);
+            case SUPER_EXPRESSION -> this.writeSuperExpression((SuperExpression) value);
+            case SWITCH_EXPRESSION -> this.writeSwitchExpression((SwitchExpression) value);
+            case THIS_EXPRESSION -> this.writeThisExpression((ThisExpression) value);
+            case UNARY_EXPRESSION -> this.writeUnaryExpression((UnaryExpression) value);
+            case UPDATE_EXPRESSION -> this.writeUpdateExpression((UpdateExpression) value);
+        };
+    }
+
+    private boolean writeInstanceInitialization(InstanceInitialization value) {
+
+        if (value == null) return this.writeNull();
+        return switch (value.initializationVariant()) {
+            case BLOCK -> this.writeBlock((Block) value);
+            case FIELD_DECLARATION -> this.writeFieldDeclaration((FieldDeclaration) value);
+        };
+    }
+
+    private boolean writeStatement(Statement value) {
+
+        if (value == null) return this.writeNull();
+        return switch (value.statementVariant()) {
+            case ASSIGNMENT_STATEMENT -> this.writeAssignmentStatement((AssignmentStatement) value);
+            case BLOCK -> this.writeBlock((Block) value);
+            case BREAK_STATEMENT -> this.writeBreakStatement((BreakStatement) value);
+            case CONTINUE_STATEMENT -> this.writeContinueStatement((ContinueStatement) value);
+            case DEFER_STATEMENT -> this.writeDeferStatement((DeferStatement) value);
+            case DEFERRED_FREE_STATEMENT -> this.writeDeferredFreeStatement((DeferredFreeStatement) value);
+            case DO_WHILE_STATEMENT -> this.writeDoWhileStatement((DoWhileStatement) value);
+            case EMPTY_STATEMENT -> this.writeEmptyStatement((EmptyStatement) value);
+            case ENHANCED_FOR_STATEMENT -> this.writeEnhancedForStatement((EnhancedForStatement) value);
+            case ENUM_CONSTANT_INITIALIZATION -> this.writeEnumConstantInitialization((EnumConstantInitialization) value);
+            case EXPRESSION_STATEMENT -> this.writeExpressionStatement((ExpressionStatement) value);
+            case FOR_STATEMENT -> this.writeForStatement((ForStatement) value);
+            case FREE_STATEMENT -> this.writeFreeStatement((FreeStatement) value);
+            case IF_STATEMENT -> this.writeIfStatement((IfStatement) value);
+            case LABELED_STATEMENT -> this.writeLabeledStatement((LabeledStatement) value);
+            case LOCAL_CLASS_DECLARATION -> this.writeLocalClassDeclaration((LocalClassDeclaration) value);
+            case LOCAL_VARIABLE_DECLARATION -> this.writeLocalVariableDeclaration((LocalVariableDeclaration) value);
+            case MODERN_SWITCH_STATEMENT -> this.writeModernSwitchStatement((ModernSwitchStatement) value);
+            case RETURN_STATEMENT -> this.writeReturnStatement((ReturnStatement) value);
+            case SUPER_CONSTRUCTOR_INVOCATION -> this.writeSuperConstructorInvocation((SuperConstructorInvocation) value);
+            case SWITCH_STATEMENT -> this.writeSwitchStatement((SwitchStatement) value);
+            case THIS_CONSTRUCTOR_INVOCATION -> this.writeThisConstructorInvocation((ThisConstructorInvocation) value);
+            case THROW_STATEMENT -> this.writeThrowStatement((ThrowStatement) value);
+            case TRY_STATEMENT -> this.writeTryStatement((TryStatement) value);
+            case WHILE_STATEMENT -> this.writeWhileStatement((WhileStatement) value);
+            case YIELD_STATEMENT -> this.writeYieldStatement((YieldStatement) value);
+        };
+    }
+
+    private boolean writeStaticInitialization(StaticInitialization value) {
+
+        if (value == null) return this.writeNull();
+        return switch (value.initializationVariant()) {
+            case BLOCK -> this.writeBlock((Block) value);
+            case FIELD_DECLARATION -> this.writeFieldDeclaration((FieldDeclaration) value);
+        };
+    }
+
+    private boolean writeSwitchRuleBody(SwitchRuleBody value) {
+
+        if (value == null) return this.writeNull();
+        return switch (value.switchRuleBodyVariant()) {
+            case SWITCH_RULE_BLOCK -> this.writeSwitchRuleBlock((SwitchRuleBlock) value);
+            case SWITCH_RULE_EXPRESSION -> this.writeSwitchRuleExpression((SwitchRuleExpression) value);
+            case SWITCH_RULE_THROW -> this.writeSwitchRuleThrow((SwitchRuleThrow) value);
+        };
+    }
+
+    private boolean writeTypeDeclaration(TypeDeclaration value) {
+
+        if (value == null) return this.writeNull();
+        return switch (value.typeDeclarationVariant()) {
+            case CLASS_DECLARATION -> this.writeClassDeclaration((ClassDeclaration) value);
+            case INTERFACE_DECLARATION -> this.writeInterfaceDeclaration((InterfaceDeclaration) value);
+        };
+    }
+
+    destructor {
+
+        free this.out;
+    }
+}

@@ -1,0 +1,50 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.parser;
+
+import ironwood.compiler.ast.CompilationUnit;
+import ironwood.compiler.diagnostic.Diagnostic;
+import ironwood.compiler.port.SnapshotList;
+import ironwood.ds.ArrayList;
+
+/**
+ * The compilation unit and parser diagnostics of one source. Ports the Java
+ * record {@code ParseResult}: the optional unit is nullable, and the
+ * diagnostic list is an independent copy of the parser's builder, owned by the
+ * result. The unit and diagnostics are borrowed.
+ */
+public final class ParseResult {
+
+    private final CompilationUnit unit;
+    private final SnapshotList<Diagnostic> diagnostics;
+
+    /**
+     * Copies the parser's diagnostic builder.
+     *
+     * @param unit the borrowed unit, or null when parsing produced none
+     * @param diagnostics the borrowed diagnostic builder
+     * @throws NullPointerException if the builder is null
+     */
+    public ParseResult(CompilationUnit unit, ArrayList<Diagnostic> diagnostics) {
+
+        this.unit = unit;
+        this.diagnostics = new SnapshotList<Diagnostic>(diagnostics);
+    }
+
+    /** @return the compilation unit, or null */
+    public CompilationUnit unit() {
+
+        return this.unit;
+    }
+
+    /** @return the parser diagnostics in report order */
+    public SnapshotList<Diagnostic> diagnostics() {
+
+        return this.diagnostics;
+    }
+
+    destructor {
+
+        free this.diagnostics;
+    }
+}

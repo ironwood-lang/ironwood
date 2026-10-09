@@ -1,0 +1,224 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.compiler.port;
+
+/**
+ * An owned map from texts to texts kept in String order
+ * ({@code String.compareTo}, UTF-16 units), for the Bridge inventories the
+ * Java baseline keeps in {@code TreeMap<String, String>}: generation and API
+ * manifests, content and build-input inventories, pairing metadata and
+ * parsed properties. A native map of Strings would expose every String it
+ * holds, so none could be freed; this owner keeps keys and values as
+ * primitive text storage and makes a fresh String only when one is asked for.
+ *
+ * <p>Positions run from 0 to {@link #size} in key order. {@link #put}
+ * replaces an existing key's value, as {@code TreeMap.put} does, and
+ * {@link #putIfAbsent} leaves it. A replaced value's storage stays until the
+ * map is freed. Inputs are borrowed for each call.
+ */
+public final class TextMap {
+
+    // Keys and values in insertion order; neither list is ever sorted, so a
+    // stored index is also its list position.
+    private TextList keys;
+    private TextList values;
+    // Stored key index at each position, in String order.
+    private int[] order;
+    // Stored value index of each stored key.
+    private int[] valueOf;
+
+    /** Creates an empty map. */
+    public TextMap() {
+
+        this.keys = new TextList();
+        this.values = new TextList();
+        this.order = new int[16];
+        this.valueOf = new int[16];
+    }
+
+    /** @return the number of keys */
+    public int size() {
+
+        return this.keys.size();
+    }
+
+    /**
+     * @param key the key; borrowed
+     * @return the key's position, or -1 when absent
+     */
+    public int find(String key) {
+
+        int position = this.lowerBound(key);
+        if (position < this.keys.size() && this.keys.compareText(this.order[position], key) == 0) return position;
+        return -1;
+    }
+
+    /** @return whether the map holds key */
+    public boolean containsKey(String key) {
+
+        return this.find(key) >= 0;
+    }
+
+    /**
+     * Associates value with key, replacing an existing value.
+     *
+     * @param key the key; copied
+     * @param value the value; copied
+     */
+    public void put(String key, String value) {
+
+        int position = this.lowerBound(key);
+        if (position < this.keys.size() && this.keys.compareText(this.order[position], key) == 0) {
+            int stored = this.order[position];
+            this.values.add(value);
+            int index = this.values.size() - 1;
+            this.valueOf[stored] = index;
+        } else {
+            this.insert(position, key, value);
+        }
+    }
+
+    /**
+     * Associates value with key unless key is present.
+     *
+     * @param key the key; copied when added
+     * @param value the value; copied when added
+     * @return true when added, false when key was already present
+     */
+    public boolean putIfAbsent(String key, String value) {
+
+        int position = this.lowerBound(key);
+        if (position < this.keys.size() && this.keys.compareText(this.order[position], key) == 0) return false;
+        this.insert(position, key, value);
+        return true;
+    }
+
+    /**
+     * @param key the key; borrowed
+     * @return a fresh copy of key's value, owned by the caller, or null when absent
+     */
+    public String get(String key) {
+
+        int position = this.find(key);
+        if (position < 0) return null;
+        return this.value(position);
+    }
+
+    /** @return a fresh copy of the key at position, owned by the caller */
+    public String key(int position) {
+
+        return this.keys.get(this.storedKey(position));
+    }
+
+    /** @return a fresh copy of the value at position, owned by the caller */
+    public String value(int position) {
+
+        int stored = this.storedKey(position);
+        return this.values.get(this.valueOf[stored]);
+    }
+
+    /** @return the length of the key at position in UTF-16 units */
+    public int keyLength(int position) {
+
+        return this.keys.length(this.storedKey(position));
+    }
+
+    /** @return unit {@code unit} of the key at position */
+    public char keyCharAt(int position, int unit) {
+
+        return this.keys.charAt(this.storedKey(position), unit);
+    }
+
+    /** @return the length of the value at position in UTF-16 units */
+    public int valueLength(int position) {
+
+        int stored = this.storedKey(position);
+        return this.values.length(this.valueOf[stored]);
+    }
+
+    /** @return unit {@code unit} of the value at position */
+    public char valueCharAt(int position, int unit) {
+
+        int stored = this.storedKey(position);
+        return this.values.charAt(this.valueOf[stored], unit);
+    }
+
+    /** @return whether the key at position starts with prefix */
+    public boolean keyStartsWith(int position, String prefix) {
+
+        return this.keys.startsWith(this.storedKey(position), prefix);
+    }
+
+    /** @return whether the value at position equals text */
+    public boolean valueEquals(int position, String text) {
+
+        int stored = this.storedKey(position);
+        return this.values.equalsText(this.valueOf[stored], text);
+    }
+
+    /** Appends the key at position to target. */
+    public void appendKey(int position, StringBuilder target) {
+
+        this.keys.appendTo(this.storedKey(position), target);
+    }
+
+    /** Appends the value at position to target. */
+    public void appendValue(int position, StringBuilder target) {
+
+        int stored = this.storedKey(position);
+        this.values.appendTo(this.valueOf[stored], target);
+    }
+
+    // The stored key index at position.
+    private int storedKey(int position) {
+
+        if (position < 0 || position >= this.keys.size()) throw new IndexOutOfBoundsException();
+        return this.order[position];
+    }
+
+    // The first position whose key is not below key.
+    private int lowerBound(String key) {
+
+        int low = 0;
+        int high = this.keys.size();
+        while (low < high) {
+            int middle = (low + high) >>> 1;
+            if (this.keys.compareText(this.order[middle], key) < 0) {
+                low = middle + 1;
+            } else {
+                high = middle;
+            }
+        }
+        return low;
+    }
+
+    // Adds a new key with its value at position.
+    private void insert(int position, String key, String value) {
+
+        int count = this.keys.size();
+        if (count == this.order.length) {
+            int[] previousOrder = this.order;
+            this.order = new int[previousOrder.length * 2];
+            System.arraycopy(previousOrder, 0, this.order, 0, count);
+            free previousOrder;
+            int[] previousValues = this.valueOf;
+            this.valueOf = new int[previousValues.length * 2];
+            System.arraycopy(previousValues, 0, this.valueOf, 0, count);
+            free previousValues;
+        }
+        this.values.add(value);
+        this.keys.add(key);
+        int index = this.values.size() - 1;
+        System.arraycopy(this.order, position, this.order, position + 1, count - position);
+        this.order[position] = count;
+        this.valueOf[count] = index;
+    }
+
+    destructor {
+
+        free this.keys;
+        free this.values;
+        free this.order;
+        free this.valueOf;
+    }
+}

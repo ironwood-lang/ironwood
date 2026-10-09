@@ -1,0 +1,58 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// Inject OOM into the label table, queue construction and growth. Constructor
+// rollback retires an incomplete queue; a failed growth leaves the full ring
+// installed, so the sixteen queued labels still come out in order before the
+// queue is freed. Exit 42 on OOM, 43 on success, 1 if storage remains, 2 if
+// order changed.
+import ironwood.compiler.port.WorkQueue;
+
+class Main {
+
+    static boolean intact(WorkQueue<String> queue, String[] labels, int count) {
+
+        if (queue.size() != count) return false;
+        for (int index = 0; index < count; index++) {
+            if (queue.removeFirst() != labels[index]) return false;
+        }
+        return queue.isEmpty();
+    }
+
+    static int fill() {
+
+        String[] labels = {"q0", "q1", "q2", "q3", "q4", "q5", "q6", "q7",
+                "q8", "q9", "q10", "q11", "q12", "q13", "q14", "q15", "q16"};
+        defer free labels;
+        WorkQueue<String> queue = new WorkQueue<String>();
+        defer free queue;
+        for (int index = 0; index < 16; index++) queue.add(labels[index]);
+        try {
+            queue.add(labels[16]);
+        }
+
+        catch (OutOfMemoryError failure) {
+            if (!intact(queue, labels, 16)) return 2;
+            throw failure;
+        }
+
+        return intact(queue, labels, 17) ? 0 : 2;
+    }
+
+    public static int main(String[] args) {
+
+        long baseline = System.liveAllocationCount();
+        boolean failed = false;
+        int status = 0;
+        try {
+            status = fill();
+        }
+
+        catch (OutOfMemoryError ordinary) {
+            failed = true;
+        }
+
+        if (status != 0) return 2;
+        if (System.liveAllocationCount() != baseline) return 1;
+        return failed ? 42 : 43;
+    }
+}

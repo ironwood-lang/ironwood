@@ -1,0 +1,29 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+// The maximum valid bit index makes Java's int length/capacity wrap negative.
+// Copy must preserve that bit through ordinary or growth, with no size trap.
+// This deliberate boundary fixture peaks near 512 MiB and exits 42 after cleanup.
+import ironwood.compiler.port.SnapshotBits;
+import ironwood.util.BitSet;
+
+class Main {
+
+    static void checkOverflow() {
+
+        BitSet source = new BitSet();
+        defer free source;
+        source.set(2147483647);
+        if (source.length() >= 0 || source.size() >= 0) throw new IllegalStateException();
+        BitSet snapshot = SnapshotBits.copy(source);
+        defer free snapshot;
+        source.clear(2147483647);
+        if (!snapshot.get(2147483647) || !source.isEmpty()) throw new IllegalStateException();
+    }
+
+    public static int main(String[] args) {
+
+        long baseline = System.liveAllocationCount();
+        checkOverflow();
+        return System.liveAllocationCount() == baseline ? 42 : 1;
+    }
+}

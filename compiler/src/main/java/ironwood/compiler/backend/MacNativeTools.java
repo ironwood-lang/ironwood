@@ -11,12 +11,15 @@ import java.util.Map;
 
 /** Build-time Apple SDK/linker selection; LLVM still owns compilation and optimization. */
 public record MacNativeTools(Path sdk, Path linker, String sdkVersion, String linkerVersion) {
+    /** The fixed Apple tool selector; a PATH-selected substitute is never launched. */
+    static final String XCRUN = "/usr/bin/xcrun";
+
     public static MacNativeTools discover() throws IOException {
         String override = System.getenv("SDKROOT");
         if (override != null && override.isBlank()) throw failure("SDKROOT is empty");
         Path sdk = Path.of(override == null
-                ? run(List.of("/usr/bin/xcrun", "--sdk", "macosx", "--show-sdk-path")) : override);
-        Path linker = Path.of(run(List.of("/usr/bin/xcrun", "--sdk", "macosx", "--find", "ld")));
+                ? run(List.of(XCRUN, "--sdk", "macosx", "--show-sdk-path")) : override);
+        Path linker = Path.of(run(List.of(XCRUN, "--sdk", "macosx", "--find", "ld")));
         return validate(sdk, linker);
     }
 
