@@ -209,11 +209,15 @@ final class HeldFieldLoads {
      */
     private static final class Region {
         private final Set<String> entry;
+        private final boolean body;
         private Set<String> all;
         private Set<String> thrown;
+        /** Whether lowering certainly adds an exception edge to the try statement (D311). */
+        private boolean live;
 
-        private Region(Set<String> entry) {
+        private Region(Set<String> entry, boolean body) {
             this.entry = entry;
+            this.body = body;
             this.all = entry;
         }
     }
@@ -319,7 +323,7 @@ final class HeldFieldLoads {
             return null;
         }
         if (statement instanceof ThrowStatement throwing) {
-            thrown(expression(throwing.value(), held, scope).held());
+            certain(thrown(expression(throwing.value(), held, scope).held()));
             return null;
         }
         if (statement instanceof BreakStatement || statement instanceof ContinueStatement) {
@@ -534,12 +538,12 @@ final class HeldFieldLoads {
             // A finally block whose writes are unknown keeps no local held across it.
             frames.push(new Cleanup(writtenLocals(cleanup.orElseThrow())));
         }
-        Region body = new Region(held);
+        Region body = new Region(held, true);
         regions.push(body);
         Set<String> bodyEnd = block(guarded.body().statements(), held, new HashSet<>(scope));
         regions.pop();
         // A handler starts from any state the body passed through.
-        Region handlers = new Region(null);
+        Region handlers = new Region(null, false);
         regions.push(handlers);
         Set<String> normal = bodyEnd;
         Set<String> handlerEntry = handlerEntry(body);
@@ -573,9 +577,13 @@ final class HeldFieldLoads {
      * the states at the try body's exception edges, which arise only where this analysis
      * records a possible throw, or, when no edge reaches it, from the body's entry state.
      * Every marker the handler starts with therefore holds at every recorded point and at
-     * the entry; with no recorded point the handler starts from the entry state.
+     * the entry; with no recorded point the handler starts from the entry state. When the
+     * body certainly gives lowering an edge, no handler starts from the entry (D311).
      */
     private static Set<String> handlerEntry(Region body) {
+        if (body.live) {
+            return body.thrown;
+        }
         return body.thrown == null ? body.entry : intersect(body.entry, body.thrown);
     }
 
@@ -698,6 +706,9 @@ final class HeldFieldLoads {
             return new Value(Set.of(), false);
         }
         Set<String> after = sequence(operands, held, scope);
+        if (expression instanceof ArrayAccessExpression) {
+            certain(after);
+        }
         return new Value(silent(expression) ? after : thrown(after), false);
     }
 
@@ -719,6 +730,7 @@ final class HeldFieldLoads {
         if (target instanceof ArrayAccessExpression access) {
             state = expression(access.array(), state, scope).held();
             state = expression(access.index(), state, scope).held();
+            certain(state);
         } else if (target instanceof FieldAccessExpression access) {
             state = expression(access.receiver(), state, scope).held();
         }
@@ -883,6 +895,20 @@ final class HeldFieldLoads {
             region.thrown = intersect(region.thrown, held);
         }
         return held;
+    }
+
+    /**
+     * Marks the innermost try body live when {@code held} is reachable and outside every
+     * finally block lowering may never reach (D311): lowering lowers a throw statement and
+     * an array element access, whose null and bounds checks construct and throw a bundled
+     * exception on failure, with an exception edge to the innermost region, which is this
+     * try statement's or a deferred action's that rethrows to it.
+     */
+    private void certain(Set<String> held) {
+        Region innermost = regions.peek();
+        if (held != null && innermost != null && innermost.body && unreachedFinallies == 0) {
+            innermost.live = true;
+        }
     }
 
     /** Records a transfer's state, where pending deferred actions run and may throw. */

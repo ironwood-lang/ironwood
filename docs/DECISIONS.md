@@ -12254,8 +12254,9 @@ occurrence order. If no
   regardless, and only where the error is reported changes.
 - **Boundary:** A write of a value that is not a field load on every path to
   the free, a free in a catch handler of a local that neither the try body's
-  entry nor every exception edge gives a load or null, and a free that no
-  route is proven to reach keep D281's report. Supersedes no other decision.
+  entry nor every exception edge gives a load or null (D311 drops the entry
+  when an edge is certain), and a free that no route is proven to reach keep
+  D281's report. Supersedes no other decision.
 - **Verification:** A free that runs a destructor during a loan is rejected
   at the free beside a reclamation whose `&&` may skip the load after `old =
   null`, and beside one whose branch may skip it after `old = new int[1]`;
@@ -12269,3 +12270,48 @@ occurrence order. If no
   pool and explanation tests pass, 69 examples emit the same `-O3` LLVM, the
   standard library builds and every port source compiles without
   diagnostics.
+
+## D311 - Start a catch handler from its edges when one is certain
+
+- **Status:** Accepted and implemented. Amends D309 and D310: supersedes their
+  boundary that a catch handler's free keeps D281's report when the try
+  body's entry gives the local neither a field load nor the null literal.
+- **Context:** A handler started from what holds at the try body's entry as
+  well as at its exception edges, because lowering analyzes a handler that no
+  edge reaches from that entry. `int[] old = spare; try { old = values;
+  old[1] = 0; } catch (RuntimeException failure) { values = null; free old;
+  }` therefore still reported a free that may run code during a loan at the
+  reclamation, although the array store gives lowering an edge.
+- **Decision:** A try body is live when, at a reachable point outside every
+  inner try statement and every finally block lowering may never reach, it
+  reaches a throw statement or an array element access. A live body's
+  handler starts from what holds at its recorded exception edges alone.
+- **Analysis:** Lowering lowers a throw statement with an exception edge to the
+  innermost region, and every array element access, read or written, with a
+  null check and a bounds check whose failure path constructs and throws a
+  bundled exception. Inside the try body, outside inner try statements, that
+  region is the try statement's own or a deferred action's, which rethrows to
+  it, so lowering starts the handler from its edges, all at recorded states.
+  Calls, other runtime checks and null checks that lowering may elide are
+  not counted as certain. A program with a recorded free is invalid either
+  way, and no valid program's facts or code change (D297-D310).
+- **Boundary:** A handler whose try body has only exception edges this
+  analysis does not count as certain, such as a call, an elidable null check
+  or an arithmetic check, still starts from the entry too, and a write of a
+  value that is not a field load and a free that no route is proven to reach
+  keep D281's report. Supersedes no other decision.
+- **Verification:** A free that runs a destructor during a loan is rejected
+  at the free, with the field owned, beside reclamations whose handler frees
+  a local that holds a parameter at the try's entry when the body reaches an
+  array store or a throw statement; each safe twin compiles, and through a
+  field that escapes to a sibling field lowering rejects both frees. D281's
+  free route and D296's paired test now use a store whose try body can throw
+  only through `old.length`. The D307 dataflow differential, now 44 shapes
+  with a new array at the entry beside certain edges, an earlier possible
+  throw, an edge inside a nested try and an elidable null check, found no
+  counted free that lowering accepts without ownership, and the D302 route
+  differential still agrees. On the D310 analysis the live catch cases
+  report at the reclamations, while the relocated D281 and D296 checks pass.
+  The focused field, wrapper, owner, pool and explanation tests pass, 69
+  examples emit the same `-O3` LLVM, the standard library builds and every
+  port source compiles without diagnostics.

@@ -917,7 +917,7 @@ or holds a load or null on every path, such as one assigned a load, a cast or
 copy of one, a load in a condition that guards the free, a load a branch may
 skip, a pattern binding of the field, or a load a catch handler's exception
 edges carry, a free of a local that may run code during the loan is rejected at
-that free, naming the alias, instead of failing the field's proof (D297-D310).
+that free, naming the alias, instead of failing the field's proof (D297-D311).
 The compiler rejects unproven consumed parameters, arbitrary field-loaded
 references outside their declaring destructor, live aliases, published
 or conditionally replaced fields, escaping constructors or calls, uncertain

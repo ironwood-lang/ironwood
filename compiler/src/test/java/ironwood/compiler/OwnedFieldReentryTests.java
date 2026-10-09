@@ -177,10 +177,11 @@ final class OwnedFieldReentryTests {
 
     /**
      * A store whose only reclamation of its field frees, in a catch handler, a local the
-     * try body loads from the field but that holds a parameter at the try's entry. Lowering
-     * starts a handler that no exception edge reaches from that entry, so no D297-D309
-     * witness counts the free, and a free that may run code during a loan still fails the
-     * field's proof (D281).
+     * try body loads from the field but that holds a parameter at the try's entry, where
+     * only a null check, which lowering may elide, can throw. Lowering starts a handler
+     * that no exception edge reaches from that entry, so no D297-D311 witness counts the
+     * free, and a free that may run code during a loan still fails the field's proof
+     * (D281).
      */
     private static final String STORE = """
             class Noisy {
@@ -198,8 +199,8 @@ final class OwnedFieldReentryTests {
                     int[] old = spare;
                     try {
                         old = values;
-                        old[1] = 0;
-                    } catch (RuntimeException failure) {
+                        int length = old.length;
+                    } catch (NullPointerException failure) {
                         values = null;
                         free old;
                     }
@@ -271,7 +272,7 @@ final class OwnedFieldReentryTests {
     /**
      * When the program needs the field owned, because the owner's destructor frees it
      * (D297) or its instance code frees a local loaded from it, as Buffer.drop does,
-     * directly or by a deferred free (D298-D310), a free that may run code during a loan
+     * directly or by a deferred free (D298-D311), a free that may run code during a loan
      * leaves the field owned and is rejected at the free: freeing an object whose
      * destructor reenters names the alias and field it would cross, its safe twin
      * compiles, and freeing the owner, whose destructor frees the field directly, inside
@@ -768,6 +769,48 @@ final class OwnedFieldReentryTests {
         require(handledTwin.valid(), "freeing before the loan was rejected beside a catch reclamation: "
                 + explained(handledTwin));
         require(lowersFree(caught), "lowering did not reject a catch free the witness counted");
+        // When the try body reaches an array access or a throw statement, lowering certainly
+        // adds an exception edge, so the handler starts from the edges alone, also after a
+        // parameter at the try's entry (D311).
+        for (String members : List.of("""
+                    void reset(int[] spare) {
+                        int[] old = spare;
+                        try {
+                            old = values;
+                            old[1] = 0;
+                        } catch (RuntimeException failure) {
+                            values = null;
+                            free old;
+                        }
+                    }
+                """, """
+                    void reset(int[] spare, RuntimeException problem) {
+                        int[] old = spare;
+                        try {
+                            old = values;
+                            throw problem;
+                        } catch (RuntimeException failure) {
+                            values = null;
+                            free old;
+                        }
+                    }
+                """)) {
+            CompilationArtifact edged = store(members + noisyUse);
+            require(!edged.valid() && ownershipFailures(edged).isEmpty() && messages(edged).equals(List.of(CONTINGENT)),
+                    "a reentrant free beside a live catch reclamation was not rejected at the free: " + explained(edged));
+            CompilationArtifact twin = store(members + """
+
+                        void use() {
+                            Noisy noisy = new Noisy();
+                            free noisy;
+                            int[] old = values;
+                            old[0] = 7;
+                        }
+                    """);
+            require(twin.valid(), "freeing before the loan was rejected beside a live catch reclamation: "
+                    + explained(twin));
+            require(lowersFree(members), "lowering did not reject a live catch free the witness counted");
+        }
         CompilationArtifact foreign = store("""
                     void reset(Object other) {
                         if (other instanceof int[] old) {
