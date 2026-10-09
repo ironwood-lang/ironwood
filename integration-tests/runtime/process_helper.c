@@ -14,7 +14,8 @@
  *   stdin          print how many bytes standard input holds before end of file
  *   large N        write N bytes to standard output and N to standard error,
  *                  interleaved in 4096-byte chunks
- *   fds            print every open descriptor below 1024
+ *   fds            print every open descriptor below 1024 except those the
+ *                  Rosetta translator holds
  *   sleep-pid FILE write this process's id to FILE, then sleep 30 seconds
  *   group PROGRAM ...  become a new process group's leader with default
  *                  interrupt dispositions, as a shell's foreground job is,
@@ -27,6 +28,32 @@
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
+
+/* Whether a descriptor names Rosetta's runtime. Linux under Rosetta, as in the
+ * linux-x86_64 platform VM, opens in every translated process the executable it
+ * translates and then its runtime, both without close-on-exec, so a translated
+ * program inherits its parent's pair and adds its own; native hosts have none. */
+static int rosetta_runtime(int descriptor) {
+#if defined(__linux__)
+    char link[64];
+    char target[4096];
+    snprintf(link, sizeof(link), "/proc/self/fd/%d", descriptor);
+    ssize_t length = readlink(link, target, sizeof(target) - 1);
+    if (length <= 0) { return 0; }
+    target[length] = '\0';
+    const char *name = strrchr(target, '/');
+    return name != NULL && strcmp(name, "/rosetta") == 0;
+#else
+    (void) descriptor;
+    return 0;
+#endif
+}
+
+/* Whether the translator holds a descriptor: its runtime, or the executable it
+ * opened just before it. */
+static int translator_descriptor(int descriptor) {
+    return rosetta_runtime(descriptor) || rosetta_runtime(descriptor + 1);
+}
 
 int main(int argc, char **argv) {
     if (argc < 2) { return 2; }
@@ -74,7 +101,9 @@ int main(int argc, char **argv) {
     }
     if (strcmp(mode, "fds") == 0) {
         for (int descriptor = 0; descriptor < 1024; descriptor++) {
-            if (fcntl(descriptor, F_GETFD) >= 0) { printf("%d\n", descriptor); }
+            if (fcntl(descriptor, F_GETFD) >= 0 && !translator_descriptor(descriptor)) {
+                printf("%d\n", descriptor);
+            }
         }
         return 0;
     }

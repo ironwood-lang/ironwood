@@ -936,6 +936,14 @@ Rosetta for Linux x86-64. The existing default profile and active Docker context
 are not changed. Setup and x86-64 test runs verify that Rosetta is active and
 reject a competing QEMU registration before running tests.
 
+Rosetta opens, in every translated process, the executable it translates and
+then its runtime (`/mnt/lima-rosetta/rosetta` under Colima), both without
+close-on-exec, so an x86-64 child inherits its parent's pair and adds its own.
+The M4.3 process tests list a child's descriptors through the controlled helper
+`integration-tests/runtime/process_helper.c`, whose `fds` mode leaves out a
+descriptor naming that runtime and the one just before it; native hosts have no
+such descriptors.
+
 To switch an existing QEMU test environment to Rosetta, stop it first. Cached
 images and compiler output are retained. Then prepare only the x86-64 image:
 
