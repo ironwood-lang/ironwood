@@ -304,20 +304,21 @@ destructor) with safe twins; each unsafe route must fail the field's ownership
 proof for its own reason. The second keeps runtime checks, String and primitive
 conversion, `System.arraycopy` and the owner's statics admitted inside a loan.
 The third, on a store that reclaims its field only by freeing, in a catch
-handler, a local loaded in the try body, which no D297-D308 witness counts,
-keeps a free that runs a destructor during a loan failing the proof beside its
-safe twin (D281), and a rejected free failing it only when its class has a
-destructor (D296). The fourth (D297-D308) rejects at the free a reentrant free
-during a loan of a field the program reclaims, including in a constructor, an
-instance initializer, through a local or parameter assigned from the field,
-also under a cast, also with a write after the free or a write between that
-writes a field load again, or by an assignment that a condition, an initializer
-or a switch selector always evaluates, a switch expression arm or an `&&`
-guarding the free runs, through a pattern binding of the field, by a deferred
-free, also after a `while (true)` loop that a break, return or throw leaves or
-in a braced switch case, and in a finally block that lowering reaches. It
-rejects a defer placed directly in a switch group, keeps D281's report when no
-route leaves the loop, a write of another value precedes the free a skipped
+handler, a local that holds a parameter at the try's entry, which no D297-D309
+witness counts, keeps a free that runs a destructor during a loan failing the
+proof beside its safe twin (D281), and a rejected free failing it only when its
+class has a destructor (D296). The fourth (D297-D309) rejects at the free a
+reentrant free during a loan of a field the program reclaims, including in a
+constructor, an instance initializer, through a local or parameter assigned
+from the field, also under a cast, also with a write after the free or a write
+between that writes a field load again, or by an assignment that a condition,
+an initializer or a switch selector always evaluates, a switch expression arm
+or an `&&` guarding the free runs, through a pattern binding of the field, in a
+catch handler after a load that a throwing store follows, by a deferred free,
+also after a `while (true)` loop that a break, return or throw leaves or in a
+braced switch case, and in a finally block that lowering reaches. It rejects a
+defer placed directly in a switch group, keeps D281's report when no route
+leaves the loop, a write of another value precedes the free a skipped
 assignment may reach the free or a binding binds another value, compiles a
 program whose only reclamation sits in a finally block lowering never reaches,
 and checks through a field that escapes to a sibling field that lowering lowers

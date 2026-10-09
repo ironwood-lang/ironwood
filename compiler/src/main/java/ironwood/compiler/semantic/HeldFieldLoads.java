@@ -91,9 +91,10 @@ import java.util.Set;
  * true, so code the whole condition guards sees its writes. Only a loop condition that is the literal {@code true} ends a path, as in
  * lowering. Loops iterate to a fixed point, and frees inside them count only on the
  * pass with it. Break, continue and yield carry their states to their targets, less
- * what finally blocks on the way may write. A catch handler, and a finally block's
- * check, start from the meet of every state their try statement passed through, and
- * an expression this analysis does not know is taken to write every local.
+ * what finally blocks on the way may write. A finally block's check starts from the
+ * meet of every state its try statement passed through, and a catch handler from the
+ * states where lowering may add an exception edge (D309). An expression this analysis
+ * does not know is taken to write every local.
  */
 final class HeldFieldLoads {
     private final String field;
@@ -102,6 +103,8 @@ final class HeldFieldLoads {
     private final Set<String> bindings = new HashSet<>();
     private final Deque<Frame> frames = new ArrayDeque<>();
     private final Deque<Region> regions = new ArrayDeque<>();
+    /** Deferred actions registered in enclosing blocks, which may throw where they run. */
+    private int pendingCleanups;
     /** False while a loop iterates to its fixed point. */
     private boolean recording = true;
     private int unreachedFinallies;
@@ -119,9 +122,22 @@ final class HeldFieldLoads {
         return analysis.found;
     }
 
-    /** A value's holding, with the state after evaluating it; a null state is unreachable. */
-    private record Value(Set<String> held, boolean holds) {
+    /**
+     * A value's holding and whether it is the null literal, with the state after
+     * evaluating it; a null state is unreachable.
+     */
+    private record Value(Set<String> held, boolean holds, boolean isNull) {
+        private Value(Set<String> held, boolean holds) {
+            this(held, holds, false);
+        }
     }
+
+    /**
+     * The marker of a local that holds the null literal on every path (D309): lowering
+     * never frees it, so a catch handler that lowering starts from the try body's entry
+     * state may treat it like a field load. Identifiers never contain a colon.
+     */
+    private static final String NULL = "null:";
 
     /** The states after a condition when it is true and when it is false. */
     private record Split(Set<String> whenTrue, Set<String> whenFalse) {
@@ -155,18 +171,30 @@ final class HeldFieldLoads {
         private boolean holds = true;
     }
 
-    /** A try statement's body or catch handlers, with the meet of every state seen in it. */
+    /**
+     * A try statement's body or catch handlers, with its entry state, the meet of every
+     * state seen in it, and the meet of the states where lowering may add an exception
+     * edge (D309).
+     */
     private static final class Region {
-        private Set<String> held;
+        private final Set<String> entry;
+        private Set<String> all;
+        private Set<String> thrown;
 
-        private Region(Set<String> held) {
-            this.held = held;
+        private Region(Set<String> entry) {
+            this.entry = entry;
+            this.all = entry;
         }
     }
 
     private Set<String> block(List<Statement> statements, Set<String> held, Set<String> scope) {
+        int registered = 0;
         for (int index = 0; index < statements.size(); index++) {
             Statement statement = statements.get(index);
+            if (statement instanceof DeferStatement || statement instanceof DeferredFreeStatement) {
+                registered++;
+                pendingCleanups++;
+            }
             if (statement instanceof DeferredFreeStatement deferred) {
                 // Lowering frees the target's value at every route out of the rest of the
                 // block (D302); with no write to it there, that value is this one.
@@ -180,6 +208,11 @@ final class HeldFieldLoads {
                 continue;
             }
             held = statement(statement, held, scope);
+        }
+        if (registered > 0) {
+            // The block's deferred actions run where it completes.
+            thrown(held);
+            pendingCleanups -= registered;
         }
         return held;
     }
@@ -195,7 +228,7 @@ final class HeldFieldLoads {
         if (statement instanceof LocalVariableDeclaration local) {
             Value value = expression(local.initializer(), held, scope);
             scope.add(local.name());
-            Set<String> out = write(value.held(), local.name(), value.holds());
+            Set<String> out = write(value.held(), local.name(), value.holds(), value.isNull());
             note(out);
             return out;
         }
@@ -210,6 +243,7 @@ final class HeldFieldLoads {
             if (value.holds() && recording && unreachedFinallies == 0) {
                 found = true;
             }
+            thrown(value.held());
             return value.held();
         }
         if (statement instanceof DeferStatement deferred) {
@@ -249,32 +283,36 @@ final class HeldFieldLoads {
             return tryStatement(guarded, held, scope);
         }
         if (statement instanceof ReturnStatement returned) {
-            returned.value().ifPresent(value -> expression(value, held, scope));
+            Set<String> out = returned.value().map(value -> expression(value, held, scope).held()).orElse(held);
+            transferred(out);
             return null;
         }
-        if (statement instanceof ThrowStatement thrown) {
-            expression(thrown.value(), held, scope);
+        if (statement instanceof ThrowStatement throwing) {
+            thrown(expression(throwing.value(), held, scope).held());
             return null;
         }
         if (statement instanceof BreakStatement || statement instanceof ContinueStatement) {
+            transferred(held);
             jump(statement, held);
             return null;
         }
         if (statement instanceof YieldStatement yielded) {
-            yieldTo(expression(yielded.value(), held, scope));
+            Value value = expression(yielded.value(), held, scope);
+            transferred(value.held());
+            yieldTo(value);
             return null;
         }
         if (statement instanceof EnumConstantInitialization initialization) {
-            return sequence(initialization.constant().arguments(), held, scope);
+            return thrown(sequence(initialization.constant().arguments(), held, scope));
         }
         if (statement instanceof SuperConstructorInvocation invocation) {
             List<Expression> operands = new ArrayList<>();
             invocation.enclosingInstance().ifPresent(operands::add);
             operands.addAll(invocation.arguments());
-            return sequence(operands, held, scope);
+            return thrown(sequence(operands, held, scope));
         }
         if (statement instanceof ThisConstructorInvocation invocation) {
-            return sequence(invocation.arguments(), held, scope);
+            return thrown(sequence(invocation.arguments(), held, scope));
         }
         if (statement instanceof EmptyStatement || statement instanceof LocalClassDeclaration
                 || statement instanceof DeferredFreeStatement) {
@@ -379,6 +417,8 @@ final class HeldFieldLoads {
         while (true) {
             Target target = new Target(label, true, false);
             frames.push(target);
+            // Each iteration steps the iterator, which may throw.
+            thrown(header);
             Set<String> end = statement(loop.body(), write(header, loop.variableName(), false),
                     new HashSet<>(loopScope));
             frames.pop();
@@ -391,6 +431,7 @@ final class HeldFieldLoads {
         recording = outer;
         Target target = new Target(label, true, false);
         frames.push(target);
+        thrown(header);
         statement(loop.body(), write(header, loop.variableName(), false), new HashSet<>(loopScope));
         frames.pop();
         return meet(header, target.breaks);
@@ -418,7 +459,7 @@ final class HeldFieldLoads {
     }
 
     private Set<String> switchStatement(SwitchStatement switched, Set<String> held, Set<String> scope) {
-        Set<String> dispatched = expression(switched.selector(), held, scope).held();
+        Set<String> dispatched = thrown(expression(switched.selector(), held, scope).held());
         Set<String> switchScope = new HashSet<>(scope);
         Target target = new Target(null, false, true);
         frames.push(target);
@@ -434,7 +475,7 @@ final class HeldFieldLoads {
     }
 
     private Set<String> modernSwitch(ModernSwitchStatement switched, Set<String> held, Set<String> scope) {
-        Set<String> dispatched = expression(switched.selector(), held, scope).held();
+        Set<String> dispatched = thrown(expression(switched.selector(), held, scope).held());
         Target target = new Target(null, false, true);
         frames.push(target);
         Set<String> out = null;
@@ -470,11 +511,12 @@ final class HeldFieldLoads {
         Region handlers = new Region(null);
         regions.push(handlers);
         Set<String> normal = bodyEnd;
+        Set<String> handlerEntry = handlerEntry(body);
         for (CatchClause caught : guarded.catches()) {
             Set<String> handlerScope = new HashSet<>(scope);
             handlerScope.add(caught.variableName());
             normal = meet(normal, block(caught.body().statements(),
-                    write(body.held, caught.variableName(), false), handlerScope));
+                    write(handlerEntry, caught.variableName(), false), handlerScope));
         }
         regions.pop();
         if (cleanup.isEmpty()) {
@@ -486,13 +528,35 @@ final class HeldFieldLoads {
         // passed through; lowering lowers it only on a route that reaches it (D302).
         boolean reached = LoweredRoutes.reachesFinally(guarded);
         if (!reached) unreachedFinallies++;
-        block(finallyBlock.statements(), meet(body.held, handlers.held), new HashSet<>(scope));
+        block(finallyBlock.statements(), meet(body.all, handlers.all), new HashSet<>(scope));
         if (!reached) unreachedFinallies--;
         boolean outer = recording;
         recording = false;
         Set<String> out = block(finallyBlock.statements(), normal, new HashSet<>(scope));
         recording = outer;
         return out;
+    }
+
+    /**
+     * The state a catch handler starts from (D309). Lowering starts a handler from the
+     * states at the try body's exception edges, which arise only where this analysis
+     * records a possible throw, or, when no edge reaches it, from the body's entry state.
+     * A local therefore holds a field load there when it holds one at every recorded
+     * point and, at the entry, holds one or is the null literal, which lowering never
+     * frees either; with no recorded point the handler starts from the entry state.
+     */
+    private static Set<String> handlerEntry(Region body) {
+        if (body.thrown == null || body.entry == null) {
+            return body.entry;
+        }
+        Set<String> result = new HashSet<>();
+        for (String marker : body.thrown) {
+            if (body.entry.contains(marker)
+                    || !marker.startsWith(NULL) && body.entry.contains(NULL + marker)) {
+                result.add(marker);
+            }
+        }
+        return result;
     }
 
     /** Carries a break or continue's state to its target, less what finally blocks write. */
@@ -545,17 +609,27 @@ final class HeldFieldLoads {
         }
         if (expression instanceof NameExpression name) {
             if (isLocal(name.name(), scope)) {
-                return new Value(held, held.contains(name.name()));
+                return new Value(held, held.contains(name.name()), held.contains(NULL + name.name()));
             }
-            return new Value(held, !staticFunction && name.name().equals(field));
+            if (!staticFunction && name.name().equals(field)) {
+                return new Value(held, true);
+            }
+            // Another name may be a static field, whose class may need initializing.
+            return new Value(thrown(held), false);
         }
         if (expression instanceof FieldAccessExpression access) {
             Value receiver = expression(access.receiver(), held, scope);
-            return new Value(receiver.held(), access.receiver() instanceof ThisExpression
-                    && access.fieldName().equals(field));
+            if (access.receiver() instanceof ThisExpression) {
+                return new Value(receiver.held(), access.fieldName().equals(field));
+            }
+            return new Value(thrown(receiver.held()), false);
+        }
+        if (expression instanceof NullLiteralExpression) {
+            return new Value(held, false, true);
         }
         if (expression instanceof CastExpression cast) {
-            return expression(cast.operand(), held, scope);
+            Value operand = expression(cast.operand(), held, scope);
+            return new Value(thrown(operand.held()), operand.holds(), operand.isNull());
         }
         if (expression instanceof AssignmentExpression assignment) {
             return assign(assignment.target(), assignment.value(),
@@ -585,18 +659,19 @@ final class HeldFieldLoads {
         }
         if (expression instanceof UpdateExpression update) {
             if (update.target() instanceof NameExpression local && isLocal(local.name(), scope)) {
-                Set<String> out = write(held, local.name(), false);
+                Set<String> out = write(thrown(held), local.name(), false);
                 note(out);
                 return new Value(out, false);
             }
-            return new Value(expression(update.target(), held, scope).held(), false);
+            return new Value(thrown(expression(update.target(), held, scope).held()), false);
         }
         List<Expression> operands = operands(expression);
         if (operands == null) {
             // An expression this analysis does not know may write any local.
             return new Value(Set.of(), false);
         }
-        return new Value(sequence(operands, held, scope), false);
+        Set<String> after = sequence(operands, held, scope);
+        return new Value(silent(expression) ? after : thrown(after), false);
     }
 
     private Value assign(Expression target, Expression value, boolean plain, Set<String> held,
@@ -604,11 +679,17 @@ final class HeldFieldLoads {
         if (target instanceof NameExpression local && isLocal(local.name(), scope)) {
             Value written = expression(value, held, scope);
             boolean holds = plain && written.holds();
-            Set<String> out = write(written.held(), local.name(), holds);
+            boolean isNull = plain && written.isNull();
+            // A compound assignment computes before it writes, which may throw.
+            Set<String> before = plain ? written.held() : thrown(written.held());
+            Set<String> out = write(before, local.name(), holds, isNull);
             note(out);
-            return new Value(out, holds);
+            return new Value(out, holds, isNull);
         }
         Set<String> state = held;
+        boolean silent = plain && (target instanceof NameExpression name && name.name().equals(field)
+                && !staticFunction || target instanceof FieldAccessExpression access
+                && access.receiver() instanceof ThisExpression);
         if (target instanceof ArrayAccessExpression access) {
             state = expression(access.array(), state, scope).held();
             state = expression(access.index(), state, scope).held();
@@ -616,11 +697,13 @@ final class HeldFieldLoads {
             state = expression(access.receiver(), state, scope).held();
         }
         Value written = expression(value, state, scope);
-        return new Value(written.held(), plain && written.holds());
+        // A store through this to its field adds no exception edge; any other store may.
+        Set<String> out = silent ? written.held() : thrown(written.held());
+        return new Value(out, plain && written.holds(), plain && written.isNull());
     }
 
     private Value switchExpression(SwitchExpression switched, Set<String> held, Set<String> scope) {
-        Set<String> dispatched = expression(switched.selector(), held, scope).held();
+        Set<String> dispatched = thrown(expression(switched.selector(), held, scope).held());
         Results results = new Results();
         frames.push(results);
         if (switched.arrowRules()) {
@@ -752,11 +835,45 @@ final class HeldFieldLoads {
         return state;
     }
 
-    /** Meets {@code held} into every enclosing try region: an exception may leave from here. */
+    /** Meets {@code held} into every enclosing try region's states. */
     private void note(Set<String> held) {
         for (Region region : regions) {
-            region.held = meet(region.held, held);
+            region.all = meet(region.all, held);
         }
+    }
+
+    /**
+     * Records {@code held} as a state where lowering may add an exception edge (D309), in
+     * every enclosing try region, and returns it.
+     */
+    private Set<String> thrown(Set<String> held) {
+        note(held);
+        for (Region region : regions) {
+            region.thrown = meet(region.thrown, held);
+        }
+        return held;
+    }
+
+    /** Records a transfer's state, where pending deferred actions run and may throw. */
+    private void transferred(Set<String> held) {
+        if (pendingCleanups > 0) {
+            thrown(held);
+        }
+    }
+
+    /**
+     * Whether lowering adds no exception edge for {@code expression} itself, beyond its
+     * operands: literals other than strings, {@code this} and {@code super} forms, and a
+     * logical negation, which only branches. Every other operator may throw, through a
+     * call, a runtime check or unboxing.
+     */
+    private static boolean silent(Expression expression) {
+        return expression instanceof BooleanLiteralExpression || expression instanceof CharacterLiteralExpression
+                || expression instanceof FloatingLiteralExpression || expression instanceof IntegerLiteralExpression
+                || expression instanceof NullLiteralExpression || expression instanceof ThisExpression
+                || expression instanceof SuperExpression || expression instanceof QualifiedThisExpression
+                || expression instanceof InterfaceSuperExpression
+                || expression instanceof UnaryExpression unary && unary.operator() == UnaryOperator.NOT;
     }
 
     private static Set<String> meet(Set<String> first, Set<String> second) {
@@ -772,14 +889,21 @@ final class HeldFieldLoads {
     }
 
     private static Set<String> write(Set<String> held, String name, boolean holds) {
+        return write(held, name, holds, false);
+    }
+
+    private static Set<String> write(Set<String> held, String name, boolean holds, boolean isNull) {
         if (held == null) {
             return null;
         }
         Set<String> result = new HashSet<>(held);
+        result.remove(name);
+        result.remove(NULL + name);
         if (holds) {
             result.add(name);
-        } else {
-            result.remove(name);
+        }
+        if (isNull) {
+            result.add(NULL + name);
         }
         return result;
     }
@@ -796,7 +920,10 @@ final class HeldFieldLoads {
             return held;
         }
         Set<String> result = new HashSet<>(held);
-        result.removeAll(names);
+        for (String name : names) {
+            result.remove(name);
+            result.remove(NULL + name);
+        }
         return result;
     }
 

@@ -12148,7 +12148,9 @@ occurrence order. If no
   valid program's facts or code change (D297-D307).
 - **Boundary:** A binding of a value that is not a field load, a write of
   such a value, an assignment a path to the free may skip, and a free that no
-  route is proven to reach keep D281's report. Supersedes no other decision.
+  route is proven to reach keep D281's report, as does a free in a catch
+  handler of a load that the try body's entry state lacks (D309 recognizes
+  one after the entry's null literal). Supersedes no other decision.
 - **Verification:** A free that runs a destructor during a loan is rejected
   at the free, with the field owned, beside `if (values instanceof int[] old)
   { values = null; free old; }` and beside a reclamation that returns when
@@ -12161,5 +12163,57 @@ occurrence order. If no
   lowering accepts without ownership. On the D307 analysis the pattern cases
   report at the reclamations, while the relocated D281 and D296 checks pass.
   The focused field, wrapper, owner, pool and explanation tests pass, 69
+  examples emit the same `-O3` LLVM, the standard library builds and every
+  port source compiles without diagnostics.
+
+## D309 - Start a catch handler from the states where lowering may throw
+
+- **Status:** Accepted and implemented. Amends D307 and D308: replaces their
+  rule that a catch handler starts from the meet of every state its try
+  statement passed through.
+- **Context:** A reclamation that loads the field in a try body before an
+  operation that may throw and frees it in the handler, as in `int[] old =
+  null; try { old = values; old[1] = 0; } catch (RuntimeException failure) {
+  values = null; free old; }`, still reported a free that may run code during
+  a loan at its reclamation: the handler's state included the try body's
+  entry, where `old` is null.
+- **Decision:** A try region also records the states where lowering may add
+  an exception edge: after the operands of a call, a construction, an array
+  access or creation, a cast, an arithmetic, comparison or string operator,
+  a compound assignment or update, a store that is not to a field of
+  `this`, a read of another receiver's field or of a name that may be a
+  static field, a switch selector, a throw, a free, each enhanced-for step,
+  and the completion of and transfers out of a block with pending deferred
+  actions. A catch handler starts from a local holding a field load when the
+  local holds one at every such state and, at the try body's entry, holds
+  one or is the null literal, which the analysis now tracks; with no such
+  state it starts from the entry. A finally block's check still starts from
+  every state the try statement passed through.
+- **Analysis:** Lowering adds exception edges only for calls and throws,
+  including the bundled exceptions of runtime checks, all of which arise at
+  recorded states, and starts a handler from its edges' states, or, when no
+  edge reaches it, from the try body's entry state. On an edge the local
+  holds a field load; from the entry it holds one or is null, and lowering
+  rejects freeing either without ownership, so a recorded free is rejected
+  and no valid program's facts or code change (D297-D308). A handler that no
+  edge reaches with a freeable value at the entry, such as a new array, is
+  why the entry still counts: lowering accepts that free.
+- **Boundary:** A free in a catch handler of a local that holds neither a
+  field load nor the null literal at the try body's entry, a write of a value
+  that is not a field load, an assignment a path to the free may skip, and a
+  free that no route is proven to reach keep D281's report. Supersedes no
+  other decision.
+- **Verification:** A free that runs a destructor during a loan is rejected
+  at the free, with the field owned, beside the reclamation above, whose safe
+  twin compiles, and through a field that escapes to a sibling field
+  lowering rejects that free. D281's free route and D296's paired test now
+  use a store whose handler frees a local that holds a parameter at the try
+  body's entry. The D307 dataflow differential, now with seven catch shapes,
+  found no counted free that lowering accepts without ownership, and showed
+  lowering accepting the free of a new array from the entry in a handler no
+  edge reaches, which the analysis does not count; the D302 route
+  differential still agrees. On the D308 analysis the catch case reports at
+  the reclamations, while the relocated D281 and D296 checks pass. The
+  focused field, wrapper, owner, pool and explanation tests pass, 69
   examples emit the same `-O3` LLVM, the standard library builds and every
   port source compiles without diagnostics.

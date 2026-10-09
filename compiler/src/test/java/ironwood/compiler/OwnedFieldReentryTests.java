@@ -176,10 +176,11 @@ final class OwnedFieldReentryTests {
     }
 
     /**
-     * A store whose only reclamation of its field frees, in a catch handler, a local
-     * loaded in the try body before a store that may throw. A handler starts from the
-     * state at the try body's entry too, so no D297-D308 witness counts that free, and
-     * a free that may run code during a loan still fails the field's proof (D281).
+     * A store whose only reclamation of its field frees, in a catch handler, a local the
+     * try body loads from the field but that holds a parameter at the try's entry. Lowering
+     * starts a handler that no exception edge reaches from that entry, so no D297-D309
+     * witness counts the free, and a free that may run code during a loan still fails the
+     * field's proof (D281).
      */
     private static final String STORE = """
             class Noisy {
@@ -193,8 +194,8 @@ final class OwnedFieldReentryTests {
             class Store {
                 private int[] values = new int[1];
 
-                void discard() {
-                    int[] old = null;
+                void discard(int[] spare) {
+                    int[] old = spare;
                     try {
                         old = values;
                         old[1] = 0;
@@ -270,7 +271,7 @@ final class OwnedFieldReentryTests {
     /**
      * When the program needs the field owned, because the owner's destructor frees it
      * (D297) or its instance code frees a local loaded from it, as Buffer.drop does,
-     * directly or by a deferred free (D298-D308), a free that may run code during a loan
+     * directly or by a deferred free (D298-D309), a free that may run code during a loan
      * leaves the field owned and is rejected at the free: freeing an object whose
      * destructor reenters names the alias and field it would cross, its safe twin
      * compiles, and freeing the owner, whose destructor frees the field directly, inside
@@ -737,6 +738,36 @@ final class OwnedFieldReentryTests {
                     + explained(twin));
             require(lowersFree(members), "lowering did not reject a pattern free the witness counted");
         }
+        // A catch handler starts from the states where lowering may add an exception edge,
+        // so a load before the throwing store reaches the handler's free (D309); with the
+        // null literal at the try's entry, a handler no edge reaches would see null.
+        String caught = """
+                    void reset() {
+                        int[] old = null;
+                        try {
+                            old = values;
+                            old[1] = 0;
+                        } catch (RuntimeException failure) {
+                            values = null;
+                            free old;
+                        }
+                    }
+                """;
+        CompilationArtifact handled = store(caught + noisyUse);
+        require(!handled.valid() && ownershipFailures(handled).isEmpty() && messages(handled).equals(List.of(CONTINGENT)),
+                "a reentrant free beside a catch reclamation was not rejected at the free: " + explained(handled));
+        CompilationArtifact handledTwin = store(caught + """
+
+                    void use() {
+                        Noisy noisy = new Noisy();
+                        free noisy;
+                        int[] old = values;
+                        old[0] = 7;
+                    }
+                """);
+        require(handledTwin.valid(), "freeing before the loan was rejected beside a catch reclamation: "
+                + explained(handledTwin));
+        require(lowersFree(caught), "lowering did not reject a catch free the witness counted");
         CompilationArtifact foreign = store("""
                     void reset(Object other) {
                         if (other instanceof int[] old) {
