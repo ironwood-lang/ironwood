@@ -107,6 +107,9 @@ implementation or transpiler:
   Put focused demonstrations in `examples/` and larger applications in
   `projects/`, using compile/link/run scripts and ignored `target/` output.
   `workspace/` is ignored scratch space, not production source.
+- Keep compressed archives, run logs, and large generated evidence out of the
+  repository; commit their manifests, hashes, and summaries instead. Run
+  `./scripts/check-tracked-files.sh` before committing data or evidence files.
 - Follow `docs/IRONWOOD_FORMATTING.md` for Ironwood source. Prefer focused code,
   explicit compiler phases, immutable semantic structures where practical, and
   structured results for ordinary compiler control flow. Avoid god objects,

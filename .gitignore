@@ -10,3 +10,12 @@ target/
 !docs/self-hosting/m5/archive-evidence/fixtures/classes/**/*.ironclass
 *.log
 .DS_Store
+# Compressed evidence, data and logs stay outside the repository
+# (docs/self-hosting/README.md); scripts/check-tracked-files.sh rejects them.
+/docs/**/*.gz
+/docs/**/*.tgz
+/docs/**/*.bz2
+/docs/**/*.xz
+/docs/**/*.zst
+/docs/**/*.zip
+/docs/**/*.tar

@@ -12315,3 +12315,32 @@ occurrence order. If no
   The focused field, wrapper, owner, pool and explanation tests pass, 69
   examples emit the same `-O3` LLVM, the standard library builds and every
   port source compiles without diagnostics.
+
+## D312 - Keep compressed evidence outside the repository
+
+- **Status:** Accepted and implemented. Supersedes no other decision.
+- **Context:** The before-self-hosting milestones committed 899 compressed
+  evidence files under `docs/self-hosting/`: capture and measurement
+  archives, inventory and reconciliation data and run logs, about 150 MiB,
+  one archive over GitHub's recommended 50 MB. Every clone downloaded them,
+  and text audits could not see inside them.
+- **Decision:** Compressed files stay out of `docs/`, and no tracked file
+  exceeds 5 MiB. Evidence is committed as manifests, hashes and summaries;
+  the files themselves are kept elsewhere. The 899 files were removed from
+  the history of the 157 commits of that work, which renamed 156 of them. Documents and manifests keep citing the original identifiers, so
+  their recorded file hashes stay valid, and
+  `docs/self-hosting/COMMIT_MAP.txt` maps each original commit to its new one.
+- **Analysis:** Only the ownership pilot test read the evidence, unpacking
+  three archives to compare 47 native kernel results with retained J0
+  results. The M0 manifests record the SHA-256 of every archived file, so
+  the test compares result hashes instead; no compiler or language behavior
+  changes.
+- **Boundary:** The `scripts/self-hosting/` qualification scripts and some
+  `run-evidence.sh` scripts still read the removed files and need them
+  restored before they can run again.
+- **Verification:** Each rewritten commit keeps its author, committer, dates
+  and parents and differs from the original only by the removed files, with
+  15 commit messages differing only in the commit identifiers they cite.
+  `scripts/check-tracked-files.sh` passes on the new tree and rejects the
+  original one, and the ownership pilot artifacts test passes without the
+  archives.
