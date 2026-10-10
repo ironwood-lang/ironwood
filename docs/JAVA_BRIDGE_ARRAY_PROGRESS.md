@@ -4,7 +4,7 @@
 
 The maintainer authorized P7b on 2026-09-28. The authoritative boundary is
 [P7b in the implementation plan](JAVA_BRIDGE_PLAN.md#p7b-copied-primitive-arrays).
-Work stays on local `java-bridge`; Estonia work stays in `~/temp/java-bridge`.
+Work stays on local `java-bridge`; x86host work stays in `~/temp/java-bridge`.
 P7c-P7f and further callback performance tuning are outside this task.
 
 ## Pre-change review
@@ -35,7 +35,7 @@ and copy-back failure precedence.
 
 Focused verification: new array proof and native consumer tests, adjacent ABI,
 String, object-retention and callback admission regressions; pinned Java 21-23
-and LLVM 23 on macOS ARM64, Linux ARM64 and Estonia x86-64. Inspect optimized
+and LLVM 23 on macOS ARM64, Linux ARM64 and x86host x86-64. Inspect optimized
 code and measure deterministic array conversion/compute throughput and latency.
 Run license and diff checks; exercise packaging for changed producer contents.
 No unfiltered compiler suites, installations, pushes or publication.
@@ -59,7 +59,7 @@ No unfiltered compiler suites, installations, pushes or publication.
   raw JNI buffer as an array. All acquired staging/native storage is released on
   success and failure; normal scalar adapters have no array state.
 - The three new exact fixtures passed on macOS ARM64, Linux ARM64 virtualization
-  and Estonia physical x86-64 (isolated CPU 2). Each target additionally passed
+  and x86host physical x86-64 (isolated CPU 2). Each target additionally passed
   34 Java 22/23 checked-JNI replays. Production source/class/archive jars cover
   O0/O3, all eight kinds, null/empty/large inputs, distinct/repeated aliases,
   scalar and instance calls, native allocation budgets 0/1/2, and native bounds
@@ -76,7 +76,7 @@ No unfiltered compiler suites, installations, pushes or publication.
   Mac producer `evidence/p7b/arrays/run-3728421012479401792`, fault image
   `evidence/p7b/array-faults/run-17708435144121359502` under
   `workspace/java-bridge/`; Linux ARM64 `arrays/linux-arm64-readonly/evidence`;
-  Estonia `~/temp/java-bridge/p7b-readonly-20260928/work/evidence`.
+  x86host `~/temp/java-bridge/p7b-readonly-20260928/work/evidence`.
   Linux input archive SHA-256:
   `4b08b97ec1675e0508f3cfaba5217f37528ad247bf300c62876f6e9b6ad29985`.
 - Read-only transport was committed as `be738c65`.
@@ -106,8 +106,8 @@ No unfiltered compiler suites, installations, pushes or publication.
   checksums for native Ironwood, Java and the generated bridge, plus native
   allocation/live-storage checks. Full timings and Java 22/23 final replays remain.
   It records batch-average call latency, not individual-call percentiles.
-  The previous Estonia read-only evidence archive has been streamed to
-  `workspace/java-bridge/arrays/estonia-readonly/evidence.tar.gz`.
+  The previous x86host read-only evidence archive has been streamed to
+  `workspace/java-bridge/arrays/x86host-readonly/evidence.tar.gz`.
 - Final additional Mac composition checks passed: array inputs with existing and
   fresh root results, root-slot retention on success and store-then-throw, alias
   and fresh String results, and cleanup when copy-back abandons those Strings.
@@ -118,7 +118,7 @@ No unfiltered compiler suites, installations, pushes or publication.
   `84726ea32349973244d5a1e9dc6568983720d2311e6fd6becf21385e1c232be5`.
   It contains the current source and pinned Java 21 compiler/test classes, with
   a per-file manifest. Runs are in `arrays/linux-arm64-values` locally and
-  `~/temp/java-bridge/p7b-values-20260928` on Estonia. Final JDK replays and
+  `~/temp/java-bridge/p7b-values-20260928` on x86host. Final JDK replays and
   measurement runs are still in progress; no final qualification claimed yet.
 
 ## Final checkpoint
@@ -129,7 +129,7 @@ The [final evidence report](JAVA_BRIDGE_ARRAY_EVIDENCE.md) records measurements,
 commands, payload hashes and the exact supported boundary.
 
 - Final six array fixtures passed on Mac, local Linux ARM64 virtualization and
-  physical Linux x86-64 Estonia. Each target passed 148 additional Java 22/23
+  physical Linux x86-64 x86host. Each target passed 148 additional Java 22/23
   checked-JNI child replays. Mac passed the adjacent regressions noted above,
   the final negative reconstruction assertion and Java 24 pre-extraction refusal.
 - Full deterministic native/Java/bridge benchmarks passed on all three targets:
@@ -146,7 +146,7 @@ commands, payload hashes and the exact supported boundary.
 - All 735 production compiler/runtime/stdlib source files in the final Linux
   snapshot match this checkout. Three-target jar assembly passed with identical
   native bytes; three checked-JNI Mac smoke consumers passed on the combined jar.
-- Estonia read-only and final archives were streamed to the Mac, fully read and
+- x86host read-only and final archives were streamed to the Mac, fully read and
   SHA-256 verified. Final archive hash:
   `c2d62af34a95390987480de6617203a8840a8d7a6dd6f889ebe5f75b76073901`.
   Only our two generated `p7b-*-20260928/work` directories were removed afterward,

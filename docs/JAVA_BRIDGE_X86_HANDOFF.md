@@ -2,7 +2,7 @@
 
 # Java Bridge Linux x86-64 hardware handoff
 
-The maintainer subsequently authorized SSH execution on Estonia. The selected
+The maintainer subsequently authorized SSH execution on x86host. The selected
 hardware checks and measurement collection are complete; see the [hardware
 report](JAVA_BRIDGE_X86_EVIDENCE.md). Numerical acceptance remains pending.
 This document retains the reproducible focused handoff for later authorized
@@ -104,7 +104,7 @@ do not silently substitute an installation.
 ## Focused execution
 
 Record host `uname -a`, `lscpu`, virtualization details, available memory and
-competing work. On Estonia, record `/proc/cmdline` and use Docker
+competing work. On x86host, record `/proc/cmdline` and use Docker
 `--cpuset-cpus 1-4,9-12` for its authorized isolated cores. Use a reviewed CPU
 selection on any other host. Retain the current governor and record it. Preserve
 containers and prior evidence; use a new evidence directory for each run.
@@ -188,7 +188,7 @@ requires review of matching hardware, all expected outcomes and code inspection,
 not just a summary file. Hardware findings requiring production changes require
 rebuilding affected candidates and refreshing affected ARM64 evidence.
 
-Estonia now supplies these hardware checks for the frozen candidate. P6b and
+x86host now supplies these hardware checks for the frozen candidate. P6b and
 release readiness remain incomplete until the maintainer's final numerical
 performance review is accepted. This handoff does
 not authorize publishing a release or broadening Java-version support.

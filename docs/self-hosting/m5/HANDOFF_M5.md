@@ -68,8 +68,8 @@ byte; the M3.1, M3.2, M3.3, M4.1-M4.2 and M4.3 tables regenerate unchanged.
 | Host | Result |
 | --- | --- |
 | macOS 27.0.1 arm64 | the 25 M5 tests and 17 consumer tests, the classifications, the port compilation and the audits |
-| Linux x86-64 (`estonia`, kernel 4.15, glibc 2.27, JDK 21.0.1, conda LLVM 23.1.0) | the 25 M5 tests and the five consumers of the `walkFileTree` change |
-| Linux arm64 (`miami`: Ubuntu 22.04 guest, kernel 5.15, glibc 2.35, Temurin 21, conda LLVM 23.1.0) | the 25 M5 tests and the five consumers of the `walkFileTree` change |
+| Linux x86-64 (`x86host`, kernel 4.15, glibc 2.27, JDK 21.0.1, conda LLVM 23.1.0) | the 25 M5 tests and the five consumers of the `walkFileTree` change |
+| Linux arm64 (`armvm`: Ubuntu 22.04 guest, kernel 5.15, glibc 2.35, Temurin 21, conda LLVM 23.1.0) | the 25 M5 tests and the five consumers of the `walkFileTree` change |
 
 - Readers and writers hold whole archives in memory; the measured peaks run
   from 1.9 MB for one small class artifact to 404.9 MB for an archive with a
@@ -125,7 +125,7 @@ backend helpers and the port generics audit), the three M5 classifications
 byte for byte with the five earlier tables unchanged, one compilation of all
 187 port sources with the five pilot adapters under `--unfreed=warn` (no
 diagnostics), `git diff --check` over ea19508c..4c1c66ce, the license audit,
-and on estonia and miami the 25 M5 tests with the U5 traversals, M4.1's sweep
+and on x86host and armvm the 25 M5 tests with the U5 traversals, M4.1's sweep
 and tree deletion. All 26 statuses passed. The macOS part started once the
 one-minute load fell below 3, with the Linux arm64 guest running beside it.
 Unsafe programs were compile-only; no full suite or hosted build ran.
@@ -133,7 +133,7 @@ Unsafe programs were compile-only; no full suite or hosted build ran.
 The first checkpoint run found two defects in earlier M5 commits, both fixed
 before this run. The four frozen Java-written `.ironclass` fixtures matched
 the `*.ironclass` ignore rule and had never been committed, so a clean archive
-failed the eight fixture-based tests on estonia; 5ee3e8d3 tracks them through
+failed the eight fixture-based tests on x86host; 5ee3e8d3 tracks them through
 an ignore exception. `git diff --check` over the range flagged two of Java's
 exact diagnostics in the frozen verdict transcript that end in whitespace;
 4c1c66ce exempts that byte-exact file. Per-commit checks had missed both: the

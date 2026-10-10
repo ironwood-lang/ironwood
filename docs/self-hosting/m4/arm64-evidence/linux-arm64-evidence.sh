@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: MIT OR Apache-2.0
-# Linux arm64 part of both M4 checkpoints, run on the miami VM from a git
+# Linux arm64 part of both M4 checkpoints, run on the armvm VM from a git
 # archive of the recorded commit in ~/temp/ironwood-m4-arm64/tree: the twelve
 # M4.1/M4.2 tests and the fifteen M4.3 tests with JDK 21 and the IDK 0.2.5
 # LLVM 23 toolchain, then the glibc 2.17 symbol check of the native harness

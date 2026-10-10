@@ -52,7 +52,7 @@ M3.3 tables regenerate unchanged.
 | --- | --- |
 | macOS 27.0.1 arm64 | 29 tests: the twelve M4.1/M4.2 tests and 17 unchanged consumers (U2, U5, filesystem, path, IronDocs, artifact round trips, port reference bounds); runtime built for the 11.0 deployment target; cross-device behavior on an HFS+ image |
 | Linux x86-64 (kernel 4.15, glibc 2.27 host) | the twelve M4.1/M4.2 tests, including `getrandom`, the raw `renameat2` syscall and tmpfs cross-device copies; the native harness built against the glibc 2.17 sysroot needs at most `GLIBC_2.17` and references neither `renameat2` nor `getrandom` |
-| Linux arm64 (`miami`: Ubuntu 22.04 guest, kernel 5.15, glibc 2.35) | the twelve M4.1/M4.2 tests, including the arm64 `getrandom` (278) and `renameat2` (276) syscalls and tmpfs cross-device copies; the native harness built against the aarch64 glibc 2.17 sysroot needs at most `GLIBC_2.17` and references neither `renameat2` nor `getrandom` |
+| Linux arm64 (`armvm`: Ubuntu 22.04 guest, kernel 5.15, glibc 2.35) | the twelve M4.1/M4.2 tests, including the arm64 `getrandom` (278) and `renameat2` (276) syscalls and tmpfs cross-device copies; the native harness built against the aarch64 glibc 2.17 sysroot needs at most `GLIBC_2.17` and references neither `renameat2` nor `getrandom` |
 
 - No real file system without exclusive rename was available, so the
   unsupported path is qualified by injection.
@@ -90,14 +90,14 @@ One run on a fresh `git archive` of 10c9a98d: the strict `scripts/build.sh`,
 function-body comparison of two programs that call no new member against the
 pre-change compiler (no difference once numbering is normalized), one
 compilation of all 169 port sources with both pilot adapters (no
-diagnostics), the diff and license audits, and on estonia the twelve
+diagnostics), the diff and license audits, and on x86host the twelve
 M4.1/M4.2 tests and the glibc 2.17 symbol check. Unsafe programs were
 compile-only; no full suite or hosted build ran.
 
 Linux arm64 was qualified afterwards by
 [arm64-evidence/run-evidence.sh](arm64-evidence/run-evidence.sh) on 00f5554f,
 which ran these twelve tests, the fifteen M4.3 tests and the same symbol check
-on the `miami` guest; all six statuses passed. That guest's JVM warns on
+on the `armvm` guest; all six statuses passed. That guest's JVM warns on
 stderr at every start (its kernel reports SVE2 without SVE), so the JDK check
 and the discovery reference now read javac's line and the reference's stdout
 only; no runtime or library code changed.

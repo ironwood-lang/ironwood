@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Linux part of the M6 checkpoint, run from a git archive of the recorded
-# commit in BASE/tree on the estonia host (x86-64: JDK 21.0.1 and the IDK
-# 0.3.1 LLVM 23 toolchain) or the miami VM (arm64: Temurin 21 and the IDK
+# commit in BASE/tree on the x86host host (x86-64: JDK 21.0.1 and the IDK
+# 0.3.1 LLVM 23 toolchain) or the armvm VM (arm64: Temurin 21 and the IDK
 # 0.2.5 LLVM 23 toolchain): the 15 M6 tests (m6-tests.txt) and the five M5.4
-# consumers of the shared identifier table. On estonia the JDK selection test
+# consumers of the shared identifier table. On x86host the JDK selection test
 # also inspects the installed JDK homes listed below that exist. Logs land in
 # BASE/logs; the done marker ends the run.
 set -u

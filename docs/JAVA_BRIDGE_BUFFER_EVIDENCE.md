@@ -23,7 +23,7 @@ qualification commit adds tests, IDK smoke coverage and documentation only.
 | --- | --- | --- | ---: | ---: |
 | macOS ARM64 | Apple M5, Mac17,2, macOS 26.6.2 | Three view fixtures and two inlining fixtures passed, with producer/packaging rerun after final production changes | 28 | 9 across Java 21-23 |
 | Linux ARM64 | Local Colima ARM64 virtualization | Same five fixtures passed | 28 | 9 across Java 21-23 |
-| Linux x86-64 | Physical Estonia, Xeon E-2288G | Same five fixtures passed | 28 | 9 across Java 21-23 |
+| Linux x86-64 | Physical x86host, Xeon E-2288G | Same five fixtures passed | 28 | 9 across Java 21-23 |
 
 Production and benchmark JVM: Temurin 21.0.12.1+1. Replay JVMs: Temurin
 22.0.2+9 and 23.0.2+7. Native tools: LLVM 23.1.0. Linux uses the existing pinned
@@ -80,11 +80,11 @@ batches, three native warmup batches, then seven measured batches. Sizes 1 and
 Each cell is **median batch-average ns/call / million calls/s**, including driver
 work. These are not call-latency percentiles or multi-fork confidence intervals.
 Every batch, checksum, allocation count and range is retained in `samples.csv`
-and `summary.json`. Estonia runs on isolated CPU 1 with the existing powersave
+and `summary.json`. x86host runs on isolated CPU 1 with the existing powersave
 governor and turbo behavior; no fixed-clock claim is made. ARM64 is virtualized.
 Mac's final short run is functional smoke only, not performance evidence.
 
-### Linux x86-64, Estonia
+### Linux x86-64, x86host
 
 | Operation | Bytes | Pure Ironwood | Java arrays | Java views | Bridge copied arrays | Bridge borrowed views |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
@@ -112,13 +112,13 @@ Mac's final short run is functional smoke only, not performance evidence.
 | overlap | 64 | 59.92 / 16.690 | 31.26 / 31.991 | 78.04 / 12.814 | 62.97 / 15.880 | 172.19 / 5.808 |
 | overlap | 4096 | 7048.17 / 0.142 | 2670.69 / 0.374 | 6920.80 / 0.144 | 495.26 / 2.019 | 7069.52 / 0.141 |
 
-The zero-copy gate has a useful measured result: Estonia 4096-byte view reads
+The zero-copy gate has a useful measured result: x86host 4096-byte view reads
 and updates take about 19% and 12% less time than copied-array calls, respectively.
 They are about 10% and 5% above pure Ironwood. ARM64 reductions against copied
 arrays are about 31% and 38%. Small calls still pay JNI metadata acquisition;
 zero-copy is not a promise to outperform copying at every size.
 
-Overlapping views remain slower: 6689 ns versus 1606 ns copied-array on Estonia,
+Overlapping views remain slower: 6689 ns versus 1606 ns copied-array on x86host,
 and 7070 ns versus 495 ns on ARM64 at 4096 bytes. The array overload exposes the
 fixed one-byte recurrence within one array; the two-view overload must support
 arbitrary legal aliases and lengths. Assembly shows a scalar dependent loop
@@ -149,14 +149,14 @@ its loop: x86-64 at `0x5dc0/0x5dc9`, with packed updates at `0x5e10`; ARM64 at
 The overlap path retains sequential memory dependence; it does not share the
 same optimization result. Focused inlining/cleanup/trace regressions passed.
 
-Estonia's before/after 4096-byte view-update measurement was 6386.13 to 1734.23
+x86host's before/after 4096-byte view-update measurement was 6386.13 to 1734.23
 ns/call (about 3.7x). These are separate runs under the stated host conditions;
 raw initial data remains available. The final production payload, not the first
 prototype, supplies every table above.
 
 Cold allocation is outside warmed timing. One 4096-byte bridge-view update
 process reported allocation plus two slices at 4,638,480 ns and 86,616 Java bytes
-on Estonia, and 2,961,300 ns and 86,504 Java bytes on ARM64. These include first-use
+on x86host, and 2,961,300 ns and 86,504 Java bytes on ARM64. These include first-use
 class loading, exclude the direct off-heap payload from the Java-byte counter,
 and are diagnostic startup samples rather than steady allocator benchmarks.
 Every process retains its cold line separately from measured CSV rows.
@@ -204,7 +204,7 @@ the Temurin producer/performance baseline. No toolchain was installed.
 Raw evidence is retained under `workspace/java-bridge/byteviews/` in the canonical
 checkout, outside version control:
 
-- `linux-arm64-final/work/evidence/` and `estonia-final/evidence/`: five-test
+- `linux-arm64-final/work/evidence/` and `x86host-final/evidence/`: five-test
   logs, 28-replay records, versions, manifest verification and full performance
   commands, samples, summaries, payloads and disassembly.
 - Each target's `mixed-failure-supplement.json`: nine supplemental
@@ -215,10 +215,10 @@ checkout, outside version control:
   `idk-package-final.log` and `idk-smoke.log`.
 - `backwards-supplement.json` and `.log`: nine Mac reverse-overlap checks on
   frozen O0/O3 producer jars after the final snapshot.
-- `estonia-evidence-final.tar.gz`, verified/extracted on Mac, hash
+- `x86host-evidence-final.tar.gz`, verified/extracted on Mac, hash
   `f4a8b2383806877e2dac9b118fd1b94aba21205500bb001fdeb88ec2f866abfb`.
-- Initial data: `linux-arm64-1/work/evidence/`, `estonia-1/evidence/`,
-  `estonia-evidence-1.tar.gz`; it is not substituted for final qualification.
+- Initial data: `linux-arm64-1/work/evidence/`, `x86host-1/evidence/`,
+  `x86host-evidence-1.tar.gz`; it is not substituted for final qualification.
 
 ## Reproduction
 
@@ -253,7 +253,7 @@ Linux images are preexisting, not installed by this task:
 Frozen runs mount the extracted snapshot at `/work`, existing support at
 `/support:ro`, and existing consumer JDKs at `/jdks:ro`. Set
 `QUAL_TARGET=linux-arm64` or `linux-x86_64`, use `/work` as the container working
-directory, and run `sh validation/qualify.sh`. Estonia work stayed under
+directory, and run `sh validation/qualify.sh`. x86host work stayed under
 `~/temp/java-bridge/p7c1-20260928-final`; the previous run used the sibling
 `p7c1-20260928-1`. Preserve the input archives and copy evidence back before
 cleaning task-created output. After collection and archive/payload verification,

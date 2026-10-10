@@ -22,12 +22,12 @@ support matrix while broader-version qualification remains outside this run.
 The separately identified Java 25 experiment is complete, with findings and a
 recommendation for later review. Do not broaden support. Numerical performance
 acceptance belongs to the maintainer. D213 hardware collection completed on
-Estonia after the maintainer separately authorized SSH access.
+x86host after the maintainer separately authorized SSH access.
 
 ## Current checkpoint
 
 The 2026-09-29 [OrderBook host investigation](JAVA_BRIDGE_HOST_PERFORMANCE.md)
-reproduces the maintainer's slower-than-Java result on Estonia. The preserved
+reproduces the maintainer's slower-than-Java result on x86host. The preserved
 D224 bridge and current bridge have matching hot instructions and nearly equal
 host timings. A controlled child-process mitigation experiment identifies the
 container's speculative-store-bypass protection as the main reason the earlier
@@ -39,7 +39,7 @@ P7a batching, P7b copied primitive arrays, P7c bounded byte views and P7d0-P7d2
 bounded generics are implemented and qualified under their separately recorded
 authorizations. The completed P7e0 checkpoint's
 [isolated JNI/FFM experiment](JAVA_BRIDGE_FFM_EXPERIMENT.md) is complete on
-macOS ARM64, local Linux ARM64 virtualization and physical Estonia x86-64.
+macOS ARM64, local Linux ARM64 virtualization and physical x86host x86-64.
 The production compiler and default JNI artifact are unchanged. The experiment
 recommends retaining JNI given the small scalar gain and additional deployment
 policy. The maintainer accepted JNI only under D238, closing P7e through that
@@ -55,7 +55,7 @@ acceptance and further tuning remain separate from qualification completion.
 The subsequent usability check added `projects/OrderBook/java-bridge` with
 compile/link/run/throughput/latency scripts and a focused smoke test. They reuse
 the unchanged Java drivers against the generated native engine. Mac ARM64 and
-physical Estonia x86-64 pass the smoke checks on Java 21/22/23; the simple
+physical x86host x86-64 pass the smoke checks on Java 21/22/23; the simple
 `examples/java-bridge/value` compile/link/run workflow also passes on this Mac.
 Evidence and the Linux input catalog are in
 `workspace/java-bridge/orderbook-workflow`; no compiler or engine behavior changed.
@@ -88,7 +88,7 @@ pass after reviewing the three-scenario OrderBook results. See
 contracts and verification. Prior qualification below describes the immutable
 original candidate and does not qualify changed production artifacts.
 
-The selected physical x86-64 checks and measurements now pass on `estonia`,
+The selected physical x86-64 checks and measurements now pass on `x86host`,
 confined to `/home/developer/temp/java-bridge`, using isolated CPUs `1-4,9-12`.
 The original qualification revision is `6f608190`; continuation uses test-only
 fix `d533f1a6`, with unchanged production payloads. Retaining-call measurement
@@ -4399,9 +4399,9 @@ explicitly excluded P5/P7 extensions. Java 25 remains a later support-policy
 choice; retain Java 21-23 for this run. P6b/release readiness are not complete.
 No main merge, push, remote execution, paid provisioning or release occurred.
 
-## Authorized Estonia hardware qualification
+## Authorized x86host hardware qualification
 
-The maintainer supplied `ssh estonia` and the empty `~/temp/java-bridge` folder.
+The maintainer supplied `ssh x86host` and the empty `~/temp/java-bridge` folder.
 Read-only access confirms the hardware/resources above and usable Docker.
 Host Python is 3.6.9; use a streaming SHA-256 verifier compatible with it, then
 the pinned Python/JDK/LLVM inside the delivered containers. No host package
@@ -4412,7 +4412,7 @@ Next: verify transport hashes, prepare an exact independent checkout, load the
 matched images, verify pinned tools, execute focused stages and minimal-JVM
 consumers, inspect code and collect hardware measurements/evidence locally.
 
-Estonia confirms no detected hypervisor. The maintainer supplied isolated CPUs
+x86host confirms no detected hypervisor. The maintainer supplied isolated CPUs
 `1,2,3,4,9,10,11,12`; topology identifies physical cores 1-4 and their SMT siblings.
 Use that exact Docker cpuset, retain the current powersave governor, and record
 both in timing evidence. The saved development image loads successfully on
@@ -4421,16 +4421,16 @@ Temurin 21.0.12.1+1 and LLVM 23.1.0. No host installation or configuration chang
 was needed. Transfer resumes with compression after preserving its partial
 file; both transfer logs remain in `workspace/java-bridge/experiments`.
 
-Transport verification passes for all four archives. Estonia's independent
+Transport verification passes for all four archives. x86host's independent
 checkout is clean at `6f60819002963c4e021d77ba162e7f9179d962a4`, with the required
 origin fetch/push URLs; both Docker image identities match the manifest.
 Preparation and qualification commands are retained under the remote
 `host-evidence` directory. The test container uses UID/GID 1001, no network,
 no core dumps and the authorized isolated cpuset. All containers are retained.
 Pinned Java 22/23 preparation and the selected stages are starting. Stage output
-will live in `workspace/java-bridge/evidence/p6b/x86-estonia-1` inside the checkout.
+will live in `workspace/java-bridge/evidence/p6b/x86-x86host-1` inside the checkout.
 
-Estonia's three minimal-JVM final-candidate checks pass (version O0/O3 and
+x86host's three minimal-JVM final-candidate checks pass (version O0/O3 and
 OrderBook with checked JNI and escape analysis disabled). Output is exact and
 warm Java allocation is zero. Pinned JDK 22/23 checks also pass. The main run
 has passed its first 14 of 17 selected fixtures, including root/retention
@@ -4439,25 +4439,25 @@ and custom graphs. Actual OrderBook allocation is now running, followed by
 producer exhaustion and original production stack coverage. No failures,
 production changes or assertion changes have occurred.
 
-All 17 Estonia fixtures pass, including original D213 stack probes. Fourteen of
+All 17 x86host fixtures pass, including original D213 stack probes. Fourteen of
 15 proof/guard groups pass; the generated-loader extraction fixture fails with
 `UnsatisfiedLinkError` because it hardcodes a macOS ARM64 payload on Linux.
-`p6b/estonia-loader-diagnostic` preserves the full original cause. The test-only
+`p6b/x86host-loader-diagnostic` preserves the full original cause. The test-only
 fix `d533f1a6` selects the executing host target/filename/floor while retaining
 all assertions and the existing three-target extraction matrix. Strict test
 compilation, license/diff checks and the exact affected test pass on Mac ARM64,
-Linux ARM64 and Estonia. No production source or candidate changed.
+Linux ARM64 and x86host. No production source or candidate changed.
 
-Keep original `x86-estonia-1/proofs.log` and exit 1; the successful correction is
-in `p6b/estonia-loader-fix`. Resume only the unrun stages from the recorded plan,
-with original fixtures and the combined 14+1 proof evidence. Estonia advances
+Keep original `x86-x86host-1/proofs.log` and exit 1; the successful correction is
+in `p6b/x86host-loader-fix`. Resume only the unrun stages from the recorded plan,
+with original fixtures and the combined 14+1 proof evidence. x86host advances
 by fast-forward to the verified test-only commit. Full fixture evidence is
 about 38 GiB, largely repeated SDK/payload copies; the initial local transfer
 was stopped with its partial files preserved before timing. Retain all remote
 artifacts and finish evidence collection after validation.
 
-The test-only fix has been fast-forwarded into Estonia's clean `java-bridge`.
-`workspace/java-bridge/estonia-resume.py` records original and continuation
+The test-only fix has been fast-forwarded into x86host's clean `java-bridge`.
+`workspace/java-bridge/x86host-resume.py` records original and continuation
 revisions, checks the exact single-file test diff and retry source hash, and
 runs only remaining stages with the original fixture list and commands. The
 original stopped container is retained, as is the continuation container.
@@ -4466,10 +4466,10 @@ Loader qualification is running. The container's existing Python zstd module
 supports a long compression window, allowing complete evidence collection with
 repeated SDK data preserved and no new installation.
 
-Estonia passes all 114 loader scenarios, all six public O0/O3/JDK bounded-stack
+x86host passes all 114 loader scenarios, all six public O0/O3/JDK bounded-stack
 cells with separate limit diagnostics, and 196 unchanged generated-consumer
 replays on each of Java 22 and 23. Main performance collection is starting with
-no concurrent archive, transfer or other bridge test job on Estonia.
+no concurrent archive, transfer or other bridge test job on x86host.
 
 Coverage review found retained-call timings only in checked-JNI diagnostic
 fixtures. Added an unchecked supplemental consumer of the exact P6a roots jar:
@@ -4477,17 +4477,17 @@ three fresh forks per pinned JDK, one million warmup calls and seven 200,000-cal
 observations per fork, with native state/retained-root free refusal checked
 outside timing. Both ARM64 hosts pass all 63 observations and report zero Java
 bytes per warmed call. Production inputs remain unchanged. Run the same
-supplement on Estonia after its main performance/latency collection, then archive
+supplement on x86host after its main performance/latency collection, then archive
 and verify all evidence before completing the hardware record.
 
-## Estonia completion checkpoint
+## x86host completion checkpoint
 
-All remaining Estonia stages pass: 90 candidate launches, 114 loader scenarios,
+All remaining x86host stages pass: 90 candidate launches, 114 loader scenarios,
 six bounded public-stack cells and retained limit diagnostics, 196 generated
 replays per Java 22/23, 132 main performance records and 30 OrderBook latency
 reports. Together with the original 17 fixtures, corrected 14+1 proof/guard
 coverage and three minimal-JVM consumers, this completes D213's hardware work.
-All 63 unchecked retaining-call observations pass on Estonia with zero warm Java
+All 63 unchecked retaining-call observations pass on x86host with zero warm Java
 allocation; commit `fef82f3e` adds the verified consumer/tool and focused runner
 stage. Its source hashes match all nine host/JDK measurement cells. Production
 compiler/runtime and final candidate jar identities remain unchanged.
@@ -4495,7 +4495,7 @@ compiler/runtime and final candidate jar identities remain unchanged.
 The complete evidence archive is copied locally and verified: 28,529 entries,
 20,297 regular files, 62,255,765,897 input bytes and 1,589,842,601 compressed bytes.
 SHA-256 is `202a72e1df28dd0af01259d50d3510345e03e3b8d0e1a587f198cfd2b3b5f672`.
-`p6b/estonia-archive/verification.json` records compressed and per-file hashes,
+`p6b/x86host-archive/verification.json` records compressed and per-file hashes,
 member metadata and embedded inventory validation without symlink extraction.
 Preserve the original failed archive/API attempt and local verifier's initial
 full-mode/permission-mode mismatch; both were corrected with their logs retained.
@@ -4504,7 +4504,7 @@ separate from the verified complete archive.
 
 The original offline packet and manifest stay intact. Supplemental
 `handoff/qualification-tools.json` binds the verified incremental bundle through
-`fef82f3e`; Estonia has a verified copy but its clean qualification checkout stays
+`fef82f3e`; x86host has a verified copy but its clean qualification checkout stays
 at `d533f1a6`. Exact final task-container states show all stopped, with failures
 preserved. Existing host data, images, containers, archives and evidence remain;
 no packages were installed or host configuration changed.
@@ -4512,7 +4512,7 @@ no packages were installed or host configuration changed.
 The final [x86 hardware report](JAVA_BRIDGE_X86_EVIDENCE.md) records measurements,
 code inspection and limitations, including the slower per-operation OrderBook
 path. All three targets have the selected correctness and performance evidence.
-Focused checks and license audit pass (`experiments/estonia-final-licenses.log`),
+Focused checks and license audit pass (`experiments/x86host-final-licenses.log`),
 as do documented handoff archive hashes, shell syntax and `git diff --check`.
 No unfiltered suite, worktree, main merge, push or release occurred.
 

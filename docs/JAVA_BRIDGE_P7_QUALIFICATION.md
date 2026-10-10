@@ -13,7 +13,7 @@ D238 records the maintainer's explicit choice of JNI only and authorization to
 proceed to P7f in this task. P7e closes through its allowed keep-JNI outcome;
 P7e1/P7e2 remain deliberately unimplemented. Work starts at `20cae6f1` on local
 `java-bridge`, with a clean canonical checkout and both origin URLs verified.
-No push, worktree, installation or publication is authorized. Estonia work
+No push, worktree, installation or publication is authorized. x86host work
 stays under `~/temp/java-bridge`. Keep progress here across context compaction.
 
 ## Pre-change review and exit selection
@@ -108,7 +108,7 @@ checks pass; further numerical tuning remains outside P7f.
   native-only/Java-only benchmark definitions and example APIs are unchanged.
 - Commit `3f2e3652` adds the payload audit, matched-host benchmark reuse and
   corrected generic rejection assertion. All three focused selections now pass.
-  Estonia final launches, minimal-JVM checks and all measurements also pass.
+  x86host final launches, minimal-JVM checks and all measurements also pass.
   Final candidate extraction used the task container after the host could not
   write its root-owned evidence directory; the transport hash remained exact.
 - Linux ARM64 measurements also pass. All 15 measured images match their
@@ -125,7 +125,7 @@ is included.
 | --- | --- | ---: | ---: | ---: |
 | macOS ARM64 | Apple M5, macOS 26.6.2 | 18 | 218 | 18 |
 | Linux ARM64 | Local Colima ARM64 virtualization | 18 | 218 | 18 |
-| Linux x86-64 | Physical Estonia, Xeon E-2288G | 18 | 218 | 18 |
+| Linux x86-64 | Physical x86host, Xeon E-2288G | 18 | 218 | 18 |
 
 Every row passes. The 54 combined launches cover class path, module path and
 executable JAR on all three supported JVMs, each with and without `-Xcheck:jni`.
@@ -171,7 +171,7 @@ Java 21, 22 and 23. Full rows, sample ranges, commands, disassembly and payload
 hashes are retained in the evidence catalogs below. These are warmed throughput
 and amortized batch timings, not individual-operation tail-latency percentiles.
 
-Estonia is the numerical reference: physical x86-64, isolated CPU 1, existing
+x86host is the numerical reference: physical x86-64, isolated CPU 1, existing
 powersave governor unchanged, with the qualification compiler tests finished
 before timing. Mac measurements shared host resources with the ARM64 VM tests;
 Linux ARM64 timings began after those tests finished. The manually supplied
@@ -183,7 +183,7 @@ has the exact digest of its target image in the combined packages. The final
 combined packages separately pass the complete launch matrix. Production code
 and benchmark algorithms were unchanged; no new speedup is claimed.
 
-### Estonia copied int arrays
+### x86host copied int arrays
 
 Cells are **ns/call / million calls per second**. Size is the number of int
 elements. Raw evidence also includes size 64. Copying remains costly, especially
@@ -199,7 +199,7 @@ performance advantage over Java.
 | fresh | 1 | 31.12 / 32.133 | 6.23 / 160.623 | 101.10 / 9.891 |
 | fresh | 4096 | 418.28 / 2.391 | 1634.50 / 0.612 | 1881.45 / 0.532 |
 
-### Estonia byte storage
+### x86host byte storage
 
 Cells use the same units. Native uses the byte-array kernel; Java array, Java
 ByteView, bridge array and bridge ByteView execute equivalent checked workloads.
@@ -268,7 +268,7 @@ Allocation and copy contracts passed unchanged:
 
 Local evidence root: `workspace/java-bridge/p7f/`. Exact commands and stage
 outputs are retained there. `mac-catalog`, `linux-arm64-catalog` and
-`estonia-catalog` each contain `files.json` with byte counts/SHA-256 hashes,
+`x86host-catalog` each contain `files.json` with byte counts/SHA-256 hashes,
 `fixtures.json`, and a readable evidence archive. The catalogs cover all
 reported fixture directories as well as the selected stage outputs. Full
 fixture binaries remain in their original validation workspace; production
@@ -278,9 +278,9 @@ packages and the 15-image audit are also preserved on this Mac.
 | --- | --- |
 | mac-catalog/readable.tar.gz | `88957b9688fb25063d67b30bbd3444be6554e16f68a4ee52e60b685093f6c4be` |
 | linux-arm64-catalog/readable.tar.gz | `934233adaf24c73ff6732009ca92645ede0ad18eba2cfd4279896da4df059dfe` |
-| estonia-catalog/readable.tar.gz | `14ebb04b5a2fa5d9b2c94c30654c3dcaa3d66b276ec47c4b6d3c6728eb2d9972` |
+| x86host-catalog/readable.tar.gz | `14ebb04b5a2fa5d9b2c94c30654c3dcaa3d66b276ec47c4b6d3c6728eb2d9972` |
 
-Estonia inputs, generated files and original evidence remain under
+x86host inputs, generated files and original evidence remain under
 `~/temp/java-bridge/p7f-38fda699/`; its catalog is under `p7f-catalog/`.
 No pre-existing host file, image or container was removed. P7f task containers
 finished successfully. No installations, unfiltered suites, hosted jobs,

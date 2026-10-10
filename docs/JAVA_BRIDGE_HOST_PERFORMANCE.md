@@ -21,7 +21,7 @@ valid for their recorded environment, but that distinction was insufficiently
 explained in the performance conclusion.
 
 Both checkouts were clean on `java-bridge` at `94feadec`. The explicitly authorized
-Estonia checkout is `/home/developer/temp/Ironwood`, on the same Xeon E-2288G and
+x86host checkout is `/home/developer/temp/Ironwood`, on the same Xeon E-2288G and
 Linux 4.15.0-188-generic used earlier. Original artifacts, source and host settings
 were preserved. The investigation changes documentation, not compiler/runtime
 code or the official OrderBook sources and scripts.
@@ -58,7 +58,7 @@ workloads differently.
 To isolate that effect without disabling any protection, a diagnostic wrapper
 enables `PR_SPEC_FORCE_DISABLE` for store bypass only in its own process and
 descendants. It does not change host settings or relax the Docker policy.
-The constants were checked against Estonia's installed Linux `prctl.h`.
+The constants were checked against x86host's installed Linux `prctl.h`.
 
 The following comparison holds the Oracle JVM, exact artifacts, CPU mask
 `1-4,9-12`, driver and operation counts fixed. Both sides use the original D224
@@ -117,7 +117,7 @@ support code changed; matching hot instructions do not claim identical images.
 ## Evidence and next work
 
 Local evidence is under `workspace/java-bridge/orderbook-regression-20260929`;
-Estonia retains the corresponding directory beneath its checkout's `workspace`.
+x86host retains the corresponding directory beneath its checkout's `workspace`.
 `compare.py` records explicit commands, JVM versions, input hashes, every exit
 status, stdout/stderr and every measurement. `force-mitigation.py` is the isolated
 child control. `compare-initial.py` preserves the earlier runner revision before

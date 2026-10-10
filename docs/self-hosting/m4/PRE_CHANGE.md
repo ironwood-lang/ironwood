@@ -207,7 +207,7 @@ preserves vendor identity and diagnoses query failures` with the TLS and
 toolchain discovery tests for the Java seed change.
 
 Hosts: this macOS arm64 machine qualifies every phase. Linux x86-64 runtime
-and process evidence runs on the `estonia` host (kernel 4.15, glibc 2.27
+and process evidence runs on the `x86host` host (kernel 4.15, glibc 2.27
 host, glibc 2.17 sysroot toolchain); Linux arm64 is recorded as unresolved.
 Run `git diff --check` for every change and `./scripts/check-licenses.sh` for
 source changes. Never run an unfiltered suite. Unsafe programs are
@@ -261,7 +261,7 @@ shell's foreground job does.
 
 ## Linux arm64 qualification
 
-The boundary recorded above as unresolved closed on the `miami` guest
+The boundary recorded above as unresolved closed on the `armvm` guest
 (Ubuntu 22.04 aarch64): the twelve M4.1/M4.2 and fifteen M4.3 tests and the
 glibc 2.17 symbol check pass ([run](arm64-evidence/manifest.json)). The
 first attempt stopped in `scripts/jdk.sh`: that guest's kernel reports SVE2

@@ -1777,7 +1777,7 @@ not substitute implementations. Unknown effects remain conservative everywhere.
 
 For each enabled capability, require focused source/class/archive tests,
 public generated-JAR consumers, normal/exceptional cleanup and allocation checks.
-Run relevant cases on macOS ARM64, Linux ARM64 virtualization and physical Estonia
+Run relevant cases on macOS ARM64, Linux ARM64 virtualization and physical x86host
 x86-64 with pinned Java 21/22/23 and LLVM 23. Requalify affected P5 listener paths
 and batching eligibility when a shared proof or adapter changes. Keep the
 existing official OrderBook sources and benchmark definitions unchanged; use

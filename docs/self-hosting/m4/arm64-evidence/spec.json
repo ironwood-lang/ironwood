@@ -3,7 +3,7 @@
  "run": "workspace/m4/arm64-evidence",
  "increment": "M4 Linux arm64 qualification: the twelve M4.1/M4.2 and fifteen M4.3 tests and the glibc 2.17 symbol baseline on an aarch64 guest",
  "reproduce": "docs/self-hosting/m4/arm64-evidence/run-evidence.sh 00f5554f",
- "host": "Linux arm64 miami (Ubuntu 22.04 aarch64 guest on Apple silicon, kernel 5.15, glibc 2.35, 4 vCPUs, 3.8 GiB, ext4 /tmp with tmpfs /dev/shm)",
+ "host": "Linux arm64 armvm (Ubuntu 22.04 aarch64 guest on Apple silicon, kernel 5.15, glibc 2.35, 4 vCPUs, 3.8 GiB, ext4 /tmp with tmpfs /dev/shm)",
  "sources": [
   "runtime/src/ironwood_runtime.c",
   "runtime/include/ironwood_runtime.h",

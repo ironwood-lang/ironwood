@@ -48,7 +48,7 @@ directory. No unfiltered compiler suite was run.
 | --- | --- | ---: | ---: | ---: | ---: |
 | macOS ARM64 | Apple M5 hardware | 4 pass | 141 pass | 6 pass | 6 pass |
 | Linux ARM64 | Colima on Apple M5 | 4 pass | 141 pass | 6 pass | 6 pass |
-| Linux x86-64 | Physical Estonia Xeon E-2288G | 4 pass | 141 pass | 6 pass | 6 pass |
+| Linux x86-64 | Physical x86host Xeon E-2288G | 4 pass | 141 pass | 6 pass | 6 pass |
 
 Each stack matrix covers O0/O3 and Java 21/22/23, native callback depths
 1/8/32/64 from Java depths 0/64, deepest failure identity and continued use.
@@ -96,13 +96,13 @@ Every batch's count, checksum and last value is independently checked. Timing
 runs omit checked JNI. Registration, initialization and measurement setup are
 outside timing.
 
-Estonia uses Docker CPU 1 from the host's isolated set; its existing `powersave`
+x86host uses Docker CPU 1 from the host's isolated set; its existing `powersave`
 governor remains unchanged. Linux ARM64 uses Docker virtual CPU 1 in the six-vCPU,
 8 GiB Colima VM. Hosts, commands, versions and raw samples accompany the results.
 Runs use existing pinned images and SDKs, with read-only roots and no network.
 No packages or infrastructure were installed. The new host work stays under the
 authorized validation directory; RAM-backed container scratch and streamed
-archives avoid Estonia's nearly full disk.
+archives avoid x86host's nearly full disk.
 
 ### Linux x86-64 hardware
 

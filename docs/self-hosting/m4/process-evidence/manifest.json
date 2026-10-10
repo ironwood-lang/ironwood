@@ -2,7 +2,7 @@
  "schema_version": 1,
  "increment": "M4.3 process and driver checkpoint: B4 synchronous launch, caller adaptations and the port's driver adapters ready for the optional native-driver route",
  "commit": "45e8d76c5cecc10adce7576a3620309f1e362c1b",
- "host": "macOS 27.0.1 arm64 (this machine); Linux x86-64 estonia (kernel 4.15, glibc 2.27, JDK 21.0.1, LLVM 23.1.0)",
+ "host": "macOS 27.0.1 arm64 (this machine); Linux x86-64 x86host (kernel 4.15, glibc 2.27, JDK 21.0.1, LLVM 23.1.0)",
  "java": "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home",
  "llvm": "/opt/homebrew/opt/llvm@23",
  "reproduce": "docs/self-hosting/m4/process-evidence/run-evidence.sh 45e8d76c",

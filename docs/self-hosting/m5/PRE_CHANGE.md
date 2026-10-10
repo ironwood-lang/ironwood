@@ -191,7 +191,7 @@ callbacks`, `M4.2 publication moves match Java 21 on one file system across
 artifacts` and `compiler port generics spell reference bounds`.
 
 Hosts: this macOS arm64 machine qualifies every phase; the native M5 tests
-also run on Linux x86-64 (`estonia`) and Linux arm64 (`miami`). Run
+also run on Linux x86-64 (`x86host`) and Linux arm64 (`armvm`). Run
 `git diff --check` for every change and `./scripts/check-licenses.sh` for
 source changes. Never run an unfiltered suite. Unsafe programs are
 compile-only.

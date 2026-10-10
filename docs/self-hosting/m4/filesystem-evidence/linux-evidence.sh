@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: MIT OR Apache-2.0
-# Linux part of the M4.1/M4.2 filesystem checkpoint, run on the estonia host
+# Linux part of the M4.1/M4.2 filesystem checkpoint, run on the x86host host
 # from a git archive of the recorded commit in ~/temp/java_bridge/m4-evidence:
 # the twelve M4.1/M4.2 tests with JDK 21 and the IDK 0.3.1 LLVM 23 toolchain,
 # then the glibc 2.17 symbol check of the native harness. Logs land in

@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Linux part of the M5 checkpoint, run from a git archive of the recorded
-# commit in BASE/tree on the estonia host (x86-64: JDK 21.0.1 and the IDK
-# 0.3.1 LLVM 23 toolchain) or the miami VM (arm64: Temurin 21 and the IDK
+# commit in BASE/tree on the x86host host (x86-64: JDK 21.0.1 and the IDK
+# 0.3.1 LLVM 23 toolchain) or the armvm VM (arm64: Temurin 21 and the IDK
 # 0.2.5 LLVM 23 toolchain): the 25 M5 tests (m5-tests.txt) and the walk
 # consumers of the D276 Files.walkFileTree change (the U5 traversals, M4.1's
 # allocation-failure sweep and tree deletion). Logs land in BASE/logs; the

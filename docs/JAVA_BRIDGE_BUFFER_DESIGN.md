@@ -238,7 +238,7 @@ again if implementation changes this dependency map.
 | Linux comparison | Identical byte-array and view kernels at matching sizes, including overlapping ranges; native, Java and bridge checksums, throughput and batch-average latency, exact payload hashes and optimized disassembly. |
 
 Use pinned Java 21-23 and LLVM 23 on Mac ARM64, local Linux ARM64 and physical
-Estonia x86-64; Estonia work remains in `~/temp/java-bridge`. Linux is the
+x86host x86-64; x86host work remains in `~/temp/java-bridge`. Linux is the
 performance judge. Use crash-risk lifetime/failure experiments only in child
 processes, with no unsafe successful-path contract. No hosted/full suites or
 installation are implied. A failed proof blocks admission; a missing useful

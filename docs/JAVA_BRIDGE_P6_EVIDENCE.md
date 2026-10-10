@@ -99,7 +99,7 @@ six ARM64/JDK cells, not final numerical acceptance or the entire P6b gate.
 The [x86-64 handoff](JAVA_BRIDGE_X86_HANDOFF.md) supplies a focused runner,
 prerequisites, exact commands, expected outcomes and offline payload identities.
 Final numerical performance acceptance remains the maintainer's review.
-Physical Linux x86-64 execution on Estonia now passes the selected JVM, stack,
+Physical Linux x86-64 execution on x86host now passes the selected JVM, stack,
 allocation and correctness matrix, including D213's deferred P0-10 probes;
 performance collection and code inspection are complete. The [hardware report](JAVA_BRIDGE_X86_EVIDENCE.md)
 records 17 fixtures, 15 proof/guard cases (including one corrected test-only host

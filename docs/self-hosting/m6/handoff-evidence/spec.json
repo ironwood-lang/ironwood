@@ -3,7 +3,7 @@
  "run": "workspace/m6/handoff-evidence",
  "increment": "M6 checkpoint: Bridge preparation qualified and every M0 inventory item reconciled; before-self-hosting preparation closed",
  "reproduce": "docs/self-hosting/m6/handoff-evidence/run-evidence.sh 8dcf9441",
- "host": "macOS 27.0.1 arm64 (this machine), with 13 further JDKs for the selection test; Linux x86-64 estonia (kernel 4.15, glibc 2.27, JDK 21.0.1, LLVM 23.1.0), with 10 further JDKs; Linux arm64 miami (Ubuntu 22.04 guest, kernel 5.15, glibc 2.35, Temurin 21.0.12.1, LLVM 23.1.0)",
+ "host": "macOS 27.0.1 arm64 (this machine), with 13 further JDKs for the selection test; Linux x86-64 x86host (kernel 4.15, glibc 2.27, JDK 21.0.1, LLVM 23.1.0), with 10 further JDKs; Linux arm64 armvm (Ubuntu 22.04 guest, kernel 5.15, glibc 2.35, Temurin 21.0.12.1, LLVM 23.1.0)",
  "sources": [
   "compiler/src/main/ironwood/ironwood/compiler/port/BridgeExports.iron",
   "compiler/src/main/ironwood/ironwood/compiler/port/BridgeIdentity.iron",

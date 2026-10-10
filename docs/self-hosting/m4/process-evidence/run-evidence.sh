@@ -8,7 +8,7 @@
 # M4.3 classification with every earlier table regenerated unchanged, one
 # compilation of every port source with both pilot adapters (no
 # diagnostics), the diff and license audits, a serial discovery measurement
-# once the one-minute load is below 3, and linux-evidence.sh on the estonia
+# once the one-minute load is below 3, and linux-evidence.sh on the x86host
 # host from the same archive. Logs land in workspace/m4/process-evidence.
 set -u
 root=/Users/developer/workspace-mba-m2/Ironwood
@@ -99,19 +99,19 @@ rm -rf "$measure"
 cd "$root"
 git diff --check "$start" "$commit" > "$ev/diff-check.log" 2>&1; status diff-check $?
 ./scripts/check-licenses.sh > "$ev/licenses.log" 2>&1; status licenses $?
-# Linux x86-64 on estonia, from the same archive.
+# Linux x86-64 on x86host, from the same archive.
 remote=temp/java_bridge
-git -C "$root" archive "$commit" | ssh -o BatchMode=yes estonia \
+git -C "$root" archive "$commit" | ssh -o BatchMode=yes x86host \
     "rm -rf $remote/m4-evidence && mkdir -p $remote/m4-evidence && tar -xf - -C $remote/m4-evidence"
 status linux-ship $?
-ssh -o BatchMode=yes estonia "cd $remote && nohup m4-evidence/docs/self-hosting/m4/process-evidence/linux-evidence.sh \
+ssh -o BatchMode=yes x86host "cd $remote && nohup m4-evidence/docs/self-hosting/m4/process-evidence/linux-evidence.sh \
     > m4-evidence-run.log 2>&1 < /dev/null &"
-until ssh -o BatchMode=yes estonia "grep -q '^linux-tests exit=' $remote/m4-evidence-logs/status.txt 2>/dev/null"; do
+until ssh -o BatchMode=yes x86host "grep -q '^linux-tests exit=' $remote/m4-evidence-logs/status.txt 2>/dev/null"; do
     sleep 15
 done
 for log in status.txt host.txt tests.log; do
-    scp -q "estonia:$remote/m4-evidence-logs/$log" "$ev/linux-$log"
+    scp -q "x86host:$remote/m4-evidence-logs/$log" "$ev/linux-$log"
 done
 sed 's/^/linux: /' "$ev/linux-status.txt" >> "$ev/status.txt"
-ssh -o BatchMode=yes estonia "rm -rf $remote/m4-evidence $remote/m4-evidence-logs"
+ssh -o BatchMode=yes x86host "rm -rf $remote/m4-evidence $remote/m4-evidence-logs"
 cat "$ev/status.txt"

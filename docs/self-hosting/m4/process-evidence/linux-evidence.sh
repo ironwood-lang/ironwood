@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: MIT OR Apache-2.0
-# Linux part of the M4.3 process and driver checkpoint, run on the estonia
+# Linux part of the M4.3 process and driver checkpoint, run on the x86host
 # host from a git archive of the recorded commit in
 # ~/temp/java_bridge/m4-evidence: the fifteen M4.3 tests with JDK 21 and the
 # IDK 0.3.1 LLVM 23 toolchain. Logs land in ~/temp/java_bridge/m4-evidence-logs.

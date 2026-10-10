@@ -25,7 +25,7 @@ Work stays on the existing `java-bridge` branch, with local commits only.
   loading/packaging, basics and OrderBook; Java 21 class versions and Java 24
   refusal; shell selection regressions, licenses and diff checks.
 - Available targets: macOS ARM64, running `ironwood-tests` Colima ARM64 Docker
-  environment, physical x86-64 `ssh estonia` under `~/temp/java-bridge`.
+  environment, physical x86-64 `ssh x86host` under `~/temp/java-bridge`.
   Existing evidence and installations will be preserved; no installs.
 
 ## Implementation and verification checkpoints
@@ -50,7 +50,7 @@ Work stays on the existing `java-bridge` branch, with local commits only.
   scripts/test.sh; the revised runner bounds its equivalent exact CompilerTests
   invocation to 1536 MiB and streams logs for future runs.
 - Evidence root: `workspace/java-bridge/jdk-matrix`. Mac: `mac`; ARM64:
-  `linux-arm64-work/evidence/jdk-matrix`; Estonia:
+  `linux-arm64-work/evidence/jdk-matrix`; x86host:
   `~/temp/java-bridge/jdk-matrix-20260929/evidence/jdk-matrix`.
   Commands, selected environment, full JDK versions, results, bridge manifests
   and complete jar/compiler hashes are retained there.
@@ -135,7 +135,7 @@ classes inspected have major version 65. No warmed-call native code changed.
 - Local Linux ARM64: matching ARM64 Colima virtualization, Docker context
   `colima-ironwood-tests`, image `ironwood-bridge-linux-arm64:05d5199baf46c922`,
   image ID `sha256:a03b0d3a764744079949a3adf5ecf6fe7ce82382ee35ca95360a38d453af8767`.
-- Physical Linux x86-64: `estonia`, Intel Xeon E-2288G, kernel 4.15.0-188-generic,
+- Physical Linux x86-64: `x86host`, Intel Xeon E-2288G, kernel 4.15.0-188-generic,
   image `ironwood-bridge-linux-x86_64:1a18fe26577fb8c5`, image ID
   `sha256:dd4c1e82b2f999db86e75538f7d32adcaa364452f99a8f615eca693707c382a7`.
   Work/evidence remains under `~/temp/java-bridge`; nothing installed.
@@ -300,7 +300,7 @@ below replaces the workaround with supported native-tool selection and packaging
   (Linux support/portable IDK workflows), `c840bf76` (shipped build-tool files).
   Remaining: finish combined replay/catalog, final diff/license checks and
   commit the verification record. All original and failed-attempt evidence is
-  retained in `workspace/java-bridge/idk-repair` and the task's Estonia directory.
+  retained in `workspace/java-bridge/idk-repair` and the task's x86host directory.
 
 ### Completed repair qualification
 
@@ -360,7 +360,7 @@ Assembly commands are in `assembled-matched`; its runner checks reversed inputs,
 all native bytes and all distribution main hashes. `combined-mac`, `combined-arm`
 and `combined-x86` retain merged replay evidence and their original per-producer
 records. Build-tool commands are in `build-tool-idk`. Archive/packaging commands
-and inventory scripts remain beside their logs. Estonia work remains exclusively
+and inventory scripts remain beside their logs. x86host work remains exclusively
 under `~/temp/java-bridge/idk-repair-20260930`; original host evidence is preserved.
 
 Scope limits remain the three documented native targets, glibc 2.17 or newer,

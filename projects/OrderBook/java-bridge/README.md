@@ -69,7 +69,7 @@ stdout. The run count must be a positive odd number. After building, use
 repository root.
 
 For comparisons, record the JVM, CPU affinity and process security state as well
-as compiler flags. The [Estonia host investigation](../../../docs/JAVA_BRIDGE_HOST_PERFORMANCE.md)
+as compiler flags. The [x86host host investigation](../../../docs/JAVA_BRIDGE_HOST_PERFORMANCE.md)
 shows that Docker's speculative-store-bypass mitigation changes the relative
 OrderBook performance. Its earlier container speedup does not hold on the
 ordinary host; compare all three variants in the same deployment environment.

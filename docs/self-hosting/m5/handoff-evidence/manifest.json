@@ -2,7 +2,7 @@
  "schema_version": 1,
  "increment": "M5 checkpoint: public CRC32, the port's archive services on the D275 profiles and the S6 documentation and command-line helpers ready for S6",
  "commit": "4c1c66ce82cb32f75b95543bb335569b0ab85eeb",
- "host": "macOS 27.0.1 arm64 (this machine); Linux x86-64 estonia (kernel 4.15, glibc 2.27, JDK 21.0.1, LLVM 23.1.0); Linux arm64 miami (Ubuntu 22.04 guest, kernel 5.15, glibc 2.35, Temurin 21.0.12.1, LLVM 23.1.0)",
+ "host": "macOS 27.0.1 arm64 (this machine); Linux x86-64 x86host (kernel 4.15, glibc 2.27, JDK 21.0.1, LLVM 23.1.0); Linux arm64 armvm (Ubuntu 22.04 guest, kernel 5.15, glibc 2.35, Temurin 21.0.12.1, LLVM 23.1.0)",
  "java": "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home",
  "llvm": "/opt/homebrew/opt/llvm@23",
  "reproduce": "docs/self-hosting/m5/handoff-evidence/run-evidence.sh 4c1c66ce",

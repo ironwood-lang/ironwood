@@ -7,7 +7,7 @@ prepared compiler JAR/classes/test-classes, Temurin 21.0.12.1+1 in JAVA_HOME,
 LLVM 23.1.0 on PATH, pinned target JDKs 22.0.2+9 and 23.0.2+7, and the existing
 Linux native support SDK. No stage installs dependencies or publishes artifacts.
 Use a new output directory for each stage. All commands run from the checkout
-root. Estonia work and outputs must stay under `~/temp/java-bridge`.
+root. x86host work and outputs must stay under `~/temp/java-bridge`.
 
 ```sh
 python3 scripts/java-bridge/p7/qualify.py produce \

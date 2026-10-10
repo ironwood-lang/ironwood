@@ -2,7 +2,7 @@
  "schema_version": 1,
  "increment": "M4.1/M4.2 filesystem checkpoint: B3 scratch, cleanup, real-path, access and publication services ready for M5 publication",
  "commit": "10c9a98d7932ee28999fd2665018e9fb2432360e",
- "host": "macOS 27.0.1 arm64 (this machine); Linux x86-64 estonia (kernel 4.15, glibc 2.27, JDK 21.0.1, LLVM 23.1.0)",
+ "host": "macOS 27.0.1 arm64 (this machine); Linux x86-64 x86host (kernel 4.15, glibc 2.27, JDK 21.0.1, LLVM 23.1.0)",
  "java": "/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home",
  "llvm": "/opt/homebrew/opt/llvm@23",
  "reproduce": "docs/self-hosting/m4/filesystem-evidence/run-evidence.sh 10c9a98d",

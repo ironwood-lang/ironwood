@@ -3,7 +3,7 @@
 # Java Bridge P2 gate audit
 
 This is a historical phase checkpoint. Subsequent [P6 evidence](JAVA_BRIDGE_P6_EVIDENCE.md)
-and [Estonia hardware results](JAVA_BRIDGE_X86_EVIDENCE.md) record completed
+and [x86host hardware results](JAVA_BRIDGE_X86_EVIDENCE.md) record completed
 P0-P4/P6a implementation and D213 hardware work. P5/P7 remain deferred; final
 numerical acceptance remains open.
 

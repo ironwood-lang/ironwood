@@ -17,7 +17,7 @@ implementation under D225 and defers further tuning.
 The accepted support baseline is Java 21-23 on macOS ARM64, Linux ARM64 and
 Linux x86-64, using the pinned Temurin builds in `JAVA_BRIDGE_PLAN.md`. Java24+
 is refused. Linux ARM64 measurements use local native ARM virtualization;
-Linux x86-64 measurements use physical Estonia hardware.
+Linux x86-64 measurements use physical x86host hardware.
 
 OrderBook already demonstrates actual Java application integration: Java code
 calls the generated OrderBook API, whose native shared library runs inside the
@@ -76,7 +76,7 @@ These 54 passing launches are distinct from the broader loader-fault matrix.
 
 ## Ten-fork comparison before the manifest-only correction
 
-Physical Estonia uses its Intel Xeon E-2288G, isolated CPUs 1-4 and 9-12, pinned
+Physical x86host uses its Intel Xeon E-2288G, isolated CPUs 1-4 and 9-12, pinned
 Temurin 21.0.12.1+1 and the existing governor. Linux ARM64 uses native ARM64 Colima
 virtualization on Apple M5, six vCPUs and 8 GiB. No translated timing is used.
 Task builds and bulk transfers finish before measurements.

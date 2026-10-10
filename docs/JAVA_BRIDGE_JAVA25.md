@@ -134,7 +134,7 @@ same warning on 24/25, where Java 21-23 keep the silent JNI fallback.
 
 ### OrderBook workflow on Linux x86-64 with Oracle JDK 25
 
-Single observations from `projects/OrderBook/java-bridge` on the Estonia host
+Single observations from `projects/OrderBook/java-bridge` on the x86host host
 with `JAVA_HOME=/usr/java/jdk-25.0.4.1`, recorded for the maintainer's later
 measurement. They are not benchmark results and `BENCHMARK.md` is unchanged.
 

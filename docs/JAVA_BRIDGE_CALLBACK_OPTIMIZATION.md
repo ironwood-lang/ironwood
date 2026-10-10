@@ -50,7 +50,7 @@ compiler suite. Run licenses and diff checks for source changes.
 - Verified canonical root/origin, clean branch, contribution/license rules,
   regression lessons and P5 contracts. Existing primitive adapter caches its
   method ID and has no per-event listener identity lookup or allocation.
-- Estonia has approximately 64 MiB free on its root filesystem. Use existing
+- x86host has approximately 64 MiB free on its root filesystem. Use existing
   pinned containers with RAM-backed scratch and stream results to the Mac;
   preserve existing files and install nothing.
 - The maintainer explicitly authorized deleting our files in the remote
@@ -58,7 +58,7 @@ compiler suite. Run licenses and diff checks for source changes.
   `workspace/java-bridge/experiments` and `handoff` under that folder. Local
   archived evidence and remote pinned JDK/support inputs remain. Remote folder
   usage fell from 114 GiB to 3.6 GiB; root filesystem free space is 110 GiB.
-- Handwritten JNI controls on isolated Estonia CPU 1, Java 21, three fresh forks
+- Handwritten JNI controls on isolated x86host CPU 1, Java 21, three fresh forks
   with eight warmups and nine samples of one million events each: interface
   `CallVoidMethodA` 103.040 ns/event; concrete virtual 98.694; nonvirtual 98.497;
   static Java relay 98.335; interface varargs 105.762; static varargs 100.872;
@@ -111,7 +111,7 @@ The maintainer explicitly authorized compiler-proved automatic batching on
 cannot be proved. D231 narrowly supersedes the P7 batching deferral. Implement
 without changing developer wiring or relaxing safety/exception contracts.
 
-The handwritten JNI batch control on isolated Estonia CPU 2 measures 132.050,
+The handwritten JNI batch control on isolated x86host CPU 2 measures 132.050,
 17.983, 6.103, 3.296 and 2.481 ns/event for batch sizes 1, 8, 32, 128 and 1024.
 It preallocates the Java array before timing, copies a pure native recurrence,
 calls the Java listener separately for each event, validates every result and
@@ -171,7 +171,7 @@ artifact parity` checks boundaries, nested replacement/clearing, active/dead
 owner refusal, unchanged throwable identity, continued use, forced scratch
 allocation failure, O0/O3 and source/class/archive reconstruction. Requalify the
 affected P5 fixtures and bounded-stack cases after final transport changes,
-inspect O3 code and measure the actual producer output on Estonia. No full suite.
+inspect O3 code and measure the actual producer output on x86host. No full suite.
 
 First production batching checkpoint: the proof tests (including callback-result
 and helper-call fallback) and generated source/class/archive consumers pass on
@@ -182,7 +182,7 @@ The first direct-memory-limit child failed during image extraction; corrected
 the fixture to exhaust memory after bootstrap, then verified ordinary-JNI
 fallback for both success and callback failure. All children use checked JNI.
 
-Actual Estonia producer measurements (`batch-production-x86-v1`, CPU 1, three
+Actual x86host producer measurements (`batch-production-x86-v1`, CPU 1, three
 forks, five warmups, seven samples of one million events) are 3.064 ns/event on
 Java 21 and 22, and 3.082 on Java 23. Java 21 throughput is 326.34 million events/s.
 Pure Ironwood is 1.245 ns/event and pure Java 21 is 1.255. Counts/checksums/results
@@ -220,11 +220,11 @@ The v3 short-call experiment filled its container's 1 GiB `/tmp` with successive
 JVM extractions. The full three-way measurement had already passed; later short
 cells did not run. Preserved that failure and corrected the runner to give each
 JVM a fresh temporary directory and remove it after exit. v4 completes every
-cell. This was container scratch, not renewed consumption of Estonia's host disk.
+cell. This was container scratch, not renewed consumption of x86host's host disk.
 
 ### Current Linux x86-64 production measurements
 
-Estonia CPU 1, pinned toolchain/JDKs, three fresh JVM forks, five warmups and seven
+x86host CPU 1, pinned toolchain/JDKs, three fresh JVM forks, five warmups and seven
 one-million-event samples per fork. Latency means elapsed invocation time divided
 by event count; these are not individual callback arrival percentiles.
 
@@ -335,7 +335,7 @@ python3 scripts/java-bridge/measure-listeners.py \
   --target linux-x86_64 --execution-scope 'x86-64 physical hardware' \
   --java21-prefix /opt/ironwood-bridge-jdk --jdk-root /jdks \
   --llvm-home /opt/ironwood-toolchain \
-  --host-notes 'Estonia, isolated CPU 1; pinned toolchain and JDKs' \
+  --host-notes 'x86host, isolated CPU 1; pinned toolchain and JDKs' \
   --evidence workspace/java-bridge/evidence/listeners-NEW
 ```
 
@@ -401,7 +401,7 @@ were installed, no full suite ran, and no main integration, push or publication
 occurred. Numerical acceptance and any further performance work remain distinct
 from this completed automatic-batching implementation and qualification.
 
-After verifying Estonia's complete archive and confirming no running container
+After verifying x86host's complete archive and confirming no running container
 used its mount, removed only the newly generated
 `/home/developer/temp/java-bridge/batch-qualification-indexed` directory.
 This recovered 9,567,993,856 bytes (8.9 GiB), leaving about 110 GiB free on the

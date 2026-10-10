@@ -20,7 +20,7 @@ consumer replays across Java 22 and 23, including the fault-injected images.
 | --- | --- | --- | --- |
 | macOS ARM64 | Apple M5, Mac17,2, macOS 26.6.2 | Temurin 21.0.12.1+1, LLVM 23.1.0 | Temurin 22.0.2+9 and 23.0.2+7: 148 passed |
 | Linux ARM64 | Local Colima ARM64 virtualization | Same pinned versions, glibc 2.17 support SDK | Same pinned JVMs: 148 passed |
-| Linux x86-64 | Physical Estonia, Xeon E-2288G | Same pinned versions, glibc 2.17 support SDK | Same pinned JVMs: 148 passed |
+| Linux x86-64 | Physical x86host, Xeon E-2288G | Same pinned versions, glibc 2.17 support SDK | Same pinned JVMs: 148 passed |
 
 The six fixtures cover the input proof, read-only producer, staging failures,
 mutable/result proof, mutable/result producer and copy-back failures. Source,
@@ -68,12 +68,12 @@ is its reciprocal in millions of calls per second. These are not individual-call
 latency percentiles or a multi-fork statistical study; raw minima/maxima are
 preserved in `summary.json` and every batch in `samples.csv`.
 
-Estonia children were pinned to isolated CPU 1, inside the existing x86-64
+x86host children were pinned to isolated CPU 1, inside the existing x86-64
 container. The host retained its powersave governor and turbo behavior; no fixed
 clock is claimed. Linux ARM64 timings are virtualized measurements. Mac timings
 are supplemental. Official OrderBook code and benchmark results are unchanged.
 
-### Linux x86-64, Estonia
+### Linux x86-64, x86host
 
 Each cell is **ns/call / million calls/s**.
 
@@ -151,7 +151,7 @@ storage; it has not been implemented or admitted by this work.
 Use the canonical `java-bridge` checkout, Java 21 in `JAVA_HOME`, pinned LLVM 23
 tools on `PATH` and the matching existing Linux native support SDK configured
 through `IRONWOOD_BRIDGE_SUPPORT_HOME`. No dependency installation is implicit.
-On Estonia, work only inside `~/temp/java-bridge` with the existing qualified
+On x86host, work only inside `~/temp/java-bridge` with the existing qualified
 container and SDK/JDK mounts. Run the focused tests individually:
 
 ```sh
@@ -177,11 +177,11 @@ Detailed local evidence is below `workspace/java-bridge/arrays/`:
   `final-mac-fixtures.log`, `final-composition.log`, `final-retention.log`,
   `exception-regressions.log`, `negative-artifact-parity.log`, `java24-refusal/`.
 - Linux ARM64: `linux-arm64-values/evidence/` and its `performance/` directory.
-- Estonia: `estonia-values/evidence.tar.gz` and extracted `evidence/`, including
-  `performance/`; host details in `estonia-values-host.txt`.
+- x86host: `x86host-values/evidence.tar.gz` and extracted `evidence/`, including
+  `performance/`; host details in `x86host-values-host.txt`.
 - The matching fixture jars, generated sources, failure images and child command
   records are retained under `workspace/java-bridge/evidence/p7b/` on each
-  producing checkout, included in Estonia's archive. Fault images are separate
+  producing checkout, included in x86host's archive. Fault images are separate
   from measured production images.
 
 The Linux input snapshot is `values-input-final.tar.gz`, SHA-256

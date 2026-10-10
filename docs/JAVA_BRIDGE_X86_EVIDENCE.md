@@ -6,7 +6,7 @@ This page preserves the original `2559e145` candidate evidence. See the
 [D224 performance report](JAVA_BRIDGE_D224_PERFORMANCE.md) for the current
 implementation, measured ARM64/x86-64 results and remaining qualification.
 
-Estonia completes the selected physical x86-64 correctness checks and performance
+x86host completes the selected physical x86-64 correctness checks and performance
 collection, including D213's deferred P0-10 stack experiments. The nine supported
 platform/JDK cells now have matching execution evidence. **Final numerical
 acceptance remains the maintainer's review; P6b and release readiness remain
@@ -16,7 +16,7 @@ revision; D245 later admits Java 24 and 25.
 
 ## Hardware, identities and execution
 
-SSH alias `estonia` identifies host `hivelocity`: physical Intel Xeon E-2288G,
+SSH alias `x86host` identifies host `hivelocity`: physical Intel Xeon E-2288G,
 eight cores/16 SMT threads, with no detected hypervisor. Ubuntu 18.04.6 runs
 kernel 4.15.0-188-generic and Docker 20.10.21. Containers used the maintainer's
 isolated CPUs `1-4,9-12` (four physical cores and their SMT siblings), UID/GID
@@ -42,12 +42,12 @@ loader fixture: it had a hardcoded macOS ARM64 fake payload on a Linux host.
 Commit `d533f1a6` selects the executing host's target, deployment floor and resource
 filename. It changes only that test file, preserves all assertions and the
 explicit three-target matrix, and passes strict compilation and the exact test
-on Mac ARM64, Linux ARM64 and Estonia. The original failure/log/exit remain intact;
+on Mac ARM64, Linux ARM64 and x86host. The original failure/log/exit remain intact;
 the recorded continuation verifies the single-file diff and successful retry
 before running only unfinished stages. No candidate/native bytes changed.
 
 Retaining-call tooling committed in `fef82f3e` was run as identical archived
-source outside the tracked Estonia checkout. Its source/class/jar hashes are in
+source outside the tracked x86host checkout. Its source/class/jar hashes are in
 `retention-supplement/result.json`. The checkout was not relabeled as that later
 revision. The tool was also run on both ARM64 hosts before collection closed.
 
@@ -151,16 +151,16 @@ retain averages, extrema, clock controls and percentiles through 99.999%.
 
 ## Evidence collection and remaining gate
 
-The remote checkout retains `workspace/java-bridge/evidence/p6b/x86-estonia-1`,
+The remote checkout retains `workspace/java-bridge/evidence/p6b/x86-x86host-1`,
 its exact fixture directories, original failure/retry evidence and all payloads.
 Top-level `host-evidence` retains preflight, affinity, images, minimal consumers,
 commands, timing boundaries and container states. All task containers exited;
 none was removed. The later tooling bundle was delivered and hash-verified but
 was not applied to the recorded qualification checkout.
 
-Complete archive: `estonia-evidence-d533f1a6-v2.tar.zst`, retained both under
+Complete archive: `x86host-evidence-d533f1a6-v2.tar.zst`, retained both under
 `/home/developer/temp/java-bridge` and locally in
-`workspace/java-bridge/evidence/p6b/estonia-archive`.
+`workspace/java-bridge/evidence/p6b/x86host-archive`.
 Compressed size: 1,589,842,601 bytes. Inventory: 28,529 entries, including 20,297
 regular files totaling 62,255,765,897 bytes. Archive SHA-256:
 `202a72e1df28dd0af01259d50d3510345e03e3b8d0e1a587f198cfd2b3b5f672`.
@@ -176,7 +176,7 @@ full filesystem modes with tar permission modes; after confirming tar's separate
 type representation, the corrected check passed without changing the archive or
 weakening content hashes. Both verification attempts remain in `experiments`.
 
-The local `p6b/estonia-review` tree is a convenient selected text/report copy,
+The local `p6b/x86host-review` tree is a convenient selected text/report copy,
 not the complete artifact archive. Earlier partial fixture transfers are retained
 and are not used as a completeness claim. The full archive includes the failed
 proof stage, exact successful retry and continuation helper. Final archive

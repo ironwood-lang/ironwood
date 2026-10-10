@@ -8,7 +8,7 @@ The maintainer requests deep optimization of the unchanged public OrderBook API,
 with native-only, Java-only and Java-to-native throughput and latency compared
 on matching hardware. Work starts from `d61dc4cd` on local `java-bridge`.
 No push, main merge, release, worktree, new JDK support or P5/P7 API expansion.
-Estonia access, its isolated CPUs and workspace restrictions remain applicable.
+x86host access, its isolated CPUs and workspace restrictions remain applicable.
 The previous candidate/evidence stays immutable. Its performance is not accepted.
 
 ## Contracts and consumers before changes
@@ -156,7 +156,7 @@ experiments is included in production.
 
 Longer unchanged-workload comparison (10 million warmup, 50 million measured,
 three interleaved forks): Mac native 45.62, Java21 61.49, bridge21 82.34 ns/cycle;
-Estonia native 125.32, Java21 239.72, bridge21 192.22. Java22/23 and 64-operation
+x86host native 125.32, Java21 239.72, bridge21 192.22. Java22/23 and 64-operation
 latency reports are preserved in each `enum-tokens/long-comparison` directory.
 These development results establish a physical x86 gain but a remaining Mac gap.
 
@@ -181,10 +181,10 @@ adoption. Native and Java project algorithms remain unchanged.
 
 ### Third checkpoint: medium library-loop inlining
 
-Physical Estonia Java21: native 124.47, Java 240.28, bridge 178.84 ns/cycle.
+Physical x86host Java21: native 124.47, Java 240.28, bridge 178.84 ns/cycle.
 Linux ARM64 matched comparison: native 45.60, Java 65.24, committed two-fix bridge
 82.58, larger-loop bridge 78.16. All three JDKs and per-64-operation latency
-reports are retained at `optimization/estonia-inline/comparison` and
+reports are retained at `optimization/x86host-inline/comparison` and
 `optimization/linux-arm64-inline/comparison`. Mac O3 disassembly confirms no
 out-of-line OrderBook.match body/call remains. Normal JNI adapters still preserve
 protected status handling. No engine source or benchmark workload changes.
@@ -211,9 +211,9 @@ one scalar crossing and a native-to-Java object callback separately. All control
 pass checked-JNI functional runs before unchecked timing; consumed checksums and
 allocation observations accompany three fresh forks and seven trials per JDK.
 
-Estonia Java21: scalar 7.248 ns, eight-call cycle 60.101 ns, callback 105.295 ns.
+x86host Java21: scalar 7.248 ns, eight-call cycle 60.101 ns, callback 105.295 ns.
 Linux ARM64 Java21: scalar 2.710 ns, eight-call cycle 22.260 ns, callback 54.517 ns.
-Evidence: `optimization/estonia-boundary` and `optimization/boundary-linux-arm64`;
+Evidence: `optimization/x86host-boundary` and `optimization/boundary-linux-arm64`;
 exact independent sources/runner are in `experiments/optimization/boundary`.
 Callbacks are much more expensive than direct JNI transitions. The controls
 include loop and argument work and are not an exact additive subtraction model.
@@ -223,7 +223,7 @@ or installation was needed.
 ### Final initialization-selection refinement under verification
 
 The isolated export-priority compiler copy improves Linux ARM64 in all three
-paired forks: medians 78.45 to 76.71 ns/cycle. Physical Estonia likewise measures
+paired forks: medians 78.45 to 76.71 ns/cycle. Physical x86host likewise measures
 178.39 to 176.81 ns. Before adopting it, extend the existing initialized-type
 structure test with a non-looping library export: require explicit state-2 guards,
 unchanged cold/reentrant/failure fallback and mutable-field loads. Reuse existing
@@ -288,15 +288,15 @@ conversion on failure, without the old JNI cache callback or enum field reads.
 Mac completes the remaining 14 fixtures/13 proofs, 194 asserting consumer replays
 on each of Java 22/23, the 120 loader cases, fixed-candidate checks (including
 Java 24 refusal), stack checks and final measurement preparation. Linux ARM64
-and Estonia each pass the 36 selected bridge/optimizer cases. The ARM64 test
+and x86host each pass the 36 selected bridge/optimizer cases. The ARM64 test
 process used a classes directory that was rebuilt for the assembly repair while
 it ran. Its behavior observations are retained, but its generated artifact
 identities are not final qualification. Rebuild only the 17 fixture-producing
 selections using the immutable compiler jar, then replay those outputs on 22/23.
-Mac fixtures finished before that rebuild; Estonia uses an independent compiler
+Mac fixtures finished before that rebuild; x86host uses an independent compiler
 build, unchanged during its 36-test run.
 
-The frozen candidate transfer to Estonia verifies SHA-256
+The frozen candidate transfer to x86host verifies SHA-256
 `1db74d7f5892ec5eea5660d5a0437227603ea1312b067ad9201c3f4811c92498`.
 Remaining remote validation exceeds available disk headroom. The user already
 authorized cleanup of newly generated temporary test/build files: completed JVM
@@ -330,7 +330,7 @@ speed target is not met. Warm cached-object return is4.01ns versus the original
 61.72ns. Do not infer an unavoidable lower bound by subtracting JNI controls.
 Further performance acceptance/implementation decisions remain open.
 
-Estonia now passes the36selected cases, repaired assembly regression,196consumer
+x86host now passes the36selected cases, repaired assembly regression,196consumer
 replays per Java22/23 and30minimal-JVM launches of the exact final candidate.
 The next loader stage stops before execution at the explicit12GiB headroom guard
 while roughly4GiB is free. Preserve its nonzero controller status as a space
@@ -370,7 +370,7 @@ compiler jar, leaving production source/build untouched. The existing pre-change
 containment, trace, proof, determinism and packaging requirements still apply.
 Its artifacts and comparison are under `experiments/optimization/joint-current`.
 
-The Estonia backup now independently verifies all 13,508 files and 38,316,334,620
+The x86host backup now independently verifies all 13,508 files and 38,316,334,620
 bytes. Archive SHA-256 is
 `918fb88e0f0bff1b3b5ceedbbb1de542e703ef8093ca07e53bf1d1b8a87d9845`;
 manifest SHA-256 is
@@ -404,7 +404,7 @@ Remote originals remain unchanged. The 114-case loader matrix still requires
 more retained-artifact disk space than is available; cleanup permission remains
 pending. No safety/assertion failure is being bypassed.
 
-Ten seeded, shuffled physical Estonia Java21 forks compare the unchanged project
+Ten seeded, shuffled physical x86host Java21 forks compare the unchanged project
 workload through current and experimental bridges. Median cycle times: native
 124.04, Java 248.24, current 180.19, joint adapter/entry 187.59, constant-enum
 scratch entries 171.98 ns. All raw fork values are retained; JVM runs show material
@@ -435,7 +435,7 @@ comparison is running before disposition. This remains scratch-only.
 A separate isolated generated-Java experiment changes only the permanent cache's
 initial bucket count from 16 to 256, retaining the exact frozen native payload,
 weak references, queue drainage and all root caches. Its pre-change plan is
-`experiments/optimization/cache-capacity-plan.md`. Ten shuffled Estonia forks
+`experiments/optimization/cache-capacity-plan.md`. Ten shuffled x86host forks
 invoke the same benchmark wrapper and inspect bucket chains only after timing.
 Current median is 177.17 ns/cycle; larger cache is 175.33. Three current runs have
 one collision, while all larger-cache runs have none, but the ranges overlap
@@ -490,7 +490,7 @@ build; retain that distinction and re-run affected checks after the final build.
 The reviewed implementation passes both structural selections, all seven focused
 Rosetta x86 checks, and the additional actual OrderBook class/archive O0/O3
 producer comparison against paired Java, including pool recovery and checked
-JNI. Physical Estonia checks also pass on Java21-23 with zero warm Java
+JNI. Physical x86host checks also pass on Java21-23 with zero warm Java
 allocation. Passing safety checks does not establish a performance improvement.
 
 The repeat physical comparison does not reproduce the initial ten-fork gain:
@@ -551,7 +551,7 @@ already transferred constant-enum helper probe.
 
 This mechanism differs from phi continuation duplication: generated Java facade
 branches can let the JVM select a native entry with a fixed enum argument.
-Ten newly shuffled physical Estonia forks measure 172.21 ns/cycle versus 179.21
+Ten newly shuffled physical x86host forks measure 172.21 ns/cycle versus 179.21
 for the current bridge, improving in all ten pairs. Native is 124.27 and Java
 242.55 in this run. The earlier helper experiment measured 171.98 versus 180.19.
 The original checked JNI/zero-warm-allocation consumer also passes again.
@@ -685,7 +685,7 @@ allocation's source. Do not claim that source was proved.
 
 Updated the component harness to warm that exact measured helper. Its full
 identity/growth/collection/recreation/delayed-queue/allocation-failure assertions
-pass on Mac, Linux ARM64 and translated x86. Physical Estonia then passes both
+pass on Mac, Linux ARM64 and translated x86. Physical x86host then passes both
 production and injected-failure components on Java 21, 22, 23 (six child processes).
 All failed logs and diagnostic recordings remain under
 `private-enum-wide/cache-allocation-diagnostic`. The wider candidate's x86 and
@@ -748,7 +748,7 @@ bridge observations. The bridge is faster than Java on physical x86 across
 Full numbers, identities and limitations are in `JAVA_BRIDGE_D224_PERFORMANCE.md`.
 Do not claim the all-Linux performance goal or numerical acceptance complete.
 
-Estonia now has only about 659 MiB disk free but 15 GiB available RAM. A new
+x86host now has only about 659 MiB disk free but 15 GiB available RAM. A new
 8 GiB tmpfs container is running the exact 114 loader cases with the corrected
 frozen compiler. The only runner adjustment inventories and cleans new child
 extraction files after all original assertions and payload comparisons. Built

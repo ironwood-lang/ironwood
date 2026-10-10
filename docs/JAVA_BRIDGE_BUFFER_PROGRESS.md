@@ -62,7 +62,7 @@ and whitespace checks passed.
 Linux qualification runs from input archive `byteviews/input-1.tar.gz`, SHA-256
 `21f2579ec672a589a55ea139283d7770b257c5c0dafeaf989101af79cca65571`, with
 per-file identities in `validation/contents.sha256`. Local ARM64's three new
-checks and 22 Java 22/23 replays passed. Estonia uses the existing image/SDK and
+checks and 22 Java 22/23 replays passed. x86host uses the existing image/SDK and
 `~/temp/java-bridge/p7c1-20260928-1`, with timing children on isolated CPU 1.
 Both timing runs are pending; the input predates only the additional negative
 artifact and native-OOM tests, which will receive follow-up platform validation.
@@ -78,7 +78,7 @@ and evidence before claiming P7c1 complete.
 Transport/shared dependency/example checkpoint committed as `27d03709`.
 Both initial Linux qualifications passed three focused tests, 22 Java 22/23
 replays and every benchmark checksum/allocation assertion. Original data remains
-in `byteviews/linux-arm64-1/work/evidence` and `byteviews/estonia-1/evidence`.
+in `byteviews/linux-arm64-1/work/evidence` and `byteviews/x86host-1/evidence`.
 The first immutable-load experiment lost metadata during LLVM argument promotion.
 Typed view accessors now expand before that pass; descriptor loads are invariant
 for their invocation lifetime. Payload loads/stores remain ordinary aliasing
@@ -117,7 +117,7 @@ installed shared jar and byte-identical regeneration by the relocated compiler.
 The IDK uses its existing bundled Zulu Java 21.0.10+7; producer/timing runs use
 Temurin Java 21.0.12.1+1. No toolchain was installed. Final raw Linux evidence is
 under `byteviews/linux-arm64-final/work/evidence` and is being collected from
-`~/temp/java-bridge/p7c1-20260928-final/work` on Estonia. Next: assembled-jar
+`~/temp/java-bridge/p7c1-20260928-final/work` on x86host. Next: assembled-jar
 payload preservation/replays, distribution checks, final evidence/status docs,
 license/whitespace checks and local commit. Do not advance to P7d.
 
@@ -138,7 +138,7 @@ These two supplemental test additions do not change production artifacts.
 Final license audit and `git diff --check` passed. Final qualification changes
 are committed separately from production as tests, IDK smoke and documentation.
 
-Estonia final evidence was copied back, archive inventories and payload hashes
+x86host final evidence was copied back, archive inventories and payload hashes
 verified, and all workers stopped before cleaning only this task's two remote
 `work` trees and assembled copy (about 3.4 GiB). Inputs and an evidence-location
 note remain. Preexisting SDKs/JDKs/images and unrelated files were preserved.

@@ -73,7 +73,7 @@ complete safety and transport path is implemented and tested.
   bridge retention, String, exception and producer controls as each affected
   path changes. Add exact new test names and outcomes at each checkpoint.
 - Crash, stack and allocation-failure probes run in child processes. Hardware
-  and translated results remain distinct. Estonia is authorized; its disk is
+  and translated results remain distinct. x86host is authorized; its disk is
   nearly full, so use fresh RAM-backed scratch where possible, preserve old
   files/evidence, and ask before any installation.
 
@@ -178,7 +178,7 @@ complete safety and transport path is implemented and tested.
   wrapper, avoiding platform-specific assembler aliases. License/diff checks pass.
 
 - `160287a0`: committed private callback transport and shared protected entries.
-  Estonia physical Linux x86-64 passed proxy source/class/archive safety, context
+  x86host physical Linux x86-64 passed proxy source/class/archive safety, context
   specialization, and private callback transport at O0/O3. Java 21.0.12.1+1,
   LLVM 23.1.0, existing Docker image
   `sha256:dd4c1e82b2f999db86e75538f7d32adcaa364452f99a8f615eca693707c382a7`,
@@ -189,9 +189,9 @@ complete safety and transport path is implemented and tested.
   O3 disassembly confirms a register-passed context and one adapter call per
   iteration, with no TLS or registry work in the native loop. This is transport
   correctness/code-generation evidence, not full P5 qualification or performance.
-- Estonia evidence and exact runner are preserved under
+- x86host evidence and exact runner are preserved under
   `~/temp/java-bridge/p5-160287a0/`, copied locally to
-  `workspace/java-bridge/p5-estonia-160287a02a53/`. Payload manifests, revision,
+  `workspace/java-bridge/p5-x86host-160287a02a53/`. Payload manifests, revision,
   commands, child logs, versions, emitted IR and disassembly are included.
   First container extraction failed because its new tmpfs was not writable by
   UID 1001. Retried after setting permissions on only the new scratch mounts,
@@ -335,7 +335,7 @@ keeps its current ABI. Test cause/secondary identity and existing native graph
 controls; no carrier cleanup permission follows from this translation.
 
 - `ff98eedf`: committed proof-bound temporary cleanup and real proxy transport.
-  Estonia physical Linux x86-64 passes the carrier runtime O0/O3, all-mode carrier
+  x86host physical Linux x86-64 passes the carrier runtime O0/O3, all-mode carrier
   proofs and complete destruction controls at this revision. Pinned image
   `sha256:dd4c1e82b2f999db86e75538f7d32adcaa364452f99a8f615eca693707c382a7`,
   Java 21.0.12.1+1 / LLVM 23.1.0, isolated CPUs 1-4/9-12, network disabled.
@@ -343,7 +343,7 @@ controls; no carrier cleanup permission follows from this translation.
   O0 image `1834bc41519766cb95939fcf96b78a01683eea1f30ff8ed2867d92654dbf7e50`;
   O3 `dbc03357a8fc95c1e06eefba0640b2a7430fbe83fb84320c5565acba4c5ebda9`.
   Remote evidence: `~/temp/java-bridge/p5-ff98eedf/`; local copy:
-  `workspace/java-bridge/p5-estonia-ff98eedf/`. Every collected evidence file
+  `workspace/java-bridge/p5-x86host-ff98eedf/`. Every collected evidence file
   verifies against the remote SHA-256 manifest. Large duplicate pinned support
   source archives stay in the existing support directory and are identified in
   the complete evidence manifest. No installs or pre-existing deletions.
@@ -376,7 +376,7 @@ source/class/archive proxy, foreign effect and pool helper safety controls.
 
 - `fb9405a2`: committed callback identity within native cause/secondary snapshots.
   Its native carrier suite passes O0/O3 on local Linux ARM64 virtualization and
-  physical Estonia x86-64, pinned Java 21 / LLVM 23, including `-Xcheck:jni` and
+  physical x86host x86-64, pinned Java 21 / LLVM 23, including `-Xcheck:jni` and
   both allocation-failure children. Payload SHA-256
   `12e1290d5ff16457107d657ee15f71414df1d2f1b1ca56cf01e8d83a9100cbad`.
   Evidence: `workspace/java-bridge/p5-linux-fb9405a2/{arm64,x86_64}/`;
@@ -460,7 +460,7 @@ store slot snapshots in native execution, helper-equivalent attribution and near
 unsafe shapes. No shared effect analysis exemptions are needed for these entries.
 
 - `f014e2d6`: retained ownership transport passes O0/O3 on local Linux ARM64 and
-  physical Estonia x86-64, Java 21/LLVM 23, all four isolated child modes under
+  physical x86host x86-64, Java 21/LLVM 23, all four isolated child modes under
   `-Xcheck:jni`. Payload SHA-256
   `817bbddb4598ae072440dab56ebe4fd78e35ad4bfd2b655b56c77fd5c01d2733`.
   Evidence and per-file verified manifests:
@@ -470,7 +470,7 @@ unsafe shapes. No shared effect analysis exemptions are needed for these entries
   O3 `2c8569360512eed033552001b9c98841b09915eece689066c31afcac43525320`.
   x86-64 O0 `45b9473be1e680429b839c89f662ed0bdf24ae5d684bc83159434a31150e57d8`,
   O3 `a7ddaf90a58c55daa78f240fa4e43df34b145c05d2be20ccdf3c5f0ad2da414e`.
-  Estonia has about 200 MB free, so validation uses existing images and tmpfs;
+  x86host has about 200 MB free, so validation uses existing images and tmpfs;
   transferred payloads/evidence and containers are preserved. No installations.
 - Added listener-field write entries using P0 retention attribution and existing
   protected final-slot lowering. Exact final holders and known listener inputs or
@@ -527,7 +527,7 @@ reentry, listener example and performance/platform qualification remain pending.
 
 - `08281b06`: committed native guard/destruction-counter evidence. Full private
   carrier/listener/field/retirement/guard fixture passes O0/O3 on Linux ARM64 and
-  Estonia x86-64, four child modes, pinned Java 21 and LLVM 23, `-Xcheck:jni`.
+  x86host x86-64, four child modes, pinned Java 21 and LLVM 23, `-Xcheck:jni`.
   Payload SHA-256 `088d7ff80697a54961c0149f1032067deffbae7e96898b0767a2baf85b29890c`.
   Evidence: `workspace/java-bridge/p5-linux-08281b06/{arm64,x86_64}/` and
   `~/temp/java-bridge/p5-08281b06/`; every collected file verifies against its
@@ -591,7 +591,7 @@ with the native test after adding this audited classification.
 
 - `f51d03db`: committed D206 copied-input proof/transport and regressions. The
   complete private fixture at this revision passes O0/O3 on Linux ARM64 and
-  physical Estonia x86-64, including all five child modes. Same pinned Java 21
+  physical x86host x86-64, including all five child modes. Same pinned Java 21
   and LLVM 23 images; no critical-region JNI warnings. Payload SHA-256
   `acc66c4443e89533cfcbfcd36b360443e6c3a46c54e0094d17855a830e5344d8`.
   Evidence: `workspace/java-bridge/p5-linux-f51d03db/{arm64,x86_64}/` and
@@ -688,7 +688,7 @@ trace helper targets; unknown dispatch is still a refusal. Add null-listener
 failure coverage, alongside the existing native allocation-failure controls.
 
 - `0d9c1cbf` passes the primitive and full carrier/lifecycle/String fixtures on
-  Linux ARM64 and Estonia x86-64 at O0/O3. Payload SHA-256
+  Linux ARM64 and x86host x86-64 at O0/O3. Payload SHA-256
   `d5babb4156f8ec297044578c219dbdaccad086c608e34f9a386097f3b7cfd2df`.
   All archived evidence members verify against their manifest; files are under
   `workspace/java-bridge/p5-linux-0d9c1cbf/{arm64,x86_64}/`, with the remote
@@ -696,7 +696,7 @@ failure coverage, alongside the existing native allocation-failure controls.
   Primitive ARM64 O3 `801a2fbf0af54cb597f29121036794f6fd18806578ddc07bbe2cf0533cf53b59`;
   primitive x86-64 O3 `b8f1a3e88f7b5ef84c98aacf659d586b5fd239fddb6b68c60f69284adec8fc91`.
   The one-long callback diagnostic measured about 45.7 ns on Linux ARM64 and
-  92.0 ns on Estonia CPU 1. These are primitive callback-loop measurements, not
+  92.0 ns on x86host CPU 1. These are primitive callback-loop measurements, not
   application throughput or P5 performance acceptance.
 - Implemented program/root-bound synchronous native-state proof and protected
   entries, reusing proved proxy ownership and exact context specialization.
@@ -744,7 +744,7 @@ carrier lifetime controls as well as the native fixture.
   pinned compiler JAR in `p5-enriched-build.log`. Cross-platform verification of
   this combined revision and the handwritten JNI timing comparison are next.
 
-- `50e8ec9d`: all three focused tests pass on Linux ARM64 and Estonia x86-64:
+- `50e8ec9d`: all three focused tests pass on Linux ARM64 and x86host x86-64:
   six carrier child modes and primitive/proof entries at O0/O3, plus all-mode
   source/class/archive synchronous admission controls. Payload SHA-256
   `2dcad6a89a03b6b8e3fdd06ce091c52251d76c2e822d0f59caf3a6d011d868f2`.
@@ -755,7 +755,7 @@ carrier lifetime controls as well as the native fixture.
   ARM64 primitive O3 `1c4ed6fec304a60f3b420b952fa961594f19a24e5540437b6949cb871c22f369`;
   x86 primitive O3 `8ea6f6d8ec968a2b957cbc3177e636f3ba60d1a268187d548be463af742d7353`.
 - Seven interleaved one-million-call samples after five warmups, same checksum:
-  generated/handwritten JNI medians 92.105/91.672 ns per callback on Estonia CPU1,
+  generated/handwritten JNI medians 92.105/91.672 ns per callback on x86host CPU1,
   45.601/51.478 ns on Linux ARM64. This measures native-to-Java long callbacks,
   not Java-to-native crossings or application acceptance. O3 disassembly shows
   cached method dispatch plus mandatory exception check, no per-callback method
@@ -808,7 +808,7 @@ partial preparation, native failure and callback throw. Pair repeated reads afte
 allocating/reentrant callbacks with retained String rejection in all unfreed modes.
 Reuse existing String callback and primitive producer controls; inspect generated
 adapters for critical access and run child allocation failures at copy boundaries.
-- `8f7f45d3` packaged primitive listeners also pass on Linux ARM64 and Estonia
+- `8f7f45d3` packaged primitive listeners also pass on Linux ARM64 and x86host
   x86-64, including source/class/archive identity, both consumer launch forms and
   allocation/refusal controls. Compiler payload SHA-256
   `399ce8fd8e79f062179e0c8facb0d56865b41dac5bb8a646f0aad10aa4f71b7f`;
@@ -930,7 +930,7 @@ are next; public stateful producer signatures remain rejected.
 Linux matrix rerun with per-child scratch cleanup passes all six bounded cells on
 each target. All reduced-stack failures are now observed Java StackOverflowError,
 with no native crash: Linux ARM64 O0/O3 succeeds through 128/256 for 512k/1m,
-then fails at 256/512. Estonia O0 matches that; O3 succeeds through 128/512 and
+then fails at 256/512. x86host O0 matches that; O3 succeeds through 128/512 and
 fails at 256/1024. These fixture observations do not establish general limits.
 Evidence is `workspace/java-bridge/p5-linux-35ab7f41/`, with retained remote data
 in `~/temp/java-bridge/p5-35ab7f41/`. Verified every archived member against its
@@ -1132,7 +1132,7 @@ in `p5-owner-string-controls.log`. Reference callback values remain unsupported.
 
 Linux retained-owner qualification of `ed43e56f` (before the String checkpoint):
 the native carrier, paired owner/fault and public producer parity tests pass on
-Linux ARM64 and physical Estonia x86-64 with pinned Java 21 and LLVM 23. Payload
+Linux ARM64 and physical x86host x86-64 with pinned Java 21 and LLVM 23. Payload
 SHA-256 `3bb735bf45bfe2525b05c96f46b2363e9cc40caf43c42f889917964ad08138f9`;
 all archived evidence members verify against full manifests. Local evidence is
 `workspace/java-bridge/p5-linux-ed43e56f/{arm64-scratch4,x86_64-scratch4}`;
@@ -1141,7 +1141,7 @@ mapping failure and 2 GiB scratch exhaustion are preserved separately. Executabl
 4 GiB scratch and a 1536 MiB Java heap resolved those runner failures with the
 same payload; peak scratch was about 3.64 GiB. O3 owner adapter disassembly is
 collected for both targets. These results do not qualify the later String changes
-or the final Java 21-23 matrix. Estonia host disk is nearly full; preserve existing
+or the final Java 21-23 matrix. x86host host disk is nearly full; preserve existing
 archives/evidence and stream future payloads through container scratch if needed.
 
 Reference-argument pre-change review: admit exact final owner callback arguments
@@ -1243,7 +1243,7 @@ Its compiler JAR classes match the tested class directory. Payload, complete inp
 manifest, immutable revision, runner and launch commands are retained in
 `workspace/java-bridge/p5-linux-ddf48b13/`. Final Linux runs use existing pinned
 images, read-only roots, no network, Docker CPU 1, executable 6 GiB work scratch
-and 1 GiB child scratch. Estonia has about 75 MiB free host space, so the payload
+and 1 GiB child scratch. x86host has about 75 MiB free host space, so the payload
 and complete evidence stream through container memory directly to/from this Mac;
 Docker binary-output logging is disabled. No remote installation or deletion.
 Both launchers run focused fixtures plus the three-JDK replay, then separate
@@ -1328,12 +1328,12 @@ its final stack matrix as a separate focused stage with identical compiler/sourc
 inputs. Mac and Linux ARM64 both pass six O0/O3 Java 21/22/23 cells. The stateless
 Linux runner/input bundle is `workspace/java-bridge/p5-stateless-e0643c05/`,
 SHA-256 `4bcf19af63a5678297d22a2f9c02bd1b08a10c0a5eb535c815f09188dbddd553`;
-its ARM64 evidence archive verifies all 197 files. Estonia's final fixtures and
+its ARM64 evidence archive verifies all 197 files. x86host's final fixtures and
 141 replays pass and their archive has finished streaming. Its primary stack and
 measurement stage is running; run the separate stateless stage afterward on
 CPU 1, then verify all x86 archives before phase completion. No code changed.
 
-Final closeout: Estonia's retained-owner and stateless stack stages pass all six
+Final closeout: x86host's retained-owner and stateless stack stages pass all six
 O0/O3 Java 21/22/23 cells each; both Linux measurement runs validate every sample
 and allocation field. All six Linux evidence archives are fully verified, with
 identities in `JAVA_BRIDGE_P5_EVIDENCE.md`. The final replay total is 423 children

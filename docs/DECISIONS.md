@@ -8671,7 +8671,7 @@ occurrence order. If no
   OrderBook's 362-operation matching method sat behind its small creation
   methods, blocking inlining and simplification of their known state. Inlining
   removes this call without changing the engine or Java workload.
-- **Evidence:** Three interleaved warmed forks on physical Estonia improve the
+- **Evidence:** Three interleaved warmed forks on physical x86host improve the
   Java21 bridge cycle from 192.22 to 178.84 ns; pure Ironwood is 124.47 ns and
   Java21 is 240.28 ns in the latter comparison. Linux ARM64 also improves, from
   82.58 to 78.16 ns, but still trails Java's 65.24 ns. These are development
@@ -8700,7 +8700,7 @@ occurrence order. If no
   bookkeeping is introduced. Final bridge lifetime/retention proofs revalidate
   the actual transformed program before any producer can emit it.
 - **Evidence:** Paired three-fork development comparisons improve Linux ARM64
-  from 78.45 to 76.71 ns/cycle and physical Estonia from 178.39 to 176.81.
+  from 78.45 to 76.71 ns/cycle and physical x86host from 178.39 to 176.81.
   Ten focused tests pass, covering non-looping library guards, ordinary safety,
   cold/recursive/failed initialization, exact traces/cleanup, final lifetime/root
   rejection, retention commits, artifact parity and actual OrderBook allocation
@@ -8865,7 +8865,7 @@ occurrence order. If no
   preserving native carrier transport and unchanged Java throwable identity.
   Generated relay source and class declarations participate in paired artifact
   inventory and loading. Ordinary native-only code is unchanged.
-- **Evidence:** Estonia Java 21 measures 103.021 ns/event for the original
+- **Evidence:** x86host Java 21 measures 103.021 ns/event for the original
   interface JNI path and 98.833 ns/event for the relay candidate. Java 22 improves
   from 107.616 to 100.895; Java 23 is nearly unchanged at 108.923 versus 108.407.
   This is a modest improvement and does not meet the maintainer's request for
@@ -12344,3 +12344,28 @@ occurrence order. If no
   `scripts/check-tracked-files.sh` passes on the new tree and rejects the
   original one, and the ownership pilot artifacts test passes without the
   archives.
+
+## D313 - Use neutral account and host names in committed records
+
+- **Status:** Accepted and implemented. Amends D312: supersedes its statement
+  that the documents and manifests keep their recorded file hashes valid,
+  for the files this decision edits.
+- **Context:** Evidence records and Java Bridge documents carried the local
+  account name in about 1,900 absolute paths and the private names of the
+  Linux x86-64 host and the Linux arm64 VM in about 280 places.
+- **Decision:** Committed records use the neutral account name `developer` in
+  absolute paths and name hosts by role: `x86host` for the physical Linux
+  x86-64 host and `armvm` for the Linux arm64 VM. The 111 affected files were
+  edited at the tip; history keeps the earlier text.
+- **Analysis:** The SHA-256 values that manifests and identity snapshots
+  record for the edited files describe their earlier content. Identity
+  snapshots already describe the tree at their freeze commit, and the
+  removed archives' manifests describe archived copies, so neither is
+  rewritten. Scripts that read paths from these records need them adjusted
+  to the local machine; no compiler, library or test behavior changes.
+- **Boundary:** Released packages that ship `JAVA_BRIDGE_JDK_IDENTITIES.json`
+  or `JAVA_BRIDGE_JDK_PROGRESS.md` keep the earlier text until a new release.
+- **Verification:** No tracked file contains the earlier account name or
+  host names, even as substrings; every edited JSON file parses, every
+  edited shell script passes `bash -n`, and each replacement keeps the
+  file's length.

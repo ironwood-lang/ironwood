@@ -136,7 +136,7 @@ Local evidence under ignored `workspace/java-bridge/`:
 
 No unresolved P7d0 blocker or validation remains. No native ABI/runtime/hot-path
 change, additional platform qualification or new performance claim is made.
-No Estonia run, installation, push or publication was needed. Generic classes
+No x86host run, installation, push or publication was needed. Generic classes
 and methods remain rejected by the producer. P7d1/P7d2 admission, P7e and P7f
 remain pending; stop here as requested.
 
@@ -218,7 +218,7 @@ The new `examples/java-bridge/generics` compile/link/run passes with checked JNI
 its matched getter runner has passed Mac functional smoke and preserved payload
 hashes, bytecode and disassembly under `p7d1/mac-smoke`. Linux ARM64/x86-64
 qualification, full allocation/timing measurements and final documentation are
-pending. Estonia has existing suitable images/JDKs/SDKs; use only the authorized
+pending. x86host has existing suitable images/JDKs/SDKs; use only the authorized
 validation folder without installations. Stop after P7d1, before P7d2.
 
 Final Mac focused selection: the two new generic tests and both P7d0 tests,
@@ -242,7 +242,7 @@ boundary. No P7d2 construction/mutation or later phase was implemented.
 | --- | --- | ---: |
 | macOS ARM64 | 20 distinct focused checks passed, including source/class/archive producer parity, shared proofs, ordinary generic safety and object generation identity | 20 passed on Java 22/23 |
 | Linux ARM64, local Colima | Four generic metadata/proof/producer checks passed | 20 passed on Java 22/23 |
-| Physical Linux x86-64, Estonia | Same four checks passed | 20 passed on Java 22/23 |
+| Physical Linux x86-64, x86host | Same four checks passed | 20 passed on Java 22/23 |
 
 All use Temurin 21.0.12.1+1 producers and LLVM 23.1.0; replay JVMs are
 22.0.2+9 and 23.0.2+7. Linux uses the existing pinned glibc 2.17 support SDK.
@@ -271,7 +271,7 @@ Both have static factory storage and the same class-initialization guard. Three
 independent JVMs per path alternate order; each has five warmup and seven
 measured batches of two million calls. Values below are median batch-average
 latency and corresponding throughput, not percentile latency or a confidence
-interval. Estonia uses isolated CPU 1, the existing powersave governor and turbo
+interval. x86host uses isolated CPU 1, the existing powersave governor and turbo
 behavior. ARM64 is virtualized. Mac runs are functional smoke only.
 
 | Target | Generic `Box<Quote>.get()` | Nongeneric `Plain.get()` |
@@ -290,12 +290,12 @@ separately. No native layout tag or generic-specific per-call state was added.
 
 The small measured differences remain numerical evidence for maintainer review,
 not a demonstrated statistically significant regression or a zero-cost claim.
-Ranges are 10.63-20.95 versus 10.63-20.52 ns on Estonia, and 4.68-6.22 versus
+Ranges are 10.63-20.95 versus 10.63-20.52 ns on x86host, and 4.68-6.22 versus
 4.65-5.99 ns on ARM64. These compare generic/nongeneric bridge paths, not pure
 Ironwood versus Java application throughput. No official OrderBook code changed.
 
 An initial control lacked static factory storage and therefore lacked the native
-initialization guard. Its 11.05 versus 10.26 ns Estonia result is retained under
+initialization guard. Its 11.05 versus 10.26 ns x86host result is retained under
 `performance/` but superseded by `performance-matched/`. Inspection identified
 the mismatch; `ddcb04bf` corrected only the benchmark and its documentation.
 No production optimization or safety change was made to improve the numbers.
@@ -312,7 +312,7 @@ The separately verified benchmark supplement has SHA-256
 `f7df8400788b09231f699b0ec9e1d711e7af7c60740036b6d7886e7d56b61c77`;
 it carries its revision, patch and exact changed-file hashes.
 
-Linux ARM64 results are in `linux-arm64/work/{evidence,validation}`. Estonia
+Linux ARM64 results are in `linux-arm64/work/{evidence,validation}`. x86host
 work and payloads are retained under
 `~/temp/java-bridge/p7d1-38fd8260/work/`; copied evidence is identified below.
 Both use the existing bridge images, respectively
@@ -341,11 +341,11 @@ raw samples and summaries preserve the exact measured payloads. The physical
 host CPU, kernel, boot command line, governor and image identity are in
 `validation/`. This is a focused runner with no downloads or hosted jobs.
 
-Final Estonia evidence archive `estonia-evidence-final-logs.tar.gz` has SHA-256
+Final x86host evidence archive `x86host-evidence-final-logs.tar.gz` has SHA-256
 `2cb51233c7d2484a8810105ce14d3be49392369285ef233785b3b928aa9803c4`,
-verified after copying to this Mac and extracted into `estonia-final/`. It
+verified after copying to this Mac and extracted into `x86host-final/`. It
 contains logs, manifests, native images, disassembly, consumers and source
-fixtures. Large paired jars remain on Estonia, with exact hashes and manifests
+fixtures. Large paired jars remain on x86host, with exact hashes and manifests
 in `validation/payload-inventory.json`; the negative preserved-output sentinel
 is intentionally not a ZIP. Task-generated output ownership was restored to
 the SSH user so these artifacts remain directly inspectable.
@@ -362,7 +362,7 @@ The complete generic producer's source artifacts share generation
 on all three targets. Assembly passed; `assembled/generics.jar` has SHA-256
 `f340771a22fa3d93a44ce025306cd57dacbdc5974be1297eb2fee9078e6788e8`.
 Checked-JNI consumers passed against that exact assembled jar on Mac, local
-Linux ARM64 and physical Estonia. An initial Estonia consumer ran before its
+Linux ARM64 and physical x86host. An initial x86host consumer ran before its
 large jar transfer finished and reported ClassNotFoundException. The complete
 jar's SHA-256 was then checked before rerunning successfully; the operational
 failure log is retained as `validation/incomplete-transfer-consumer.log`.
@@ -433,9 +433,9 @@ standard-library artifacts and a complete input hash manifest, preserving file
 timestamps. Compiler jar SHA-256:
 `0269e6eef50d56a84f7018e6d187b455562244e92106958e7770cbe3cb612a97`.
 Linux consumes these exact compiler bytes, without rebuilding or installing.
-Local ARM64 uses `workspace/java-bridge/p7d2/linux-arm64/work`; physical Estonia
+Local ARM64 uses `workspace/java-bridge/p7d2/linux-arm64/work`; physical x86host
 uses `~/temp/java-bridge/p7d2-bc4cf5a3/work`. Both use the previously prepared
-images and read-only support/JDK mounts documented above. Estonia began with
+images and read-only support/JDK mounts documented above. x86host began with
 108 GiB free; only this new task directory is used.
 
 The initial three-target matrix passed. A final additional check of a publicly
@@ -461,7 +461,7 @@ SHA-256 `66f26718e84479bd82a3d1f85e916375204e2050143d634e6fa9e0025f8b026e`.
 Its compiler jar SHA-256 is
 `14c59cd2f7cda9b71dde336ffe7ba7164db755b25ba1cb1bf53463ff2bd9f836`.
 Mac evidence is in `workspace/java-bridge/p7d2/mac-175d1524`; Linux ARM64 uses
-`workspace/java-bridge/p7d2/linux-arm64-175d1524/work`; Estonia uses
+`workspace/java-bridge/p7d2/linux-arm64-175d1524/work`; x86host uses
 `~/temp/java-bridge/p7d2-175d1524/work`. Each Linux runner verifies every input
 hash before testing. Earlier directories remain intact as superseded evidence.
 
@@ -476,7 +476,7 @@ bounded proof/producer and P7d1 input-refusal checks on the final compiler.
 No unfiltered compiler suite was run.
 
 Final qualification passed on macOS ARM64, local Linux ARM64 virtualization and
-physical Linux x86-64 Estonia. Each target passed three focused compiler checks,
+physical Linux x86-64 x86host. Each target passed three focused compiler checks,
 four producer variants (source O0; directory, individual class and archive O3),
 eight Java 21 checked-JNI consumer/ENOMEM children and 16 exact-output Java 22/23
 replays. Supported JDKs remain pinned Temurin 21.0.12.1+1, 22.0.2+9 and 23.0.2+7;
@@ -514,11 +514,11 @@ median batch-average cost, not an individual-call percentile.
 
 | Target | Generic ns/call | Nongeneric ns/call | Generic M calls/s | Nongeneric M calls/s |
 | --- | ---: | ---: | ---: | ---: |
-| Linux x86-64 Estonia, isolated CPU 1 | 130.68 | 129.71 | 7.653 | 7.709 |
+| Linux x86-64 x86host, isolated CPU 1 | 130.68 | 129.71 | 7.653 | 7.709 |
 | Linux ARM64, local VM | 64.48 | 64.27 | 15.509 | 15.559 |
 | macOS ARM64 | 354.16 | 335.28 | 2.824 | 2.983 |
 
-Linux is the requested judge. Estonia ranges were 129.53-142.41 ns generic and
+Linux is the requested judge. x86host ranges were 129.53-142.41 ns generic and
 129.43-139.78 ns control; ARM64 ranges were 64.22-65.19 and 64.01-64.73 ns.
 The existing powersave governor/turbo policy was unchanged; this is not a
 fixed-frequency or statistical-significance claim. Mac ranges were 305.15-359.82
@@ -543,10 +543,10 @@ Final measured payload SHA-256 identities:
 | Linux ARM64 | `330c7e7e5f71648e141441b0b5561be8d2ab40b68f4fc38851ef2708cf13f135` | `e0f9998dcbc378bc6c11b3d0f0aa0fd5938af7646f71d057e26546b949e28508` |
 | Linux x86-64 | `dadede2e235c25dfd18ec014a30d39c56217faa3c8b0e406ff2e5ed977e81821` | `bf3df59042ff21da304b14443a35fd6f001809c9c8908bbf283eb21581dea945` |
 
-The final Estonia archive was copied to
-`workspace/java-bridge/p7d2/estonia-final-175d1524.tar.gz`, SHA-256
+The final x86host archive was copied to
+`workspace/java-bridge/p7d2/x86host-final-175d1524.tar.gz`, SHA-256
 `8976f8dd3083effe6ed7d54b8aa716afab88c287be3009d6ecc1ee2b22025221`,
-verified before extraction into `estonia-175d1524/`. It includes logs, fixtures,
+verified before extraction into `x86host-175d1524/`. It includes logs, fixtures,
 commands, versions, host/image identity, native image, disassembly and payload
 inventory. Large paired jars/ironjars remain in the remote task directory with
 streamed hashes and manifests in `validation/payload-inventory.json`. Ownership
@@ -562,7 +562,7 @@ sha256sum -c validation/contents.sha256
 ```
 
 Use `linux-arm64` for the local VM. The runner expects a new evidence directory,
-selects CPU 1 only for Estonia timing children, performs no installation, and
+selects CPU 1 only for x86host timing children, performs no installation, and
 records commands, paired identities and all measurements. Expected results are
 three passing checks, 16 exact replays, 42 allocation-free measured samples and
 `exit.txt` containing zero. Mac uses the pinned local JDK paths and the

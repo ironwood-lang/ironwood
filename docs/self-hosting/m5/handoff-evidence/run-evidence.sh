@@ -8,8 +8,8 @@
 # and backend helpers, the port generics audit), the three M5 classifications
 # with every earlier table regenerated unchanged, one compilation of every
 # port source with the pilot adapters (no diagnostics), the diff and license
-# audits, and linux-evidence.sh from the same archive on the estonia (Linux
-# x86-64) and miami (Linux arm64) hosts, which start first. The macOS part
+# audits, and linux-evidence.sh from the same archive on the x86host (Linux
+# x86-64) and armvm (Linux arm64) hosts, which start first. The macOS part
 # waits for a one-minute load below 3 so that no competing job stretches its
 # process timeouts. Logs land in workspace/m5/handoff-evidence.
 set -u
@@ -27,8 +27,8 @@ git -C "$root" rev-parse "$commit" > "$ev/commit.txt"
 git -C "$root" archive "$commit" | tar -xf - -C "$stage"
 status() { echo "$1 exit=$2" >> "$ev/status.txt"; }
 { sw_vers; uname -m; "$JAVA_HOME/bin/java" -version 2>&1 | head -1; "$IRONWOOD_LLVM_HOME/bin/llvm-config" --version; } > "$ev/host.txt"
-# Linux x86-64 on estonia and Linux arm64 on miami, from the same archive.
-# The first ssh after the miami VM wakes can fail with "No route to host".
+# Linux x86-64 on x86host and Linux arm64 on armvm, from the same archive.
+# The first ssh after the armvm VM wakes can fail with "No route to host".
 retry() { for attempt in 1 2 3 4 5 6; do "$@" && return 0; sleep 10; done; return 1; }
 ship() {
     git -C "$root" archive "$commit" | ssh -o BatchMode=yes "$1" \
@@ -39,7 +39,7 @@ launch() {
     ssh -o BatchMode=yes "$1" "nohup $2/tree/docs/self-hosting/m5/handoff-evidence/linux-evidence.sh $2 \
         > $2/run.log 2>&1 < /dev/null &"
 }
-hosts=("estonia temp/java_bridge/m5-evidence linux-x86_64" "miami temp/ironwood-m5 linux-arm64")
+hosts=("x86host temp/java_bridge/m5-evidence linux-x86_64" "armvm temp/ironwood-m5 linux-arm64")
 for entry in "${hosts[@]}"; do
     set -- $entry
     retry ship "$1" "$2"; status "$3-ship" $?

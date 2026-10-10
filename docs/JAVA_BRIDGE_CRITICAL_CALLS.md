@@ -27,7 +27,7 @@ a handle that skips the thread-state transition, with the registered JNI method
 kept as the fallback. D242 tunes portable x86-64 shared images for fast
 unaligned 16-byte access without adding any instruction-set requirement.
 
-| Scenario, Estonia, Oracle JDK 21.0.1, 8M warmup + 80M measured | Median ms | ns/cycle | Million operations/s |
+| Scenario, x86host, Oracle JDK 21.0.1, 8M warmup + 80M measured | Median ms | ns/cycle | Million operations/s |
 | --- | ---: | ---: | ---: |
 | Standalone Ironwood (`-march=native`) | 734.7 | 73.47 | 108.9 |
 | Java bytecode | 1483.6 | 148.36 | 53.9 |
@@ -166,7 +166,7 @@ mismatched declarations against exact regeneration.
 
 ## Verification record
 
-Run with the modified compiler on Linux x86-64 (Estonia, scratch clone) and
+Run with the modified compiler on Linux x86-64 (x86host, scratch clone) and
 macOS ARM64. No unfiltered suite was run.
 
 - New focused tests, passing on macOS ARM64 with Temurin 21.0.12 and on Linux
@@ -206,4 +206,4 @@ Not verified: Linux ARM64; JVMs other than HotSpot; multithreaded callers,
 which the bridge's confinement contract already excludes; safepoint latency
 under long-running critical entries, which is a stated producer obligation.
 Scratch drivers, variants and raw samples are under `~/temp/java_bridge` on
-Estonia; they are measurement inputs and not product code.
+x86host; they are measurement inputs and not product code.

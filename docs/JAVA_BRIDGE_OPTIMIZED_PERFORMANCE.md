@@ -46,7 +46,7 @@ substituted into this report.
 
 ### Physical Linux x86-64, Java 21
 
-Estonia, Intel Xeon E-2288G, existing powersave governor, isolated CPUs
+x86host, Intel Xeon E-2288G, existing powersave governor, isolated CPUs
 1-4 and 9-12. No concurrent task builds, tests or bulk transfers during timing.
 The scratch controller preserves every runner assertion and records its exact
 patch/hash. It inventories and removes only newly generated JVM extraction
@@ -119,13 +119,13 @@ individual-call latency or compared without that limitation.
   The regression test includes nested permanent identity and malformed metadata.
 - `e3150db6`: longer OrderBook measurement settings and explicit count metadata.
 
-The final Estonia Java21 handwritten scalar JNI call measures 7.23 ns; the
+The final x86host Java21 handwritten scalar JNI call measures 7.23 ns; the
 generated scalar measures 8.03 ns and cached object return 10.03 ns. The final
 Linux ARM64 Java21 handwritten scalar JNI call measures 2.85 ns; the generated
 scalar measures 3.54 ns. Cached permanent object return is 4.01 ns,
 versus about 61.72 ns in the original report. All warmed scalar, receiver and
 cache-hit observations report zero Java allocation. The earlier independent
-matching-call-shape controls measure 7.25 ns for one JNI crossing on Estonia and
+matching-call-shape controls measure 7.25 ns for one JNI crossing on x86host and
 60.10 ns for its eight-call cycle; Linux ARM64 measures 2.71 ns and 22.26 ns.
 These are small absolute costs. The old callback-heavy implementation did much
 more work than a JNI transition. The controls are not an exact additive model
@@ -175,7 +175,7 @@ Raw evidence under `workspace/java-bridge/evidence/optimization`:
   and 196 consumer replays per Java22/23. Mac has 194 per JDK; Linux's two extra
   cases are passive enum-access checks.
 
-Estonia passes the 36 selected compiler/native checks, the repaired assembly
+x86host passes the 36 selected compiler/native checks, the repaired assembly
 regression, 196 asserting consumers on each of Java22/23 and 30 minimal-JVM
 launches of the fixed candidate. Bounded temporary-cache runners also pass the
 90 final candidate launches, six bounded stack cells with separate adaptive
@@ -187,7 +187,7 @@ The larger final loader stage has not run: its explicit 12 GiB free-space
 precondition stopped it while about 4 GiB remained. Its retained jar fixtures
 alone require about 5.9 GB across O0/O3, independently of temporary-cache cleanup.
 The completed final x86 evidence and experiments are backed up and independently
-verified in `estonia-final-archive`: 2,462 files, 1,533,814,764 bytes, archive
+verified in `x86host-final-archive`: 2,462 files, 1,533,814,764 bytes, archive
 SHA-256 `0f0547d4e6ee59b320be490ca6c63e941a47d64de89380ff6f7161c93ffed657`.
 The earlier 13,508-file fixture backup is also verified. All remote originals
 remain while permission to remove verified non-temporary duplicates is pending.

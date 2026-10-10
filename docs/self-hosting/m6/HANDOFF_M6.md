@@ -63,8 +63,8 @@ API, standard library, runtime, analysis, script or package change.
 | Host | Result |
 | --- | --- |
 | macOS 27.0.1 arm64 | the 15 M6 tests and 11 consumer tests, with 13 further installed JDKs in the selection test; the reconciliation with all nine phase tables regenerated and its controls; the port compilation and the audits |
-| Linux x86-64 (`estonia`, kernel 4.15, glibc 2.27, JDK 21.0.1, conda LLVM 23.1.0) | the 15 M6 tests and the five M5.4 consumers, with 10 further installed JDKs in the selection test (Oracle 17, 20, 23 and 25; GraalVM 21 and 25; Temurin 21 and 23; Semeru 21 and 23) |
-| Linux arm64 (`miami`: Ubuntu 22.04 guest, kernel 5.15, glibc 2.35, Temurin 21, conda LLVM 23.1.0) | the 15 M6 tests and the five M5.4 consumers, with every JVM printing its SVE startup warning |
+| Linux x86-64 (`x86host`, kernel 4.15, glibc 2.27, JDK 21.0.1, conda LLVM 23.1.0) | the 15 M6 tests and the five M5.4 consumers, with 10 further installed JDKs in the selection test (Oracle 17, 20, 23 and 25; GraalVM 21 and 25; Temurin 21 and 23; Semeru 21 and 23) |
+| Linux arm64 (`armvm`: Ubuntu 22.04 guest, kernel 5.15, glibc 2.35, Temurin 21, conda LLVM 23.1.0) | the 15 M6 tests and the five M5.4 consumers, with every JVM printing its SVE startup warning |
 
 Boundaries carried forward, none needing runtime overhead:
 
@@ -113,13 +113,13 @@ reconciliation, which regenerated all nine phase tables byte for byte, with
 its unchanged and eight negative controls, one compilation of all 200 port
 sources with the five pilot adapters under `--unfreed=warn` (no
 diagnostics), `git diff --check` over eb3c1413..8dcf9441, the license audit,
-and on estonia and miami the 15 M6 tests with the five M5.4 tests. All 17
+and on x86host and armvm the 15 M6 tests with the five M5.4 tests. All 17
 statuses passed. The macOS part started once the one-minute load fell below
-3, with the estonia run beside it; the miami run had finished. Unsafe programs
+3, with the x86host run beside it; the armvm run had finished. Unsafe programs
 were compile-only; no full suite or hosted build ran.
 
 Before this run, de054745 kept JVM startup warnings out of two comparisons
-after checking the miami guest's warning: the `jar` tool's listing now reads
+after checking the armvm guest's warning: the `jar` tool's listing now reads
 standard output only, and the JDK-tool test leaves warning lines out of the
 tool's merged diagnostics. Both tests pass there. The commit that records
 this handoff changes records only, and a fresh archive of it reruns the

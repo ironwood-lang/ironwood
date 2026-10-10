@@ -223,7 +223,7 @@ of every port source with the five pilot adapters under `--unfreed=warn`
 with no diagnostics.
 
 Hosts: this macOS arm64 machine qualifies every phase; the M6 tests also run
-on Linux x86-64 (`estonia`) and Linux arm64 (`miami`) for the checkpoint. Run
+on Linux x86-64 (`x86host`) and Linux arm64 (`armvm`) for the checkpoint. Run
 `git diff --cached --check` for every commit and `./scripts/check-licenses.sh`
 for source changes. Never run an unfiltered suite. Unsafe programs are
 compile-only.

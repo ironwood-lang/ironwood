@@ -46,8 +46,8 @@ this adapter as their convention; it is now delivered.
 | Host | Result |
 | --- | --- |
 | macOS 27.0.1 arm64 | the fifteen M4.3 tests and the consumers of the changed machinery; discovery measured serially below load 3 |
-| Linux x86-64 (`estonia`, kernel 4.15, glibc 2.27, conda LLVM 23.1.0) | the fifteen M4.3 tests, including process-group interrupts and the actual pipeline with `llvm-objcopy` |
-| Linux arm64 (`miami`: Ubuntu 22.04 guest, kernel 5.15, glibc 2.35, conda LLVM 23.1.0) | the fifteen M4.3 tests, including process-group interrupts and the actual pipeline with `llvm-objcopy` |
+| Linux x86-64 (`x86host`, kernel 4.15, glibc 2.27, conda LLVM 23.1.0) | the fifteen M4.3 tests, including process-group interrupts and the actual pipeline with `llvm-objcopy` |
+| Linux arm64 (`armvm`: Ubuntu 22.04 guest, kernel 5.15, glibc 2.35, conda LLVM 23.1.0) | the fifteen M4.3 tests, including process-group interrupts and the actual pipeline with `llvm-objcopy` |
 
 - Descriptors the compiler inherited without close-on-exec reach its tools
   (Java's launcher closes them).
@@ -84,7 +84,7 @@ creation-array, borrowing, discovery and filesystem machinery), the
 classification (and the M3 and M4.1-M4.2 tables unchanged), one compilation
 of all 174 port sources with both pilot adapters (no diagnostics), seven
 serial discovery measurements at load 2.91 with no leftover scratch entry,
-the diff and license audits, and on estonia the fifteen M4.3 tests. All
+the diff and license audits, and on x86host the fifteen M4.3 tests. All
 sixteen statuses passed. Unsafe programs were compile-only; no full suite or
 hosted build ran.
 
@@ -98,5 +98,5 @@ failure records add their keys (8,003 units); none is reused.
 Linux arm64 was qualified afterwards by
 [arm64-evidence/run-evidence.sh](arm64-evidence/run-evidence.sh) on 00f5554f:
 these fifteen tests, the twelve M4.1/M4.2 tests and the glibc 2.17 symbol
-check passed on the `miami` guest, after the JDK check and the discovery
+check passed on the `armvm` guest, after the JDK check and the discovery
 reference stopped reading that guest's JVM startup warning as output.

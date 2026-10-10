@@ -94,14 +94,14 @@ per second. They are not sampled p50/p99 latency or OrderBook measurements.
 
 | Target | Java | JNI ns/call | FFM ns/call | JNI M calls/s | FFM M calls/s |
 | --- | --- | ---: | ---: | ---: | ---: |
-| Linux x86-64, Estonia | 22 | 8.250 | 8.025 | 121.21 | 124.61 |
-| Linux x86-64, Estonia | 23 | 8.245 | 7.854 | 121.29 | 127.32 |
+| Linux x86-64, x86host | 22 | 8.250 | 8.025 | 121.21 | 124.61 |
+| Linux x86-64, x86host | 23 | 8.245 | 7.854 | 121.29 | 127.32 |
 | Linux ARM64, local VM | 22 | 3.724 | 3.312 | 268.56 | 301.93 |
 | Linux ARM64, local VM | 23 | 3.626 | 3.302 | 275.76 | 302.83 |
 | macOS ARM64, optional | 22 | 3.578 | 3.287 | 279.46 | 304.25 |
 | macOS ARM64, optional | 23 | 3.598 | 3.295 | 277.90 | 303.49 |
 
-Estonia used the physical Intel Xeon E-2288G, isolated CPU 1, kernel
+x86host used the physical Intel Xeon E-2288G, isolated CPU 1, kernel
 4.15.0-188 and its existing `powersave` governor. No host settings changed.
 Individual x86-64 samples ranged from 8.222-10.610 ns JNI and 7.823-11.320 ns
 FFM; ranges overlap. Linux ARM64 used the existing Colima VM on this Mac,
@@ -197,7 +197,7 @@ compiler/build/ironwoodc.jar
 14c59cd2f7cda9b71dde336ffe7ba7164db755b25ba1cb1bf53463ff2bd9f836
 input-27843e37.tar.gz (tracked files and prepared compiler outputs)
 05baea10ae295be5b1d3b925ff6edcb4efc621844f201362451e580f1672bd40
-estonia-evidence-27843e37.tar.gz (including adjacent native support sources/licenses)
+x86host-evidence-27843e37.tar.gz (including adjacent native support sources/licenses)
 c8e54a18a82f1ca4196654a5ca6a576d92be869752e8fa0e0c4beed58bc605c0
 ```
 
@@ -212,9 +212,9 @@ Local evidence is under `workspace/java-bridge/p7e0/`:
 - `mac-final/`: native Mac run, with experiment source hashes matching the
   final commit even though it ran immediately before that commit.
 - `linux-arm64-27843e37/work/evidence/`: local ARM64 VM run.
-- `estonia-27843e37/evidence/`: copied physical x86-64 run, all 362 catalogued
+- `x86host-27843e37/evidence/`: copied physical x86-64 run, all 362 catalogued
   files verified against `hashes.json` after transfer.
-- `estonia-initial-and-host.txt`: CPU/kernel/isolation/governor inventory. Its
+- `x86host-initial-and-host.txt`: CPU/kernel/isolation/governor inventory. Its
   initial timing section is superseded by the final run.
 - `licenses-final.txt`, input/evidence archives, and runner stdout logs.
 
@@ -224,7 +224,7 @@ LLVM, adapter sources, image hashes and disassembly. `validation/contents.sha256
 was checked before both Linux runs. Superseded preliminary evidence is retained.
 No software was installed and no pre-existing host files were deleted.
 
-Estonia retains the snapshot and full evidence at
+x86host retains the snapshot and full evidence at
 `~/temp/java-bridge/p7e0-27843e37/work/`. The existing x86-64 container image is
 `ironwood-bridge-linux-x86_64:1a18fe26577fb8c5`, identity
 `sha256:dd4c1e82b2f999db86e75538f7d32adcaa364452f99a8f615eca693707c382a7`.
@@ -235,9 +235,9 @@ Use the [runner prerequisites and exact commands](../scripts/java-bridge/ffm/REA
 with a new output directory. For the recorded Linux containers, mount the
 snapshot checkout at `/work`, existing support SDK at `/support:ro` and pinned
 JDK parent at `/jdks:ro`, set `IRONWOOD_BRIDGE_SUPPORT_HOME=/support`, and run
-from `/work`. Estonia mounts must remain under `~/temp/java-bridge`; its existing
+from `/work`. x86host mounts must remain under `~/temp/java-bridge`; its existing
 SDK/JDK parent directories are under
-`ironwood-bridge-validation/workspace/java-bridge/`. Use `--cpu 1` on Estonia.
+`ironwood-bridge-validation/workspace/java-bridge/`. Use `--cpu 1` on x86host.
 The runner produces all expected results and diagnostic evidence described
 above without provisioning dependencies.
 
