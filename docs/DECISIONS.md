@@ -12369,3 +12369,31 @@ occurrence order. If no
   host names, even as substrings; every edited JSON file parses, every
   edited shell script passes `bash -n`, and each replacement keeps the
   file's length.
+
+## D314 - Remove the local account name and macOS hostname from history
+
+- **Status:** Accepted and implemented. Amends D313: supersedes its statement
+  that history keeps the earlier text, for the account name and the macOS
+  hostname.
+- **Context:** After D313 the tip carried no local account name, but every
+  earlier version of 66 files since 2026-09-27 still did, about 2,000 times,
+  and four identity snapshots recorded the macOS hostname, which contained a
+  personal name. No other personal or former project name appears in any
+  file version, path, commit message, author, committer, tag or GitHub
+  release text.
+- **Decision:** Every version of every file from 2026-09-27 on uses
+  `developer` for the account name and `machost` for the macOS host. The 448
+  commits since then were rewritten; `docs/self-hosting/COMMIT_MAP.txt` maps
+  the identifier each commit had when it was written to its current one.
+  The private host names of the Linux machines stay in history before
+  2026-10-10, since removing them would rewrite nearly every release tag.
+- **Analysis:** Each rewritten commit keeps its author, committer, dates,
+  parents and every file except the replaced names, and each replacement
+  keeps the file's length. Fifteen commit messages differ only in the
+  commit identifiers they cite. No compiler, library or test behavior
+  changes.
+- **Boundary:** The `v0.6.0` tag and the packages released with it carry the
+  earlier text until the tag is moved and the packages rebuilt.
+- **Verification:** All 448 rewritten commits pass a pairwise comparison
+  with the originals, and no file version, commit message or identity
+  reachable from main contains the earlier names.

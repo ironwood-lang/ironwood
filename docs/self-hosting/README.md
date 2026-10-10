@@ -29,18 +29,21 @@ file over 5 MiB.
 
 ## Rewritten commit identifiers
 
-Removing the files gave new identifiers to 156 of the 157 commits of this
-work; the first commit kept its identifier. The documents and manifests
-here still cite the original identifiers, and
-[COMMIT_MAP.txt](COMMIT_MAP.txt) maps each original commit to its rewritten
-one. Commit messages already cite the rewritten identifiers.
+Removing the files on 2026-10-09, and the local account name and the macOS
+hostname on 2026-10-10, gave new identifiers to every commit from
+2026-09-27 on: the 157 commits of this work and the Java Bridge commits
+before them. The documents and manifests here still cite the identifiers
+the commits had when they were written, and
+[COMMIT_MAP.txt](COMMIT_MAP.txt) maps each of them to its current one.
+Commit messages already cite the current identifiers.
 
 ## Neutral account and host names
 
 On 2026-10-10 the local account name in recorded paths became `developer`,
-and the private host names became `x86host` (the physical Linux x86-64
-host) and `armvm` (the Linux arm64 VM), in 109 files under `docs/` and
-two READMEs elsewhere. The SHA-256 values that manifests and
-identity snapshots record for those files describe their earlier content.
-Scripts that read paths from these records need them adjusted to the local
-machine.
+and the private host names became `machost` (the macOS host), `x86host`
+(the physical Linux x86-64 host) and `armvm` (the Linux arm64 VM), in 109
+files under `docs/` and two READMEs elsewhere. The account name and the
+macOS hostname were also removed from every earlier version in the
+history. The SHA-256 values that manifests and identity snapshots record
+for the edited files describe their earlier content. Scripts that read
+paths from these records need them adjusted to the local machine.

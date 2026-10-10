@@ -111,8 +111,8 @@ implementation or transpiler:
   repository; commit their manifests, hashes, and summaries instead. Run
   `./scripts/check-tracked-files.sh` before committing data or evidence files.
   Record paths relative to the checkout or with the neutral account name
-  `developer`, and name hosts by role (`x86host`, `armvm`), never by their
-  private names.
+  `developer`, and name hosts by role (`machost`, `x86host`, `armvm`), never
+  by their private names.
 - Follow `docs/IRONWOOD_FORMATTING.md` for Ironwood source. Prefer focused code,
   explicit compiler phases, immutable semantic structures where practical, and
   structured results for ordinary compiler control flow. Avoid god objects,
