@@ -6,16 +6,102 @@ Assessment date: 2026-10-03. Source baseline:
 `37e2dda14a1de7088bd0a079492a6fbec6c156a7` (`0.6.1-beta`).
 The [preparation plan](BEFORE_SELF_HOSTING_PLAN.md) shares this source baseline.
 
-Status: proposed engineering plan based on a source audit. S0 and S1 passed
-through the preparation plan's M0 checkpoint and G1, whose pilot ported the
-lexer, parser and a bounded ownership slice; the preparation milestones M0-M6
-are complete ([final handoff](self-hosting/m6/HANDOFF_M6.md)). No compiler has
-been bootstrapped. S2-S8 are pending, not implementation authorization or
-evidence of completed qualification. D008's Java bootstrap policy remains in
-effect; accepting a production cutover requires an explicit decision
-superseding the relevant part of D008.
+Status updated 2026-11-03: the self-hosting migration was stopped and rolled back
+at the maintainer's direction. The local migration branch, uncommitted port and
+generated migration evidence were discarded; `main` retains the Java compiler.
+The conclusions below preserve the lessons of that attempt, not a claim that its
+implementation or qualification is present in this checkout. The original
+2026-10-03 assessment and milestone design remain historical planning context.
+
+The retained preparation record covers S0 and S1 through M0 and G1, whose pilot
+ported the lexer, parser and a bounded ownership slice; preparation milestones
+M0-M6 are complete ([final handoff](self-hosting/m6/HANDOFF_M6.md)). Later migration
+gates remain unfulfilled. D008's Java bootstrap policy remains in effect;
+accepting a production cutover requires an explicit decision superseding the
+relevant part of D008. This document does not authorize restarting the migration.
 
 ## 1. Recommendation and readiness
+
+### Conclusions from the stopped attempt (2026-11-03)
+
+**Ironwood is not ready to replace its Java bootstrap. Its current language,
+library and compiler implementation have not demonstrated practical, scalable
+memory management for a large, graph-heavy application.** Keep Java as the
+authoritative compiler while addressing these prerequisites separately.
+
+The attempted port demonstrated substantial expressiveness: the Java bootstrap
+built the complete ported compiler source closure into a working native compiler,
+I1. The last checkpoint checked 711 Ironwood inputs into 1,270 declarations,
+linked I1 successfully and passed eighteen focused Java/native comparisons.
+I1 then attempted to compile the same source closure into I2. That attempt
+crossed the protective 16 GiB charged-memory guard after about 112 seconds,
+before diagnostics or typed artifacts. I2 did not complete; I3 and bootstrap
+reproducibility were never established. Test migration and the tool/package
+cutover also remained incomplete. These are historical observations from the
+discarded attempt, not reproducible results supplied by the restored checkout.
+
+We stopped because repeated local cleanup and allocation improvements did not
+establish a complete self-build within the guard. An earlier allocation census
+already recorded about 13.2 GB of managed live storage and 208.6 million live
+objects before a late borrow-dispatch analysis phase. This pointed to substantial
+retention throughout the compiler, beyond a single container or final phase.
+Some local changes had measured benefits, but those benefits did not establish
+whole-build feasibility or justify an open-ended series of further fixes.
+
+Java-shaped syntax does not make Java allocation lifetimes affordable without
+GC. Ironwood's ordinary allocations persist until a compiler-proven `free` or
+process termination. Temporary collections, iterators, strings, worklist facts
+and immutable snapshots therefore need deliberate ownership, reuse and
+retirement. The effort needed to prove reclamation of private compiler scratch,
+and an observed ownership-summary refinement cycle, exposed proof scalability
+and usability problems as well as allocation problems.
+
+This is evidence of a maturity gap for large, allocation-heavy systems software.
+It does not establish that self-hosting is impossible, that safe reclamation
+requires GC, or that the language design alone caused the failure. The port's
+data structures, library allocation behavior, lifetime design and compiler
+analysis algorithms all contribute. The 16 GiB guard was a protective operating
+budget, not a language limit; crossing it did not determine the memory needed
+to finish. Expressiveness, safety correctness and resource scalability remain
+separate claims, each needing its own evidence.
+
+### Prerequisites before another migration attempt
+
+1. **Practical ownership boundaries for temporary graphs.** Demonstrate reusable
+   patterns for phase and callable scratch, CFG/worklist facts, snapshots and
+   helper objects. Identify owners, borrowed payloads, published results and
+   last consumers explicitly. Cleanup must work on normal and exceptional paths
+   through ordinary compiler proofs, without unknown-effect exemptions or
+   compiler-specific rules added merely to admit the port. If general language
+   or library support is missing, specify and qualify it as separate work first.
+2. **Scalable and predictable ownership analysis.** Establish stable convergence
+   and measured time/memory behavior on representative loops, joins, recursive
+   calls and helper graphs. Fix refinement cycles and false positives with
+   paired safe/unsafe regressions. Mandatory dangling-reference, use-after-free
+   and double-free protection must remain active in every missing-free mode.
+3. **A measured allocation discipline and support library.** Exercise real
+   compiler-shaped kernels at increasing input sizes and across repeated runs.
+   Show that temporary storage retires or is reused, with intentional retained
+   outputs accounted for. Measure managed live bytes, allocation volume and
+   charged footprint alongside time. Favor suitable representations and reuse;
+   object-count savings or a tiny example alone cannot establish whole-build fit.
+4. **An early, bounded feasibility gate.** Agree on fixed inputs, resource limits,
+   a time budget and stop criteria before another broad port. Representative
+   kernels must pass first; then rebuild the complete native compiler and require
+   a genuine I1-to-I2 self-build before expanding peripheral migration work.
+   Continue to I3 and the S5 reproducibility checks only after I2 succeeds. Keep
+   independent Java comparisons and negative safety cases. Repeated guard stops
+   require reassessing the allocation/lifetime architecture, rather than treating
+   further local optimizations or a larger guard as proof of readiness.
+
+The decisive question is whether ordinary Ironwood programs can express and
+reclaim substantial temporary object graphs safely, with understandable
+ownership boundaries and predictable compilation and execution costs. Resolve
+that question with measured evidence before restarting self-hosting. None of
+these prerequisites selects a particular new feature or relaxes the no-GC,
+compile-time safety or native-pipeline requirements below.
+
+### Original assessment (2026-10-03)
 
 **Ironwood is mature enough to start a carefully staged self-hosting project.
 It is not yet ready for a direct translation of the current Java compiler or
