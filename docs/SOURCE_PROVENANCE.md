@@ -58,6 +58,7 @@ reason it is appropriate for Ironwood.
 
 | Ironwood path | Upstream project and path | Version or commit | License | Notes |
 | --- | --- | --- | --- | --- |
+| `scripts/gc-evaluation/mmtk-binding/src/lib.rs` | MMTk `docs/dummyvm/src` trait skeletons | `d154f4f0dcca27439b920165ce5c948ca18aef24` | `Apache-2.0`, selected from upstream `MIT OR Apache-2.0` | Experimental fixed-layout binding; modified for exact roots, manual collection and C probes. Contributor notice retained in `scripts/gc-evaluation/mmtk-binding/COPYRIGHT`; full license in `LICENSE-APACHE`. No production runtime dependency is introduced. |
 | Prepared SDK `sources/openssl-3.5.8.tar.gz`, `lib/libssl.a`, `lib/libcrypto.a`, `include/openssl/` | [OpenSSL release source](https://github.com/openssl/openssl/releases/download/openssl-3.5.8/openssl-3.5.8.tar.gz) | 3.5.8; SHA-256 `a8f84a39918ec6415ce765d9b429d313ba97b8143169c172e734b9514464f5b2` | `Apache-2.0` | Unmodified source built by `scripts/prepare-tls.py`; full source and upstream license ship in the SDK. Application dependency separate from Conda's OpenSSL. |
 | Prepared SDK `share/cacert.pem`, generated `share/ironwood_ca_data.h` | [curl Mozilla CA export](https://curl.se/ca/cacert-2026-08-13.pem) | 2026-08-13; SHA-256 `f66dff1bdf8f96060b8177976f8b7d9254bc89bc4db933d769f7384d28480bc9` | `MPL-2.0` | Original export with notices retained. Recipe embeds the certificate PEM blocks as a C string; export, generated form, recipe and MPL text ship together. |
 

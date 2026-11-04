@@ -129,3 +129,21 @@ distributions carry the pins and recipe and require explicit SDK preparation.
 macOS and ordinary executable links do not select this bridge
 support bundle. See `docs/JAVA_BRIDGE_NATIVE_SUPPORT.md` for provenance and the
 minimal-JVM dependency audit; final Java Bridge release qualification is pending.
+
+## GC qualification fixtures
+
+`scripts/gc-evaluation/mmtk-binding/src/lib.rs` adapts the MMTk DummyVM trait
+skeletons from `docs/dummyvm/src` at revision
+`d154f4f0dcca27439b920165ce5c948ca18aef24`. Copyrights in upstream MMTk portions
+are retained by their contributors. The upstream notice is preserved in
+`scripts/gc-evaluation/mmtk-binding/COPYRIGHT`. This experimental binding selects
+Apache License 2.0 from MMTk's upstream `MIT OR Apache-2.0` terms; the full license
+is in the repository's `LICENSE-APACHE`. Changes implement fixed-layout objects,
+exact roots, blocking explicit collection and a C experiment interface.
+
+The qualification recipe downloads unmodified, checksum-pinned BDWGC 8.2.12 and
+MMTk source into ignored workspace storage with their original licenses and
+notices. Collector dependencies and experiment binaries are not added to the
+Ironwood runtime or bundled by this change. Other qualification fixtures are
+original `MIT OR Apache-2.0` work. No OpenJDK implementation or test code is
+imported. See `docs/GC_EVALUATION.md` and `scripts/gc-evaluation/README.md`.

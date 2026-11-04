@@ -1,0 +1,14 @@
+[package]
+name = "ironwood_gc_probe"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+mmtk = { path = "../sources/mmtk-core-d154f4f0dcca27439b920165ce5c948ca18aef24", features = ["eager_sweeping", "single_worker", "immix_non_moving"] }
+
+[profile.release]
+lto = true

@@ -1,0 +1,358 @@
+{
+  "date": "2026-11-04",
+  "host_role": "machost",
+  "platform": "macOS arm64",
+  "llvm": "23.1.0",
+  "hotspot": "25.0.4.1",
+  "rust": "1.99.1",
+  "inputs": [
+    {
+      "component": "BDWGC",
+      "version": "8.2.12",
+      "url": "https://github.com/bdwgc/bdwgc/releases/download/v8.2.12/gc-8.2.12.tar.gz",
+      "sha256": "42e5194ad06ab6ffb806c83eb99c03462b495d979cda782f3c72c08af833cd4e"
+    },
+    {
+      "component": "MMTk",
+      "revision": "d154f4f0dcca27439b920165ce5c948ca18aef24",
+      "url": "https://codeload.github.com/mmtk/mmtk-core/tar.gz/d154f4f0dcca27439b920165ce5c948ca18aef24",
+      "sha256": "2a296a7bce60f737de35f8703d9705c4383b09d6f2783cdf3ac420ed26806b2e"
+    }
+  ],
+  "guard": {
+    "sampled_rss_limit_bytes": 17179869184,
+    "per_child_timeout_seconds": 60,
+    "highest_sampled_rss_kib": 584864,
+    "note": "Sampled RSS is not an exact peak. The 5 GiB test is a virtual-span test, not resident stress."
+  },
+  "selected_profile": {
+    "configure": [
+      "--disable-shared",
+      "--enable-static",
+      "--disable-threads",
+      "--disable-parallel-mark",
+      "--disable-thread-local-alloc",
+      "--disable-docs",
+      "--disable-gcj-support",
+      "--disable-java-finalization",
+      "--disable-disclaim",
+      "--disable-throw-bad-alloc-library",
+      "--disable-register-main-static-data",
+      "--disable-dynamic-loading",
+      "--enable-large-config",
+      "--with-libatomic-ops=none"
+    ],
+    "cflags": [
+      "-O3",
+      "-DEAGER_SWEEP",
+      "-DGC_DISABLE_INCREMENTAL",
+      "-DSTACK_NOT_SCANNED",
+      "-DDONT_ADD_BYTE_AT_END"
+    ],
+    "startup": "GC_set_dont_precollect(1); GC_INIT(); GC_disable();",
+    "root_and_layout": "Compiler root arrays and field bitmaps; fixed-layout and per-type fixtures."
+  },
+  "final_paired_results": [
+    {
+      "label": "calloc",
+      "rare": 0,
+      "process_medians_ns_per_op": [
+        1.15,
+        1.1278,
+        1.1246,
+        1.121,
+        1.1196
+      ],
+      "median_ns_per_op": 1.1246
+    },
+    {
+      "label": "calloc",
+      "rare": 1,
+      "process_medians_ns_per_op": [
+        1.012,
+        1.0168,
+        1.0228,
+        1.0286,
+        1.0376
+      ],
+      "median_ns_per_op": 1.0228
+    },
+    {
+      "label": "compiler-roots",
+      "rare": 0,
+      "process_medians_ns_per_op": [
+        1.127,
+        1.1254,
+        1.1066,
+        1.105,
+        1.1048
+      ],
+      "median_ns_per_op": 1.1066
+    },
+    {
+      "label": "compiler-roots",
+      "rare": 1,
+      "process_medians_ns_per_op": [
+        0.9984,
+        1.0238,
+        1.042,
+        1.0136,
+        1.014
+      ],
+      "median_ns_per_op": 1.014
+    }
+  ],
+  "qualification": [
+    {
+      "name": "bdwgc-large-qualify",
+      "data": [
+        {
+          "case": "numeric_fields",
+          "used_before": 38404096,
+          "used_after": 38404096,
+          "numeric_target_live": false,
+          "live_holders": 300000
+        },
+        {
+          "case": "cycles",
+          "used_bytes": [
+            4096,
+            4096,
+            4096,
+            4096,
+            4096,
+            4096,
+            4096,
+            4096,
+            4096,
+            4096,
+            4096,
+            4096
+          ],
+          "collections": 15
+        }
+      ]
+    },
+    {
+      "name": "bdwgc-large-native",
+      "data": [
+        {
+          "case": "llvm_precise_roots",
+          "caller_frames": 17,
+          "base_roots": 17,
+          "collections": 30,
+          "checksum": 2227
+        }
+      ]
+    },
+    {
+      "name": "bdwgc-large-omitted",
+      "data": [
+        {
+          "case": "llvm_omitted_roots",
+          "dead_base_roots": 17
+        }
+      ]
+    },
+    {
+      "name": "bdwgc-large-types",
+      "data": [
+        {
+          "case": "typeinfo_maps",
+          "types": 1024,
+          "collector_kinds": 1,
+          "live_children": 1024,
+          "numeric_targets_reclaimed": 1024,
+          "object_bytes": 64
+        }
+      ]
+    },
+    {
+      "name": "large-span",
+      "data": [
+        {
+          "case": "large_virtual_span",
+          "allocation_bytes": 5368709120,
+          "heap_bytes": 5369495552,
+          "available_after_collect": 5369495552,
+          "payload_pages_touched": 2
+        }
+      ]
+    },
+    {
+      "name": "compiler-roots-policy",
+      "data": [
+        {
+          "case": "compiler_roots_policy",
+          "startup_collections": 0,
+          "allocations_until_null": 521408,
+          "automatic_collections": 0,
+          "explicit_collections": 1,
+          "replacement_allocations": 200000,
+          "deferred_reclaimed_bytes": 0
+        }
+      ]
+    }
+  ],
+  "pooled_mutation_machine_code": {
+    "bytes": 108,
+    "sha256": "846e8b129ff65ebe78a9c0c0c6c73885de9b83b3fc9bcff507b88c6144b0f5ef",
+    "collector_calls": 0
+  },
+  "source_files": [
+    {
+      "path": "scripts/gc-evaluation/PoolBench.java",
+      "sha256": "1759ad5ea5a0943e4cc10047e4f7482e3ce0e993dfb1c4388c8477c582d6d1ef"
+    },
+    {
+      "path": "scripts/gc-evaluation/README.md",
+      "sha256": "cc8fcb25ecd4076495a565829fc9fa6bf5f777d89ec44e217b614a3a36227461"
+    },
+    {
+      "path": "scripts/gc-evaluation/allocation_probe.c",
+      "sha256": "23f0a14e6205e36869f486603f3e8627fdb68e8d6f3eb6b6c16c61a015ad135e"
+    },
+    {
+      "path": "scripts/gc-evaluation/bdwgc_compiler_roots.c",
+      "sha256": "32f163629e410e555c868b74fd28638a4801923804f48fdb1681a58a42e59101"
+    },
+    {
+      "path": "scripts/gc-evaluation/large_span_probe.c",
+      "sha256": "6fac82ccdf7673aeeca7baa24ae8bbef9640d9f531cf962460d0f39ea5125968"
+    },
+    {
+      "path": "scripts/gc-evaluation/mmtk-binding/COPYRIGHT",
+      "sha256": "19f7e89fe20b33565c4e7e99bf4eda9b07dabfd3446f219ab0bdec88a2f82487"
+    },
+    {
+      "path": "scripts/gc-evaluation/mmtk-binding/Cargo.lock",
+      "sha256": "ab714e45435bfc5df9607aeab40fd6441e5cb4747e53c77d656fc853c21af61d"
+    },
+    {
+      "path": "scripts/gc-evaluation/mmtk-binding/Cargo.toml",
+      "sha256": "69769d34a96b8aa99a44243ffd75ea2386fe6a68c93e48ab15f81ae84314f106"
+    },
+    {
+      "path": "scripts/gc-evaluation/mmtk-binding/src/lib.rs",
+      "sha256": "a288a33d71358072382cdb10ba9a1c98b6933e2b5999ece9e86223a0bab1cf30"
+    },
+    {
+      "path": "scripts/gc-evaluation/mmtk_probe.c",
+      "sha256": "cdab57ee5378293b0cae3a2fb4df8c4894d51a07d9a5f2b38d529ab25f2d4990"
+    },
+    {
+      "path": "scripts/gc-evaluation/policy_probe.c",
+      "sha256": "f4641187c73fecd7a6967dd2fd83d6e40ff2c444343d683dee15a60bf152d2b4"
+    },
+    {
+      "path": "scripts/gc-evaluation/precise_roots.c",
+      "sha256": "9fd7f36e0bd3ede23086dd914de481abd21ab28098aed794559b19e4def99429"
+    },
+    {
+      "path": "scripts/gc-evaluation/precise_roots.ll",
+      "sha256": "6a8ed3364aa0fe613a5760c911cbb318247a4ad2351614105218a62379ffb539"
+    },
+    {
+      "path": "scripts/gc-evaluation/prepare.py",
+      "sha256": "e3997985a4517f877d53b5ac060752e82411f754cc555e9d3ac6621de2fe1388"
+    },
+    {
+      "path": "scripts/gc-evaluation/probe.c",
+      "sha256": "45dab5ef903e3a06cd302e337b0de731c946c2ec73d280aeccdadc986814d129"
+    },
+    {
+      "path": "scripts/gc-evaluation/run_experiments.py",
+      "sha256": "2e18c25fc4f539f96f68a8a2e535056b5aca6b4a7fc2528862f0ad91d92c342f"
+    },
+    {
+      "path": "scripts/gc-evaluation/run_followups.py",
+      "sha256": "2c0eb7b015fac60fe0558be73fa1018b89c909ed2118aada0d0e8921807b1a79"
+    },
+    {
+      "path": "scripts/gc-evaluation/typeinfo_probe.c",
+      "sha256": "2cc6a757417bbb106e0d169f9b888c2eb14e28f6fc4b429af03bb9e72a38ed11"
+    }
+  ],
+  "artifacts": [
+    {
+      "path": "workspace/gc-evaluation-2026-11-04/probe-eager",
+      "sha256": "39145cbb6038fecab29c13b86ab78a02091e1ed77aeb5357d316e97f3123429d"
+    },
+    {
+      "path": "workspace/gc-evaluation-2026-11-04/probe-lazy",
+      "sha256": "bd65581bc0dfe203f4d58567627d11b3bacd3dfe75d7cee3b6d499cec25f7cf7"
+    },
+    {
+      "path": "workspace/gc-evaluation-2026-11-04/mmtk-probe",
+      "sha256": "085aec08237b607ec6c56509525cec8eeca61e3646fb4670ce17150d39efc257"
+    },
+    {
+      "path": "workspace/gc-evaluation-2026-11-04/precise-roots",
+      "sha256": "1ddb91ce662e67ec1be0a8c0fe68af302306c1b7e39e0bb48ee2b236828261bc"
+    },
+    {
+      "path": "workspace/gc-evaluation-2026-11-04/bdwgc-roots-large-probe",
+      "sha256": "8cf7183d69a3bb3f2ece8dd89ffa643dac9b1f1dc71cf7042521df9136994007"
+    },
+    {
+      "path": "workspace/gc-evaluation-2026-11-04/bdwgc-precise-large-roots",
+      "sha256": "b32400b6c0d4b0d9352680fd662af873896f2379ece9a09cfd77d23ddb1d8baf"
+    },
+    {
+      "path": "workspace/gc-evaluation-2026-11-04/typeinfo-large-probe",
+      "sha256": "b78e1323bcfc0e206e56e5ea7eec5397edee5fe046cc6d319e7e556ff2c223fe"
+    },
+    {
+      "path": "workspace/gc-evaluation-2026-11-04/large-span-probe",
+      "sha256": "c85de9b0293ea62800799626bbbaf00a7144eb18f9ca9ec7a16cd910d4bef584"
+    },
+    {
+      "path": "workspace/gc-evaluation-2026-11-04/policy-probe",
+      "sha256": "ece3fcd6121c115daafc97f697645150577d2ffb615bf47c34a573de023840de"
+    },
+    {
+      "path": "workspace/gc-evaluation-2026-11-04/allocation-compiler-roots-probe",
+      "sha256": "e22126f33f4c98b640cb7fd6963501a5688f9d60a413ab3595fbc95710d308af"
+    },
+    {
+      "path": "workspace/gc-evaluation-2026-11-04/roots.o",
+      "sha256": "37a78c39dad702210782a1eaff8d4a17dc7eaa2da574400333553c141df6f50d"
+    }
+  ],
+  "evidence": [
+    {
+      "path": "workspace/gc-evaluation-2026-11-04/evidence/qualification.json",
+      "sha256": "dc8d4e1243d43aecf413a53c5ce809c9c726982b04fd54e484e541ecd443ed6a"
+    },
+    {
+      "path": "workspace/gc-evaluation-2026-11-04/evidence/benchmarks.json",
+      "sha256": "5aea5a8a614eb669b5ba8e56ad56a8a5b6c5bd918216a0bc1cc6e241515ad24f"
+    },
+    {
+      "path": "workspace/gc-evaluation-2026-11-04/evidence/summary.json",
+      "sha256": "84a2859f56072f137834606f180dff8f98c15a7ff63aa09f76b5d4f35fb8d9ee"
+    },
+    {
+      "path": "workspace/gc-evaluation-2026-11-04/evidence/allocation.json",
+      "sha256": "33ab1e0c7df5c1aa7e65a42030b62f922fc965763790b7e85880615b72a02bd1"
+    },
+    {
+      "path": "workspace/gc-evaluation-2026-11-04/evidence/compiler-roots-large.json",
+      "sha256": "82b1b7b504cf18be872cc0f309ba5bd0835572bc4367983f10274d8b7b54eefc"
+    },
+    {
+      "path": "workspace/gc-evaluation-2026-11-04/evidence/compiler-roots-allocation.json",
+      "sha256": "62105b23454cf471838f22b91f474d1c1077da9b7c22d542a2c133b3fbdcfe54"
+    }
+  ],
+  "reproduction": {
+    "path": "workspace/gc-evaluation-reproduce-2026-11-04",
+    "checks": "fresh dependency builds; 14 initial qualification cases; six compiler-directed cases and four reuse controls; timing not repeated"
+  },
+  "limits": [
+    "Synthetic 64-byte objects, one evaluated host, manually authored LLVM fixture.",
+    "No Ironwood frontend/runtime integration or production qualification.",
+    "No resident-memory or self-hosting capacity qualification.",
+    "Fine-grained allocation medians are below timer resolution."
+  ]
+}
