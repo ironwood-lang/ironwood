@@ -1,0 +1,702 @@
+{
+  "baseline_revision": "e113c12fc1993709f8bcfa542f39bea7ccba6f71",
+  "builds": [
+    {
+      "compile.flags": [
+        "--target=x86_64-unknown-linux-gnu",
+        "--sysroot={llvm}/x86_64-conda-linux-gnu/sysroot",
+        "-O3",
+        "-std=c11",
+        "-fPIC",
+        "-fvisibility=hidden",
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "-Wpedantic",
+        "-I{sdk}/runtime/include"
+      ],
+      "gc.config.sha256": "5620b4a6bf863383dedbbda0fc4eb0b0e6e200a7a6aa96bac6540a67dae6605e",
+      "image": false,
+      "linked.inputs.sha256": {
+        "integration-tests/native/gc_engine_probe.c": "de76c8bbcd031002b59b2bc5d9f9fee880b53312ac262dfadd7b43f7f2c75b44",
+        "sdk/build.json": "9f56f9bacef5ee24bb234883b2b7d2c3302e5604c90bcb2f5d2b14db800ee7b3",
+        "sdk/lib/libgc.a": "1834df6ad55f53f21b88e7f334219b9d7489bc47a8446f088735cca38148ff01",
+        "sdk/lib/libironwood_gc_engine.a": "b42e3dc1e320bbc06eb681695b862a13afe4dfb42b7def76ed8780dd47ab38f5",
+        "workspace/gc1-linux/qualified-final/probe.o": "7c8a77849066fd639f4d71978f52cbdc879b917536fd82ea15164c2f7f9fd3a5"
+      },
+      "output.sha256": "99ae6921f37ed70986df437e46b8c14806efe1b0f858292abbe3e4e6623ef0bb",
+      "symbols": {}
+    },
+    {
+      "compile.flags": [
+        "--target=x86_64-unknown-linux-gnu",
+        "--sysroot={llvm}/x86_64-conda-linux-gnu/sysroot",
+        "-O3",
+        "-std=c11",
+        "-fPIC",
+        "-fvisibility=hidden",
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "-Wpedantic",
+        "-I{sdk}/runtime/include",
+        "-DIW_GC_IMAGE"
+      ],
+      "gc.config.sha256": "5620b4a6bf863383dedbbda0fc4eb0b0e6e200a7a6aa96bac6540a67dae6605e",
+      "image": true,
+      "linked.inputs.sha256": {
+        "integration-tests/native/gc_engine_probe.c": "de76c8bbcd031002b59b2bc5d9f9fee880b53312ac262dfadd7b43f7f2c75b44",
+        "sdk/build.json": "9f56f9bacef5ee24bb234883b2b7d2c3302e5604c90bcb2f5d2b14db800ee7b3",
+        "sdk/lib/libgc.a": "1834df6ad55f53f21b88e7f334219b9d7489bc47a8446f088735cca38148ff01",
+        "sdk/lib/libironwood_gc_engine.a": "b42e3dc1e320bbc06eb681695b862a13afe4dfb42b7def76ed8780dd47ab38f5",
+        "workspace/gc1-linux/qualified-final/image.exports": "ef5c7f9948453c448fc49e948d3cf36a7f7d7d9aeabe260eb01a2a659960de2d",
+        "workspace/gc1-linux/qualified-final/image.o": "d048fd718066c6126c7cc26cebd7a5660755b172510e6c9b3261142970ffef88"
+      },
+      "output.sha256": "c5d3f155d746da72c6549a8b4f76d9eb88bfb8ce84de8a272a2b42a1e57b6ac5",
+      "symbols": {
+        "export_table.sha256": "c9dce9b0213c57bd051b154325fad5680194252621c7a8e416c540373b6ddb12",
+        "exports": [
+          "ironwood_gc1_probe"
+        ],
+        "no_collector_imports": true
+      }
+    },
+    {
+      "compile.flags": [
+        "--target=x86_64-unknown-linux-gnu",
+        "--sysroot={llvm}/x86_64-conda-linux-gnu/sysroot",
+        "-O3",
+        "-std=c11",
+        "-fPIC",
+        "-fvisibility=hidden",
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "-Wpedantic",
+        "-I{sdk}/runtime/include"
+      ],
+      "gc.config.sha256": "5620b4a6bf863383dedbbda0fc4eb0b0e6e200a7a6aa96bac6540a67dae6605e",
+      "image": false,
+      "linked.inputs.sha256": {
+        "integration-tests/native/gc_engine_probe.c": "de76c8bbcd031002b59b2bc5d9f9fee880b53312ac262dfadd7b43f7f2c75b44",
+        "sdk/build.json": "9f56f9bacef5ee24bb234883b2b7d2c3302e5604c90bcb2f5d2b14db800ee7b3",
+        "sdk/lib/libgc.a": "1834df6ad55f53f21b88e7f334219b9d7489bc47a8446f088735cca38148ff01",
+        "sdk/lib/libironwood_gc_engine.a": "b42e3dc1e320bbc06eb681695b862a13afe4dfb42b7def76ed8780dd47ab38f5",
+        "workspace/gc1-linux/qualified-final/relocated-probe.o": "7c8a77849066fd639f4d71978f52cbdc879b917536fd82ea15164c2f7f9fd3a5"
+      },
+      "output.sha256": "99ae6921f37ed70986df437e46b8c14806efe1b0f858292abbe3e4e6623ef0bb",
+      "symbols": {}
+    }
+  ],
+  "disk": {
+    "after_cache_cleanup_bytes": 445177856,
+    "before_cache_cleanup_bytes": 535531520,
+    "cap_bytes": 8589934592,
+    "cleanup": "removed task-local Conda download/metadata cache; retained tool prefix, SDKs and raw evidence",
+    "final_free_bytes": 111512752128,
+    "final_task_bytes": 447442944,
+    "free_bytes_after": 111515025408,
+    "minimum_free_bytes": 21474836480
+  },
+  "guard_kib": 16777216,
+  "host": {
+    "architecture": "x86_64",
+    "host.glibc": "2.27",
+    "java": "21.0.10-internal",
+    "kernel": "4.15.0-188-generic",
+    "lld": "LLD 23.1.0 (https://github.com/conda-forge/llvmdev-feedstock a403cac2a344b77a63a3cd361f0a6bd87c9a0615) (compatible with GNU linkers)",
+    "os": "Linux",
+    "python": "3.14.6",
+    "sysroot.version": "2.17"
+  },
+  "host_role": "x86host",
+  "isolation": {
+    "dependencies": [
+      "libc.so.6"
+    ],
+    "dynamic_table.sha256": "83734e30aea8815b7893309392beb46a760df5aba1c742718c3ae7a4adb38cc6",
+    "glibc_requirements": [
+      "2.2.5",
+      "2.3",
+      "2.14",
+      "2.17"
+    ],
+    "local_bindings": {
+      "GC_gcollect": "LOCAL",
+      "GC_init": "LOCAL",
+      "iw_gc_collect": "LOCAL"
+    },
+    "symbol_table.sha256": "c57336559a53c2eabccdc8e99cefc1903a31e84a0c664d3fb30f35a2932be122",
+    "symbolic_binding": true
+  },
+  "logs.sha256": {
+    "workspace/gc1-linux/lld-install.log": "6c3506e06bc25adb1f7e14118c88c82dafd5fa3e448c046a1e3ac6d419dcbd6a",
+    "workspace/gc1-linux/package-inputs-final.log": "5644ccdce51da4ce51b8fb886ba2e12926660f3baa63476a1a4841219026dd8b",
+    "workspace/gc1-linux/package-inputs.log": "fdebd9461ee576ea9c8b68de0aa2057e1eaa4f2f5257159fab86b3a7aaa755df",
+    "workspace/gc1-linux/prepare-final-first.log": "9bddbbe943547513f7cb4146f6816b2798401f1515842a75bd27c2243718fda3",
+    "workspace/gc1-linux/prepare-final-second.log": "70c1311e5ce492b54fecb31b136659fb9a382bbe79ef04d4d1f8f2e6502265c5",
+    "workspace/gc1-linux/prepare-first.log": "b10bbcb066bf58be04660d70826d449cf3323a4067c74781bc708577a8deeca2",
+    "workspace/gc1-linux/prepare-second.log": "95a3bde3c624426c07707966fde1ff3833c52f03f7574b2470765886be95d356",
+    "workspace/gc1-linux/production-tests.log": "bd915ea7281c0dbb70380c56061d90a5184097acbcefef165b94ee010e997d64",
+    "workspace/gc1-linux/qualification.log": "8234e5e5b218fefcd7b9af2c07de51b80111d6b2d492b2c5e5cde1dfbd297b0a",
+    "workspace/gc1-linux/qualified-final.log": "9f87ef4d6c3298f73f9be0e36fb22c101061705ffb0fd679e2255b6b8121b846",
+    "workspace/gc1-linux/sdk-final-first-build.log": "d88839478b7453e8b03f51a6bf4be803b65f5f5e1aa99380cae1604aece3b2c1",
+    "workspace/gc1-linux/sdk-final-second-build.log": "c69fd24fed4f5d91098c8161a6d3fa4f7fded8fad57678772c52549c5e9dbc15",
+    "workspace/gc1-linux/sdk-first-build.log": "7c08dbd383b051e15054a08e36136c3f3d4dc66502e14b97efc65b26d77c2464",
+    "workspace/gc1-linux/sdk-second-build.log": "4d5e52cbf4b8014d67bbcd5495f79cb63da232f93b5a2be7164602983d2f8850"
+  },
+  "macos_recheck": {
+    "archive_relocation_identity_regression": true,
+    "collector_and_adapter_bytes_unchanged": true,
+    "gc.config.sha256": "07d2aad5443852aa2ddb98121c3373e9eb8ea2b1be0f655ae658e171fb3dbce3",
+    "log.sha256": "c97b89de2e2c477a1654a59509da77d66a1b7792b1cd303162cce09e51490d0c",
+    "negative_controls": 25,
+    "passed": [
+      "policy",
+      "accounting",
+      "domains",
+      "environment",
+      "relocated-domains"
+    ],
+    "sdk.manifest.sha256": "2e0d2f408a58fd54caba2503eb71607bf520f9945550c2759ee5be3f78c7c073",
+    "source.sha256": {
+      "integration-tests/native/gc_engine_probe.c": "de76c8bbcd031002b59b2bc5d9f9fee880b53312ac262dfadd7b43f7f2c75b44",
+      "scripts/build-gc-fixture.py": "20096ffdb502604de93b956fd6ee1fb1fe516bc2d55b0f98006b808f0c6a0439",
+      "scripts/test-gc-engine.py": "2e95276e25b73f7b9879eaf21ce0f19d53ad212245283ec9f8390bd39c3b0e0e"
+    },
+    "target": "macos-arm64"
+  },
+  "negative_controls": [
+    {
+      "case": "missing build.json",
+      "reason": "[Errno 2] No such file or directory",
+      "rejected": true
+    },
+    {
+      "case": "altered build.json",
+      "reason": "Extra data",
+      "rejected": true
+    },
+    {
+      "case": "missing lib/libgc.a",
+      "reason": "GC SDK missing or unmanifested inputs",
+      "rejected": true
+    },
+    {
+      "case": "altered lib/libgc.a",
+      "reason": "GC SDK checksum mismatch",
+      "rejected": true
+    },
+    {
+      "case": "missing lib/libironwood_gc_engine.a",
+      "reason": "GC SDK missing or unmanifested inputs",
+      "rejected": true
+    },
+    {
+      "case": "altered lib/libironwood_gc_engine.a",
+      "reason": "GC SDK checksum mismatch",
+      "rejected": true
+    },
+    {
+      "case": "missing include/gc/gc.h",
+      "reason": "GC SDK missing or unmanifested inputs",
+      "rejected": true
+    },
+    {
+      "case": "altered include/gc/gc.h",
+      "reason": "GC SDK checksum mismatch",
+      "rejected": true
+    },
+    {
+      "case": "missing runtime/src/ironwood_gc_engine.c",
+      "reason": "GC SDK missing or unmanifested inputs",
+      "rejected": true
+    },
+    {
+      "case": "altered runtime/src/ironwood_gc_engine.c",
+      "reason": "GC SDK checksum mismatch",
+      "rejected": true
+    },
+    {
+      "case": "missing include/ironwood_gc_configuration.h",
+      "reason": "GC SDK missing or unmanifested inputs",
+      "rejected": true
+    },
+    {
+      "case": "altered include/ironwood_gc_configuration.h",
+      "reason": "GC SDK checksum mismatch",
+      "rejected": true
+    },
+    {
+      "case": "configuration hash mismatch",
+      "reason": "GC SDK configuration/target/ABI mismatch",
+      "rejected": true
+    },
+    {
+      "case": "configuration target",
+      "reason": "GC SDK configuration/target/ABI mismatch",
+      "rejected": true
+    },
+    {
+      "case": "configuration adapter.abi",
+      "reason": "GC SDK configuration/target/ABI mismatch",
+      "rejected": true
+    },
+    {
+      "case": "configuration memory.abi",
+      "reason": "GC SDK configuration/target/ABI mismatch",
+      "rejected": true
+    },
+    {
+      "case": "configuration layout.version",
+      "reason": "GC SDK configuration/target/ABI mismatch",
+      "rejected": true
+    },
+    {
+      "case": "configuration roots.version",
+      "reason": "GC SDK configuration/target/ABI mismatch",
+      "rejected": true
+    },
+    {
+      "case": "configuration isolation",
+      "reason": "GC SDK configuration/target/ABI mismatch",
+      "rejected": true
+    },
+    {
+      "case": "noncanonical configuration",
+      "reason": "GC SDK configuration/target/ABI mismatch",
+      "rejected": true
+    },
+    {
+      "case": "omitted manifest header",
+      "reason": "GC SDK missing or unmanifested inputs",
+      "rejected": true
+    },
+    {
+      "case": "actual archive wrong target",
+      "reason": "archive object target mismatch",
+      "rejected": true
+    },
+    {
+      "case": "public archive symbol",
+      "reason": "non-private archive definitions",
+      "rejected": true
+    },
+    {
+      "case": "public image symbol",
+      "reason": "image export/import isolation failure",
+      "rejected": true
+    },
+    {
+      "case": "managed deallocation API absent",
+      "rejected": true
+    }
+  ],
+  "packaging": {
+    "final.inputs_manifest.sha256": "6ac8c7a14c94aa5c3e9798f44d863fd6b4f840a725eeb3a7d713181797b8b20f",
+    "final.sdk_manifest.sha256": "9f56f9bacef5ee24bb234883b2b7d2c3302e5604c90bcb2f5d2b14db800ee7b3",
+    "full_idk_archive_assembled": false,
+    "initial_inputs_manifest.sha256": "7d0b6bb2a81482541b4fd0b062bb861301e08e5e7d438915989a4b66db228272",
+    "whole_sdk_copy_offline_verified": true
+  },
+  "per_child_timeout_seconds": 60,
+  "production": {
+    "exact_names": [
+      "runtime allocation and deallocation ABI works",
+      "safe free accepts local allocation and ended aliases",
+      "safe free rejects live aliases and escaped allocations",
+      "catchable allocation failure boundaries run at O3",
+      "trace bookkeeping preserves allocation counts and safe free",
+      "pool release helpers preserve borrows and allocation-free reuse"
+    ],
+    "log.sha256": "bd915ea7281c0dbb70380c56061d90a5184097acbcefef165b94ee010e997d64",
+    "ordinary.calloc_and_free": true,
+    "ordinary.collector_symbols": false,
+    "ordinary.dynamic_table.sha256": "2121078f3335906bd1d1361b965bb200712f7f7920e7c5577433991a3a6bb8e9",
+    "ordinary.exit": 42,
+    "ordinary.explicit_sdk_location": "nonexistent",
+    "ordinary.glibc_requirements": [
+      "2.2.5",
+      "2.3"
+    ],
+    "ordinary.sha256": "673562037714221894caf30a3fd12fd0222872cead3b54a6fd64e71d6b44cd02",
+    "passed": 6
+  },
+  "reproducibility": {
+    "after_fix": "archive path normalized to {archive}; raw library hashes unchanged",
+    "before_fix_only_manifest_difference": "archive symbol-table hashes contained temporary input paths",
+    "collector_bytes_unchanged_by_audit_fix": true,
+    "first.manifest.sha256": "9f56f9bacef5ee24bb234883b2b7d2c3302e5604c90bcb2f5d2b14db800ee7b3",
+    "manifests.byte_identical": true,
+    "payloads.byte_identical": true,
+    "second.manifest.sha256": "9f56f9bacef5ee24bb234883b2b7d2c3302e5604c90bcb2f5d2b14db800ee7b3"
+  },
+  "results": [
+    {
+      "case": "policy",
+      "data": [
+        {
+          "administration": 4,
+          "case": "accounting",
+          "gc": 1,
+          "language": 0,
+          "sidecars": 0,
+          "total": 521728
+        },
+        {
+          "allocations_until_null": 521728,
+          "automatic_collections": 0,
+          "case": "policy",
+          "deferred_reclaimed_bytes": 0,
+          "heap_bytes": 33398784,
+          "replacement_allocations": 200000,
+          "startup_collections": 0
+        }
+      ],
+      "exit": 0,
+      "sampled_peak_rss_kib": 9948,
+      "stderr.sha256": "9002853f2a3425b9a1c7d8f615c09ef08a9d4f9325f8a59d0eb5b3a4499e5b4b",
+      "stdout.sha256": "ef82c24bcccbfcd21a554ea5ffba651a0e811852fe9305a62d8c5801285918c1"
+    },
+    {
+      "case": "accounting",
+      "data": [
+        {
+          "administration": 4,
+          "case": "accounting",
+          "gc": 1,
+          "language": 4009,
+          "sidecars": 12,
+          "total": 8010
+        },
+        {
+          "administration": 4,
+          "case": "accounting",
+          "gc": 2,
+          "language": 4,
+          "sidecars": 1,
+          "total": 8133
+        },
+        {
+          "administration": 4,
+          "case": "accounting",
+          "gc": 3,
+          "language": 0,
+          "sidecars": 0,
+          "total": 8133
+        },
+        {
+          "administration": 4,
+          "case": "accounting",
+          "gc": 4,
+          "language": 17,
+          "sidecars": 0,
+          "total": 10133
+        },
+        {
+          "administration": 4,
+          "case": "accounting",
+          "gc": 5,
+          "language": 0,
+          "sidecars": 0,
+          "total": 10133
+        },
+        {
+          "administration": 4,
+          "case": "accounting",
+          "gc": 6,
+          "language": 17,
+          "sidecars": 0,
+          "total": 12133
+        },
+        {
+          "administration": 4,
+          "case": "accounting",
+          "gc": 7,
+          "language": 0,
+          "sidecars": 0,
+          "total": 12133
+        },
+        {
+          "administration": 4,
+          "case": "accounting",
+          "gc": 8,
+          "language": 17,
+          "sidecars": 0,
+          "total": 14133
+        },
+        {
+          "administration": 4,
+          "case": "accounting",
+          "gc": 9,
+          "language": 0,
+          "sidecars": 0,
+          "total": 14133
+        }
+      ],
+      "exit": 0,
+      "sampled_peak_rss_kib": 0,
+      "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout.sha256": "c3c54ab68d847d8e43685a555ac783244177d989fd6b80258c1f135da2299b1c"
+    },
+    {
+      "case": "domains",
+      "data": [
+        {
+          "administration": 4,
+          "case": "accounting",
+          "gc": 1,
+          "language": 2,
+          "sidecars": 0,
+          "total": 3
+        },
+        {
+          "administration": 4,
+          "case": "accounting",
+          "gc": 2,
+          "language": 0,
+          "sidecars": 0,
+          "total": 6
+        },
+        {
+          "ambient_roots": false,
+          "case": "domains-and-roots",
+          "managed_scratch_rejected": true,
+          "numeric_field_retention": false
+        }
+      ],
+      "exit": 0,
+      "sampled_peak_rss_kib": 0,
+      "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout.sha256": "c7067af84fc3c0f424175f2ba09d554f8f3f5b24227068eb742c71ed3b6775a6"
+    },
+    {
+      "case": "environment",
+      "data": [
+        {
+          "case": "environment",
+          "rejected_before_initialization": true
+        }
+      ],
+      "exit": 0,
+      "sampled_peak_rss_kib": 0,
+      "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout.sha256": "b62bc58079a479e146978bc4cd5a43db0ad408be0341ca0cffe4d74c2791fe67"
+    },
+    {
+      "case": "relocated-domains",
+      "data": [
+        {
+          "administration": 4,
+          "case": "accounting",
+          "gc": 1,
+          "language": 2,
+          "sidecars": 0,
+          "total": 3
+        },
+        {
+          "administration": 4,
+          "case": "accounting",
+          "gc": 2,
+          "language": 0,
+          "sidecars": 0,
+          "total": 6
+        },
+        {
+          "ambient_roots": false,
+          "case": "domains-and-roots",
+          "managed_scratch_rejected": true,
+          "numeric_field_retention": false
+        }
+      ],
+      "exit": 0,
+      "sampled_peak_rss_kib": 0,
+      "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout.sha256": "c7067af84fc3c0f424175f2ba09d554f8f3f5b24227068eb742c71ed3b6775a6"
+    }
+  ],
+  "scope": {
+    "change": "Normalize archive filenames in symbol-table text hashes; verify relocation identity without changing checks or library bytes",
+    "gc2_started": false,
+    "milestone": "GC1 only",
+    "paths": "Checkout/toolchain placeholders or neutral developer account",
+    "production_gc": false,
+    "remote_source": "e113c12f plus recorded original script patch"
+  },
+  "sdk": {
+    "archives": {
+      "libgc.a": {
+        "all_hidden": true,
+        "external_definitions": 382,
+        "symbol_table.sha256": "767d7d7a9ffe40603647c10029a805bdb70c6fad5a5dd78890080d2ac1c90ce0"
+      },
+      "libironwood_gc_engine.a": {
+        "all_hidden": true,
+        "external_definitions": 6,
+        "symbol_table.sha256": "1d9508502b9bd5c1bda59353a097804bc57ce6425de9a06489212469c5ac53a8"
+      }
+    },
+    "compiler": "clang version 23.1.0 (https://github.com/conda-forge/clangdev-feedstock 28ab51758156090b64f141cb7080164e57dbed08)",
+    "configuration": {
+      "adapter.abi": "ironwood-gc-engine-1",
+      "adapter.cflags": [
+        "-O3",
+        "-fPIC",
+        "-fvisibility=hidden",
+        "-std=c11",
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "-Wpedantic"
+      ],
+      "archive.sha256": "42e5194ad06ab6ffb806c83eb99c03462b495d979cda782f3c72c08af833cd4e",
+      "build.cflags": [
+        "-fPIC",
+        "-fvisibility=hidden",
+        "-DGC_NO_VISIBILITY"
+      ],
+      "cflags": [
+        "-O3",
+        "-DEAGER_SWEEP",
+        "-DGC_DISABLE_INCREMENTAL",
+        "-DSTACK_NOT_SCANNED",
+        "-DDONT_ADD_BYTE_AT_END"
+      ],
+      "configure": [
+        "--disable-shared",
+        "--enable-static",
+        "--disable-threads",
+        "--disable-parallel-mark",
+        "--disable-thread-local-alloc",
+        "--disable-docs",
+        "--disable-gcj-support",
+        "--disable-java-finalization",
+        "--disable-disclaim",
+        "--disable-throw-bad-alloc-library",
+        "--disable-register-main-static-data",
+        "--disable-dynamic-loading",
+        "--enable-large-config",
+        "--with-libatomic-ops=none"
+      ],
+      "endianness": "little",
+      "isolation": "ELF hidden definitions; local:* version map; -Bsymbolic; --exclude-libs,ALL",
+      "layout.version": 1,
+      "llvm.stackmap.version": 3,
+      "llvm.version": "23.1.0",
+      "memory.abi": "ironwood-native-gc-1",
+      "pointer.width": 64,
+      "reproducibility.cflags": [
+        "-ffile-prefix-map={preparation}=."
+      ],
+      "roots.version": 1,
+      "startup": "GC_set_dont_precollect(1); GC_INIT(); GC_disable();",
+      "static.link": "private-per-image; no shared collector; no allocator interposition",
+      "system": {
+        "sysroot.package": "sysroot_linux-64",
+        "sysroot.record.sha256": "f1dcba2c3ef87eec42905fdd16aab8e399919c7b565e615aa027bf3da1dddb68",
+        "sysroot.version": "2.17"
+      },
+      "target": "linux-x86_64",
+      "target.cflags": [
+        "--target=x86_64-unknown-linux-gnu",
+        "--sysroot={sdk}"
+      ],
+      "target.data-layout": "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-i128:128-f80:128-n8:16:32:64-S128",
+      "target.ldflags": [
+        "-fuse-ld=lld"
+      ],
+      "target.triple": "x86_64-unknown-linux-gnu"
+    },
+    "files.sha256": {
+      "adapter.o": "48d81186495820995e6387055749e0c20705c3c2d93a3d1fcb8840f14bdb611a",
+      "configuration-audit.json": "fa335affba50b66782244c3c35d1576bc4dcf3783c9524aaeaabeaf36e4735d1",
+      "configuration.json": "5620b4a6bf863383dedbbda0fc4eb0b0e6e200a7a6aa96bac6540a67dae6605e",
+      "include/config.h": "1cabd1f7524d28ccf2a16c476aa674eb1758fbf33b29eb280e2f073ef0358a62",
+      "include/gc/cord.h": "1830d4eaa868ea2f15873659f0a2838c3309b9b32b912fc6c68f9e007827c6c6",
+      "include/gc/cord_pos.h": "f46fba45f62f97351eb1dd748ccaa1f55cc0a72272e07a788c351146411efc9d",
+      "include/gc/ec.h": "8bc9c2f888c3f3ef3464b851ff24f8be90672b13990e05cf88a4d906e7f516ba",
+      "include/gc/gc.h": "02cfecefca6aca4bf59280aaa3f967fff862857d087e5e8987f3db8bda6ed3f2",
+      "include/gc/gc_allocator.h": "b2a281c01c85af83007c859a62ed85413d4eb9ab892a26487b7a9aa5be97e90a",
+      "include/gc/gc_backptr.h": "6c2ecdc5fdcca5019a904179a2eb95805f8ff60482f2a429bdc5fd67957d1c95",
+      "include/gc/gc_config_macros.h": "1321e010e0c1c22123fe0af5fc72d2065cf098d3c09b0cf76535cb8c3ea04230",
+      "include/gc/gc_cpp.h": "86534282e80e6d9bcd9e15cebfccc002ee8c8a8d52a42ad5b2378712d0743750",
+      "include/gc/gc_disclaim.h": "ff742436ba82f7157e3ae270f2b8d22f53f9fd2611b941d4310a41cc1ea2a5df",
+      "include/gc/gc_gcj.h": "87c8493463ff62edc7faa256f03e3a24cdf8b9375e3a0d3298530bdf74d95005",
+      "include/gc/gc_inline.h": "d032a0b1e8891dd25b6c3673b58fac6ddcb059e01285696a6878ef9c022f14df",
+      "include/gc/gc_mark.h": "5cac8cf04cee93b1186a5a50e2980b780dbd0717cd42e4511a170f33156329f5",
+      "include/gc/gc_pthread_redirects.h": "e68ce92ca0280b42bb1a0db62357e883d3e37235d18c2bd0d3ad6bd59209b09b",
+      "include/gc/gc_tiny_fl.h": "c0dfbd526405ae28e108b608dd2c77e2dbe2858cbeb880d2d67749fd04a49bc5",
+      "include/gc/gc_typed.h": "fa7910da9155fb836d48ac9723b239dfe10d64b414d90801d5b9d72a64877d0c",
+      "include/gc/gc_version.h": "a45df41e4a6615f00e6991b7e67151d73e0f593bc1112463568a7eff45470e28",
+      "include/gc/javaxfc.h": "1a89edc382dbc9e2c7d3a6bcf749ec71411c9c45f2da96b63efaf3cc1d8bbaba",
+      "include/gc/leak_detector.h": "7b36b85eb6cf5478758884981b4c4d92192da61fb74483f0101acf1b11866659",
+      "include/ironwood_gc_configuration.h": "d04de84300a23bf01f341df39cfd75a58ac14d7fee8ee4363331ce34b3ce0b93",
+      "lib/libgc.a": "1834df6ad55f53f21b88e7f334219b9d7489bc47a8446f088735cca38148ff01",
+      "lib/libironwood_gc_engine.a": "b42e3dc1e320bbc06eb681695b862a13afe4dfb42b7def76ed8780dd47ab38f5",
+      "licenses/BDWGC-NOTICES.txt": "7c4e37589e956dae4872387ef1a295f16e24c8ebc47b8f1c1330d7422b87b399",
+      "packaging/bdwgc.json": "a5041791627e55ea63738ca98352c8c15551cff9d3ce7098c9f46837ab7057dd",
+      "runtime/include/ironwood_gc_engine.h": "d9a339402f88ce16b4dfb23407241892ff0ebdbb161f01e6960ff137172df9bb",
+      "runtime/src/ironwood_gc_engine.c": "44246c94a09709660a3fc28ce3bb14295e9927f2b6310b5ea4dc0909026e0f84",
+      "scripts/prepare-gc.py": "231aa96587fb1d4dff25e842acca7ba8fb1afb5eab6f08b2498b72ebcef4ebfc",
+      "sources/gc-8.2.12.tar.gz": "42e5194ad06ab6ffb806c83eb99c03462b495d979cda782f3c72c08af833cd4e"
+    },
+    "format": 1,
+    "gc.config.sha256": "5620b4a6bf863383dedbbda0fc4eb0b0e6e200a7a6aa96bac6540a67dae6605e",
+    "make": "GNU Make 4.4.1"
+  },
+  "source.sha256": {
+    "integration-tests/native/gc_engine_probe.c": "de76c8bbcd031002b59b2bc5d9f9fee880b53312ac262dfadd7b43f7f2c75b44",
+    "scripts/build-gc-fixture.py": "20096ffdb502604de93b956fd6ee1fb1fe516bc2d55b0f98006b808f0c6a0439",
+    "scripts/test-gc-engine.py": "2e95276e25b73f7b9879eaf21ce0f19d53ad212245283ec9f8390bd39c3b0e0e"
+  },
+  "target": "linux-x86_64",
+  "toolchain.records": [
+    {
+      "build": "default_cfg_h691c86c_1",
+      "name": "clang",
+      "sha256": "fb057ec50e4868fbdca37b12875ebaf7508c4a3181fdfd356fb131e9564616dd",
+      "url": "https://conda.anaconda.org/conda-forge/linux-64/clang-23.1.0-default_cfg_h691c86c_1.conda",
+      "version": "23.1.0"
+    },
+    {
+      "build": "h474f4eb_0",
+      "name": "libllvm23",
+      "sha256": "50b31f6c51afe7df0639acf5dde8acf3f4f0dc9f644ab9842b717ae798507d68",
+      "url": "https://conda.anaconda.org/conda-forge/linux-64/libllvm23-23.1.0-h474f4eb_0.conda",
+      "version": "23.1.0"
+    },
+    {
+      "build": "h0157908_18",
+      "name": "sysroot_linux-64",
+      "sha256": "69ab5804bdd2e8e493d5709eebff382a72fab3e9af6adf93a237ccf8f7dbd624",
+      "url": "https://conda.anaconda.org/conda-forge/noarch/sysroot_linux-64-2.17-h0157908_18.conda",
+      "version": "2.17"
+    },
+    {
+      "build": "h1602c4f_22",
+      "name": "openjdk",
+      "sha256": "b47965a90c9682300f393c3dc6d0c2fde918b62a318449da9c940ac9b6ec2bc0",
+      "url": "https://conda.anaconda.org/conda-forge/linux-64/openjdk-21.0.10-h1602c4f_22.conda",
+      "version": "21.0.10"
+    },
+    {
+      "build": "h5985d43_1",
+      "name": "lld",
+      "sha256": "db3d3397620d7c40571771e544311919cbc7d4a10853307e4281aca4aaa658e2",
+      "url": "https://conda.anaconda.org/conda-forge/linux-64/lld-23.1.0-h5985d43_1.conda",
+      "version": "23.1.0"
+    },
+    {
+      "build": "h474f4eb_0",
+      "name": "libllvm23",
+      "sha256": "50b31f6c51afe7df0639acf5dde8acf3f4f0dc9f644ab9842b717ae798507d68",
+      "url": "https://conda.anaconda.org/conda-forge/linux-64/libllvm23-23.1.0-h474f4eb_0.conda",
+      "version": "23.1.0"
+    }
+  ],
+  "unexecuted": [
+    "linux-arm64 qualification",
+    "full IDK/Conda archive assembly",
+    "GC6 two-image runtime qualification"
+  ]
+}

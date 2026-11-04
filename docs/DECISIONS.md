@@ -12432,5 +12432,7 @@ occurrence order. If no
   [GC1 engine preparation](GC1_ENGINE_PREPARATION.md) adds reproducible pinned
   SDK/adapter builds, offline configuration/payload validation, source/notices,
   private archive/final Mach-O symbol evidence and policy/reuse/accounting
-  controls without changing production allocation. Linux/ELF execution remains
-  unqualified; full two-image execution remains GC6.
+  controls without changing production allocation. The subsequent
+  [Linux x86-64 qualification](GC1_LINUX_X86_64_QUALIFICATION.md) passes native
+  engine/ELF and production controls. Linux arm64 remains unqualified; full
+  two-image execution remains GC6.

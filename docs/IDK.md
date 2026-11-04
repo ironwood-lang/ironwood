@@ -452,4 +452,4 @@ source, notices, headers, libraries and manifest to `runtime/gc-sdk/`. It is
 excluded from Conda relocation and listed in the IDK third-party inventory only
 when bundled. `IRONWOOD_GC_HOME` is not a compiler or runtime activation flag.
 See [GC1 preparation](GC1_ENGINE_PREPARATION.md) for target-specific setup,
-offline fixture links and the unexecuted Linux qualification gates.
+offline fixture links and the remaining Linux arm64 qualification gate.

@@ -115,6 +115,9 @@ def audit_archive(path, llvm, target):
     names = output([llvm / 'bin/llvm-nm', '--defined-only', '--extern-only', path])
     if re.search(r'\b_?(malloc|calloc|free|realloc|pthread_create)\s*$', names, re.MULTILINE):
         raise ValueError('allocator interposition or worker definition')
+    # ELF readelf includes the input archive path in member headings. Exclude
+    # that location from audit identity; library bytes are hashed separately.
+    table = table.replace(str(path), '{archive}')
     return {'external_definitions': len(definitions), 'all_hidden': True,
             'symbol_table.sha256': hashlib.sha256(table.encode()).hexdigest()}
 

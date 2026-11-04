@@ -76,6 +76,9 @@ def main():
     shutil.copytree(sdk, relocated)
     with patch.object(gc.urllib.request, 'urlopen', side_effect=AssertionError('network during offline verification')):
         gc.verify(relocated, llvm, args.target)
+        for name in ('libgc.a', 'libironwood_gc_engine.a'):
+            assert gc.audit_archive(sdk / 'lib' / name, llvm, args.target) == gc.audit_archive(
+                relocated / 'lib' / name, llvm, args.target), 'archive audit identity depends on path'
         builds.append(builder.build(relocated, llvm, args.target, out / 'relocated-probe'))
     results.append(run([str(out / 'relocated-probe'), 'domains'], raw, 'relocated-domains'))
     negatives = []

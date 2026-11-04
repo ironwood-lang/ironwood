@@ -217,10 +217,13 @@ python3 scripts/test-gc-engine.py --sdk workspace/gc1-linux-sdk \
   --output workspace/gc1-linux-qualified
 ```
 
-Use `linux-x86_64` on x86-64. **Neither Linux target was executed.** ELF policy
-and full IDK/Conda archive assembly remain target qualification gates; no hosted
-or paid validation ran. The shared packaging helper was exercised with source
-inputs only and with a whole verified SDK. IDK integration uses that same helper,
+Use `linux-x86_64` on x86-64. The subsequent
+[Linux x86-64 qualification](GC1_LINUX_X86_64_QUALIFICATION.md) passed native
+engine/ELF controls, reproducible preparation, offline relocation and the six
+production tests. Linux arm64 and full IDK/Conda archive assembly remain target
+qualification gates; no hosted or paid validation ran. The shared packaging
+helper was exercised with source inputs only and with a whole verified SDK.
+IDK integration uses that same helper,
 excludes `ironwood-gc/*` from Conda relocation and conditionally lists BDWGC in
 `THIRD-PARTY-PACKAGES.tsv`. The actual IDK inventory writer passed with both
 bundled and source-only manifests. Host/IDK source manifests explicitly record production
@@ -228,8 +231,10 @@ disabled and whether an SDK was bundled. No current bridge artifact acquires GC.
 
 ## Remaining gates and bounded next task
 
-GC1 prepares and qualifies the engine boundary on machost; it does not qualify
-production roots, layouts, Linux behavior, two images, reentry or performance.
+GC1 prepares and qualifies the engine boundary on machost and x86host; it does
+not qualify production roots, layouts, Linux arm64 behavior, two images, reentry
+or performance. The Linux follow-up normalizes temporary archive paths in audit
+text hashes and adds a relocation regression, preserving actual library hashes.
 License/provenance, tracked-file, Python/shell syntax and `git diff --check`
 checks passed. Current native generation constants and mandatory free proofs
 are untouched. No push, GitHub activity or unfiltered suite was performed.
@@ -241,4 +246,4 @@ collection-time accounting audit and design allocator-domain-safe unpublished
 file construction. Continue using isolated fixtures. Do not enable ordinary
 allocation, source `Memory.collect()`, root generation, language cutover,
 destructor removal or bridge API migration. Carry forward the independent
-Linux/ELF qualification gate and require each target before using its inputs.
+Linux arm64 qualification gate and require each target before using its inputs.
