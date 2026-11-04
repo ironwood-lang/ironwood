@@ -2,7 +2,7 @@
 
 # Explicit GC integration and memory-model migration
 
-Date: 2026-11-04. Status: GC0 and GC1 complete; production integration unstarted.
+Date: 2026-11-04. Status: GC0, GC1 and GC2 complete; production integration unstarted.
 Current compiler behavior and the existing memory specification remain
 authoritative until the cutover.
 
@@ -146,8 +146,10 @@ Keep configuration and an adapter ABI identifier in dependency/build manifests.
 Use the evaluated profile: static library; threads, parallel marking, incremental
 collection and ambient root discovery disabled; eager sweeping; large-heap
 configuration; startup precollection disabled; global collection disabled
-between explicit operations. Preserve the evaluation's configuration manifest
-instead of retyping an approximate set of options.
+between explicit operations. Preserve the pinned configuration manifest instead
+of retyping an approximate set of options. GC2 adds USE_MARK_BYTES to preserve exact descriptors during
+mark-stack overflow recovery; the GC1 configuration alone is not sufficient
+for that path. Rebuild and requalify SDKs after this identity change.
 
 `STACK_NOT_SCANNED` is a source configuration hook, not a public stack-map API.
 Audit its pinned implementation and public descriptor interfaces. Upgrades must
@@ -380,7 +382,9 @@ cutover; do not add such machinery solely to preserve the old test helper.
 
 GC0's [accounting experiment](GC0_BASELINE_AND_CONTRACTS.md#collection-and-accounting)
 establishes this route for the selected engine profile, so both APIs are retained.
-GC2 still must qualify every production allocation kind and failure path.
+[GC2 qualification](GC2_LAYOUTS_AND_QUALIFICATION.md) covers the audited
+allocation families and failure paths with exact scanners or explicit legacy
+layout refusals. Production root/exception/foreign integration remains gated.
 
 ## 5. Milestones and dependencies
 
@@ -469,7 +473,7 @@ O3 program after its GC SDK was removed. The subsequent
 [Linux x86-64 qualification](GC1_LINUX_X86_64_QUALIFICATION.md) passed native
 engine/ELF, reproducibility, relocation and six exact production controls.
 Linux arm64, complete IDK assembly and two-image runtime qualification remain
-explicit gates. GC2 layouts/root consumers have not been implemented;
+explicit gates. This historical GC1 checkpoint precedes the GC2 layout work;
 the production calloc/free path and current generation constants are unchanged.
 
 ### GC2. Describe and qualify every managed layout
@@ -489,6 +493,20 @@ its unrooted counterpart that is reclaimed. Check free-list cells and counters.
 **Exit:** every reachable allocation shape has an exact scanner or a compile/link
 refusal, with no conservative fallback. Ordinary object layout has no added
 descriptor footer. Resolve the live-count diagnostic before proceeding.
+
+**Completion, 2026-11-04:** [GC2 layouts and qualification](GC2_LAYOUTS_AND_QUALIFICATION.md)
+records the authoritative allocation-family inventory, compiler-owned physical
+maps, matching C/LLVM descriptors, bounded language/internal kinds and exact
+small/large/array scanning. Zeroing, dynamic header order, incomplete objects,
+Strings, all array kinds, metadata-budget exhaustion, actual mark-stack overflow
+and recovery, free cells, native construction scratch and accounting passed.
+The collector remains unmodified; USE_MARK_BYTES removes conservative recovery
+accelerators and deliberately changes the configuration identity. Stale GC1 SDKs
+are rejected. Legacy Throwable/carrier integer links and borrowed ByteView
+layouts explicitly refuse experimental output. Ordinary object storage has no
+descriptor footer; production allocation and mandatory proofs are unchanged.
+GC2 is qualified locally on macOS arm64. The new profile needs fresh Linux
+x86-64 qualification; Linux arm64 remains unqualified. Roots/effects are GC3.
 
 ### GC3. Integrate effects, statepoints and root enumeration
 
@@ -736,8 +754,10 @@ checkpoints clearly. Record a concrete remaining gate at each stopping point.
 No branch creation beyond the maintainer's request, pushing, hosted jobs or
 automatic self-hosting restart is part of this document's implementation plan.
 
-GC0 and GC1 are complete; the next bounded task is GC2's exact layouts and
-standalone qualification, without enabling GC in production programs. Carry
-forward the unexecuted Linux arm64 gate. Subsequent tasks can own one milestone or
+GC0, GC1 and GC2 are complete; the next bounded task is GC3's effects,
+statepoints and root enumeration for an explicitly supported experimental
+closure, without enabling GC in production programs. Carry forward GC2's
+layout refusals and fresh Linux profile qualification, including the unexecuted
+Linux arm64 gate. Subsequent tasks can own one milestone or
 a named substage, carrying forward prerequisite commit IDs, evidence and
 remaining gates.

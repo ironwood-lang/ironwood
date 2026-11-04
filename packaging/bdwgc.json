@@ -28,13 +28,14 @@
       "-DEAGER_SWEEP",
       "-DGC_DISABLE_INCREMENTAL",
       "-DSTACK_NOT_SCANNED",
-      "-DDONT_ADD_BYTE_AT_END"
+      "-DDONT_ADD_BYTE_AT_END",
+      "-DUSE_MARK_BYTES=1"
     ],
     "startup": "GC_set_dont_precollect(1); GC_INIT(); GC_disable();",
-    "root_and_layout": "Compiler root arrays and field bitmaps; fixed-layout and per-type fixtures."
+    "root_and_layout": "Compiler-owned exact physical layouts; indirect type descriptors, fixed bitmaps and exact large/array mark procedures; descriptor-preserving overflow recovery."
   },
   "memory.abi": "ironwood-native-gc-1",
-  "adapter.abi": "ironwood-gc-engine-1",
+  "adapter.abi": "ironwood-gc-engine-2",
   "layout.version": 1,
   "roots.version": 1,
   "llvm.version": "23.1.0",

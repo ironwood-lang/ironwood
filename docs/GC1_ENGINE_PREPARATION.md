@@ -3,7 +3,9 @@
 # GC1 engine preparation
 
 Date: 2026-11-04. GC1 complete, based on GC0 commit `82c52506`.
-Production GC remains disabled. GC2 has not begun.
+Production GC remains disabled. This is the historical GC1 profile record;
+[GC2](GC2_LAYOUTS_AND_QUALIFICATION.md) adds layout qualification and a new
+configuration/adapter identity requiring fresh SDK preparation.
 
 ## Pre-change review
 

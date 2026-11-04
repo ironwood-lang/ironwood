@@ -74,7 +74,7 @@ static void accounting(void) {
     for (size_t index = 0; index < 5; ++index) roots[4020 + index] = allocate(IW_GC_TRACE, 64);
     assert(iw_gc_snapshot().total == 8010 && iw_gc_snapshot().collections == 0);
     collect(4009, 12);
-    assert(iw_gc_snapshot().administration == 4); // Four kind free-list arrays.
+    assert(iw_gc_snapshot().administration == 6); // Six bounded kind free-list arrays.
     for (size_t index = 0; index < 123; ++index) allocate(IW_GC_LEAF, 64);
     assert(iw_gc_snapshot().live == 4132 && iw_gc_snapshot().collections == 1);
     void *kept_holder = roots[0], *kept_large = roots[4000], *kept_sidecar = roots[4010];

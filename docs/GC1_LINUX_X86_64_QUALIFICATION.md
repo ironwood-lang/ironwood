@@ -3,7 +3,9 @@
 # GC1 Linux x86-64 qualification
 
 Date: 2026-11-04. The isolated GC1 engine is qualified on **x86host**, in addition
-to the earlier macOS arm64 run. GC2 has not begun. Production allocation,
+to the earlier macOS arm64 run. This historical profile predates
+[GC2](GC2_LAYOUTS_AND_QUALIFICATION.md); its changed collector configuration
+requires fresh Linux qualification. Production allocation,
 mandatory reclamation proofs, source semantics and generation constants remain
 unchanged. This follow-up closes the Linux x86-64 engine/build/ELF gate; Linux
 arm64, full IDK assembly and GC6 two-image execution remain separate gates.

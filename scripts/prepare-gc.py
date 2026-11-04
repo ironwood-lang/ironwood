@@ -239,7 +239,7 @@ def prepare(prefix, llvm, target, cache, jobs):
                       '-I' + str(build / 'include'), '-I' + str(source / 'include')]
         macros = output([*preprocess, '-dM', '-E', source / 'mark_rts.c'], env=env)
         required_macros = ['EAGER_SWEEP', 'GC_DISABLE_INCREMENTAL', 'STACK_NOT_SCANNED',
-                           'DONT_ADD_BYTE_AT_END', 'LARGE_CONFIG', 'GC_DONT_REGISTER_MAIN_STATIC_DATA',
+                           'DONT_ADD_BYTE_AT_END', 'USE_MARK_BYTES', 'LARGE_CONFIG', 'GC_DONT_REGISTER_MAIN_STATIC_DATA',
                            'IGNORE_DYNAMIC_LOADING']
         forbidden = ['THREADS', 'GC_THREADS', 'PARALLEL_MARK', 'THREAD_LOCAL_ALLOC',
                      'DYNAMIC_LOADING', 'REDIRECT_MALLOC', 'REDIRECT_FREE', 'REDIRECT_REALLOC']
@@ -251,7 +251,12 @@ def prepare(prefix, llvm, target, cache, jobs):
         root_body = re.search(r'\bvoid GC_push_roots\([^{};]*\)\s*\{', preprocessed)
         if root_body is None or re.search(r'\bGC_push_regs_and_stack\s*\(', preprocessed[root_body.end():]):
             raise ValueError('ambient stack/register root code is active')
-        audit = {'required_macros': required_macros, 'absent_macros': forbidden, 'EXTRA_BYTES': 0,
+        marking = output([*preprocess, '-E', '-P', source / 'mark.c'], env=env)
+        if any(name in marking for name in ('GC_push_marked1(', 'GC_push_marked2(', 'GC_push_marked4(')):
+            raise ValueError('conservative small-cell overflow recovery is active')
+        audit = {'exact_descriptor_recovery': True,
+                 'preprocessed_mark.sha256': hashlib.sha256(marking.encode()).hexdigest(),
+                 'required_macros': required_macros, 'absent_macros': forbidden, 'EXTRA_BYTES': 0,
                  'ambient_stack_register_root_call': False,
                  'preprocessed_mark_rts.sha256': hashlib.sha256(preprocessed.encode()).hexdigest()}
         (staged / 'configuration-audit.json').write_text(json.dumps(audit, indent=2) + '\n')

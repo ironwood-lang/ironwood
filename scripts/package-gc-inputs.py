@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MIT OR Apache-2.0
-"""Stage GC1 reproduction inputs and an explicitly selected, verified SDK."""
+"""Stage GC reproduction inputs and an explicitly selected, verified SDK."""
 import argparse
 import importlib.util
 import json
@@ -26,7 +26,8 @@ def main():
     inputs = [*gc.ADAPTER, 'packaging/bdwgc.json', 'scripts/prepare-gc.py',
               'scripts/build-gc-fixture.py', 'scripts/test-gc-engine.py', 'scripts/package-gc-inputs.py',
               'integration-tests/native/gc_engine_probe.c', 'docs/GC1_ENGINE_PREPARATION.md',
-              'docs/BDWGC_INTEGRATION_PLAN.md', 'docs/GC0_BASELINE_AND_CONTRACTS.md']
+              'docs/BDWGC_INTEGRATION_PLAN.md', 'docs/GC0_BASELINE_AND_CONTRACTS.md',
+              'docs/GC2_LAYOUTS_AND_QUALIFICATION.md']
     for name in inputs:
         destination = stage / name
         destination.parent.mkdir(parents=True, exist_ok=True)

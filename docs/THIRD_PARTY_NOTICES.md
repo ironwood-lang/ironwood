@@ -148,7 +148,7 @@ Ironwood runtime or bundled by this change. Other qualification fixtures are
 original `MIT OR Apache-2.0` work. No OpenJDK implementation or test code is
 imported. See `docs/GC_EVALUATION.md` and `scripts/gc-evaluation/README.md`.
 
-## GC1 prepared BDWGC SDK
+## Prepared BDWGC SDK
 
 `scripts/prepare-gc.py` builds unmodified BDWGC 8.2.12 from release archive
 SHA-256 `42e5194ad06ab6ffb806c83eb99c03462b495d979cda782f3c72c08af833cd4e`.
@@ -169,6 +169,8 @@ The adapter, build/verification scripts and standalone fixtures are original
 OpenJDK or HotSpot implementation is imported. Source/tool packages carry the
 recipe and pins. An explicitly selected SDK is bundled whole at
 `runtime/gc-sdk/`, with configuration and payload hashes in
-`packaging/gc-inputs.json`. Ordinary programs do not link this engine in GC1.
+`packaging/gc-inputs.json`. Ordinary programs do not link this engine in GC1 or GC2.
 Future distributed native/bridge outputs must retain these source/notices too;
-that activation is not implemented here. See `docs/GC1_ENGINE_PREPARATION.md`.
+that activation is not implemented here. See `docs/GC1_ENGINE_PREPARATION.md`
+and `docs/GC2_LAYOUTS_AND_QUALIFICATION.md` for the original adapter/layout
+qualification and unmodified collector configuration.

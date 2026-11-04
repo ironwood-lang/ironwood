@@ -5,7 +5,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-/* GC1 qualification only. Not part of the production runtime ABI.
+/* GC1/GC2 qualification only. Not part of the production runtime ABI.
  * Single caller or external serialization, just like the future image contract.
  * Only allocation bases in explicit native root slots retain objects. Never
  * pass managed storage to libc free/realloc or exchange it with another image.
@@ -17,6 +17,35 @@ enum iw_gc_fixture_kind {
     IW_GC_SIDECAR,     /* first word is a reference, excluded from language counts */
     IW_GC_TRACE        /* pointer-free internal storage */
 };
+
+/* Version 1 experimental layout ABI, distinct from production typeinfo.
+ * Offsets are compiler/C ABI expressions, never source-declaration guesses.
+ * Type metadata is immutable native storage retained for the image lifetime.
+ */
+enum iw_gc_shape { IW_GC_FIXED, IW_GC_ARRAY, IW_GC_STRING };
+struct iw_gc_layout {
+    uint32_t version, shape, language, element_kind;
+    size_t size, reference_count;
+    const size_t *references;
+};
+struct iw_gc_type;
+struct iw_gc_array {
+    const struct iw_gc_type *type;
+    size_t length, element_size;
+    uint32_t element_kind, reserved;
+    unsigned char data[];
+};
+struct iw_gc_string {
+    const struct iw_gc_type *type;
+    int32_t length, utf8_length;
+    uint16_t data[];
+};
+/* Cold setup budget: exhaustion refuses a descriptor, never approximates it.
+ * Call before registration. Previously described types remain valid.
+ */
+int iw_gc_metadata_budget(size_t bytes);
+const struct iw_gc_type *iw_gc_describe(const struct iw_gc_layout *layout);
+void *iw_gc_new(const struct iw_gc_type *type, size_t length);
 
 struct iw_gc_snapshot {
     uint64_t collections, total, live, sidecars, administration;

@@ -83,7 +83,8 @@ def main():
     results.append(run([str(out / 'relocated-probe'), 'domains'], raw, 'relocated-domains'))
     negatives = []
     for name in ('build.json', 'lib/libgc.a', 'lib/libironwood_gc_engine.a', 'include/gc/gc.h',
-                 'runtime/src/ironwood_gc_engine.c', 'include/ironwood_gc_configuration.h'):
+                 'runtime/src/ironwood_gc_engine.c', 'runtime/include/ironwood_gc_engine.h',
+                 'include/ironwood_gc_configuration.h'):
         path = relocated / name
         original = path.read_bytes()
         path.unlink()

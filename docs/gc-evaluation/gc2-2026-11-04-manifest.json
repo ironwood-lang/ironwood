@@ -1,0 +1,928 @@
+{
+  "baseline_revision": "82b8e4cd02cd488c21eaa7b2c1c7cc6a30ef69d3",
+  "compiler": {
+    "log_sha256": "69200c2b9f1c963a73aa562040d9da8ec0690f06214bc6fc35a807d329be2e1e",
+    "passed": true,
+    "scope": "final proof includes actual class pruning, enum function clones, primitive specialization, inherited legacy refusal and production layout agreement",
+    "test": "GC2 exact layouts follow resolved storage and refuse legacy hidden links"
+  },
+  "configuration": {
+    "adapter.abi": "ironwood-gc-engine-2",
+    "adapter.cflags": [
+      "-O3",
+      "-fPIC",
+      "-fvisibility=hidden",
+      "-std=c11",
+      "-Wall",
+      "-Wextra",
+      "-Werror",
+      "-Wpedantic"
+    ],
+    "archive.sha256": "42e5194ad06ab6ffb806c83eb99c03462b495d979cda782f3c72c08af833cd4e",
+    "build.cflags": [
+      "-fPIC",
+      "-fvisibility=hidden",
+      "-DGC_NO_VISIBILITY"
+    ],
+    "cflags": [
+      "-O3",
+      "-DEAGER_SWEEP",
+      "-DGC_DISABLE_INCREMENTAL",
+      "-DSTACK_NOT_SCANNED",
+      "-DDONT_ADD_BYTE_AT_END",
+      "-DUSE_MARK_BYTES=1"
+    ],
+    "configure": [
+      "--disable-shared",
+      "--enable-static",
+      "--disable-threads",
+      "--disable-parallel-mark",
+      "--disable-thread-local-alloc",
+      "--disable-docs",
+      "--disable-gcj-support",
+      "--disable-java-finalization",
+      "--disable-disclaim",
+      "--disable-throw-bad-alloc-library",
+      "--disable-register-main-static-data",
+      "--disable-dynamic-loading",
+      "--enable-large-config",
+      "--with-libatomic-ops=none"
+    ],
+    "endianness": "little",
+    "isolation": "Mach-O hidden definitions; explicit export allowlist; two-level namespace",
+    "layout.version": 1,
+    "llvm.stackmap.version": 3,
+    "llvm.version": "23.1.0",
+    "memory.abi": "ironwood-native-gc-1",
+    "pointer.width": 64,
+    "reproducibility.cflags": [
+      "-ffile-prefix-map={preparation}=."
+    ],
+    "roots.version": 1,
+    "startup": "GC_set_dont_precollect(1); GC_INIT(); GC_disable();",
+    "static.link": "private-per-image; no shared collector; no allocator interposition",
+    "system": {
+      "deployment": "14.0",
+      "sdk.settings.sha256": "82165b15ee21419d4cffaba8895797391b908ac9499ba70f561f3e1bd16758d6",
+      "sdk.version": "27.2"
+    },
+    "target": "macos-arm64",
+    "target.cflags": [
+      "--target=arm64-apple-macosx14.0.0",
+      "-isysroot",
+      "{sdk}"
+    ],
+    "target.data-layout": "e-m:o-p270:32:32-p271:32:32-p272:64:64-i64:64-i128:128-n32:64-S128-Fn32",
+    "target.ldflags": [],
+    "target.triple": "arm64-apple-macosx14.0.0"
+  },
+  "configuration_sha256": "6fd39c7be9fc6ab1d5d5aea2e07610efad3113b4d1da6679aa3f6bad086f48fa",
+  "date": "2026-11-04",
+  "engine": {
+    "builds": [
+      {
+        "compile.flags": [
+          "--target=arm64-apple-macosx14.0.0",
+          "-isysroot",
+          "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk",
+          "-O3",
+          "-std=c11",
+          "-fPIC",
+          "-fvisibility=hidden",
+          "-Wall",
+          "-Wextra",
+          "-Werror",
+          "-Wpedantic",
+          "-I{sdk}/runtime/include"
+        ],
+        "gc.config.sha256": "6fd39c7be9fc6ab1d5d5aea2e07610efad3113b4d1da6679aa3f6bad086f48fa",
+        "image": false,
+        "linked.inputs.sha256": {
+          "integration-tests/native/gc_engine_probe.c": "460c7f3504d98d6b23ecbc6f6f4338239e2967b73374c2b2631f5a7e72319c89",
+          "sdk/build.json": "43abf1df2c7ab8e32ccf36814da341a49244b530fe6db8b8672b08c589792f89",
+          "sdk/lib/libgc.a": "a2ba905dda9fac9b15e1fe7f0fa7b2049c8c06623cdac30c0de2f628d9e59335",
+          "sdk/lib/libironwood_gc_engine.a": "1b1333bdc786f89ff6e727180162f8479287d0ff026ea22340ab1f48a1dd6085",
+          "workspace/gc2-engine-complete/probe.o": "9e4ae2342d20dd6e0c48ad12d8def2e92a199eb184bee05b27c2db6f4c9af6eb"
+        },
+        "output.sha256": "80efb93c45653b33e5187cc0e89cc87f8794336af327cd748401a8b9e28e25d1",
+        "symbols": {}
+      },
+      {
+        "compile.flags": [
+          "--target=arm64-apple-macosx14.0.0",
+          "-isysroot",
+          "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk",
+          "-O3",
+          "-std=c11",
+          "-fPIC",
+          "-fvisibility=hidden",
+          "-Wall",
+          "-Wextra",
+          "-Werror",
+          "-Wpedantic",
+          "-I{sdk}/runtime/include",
+          "-DIW_GC_IMAGE"
+        ],
+        "gc.config.sha256": "6fd39c7be9fc6ab1d5d5aea2e07610efad3113b4d1da6679aa3f6bad086f48fa",
+        "image": true,
+        "linked.inputs.sha256": {
+          "integration-tests/native/gc_engine_probe.c": "460c7f3504d98d6b23ecbc6f6f4338239e2967b73374c2b2631f5a7e72319c89",
+          "sdk/build.json": "43abf1df2c7ab8e32ccf36814da341a49244b530fe6db8b8672b08c589792f89",
+          "sdk/lib/libgc.a": "a2ba905dda9fac9b15e1fe7f0fa7b2049c8c06623cdac30c0de2f628d9e59335",
+          "sdk/lib/libironwood_gc_engine.a": "1b1333bdc786f89ff6e727180162f8479287d0ff026ea22340ab1f48a1dd6085",
+          "workspace/gc2-engine-complete/image.exports": "62015cb25d2f34f8a8aa2f7d00f976cc50a1ad56f9f74d32d2b0861c8163b53d",
+          "workspace/gc2-engine-complete/image.o": "5714b7c3f7282587dad8f6155a4722cde77d675385aa54d3000712f73f53f0db"
+        },
+        "output.sha256": "0be95c73ec5ae81159ad259f5b93315a03e1192abb0c0723f4727ebe4f9b5b57",
+        "symbols": {
+          "export_table.sha256": "912febaf149f76d5660ad300ada5b4f5bc0a6876811363b744188e7ba92066e9",
+          "exports": [
+            "_ironwood_gc1_probe"
+          ],
+          "no_collector_imports": true
+        }
+      },
+      {
+        "compile.flags": [
+          "--target=arm64-apple-macosx14.0.0",
+          "-isysroot",
+          "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk",
+          "-O3",
+          "-std=c11",
+          "-fPIC",
+          "-fvisibility=hidden",
+          "-Wall",
+          "-Wextra",
+          "-Werror",
+          "-Wpedantic",
+          "-I{sdk}/runtime/include"
+        ],
+        "gc.config.sha256": "6fd39c7be9fc6ab1d5d5aea2e07610efad3113b4d1da6679aa3f6bad086f48fa",
+        "image": false,
+        "linked.inputs.sha256": {
+          "integration-tests/native/gc_engine_probe.c": "460c7f3504d98d6b23ecbc6f6f4338239e2967b73374c2b2631f5a7e72319c89",
+          "sdk/build.json": "43abf1df2c7ab8e32ccf36814da341a49244b530fe6db8b8672b08c589792f89",
+          "sdk/lib/libgc.a": "a2ba905dda9fac9b15e1fe7f0fa7b2049c8c06623cdac30c0de2f628d9e59335",
+          "sdk/lib/libironwood_gc_engine.a": "1b1333bdc786f89ff6e727180162f8479287d0ff026ea22340ab1f48a1dd6085",
+          "workspace/gc2-engine-complete/relocated-probe.o": "9e4ae2342d20dd6e0c48ad12d8def2e92a199eb184bee05b27c2db6f4c9af6eb"
+        },
+        "output.sha256": "dc8201afdc9e8f31ff8ad14efb327d6925d33aecaa46e7574a88cd153e545523",
+        "symbols": {}
+      }
+    ],
+    "negative_controls": [
+      {
+        "case": "missing build.json",
+        "rejected": true
+      },
+      {
+        "case": "altered build.json",
+        "rejected": true
+      },
+      {
+        "case": "missing lib/libgc.a",
+        "rejected": true
+      },
+      {
+        "case": "altered lib/libgc.a",
+        "rejected": true
+      },
+      {
+        "case": "missing lib/libironwood_gc_engine.a",
+        "rejected": true
+      },
+      {
+        "case": "altered lib/libironwood_gc_engine.a",
+        "rejected": true
+      },
+      {
+        "case": "missing include/gc/gc.h",
+        "rejected": true
+      },
+      {
+        "case": "altered include/gc/gc.h",
+        "rejected": true
+      },
+      {
+        "case": "missing runtime/src/ironwood_gc_engine.c",
+        "rejected": true
+      },
+      {
+        "case": "altered runtime/src/ironwood_gc_engine.c",
+        "rejected": true
+      },
+      {
+        "case": "missing runtime/include/ironwood_gc_engine.h",
+        "rejected": true
+      },
+      {
+        "case": "altered runtime/include/ironwood_gc_engine.h",
+        "rejected": true
+      },
+      {
+        "case": "missing include/ironwood_gc_configuration.h",
+        "rejected": true
+      },
+      {
+        "case": "altered include/ironwood_gc_configuration.h",
+        "rejected": true
+      },
+      {
+        "case": "configuration hash mismatch",
+        "rejected": true
+      },
+      {
+        "case": "configuration target",
+        "rejected": true
+      },
+      {
+        "case": "configuration adapter.abi",
+        "rejected": true
+      },
+      {
+        "case": "configuration memory.abi",
+        "rejected": true
+      },
+      {
+        "case": "configuration layout.version",
+        "rejected": true
+      },
+      {
+        "case": "configuration roots.version",
+        "rejected": true
+      },
+      {
+        "case": "configuration isolation",
+        "rejected": true
+      },
+      {
+        "case": "noncanonical configuration",
+        "rejected": true
+      },
+      {
+        "case": "omitted manifest header",
+        "rejected": true
+      },
+      {
+        "case": "actual archive wrong target",
+        "rejected": true
+      },
+      {
+        "case": "public archive symbol",
+        "rejected": true
+      },
+      {
+        "case": "public image symbol",
+        "rejected": true
+      },
+      {
+        "case": "managed deallocation API absent",
+        "rejected": true
+      }
+    ],
+    "record_path": "workspace/gc2-engine-complete/results.json",
+    "record_sha256": "e5f7f814ecb7cb84e8b8b9878e15464cdaa37bc8a0ed57afe06b88f473fbd644",
+    "results": [
+      {
+        "case": "policy",
+        "data": [
+          {
+            "administration": 6,
+            "case": "accounting",
+            "gc": 1,
+            "language": 0,
+            "sidecars": 0,
+            "total": 521344
+          },
+          {
+            "allocations_until_null": 521344,
+            "automatic_collections": 0,
+            "case": "policy",
+            "deferred_reclaimed_bytes": 0,
+            "heap_bytes": 33374208,
+            "replacement_allocations": 200000,
+            "startup_collections": 0
+          }
+        ],
+        "exit": 0,
+        "sampled_peak_rss_kib": 32,
+        "stderr.sha256": "9002853f2a3425b9a1c7d8f615c09ef08a9d4f9325f8a59d0eb5b3a4499e5b4b",
+        "stdout.sha256": "3b5b181e2276c07a8faefeabdee38369ebcbe15efb0c65c029835dda10f9b920"
+      },
+      {
+        "case": "accounting",
+        "data": [
+          {
+            "administration": 6,
+            "case": "accounting",
+            "gc": 1,
+            "language": 4009,
+            "sidecars": 12,
+            "total": 8010
+          },
+          {
+            "administration": 6,
+            "case": "accounting",
+            "gc": 2,
+            "language": 4,
+            "sidecars": 1,
+            "total": 8133
+          },
+          {
+            "administration": 6,
+            "case": "accounting",
+            "gc": 3,
+            "language": 0,
+            "sidecars": 0,
+            "total": 8133
+          },
+          {
+            "administration": 6,
+            "case": "accounting",
+            "gc": 4,
+            "language": 17,
+            "sidecars": 0,
+            "total": 10133
+          },
+          {
+            "administration": 6,
+            "case": "accounting",
+            "gc": 5,
+            "language": 0,
+            "sidecars": 0,
+            "total": 10133
+          },
+          {
+            "administration": 6,
+            "case": "accounting",
+            "gc": 6,
+            "language": 17,
+            "sidecars": 0,
+            "total": 12133
+          },
+          {
+            "administration": 6,
+            "case": "accounting",
+            "gc": 7,
+            "language": 0,
+            "sidecars": 0,
+            "total": 12133
+          },
+          {
+            "administration": 6,
+            "case": "accounting",
+            "gc": 8,
+            "language": 17,
+            "sidecars": 0,
+            "total": 14133
+          },
+          {
+            "administration": 6,
+            "case": "accounting",
+            "gc": 9,
+            "language": 0,
+            "sidecars": 0,
+            "total": 14133
+          }
+        ],
+        "exit": 0,
+        "sampled_peak_rss_kib": 0,
+        "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout.sha256": "f8a65b48c4da357c3d48432d4b31a770884643b168cf1257c15d70163e82374b"
+      },
+      {
+        "case": "domains",
+        "data": [
+          {
+            "administration": 6,
+            "case": "accounting",
+            "gc": 1,
+            "language": 2,
+            "sidecars": 0,
+            "total": 3
+          },
+          {
+            "administration": 6,
+            "case": "accounting",
+            "gc": 2,
+            "language": 0,
+            "sidecars": 0,
+            "total": 6
+          },
+          {
+            "ambient_roots": false,
+            "case": "domains-and-roots",
+            "managed_scratch_rejected": true,
+            "numeric_field_retention": false
+          }
+        ],
+        "exit": 0,
+        "sampled_peak_rss_kib": 0,
+        "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout.sha256": "dac3f1087745be024dcd8f5b4b1354357157e8851a9b64948aab4f4134baffa7"
+      },
+      {
+        "case": "environment",
+        "data": [
+          {
+            "case": "environment",
+            "rejected_before_initialization": true
+          }
+        ],
+        "exit": 0,
+        "sampled_peak_rss_kib": 0,
+        "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout.sha256": "b62bc58079a479e146978bc4cd5a43db0ad408be0341ca0cffe4d74c2791fe67"
+      },
+      {
+        "case": "relocated-domains",
+        "data": [
+          {
+            "administration": 6,
+            "case": "accounting",
+            "gc": 1,
+            "language": 2,
+            "sidecars": 0,
+            "total": 3
+          },
+          {
+            "administration": 6,
+            "case": "accounting",
+            "gc": 2,
+            "language": 0,
+            "sidecars": 0,
+            "total": 6
+          },
+          {
+            "ambient_roots": false,
+            "case": "domains-and-roots",
+            "managed_scratch_rejected": true,
+            "numeric_field_retention": false
+          }
+        ],
+        "exit": 0,
+        "sampled_peak_rss_kib": 32,
+        "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout.sha256": "dac3f1087745be024dcd8f5b4b1354357157e8851a9b64948aab4f4134baffa7"
+      }
+    ]
+  },
+  "explicit_refusals": [
+    "legacy Throwable.traceState and subclasses",
+    "legacy managed nextCarrier in long",
+    "borrowed native ByteView managed layout/arrays",
+    "malformed or unknown physical/descriptor layouts",
+    "direct collector substitution into native realloc/free file construction"
+  ],
+  "format": 1,
+  "guard_kib": 16777216,
+  "host_role": "machost",
+  "java_version": "21.0.1",
+  "layout_runs": [
+    {
+      "generated_sha256": {
+        "inventory.txt": "f1673d32bd3684da0b4a30e08dc35196c03a902e8a95bb2f731905a376d108ef",
+        "layouts.c": "912eea6faac5219f563337c52954eedabe9e45e5488fed046d654374e4401431",
+        "layouts.h": "7b9c0aa98e2d32a369708cbef22954e3982915a54f7e2781adccc8f9e102a572",
+        "layouts.ll": "844df6f745d6b2bf1cedfddf822170e3a8f88b7a1765f9be45256e7540167325"
+      },
+      "output_sha256": "4e39bfeb95d603fe68c9a4c9811f43ac344f545fe781ee63b3fe07fe57204a54",
+      "record_path": "workspace/gc2-qualified-complete/results.json",
+      "record_sha256": "fdc0915e5645d8cd646f56e113ba7458dbfe308784fb7265879b01b87f40b43d",
+      "results": [
+        {
+          "case": "compiler-descriptions",
+          "data": [],
+          "exit": 0,
+          "sampled_peak_rss_kib": 679344,
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "case": "layouts",
+          "data": [
+            {
+              "c_llvm_agreement": 21,
+              "case": "compiler_layouts",
+              "described_kinds": 2,
+              "footer_bytes": 0,
+              "types": 1024
+            }
+          ],
+          "exit": 0,
+          "sampled_peak_rss_kib": 2496,
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout.sha256": "74130d7ead53531e33c1f4d431cd751538fccb457ff247051b4de8c05b698f78"
+        },
+        {
+          "case": "arrays",
+          "data": [
+            {
+              "case": "arrays_strings",
+              "inline_string": true,
+              "multidimensional": true,
+              "primitive_kinds": 8,
+              "reference_kind": true
+            }
+          ],
+          "exit": 0,
+          "sampled_peak_rss_kib": 3376,
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout.sha256": "853f4b6a55d38fc80e1e268bb402984f94ff8abb2eaa96d2b32837fea3f00498"
+        },
+        {
+          "case": "sidecars",
+          "data": [
+            {
+              "administration": 6,
+              "case": "sidecars",
+              "internal": 4,
+              "language": 2,
+              "subsequent_allocation_formula": true
+            }
+          ],
+          "exit": 0,
+          "sampled_peak_rss_kib": 0,
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout.sha256": "6adb558b2534ccf574442969097474736d32ae974371ed4f884fd810436168d9"
+        },
+        {
+          "case": "metadata",
+          "data": [
+            {
+              "approximation": false,
+              "budget_bytes": 4096,
+              "case": "metadata_exhaustion",
+              "large_descriptors_before_refusal": 5
+            }
+          ],
+          "exit": 0,
+          "sampled_peak_rss_kib": 0,
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout.sha256": "09c36956e4510389bf51c9c115249f93f4d22418f3ab6f67fd9adfd75a0a4eee"
+        },
+        {
+          "case": "overflow",
+          "data": [
+            {
+              "case": "overflow_recovery",
+              "children": 65536,
+              "exact_live": 131073,
+              "free_list_cells_excluded": true,
+              "numeric_targets_reclaimed": 65536
+            }
+          ],
+          "exit": 0,
+          "sampled_peak_rss_kib": 6048,
+          "stderr.sha256": "ee2f7b508455387738ad2c18408c7626bf7a7a8954f6f3abe04bc410931bd98b",
+          "stdout.sha256": "343790bc35ff64ccf7dd5c84cc7366f4af731c43e867f3109295032d390a628f"
+        },
+        {
+          "case": "construction",
+          "data": [
+            {
+              "case": "native_construction",
+              "descriptor_cleanup": true,
+              "post_materialization_failure_events": 1,
+              "pre_materialization_failure_events": 0,
+              "success_language_events": 1
+            }
+          ],
+          "exit": 0,
+          "sampled_peak_rss_kib": 0,
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout.sha256": "6de746b1aa6c63fe08157660bcd22c307563b32d4e327f05eee1d4dfbb3fd061"
+        },
+        {
+          "case": "resident",
+          "data": [
+            {
+              "bytes_written": 134217728,
+              "case": "resident_payload",
+              "zeroed": true
+            }
+          ],
+          "exit": 0,
+          "sampled_peak_rss_kib": 28096,
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout.sha256": "588b9dff179693f52b7bea471f55beea5085c2df5abcb89c6d195717f0219d4d"
+        },
+        {
+          "case": "virtual",
+          "data": [
+            {
+              "bytes": 5368709120,
+              "case": "virtual_span",
+              "language_capacity_claim": false,
+              "payload_pages_touched": 2
+            }
+          ],
+          "exit": 0,
+          "sampled_peak_rss_kib": 6912,
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout.sha256": "02d8f3f40874e0a7af5a23dfc4189ad0ac2f35045dc2f728659b5df8b05b48c3"
+        }
+      ],
+      "source_at_run_sha256": {
+        "compiler/src/main/java/ironwood/compiler/backend/GcLayoutEmitter.java": "b825932b9a23bc82d7fb8379c8def33be51fd97e2ae69746526fabc78519e622",
+        "compiler/src/main/java/ironwood/compiler/ir/IrAllocationLayout.java": "5c4c130597521d012c97c73cd9849d481cdc13cf4162f5867afd4a7f844792bf",
+        "compiler/src/test/java/ironwood/compiler/GcLayoutTests.java": "df580877e149d0701aea23d68b36a79d27d17121d9a339516c98692f4030970d",
+        "integration-tests/native/gc_layout_probe.c": "a9ba2042876ca0f4541985d121499e3ef43005ca5081ff254f0ba2317ea414b1",
+        "scripts/test-gc-layouts.py": "42507a89a14643c2660f28ee66789425b27cb74974d52c4a6624b2625c5b1716",
+        "workspace/gc2-qualified-complete/generated/layouts.c": "912eea6faac5219f563337c52954eedabe9e45e5488fed046d654374e4401431"
+      }
+    },
+    {
+      "generated_sha256": {
+        "inventory.txt": "f1673d32bd3684da0b4a30e08dc35196c03a902e8a95bb2f731905a376d108ef",
+        "layouts.c": "912eea6faac5219f563337c52954eedabe9e45e5488fed046d654374e4401431",
+        "layouts.h": "7b9c0aa98e2d32a369708cbef22954e3982915a54f7e2781adccc8f9e102a572",
+        "layouts.ll": "844df6f745d6b2bf1cedfddf822170e3a8f88b7a1765f9be45256e7540167325"
+      },
+      "output_sha256": "b775b55fd39744e0873e55abae51041cfb76038e2de0d4d1aa1f6baa4f1ec928",
+      "record_path": "workspace/gc2-allocation-failure/results.json",
+      "record_sha256": "d17daeb5dfb42d35887afa1b9865ad8fc580ff233791f8ce71541e30d5837c67",
+      "results": [
+        {
+          "case": "compiler-descriptions",
+          "data": [],
+          "exit": 0,
+          "sampled_peak_rss_kib": 639840,
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "case": "failure",
+          "data": [
+            {
+              "automatic_collections": 0,
+              "case": "described_allocation_failure",
+              "failed_allocation_events": 0,
+              "families": 4
+            }
+          ],
+          "exit": 0,
+          "sampled_peak_rss_kib": 32,
+          "stderr.sha256": "a02e583f08857cb7a95c0b3e394a44fd7383f7798b43a5a6c7029bb94f7329a5",
+          "stdout.sha256": "e5b89247140aa4567ff171dbffe764cb5d6ef4db1f374a3ada9fd7f5fbd7c6e5"
+        }
+      ],
+      "source_at_run_sha256": {
+        "compiler/src/main/java/ironwood/compiler/backend/GcLayoutEmitter.java": "b825932b9a23bc82d7fb8379c8def33be51fd97e2ae69746526fabc78519e622",
+        "compiler/src/main/java/ironwood/compiler/ir/IrAllocationLayout.java": "5c4c130597521d012c97c73cd9849d481cdc13cf4162f5867afd4a7f844792bf",
+        "compiler/src/test/java/ironwood/compiler/GcLayoutTests.java": "7aecf14450203aae954e9eac656025fe7e1410737d1e3f18f1f918be05304c85",
+        "integration-tests/native/gc_layout_probe.c": "d50b2f4760d8f75f646933dc1c3fc99260cd5e00f83e044c76cb4db8920e4b47",
+        "scripts/test-gc-layouts.py": "58112bc3ae4b85d308ba8238ebfa409c09e07202e8ca5a075a80521dfdff4463",
+        "workspace/gc2-allocation-failure/generated/layouts.c": "912eea6faac5219f563337c52954eedabe9e45e5488fed046d654374e4401431"
+      }
+    },
+    {
+      "generated_sha256": {
+        "inventory.txt": "f1673d32bd3684da0b4a30e08dc35196c03a902e8a95bb2f731905a376d108ef",
+        "layouts.c": "912eea6faac5219f563337c52954eedabe9e45e5488fed046d654374e4401431",
+        "layouts.h": "7b9c0aa98e2d32a369708cbef22954e3982915a54f7e2781adccc8f9e102a572",
+        "layouts.ll": "844df6f745d6b2bf1cedfddf822170e3a8f88b7a1765f9be45256e7540167325"
+      },
+      "output_sha256": "a875bc34e4767cbecf55feff339878d5ec403406729f26e7b9b87317bf761d87",
+      "record_path": "workspace/gc2-production-layout-agreement/results.json",
+      "record_sha256": "267d9a7055694c85abb43210179fc9d142b3bbcc88158b3a19d0516aecd888f6",
+      "results": [
+        {
+          "case": "compiler-descriptions",
+          "data": [],
+          "exit": 0,
+          "sampled_peak_rss_kib": 652736,
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "case": "arrays",
+          "data": [
+            {
+              "case": "arrays_strings",
+              "inline_string": true,
+              "multidimensional": true,
+              "primitive_kinds": 8,
+              "reference_kind": true
+            }
+          ],
+          "exit": 0,
+          "sampled_peak_rss_kib": 160,
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout.sha256": "853f4b6a55d38fc80e1e268bb402984f94ff8abb2eaa96d2b32837fea3f00498"
+        }
+      ],
+      "source_at_run_sha256": {
+        "compiler/src/main/java/ironwood/compiler/backend/GcLayoutEmitter.java": "b825932b9a23bc82d7fb8379c8def33be51fd97e2ae69746526fabc78519e622",
+        "compiler/src/main/java/ironwood/compiler/ir/IrAllocationLayout.java": "5c4c130597521d012c97c73cd9849d481cdc13cf4162f5867afd4a7f844792bf",
+        "compiler/src/test/java/ironwood/compiler/GcLayoutTests.java": "7aecf14450203aae954e9eac656025fe7e1410737d1e3f18f1f918be05304c85",
+        "integration-tests/native/gc_layout_probe.c": "79b9931b24312475db5d874c6294de317d691c31ae83e768f044a48b19d3006d",
+        "runtime/include/ironwood_bridge.h": "b4185845275882fd302a9a68f974fc168dd0c7dab94a01f246a6057e2895695f",
+        "runtime/include/ironwood_runtime.h": "be24101d77478ab8b578d3820151a4f1b589b72b769ae6b3c558c4f7b8456711",
+        "scripts/test-gc-layouts.py": "d50ce9e377b973a9c872cfbb51b7273ef24bba85147a0688216ca3e08b8ba212",
+        "workspace/gc2-production-layout-agreement/generated/layouts.c": "912eea6faac5219f563337c52954eedabe9e45e5488fed046d654374e4401431"
+      }
+    },
+    {
+      "generated_sha256": {
+        "inventory.txt": "f1673d32bd3684da0b4a30e08dc35196c03a902e8a95bb2f731905a376d108ef",
+        "layouts.c": "912eea6faac5219f563337c52954eedabe9e45e5488fed046d654374e4401431",
+        "layouts.h": "7b9c0aa98e2d32a369708cbef22954e3982915a54f7e2781adccc8f9e102a572",
+        "layouts.ll": "844df6f745d6b2bf1cedfddf822170e3a8f88b7a1765f9be45256e7540167325"
+      },
+      "output_sha256": "f43da2988de5e82db212f1abf2a0c6f07edbd5bbd50b6568f71630a56f47f916",
+      "record_path": "workspace/gc2-construction-final/results.json",
+      "record_sha256": "4290396bb39f5d5f93cb2ad4b8697d0917e3788276b2c0d38f31a11e121fd4ac",
+      "results": [
+        {
+          "case": "compiler-descriptions",
+          "data": [],
+          "exit": 0,
+          "sampled_peak_rss_kib": 708224,
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "case": "construction",
+          "data": [
+            {
+              "case": "native_construction",
+              "descriptor_cleanup": true,
+              "post_materialization_failure_events": 1,
+              "pre_materialization_failure_events": 0,
+              "success_language_events": 1
+            }
+          ],
+          "exit": 0,
+          "sampled_peak_rss_kib": 32,
+          "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout.sha256": "6de746b1aa6c63fe08157660bcd22c307563b32d4e327f05eee1d4dfbb3fd061"
+        }
+      ],
+      "source_at_run_sha256": {
+        "compiler/src/main/java/ironwood/compiler/backend/GcLayoutEmitter.java": "b825932b9a23bc82d7fb8379c8def33be51fd97e2ae69746526fabc78519e622",
+        "compiler/src/main/java/ironwood/compiler/ir/IrAllocationLayout.java": "5c4c130597521d012c97c73cd9849d481cdc13cf4162f5867afd4a7f844792bf",
+        "compiler/src/test/java/ironwood/compiler/GcLayoutTests.java": "43da352028d784defc708ea8e12662051a8eaca2a74e5a917328f0506fef743b",
+        "integration-tests/native/gc_layout_probe.c": "80ae967587f2f05d71b94ad888e8d10eb98cd9d873fa66f01bac564cb59b98d6",
+        "runtime/include/ironwood_bridge.h": "b4185845275882fd302a9a68f974fc168dd0c7dab94a01f246a6057e2895695f",
+        "runtime/include/ironwood_runtime.h": "be24101d77478ab8b578d3820151a4f1b589b72b769ae6b3c558c4f7b8456711",
+        "scripts/test-gc-layouts.py": "d50ce9e377b973a9c872cfbb51b7273ef24bba85147a0688216ca3e08b8ba212",
+        "workspace/gc2-construction-final/generated/layouts.c": "912eea6faac5219f563337c52954eedabe9e45e5488fed046d654374e4401431"
+      }
+    }
+  ],
+  "llvm_version": "23.1.0",
+  "milestone": "GC2",
+  "notes": [
+    "Primary native cases passed after the numeric target assertion was moved before possible address reuse; no collector workaround was used.",
+    "Focused later runs add real bounded described-allocation failure, production C header static assertions and final compiler transformation assertions; unchanged successful native cases were not repeated.",
+    "5 GiB is an engine-only virtual span with two payload pages touched; 128 MiB described payload is fully zero-checked and written. RSS sampling can miss short peaks.",
+    "Metadata exhaustion is actual consumption of a configured 4096-byte native metadata budget, not forced process-wide OS exhaustion.",
+    "Raw logs, sources, archives, libraries, binaries and prepared SDKs remain ignored. No remote/hosted/paid jobs, full suites, push or self-hosting restart.",
+    "The final construction follow-up also qualifies empty input without a null scratch copy and refuses native growth overflow."
+  ],
+  "packaging": {
+    "production_enabled": false,
+    "source_only_manifest_sha256": "0df1fa6ee990e3d82d6e1e463033eb9fe72cfa77cb0137c095b1971aca6cb12a",
+    "whole_sdk_manifest_sha256": "19cc2f1d31f931a94073d5728ed306f542d4f85944f6950694f3163bdcb50501"
+  },
+  "per_child_timeout_seconds": 60,
+  "production_controls": {
+    "log_sha256": "53219422d69b06b54287cb5bba40f3e6a23e81e78dbc3dc7744d800bf54b4dad",
+    "passed": [
+      "runtime allocation and deallocation ABI works",
+      "safe free accepts local allocation and ended aliases",
+      "safe free rejects live aliases and escaped allocations",
+      "catchable allocation failure boundaries run at O3",
+      "trace bookkeeping preserves allocation counts and safe free",
+      "pool release helpers preserve borrows and allocation-free reuse"
+    ],
+    "without_sdk": {
+      "calloc_free_retained": true,
+      "collector_symbols": false,
+      "exit": 42,
+      "llvm_sha256": "d285801eb5dd154637bd5923307dd37b99a15f541a4de2baece2e0be81b8f321",
+      "program_sha256": "321ec7600884912742c46e3b48be12040df1bd758fa8d2ae5ed4ba2282ac9313",
+      "sdk_missing": true
+    }
+  },
+  "production_enabled": false,
+  "recovery": {
+    "numeric_target_checks": 65536,
+    "overflow_events": 120,
+    "recovery_returned_successfully": true,
+    "stack_entries_at_overflow": [
+      4096
+    ]
+  },
+  "remaining_gates": [
+    "new-profile Linux x86-64 qualification",
+    "Linux arm64 qualification",
+    "GC3 effects/statepoints/compiler and native roots",
+    "GC4 exception/sidecar/resource/file activation",
+    "GC6 foreign roots/reentry/two images",
+    "production activation and generation cutover"
+  ],
+  "sdk": {
+    "archives": {
+      "libgc.a": {
+        "all_hidden": true,
+        "external_definitions": 374,
+        "symbol_table.sha256": "9c4cf181074d39828a53068be7046c4219744a2f9f8162236dd48d420212561a"
+      },
+      "libironwood_gc_engine.a": {
+        "all_hidden": true,
+        "external_definitions": 9,
+        "symbol_table.sha256": "9da039dff585eea2c7b7b93bb1e539edb33384c7aedaff1f81a540fc8c45c060"
+      }
+    },
+    "configuration_audit": {
+      "EXTRA_BYTES": 0,
+      "absent_macros": [
+        "THREADS",
+        "GC_THREADS",
+        "PARALLEL_MARK",
+        "THREAD_LOCAL_ALLOC",
+        "DYNAMIC_LOADING",
+        "REDIRECT_MALLOC",
+        "REDIRECT_FREE",
+        "REDIRECT_REALLOC"
+      ],
+      "ambient_stack_register_root_call": false,
+      "exact_descriptor_recovery": true,
+      "preprocessed_mark.sha256": "40ec87af4039289fa46a77aa83d68801b95d34a54ac9155b007a5e16765b8f45",
+      "preprocessed_mark_rts.sha256": "d8f1aab247c73eb6f0231043ff75655486603f0d30ee957cde0aa4bcd069c03c",
+      "required_macros": [
+        "EAGER_SWEEP",
+        "GC_DISABLE_INCREMENTAL",
+        "STACK_NOT_SCANNED",
+        "DONT_ADD_BYTE_AT_END",
+        "USE_MARK_BYTES",
+        "LARGE_CONFIG",
+        "GC_DONT_REGISTER_MAIN_STATIC_DATA",
+        "IGNORE_DYNAMIC_LOADING"
+      ]
+    },
+    "manifest_path": "workspace/gc2-sdk/build.json",
+    "manifest_sha256": "43abf1df2c7ab8e32ccf36814da341a49244b530fe6db8b8672b08c589792f89",
+    "payload_sha256": {
+      "adapter.o": "76f2ab2e27535ca0935aaac968a23391f45a36b16d7ab91d48ac52f4c5fff741",
+      "configuration-audit.json": "0a4c4d7044941138b175d89a95cca85f2d3ef3c214114f99a7a830097013d404",
+      "configuration.json": "6fd39c7be9fc6ab1d5d5aea2e07610efad3113b4d1da6679aa3f6bad086f48fa",
+      "include/config.h": "76cbbe2419a8f2791c8a49b47a83a9389160b4222841fd0c58f2ba662ddbf82e",
+      "include/gc/cord.h": "1830d4eaa868ea2f15873659f0a2838c3309b9b32b912fc6c68f9e007827c6c6",
+      "include/gc/cord_pos.h": "f46fba45f62f97351eb1dd748ccaa1f55cc0a72272e07a788c351146411efc9d",
+      "include/gc/ec.h": "8bc9c2f888c3f3ef3464b851ff24f8be90672b13990e05cf88a4d906e7f516ba",
+      "include/gc/gc.h": "02cfecefca6aca4bf59280aaa3f967fff862857d087e5e8987f3db8bda6ed3f2",
+      "include/gc/gc_allocator.h": "b2a281c01c85af83007c859a62ed85413d4eb9ab892a26487b7a9aa5be97e90a",
+      "include/gc/gc_backptr.h": "6c2ecdc5fdcca5019a904179a2eb95805f8ff60482f2a429bdc5fd67957d1c95",
+      "include/gc/gc_config_macros.h": "1321e010e0c1c22123fe0af5fc72d2065cf098d3c09b0cf76535cb8c3ea04230",
+      "include/gc/gc_cpp.h": "86534282e80e6d9bcd9e15cebfccc002ee8c8a8d52a42ad5b2378712d0743750",
+      "include/gc/gc_disclaim.h": "ff742436ba82f7157e3ae270f2b8d22f53f9fd2611b941d4310a41cc1ea2a5df",
+      "include/gc/gc_gcj.h": "87c8493463ff62edc7faa256f03e3a24cdf8b9375e3a0d3298530bdf74d95005",
+      "include/gc/gc_inline.h": "d032a0b1e8891dd25b6c3673b58fac6ddcb059e01285696a6878ef9c022f14df",
+      "include/gc/gc_mark.h": "5cac8cf04cee93b1186a5a50e2980b780dbd0717cd42e4511a170f33156329f5",
+      "include/gc/gc_pthread_redirects.h": "e68ce92ca0280b42bb1a0db62357e883d3e37235d18c2bd0d3ad6bd59209b09b",
+      "include/gc/gc_tiny_fl.h": "c0dfbd526405ae28e108b608dd2c77e2dbe2858cbeb880d2d67749fd04a49bc5",
+      "include/gc/gc_typed.h": "fa7910da9155fb836d48ac9723b239dfe10d64b414d90801d5b9d72a64877d0c",
+      "include/gc/gc_version.h": "a45df41e4a6615f00e6991b7e67151d73e0f593bc1112463568a7eff45470e28",
+      "include/gc/javaxfc.h": "1a89edc382dbc9e2c7d3a6bcf749ec71411c9c45f2da96b63efaf3cc1d8bbaba",
+      "include/gc/leak_detector.h": "7b36b85eb6cf5478758884981b4c4d92192da61fb74483f0101acf1b11866659",
+      "include/ironwood_gc_configuration.h": "fa1ab56847e32cc3e38b4833e2a91f0e5729e978bd7f92dd9d5de2ea86840ced",
+      "lib/libgc.a": "a2ba905dda9fac9b15e1fe7f0fa7b2049c8c06623cdac30c0de2f628d9e59335",
+      "lib/libironwood_gc_engine.a": "1b1333bdc786f89ff6e727180162f8479287d0ff026ea22340ab1f48a1dd6085",
+      "licenses/BDWGC-NOTICES.txt": "7c4e37589e956dae4872387ef1a295f16e24c8ebc47b8f1c1330d7422b87b399",
+      "packaging/bdwgc.json": "1a05dfb997b3e17be9e74ebbcad245b6caee562cc78ad8658169318c3f902aa6",
+      "runtime/include/ironwood_gc_engine.h": "7e4ec57b62c8ab096f4465858ee1ad74d10dca73ceeb034fab4ff065067ba04f",
+      "runtime/src/ironwood_gc_engine.c": "94276877366a1f61806ebd7f1ca0229299ac596f43c0502c42c712f578ad406d",
+      "scripts/prepare-gc.py": "6ba2964e242ae584da27f1f156b9ff1317ce1d7b99e0f0682eac2ee4d7c1fabb",
+      "sources/gc-8.2.12.tar.gz": "42e5194ad06ab6ffb806c83eb99c03462b495d979cda782f3c72c08af833cd4e"
+    },
+    "reproducibility": {
+      "byte_identical_build_manifests": true,
+      "byte_identical_payload_hashes": true,
+      "configuration": "6fd39c7be9fc6ab1d5d5aea2e07610efad3113b4d1da6679aa3f6bad086f48fa"
+    },
+    "stale_gc1": {
+      "reason": "GC SDK configuration/target/ABI mismatch",
+      "stale_gc1_sdk_rejected": true
+    }
+  },
+  "source_sha256": {
+    "compiler/src/main/java/ironwood/compiler/backend/GcLayoutEmitter.java": "b825932b9a23bc82d7fb8379c8def33be51fd97e2ae69746526fabc78519e622",
+    "compiler/src/main/java/ironwood/compiler/ir/IrAllocationLayout.java": "5c4c130597521d012c97c73cd9849d481cdc13cf4162f5867afd4a7f844792bf",
+    "compiler/src/test/java/ironwood/compiler/CompilerTests.java": "60269965da6e4af3f663302c8671fbd7d40f00ddc96265e7b35d30f768a4623b",
+    "compiler/src/test/java/ironwood/compiler/GcLayoutTests.java": "43da352028d784defc708ea8e12662051a8eaca2a74e5a917328f0506fef743b",
+    "integration-tests/native/gc_engine_probe.c": "460c7f3504d98d6b23ecbc6f6f4338239e2967b73374c2b2631f5a7e72319c89",
+    "integration-tests/native/gc_layout_probe.c": "80ae967587f2f05d71b94ad888e8d10eb98cd9d873fa66f01bac564cb59b98d6",
+    "packaging/bdwgc.json": "1a05dfb997b3e17be9e74ebbcad245b6caee562cc78ad8658169318c3f902aa6",
+    "runtime/include/ironwood_gc_engine.h": "7e4ec57b62c8ab096f4465858ee1ad74d10dca73ceeb034fab4ff065067ba04f",
+    "runtime/src/ironwood_gc_engine.c": "94276877366a1f61806ebd7f1ca0229299ac596f43c0502c42c712f578ad406d",
+    "scripts/build-gc-fixture.py": "20096ffdb502604de93b956fd6ee1fb1fe516bc2d55b0f98006b808f0c6a0439",
+    "scripts/package-gc-inputs.py": "09c267f2cb186099a7eb6ba689b96c1e97fbce1ebc4310b1b4ef8333e5d31ce9",
+    "scripts/prepare-gc.py": "6ba2964e242ae584da27f1f156b9ff1317ce1d7b99e0f0682eac2ee4d7c1fabb",
+    "scripts/test-gc-engine.py": "c4fc38cd979039170b7eb0a2ca8b6916296e8659bc98ff4ec2cda63a39de08ae",
+    "scripts/test-gc-layouts.py": "d50ce9e377b973a9c872cfbb51b7273ef24bba85147a0688216ca3e08b8ba212"
+  },
+  "target": "macos-arm64"
+}

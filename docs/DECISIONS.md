@@ -12400,8 +12400,9 @@ occurrence order. If no
 
 ## D315 - Freeze explicit-GC migration contracts without changing current semantics
 
-- **Status:** Accepted future implementation direction, GC0 and isolated GC1
-  engine preparation complete on 2026-11-04. Production GC is not implemented.
+- **Status:** Accepted future implementation direction, GC0, isolated GC1
+  engine preparation and GC2 layout qualification complete on 2026-11-04.
+  Production GC is not implemented.
   Supersedes no current behavior yet; the [activation map](GC0_BASELINE_AND_CONTRACTS.md#decision-supersession-map)
   assigns supersessions to the milestones that implement them.
 - **Decision:** Use pinned BDWGC 8.2.12 with compiler-provided roots, exact heap
@@ -12436,3 +12437,33 @@ occurrence order. If no
   [Linux x86-64 qualification](GC1_LINUX_X86_64_QUALIFICATION.md) passes native
   engine/ELF and production controls. Linux arm64 remains unqualified; full
   two-image execution remains GC6.
+
+
+## D316 - Describe experimental GC layouts exactly through overflow recovery
+
+- **Status:** Accepted, GC2 isolated implementation on 2026-11-04. Extends D315;
+  supersedes no current source, ownership, native-generation or allocation behavior.
+- **Decision:** Derive immutable allocation descriptions from final physical
+  IrClass/IrArrayType storage. Emit C offsetof/sizeof and LLVM GEP descriptors
+  and compare their compiled values. Use first-word type-pointer indirection,
+  bounded language/internal kinds, small bitmaps and exact large/array maps.
+  No ordinary-object footer or conservative descriptor fallback. Scan physical
+  reference slots, including inactive container capacity and hidden fields.
+- **Recovery:** Add the unmodified pinned collector's USE_MARK_BYTES configuration
+  to remove small-cell conservative recovery accelerators. Bump the isolated
+  adapter ABI to ironwood-gc-engine-2 and rebuild SDKs; old GC1 configuration
+  identities cannot qualify overflow exactness. No collector patch is accepted.
+  Refuse metadata exhaustion/unsupported layouts before managed allocation.
+- **Boundaries:** Legacy Throwable traceState/carrier integer links and borrowed
+  ByteView layouts explicitly refuse experimental managed output. Native file
+  construction uses native scratch followed by one described result; production
+  activation remains GC4. GC0 language-event and collection-time accounting stay
+  frozen. Effects, roots, statepoints, exception/resource/bridge migration and
+  language cutover remain later milestones. No new ordinary-call/write tracking.
+- **Verification:** [GC2 evidence](GC2_LAYOUTS_AND_QUALIFICATION.md) covers 21
+  C/LLVM layouts, all primitive/reference arrays, String tails, partial
+  construction, sidecars, bounded metadata and allocation failure, 120 actual
+  mark-stack overflows with 65,536 numeric lookalikes reclaimed, free cells,
+  separate virtual/resident controls and six unchanged production tests. The
+  new profile is qualified on macOS arm64 only; Linux x86-64 needs a fresh run
+  and Linux arm64 remains unqualified. Production GC remains disabled.
