@@ -440,3 +440,16 @@ TLS peer, validates SDK/TSV/provenance identity, and audits shared dependencies
 and Linux GLIBC requirements. It also builds the shipped wget project through
 its scripts and class/archive inputs, runs local HTTP/HTTPS peers, and audits
 both downloader executables. The N1 event-loop phase remains pending.
+
+## GC1 development inputs
+
+Host packages and IDKs carry the isolated GC1 recipe, adapter source and pins,
+with `packaging/gc-inputs.json` recording their hashes and
+`production.enabled=false`. They do not need a collector SDK to compile current
+programs. To bundle a separately prepared SDK, explicitly set
+`IRONWOOD_GC_HOME`; packaging validates it offline and copies its complete
+source, notices, headers, libraries and manifest to `runtime/gc-sdk/`. It is
+excluded from Conda relocation and listed in the IDK third-party inventory only
+when bundled. `IRONWOOD_GC_HOME` is not a compiler or runtime activation flag.
+See [GC1 preparation](GC1_ENGINE_PREPARATION.md) for target-specific setup,
+offline fixture links and the unexecuted Linux qualification gates.

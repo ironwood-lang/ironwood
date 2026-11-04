@@ -147,3 +147,28 @@ notices. Collector dependencies and experiment binaries are not added to the
 Ironwood runtime or bundled by this change. Other qualification fixtures are
 original `MIT OR Apache-2.0` work. No OpenJDK implementation or test code is
 imported. See `docs/GC_EVALUATION.md` and `scripts/gc-evaluation/README.md`.
+
+## GC1 prepared BDWGC SDK
+
+`scripts/prepare-gc.py` builds unmodified BDWGC 8.2.12 from release archive
+SHA-256 `42e5194ad06ab6ffb806c83eb99c03462b495d979cda782f3c72c08af833cd4e`.
+The actual upstream `README.md` copyright/warranty/permission grant and
+file-specific source/header notices are retained verbatim in the prepared SDK's
+`licenses/BDWGC-NOTICES.txt`; its complete unmodified release source, including
+GNU build-helper licenses and exceptions, is `sources/gc-8.2.12.tar.gz`.
+Upstream notices name Hans-J. Boehm, Alan J. Demers, Xerox, Silicon Graphics,
+Hewlett-Packard, Ivan Maidanski and additional file-specific contributors.
+The core grant permits use/copy for any purpose with notices retained and
+requires a modification notice for modified code. The collector source is not
+patched. `LicenseRef-BDWGC-8.2.12` in distribution inventories refers to these
+actual retained terms, rather than reclassifying dependency files under the
+Ironwood default. Build-helper terms remain attached to those source files.
+
+The adapter, build/verification scripts and standalone fixtures are original
+`MIT OR Apache-2.0` Ironwood work, using published collector interfaces. No
+OpenJDK or HotSpot implementation is imported. Source/tool packages carry the
+recipe and pins. An explicitly selected SDK is bundled whole at
+`runtime/gc-sdk/`, with configuration and payload hashes in
+`packaging/gc-inputs.json`. Ordinary programs do not link this engine in GC1.
+Future distributed native/bridge outputs must retain these source/notices too;
+that activation is not implemented here. See `docs/GC1_ENGINE_PREPARATION.md`.

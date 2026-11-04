@@ -316,3 +316,14 @@ payload buffers. Pinned OpenSSL's WPACKET framing makes native allocations
 per record, measured separately from Ironwood managed allocations. Reusable
 OpenSSL error/process metadata is distinct from connection-owned state.
 See [the TLS guide](../docs/TLS.md) and [M5 evidence](../docs/NETWORKING_M5_VERIFICATION.md).
+
+## Isolated GC1 engine preparation
+
+`src/ironwood_gc_engine.c` and `include/ironwood_gc_engine.h` are a standalone
+qualification adapter, selected only by `scripts/prepare-gc.py` and
+`scripts/build-gc-fixture.py`. NativeBackend does not compile/link this component
+for ordinary programs. Its four fixed fixture kinds are not production layouts.
+Prepared SDKs retain the pinned source, notices, headers, canonical configuration
+identity and actual payload hashes. Downloads happen only during explicit
+preparation; fixture links verify the SDK offline. See
+[GC1 setup and evidence](../docs/GC1_ENGINE_PREPARATION.md).

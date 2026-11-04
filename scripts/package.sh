@@ -113,6 +113,8 @@ cp -R "$IRONWOOD_PROJECT_ROOT/stdlib/src" "$IRONWOOD_STAGE_DIR/stdlib/src"
 cp "$IRONWOOD_PROJECT_ROOT/stdlib/README.md" "$IRONWOOD_STAGE_DIR/stdlib/README.md"
 cp -R "$IRONWOOD_PROJECT_ROOT/compiler/build/stdlib" "$IRONWOOD_STAGE_DIR/lib/stdlib"
 
+python3 "$IRONWOOD_SCRIPT_DIR/package-gc-inputs.py" --stage "$IRONWOOD_STAGE_DIR"
+
 mkdir -p "$IRONWOOD_DIST_DIR"
 COPYFILE_DISABLE=1 tar --no-xattrs -C "$IRONWOOD_DIST_DIR" -czf "$IRONWOOD_DIST_DIR/$IRONWOOD_PACKAGE_NAME.tar.gz" "$IRONWOOD_PACKAGE_NAME"
 echo "packaged $IRONWOOD_DIST_DIR/$IRONWOOD_PACKAGE_NAME.tar.gz"

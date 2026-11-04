@@ -320,6 +320,10 @@ Like JavaDocs, Ironwood has IronDocs, which generates documentation in the Markd
 
 You can package compiled Ironwood classes into one .ironjar file. This is useful for distributing a library or reusing it in another Ironwood project. You can <a href="docs/IRONJAR.md">click here</a> for more info.
 
+For compiler host/IDK packaging, the isolated
+[GC1 development inputs](docs/GC1_ENGINE_PREPARATION.md) carry preparation pins,
+source and notices without enabling a collector for current programs.
+
 ## Differences from Java
 
 For the full list of Java features that Ironwood preserves, the mechanisms it adapts for native development, and the complexity it deliberately leaves behind, check <a href="docs/JAVA_EXCLUSIONS.md">this document</a>.

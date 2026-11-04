@@ -223,6 +223,8 @@ cp -R "$IRONWOOD_PROJECT_ROOT/runtime/src" "$IRONWOOD_STAGE_DIR/runtime/src"
 cp -R "$IRONWOOD_PROJECT_ROOT/stdlib/src" "$IRONWOOD_STAGE_DIR/stdlib/src"
 cp "$IRONWOOD_PROJECT_ROOT/stdlib/README.md" "$IRONWOOD_STAGE_DIR/stdlib/README.md"
 cp -R "$IRONWOOD_PROJECT_ROOT/compiler/build/stdlib" "$IRONWOOD_STAGE_DIR/lib/stdlib"
+"$IRONWOOD_IDK_TOOLCHAIN_HOME/bin/python" "$IRONWOOD_SCRIPT_DIR/package-gc-inputs.py" \
+    --stage "$IRONWOOD_STAGE_DIR" --llvm-home "$IRONWOOD_IDK_TOOLCHAIN_HOME"
 printf '%s\n' "$IRONWOOD_VERSION" > "$IRONWOOD_STAGE_DIR/VERSION"
 
 # The separately copied SDK must not acquire conda-unpack relocation entries:
@@ -232,6 +234,7 @@ printf '%s\n' "$IRONWOOD_VERSION" > "$IRONWOOD_STAGE_DIR/VERSION"
     -o "$IRONWOOD_TOOLCHAIN_ARCHIVE" \
     --exclude 'ironwood-tls/*' \
     --exclude 'ironwood-bridge-support/*' \
+    --exclude 'ironwood-gc/*' \
     --force
 tar -xzf "$IRONWOOD_TOOLCHAIN_ARCHIVE" -C "$IRONWOOD_STAGE_DIR/toolchain"
 # Copy the separately verified application SDK, never the toolchain's OpenSSL.
@@ -247,6 +250,7 @@ rm -f "$IRONWOOD_TOOLCHAIN_ARCHIVE"
 
 "$IRONWOOD_IDK_TOOLCHAIN_HOME/bin/python" - "$IRONWOOD_IDK_TOOLCHAIN_HOME" "$IRONWOOD_PROJECT_ROOT/packaging/tls-dependencies.properties" \
         "$IRONWOOD_PROJECT_ROOT/packaging/java-bridge-support.properties" "$IRONWOOD_BRIDGE_SUPPORT_PREFIX" \
+        "$IRONWOOD_STAGE_DIR/packaging/gc-inputs.json" "$IRONWOOD_PROJECT_ROOT/packaging/bdwgc.json" \
         > "$IRONWOOD_STAGE_DIR/THIRD-PARTY-PACKAGES.tsv" <<'PYTHON'
 import glob
 import json
@@ -272,6 +276,12 @@ if sys.argv[4]:
     with open(sys.argv[3], encoding="utf-8") as source:
         bridge = dict(line.strip().split("=", 1) for line in source if line.strip() and not line.startswith("#"))
     print("\t".join(("java-bridge-gcc-runtime", bridge["gcc.version"], bridge["license"], bridge["gcc.source.url"])))
+with open(sys.argv[5], encoding="utf-8") as source:
+    gc_inputs = json.load(source)
+if gc_inputs["sdk.bundled"]:
+    with open(sys.argv[6], encoding="utf-8") as source:
+        collector = json.load(source)["collector"]
+    print("\t".join(("bdwgc-static-gc1", collector["version"], "LicenseRef-BDWGC-8.2.12", collector["url"])))
 PYTHON
 
 COPYFILE_DISABLE=1 tar --no-xattrs -C "$IRONWOOD_DIST_DIR" -czf "$IRONWOOD_ARCHIVE" "$IRONWOOD_PACKAGE_NAME"

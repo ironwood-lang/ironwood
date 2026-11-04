@@ -1,0 +1,62 @@
+{
+  "format": 1,
+  "collector": {
+    "component": "BDWGC",
+    "version": "8.2.12",
+    "url": "https://github.com/bdwgc/bdwgc/releases/download/v8.2.12/gc-8.2.12.tar.gz",
+    "sha256": "42e5194ad06ab6ffb806c83eb99c03462b495d979cda782f3c72c08af833cd4e"
+  },
+  "profile": {
+    "configure": [
+      "--disable-shared",
+      "--enable-static",
+      "--disable-threads",
+      "--disable-parallel-mark",
+      "--disable-thread-local-alloc",
+      "--disable-docs",
+      "--disable-gcj-support",
+      "--disable-java-finalization",
+      "--disable-disclaim",
+      "--disable-throw-bad-alloc-library",
+      "--disable-register-main-static-data",
+      "--disable-dynamic-loading",
+      "--enable-large-config",
+      "--with-libatomic-ops=none"
+    ],
+    "cflags": [
+      "-O3",
+      "-DEAGER_SWEEP",
+      "-DGC_DISABLE_INCREMENTAL",
+      "-DSTACK_NOT_SCANNED",
+      "-DDONT_ADD_BYTE_AT_END"
+    ],
+    "startup": "GC_set_dont_precollect(1); GC_INIT(); GC_disable();",
+    "root_and_layout": "Compiler root arrays and field bitmaps; fixed-layout and per-type fixtures."
+  },
+  "memory.abi": "ironwood-native-gc-1",
+  "adapter.abi": "ironwood-gc-engine-1",
+  "layout.version": 1,
+  "roots.version": 1,
+  "llvm.version": "23.1.0",
+  "llvm.stackmap.version": 3,
+  "build.cflags": [
+    "-fPIC",
+    "-fvisibility=hidden",
+    "-DGC_NO_VISIBILITY"
+  ],
+  "static.link": "private-per-image; no shared collector; no allocator interposition",
+  "targets": {
+    "macos-arm64": {
+      "triple": "arm64-apple-macosx14.0.0",
+      "isolation": "Mach-O hidden definitions; explicit export allowlist; two-level namespace"
+    },
+    "linux-arm64": {
+      "triple": "aarch64-unknown-linux-gnu",
+      "isolation": "ELF hidden definitions; local:* version map; -Bsymbolic; --exclude-libs,ALL"
+    },
+    "linux-x86_64": {
+      "triple": "x86_64-unknown-linux-gnu",
+      "isolation": "ELF hidden definitions; local:* version map; -Bsymbolic; --exclude-libs,ALL"
+    }
+  }
+}

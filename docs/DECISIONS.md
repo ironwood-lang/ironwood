@@ -12400,9 +12400,9 @@ occurrence order. If no
 
 ## D315 - Freeze explicit-GC migration contracts without changing current semantics
 
-- **Status:** Accepted future implementation direction, GC0 complete on
-  2026-11-04. Production GC and GC1 are not implemented. Supersedes no current
-  behavior yet; the [activation map](GC0_BASELINE_AND_CONTRACTS.md#decision-supersession-map)
+- **Status:** Accepted future implementation direction, GC0 and isolated GC1
+  engine preparation complete on 2026-11-04. Production GC is not implemented.
+  Supersedes no current behavior yet; the [activation map](GC0_BASELINE_AND_CONTRACTS.md#decision-supersession-map)
   assigns supersessions to the milestones that implement them.
 - **Decision:** Use pinned BDWGC 8.2.12 with compiler-provided roots, exact heap
   layouts, private per-image collectors and explicit synchronous Memory.collect
@@ -12429,3 +12429,8 @@ occurrence order. If no
   the [GC0 manifest](gc-evaluation/gc0-2026-11-04-manifest.json). Complete
   production layouts, roots, reentry, resource migration, target/distribution
   and performance qualification remain gates in the integration plan.
+  [GC1 engine preparation](GC1_ENGINE_PREPARATION.md) adds reproducible pinned
+  SDK/adapter builds, offline configuration/payload validation, source/notices,
+  private archive/final Mach-O symbol evidence and policy/reuse/accounting
+  controls without changing production allocation. Linux/ELF execution remains
+  unqualified; full two-image execution remains GC6.

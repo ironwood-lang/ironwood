@@ -2,7 +2,7 @@
 
 # Explicit GC integration and memory-model migration
 
-Date: 2026-11-04. Status: GC0 complete; GC1 and production integration unstarted.
+Date: 2026-11-04. Status: GC0 and GC1 complete; production integration unstarted.
 Current compiler behavior and the existing memory specification remain
 authoritative until the cutover.
 
@@ -437,8 +437,8 @@ both allocation counters without a hot-path ledger or finalizers. The
 [evidence manifest](gc-evaluation/gc0-2026-11-04-manifest.json) records 24 exact
 tests passing on Java 21 and 25, isolated accounting/layout/policy controls and
 optimized-code/performance fingerprints. D315 accepts the future contracts;
-existing decisions are not prematurely superseded. GC1 is the next bounded task:
-pinned build/adapter/packaging inputs only, with the current allocator unchanged.
+existing decisions are not prematurely superseded. GC0 handed off the bounded
+GC1 build/adapter/packaging task, with the current allocator unchanged.
 
 ### GC1. Prepare the engine without enabling it for programs
 
@@ -457,6 +457,18 @@ checks for the actual files being incorporated.
 **Exit:** pinned builds are reproducible and an incompatible configuration fails
 closed. No hidden thread, incremental mode, automatic collection or allocator
 interposition is accepted.
+
+**Completion, 2026-11-04:** [GC1 engine preparation](GC1_ENGINE_PREPARATION.md)
+records pinned, byte-reproducible machost SDK builds, the narrow isolated C
+adapter, effective configuration-hook audit, canonical configuration identity,
+offline validation, original-source/license review and host/IDK packaging inputs.
+Policy/eager reuse and frozen accounting controls passed, together with 25
+nearby negative checks, private archive/final Mach-O symbol inspection and six
+exact unchanged production tests. The relocated host package compiled a current
+O3 program after its GC SDK was removed. ELF/native Linux execution, complete
+IDK assembly and two-image runtime qualification remain explicit gates, not
+macOS-derived claims. GC2 layouts/root consumers have not been implemented;
+the production calloc/free path and current generation constants are unchanged.
 
 ### GC2. Describe and qualify every managed layout
 
@@ -722,6 +734,8 @@ checkpoints clearly. Record a concrete remaining gate at each stopping point.
 No branch creation beyond the maintainer's request, pushing, hosted jobs or
 automatic self-hosting restart is part of this document's implementation plan.
 
-GC0 is complete; the first follow-up task should complete GC1 without enabling
-GC in production programs. Subsequent tasks can own one milestone or a named
-substage, carrying forward prerequisite commit IDs, evidence and remaining gates.
+GC0 and GC1 are complete; the next bounded task is GC2's exact layouts and
+standalone qualification, without enabling GC in production programs. Carry
+forward the unexecuted Linux/ELF gates. Subsequent tasks can own one milestone or
+a named substage, carrying forward prerequisite commit IDs, evidence and
+remaining gates.

@@ -80,3 +80,10 @@ then runs only the paired pooled/rare-allocation cases. Its children retain the
 16 GiB sampled RSS guard and 60-second timeout. It also fingerprints the macOS
 arm64 pooled mutation code; it is not a portable production collector adapter.
 See [GC0 results and remaining gates](../../docs/GC0_BASELINE_AND_CONTRACTS.md).
+
+GC1 moves the selected engine preparation into the runtime/SDK packaging paths,
+without activating it for programs. Use `scripts/prepare-gc.py`,
+`scripts/build-gc-fixture.py` and `scripts/test-gc-engine.py` from the checkout
+root for the isolated adapter and offline validation. The original evaluation
+drivers remain historical experiments. See
+[GC1 setup and qualification](../../docs/GC1_ENGINE_PREPARATION.md).

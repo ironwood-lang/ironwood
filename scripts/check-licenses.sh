@@ -18,6 +18,8 @@ IRONWOOD_REQUIRED_LICENSE_FILES=(
     LICENSES/Unicode-15.0.txt
     LICENSES/MPL-2.0.txt
     packaging/tls-dependencies.properties
+    packaging/bdwgc.json
+    docs/GC1_ENGINE_PREPARATION.md
     docs/TLS.md
     docs/NETWORKING_M5_VERIFICATION.md
     docs/NETWORKING_M6_VERIFICATION.md

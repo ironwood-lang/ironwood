@@ -150,6 +150,15 @@ recorded in `SOURCE_PROVENANCE.md`, `THIRD_PARTY_NOTICES.md`, the checked-in
 TLS dependency pins and the SDK build manifest. Source/tool-only packages
 include the recipe and metadata without claiming to bundle static archives.
 
+GC1's optional BDWGC SDK similarly retains the complete pinned unmodified source
+archive, public headers and verbatim upstream notices alongside its static
+libraries. `LicenseRef-BDWGC-8.2.12` identifies the actual upstream grant and
+file-specific terms retained in `licenses/BDWGC-NOTICES.txt` and the source
+archive, including GNU build-helper exceptions. Source/tool packages ship the
+recipe and pins; explicitly selected prepared SDKs ship whole at
+`runtime/gc-sdk/`. Preserve that payload with any later distributed output that
+links the engine. GC1 does not activate collector linkage in ordinary programs.
+
 Linux Java Bridge shared outputs additionally carry pinned unmodified GCC
 runtime libraries under GPLv3 with GCC Runtime Library Exception 3.1. Their
 adjacent support directory includes complete corresponding GCC source,
