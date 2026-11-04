@@ -12465,5 +12465,7 @@ occurrence order. If no
   construction, sidecars, bounded metadata and allocation failure, 120 actual
   mark-stack overflows with 65,536 numeric lookalikes reclaimed, free cells,
   separate virtual/resident controls and six unchanged production tests. The
-  new profile is qualified on macOS arm64 only; Linux x86-64 needs a fresh run
-  and Linux arm64 remains unqualified. Production GC remains disabled.
+  new profile is qualified on macOS arm64 and through the
+  [native Linux x86-64 follow-up](GC2_LINUX_X86_64_QUALIFICATION.md), with matching
+  exact recovery, reproducible SDKs, ELF isolation and production controls.
+  Linux arm64 remains unqualified. Production GC remains disabled.

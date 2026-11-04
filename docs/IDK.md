@@ -454,5 +454,6 @@ when bundled. `IRONWOOD_GC_HOME` is not a compiler or runtime activation flag.
 See [GC1 preparation](GC1_ENGINE_PREPARATION.md) for target-specific setup,
 offline fixture links. [GC2](GC2_LAYOUTS_AND_QUALIFICATION.md) adds exact layouts
 and descriptor-preserving recovery with adapter ABI ironwood-gc-engine-2.
-Reprepare older SDKs; do not mix GC1 libraries/headers with GC2 inputs. The new
-profile requires fresh Linux x86-64 qualification; Linux arm64 remains unqualified.
+Reprepare older SDKs; do not mix GC1 libraries/headers with GC2 inputs.
+[Native Linux x86-64 qualification](GC2_LINUX_X86_64_QUALIFICATION.md) passed
+for the new profile; Linux arm64 remains unqualified.

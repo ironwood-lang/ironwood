@@ -505,8 +505,11 @@ accelerators and deliberately changes the configuration identity. Stale GC1 SDKs
 are rejected. Legacy Throwable/carrier integer links and borrowed ByteView
 layouts explicitly refuse experimental output. Ordinary object storage has no
 descriptor footer; production allocation and mandatory proofs are unchanged.
-GC2 is qualified locally on macOS arm64. The new profile needs fresh Linux
-x86-64 qualification; Linux arm64 remains unqualified. Roots/effects are GC3.
+GC2 is qualified on macOS arm64 and, through the
+[native Linux follow-up](GC2_LINUX_X86_64_QUALIFICATION.md), Linux x86-64.
+The new profile passed exact overflow recovery, reproducibility, ELF isolation
+and focused production controls on Linux. Linux arm64 remains unqualified.
+Roots/effects are GC3.
 
 ### GC3. Integrate effects, statepoints and root enumeration
 
@@ -757,7 +760,7 @@ automatic self-hosting restart is part of this document's implementation plan.
 GC0, GC1 and GC2 are complete; the next bounded task is GC3's effects,
 statepoints and root enumeration for an explicitly supported experimental
 closure, without enabling GC in production programs. Carry forward GC2's
-layout refusals and fresh Linux profile qualification, including the unexecuted
-Linux arm64 gate. Subsequent tasks can own one milestone or
+layout refusals and the unexecuted Linux arm64 qualification gate. Subsequent
+tasks can own one milestone or
 a named substage, carrying forward prerequisite commit IDs, evidence and
 remaining gates.

@@ -2,7 +2,7 @@
 
 # GC2 layouts and qualification
 
-Date: 2026-11-04. **GC2 complete for the isolated macOS arm64 qualification.**
+Date: 2026-11-04. **GC2 complete for isolated macOS arm64 and Linux x86-64 qualification.**
 Production GC remains disabled.
 
 ## Pre-change review and verification selection
@@ -110,7 +110,9 @@ with the actual production array/String headers and compares every size, kind,
 field count and reference offset in the separately compiled C and LLVM
 descriptors. No handwritten class offsets are duplicated. Current supported
 experimental targets are 64-bit little-endian; SDK verification rejects other
-widths/endian layouts. Only macOS arm64 was executed for this GC2 profile.
+widths/endian layouts. The original run used macOS arm64; subsequent
+[native Linux x86-64 qualification](GC2_LINUX_X86_64_QUALIFICATION.md) passed
+the same GC2 source and profile. Linux arm64 remains unqualified.
 
 The experimental metadata struct is `{version,shape,language,element_kind,
 size,reference_count,references}`. `iw_gc_describe` validates it and makes an
@@ -275,11 +277,13 @@ source free/destructors, mandatory reclamation proofs and current generation
 identities are unchanged. Collection effects, statepoints and compiler/runtime
 root readers have not been implemented.
 
-The new configuration needs fresh Linux x86-64 qualification. Earlier GC1 Linux
-x86-64 evidence remains historical evidence for its old profile. Linux arm64
-remains unqualified. No remote, hosted or paid jobs ran. Full IDK assembly,
-foreign reentry/two-image execution, exception migration, resource cleanup and
-performance qualification remain later gates.
+The [Linux x86-64 follow-up](GC2_LINUX_X86_64_QUALIFICATION.md) qualifies the
+new profile natively, including exact overflow recovery, reproducibility, ELF
+isolation and the focused production controls. Earlier GC1 evidence remains
+historical evidence for its old profile. Linux arm64 remains unqualified. The
+follow-up used maintainer-authorized SSH; no hosted or paid jobs ran. Full IDK
+assembly, foreign reentry/two-image execution, exception migration, resource
+cleanup and performance qualification remain later gates.
 
 **Next bounded task: GC3 only.** Add compiler-owned collection effects and
 statepoint/root metadata for an explicitly supported experimental closure,
