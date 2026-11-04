@@ -74,6 +74,8 @@ separate claims, each needing its own evidence.
    through ordinary compiler proofs, without unknown-effect exemptions or
    compiler-specific rules added merely to admit the port. If general language
    or library support is missing, specify and qualify it as separate work first.
+   See the proposed [ownership composition plan](OWNERSHIP_COMPOSITION_PLAN.md)
+   for the source audit, bounded transfer contract and implementation gates.
 2. **Scalable and predictable ownership analysis.** Establish stable convergence
    and measured time/memory behavior on representative loops, joins, recursive
    calls and helper graphs. Fix refinement cycles and false positives with
