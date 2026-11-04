@@ -254,6 +254,9 @@ allocation-failure policy. Then migrate managed-object `free`, deferred free
 and destructors while preserving deterministic resource cleanup and general
 `defer`. Test realistic compiler graphs before another self-hosting attempt.
 
+The detailed implementation sequence and validation gates are in
+[`BDWGC_INTEGRATION_PLAN.md`](BDWGC_INTEGRATION_PLAN.md).
+
 No automatic finalizers or user destructors should run during collection.
 Native resources still require explicit `close()` and failure cleanup. Pools
 must clear references they no longer intend to retain; tracing correctly keeps
