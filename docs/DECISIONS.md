@@ -12397,3 +12397,35 @@ occurrence order. If no
 - **Verification:** All 448 rewritten commits pass a pairwise comparison
   with the originals, and no file version, commit message or identity
   reachable from main contains the earlier names.
+
+## D315 - Freeze explicit-GC migration contracts without changing current semantics
+
+- **Status:** Accepted future implementation direction, GC0 complete on
+  2026-11-04. Production GC and GC1 are not implemented. Supersedes no current
+  behavior yet; the [activation map](GC0_BASELINE_AND_CONTRACTS.md#decision-supersession-map)
+  assigns supersessions to the milestones that implement them.
+- **Decision:** Use pinned BDWGC 8.2.12 with compiler-provided roots, exact heap
+  layouts, private per-image collectors and explicit synchronous Memory.collect
+  completing marking and sweeping on the caller. No automatic collection,
+  allocation-failure recovery collection, finalizers or collector workers.
+  Remove source free, deferred free, destructors and implicit temporary
+  destruction at the coordinated language cutover. Preserve general defer,
+  explicit resource closure, native memory safety, D051, D132/D133 and D188.
+- **Contracts:** Adopt the [GC0 contracts](GC0_BASELINE_AND_CONTRACTS.md#frozen-future-contracts):
+  separate generated RootHandle and ListenerRegistration lifetimes, preserved
+  source close semantics, explicit suspended managed segments across JVM
+  reentry without unwinding HotSpot frames, native ABI ironwood-native-gc-1
+  and schema-2 bridge generation compatibility. Preserve allocationCount;
+  derive liveAllocationCount from collection-time language-kind enumeration
+  plus subsequent successful language allocations, without hot-path ledgers.
+- **Boundary:** Current manual reclamation and its mandatory proofs remain
+  authoritative. The inventoried obsolete analysis/cleanup is removed only
+  after its resource, optimization and root/effect consumers migrate. This
+  accepts neither a second shipping memory mode nor an implicit GC fallback,
+  and does not revive D004's allocation-time collection or restart self-hosting.
+- **Verification:** 24 exact tests passed with Java 21 and 25; isolated pinned
+  accounting, per-type layout and explicit scheduling/exhaustion controls passed.
+  Focused defer and collector/control optimized-code and timing baselines are in
+  the [GC0 manifest](gc-evaluation/gc0-2026-11-04-manifest.json). Complete
+  production layouts, roots, reentry, resource migration, target/distribution
+  and performance qualification remain gates in the integration plan.

@@ -5,6 +5,11 @@ have different semantics. This file records differences that Java programmers
 might otherwise miss. See `docs/IRONWOOD_VS_JAVA.md` for the broader, numbered
 feature comparison.
 
+The [explicit-GC migration contracts](GC0_BASELINE_AND_CONTRACTS.md) describe an
+accepted future change (D315), including removal of free/destructors and a
+separate Java Bridge root handle. Production behavior has not changed; the
+current differences below still apply until the coordinated cutover.
+
 ## Per-allocation missing-free suppression
 
 `@SuppressUnfreed` is a compiler-owned directive on a reference local declaration,

@@ -2,9 +2,9 @@
 
 # Explicit GC integration and memory-model migration
 
-Date: 2026-11-04. Status: implementation plan requested by the maintainer.
-The implementation is not started by this document. Current compiler behavior
-and the existing memory specification remain authoritative until the cutover.
+Date: 2026-11-04. Status: GC0 complete; GC1 and production integration unstarted.
+Current compiler behavior and the existing memory specification remain
+authoritative until the cutover.
 
 The selected direction is BDWGC 8.2.12 with compiler-provided roots and exact
 layout metadata, synchronous `Memory.collect()`, removal of source `free` and
@@ -312,11 +312,12 @@ Java need an explicit native root until the foreign lifetime ends. Existing
 single-thread/external-serialization obligations remain; add no runtime thread
 checks, synchronization or TLS operations to ordinary scalar calls.
 
-Recommended replacement for generated owning-facade `free()` is an explicit
+GC0 fixes the replacement for generated owning-facade `free()` as an explicit
 `AutoCloseable` bridge lifetime handle, separate from source object methods.
-Use a small generated `RootHandle<T>`-style owner with a facade value and `close()`
-that releases its foreign anchor. Fix the concrete collision-free generated API
-in GC0. A source-defined `close()` keeps its source resource semantics. Releasing
+Use the generated `RootHandle<T>`, factories and registration API in the
+[frozen GC0 contract](GC0_BASELINE_AND_CONTRACTS.md#generated-java-lifetime-api).
+Its `close()` releases the foreign anchor; a source-defined `close()` keeps its
+source resource semantics. Releasing
 an anchor is not immediate object reclamation and must not destroy a graph still
 reachable from Ironwood or another valid anchor. Dropping a foreign handle without
 closing it can retain an external resource; no asynchronous Cleaner is added.
@@ -377,6 +378,10 @@ does not count free-list cells or sidecars. If that cannot be correct without
 new hot-path ledgers/finalizers, resolve the diagnostic API change before
 cutover; do not add such machinery solely to preserve the old test helper.
 
+GC0's [accounting experiment](GC0_BASELINE_AND_CONTRACTS.md#collection-and-accounting)
+establishes this route for the selected engine profile, so both APIs are retained.
+GC2 still must qualify every production allocation kind and failure path.
+
 ## 5. Milestones and dependencies
 
 Each milestone has a reviewable local checkpoint, focused evidence and a recorded
@@ -421,6 +426,19 @@ reason to leave the current memory or bridge specification stale during work.
 breaking API/CLI changes and performance baselines are concrete. Existing manual
 behavior remains unchanged. Future decision-log edits explicitly distinguish the
 approved direction from the implementation's current status.
+
+**Completion, 2026-11-04:** [GC0 baseline and contracts](GC0_BASELINE_AND_CONTRACTS.md)
+fulfills these criteria against baseline `bb0fbab6`. It records the source-backed
+consumer/resource ledger, all 77 main-library destructor sites, separate generated
+RootHandle and listener-registration lifetimes, suspended native segments across
+JVM reentry, private per-image collectors, `ironwood-native-gc-1` and schema-2
+bridge compatibility. Collection-time kind-filtered enumeration supports keeping
+both allocation counters without a hot-path ledger or finalizers. The
+[evidence manifest](gc-evaluation/gc0-2026-11-04-manifest.json) records 24 exact
+tests passing on Java 21 and 25, isolated accounting/layout/policy controls and
+optimized-code/performance fingerprints. D315 accepts the future contracts;
+existing decisions are not prematurely superseded. GC1 is the next bounded task:
+pinned build/adapter/packaging inputs only, with the current allocator unchanged.
 
 ### GC1. Prepare the engine without enabling it for programs
 
@@ -704,8 +722,6 @@ checkpoints clearly. Record a concrete remaining gate at each stopping point.
 No branch creation beyond the maintainer's request, pushing, hosted jobs or
 automatic self-hosting restart is part of this document's implementation plan.
 
-The first follow-up task should complete GC0: the consumer/disposition ledger,
-concrete foreign lifetime and accounting decisions, and focused baselines. It
-should not combine that inventory with the language cutover. Subsequent tasks
-can own one milestone or a named substage, carrying forward prerequisite commit
-IDs, evidence and remaining gates.
+GC0 is complete; the first follow-up task should complete GC1 without enabling
+GC in production programs. Subsequent tasks can own one milestone or a named
+substage, carrying forward prerequisite commit IDs, evidence and remaining gates.

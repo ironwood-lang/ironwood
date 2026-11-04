@@ -63,3 +63,20 @@ from its pinned DummyVM skeletons under `Apache-2.0`; upstream contributor notic
 are retained in `mmtk-binding/COPYRIGHT`, and the complete license is in the
 repository's `LICENSE-APACHE`. The dependency source archives preserve their own
 licenses. No OpenJDK implementation or test code is imported.
+
+GC0 adds an original `accounting_probe.c` and focused runner, using the prepared
+compiler-directed large configuration without changing the production runtime:
+
+```sh
+python3 scripts/gc-evaluation/run_gc0.py \
+  --evaluation workspace/gc-evaluation-run \
+  --output workspace/gc0-run
+```
+
+Choose a fresh output directory. The runner verifies the pinned archive hash,
+records the reused library/config hashes, compiles with strict warnings, checks
+collection-time language/sidecar accounting, type maps and allocation policy,
+then runs only the paired pooled/rare-allocation cases. Its children retain the
+16 GiB sampled RSS guard and 60-second timeout. It also fingerprints the macOS
+arm64 pooled mutation code; it is not a portable production collector adapter.
+See [GC0 results and remaining gates](../../docs/GC0_BASELINE_AND_CONTRACTS.md).

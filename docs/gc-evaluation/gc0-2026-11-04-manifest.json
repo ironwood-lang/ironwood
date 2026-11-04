@@ -1,0 +1,1468 @@
+{
+  "schema": 1,
+  "date": "2026-11-04",
+  "milestone": "GC0",
+  "status": "complete; production integration unstarted",
+  "baseline_revision": "bb0fbab690871cbdba00b0770532653ebdba713d",
+  "branch": "codex/bdwgc-integration-plan",
+  "host_role": "machost",
+  "platform": "macOS arm64",
+  "ironwood": "0.6.2-beta",
+  "llvm": "23.1.0",
+  "bootstrap": "Oracle Java 21.0.1; javac --release 21",
+  "secondary_test_jdk": "Oracle HotSpot 25.0.4.1",
+  "defer_driver_note": "PATH java version probe reports 25.0.4.1; bin/ironwoodc uses explicit Java 21 JAVA_HOME. Measurements execute native processes.",
+  "scope": "Documentation and independent fixtures only; no compiler/runtime/stdlib behavior changes, production collector linkage, self-hosting or remote writes.",
+  "inventory": {
+    "scan": "All tracked .iron files, Java cleanup IR/generators and runtime C allocation sites. Lexical counts include comments/strings and are search aids, not AST counts.",
+    "lexical_counts_by_area": {
+      "compiler": {
+        "files": 200,
+        "free_lexical_matches": 615,
+        "destructor_lexical_matches": 50
+      },
+      "docs": {
+        "files": 26,
+        "free_lexical_matches": 29,
+        "destructor_lexical_matches": 13
+      },
+      "examples": {
+        "files": 133,
+        "free_lexical_matches": 213,
+        "destructor_lexical_matches": 10
+      },
+      "ide": {
+        "files": 1,
+        "free_lexical_matches": 3,
+        "destructor_lexical_matches": 1
+      },
+      "integration-tests": {
+        "files": 325,
+        "free_lexical_matches": 2524,
+        "destructor_lexical_matches": 57
+      },
+      "projects": {
+        "files": 43,
+        "free_lexical_matches": 128,
+        "destructor_lexical_matches": 6
+      },
+      "scripts": {
+        "files": 21,
+        "free_lexical_matches": 74,
+        "destructor_lexical_matches": 4
+      },
+      "stdlib": {
+        "files": 277,
+        "free_lexical_matches": 761,
+        "destructor_lexical_matches": 81
+      }
+    },
+    "main_stdlib_files": 254,
+    "main_stdlib_source_inventory_sha256": "f1830fa26644d7a0920741fd5c0555b1993e34c39c99c77a4f1f74bfc0bf8196",
+    "stdlib_destructors": [
+      {
+        "path": "stdlib/src/main/ironwood/ironwood/bench/Bench.iron",
+        "line": 176,
+        "body_sha256": "4ff5669bc334d6bcc0c664093d974dd1d7b7077c3e2894c7eb27ceb6cb604fa9",
+        "disposition": "obsolete_managed_graph_destruction"
+      },
+      {
+        "path": "stdlib/src/main/ironwood/ironwood/bench/Bench.iron",
+        "line": 507,
+        "body_sha256": "609617ebe5bbacb8aedaf80cdfa5e2df1f221efb680c1809c22d2a5948a7089c",
+        "disposition": "obsolete_managed_graph_destruction"
+      },
+      {
+        "path": "stdlib/src/main/ironwood/ironwood/bench/NanoBench.iron",
+        "line": 195,
+        "body_sha256": "dd9cd20b4cfcb48f42d73eca1706d9d23c8d19dc0b1938ea095659cf7d4d4652",
+        "disposition": "obsolete_managed_graph_destruction"
+      },
+      {
+        "path": "stdlib/src/main/ironwood/ironwood/ds/ArrayLinkedList.iron",
+        "line": 193,
+        "body_sha256": "5d91813b4b31bde25ca1b010ccd36ebc2d8fdb88f18d91f6d1710a07e2387a92",
+        "disposition": "obsolete_managed_graph_destruction"
+      },
+      {
+        "path": "stdlib/src/main/ironwood/ironwood/ds/ArrayList.iron",
+        "line": 445,
+        "body_sha256": "08f60093ef3cdeb64cddd46b29ebae9bbce07495ec855dbdcf0e55642e3f79f7",
+        "disposition": "obsolete_managed_graph_destruction"
+      },
+      {
+        "path": "stdlib/src/main/ironwood/ironwood/ds/ByteBufferMap.iron",
+        "line": 626,
+        "body_sha256": "76fddfbb4fed21e5ecedab4a2e4e89935f467a55436c4d742d774cd70d426fce",
+        "disposition": "obsolete_managed_graph_destruction"
+      },
+      {
+        "path": "stdlib/src/main/ironwood/ironwood/ds/ByteBufferMapEntry.iron",
+        "line": 37,
+        "body_sha256": "e7b9cc68b842a3999db82eba329c95a83f5ba969453af17184283697fe7a5990",
+        "disposition": "obsolete_managed_graph_destruction"
+      },
+      {
+        "path": "stdlib/src/main/ironwood/ironwood/ds/ByteMap.iron",
+        "line": 203,
+        "body_sha256": "60830ed6b48d76a476c7b37865c14ddc203b1f7f670aebe184c4aa04e93cf7fc",
+        "disposition": "obsolete_managed_graph_destruction"
+      },
+      {
+        "path": "stdlib/src/main/ironwood/ironwood/ds/CharMap.iron",
+        "line": 204,
+        "body_sha256": "60830ed6b48d76a476c7b37865c14ddc203b1f7f670aebe184c4aa04e93cf7fc",
+        "disposition": "obsolete_managed_graph_destruction"
+      },
+      {
+        "path": "stdlib/src/main/ironwood/ironwood/ds/CharSequenceMap.iron",
+        "line": 416,
+        "body_sha256": "76fddfbb4fed21e5ecedab4a2e4e89935f467a55436c4d742d774cd70d426fce",
+        "disposition": "obsolete_managed_graph_destruction"
+      },
+      {
+        "path": "stdlib/src/main/ironwood/ironwood/ds/CharSequenceMapEntry.iron",
+        "line": 32,
+        "body_sha256": "7c293aacb8d4907cfe14cec7845d6dbbd40aa82bc863d73aab06013cf95b360f",
+        "disposition": "obsolete_managed_graph_destruction"
+      },
+      {
+        "path": "stdlib/src/main/ironwood/ironwood/ds/HashMap.iron",
+        "line": 430,
+        "body_sha256": "76fddfbb4fed21e5ecedab4a2e4e89935f467a55436c4d742d774cd70d426fce",
+        "disposition": "obsolete_managed_graph_destruction"
+      },
+      {
+        "path": "stdlib/src/main/ironwood/ironwood/ds/HashSet.iron",
+        "line": 193,
+        "body_sha256": "764acc16269461acb982c4647887563ff540abf57cd6ad3003df30134344d0d5",
+        "disposition": "obsolete_managed_graph_destruction"
+      },
+      {
+        "path": "stdlib/src/main/ironwood/ironwood/ds/IdentityHashMap.iron",
+        "line": 424,
+        "body_sha256": "76fddfbb4fed21e5ecedab4a2e4e89935f467a55436c4d742d774cd70d426fce",
+        "disposition": "obsolete_managed_graph_destruction"
+      },
+      {
+        "path": "stdlib/src/main/ironwood/ironwood/ds/IdentityHashSet.iron",
+        "line": 182,
+        "body_sha256": "764acc16269461acb982c4647887563ff540abf57cd6ad3003df30134344d0d5",
+        "disposition": "obsolete_managed_graph_destruction"
+      },
+      {
+        "path": "stdlib/src/main/ironwood/ironwood/ds/IntArrayList.iron",
+        "line": 263,
+        "body_sha256": "08f60093ef3cdeb64cddd46b29ebae9bbce07495ec855dbdcf0e55642e3f79f7",
+        "disposition": "obsolete_managed_graph_destruction"
+      },
+      {
+        "path": "stdlib/src/main/ironwood/ironwood/ds/IntArrayListIterator.iron",
+        "line": 59,
+        "body_sha256": "62b17b825079dace4063a0bba45179d7e4e97887b9108da8d2dfccdc840f3955",
+        "disposition": "obsolete_managed_graph_destruction"
+      },
+      {
+        "path": "stdlib/src/main/ironwood/ironwood/ds/IntLinkedList.iron",
+        "line": 250,
+        "body_sha256": "dd4fb89423f6dcbbbc3fac25041a951e1047505298839ae1f881ae2db528acf8",
+        "disposition": "obsolete_managed_graph_destruction"
+      },
+      {
+        "path": "stdlib/src/main/ironwood/ironwood/ds/IntLinkedListIterator.iron",
+        "line": 58,
+        "body_sha256": "62b17b825079dace4063a0bba45179d7e4e97887b9108da8d2dfccdc840f3955",
+        "disposition": "obsolete_managed_graph_destruction"
+      },
+      {
+        "path": "stdlib/src/main/ironwood/ironwood/ds/IntMap.iron",
+        "line": 347,
+        "body_sha256": "76fddfbb4fed21e5ecedab4a2e4e89935f467a55436c4d742d774cd70d426fce",
+        "disposition": "obsolete_managed_graph_destruction"
+      },
+      {
+        "path": "stdlib/src/main/ironwood/ironwood/ds/IntSet.iron",
+        "line": 156,
+        "body_sha256": "764acc16269461acb982c4647887563ff540abf57cd6ad3003df30134344d0d5",
+        "disposition": "obsolete_managed_graph_destruction"
+      },
+      {
+        "path": "stdlib/src/main/ironwood/ironwood/ds/IntSetIterator.iron",
+        "line": 50,
+        "body_sha256": "62b17b825079dace4063a0bba45179d7e4e97887b9108da8d2dfccdc840f3955",
+        "disposition": "obsolete_managed_graph_destruction"
+      },
+      {
+        "path": "stdlib/src/main/ironwood/ironwood/ds/LinkedHashMap.iron",
+        "line": 450,
+        "body_sha256": "76fddfbb4fed21e5ecedab4a2e4e89935f467a55436c4d742d774cd70d426fce",
+        "disposition": "obsolete_managed_graph_destruction"
+      },
+      {
+        "path": "stdlib/src/main/ironwood/ironwood/ds/LinkedHashSet.iron",
+        "line": 194,
+        "body_sha256": "764acc16269461acb982c4647887563ff540abf57cd6ad3003df30134344d0d5",
+        "disposition": "obsolete_managed_graph_destruction"
+      },
+      {
+        "path": "stdlib/src/main/ironwood/ironwood/ds/LinkedList.iron",
+        "line": 263,
+        "body_sha256": "dd4fb89423f6dcbbbc3fac25041a951e1047505298839ae1f881ae2db528acf8",
+        "disposition": "obsolete_managed_graph_destruction"
+      },
+      {
+        "path": "stdlib/src/main/ironwood/ironwood/ds/LongArrayList.iron",
+        "line": 263,
+        "body_sha256": "08f60093ef3cdeb64cddd46b29ebae9bbce07495ec855dbdcf0e55642e3f79f7",
+        "disposition": "obsolete_managed_graph_destruction"
+      },
+      {
+        "path": "stdlib/src/main/ironwood/ironwood/ds/LongArrayListIterator.iron",
+        "line": 59,
+        "body_sha256": "62b17b825079dace4063a0bba45179d7e4e97887b9108da8d2dfccdc840f3955",
+        "disposition": "obsolete_managed_graph_destruction"
+      },
+      {
+        "path": "stdlib/src/main/ironwood/ironwood/ds/LongLinkedList.iron",
+        "line": 250,
+        "body_sha256": "dd4fb89423f6dcbbbc3fac25041a951e1047505298839ae1f881ae2db528acf8",
+        "disposition": "obsolete_managed_graph_destruction"
+      },
+      {
+        "path": "stdlib/src/main/ironwood/ironwood/ds/LongLinkedListIterator.iron",
+        "line": 58,
+        "body_sha256": "62b17b825079dace4063a0bba45179d7e4e97887b9108da8d2dfccdc840f3955",
+        "disposition": "obsolete_managed_graph_destruction"
+      },
+      {
+        "path": "stdlib/src/main/ironwood/ironwood/ds/LongMap.iron",
+        "line": 348,
+        "body_sha256": "76fddfbb4fed21e5ecedab4a2e4e89935f467a55436c4d742d774cd70d426fce",
+        "disposition": "obsolete_managed_graph_destruction"
+      },
+      {
+        "path": "stdlib/src/main/ironwood/ironwood/ds/LongSet.iron",
+        "line": 156,
+        "body_sha256": "764acc16269461acb982c4647887563ff540abf57cd6ad3003df30134344d0d5",
+        "disposition": "obsolete_managed_graph_destruction"
+      },
+      {
+        "path": "stdlib/src/main/ironwood/ironwood/ds/LongSetIterator.iron",
+        "line": 50,
+        "body_sha256": "62b17b825079dace4063a0bba45179d7e4e97887b9108da8d2dfccdc840f3955",
+        "disposition": "obsolete_managed_graph_destruction"
+      },
+      {
+        "path": "stdlib/src/main/ironwood/ironwood/ds/UnmodifiableList.iron",
+        "line": 98,
+        "body_sha256": "81b8a075184604e02b447ff70bb898a77614d95bb803dcd2ff81f9c475bb2e93",
+        "disposition": "obsolete_managed_graph_destruction"
+      },
+      {
+        "path": "stdlib/src/main/ironwood/ironwood/io/BufferedInputStream.iron",
+        "line": 143,
+        "body_sha256": "d9331871f8aa393dd1c6ce6288b364aa54ab8533609f765b6dad13d1cc8fb72b",
+        "disposition": "obsolete_managed_graph_destruction"
+      },
+      {
+        "path": "stdlib/src/main/ironwood/ironwood/io/BufferedOutputStream.iron",
+        "line": 63,
+        "body_sha256": "d9331871f8aa393dd1c6ce6288b364aa54ab8533609f765b6dad13d1cc8fb72b",
+        "disposition": "obsolete_managed_graph_destruction"
+      },
+      {
+        "path": "stdlib/src/main/ironwood/ironwood/io/BufferedReader.iron",
+        "line": 140,
+        "body_sha256": "932d964f59639f561a99ffbdfcf1c70f5d99d4854f7b78e9bb98d989cd0d118f",
+        "disposition": "obsolete_managed_graph_destruction"
+      },
+      {
+        "path": "stdlib/src/main/ironwood/ironwood/io/BufferedWriter.iron",
+        "line": 126,
+        "body_sha256": "2dadb1f3ae0b894f28e43b741abb860c9f62397c27a1286aeb6dfbdcc598587b",
+        "disposition": "obsolete_managed_graph_destruction"
+      },
+      {
+        "path": "stdlib/src/main/ironwood/ironwood/io/ByteArrayOutputStream.iron",
+        "line": 93,
+        "body_sha256": "d9331871f8aa393dd1c6ce6288b364aa54ab8533609f765b6dad13d1cc8fb72b",
+        "disposition": "obsolete_managed_graph_destruction"
+      },
+      {
+        "path": "stdlib/src/main/ironwood/ironwood/io/FileNotFoundException.iron",
+        "line": 30,
+        "body_sha256": "0eed2b2c05a3ae9aa23192d9af720217d52e228799a2ef281f8c5cc51ab931cc",
+        "disposition": "obsolete_managed_graph_destruction"
+      },
+      {
+        "path": "stdlib/src/main/ironwood/ironwood/io/InputStreamReader.iron",
+        "line": 144,
+        "body_sha256": "7c5be6017ecb2424e14c454cfc863fa85a83434e86cb1bc2edfb5fd77ef9b633",
+        "disposition": "obsolete_managed_graph_destruction"
+      },
+      {
+        "path": "stdlib/src/main/ironwood/ironwood/io/InterruptedIOException.iron",
+        "line": 48,
+        "body_sha256": "0eed2b2c05a3ae9aa23192d9af720217d52e228799a2ef281f8c5cc51ab931cc",
+        "disposition": "obsolete_managed_graph_destruction"
+      },
+      {
+        "path": "stdlib/src/main/ironwood/ironwood/io/OutputStreamWriter.iron",
+        "line": 161,
+        "body_sha256": "2dadb1f3ae0b894f28e43b741abb860c9f62397c27a1286aeb6dfbdcc598587b",
+        "disposition": "obsolete_managed_graph_destruction"
+      },
+      {
+        "path": "stdlib/src/main/ironwood/ironwood/io/PrintWriter.iron",
+        "line": 313,
+        "body_sha256": "a9e32c4688d037f735a8ea62e8a153fe9102a3bcd2c315132e7250fcda527ac3",
+        "disposition": "obsolete_managed_graph_destruction"
+      },
+      {
+        "path": "stdlib/src/main/ironwood/ironwood/io/Reader.iron",
+        "line": 39,
+        "body_sha256": "4f5594c93ba80762bb2fd41802c00710a1238b0ceed1c8e304b506e02c69ae15",
+        "disposition": "obsolete_managed_graph_destruction"
+      },
+      {
+        "path": "stdlib/src/main/ironwood/ironwood/io/StringWriter.iron",
+        "line": 93,
+        "body_sha256": "d9331871f8aa393dd1c6ce6288b364aa54ab8533609f765b6dad13d1cc8fb72b",
+        "disposition": "obsolete_managed_graph_destruction"
+      },
+      {
+        "path": "stdlib/src/main/ironwood/ironwood/io/Writer.iron",
+        "line": 44,
+        "body_sha256": "4f5594c93ba80762bb2fd41802c00710a1238b0ceed1c8e304b506e02c69ae15",
+        "disposition": "obsolete_managed_graph_destruction"
+      },
+      {
+        "path": "stdlib/src/main/ironwood/ironwood/lang/StringBuffer.iron",
+        "line": 556,
+        "body_sha256": "1dfe365f000205cbf7f9b198279c512ed588f44bb10f6a8de094e9e33eea6b01",
+        "disposition": "obsolete_managed_graph_destruction"
+      },
+      {
+        "path": "stdlib/src/main/ironwood/ironwood/lang/StringBuilder.iron",
+        "line": 554,
+        "body_sha256": "1dfe365f000205cbf7f9b198279c512ed588f44bb10f6a8de094e9e33eea6b01",
+        "disposition": "obsolete_managed_graph_destruction"
+      },
+      {
+        "path": "stdlib/src/main/ironwood/ironwood/lang/Throwable.iron",
+        "line": 155,
+        "body_sha256": "4c9ded61a4e153f66c2343061563009c5c608a3d0414d45817c8e355ce039a4b",
+        "disposition": "obsolete_managed_graph_destruction"
+      },
+      {
+        "path": "stdlib/src/main/ironwood/ironwood/lang/Throwable.iron",
+        "line": 161,
+        "body_sha256": "3886664340d284f6a10d405788712534d88211e5089a25e9e222b8699c183107",
+        "disposition": "replace_trace_sidecar_lifetime_and_remove_managed_frees"
+      },
+      {
+        "path": "stdlib/src/main/ironwood/ironwood/net/Inet6Address.iron",
+        "line": 122,
+        "body_sha256": "d2d7cf1946d0ba34ee33dfa7a78563189278e451e428d24fa133798755429591",
+        "disposition": "obsolete_managed_graph_destruction"
+      },
+      {
+        "path": "stdlib/src/main/ironwood/ironwood/net/InetAddress.iron",
+        "line": 604,
+        "body_sha256": "93a7ab30b8c0e36c460005e14a908a3934e23686cddb4b4e268a455a0c1e4b14",
+        "disposition": "obsolete_managed_graph_destruction"
+      },
+      {
+        "path": "stdlib/src/main/ironwood/ironwood/net/InetSocketAddress.iron",
+        "line": 210,
+        "body_sha256": "d5977d5483513a9fed963dfc9cc3c712f217b9dc76d9d0a54d2b6b800aad6f6a",
+        "disposition": "obsolete_managed_graph_destruction"
+      },
+      {
+        "path": "stdlib/src/main/ironwood/ironwood/net/InterfaceAddress.iron",
+        "line": 133,
+        "body_sha256": "2541380296442bde81fa8642506c5f624ee3f83646dde7368658facf0df48b35",
+        "disposition": "obsolete_managed_graph_destruction"
+      },
+      {
+        "path": "stdlib/src/main/ironwood/ironwood/net/InterfaceEnumeration.iron",
+        "line": 35,
+        "body_sha256": "abaefc76dc58bdd2ad4ec2ade6e66c31d65e519d563d0f6f48280a6585ba03a8",
+        "disposition": "obsolete_managed_graph_destruction"
+      },
+      {
+        "path": "stdlib/src/main/ironwood/ironwood/net/InterfaceQuery.iron",
+        "line": 120,
+        "body_sha256": "569de53b38b89ccde667f39e0ae9483809fae0342be8ef0975d09adfe0fa7a62",
+        "disposition": "obsolete_managed_graph_destruction"
+      },
+      {
+        "path": "stdlib/src/main/ironwood/ironwood/net/InterfaceSnapshot.iron",
+        "line": 62,
+        "body_sha256": "ca01baf4cc5a1efb7ae3ab1725528ace212a50fd2d8045e0d1a8bfe6ee648429",
+        "disposition": "obsolete_managed_graph_destruction"
+      },
+      {
+        "path": "stdlib/src/main/ironwood/ironwood/net/NativeSocketImpl.iron",
+        "line": 426,
+        "body_sha256": "e164d8c66d55d57e019764a11b43de9db8e0a6e0c6e186bab96f4246d9017708",
+        "disposition": "obsolete_managed_graph_destruction"
+      },
+      {
+        "path": "stdlib/src/main/ironwood/ironwood/net/NetworkInterface.iron",
+        "line": 449,
+        "body_sha256": "d7a6bad37b00411903c1cd2778067af659884b2014d17b3fb3f0ef7d9cc8b04c",
+        "disposition": "obsolete_managed_graph_destruction"
+      },
+      {
+        "path": "stdlib/src/main/ironwood/ironwood/net/Proxy.iron",
+        "line": 279,
+        "body_sha256": "596b5c195e5be3fc9e3327740a5f8150304e6ac4d7e5f0756466ec10e3d129d8",
+        "disposition": "obsolete_managed_graph_destruction"
+      },
+      {
+        "path": "stdlib/src/main/ironwood/ironwood/net/ProxyExchange.iron",
+        "line": 95,
+        "body_sha256": "1a0a3239f1b9c76258f50698d6fb1b234eb016ca770cfed58ad74d0b82d0eacf",
+        "disposition": "obsolete_managed_graph_destruction"
+      },
+      {
+        "path": "stdlib/src/main/ironwood/ironwood/net/ProxySocketImpl.iron",
+        "line": 74,
+        "body_sha256": "9093672a7321097310fa8bed0d0e1b9983650d9ddeb8527cfe1650c659d346db",
+        "disposition": "obsolete_managed_graph_destruction"
+      },
+      {
+        "path": "stdlib/src/main/ironwood/ironwood/net/ServerSocket.iron",
+        "line": 498,
+        "body_sha256": "22774f9099f90e226803c955c573b69bfca737e8aa21a10f3e55293a300bb5d3",
+        "disposition": "obsolete_managed_graph_destruction"
+      },
+      {
+        "path": "stdlib/src/main/ironwood/ironwood/net/Socket.iron",
+        "line": 939,
+        "body_sha256": "9fe70864d6b21da42119f81ab55430fceffe8a2ecf5af12f4e44bc15b078d352",
+        "disposition": "obsolete_managed_graph_destruction"
+      },
+      {
+        "path": "stdlib/src/main/ironwood/ironwood/net/SocketDescriptor.iron",
+        "line": 446,
+        "body_sha256": "107fce16bb6d63899570d6ab6c33a7f68ab60c2f07ff2b888c11578dfb66f2e2",
+        "disposition": "obsolete_managed_graph_destruction"
+      },
+      {
+        "path": "stdlib/src/main/ironwood/ironwood/net/SocketException.iron",
+        "line": 45,
+        "body_sha256": "0eed2b2c05a3ae9aa23192d9af720217d52e228799a2ef281f8c5cc51ab931cc",
+        "disposition": "obsolete_managed_graph_destruction"
+      },
+      {
+        "path": "stdlib/src/main/ironwood/ironwood/net/UnknownHostException.iron",
+        "line": 45,
+        "body_sha256": "0eed2b2c05a3ae9aa23192d9af720217d52e228799a2ef281f8c5cc51ab931cc",
+        "disposition": "obsolete_managed_graph_destruction"
+      },
+      {
+        "path": "stdlib/src/main/ironwood/ironwood/net/tls/TlsClient.iron",
+        "line": 474,
+        "body_sha256": "345c1db8842b26e17b8281cb01fd21dd73c028a6e061146bb424d86b7e8f1dac",
+        "disposition": "obsolete_managed_graph_destruction"
+      },
+      {
+        "path": "stdlib/src/main/ironwood/ironwood/nio/ByteBuffer.iron",
+        "line": 540,
+        "body_sha256": "58bf7ed6f7c5a574100cc2612668c9604e7b94065495c55bffc44c1452e8a549",
+        "disposition": "obsolete_managed_graph_destruction"
+      },
+      {
+        "path": "stdlib/src/main/ironwood/ironwood/nio/file/UnixDirectoryStream.iron",
+        "line": 70,
+        "body_sha256": "11dfb3b5d5ab0da7b2f6960b33b3ca8090808e145688da9ce8f5a96393876f97",
+        "disposition": "obsolete_managed_graph_destruction"
+      },
+      {
+        "path": "stdlib/src/main/ironwood/ironwood/nio/file/UnixPath.iron",
+        "line": 302,
+        "body_sha256": "1dfe365f000205cbf7f9b198279c512ed588f44bb10f6a8de094e9e33eea6b01",
+        "disposition": "obsolete_managed_graph_destruction"
+      },
+      {
+        "path": "stdlib/src/main/ironwood/ironwood/pool/ArrayObjectPool.iron",
+        "line": 294,
+        "body_sha256": "a739bb8e6c6538ec725e11922426e185d7bdc6bb4b8a0d5fda73469952708eb2",
+        "disposition": "obsolete_managed_graph_destruction"
+      },
+      {
+        "path": "stdlib/src/main/ironwood/ironwood/pool/MultiArrayObjectPool.iron",
+        "line": 47,
+        "body_sha256": "006a05718914e8005e3adb66cb55a783e58e62139213a1c2210313c7f32fbdff",
+        "disposition": "obsolete_managed_graph_destruction"
+      },
+      {
+        "path": "stdlib/src/main/ironwood/ironwood/pool/MultiArrayObjectPool.iron",
+        "line": 214,
+        "body_sha256": "53873877f4f7eb7160b28bbfeb01dd7b7a6aa92362b46e0f67f970194d2510c6",
+        "disposition": "obsolete_managed_graph_destruction"
+      },
+      {
+        "path": "stdlib/src/main/ironwood/ironwood/time/format/DateTimeParseException.iron",
+        "line": 52,
+        "body_sha256": "0aa7dcc643f9d1ed93143f4926f9ef8a44369af67e0f89cd4635ec8fc27c105f",
+        "disposition": "obsolete_managed_graph_destruction"
+      },
+      {
+        "path": "stdlib/src/main/ironwood/ironwood/util/BitSet.iron",
+        "line": 440,
+        "body_sha256": "d6c7d4e138be08f85234a63efc95bde1b363959983731a64319b9aaf5c62e359",
+        "disposition": "obsolete_managed_graph_destruction"
+      },
+      {
+        "path": "stdlib/src/main/ironwood/ironwood/util/StringJoiner.iron",
+        "line": 232,
+        "body_sha256": "a3ff685b43c4e3b57de930d782f6212a3f6c00796d125a20de8b362524d1ac4e",
+        "disposition": "obsolete_managed_graph_destruction"
+      }
+    ],
+    "direct_escape_summary_consumers": [
+      {
+        "path": "compiler/src/main/java/ironwood/compiler/semantic/BridgeConstructionFacts.java",
+        "sha256": "db6197189ca0c70417a94a3220017944f8dc568d4719a25ed6539b2f97b30d9b"
+      },
+      {
+        "path": "compiler/src/main/java/ironwood/compiler/semantic/BridgeResultOrigins.java",
+        "sha256": "efc1ba18502c6f59efac0686b1dc1d31116dc14d5a5cffad36d126e0f5706fd9"
+      },
+      {
+        "path": "compiler/src/main/java/ironwood/compiler/semantic/CopiedMapReadAnalysis.java",
+        "sha256": "3c59b6e0a01d33c48a2fefe624343a549575ec8ac45a9d528a4642e2cfdd39a1"
+      },
+      {
+        "path": "compiler/src/main/java/ironwood/compiler/semantic/EscapeSummaryAnalyzer.java",
+        "sha256": "88c972c98bc30aff72bcce0102a95e92a945ca620255847d291a10aaa70fa069"
+      },
+      {
+        "path": "compiler/src/main/java/ironwood/compiler/semantic/FreshArrayElementAnalysis.java",
+        "sha256": "6dbcb6db218d8dc80bba26106849fe12ce32523abe5795c89e764ded4ebdb0d6"
+      },
+      {
+        "path": "compiler/src/main/java/ironwood/compiler/semantic/FreshBorrowingFactoryAnalysis.java",
+        "sha256": "ae6fde9967459ef3b21d218e6d2a878918be78a3658883a63455ae414b1867e9"
+      },
+      {
+        "path": "compiler/src/main/java/ironwood/compiler/semantic/FunctionAnalyzer.java",
+        "sha256": "edb3388aebfe9b7667f93b36ad53501c58b4a3ffbb73e2741e72ac3e20f67ad2"
+      },
+      {
+        "path": "compiler/src/main/java/ironwood/compiler/semantic/MapCopyFactoryAnalysis.java",
+        "sha256": "bc6fb504dd4a6624f25e127d9d94ba5acd26b6eab667ab2c3fa217f4381e289b"
+      },
+      {
+        "path": "compiler/src/main/java/ironwood/compiler/semantic/OwnedArrayElementAnalyzer.java",
+        "sha256": "929f41bbbb0ed0981a69c5fc71764d79492438b308f88cfcea6c730347a0d242"
+      },
+      {
+        "path": "compiler/src/main/java/ironwood/compiler/semantic/OwnedArrayFieldAnalyzer.java",
+        "sha256": "d40752c14abd5662907b45147a0aff2e3af324ba4140ee19b64b5dde71cd2f7a"
+      },
+      {
+        "path": "compiler/src/main/java/ironwood/compiler/semantic/PoolReleaseAnalysis.java",
+        "sha256": "72c72aef6324ebb9e8c7af3b9d46a8c0be685a0f89ded21523e917d2025bfe82"
+      },
+      {
+        "path": "compiler/src/main/java/ironwood/compiler/semantic/SemanticAnalyzer.java",
+        "sha256": "f6766a2e02dc65391027a96e3018b15dc59427e2bffdb58a80c5d7c0e88cc529"
+      },
+      {
+        "path": "compiler/src/main/java/ironwood/compiler/semantic/SetCopyFactoryAnalysis.java",
+        "sha256": "6c748a4a77b86f25076a770fc860407be4da76f1d75bfc7d9820d98b0a4076cd"
+      },
+      {
+        "path": "compiler/src/main/java/ironwood/compiler/semantic/SummaryCallExplanation.java",
+        "sha256": "2efa091df86c073407597608a5d4f35ebaa74f112e86301a81668a1e0b9152b8"
+      },
+      {
+        "path": "compiler/src/main/java/ironwood/compiler/semantic/SymbolicReturnOriginAnalyzer.java",
+        "sha256": "801bad691809822bf638da03fe21fa7ce500ddb1004188a3f7344529dc1b486a"
+      },
+      {
+        "path": "compiler/src/main/java/ironwood/compiler/semantic/TemporaryBorrowAnalysis.java",
+        "sha256": "fdc84f35846ecbfbd40dbbaa3a24614b9cc85e80a850d017019f998b180c5258"
+      },
+      {
+        "path": "compiler/src/main/java/ironwood/compiler/semantic/TemporaryListBorrowAnalysis.java",
+        "sha256": "1af2f0cf6622a6f10ffea34c167f26469945b489c1ee42463b33aa916b621e52"
+      }
+    ],
+    "reviewed_source_fingerprints": [
+      {
+        "path": "compiler/src/main/java/ironwood/compiler/semantic/SemanticAnalyzer.java",
+        "sha256": "f6766a2e02dc65391027a96e3018b15dc59427e2bffdb58a80c5d7c0e88cc529"
+      },
+      {
+        "path": "compiler/src/main/java/ironwood/compiler/semantic/FunctionAnalyzer.java",
+        "sha256": "edb3388aebfe9b7667f93b36ad53501c58b4a3ffbb73e2741e72ac3e20f67ad2"
+      },
+      {
+        "path": "compiler/src/main/java/ironwood/compiler/semantic/ClosedWorldEffectAnalyzer.java",
+        "sha256": "5dec9381ce87c03ab752ea16143801d5ecd0bb210cb93771e1dd695f404c3ebf"
+      },
+      {
+        "path": "compiler/src/main/java/ironwood/compiler/semantic/BorrowDispatchAnalysis.java",
+        "sha256": "1b95d45c6983a6bcf7090d9d8d5cb68be2555e01fbe82f7895816f9eb12f0447"
+      },
+      {
+        "path": "compiler/src/main/java/ironwood/compiler/semantic/ValueClasses.java",
+        "sha256": "a9d18dcf50818367f3a7817241c349ea6cf494574f73ef47d109b6178566c4c1"
+      },
+      {
+        "path": "compiler/src/main/java/ironwood/compiler/backend/LlvmEmitter.java",
+        "sha256": "fc370423e2ca75a32e0c8b3dc8fcd177e611bc34b59a9614b7e7559cf1468e00"
+      },
+      {
+        "path": "compiler/src/main/java/ironwood/compiler/bridge/BridgeGeneration.java",
+        "sha256": "65dafb8ef0416e40b6ab5e27cf96ef8e98258fe570d9fd22be5d78a96d702988"
+      },
+      {
+        "path": "compiler/src/main/java/ironwood/compiler/bridge/BridgeListenerNativeSources.java",
+        "sha256": "0b60ec5a81f9d37726b731e5a746da9f863feaed46f29eb7d80dca9b8bc5a8df"
+      },
+      {
+        "path": "compiler/src/main/java/ironwood/compiler/bridge/BridgeCallbackCarrierNativeSources.java",
+        "sha256": "17718afa13e9918f7994f2d0fc1f07716485fe410a10d73f8265783bbd3f0000"
+      },
+      {
+        "path": "compiler/src/main/java/ironwood/compiler/bridge/BridgeRootIndexSources.java",
+        "sha256": "a63a7f670a369154c14ea32a3831a9de9d355925e5833acba1bda34551e60397"
+      },
+      {
+        "path": "compiler/src/main/java/ironwood/compiler/bridge/BridgeRootStateSources.java",
+        "sha256": "07aa11af5d4efcd6b4e52a265ca1d8d241d48117dd0c431168e3dcdecc31dae8"
+      },
+      {
+        "path": "compiler/src/main/java/ironwood/compiler/IronClass.java",
+        "sha256": "101a6c10e076c9b6361a75af5246523ee3b6d87e3e0e2c19f447aa180bad2078"
+      },
+      {
+        "path": "runtime/include/ironwood_runtime.h",
+        "sha256": "be24101d77478ab8b578d3820151a4f1b589b72b769ae6b3c558c4f7b8456711"
+      },
+      {
+        "path": "runtime/include/ironwood_bridge.h",
+        "sha256": "b4185845275882fd302a9a68f974fc168dd0c7dab94a01f246a6057e2895695f"
+      },
+      {
+        "path": "runtime/src/ironwood_runtime.c",
+        "sha256": "3bd3a5b2adcd0d91d25e2a5e0c9f9e3131f9df35d0e71c2bd426b07e200c3892"
+      },
+      {
+        "path": "runtime/src/ironwood_tcp.c",
+        "sha256": "9433695470d55c857b9fa2b93bb1b263fb9c2ed8645d4e7e5aba8ae0f8a35c05"
+      },
+      {
+        "path": "runtime/src/ironwood_tls.c",
+        "sha256": "1afffeff70c091c26c4d878f779bce4271b3e55f5ee84e25be8f78b7aa2e1dda"
+      },
+      {
+        "path": "runtime/src/ironwood_host.c",
+        "sha256": "aca6ba16e150ae9fdcee6eb36a0ba04dbd80d1278c7c999a84640df7ed626dcc"
+      },
+      {
+        "path": "runtime/src/ironwood_case.c",
+        "sha256": "5fb97b373702cca41b18b8a49860b2c7a89f9e9891af228d7ada5ab2f11089d6"
+      },
+      {
+        "path": "scripts/test-defer-performance.py",
+        "sha256": "a732a8384b144286f4ebb1bc265a3910da9835c87acc7c58ae4103edaf6eca1d"
+      },
+      {
+        "path": "integration-tests/cases/defer_performance.iron",
+        "sha256": "101eb997657c083bfd3b0166a44b8dd1e5fab0f0dbf15f425cc4f5e74f068ff4"
+      },
+      {
+        "path": "compiler/src/main/java/ironwood/compiler/SourceSetLoader.java",
+        "sha256": "905e3e1f5c1f196873e35b0b8d554ceb89e29e17e239a846eb9d90d083d47ef1"
+      },
+      {
+        "path": "compiler/src/main/java/ironwood/compiler/NativeLinkPipeline.java",
+        "sha256": "8a7a591fae4daf13f1c465b648503d84b584d0eb803d9c484c397c4f9465af57"
+      },
+      {
+        "path": "compiler/src/main/java/ironwood/compiler/backend/RuntimeLibrary.java",
+        "sha256": "8689f99f4bcebce43678e16728cd57de197c2ce694e3f826ddd5f9d1e65bdd4c"
+      },
+      {
+        "path": "compiler/src/main/java/ironwood/compiler/backend/NativeBackend.java",
+        "sha256": "fc9c28c481c2493c4c788cb4b2dc757037184348279f2a1aba826cbe4cdf8f2b"
+      },
+      {
+        "path": "compiler/src/main/java/ironwood/compiler/backend/LlvmToolchain.java",
+        "sha256": "34e9be970c535d555f1993d4b5fbd1c6572391e64fcfe7b0b68062579b7a72b2"
+      },
+      {
+        "path": "compiler/src/main/java/ironwood/compiler/BridgePackageManifest.java",
+        "sha256": "4ba0b84d61f36abf0f66b81cf2af4f59a7acf6610cc0b92f49cce54ed2bdf32e"
+      },
+      {
+        "path": "scripts/package.sh",
+        "sha256": "ba7d1c91df4fbbbe45e5e442ee5666759b821b070bc0aa8403d0249b5710a031"
+      },
+      {
+        "path": "scripts/package-idk.sh",
+        "sha256": "58beb8822fcb08122358031b6e2e39cdb6975b124806b3fa9e93ce9a6ef8674d"
+      }
+    ]
+  },
+  "tests": {
+    "exact_names": [
+      "runtime allocation and deallocation ABI works",
+      "safe free accepts local allocation and ended aliases",
+      "safe free rejects live aliases and escaped allocations",
+      "destructor and constructor effects are checked closed-world",
+      "deterministic destructors and rollback run at O3",
+      "unnamed temporaries match handwritten cleanup",
+      "deferred calls replay typed captures across independent exits",
+      "deferred calls preserve exit and failure order at O3",
+      "deferred calls flush and close loopback sockets at O3",
+      "deferred free enforces local syntax and pending binding writes",
+      "finally preserves primary exceptions and exposes secondary exceptions",
+      "unfreed options preserve native output and artifact diagnostics",
+      "pool release helpers preserve borrows and allocation-free reuse",
+      "pool release helper proofs preserve mandatory safety",
+      "pool release helper proofs survive artifact reconstruction",
+      "catchable allocation failure boundaries run at O3",
+      "allocation failure primary and secondary ordering runs at O3",
+      "native Throwable trace storage survives refresh release and allocation failures",
+      "trace bookkeeping preserves allocation counts and safe free",
+      "Java Bridge root JNI payloads preserve mutation and unpublished rollback",
+      "Java Bridge private long callbacks preserve nested frames and contain native unwinding",
+      "Java Bridge byte-view proofs preserve typed bounds confinement and artifact parity",
+      "Java Bridge generated root state preserves refusal identity and isolated weak caches",
+      "Java Bridge production scalar libraries preserve ABI and warm-path allocation"
+    ],
+    "dispositions": {
+      "runtime allocation and deallocation ABI works": "HEAP/REPL: replace raw managed deallocation harness with allocator/collect/domain checks.",
+      "safe free accepts local allocation and ended aliases": "SYNTAX; preserve alias/reference semantics in GC-root controls.",
+      "safe free rejects live aliases and escaped allocations": "SYNTAX; replace dangling-managed checks with root survival plus separate foreign-lifetime negatives.",
+      "destructor and constructor effects are checked closed-world": "SYNTAX/REPL: remove destructor effects, retain initialization/resource/callback effect negatives.",
+      "deterministic destructors and rollback run at O3": "SYNTAX/REPL: zeroed/published failed construction and explicit acquisition rollback.",
+      "unnamed temporaries match handwritten cleanup": "HEAP/SYNTAX: no implicit destruction; retain operand/exception ordering and add root/reclamation controls.",
+      "deferred calls replay typed captures across independent exits": "PRES; captured references become roots.",
+      "deferred calls preserve exit and failure order at O3": "PRES with destructor/free portions split out; add collection during cleanup.",
+      "deferred calls flush and close loopback sockets at O3": "PRES resource behavior; remove managed frees and use deliberate collect for heap assertions.",
+      "deferred free enforces local syntax and pending binding writes": "SYNTAX; add obsolete-form diagnostics and ordinary method named free in defer.",
+      "finally preserves primary exceptions and exposes secondary exceptions": "PRES; collect with primary/secondary graph in flight.",
+      "unfreed options preserve native output and artifact diagnostics": "SYNTAX; replace with removed-option/directive errors across artifact inputs.",
+      "pool release helpers preserve borrows and allocation-free reuse": "PRES pool protocol/allocation baseline; HEAP for immediate live-count restoration.",
+      "pool release helper proofs preserve mandatory safety": "SYNTAX for heap-free negatives; PRES/REPL wrong-pool/foreign-resource safety.",
+      "pool release helper proofs survive artifact reconstruction": "PRES source/class/archive equivalence; HEAP assertion migration.",
+      "catchable allocation failure boundaries run at O3": "PRES failure order/immortal OOM; REPL no-automatic-collection control.",
+      "allocation failure primary and secondary ordering runs at O3": "PRES; HEAP rollback counts replaced by post-collect counts.",
+      "native Throwable trace storage survives refresh release and allocation failures": "PRES traces/bounded OOM; HEAP/REPL sidecar graph and no finalizer.",
+      "trace bookkeeping preserves allocation counts and safe free": "PRES total-allocation boundary; SYNTAX free; REPL exact accounting after collect.",
+      "Java Bridge root JNI payloads preserve mutation and unpublished rollback": "PRES mutation/delivery failure; HEAP/REPL anchors and published partial graph.",
+      "Java Bridge private long callbacks preserve nested frames and contain native unwinding": "PRES failure containment; REPL explicit suspended-segment roots. Existing pass does not prove collecting JVM reentry.",
+      "Java Bridge byte-view proofs preserve typed bounds confinement and artifact parity": "PRES; REPL collection inside supported borrow and refusal outside lifetime.",
+      "Java Bridge generated root state preserves refusal identity and isolated weak caches": "HEAP/REPL handle/anchor closure, independent aliases, stale identity and image isolation.",
+      "Java Bridge production scalar libraries preserve ABI and warm-path allocation": "PRES no new scalar maintenance; REPL new ABI identity and incompatible-image refusal."
+    },
+    "runs": [
+      {
+        "jdk": "21.0.1",
+        "result": "24 passed",
+        "log": {
+          "path": "workspace/gc0-baseline/tests-jdk21.log",
+          "sha256": "7f38e7ccf935bffe2ee7f483cfa72ec4f4916a9a4f5f642d13003c84cb9da9b8"
+        }
+      },
+      {
+        "jdk": "25.0.4.1",
+        "result": "24 passed",
+        "log": {
+          "path": "workspace/gc0-baseline/tests.log",
+          "sha256": "0e95ab367d628ca5146baa77f22aa374a1c2bede118aa7fff484103285f1cbc2"
+        }
+      }
+    ],
+    "command": "JAVA_HOME=/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home ./scripts/test.sh followed by one --test NAME argument pair per exact_names entry"
+  },
+  "collector": {
+    "baseline_revision": "bb0fbab690871cbdba00b0770532653ebdba713d",
+    "host_role": "machost",
+    "compiler": "Homebrew clang version 23.1.0",
+    "guard_kib": 16777216,
+    "per_child_timeout_seconds": 60,
+    "profile": {
+      "configure": [
+        "--disable-shared",
+        "--enable-static",
+        "--disable-threads",
+        "--disable-parallel-mark",
+        "--disable-thread-local-alloc",
+        "--disable-docs",
+        "--disable-gcj-support",
+        "--disable-java-finalization",
+        "--disable-disclaim",
+        "--disable-throw-bad-alloc-library",
+        "--disable-register-main-static-data",
+        "--disable-dynamic-loading",
+        "--enable-large-config",
+        "--with-libatomic-ops=none"
+      ],
+      "cflags": [
+        "-O3",
+        "-DEAGER_SWEEP",
+        "-DGC_DISABLE_INCREMENTAL",
+        "-DSTACK_NOT_SCANNED",
+        "-DDONT_ADD_BYTE_AT_END"
+      ],
+      "startup": "GC_set_dont_precollect(1); GC_INIT(); GC_disable();",
+      "root_and_layout": "Compiler root arrays and field bitmaps; fixed-layout and per-type fixtures."
+    },
+    "collector_archive_sha256": "42e5194ad06ab6ffb806c83eb99c03462b495d979cda782f3c72c08af833cd4e",
+    "collector_library_sha256": "6bb7303e8ce8c017c2a6bc52f221334f7fd892ddb1045a71556bb7d1f8f6da54",
+    "collector_config_sha256": "76cbbe2419a8f2791c8a49b47a83a9389160b4222841fd0c58f2ba662ddbf82e",
+    "builds": [
+      {
+        "name": "accounting",
+        "sha256": "975ed1ea999094103b231a6f4c8332bad078db39e8de97c9715e463415865f69",
+        "inputs": {
+          "scripts/gc-evaluation/accounting_probe.c": "90326f6008b76df042142098b180144546f4b2ef717f6529e60652d01f02becd"
+        }
+      },
+      {
+        "name": "typeinfo",
+        "sha256": "c5ded761ed40e9b00ad5601b044eab4cb388d6e1b838e6e31255debccf77c67a",
+        "inputs": {
+          "scripts/gc-evaluation/typeinfo_probe.c": "2cc6a757417bbb106e0d169f9b888c2eb14e28f6fc4b429af03bb9e72a38ed11"
+        }
+      },
+      {
+        "name": "policy",
+        "sha256": "2ebb988f044a0458208ef97739ed7f6fe85225bea47f93484506cab8b304b09b",
+        "inputs": {
+          "scripts/gc-evaluation/policy_probe.c": "f4641187c73fecd7a6967dd2fd83d6e40ff2c444343d683dee15a60bf152d2b4",
+          "scripts/gc-evaluation/bdwgc_compiler_roots.c": "32f163629e410e555c868b74fd28638a4801923804f48fdb1681a58a42e59101"
+        }
+      },
+      {
+        "name": "candidate",
+        "sha256": "0c08392bd473987234c147926a4e2adf383c514aed46df8415a3c6d4e7bd3874",
+        "inputs": {
+          "scripts/gc-evaluation/mmtk_probe.c": "cdab57ee5378293b0cae3a2fb4df8c4894d51a07d9a5f2b38d529ab25f2d4990",
+          "scripts/gc-evaluation/bdwgc_compiler_roots.c": "32f163629e410e555c868b74fd28638a4801923804f48fdb1681a58a42e59101"
+        }
+      },
+      {
+        "name": "control",
+        "sha256": "93a282381c03cbffb70ac825aebad96d1357d33b63f86971d75f2bd3a51cc72e",
+        "inputs": {
+          "scripts/gc-evaluation/probe.c": "45dab5ef903e3a06cd302e337b0de731c946c2ec73d280aeccdadc986814d129"
+        }
+      }
+    ],
+    "timings": [
+      {
+        "label": "candidate",
+        "rare": 0,
+        "process_medians_ns_per_op": [
+          1.0318,
+          1.1774,
+          1.187,
+          1.1658,
+          1.1584
+        ],
+        "median_ns_per_op": 1.1658,
+        "checksum": 15067327215085515643
+      },
+      {
+        "label": "candidate",
+        "rare": 1,
+        "process_medians_ns_per_op": [
+          1.0658,
+          1.0784,
+          1.0526,
+          1.1412,
+          1.1092
+        ],
+        "median_ns_per_op": 1.0784,
+        "checksum": 15067327215085515643
+      },
+      {
+        "label": "control",
+        "rare": 0,
+        "process_medians_ns_per_op": [
+          1.1772,
+          1.1356,
+          1.1374,
+          1.2338,
+          1.1628
+        ],
+        "median_ns_per_op": 1.1628,
+        "checksum": 15067327215085515643
+      },
+      {
+        "label": "control",
+        "rare": 1,
+        "process_medians_ns_per_op": [
+          1.0326,
+          1.0914,
+          1.0632,
+          1.0748,
+          1.058
+        ],
+        "median_ns_per_op": 1.0632,
+        "checksum": 15067327215085515643
+      }
+    ],
+    "fingerprints": [
+      {
+        "label": "candidate",
+        "symbol": "_pooled_mutate",
+        "bytes": 108,
+        "sha256": "846e8b129ff65ebe78a9c0c0c6c73885de9b83b3fc9bcff507b88c6144b0f5ef"
+      },
+      {
+        "label": "control",
+        "symbol": "_pooled_mutate",
+        "bytes": 108,
+        "sha256": "846e8b129ff65ebe78a9c0c0c6c73885de9b83b3fc9bcff507b88c6144b0f5ef"
+      }
+    ],
+    "raw_report": {
+      "path": "workspace/gc0-baseline/collector/results.json",
+      "sha256": "029e630cc1fd27e5ab45a0f9f52c95fb97c2c8dae01668cc5b3d5ad403310b08"
+    },
+    "qualification": [
+      {
+        "name": "accounting",
+        "exit": 0,
+        "sampled_peak_rss_kib": 32,
+        "stdout_sha256": "02a3e4876db91ca7a79108bc231a0c15148106080f36a476bb4d9a0555ecf5f7",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "data": [
+          {
+            "case": "accounting",
+            "gc": 1,
+            "language": 4009,
+            "sidecars": 12,
+            "other": 3,
+            "total": 8010
+          },
+          {
+            "case": "accounting",
+            "gc": 2,
+            "language": 4,
+            "sidecars": 1,
+            "other": 3,
+            "total": 8133
+          },
+          {
+            "case": "accounting",
+            "gc": 3,
+            "language": 0,
+            "sidecars": 0,
+            "other": 3,
+            "total": 8133
+          },
+          {
+            "case": "accounting",
+            "gc": 4,
+            "language": 17,
+            "sidecars": 0,
+            "other": 3,
+            "total": 10133
+          },
+          {
+            "case": "accounting",
+            "gc": 5,
+            "language": 0,
+            "sidecars": 0,
+            "other": 3,
+            "total": 10133
+          },
+          {
+            "case": "accounting",
+            "gc": 6,
+            "language": 17,
+            "sidecars": 0,
+            "other": 3,
+            "total": 12133
+          },
+          {
+            "case": "accounting",
+            "gc": 7,
+            "language": 0,
+            "sidecars": 0,
+            "other": 3,
+            "total": 12133
+          },
+          {
+            "case": "accounting",
+            "gc": 8,
+            "language": 17,
+            "sidecars": 0,
+            "other": 3,
+            "total": 14133
+          },
+          {
+            "case": "accounting",
+            "gc": 9,
+            "language": 0,
+            "sidecars": 0,
+            "other": 3,
+            "total": 14133
+          }
+        ]
+      },
+      {
+        "name": "typeinfo",
+        "exit": 0,
+        "sampled_peak_rss_kib": 32,
+        "stdout_sha256": "076fe1303a9ad239e68b1b70f7ff1fb27d4ba873042633b6cfb393757d5de683",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "data": [
+          {
+            "case": "typeinfo_maps",
+            "types": 1024,
+            "collector_kinds": 1,
+            "live_children": 1024,
+            "numeric_targets_reclaimed": 1024,
+            "object_bytes": 64
+          }
+        ]
+      },
+      {
+        "name": "policy",
+        "exit": 0,
+        "sampled_peak_rss_kib": 32,
+        "stdout_sha256": "9414efff5703336576b0b88afbd2c64516a52030a54db17386ac0fbe2ae58c53",
+        "stderr_sha256": "9002853f2a3425b9a1c7d8f615c09ef08a9d4f9325f8a59d0eb5b3a4499e5b4b",
+        "data": [
+          {
+            "case": "compiler_roots_policy",
+            "startup_collections": 0,
+            "allocations_until_null": 521408,
+            "automatic_collections": 0,
+            "explicit_collections": 1,
+            "replacement_allocations": 200000,
+            "deferred_reclaimed_bytes": 0
+          }
+        ]
+      }
+    ],
+    "throughput_runs": [
+      {
+        "name": "candidate-0-0",
+        "exit": 0,
+        "sampled_peak_rss_kib": 2640,
+        "stdout_sha256": "f08727f5e82413ea3c5f0e85650df1eda34de98056212f5e21f813d2604ac809",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "name": "control-0-0",
+        "exit": 0,
+        "sampled_peak_rss_kib": 2624,
+        "stdout_sha256": "8bca8ff46edbdb8c9619b27e0ed4d2959d9875b0285f2b14338e22ab24b8d0fb",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "name": "control-1-0",
+        "exit": 0,
+        "sampled_peak_rss_kib": 4240,
+        "stdout_sha256": "8164f013c58e6c307a8abb03c280455748b969002c3b430ee367541c63e92977",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "name": "candidate-1-0",
+        "exit": 0,
+        "sampled_peak_rss_kib": 4176,
+        "stdout_sha256": "164e38791b3785e99fc3e0eb06ae77b907b239da9c75385469d4412094dbe469",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "name": "candidate-1-1",
+        "exit": 0,
+        "sampled_peak_rss_kib": 4208,
+        "stdout_sha256": "4a5b08008658b943d48426e20a3a45f9a972c98c69e00e38eef00d535e523f5e",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "name": "candidate-0-1",
+        "exit": 0,
+        "sampled_peak_rss_kib": 2640,
+        "stdout_sha256": "3e0a8658e4b058591f46b3e675d7f1040123319b44ead47ce053cef6447c84ea",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "name": "control-0-1",
+        "exit": 0,
+        "sampled_peak_rss_kib": 2640,
+        "stdout_sha256": "ee0be686e963c0290482469336b08a8f183b8b278f6126e7dc6612f100f9c63a",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "name": "control-1-1",
+        "exit": 0,
+        "sampled_peak_rss_kib": 4128,
+        "stdout_sha256": "2e4b467142d0540a537ef7a3b9a410ef58d1c93b4d625474f4e950c9fadf7058",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "name": "control-0-2",
+        "exit": 0,
+        "sampled_peak_rss_kib": 2624,
+        "stdout_sha256": "39c230273218523b01478b12d6bcf1252aafc6905c92b3120080d8dba965e7cd",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "name": "candidate-0-2",
+        "exit": 0,
+        "sampled_peak_rss_kib": 2624,
+        "stdout_sha256": "c93ec5c30cb9c16f646ac3e6782f250066aab57a880be9d075e6611a0c1acb41",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "name": "control-1-2",
+        "exit": 0,
+        "sampled_peak_rss_kib": 4192,
+        "stdout_sha256": "bbb5fa85db8cbd015b15d6305850be0bea25dcff2a7860cbb3e04a79cec67be4",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "name": "candidate-1-2",
+        "exit": 0,
+        "sampled_peak_rss_kib": 4256,
+        "stdout_sha256": "65ec12a2c590bee9f539ab20ee3c4e4a69366b934601f6b375ff53be0aa848d9",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "name": "control-1-3",
+        "exit": 0,
+        "sampled_peak_rss_kib": 4160,
+        "stdout_sha256": "ba068bbcce7c776a9b7fed86219619ffb13fb9c2e4bd2b8310d71eb60958a3d4",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "name": "control-0-3",
+        "exit": 0,
+        "sampled_peak_rss_kib": 2656,
+        "stdout_sha256": "50bfdc551e396a60889f8c3e7b3820d7b3aca2ced3800a0e2b286f71f6f6ccdf",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "name": "candidate-1-3",
+        "exit": 0,
+        "sampled_peak_rss_kib": 4064,
+        "stdout_sha256": "74e62f1a7f5f96addca9a5be17f5c3f5688d5346690a16a582242edde243abe5",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "name": "candidate-0-3",
+        "exit": 0,
+        "sampled_peak_rss_kib": 2656,
+        "stdout_sha256": "8b42f060274327bcaffda1faa08f9530925ad246323a5c2bfe6534dda8d3b34c",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "name": "control-0-4",
+        "exit": 0,
+        "sampled_peak_rss_kib": 2640,
+        "stdout_sha256": "62294160dcf1bda713f6afa2e072fbaba68d0d9e6f584bddba22558123fa77ba",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "name": "control-1-4",
+        "exit": 0,
+        "sampled_peak_rss_kib": 4160,
+        "stdout_sha256": "68dc11bcf15e13fedf65ce42b2b6e6a79aa32b3e2f64f4b80d781fb52c79db72",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "name": "candidate-1-4",
+        "exit": 0,
+        "sampled_peak_rss_kib": 4176,
+        "stdout_sha256": "02341c8d1c06ffc6b4368b9bd0b6c22043184a453ec0c732d369d5947e8625b9",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "name": "candidate-0-4",
+        "exit": 0,
+        "sampled_peak_rss_kib": 2640,
+        "stdout_sha256": "6d4305e512537eb5071e543d8afc085c11ce73a31ed3c6aaa1952be7465ea29e",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    ],
+    "highest_sampled_rss_kib": 4256,
+    "fixture_cflags": [
+      "-O3",
+      "-std=c11",
+      "-D_POSIX_C_SOURCE=200809L",
+      "-Wall",
+      "-Wextra",
+      "-Werror"
+    ]
+  },
+  "defer_performance": [
+    {
+      "case": "call",
+      "report": {
+        "path": "integration-tests/target/defer-performance/call/report.json",
+        "sha256": "98508a36752652d3d87434a44d50147ad55f015075b129496c2b32364648fa22"
+      },
+      "rounds": 6,
+      "runs": {
+        "0": {
+          "iterations": 32000000,
+          "results": {
+            "checksum": 8321000502409611264,
+            "captures": 32000000,
+            "actions": 32000000,
+            "bodies": 32000000,
+            "failures": 0,
+            "allocations": 0,
+            "live_delta": 0,
+            "first_allocations": 0,
+            "first_live_delta": 0
+          },
+          "ns": {
+            "deferred": [
+              40272000,
+              36989000,
+              36869000,
+              37051000,
+              37058000,
+              37082000
+            ],
+            "nested": [
+              36953000,
+              36964000,
+              36927000,
+              36915000,
+              37061000,
+              37046000
+            ]
+          },
+          "median_ns": {
+            "deferred": 37054500.0,
+            "nested": 36958500.0
+          }
+        }
+      },
+      "comparisons": {
+        "nested": {
+          "text_delta": 0,
+          "text_ratio": 1.0,
+          "application_delta": 0,
+          "application_ratio": 1.0,
+          "identical_assembly": true,
+          "median_ratios": {
+            "0": 1.0025975080157474
+          }
+        }
+      },
+      "variants": {
+        "deferred": {
+          "functions_bytes": {
+            "_ironwood.rollback": 20,
+            "_ironwood.initialize.slow.Main": 96,
+            "_main": 1308
+          },
+          "application_bytes": 1424,
+          "text_bytes": 14668,
+          "compiler_sha256": "7d0aeb634bfdf59337931d9abf6b59d47b5f137d2dd6f2dd1dcba54a60d78785",
+          "binary_sha256": "200480b7911972dc97eb0b6a0129057faa03b525e5d5e91298b74ab4ebb68126",
+          "source": {
+            "path": "integration-tests/target/defer-performance/call/deferred/Main.iron",
+            "sha256": "5f4f98cae10c16a11c7acf398951729a5b73090714888eafe05ae0fd830c78fd"
+          },
+          "normalized_assembly": {
+            "path": "integration-tests/target/defer-performance/call/deferred/normalized-assembly.json",
+            "sha256": "3f4c4c705f344df205e6cff1f0273ce0883359912199bf49c3a851b4087e8c20"
+          },
+          "optimized_llvm": {
+            "path": "integration-tests/target/defer-performance/call/deferred/optimized.ll",
+            "sha256": "5fe11bb36db86492e9d8037993095474a1a9e4715f3ac7b7359751846e2ae9ae"
+          },
+          "disassembly": {
+            "path": "integration-tests/target/defer-performance/call/deferred/disassembly.txt",
+            "sha256": "19e714fd47b4b9897147d745282326d2aff93d13843a256254d3361940ec5bf0"
+          }
+        },
+        "nested": {
+          "functions_bytes": {
+            "_ironwood.rollback": 20,
+            "_ironwood.initialize.slow.Main": 96,
+            "_main": 1308
+          },
+          "application_bytes": 1424,
+          "text_bytes": 14668,
+          "compiler_sha256": "7d0aeb634bfdf59337931d9abf6b59d47b5f137d2dd6f2dd1dcba54a60d78785",
+          "binary_sha256": "0c35d267cbd068e06b122493edcb8fa97b5de8851e76af06071406142aa7b26e",
+          "source": {
+            "path": "integration-tests/target/defer-performance/call/nested/Main.iron",
+            "sha256": "5b4e6ab0f14d8f7e52e9dbec2d52a0cffd9120f8b121def4200cc08c6c2c57eb"
+          },
+          "normalized_assembly": {
+            "path": "integration-tests/target/defer-performance/call/nested/normalized-assembly.json",
+            "sha256": "3f4c4c705f344df205e6cff1f0273ce0883359912199bf49c3a851b4087e8c20"
+          },
+          "optimized_llvm": {
+            "path": "integration-tests/target/defer-performance/call/nested/optimized.ll",
+            "sha256": "3d338971846d27eff099e8be0eb694a839be908c44a40b22b9821f732a866f90"
+          },
+          "disassembly": {
+            "path": "integration-tests/target/defer-performance/call/nested/disassembly.txt",
+            "sha256": "5312213b2d84af28cb7b460edee253eca5a8668bb4ca994f0f21193d365cf836"
+          }
+        }
+      }
+    },
+    {
+      "case": "pool",
+      "report": {
+        "path": "integration-tests/target/defer-performance/pool/report.json",
+        "sha256": "68847058103b7a61ee9fa9e66cb3732af779298e1ececa6b361c83efc96de133"
+      },
+      "rounds": 6,
+      "runs": {
+        "0": {
+          "iterations": 32000000,
+          "results": {
+            "checksum": -7167085265927709696,
+            "captures": 0,
+            "actions": 0,
+            "bodies": 32000000,
+            "failures": 0,
+            "allocations": 0,
+            "live_delta": 0,
+            "first_allocations": 0,
+            "first_live_delta": 0
+          },
+          "ns": {
+            "deferred": [
+              80708000,
+              75620000,
+              75697000,
+              75635000,
+              75548000,
+              75498000
+            ],
+            "nested": [
+              75623000,
+              75631000,
+              75561000,
+              75515000,
+              75545000,
+              75621000
+            ]
+          },
+          "median_ns": {
+            "deferred": 75627500.0,
+            "nested": 75591000.0
+          }
+        }
+      },
+      "comparisons": {
+        "nested": {
+          "text_delta": 0,
+          "text_ratio": 1.0,
+          "application_delta": 0,
+          "application_ratio": 1.0,
+          "identical_assembly": true,
+          "median_ratios": {
+            "0": 1.000482861716342
+          }
+        }
+      },
+      "variants": {
+        "deferred": {
+          "functions_bytes": {
+            "_ironwood.rollback": 20,
+            "_ironwood.initialize.slow.Main": 96,
+            "_ironwood.Cell.<constructor-rollback>": 16,
+            "_ironwood.Builder.<constructor-rollback>": 16,
+            "_main": 6224
+          },
+          "application_bytes": 6372,
+          "text_bytes": 22604,
+          "compiler_sha256": "7d0aeb634bfdf59337931d9abf6b59d47b5f137d2dd6f2dd1dcba54a60d78785",
+          "binary_sha256": "0a2839e88dfb4ac40e13a24e04a70c123ae0872501c19206e1cb88d7580d3140",
+          "source": {
+            "path": "integration-tests/target/defer-performance/pool/deferred/Main.iron",
+            "sha256": "46ab4d9ad44906736bb8d28212b126147f0eda8117521d3a868af286f2e0cd1d"
+          },
+          "normalized_assembly": {
+            "path": "integration-tests/target/defer-performance/pool/deferred/normalized-assembly.json",
+            "sha256": "f730a786512bea886263c2c90f0a0d3a2ef8ff0a5db2d5feb5a8940f5c4db04a"
+          },
+          "optimized_llvm": {
+            "path": "integration-tests/target/defer-performance/pool/deferred/optimized.ll",
+            "sha256": "db822c83875e8319b0798798c1658288bcc6ce56b618a08c4e66a59b77254589"
+          },
+          "disassembly": {
+            "path": "integration-tests/target/defer-performance/pool/deferred/disassembly.txt",
+            "sha256": "51f22ff887184d8739d00cf0468704337b7f6b187c1ac75dfa8e3e8abb41e5a3"
+          }
+        },
+        "nested": {
+          "functions_bytes": {
+            "_ironwood.rollback": 20,
+            "_ironwood.initialize.slow.Main": 96,
+            "_ironwood.Cell.<constructor-rollback>": 16,
+            "_ironwood.Builder.<constructor-rollback>": 16,
+            "_main": 6224
+          },
+          "application_bytes": 6372,
+          "text_bytes": 22604,
+          "compiler_sha256": "7d0aeb634bfdf59337931d9abf6b59d47b5f137d2dd6f2dd1dcba54a60d78785",
+          "binary_sha256": "a24d9428eef345280ee1c9df3c9580f0c1b7ed2cbe9a5c470b63c7d736a45446",
+          "source": {
+            "path": "integration-tests/target/defer-performance/pool/nested/Main.iron",
+            "sha256": "d7f8fc5b32224f0822932f126b12b359c250004fa42e1c043273fa4e5d02d9b0"
+          },
+          "normalized_assembly": {
+            "path": "integration-tests/target/defer-performance/pool/nested/normalized-assembly.json",
+            "sha256": "f730a786512bea886263c2c90f0a0d3a2ef8ff0a5db2d5feb5a8940f5c4db04a"
+          },
+          "optimized_llvm": {
+            "path": "integration-tests/target/defer-performance/pool/nested/optimized.ll",
+            "sha256": "3a8227aa8056b3c7a71f107422ebfc94f924b50db5362620389c86ef2e4c8df1"
+          },
+          "disassembly": {
+            "path": "integration-tests/target/defer-performance/pool/nested/disassembly.txt",
+            "sha256": "661bde89c82bb24e9e5f595da6ee2825c634042e08b4849730693e4ca99ae85d"
+          }
+        }
+      }
+    }
+  ],
+  "reproduction": {
+    "collector": "python3 scripts/gc-evaluation/run_gc0.py --evaluation workspace/gc-evaluation-2026-11-04 --output workspace/gc0-baseline/collector",
+    "defer": "JAVA_HOME=/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home python3 scripts/test-defer-performance.py --llvm-home /opt/homebrew/opt/llvm@23 --case call --case pool --rounds 6",
+    "fresh_output_required": true,
+    "dependency_preparation": "scripts/gc-evaluation/README.md",
+    "prior_root_evidence": "docs/gc-evaluation/2026-11-04-manifest.json"
+  },
+  "new_fixture_sources": [
+    {
+      "path": "scripts/gc-evaluation/accounting_probe.c",
+      "sha256": "90326f6008b76df042142098b180144546f4b2ef717f6529e60652d01f02becd"
+    },
+    {
+      "path": "scripts/gc-evaluation/run_gc0.py",
+      "sha256": "ecad2b4fc88b392534b1fb722ea5f109f4680ece9a754412c96f46e3f1984917"
+    }
+  ],
+  "limits": [
+    "One local macOS arm64 baseline; no production layout/root/reentry qualification.",
+    "Collector guard remains 16 GiB sampled RSS and 60 seconds per child; short runs can finish between samples.",
+    "No resident-capacity or self-hosting claim; no unfiltered suite.",
+    "GC1 must validate build compatibility and symbol isolation; GC2 must qualify all production accounting kinds."
+  ],
+  "verification": {
+    "license_audit": "passed (5 OpenJDK-derived source files)",
+    "diff_check": "passed; repeated before local commit",
+    "text_and_links": "no U+2014, prohibited token or broken relative file links; JSON, source hashes and inventory counts checked",
+    "tracked_file_check": "passed on staged GC0 files"
+  }
+}
