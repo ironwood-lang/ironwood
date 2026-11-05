@@ -33,6 +33,7 @@ public final class IrCfgRenamer {
             case IrGcProjectionInstruction i -> new IrGcProjectionInstruction(values.apply(i.result()), operand(i.base()), i.field(), i.sourceSpan());
             case IrGcReadProjectionInstruction i -> new IrGcReadProjectionInstruction(values.apply(i.result()), values.apply(i.address()), i.sourceSpan());
             case IrGcTestExceptionInstruction i -> i;
+            case IrGcUnwindInstruction i -> new IrGcUnwindInstruction(values.apply(i.handle()), i.begin(), i.sourceSpan());
             case IrBridgeBatchAppendInstruction i -> new IrBridgeBatchAppendInstruction(
                     values.apply(i.result()), operand(i.context()), operand(i.index()), operand(i.count()),
                     i.arguments().stream().map(this::operand).toList(), i.sourceSpan());

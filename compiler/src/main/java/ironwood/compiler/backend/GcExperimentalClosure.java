@@ -12,6 +12,10 @@ public final class GcExperimentalClosure {
     private GcExperimentalClosure() {}
 
     public static GcEffects validate(IrProgram program) {
+        return validate(program, false);
+    }
+
+    public static GcEffects validate(IrProgram program, boolean runtimeOwners) {
         if (program.entryPoint().isPresent() || program.allocationFailure().isPresent()
                 || !program.stringConstants().isEmpty() || program.exportRoots().isEmpty()) {
             throw new IllegalArgumentException("GC3 requires explicit standalone roots without legacy entry/exception owners");
@@ -33,7 +37,8 @@ public final class GcExperimentalClosure {
                 throw new IllegalArgumentException("GC3 refuses undescribed immortal static storage");
             }
         }
-        var effects = GcEffects.analyze(program);
+        if (runtimeOwners) requireRuntimeLayout(program);
+        var effects = runtimeOwners ? GcEffects.analyzeRuntimeOwners(program) : GcEffects.analyze(program);
         for (var function : program.functions()) {
             requireType(function.returnType(), classes);
             function.parameters().forEach(parameter -> requireType(parameter.value().type(), classes));
@@ -56,14 +61,28 @@ public final class GcExperimentalClosure {
             var scanner = new IrCfgRenamer(value -> { requireType(value.type(), classes); return value; }, label -> label);
             function.blocks().forEach(scanner::block);
             for (var block : function.blocks()) {
-                if (block.terminator() instanceof IrThrowTerminator || block.terminator() instanceof IrInvokeTerminator invoke
+                if (runtimeOwners && block.terminator() instanceof IrThrowTerminator thrown) requireThrowable(program, thrown.exception());
+                if (!runtimeOwners && (block.terminator() instanceof IrThrowTerminator || block.terminator() instanceof IrInvokeTerminator invoke
                         && !(invoke.call() instanceof IrGcTestExceptionInstruction test
-                        && test.operation() == IrGcTestExceptionInstruction.Operation.RAISE_SCALAR)) {
+                        && test.operation() == IrGcTestExceptionInstruction.Operation.RAISE_SCALAR))) {
                     throw new IllegalArgumentException("GC3 standalone closure refuses unqualified exceptional crossings");
                 }
                 for (var instruction : GcEffects.operations(block)) {
-                    if (!supported(instruction)) {
+                    if (runtimeOwners && instruction instanceof IrExceptionLandingPadInstruction pad) {
+                        requireThrowable(program, pad.exceptionObject());
+                        if (!pad.exceptionHandle().type().equals(IrType.EXCEPTION)) throw new IllegalArgumentException("GC4 invalid native unwind handle");
+                    }
+                    if (runtimeOwners && instruction instanceof IrGcUnwindInstruction unwind
+                            && (unwind.begin() ? block.instructions().getFirst() != instruction
+                            : !(block.terminator() instanceof IrUnreachable) || block.instructions().getLast() != instruction)) {
+                        throw new IllegalArgumentException("GC4 invalid native cleanup/resume block");
+                    }
+                    if (!supported(instruction) && !(runtimeOwners && runtimeInstruction(instruction))) {
                         throw new IllegalArgumentException("GC3 unsupported root/lowering owner: " + instruction.getClass().getSimpleName());
+                    }
+                    if (instruction instanceof IrExceptionLandingPadInstruction && (block.instructions().isEmpty()
+                            || block.instructions().getFirst() != instruction)) {
+                        throw new IllegalArgumentException("GC4 landing pad must start an unwind block");
                     }
                     if (instruction instanceof IrGcRootLoadInstruction load && !slots.contains(load.slot().id())) {
                         throw new IllegalArgumentException("GC3 load from undescribed stack region");
@@ -101,6 +120,51 @@ public final class GcExperimentalClosure {
             }
         }
         return effects;
+    }
+
+    private static boolean runtimeInstruction(IrInstruction instruction) {
+        return instruction instanceof IrGcUnwindInstruction || instruction instanceof IrExceptionLandingPadInstruction || instruction instanceof IrExceptionCaughtInstruction
+                || instruction instanceof IrAddSecondaryExceptionInstruction || instruction instanceof IrSecondaryExceptionAtInstruction
+                || instruction instanceof IrSecondaryExceptionCountInstruction || instruction instanceof IrThrowableTraceInstruction trace
+                && trace.operation() == IrThrowableTraceInstruction.Operation.CAPTURE;
+    }
+
+    private static void requireRuntimeLayout(IrProgram program) {
+        var type = program.classes().stream().filter(c -> c.name().equals("ironwood.lang.Throwable")).findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("GC4 requires explicit Throwable layout"));
+        var fields = type.fields();
+        if (fields.size() != 5 || !fields.stream().map(IrField::name).toList()
+                .equals(java.util.List.of("message", "cause", "<gcMetadata>", "ownedMessage", "causeInitialized"))) {
+            throw new IllegalArgumentException("GC4 stale Throwable runtime layout");
+        }
+        var expected = java.util.List.of(IrType.reference("ironwood.lang.Object"), IrType.reference("ironwood.lang.Throwable"),
+                IrType.reference("ironwood.lang.Object"), IrType.reference("ironwood.lang.Object"), IrType.I1);
+        for (int i = 0; i < fields.size(); i++) if (!fields.get(i).type().equals(expected.get(i))) {
+            throw new IllegalArgumentException("GC4 invalid Throwable runtime reference map");
+        }
+        for (var candidate : program.classes()) if (isThrowable(program, candidate.name())) {
+            if (candidate.fields().size() < fields.size() || !candidate.fields().subList(0, fields.size()).equals(fields)) {
+                throw new IllegalArgumentException("GC4 stale inherited Throwable layout");
+            }
+        }
+    }
+
+    private static void requireThrowable(IrProgram program, IrOperand operand) {
+        if (!operand.type().isNominalReference() || !isThrowable(program, operand.type().referenceName())) {
+            throw new IllegalArgumentException("GC4 managed Throwable reference required");
+        }
+    }
+
+    private static boolean isThrowable(IrProgram program, String name) {
+        Set<String> seen = new HashSet<>();
+        while (seen.add(name)) {
+            if (name.equals("ironwood.lang.Throwable")) return true;
+            String current = name;
+            var type = program.classes().stream().filter(c -> c.name().equals(current)).findFirst();
+            if (type.isEmpty() || type.get().superclass().isEmpty()) return false;
+            name = type.get().superclass().orElseThrow();
+        }
+        return false;
     }
 
     private static void rejectProjectionUse(IrInstruction instruction, Set<Integer> projections) {

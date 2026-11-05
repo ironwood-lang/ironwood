@@ -151,16 +151,21 @@ public final class LlvmEmitter {
 
     /** Isolated development entry. No CLI, source intrinsic or production allocator selects it. */
     public String emitGcExperiment(IrProgram program) {
-        gcEffects = GcExperimentalClosure.validate(program);
+        return emitGcExperiment(program, false);
+    }
+
+    public String emitGcExperiment(IrProgram program, boolean runtimeOwners) {
+        gcEffects = GcExperimentalClosure.validate(program, runtimeOwners);
         gcProgram = program;
         gcLayouts = ironwood.compiler.ir.IrAllocationLayout.of(program);
         bridgeEntries = program.exportRoots();
         selectiveInline = SelectiveInlining.select(program);
         tracePlan = new TracePlan(program);
         throwHelpers.clear();
-        StringBuilder output = new StringBuilder("; ironwood-gc-roots-1 development closure\n");
+        StringBuilder output = new StringBuilder("; experimental exact-root development closure\n");
         output.append("source_filename = \"").append(escapeString(program.moduleName())).append("\"\n");
-        output.append("@iw_gc_root_abi = hidden constant i32 1\n");
+        output.append("@iw_gc_root_abi = hidden constant i32 ").append(runtimeOwners ? 2 : 1).append('\n');
+        output.append("@iw_gc_owner_requirements = hidden constant i32 ").append(runtimeOwners ? 7 : 0).append('\n');
         output.append("%\"ironwood.array\" = type { ptr, i64, i64, i32, i32, [0 x i8] }\n");
         for (var type : program.classes()) if (type.isClass()) emitClass(output, type);
         output.append(GcLayoutEmitter.llvm(program));
@@ -170,6 +175,16 @@ public final class LlvmEmitter {
         output.append("declare void @iw_gc_experiment_refuse() noreturn \"gc-leaf-function\"\n");
         output.append("declare void @iw_gc_test_raise() \"gc-leaf-function\"\n");
         output.append("declare void @iw_gc_test_catch(ptr) nounwind \"gc-leaf-function\"\n");
+        if (runtimeOwners) {
+            output.append("declare void @iw_gc_throw(ptr addrspace(1)) noreturn \"gc-leaf-function\"\n")
+                    .append("declare void @_Unwind_Resume(ptr) noreturn \"gc-leaf-function\"\n")
+                    .append("declare ptr addrspace(1) @iw_gc_exception_take(ptr) nounwind \"gc-leaf-function\"\n")
+                    .append("declare void @iw_gc_exception_caught(ptr addrspace(1)) nounwind \"gc-leaf-function\"\n")
+                    .append("declare void @iw_gc_add_secondary_required(ptr addrspace(1), ptr addrspace(1)) nounwind \"gc-leaf-function\"\n")
+                    .append("declare i64 @iw_gc_secondary_count(ptr addrspace(1)) nounwind \"gc-leaf-function\"\n")
+                    .append("declare ptr addrspace(1) @iw_gc_secondary_at(ptr addrspace(1), i64) nounwind \"gc-leaf-function\"\n")
+                    .append("declare void @iw_gc_trace_capture(ptr addrspace(1)) nounwind \"gc-leaf-function\"\n");
+        }
         output.append("declare i32 @__gxx_personality_v0(...)\n");
         output.append("declare void @llvm.pseudoprobe(i64, i64, i32, i64)\n");
         for (var field : program.staticFields()) {
@@ -209,6 +224,48 @@ public final class LlvmEmitter {
     }
 
     private boolean emitGcInstruction(StringBuilder output, IrFunction function, IrInstruction instruction, ScratchNames names) {
+        if (instruction instanceof ironwood.compiler.ir.IrGcUnwindInstruction unwind) {
+            if (unwind.begin()) {
+                String aggregate = names.next("gc.cleanup");
+                output.append(aggregate).append(" = landingpad { ptr, i32 } cleanup\n  ")
+                        .append(operand(unwind.handle())).append(" = extractvalue { ptr, i32 } ").append(aggregate).append(", 0");
+            } else output.append("call void @_Unwind_Resume(ptr ").append(operand(unwind.handle())).append(')');
+            return true;
+        }
+        if (instruction instanceof IrExceptionLandingPadInstruction pad) {
+            String aggregate = names.next("gc.landing");
+            output.append(aggregate).append(" = landingpad { ptr, i32 } catch ptr null\n  ")
+                    .append(operand(pad.exceptionHandle())).append(" = extractvalue { ptr, i32 } ").append(aggregate).append(", 0\n  ")
+                    .append(operand(pad.exceptionObject())).append(" = call ptr addrspace(1) @iw_gc_exception_take(ptr ")
+                    .append(operand(pad.exceptionHandle())).append(')');
+            return true;
+        }
+        if (instruction instanceof IrExceptionCaughtInstruction caught) {
+            output.append("call void @iw_gc_exception_caught(ptr addrspace(1) ").append(operand(caught.exception())).append(')');
+            return true;
+        }
+        if (instruction instanceof IrAddSecondaryExceptionInstruction secondary) {
+            output.append("call void @iw_gc_add_secondary_required(ptr addrspace(1) ").append(operand(secondary.primary()))
+                    .append(", ptr addrspace(1) ").append(operand(secondary.secondary())).append(')');
+            return true;
+        }
+        if (instruction instanceof IrSecondaryExceptionCountInstruction count) {
+            String size = names.next("gc.secondary.count");
+            output.append(size).append(" = call i64 @iw_gc_secondary_count(ptr addrspace(1) ").append(operand(count.primary()))
+                    .append(")\n  ").append(operand(count.result())).append(" = trunc i64 ").append(size).append(" to i32");
+            return true;
+        }
+        if (instruction instanceof IrSecondaryExceptionAtInstruction at) {
+            String index = names.next("gc.secondary.index");
+            output.append(index).append(" = sext i32 ").append(operand(at.index())).append(" to i64\n  ")
+                    .append(operand(at.result())).append(" = call ptr addrspace(1) @iw_gc_secondary_at(ptr addrspace(1) ")
+                    .append(operand(at.primary())).append(", i64 ").append(index).append(')');
+            return true;
+        }
+        if (instruction instanceof IrThrowableTraceInstruction trace) {
+            output.append("notail call void @iw_gc_trace_capture(ptr addrspace(1) ").append(operand(trace.arguments().getFirst())).append(')');
+            return true;
+        }
         if (instruction instanceof ironwood.compiler.ir.IrGcProjectionInstruction projection) {
             output.append(operand(projection.result())).append(" = getelementptr inbounds ")
                     .append(classType(projection.field().ownerClass())).append(", ptr addrspace(1) ")
@@ -328,7 +385,8 @@ public final class LlvmEmitter {
                         || i instanceof ironwood.compiler.ir.IrGcRootLoadInstruction
                         || i instanceof ironwood.compiler.ir.IrGcProjectionInstruction
                         || i instanceof ironwood.compiler.ir.IrGcReadProjectionInstruction
-                        || i instanceof ironwood.compiler.ir.IrGcTestExceptionInstruction)) {
+                        || i instanceof ironwood.compiler.ir.IrGcTestExceptionInstruction
+                        || i instanceof ironwood.compiler.ir.IrGcUnwindInstruction)) {
             throw new IllegalArgumentException("GC development IR requires explicit closure admission");
         }
         gcProgram = null;
@@ -1986,6 +2044,14 @@ public final class LlvmEmitter {
         if (terminator instanceof IrThrowTerminator thrown) {
             emitTraceProbe(output, tracePlan.site(function, thrown));
             output.append("\n  ");
+            if (gcProgram != null) {
+                output.append(thrown.unwindTarget().isPresent() ? "invoke" : "call")
+                        .append(" void @iw_gc_throw(ptr addrspace(1) ").append(operand(thrown.exception())).append(')');
+                if (thrown.unwindTarget().isPresent()) output.append(" to label %").append(thrown.normalTarget())
+                        .append(" unwind label %").append(thrown.unwindTarget().orElseThrow());
+                else output.append("\n  unreachable");
+                return;
+            }
             if (thrown.unwindTarget().isPresent()) {
                 output.append("invoke void @ironwood_throw(ptr ").append(operand(thrown.exception()))
                         .append(") to label %").append(thrown.normalTarget())
@@ -2024,6 +2090,11 @@ public final class LlvmEmitter {
                 + " unwind label %" + invoke.unwindTarget()
                 + ", !dbg !" + traceSite.callLocationMetadata();
         IrInstruction call = invoke.call();
+        if (gcProgram != null && call instanceof IrAllocateInstruction allocate) {
+            output.append(operand(allocate.result())).append(" = invoke ptr addrspace(1) @iw_gc_experiment_new(i32 ")
+                    .append(gcLayoutIndex(allocate.className())).append(", i64 0)").append(suffix);
+            return;
+        }
         if (gcProgram != null && call instanceof ironwood.compiler.ir.IrGcTestExceptionInstruction test
                 && test.operation() == ironwood.compiler.ir.IrGcTestExceptionInstruction.Operation.RAISE_SCALAR) {
             output.append("invoke void @iw_gc_test_raise()").append(suffix);
@@ -2261,7 +2332,7 @@ public final class LlvmEmitter {
                     .append(direct.arguments().stream()
                             .map(argument -> llvmType(argument.type()) + " " + operand(argument))
                             .collect(Collectors.joining(", ")))
-                    .append(')').append(suffix);
+                    .append(')').append(gcBundle(call)).append(suffix);
             return;
         }
         String debugSuffix = ", !dbg !" + traceSite.callLocationMetadata();

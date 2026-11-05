@@ -1,0 +1,61 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Internal GC4 fixture. The harness substitutes phase after ordinary validation.
+// Throwables use the compiler's exact experimental runtime projection. Deferred
+// operands are captured immediately, and later actions must survive an earlier
+// collection. Native assertions check identity, occurrence order and reclamation.
+class Lifetime {
+
+    static Object published;
+
+    static long order;
+
+    static void phase() {
+
+    }
+
+    static void action(Object captured, int digit) {
+
+        phase();
+        published = captured;
+        order = order * 10 + digit;
+    }
+
+    static void unwind(Throwable primary, Object later) throws Throwable {
+
+        defer action(later, 1);
+        defer action(later, 2);
+        later = null;
+        try {
+            throw primary;
+        } finally {
+            phase();
+        }
+    }
+
+    static void nested(Throwable primary, Throwable secondary, Object later) throws Throwable {
+
+        defer action(later, 3);
+        try {
+            unwind(primary, later);
+        } finally {
+            phase();
+            throw secondary;
+        }
+    }
+
+    static Object saved() {
+
+        return published;
+    }
+
+    static long sequence() {
+
+        return order;
+    }
+
+    static void clear() {
+
+        published = null;
+        order = 0;
+    }
+}

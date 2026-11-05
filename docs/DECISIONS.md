@@ -12503,3 +12503,35 @@ occurrence order. If no
   adds 156 native checks, system unwind/PIE/actual RELRO validation, offline SDK
   use and preserved production controls. Keep the next task bounded to GC4
   runtime lifetimes/failure cleanup.
+
+## D318 - Qualify runtime-only ownership in the experimental GC4 closure
+
+- **Status:** Accepted experimental implementation on 2026-11-04. Extends D317
+  on macOS arm64 only. Supersedes its blanket exceptional-owner refusal only for
+  root ABI 2 with qualified runtime-owner ABI 1; ABI 1 retains its old gates.
+  Supersedes D315's future root-version-1 reservation for these owners, without
+  changing current production native/bridge generations or source semantics.
+- **Decision:** Use exact managed references for Throwable metadata, secondary
+  occurrences, trace snapshots and invocation carrier chains. Internal memory
+  uses collector kinds excluded from language counters, with no source destructor,
+  finalizer or permanent strong Throwable table. Keep native wrappers/resources
+  outside GC reclamation.
+- **Ownership:** Root wrappers from raise through resume/delete and transfer
+  catches into described managed SSA. Use explicit native anchors and bounded
+  allocation-free emergency scopes, clearing their links at ownership end.
+  Enumerate owners only during disabled collection preparation. Require complete
+  owner masks and immutable image metadata; refuse stale/unknown owner classes
+  and foreign segments before collection.
+- **Failure:** Caller-provided native acquisition records reserve before acquire,
+  commit cleanup authority explicitly and release only unpublished acquisitions
+  on failure. Never undo committed source stores, destroy published partial
+  managed objects, or depend on collection/allocation succeeding for cleanup.
+- **Backend:** The pinned LLVM-API development pass preserves statepoint operands
+  and resolves exceptional relocations as nonmoving identities before verification.
+  Ordinary/ABI-1 lowering remains unchanged. No valid steady-state path gains
+  owner registration, TLS, polling or a runtime helper.
+- **Boundary and evidence:** [GC4](GC4_RUNTIME_LIFETIMES.md) records all-mode real
+  exception/wrapper/cleanup, cycle/reclamation, OOM, resource and anchor evidence,
+  retained GC3/production controls and identical noncollecting machine code.
+  Linux GC4 owners, generated JNI/bridge adoption, JVM reentry and multi-image
+  qualification remain closed. The next task is the bounded GC5 cutover.

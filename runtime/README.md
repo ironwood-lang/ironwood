@@ -327,3 +327,20 @@ Prepared SDKs retain the pinned source, notices, headers, canonical configuratio
 identity and actual payload hashes. Downloads happen only during explicit
 preparation; fixture links verify the SDK offline. See
 [GC1 setup and evidence](../docs/GC1_ENGINE_PREPARATION.md).
+
+## Experimental runtime lifetimes
+
+`src/ironwood_gc_lifetimes.c` implements GC4's exact memory-only exception,
+secondary, trace and carrier blocks, scoped native roots, unwind wrappers and
+bounded emergency ownership. It is linked only by `scripts/test-gc-lifetimes.py`
+with the verified GC2 SDK and GC3 reader. Root ABI 2 requires runtime-owner ABI 1;
+ABI 1 still refuses exception/foreign owners. The native qualification is macOS
+arm64 only. Ordinary production runtime allocation and generation are unchanged.
+
+Caller-provided native acquisition records reserve before acquisition, arm on
+success and transfer ownership at commit. Explicit failure cleanup releases
+remaining native acquisitions in reverse order without allocation or collection.
+Collection never runs these releases, source destructors, finalizers or JNI
+cleanup. Anchor closure releases a root, never a source resource. Full generated
+bridge lifetimes, JNI retirement and suspended JVM crossings remain GC6 work.
+See [GC4 contracts, evidence and limits](../docs/GC4_RUNTIME_LIFETIMES.md).

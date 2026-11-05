@@ -18,6 +18,11 @@ public final class NativeBackend {
     /** Development-only object path. Caller must verify/link the GC2 SDK and root reader. */
     public LinkResult compileGcExperiment(LlvmToolchain toolchain, ironwood.compiler.ir.IrProgram program,
                                           NativeTarget target, Path directory, OptimizationLevel level) {
+        return compileGcExperiment(toolchain, program, target, directory, level, false);
+    }
+
+    public LinkResult compileGcExperiment(LlvmToolchain toolchain, ironwood.compiler.ir.IrProgram program,
+                                          NativeTarget target, Path directory, OptimizationLevel level, boolean runtimeOwners) {
         boolean macho = target.triple().startsWith("arm64-apple-macosx")
                 && target.dataLayout().equals("e-m:o-p270:32:32-p271:32:32-p272:64:64-i64:64-i128:128-n32:64-S128-Fn32");
         boolean elf = target.triple().equals("x86_64-unknown-linux-gnu")
@@ -25,13 +30,14 @@ public final class NativeBackend {
         if (!macho && !elf) {
             return new LinkResult(false, "GC3 native root reader is not qualified for " + target.triple());
         }
+        if (runtimeOwners && !macho) return new LinkResult(false, "GC4 runtime owners require native target qualification: " + target.triple());
         if (!toolchain.version().equals("23.1.0")) return new LinkResult(false, "GC3 requires qualified LLVM 23.1.0");
         try {
             Files.createDirectories(directory);
             Path input = directory.resolve("program.ll"), bitcode = directory.resolve("program.bc"),
                     optimized = directory.resolve("program.opt.ll"), traced = directory.resolve("program.traced.ll"),
                     rooted = directory.resolve("program.roots.ll"), object = directory.resolve("program.o");
-            Files.writeString(input, target.applyTo(new LlvmEmitter().emitGcExperiment(program)), StandardCharsets.UTF_8);
+            Files.writeString(input, target.applyTo(new LlvmEmitter().emitGcExperiment(program, runtimeOwners)), StandardCharsets.UTF_8);
             LinkResult result = run("GC3 LLVM assembly", List.of(toolchain.llvmAs().toString(), input.toString(), "-o", bitcode.toString()));
             if (!result.success()) return result;
             var optimize = new java.util.ArrayList<>(List.of(toolchain.opt().toString(), "-passes=" + level.optPassPipeline()));
@@ -44,8 +50,20 @@ public final class NativeBackend {
             String optimizedText = Files.readString(optimized);
             GcLateVerification.strategies(optimizedText);
             Files.writeString(traced, OptimizedTraceMetadata.injectGc(optimizedText, macho), StandardCharsets.UTF_8);
-            result = run("GC3 late statepoints", List.of(toolchain.opt().toString(),
-                    "-passes=rewrite-statepoints-for-gc,verify", "-S", traced.toString(), "-o", rooted.toString()));
+            var statepoints = new java.util.ArrayList<>(List.of(toolchain.opt().toString()));
+            if (runtimeOwners) {
+                Path plugin = directory.resolve("nonmoving-statepoints.so");
+                result = run("GC4 nonmoving statepoint pass build", List.of(toolchain.clang().toString(), "--driver-mode=g++",
+                        "-std=c++17", "-fno-exceptions", "-fPIC", "-shared", "-O2",
+                        "-I" + toolchain.home().resolve("include"), "-L" + toolchain.home().resolve("lib"),
+                        "-Wl,-rpath," + toolchain.home().resolve("lib"), "-lLLVM",
+                        "compiler/src/main/cpp/GcNonmovingStatepoints.cpp", "-o", plugin.toString()));
+                if (!result.success()) return result;
+                statepoints.add("-load-pass-plugin=" + plugin);
+                statepoints.add("-passes=ironwood-nonmoving-statepoints,verify");
+            } else statepoints.add("-passes=rewrite-statepoints-for-gc,verify");
+            statepoints.addAll(List.of("-S", traced.toString(), "-o", rooted.toString()));
+            result = run("GC late statepoints", statepoints);
             if (!result.success()) return result;
             GcLateVerification.stackRegions(Files.readString(rooted));
             result = run("GC3 object generation", List.of(toolchain.llc().toString(), "-filetype=obj", "--relocation-model=pic",

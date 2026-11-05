@@ -21,11 +21,13 @@ public final class GcEffects {
     private static final Effect COLLECT = new Effect(true, false);
     private static final Effect UNKNOWN = new Effect(true, true);
     private final IrProgram program;
+    private final boolean runtimeOwners;
     private final Map<String, Effect> functions = new LinkedHashMap<>();
     private final Map<String, Effect> initializations = new LinkedHashMap<>();
 
-    private GcEffects(IrProgram program) {
+    private GcEffects(IrProgram program, boolean runtimeOwners) {
         this.program = program;
+        this.runtimeOwners = runtimeOwners;
         for (var function : program.functions()) {
             if (functions.putIfAbsent(function.linkageName(), LEAF) != null) {
                 throw new IllegalArgumentException("duplicate function in GC effect graph");
@@ -51,21 +53,26 @@ public final class GcEffects {
                 Effect effect = function.blocks().isEmpty() ? UNKNOWN : LEAF;
                 for (var block : function.blocks()) {
                     for (var instruction : operations(block)) effect = effect.union(instruction(instruction));
-                    // Actual managed exception owners have not migrated. Do not infer
-                    // their callback/cleanup effects from the source exception alone.
-                    if (block.terminator() instanceof IrThrowTerminator) effect = effect.union(UNKNOWN);
+                    if (!runtimeOwners && block.terminator() instanceof IrThrowTerminator) effect = effect.union(UNKNOWN);
                 }
                 changed |= !functions.put(function.linkageName(), effect).equals(effect);
             }
         } while (changed);
     }
 
-    public static GcEffects analyze(IrProgram program) { return new GcEffects(program); }
+    public static GcEffects analyze(IrProgram program) { return new GcEffects(program, false); }
+    /** Only the GC4 admitted runtime has noncollecting exception transport. */
+    public static GcEffects analyzeRuntimeOwners(IrProgram program) { return new GcEffects(program, true); }
     public Effect function(String symbol) { return functions.getOrDefault(symbol, UNKNOWN); }
     public Effect initialization(String type) { return initializations.getOrDefault(type, UNKNOWN); }
     public Map<String, Effect> functions() { return Map.copyOf(functions); }
 
     public Effect instruction(IrInstruction instruction) {
+        if (runtimeOwners && (instruction instanceof IrGcUnwindInstruction || instruction instanceof IrExceptionLandingPadInstruction
+                || instruction instanceof IrExceptionCaughtInstruction || instruction instanceof IrAddSecondaryExceptionInstruction
+                || instruction instanceof IrSecondaryExceptionAtInstruction || instruction instanceof IrSecondaryExceptionCountInstruction
+                || instruction instanceof IrThrowableTraceInstruction trace
+                && trace.operation() == IrThrowableTraceInstruction.Operation.CAPTURE)) return LEAF;
         if (instruction instanceof IrGcCollectInstruction) return COLLECT;
         if (instruction instanceof IrCallInstruction call) return function(call.targetLinkageName());
         if (instruction instanceof IrVirtualCallInstruction call) return dispatch(call.slot());

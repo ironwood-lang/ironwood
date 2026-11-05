@@ -2,8 +2,9 @@
 
 # Explicit GC integration and memory-model migration
 
-Date: 2026-11-04. Status: GC0 through GC3 complete for their documented experimental
-closures; production GC remains disabled.
+Date: 2026-11-04. Status: GC0 through GC4 complete for their documented experimental
+closures; GC4 runtime owners are qualified only on macOS arm64. Production GC
+remains disabled.
 Current compiler behavior and the existing memory specification remain
 authoritative until the cutover.
 
@@ -566,6 +567,20 @@ native handle/JNI-reference balances as well as managed heap reuse.
 **Exit:** no runtime memory-only block relies on a source destructor or finalizer,
 and resource failure cleanup does not depend on successful collection.
 
+**Completion, 2026-11-04:** [GC4 runtime lifetimes](GC4_RUNTIME_LIFETIMES.md)
+records exact experimental Throwable/secondary/trace/carrier graphs, live native
+unwind wrappers, bounded allocation-free emergency ownership, native anchors and
+explicit acquisition/commit/rollback. Root ABI 2 requires runtime-owner ABI 1 and
+complete owner coverage; root ABI 1 retains its zero-owner gates. Native O0-O3
+tests cover real managed exceptions, nested live wrappers, cleanup ordering,
+identity/rethrow, cycles, trace refill, immortal OOM, exhaustion without collection,
+published failed construction, resource failures and released-anchor reclamation.
+The GC2 engine SDK and USE_MARK_BYTES remain unchanged. Production allocation,
+syntax, mandatory proofs and generation constants remain unchanged. GC4 owners
+on Linux x86-64 require separate native qualification; Linux arm64 retains all
+previous gates. JNI/reentry, generated APIs and broad source activation remain
+GC5/GC6 work. The next bounded task is GC5, subject to those explicit refusals.
+
 ### GC5. Make the coordinated language and standard-library cutover
 
 Implement canonical `Memory.collect()` through validated intrinsic resolution,
@@ -772,10 +787,11 @@ checkpoints clearly. Record a concrete remaining gate at each stopping point.
 No branch creation beyond the maintainer's request, pushing, hosted jobs or
 automatic self-hosting restart is part of this document's implementation plan.
 
-GC0 through GC3 are complete for their documented experimental closures. The
-next bounded task is GC4's runtime-only lifetimes and failure cleanup. Preserve
-production allocation, syntax, mandatory proofs and generation contracts until
-the coordinated cutover. Carry forward GC2's layout refusals, Linux arm64's GC3
-native root-reader gate and its unexecuted engine/layout gate.
+GC0 through GC4 are complete for their documented experimental closures. The
+next bounded task is GC5's coordinated language and standard-library cutover.
+Preserve the GC4 owner contract and focused controls. Carry forward legacy-layout
+refusals until their source migration, Linux x86-64's GC4 owner gate and Linux
+arm64's unqualified engine/layout/root-reader gates. Do not admit foreign
+segments or generated bridge outputs before GC6 qualification.
 Subsequent tasks can own one milestone or a named substage, carrying forward
 prerequisite commit IDs, evidence and remaining gates.

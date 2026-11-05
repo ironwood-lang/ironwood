@@ -247,6 +247,11 @@ Reserve native managed-memory ABI **`ironwood-native-gc-1`**, layout metadata
 version **1**, root-map adapter version **1**, and bridge generation schema
 **2** with projection **`objects-gc-v1`**. These identifiers describe the future
 contract only; do not change current constants until their implementation.
+GC4 subsequently versions the experimental owner/root contract as root ABI 2
+and runtime-owner ABI 1, superseding the root-version reservation for images
+with these owners. See [GC4](GC4_RUNTIME_LIFETIMES.md). Current production native
+and bridge generation constants remain unchanged; future manifests must bind
+the implemented root protocol rather than accept the old reservation as coverage.
 Future generation manifests must include `memory.abi`, `gc.config.sha256`,
 `layout.version`, `roots.version` and the new lifetime projection. Validate them
 as required fields, not ignored extension properties. Bump other projection

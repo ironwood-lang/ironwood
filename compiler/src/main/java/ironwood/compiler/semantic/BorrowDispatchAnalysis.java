@@ -294,6 +294,8 @@ final class BorrowDispatchAnalysis {
                     throw new IllegalArgumentException("GC development lowering must follow source borrow analysis");
             case ironwood.compiler.ir.IrGcTestExceptionInstruction ignored ->
                     throw new IllegalArgumentException("GC development lowering must follow source borrow analysis");
+            case ironwood.compiler.ir.IrGcUnwindInstruction ignored ->
+                    throw new IllegalArgumentException("GC development lowering must follow source borrow analysis");
             case ironwood.compiler.ir.IrGcCollectInstruction ignored ->
                     throw new IllegalArgumentException("GC development lowering must follow source borrow analysis");
             case ironwood.compiler.ir.IrGcRootSlotInstruction ignored ->

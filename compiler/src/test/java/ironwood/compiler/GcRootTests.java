@@ -31,7 +31,7 @@ public final class GcRootTests {
         return artifact.program().orElseThrow();
     }
 
-    private static IrProgram closure() throws Exception {
+    static IrProgram closure() throws Exception {
         return closure(source());
     }
 

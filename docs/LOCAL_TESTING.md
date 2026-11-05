@@ -1452,3 +1452,14 @@ unfiltered compiler/platform suite or the historical handwritten root fixture.
 Native execution is qualified on macOS arm64 and Linux x86-64; the latter adds
 stripped-unwind and writable-map controls. See its separate
 [qualification record](GC3_LINUX_X86_64_QUALIFICATION.md). Linux arm64 still refuses.
+
+## Isolated GC4 runtime lifetimes
+
+Use `./scripts/test.sh --test 'GC4 runtime owners require exact exception layouts and effects'`.
+With the same offline-verified GC2 SDK, `scripts/test-gc-lifetimes.py` runs only
+the GC4 fixture at O0/O1/O2/O3, retaining the 16 GiB process-group RSS guard and
+60-second child limit. `--case` and `--level` select focused follow-ups. It builds
+the original LLVM pass against the pinned LLVM 23.1.0 development headers/library.
+The [GC4 record](GC4_RUNTIME_LIFETIMES.md) gives commands, owner gates, native
+resource checks and platform limits. This is macOS arm64 experimental coverage,
+not production GC, JNI reentry or Linux owner qualification.

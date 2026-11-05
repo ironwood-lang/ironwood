@@ -132,6 +132,7 @@ public final class CompilerTests {
     private int runAll() {
         test(GcLayoutTests.NAME, GcLayoutTests::proofs);
         test(GcRootTests.NAME, GcRootTests::proofs);
+        test(GcLifetimeTests.NAME, GcLifetimeTests::proofs);
         test(ironwood.compiler.backend.GcRootObjectTests.NAME, ironwood.compiler.backend.GcRootObjectTests::proofs);
         test("Java Bridge roots and ABI preserve resolved identities", BridgeModelTests::rootsAndAbi);
         test("Java Bridge model survives source class and archive reconstruction", BridgeModelTests::artifacts);

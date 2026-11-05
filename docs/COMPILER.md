@@ -69,6 +69,13 @@ LLVM and native object pipeline. Its exact-root reader and GC2 allocator are
 linked only by the dedicated development harness; ordinary programs keep the
 production pipeline and mandatory reclamation proofs above.
 
+The [GC4 lifetime closure](GC4_RUNTIME_LIFETIMES.md) adds exact internal Throwable
+references, native owner protocol 1 and root ABI 2 on macOS arm64. A small original
+LLVM-API pass preserves statepoint roots while resolving exceptional relocations
+as identities for the nonmoving heap, before verification. Production emission
+and the GC3 pipeline are unchanged. Unsupported owner coverage, legacy layouts
+and foreign segments refuse admission; Linux GC4 owners remain unqualified.
+
 ## Java Bridge producer and analysis foundations
 
 The `ironwoodc --java-bridge` producer composes scalar/String,

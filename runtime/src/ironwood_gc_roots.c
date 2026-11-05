@@ -54,6 +54,7 @@ static void **scratch;
 static size_t root_count, last_count, last_frames, max_frames;
 static int started;
 extern const uint32_t iw_gc_root_abi;
+extern const uint32_t iw_gc_owner_requirements;
 extern const uint64_t iw_gc_static_root_count;
 extern void *const iw_gc_static_roots[];
 extern const uint64_t iw_gc_native_root_count;
@@ -304,20 +305,41 @@ int iw_gc_roots_start(const struct iw_gc_root_config *config) {
     const unsigned char *map = NULL;
     size_t bytes = 0;
     const uint16_t endian = 1;
+#if !defined(__APPLE__) || !defined(__aarch64__) || defined(__arm64e__)
+    if (config != NULL && config->version == 2) return 0; /* GC4 native qualification gate. */
+#endif
     if (started || !IW_ROOT_TARGET_QUALIFIED || config == NULL || !iw_gc_snapshot().disabled
             || sizeof(void *) != 8 || *(const unsigned char *)&endian != 1
-            || config->version != 1 || config->pointer_bytes != 8 || config->little_endian != 1
-            || config->stackmap_version != 3 || iw_gc_root_abi != 1 || config->native_boundary == NULL
+            || (config->version != 1 && config->version != 2) || config->pointer_bytes != 8 || config->little_endian != 1
+            || config->stackmap_version != 3 || iw_gc_root_abi != config->version || config->native_boundary == NULL
             || config->static_slots != iw_gc_static_roots || config->static_count != iw_gc_static_root_count
             || config->native_slots != iw_gc_native_roots || config->native_count != iw_gc_native_root_count
-            || config->exception_owners || config->foreign_owners || config->scratch_capacity == 0
+            || config->scratch_capacity == 0
             || config->scratch_capacity > IW_MAX_MAP_ITEMS) return 0;
+    if (config->version == 1 && (iw_gc_owner_requirements || config->exception_owners
+            || config->foreign_owners || config->owners != NULL)) return 0;
+    if (config->version == 2 && (iw_gc_owner_requirements != 7 || config->exception_owners != 3
+            || config->foreign_owners != 4 || config->owners == NULL)) return 0;
     configuration = *config;
     if (!image_maps(&map, &bytes) || !map_integrity(map, bytes) || !parse_maps(map, bytes)
             || !in_image((uintptr_t)config->native_boundary, 1, 0, 1)
             || !slot_table(config->static_slots, config->static_count)
             || !slot_table(config->native_slots, config->native_count)) {
         iw_gc_roots_stop(); return 0;
+    }
+    if (config->version == 2 && (!in_image((uintptr_t)config->owners, sizeof(*config->owners), 0, 0)
+            || config->owners->version != 1 || config->owners->coverage != iw_gc_owner_requirements
+            || config->owners->foreign_segments || config->owners->reserved
+            || !in_image((uintptr_t)config->owners->enumerate, 1, 0, 1)
+            || config->owners->immortal_count > IW_MAX_MAP_ITEMS
+            || !in_image((uintptr_t)config->owners->immortal_bases,
+                    config->owners->immortal_count * sizeof(void *), 0, 0))) {
+        iw_gc_roots_stop(); return 0;
+    }
+    if (config->version == 2) for (size_t i = 0; i < config->owners->immortal_count; ++i) {
+        if (!in_image((uintptr_t)config->owners->immortal_bases[i], sizeof(void *), 1, 0)) {
+            iw_gc_roots_stop(); return 0;
+        }
     }
     scratch = calloc(config->scratch_capacity, sizeof(void *));
     if (scratch == NULL) { iw_gc_roots_stop(); return 0; }
@@ -327,6 +349,11 @@ int iw_gc_roots_start(const struct iw_gc_root_config *config) {
 
 static int append_root(uintptr_t root) {
     if (root == 0) return 1;
+    if (configuration.owners != NULL) for (size_t i = 0; i < configuration.owners->immortal_count; ++i) {
+        // Only fixed image-owned bases are admitted. Their reference slots are
+        // enumerated by the same owner protocol; no arbitrary native heap scan.
+        if (root == (uintptr_t)configuration.owners->immortal_bases[i]) return 1;
+    }
     if (root_count == configuration.scratch_capacity || GC_base((void *)root) != (void *)root) return 0;
     scratch[root_count++] = (void *)root;
     return 1;
@@ -496,6 +523,8 @@ __attribute__((noinline)) void iw_gc_experiment_collect(void) {
             if (!append_root(base)) goto refused;
         }
     }
+    reason = "native owner coverage/base or scratch capacity";
+    if (configuration.owners != NULL && !configuration.owners->enumerate(append_root)) goto refused;
     last_count = root_count;
     reason = "engine roots/collection";
     if (!iw_gc_roots(root_count ? scratch : NULL, root_count) || !iw_gc_collect()) goto refused;

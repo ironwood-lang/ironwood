@@ -9,6 +9,10 @@ and [compact evidence](gc-evaluation/gc3-2026-11-04-manifest.json). The separate
 executed [Linux x86-64 qualification](GC3_LINUX_X86_64_QUALIFICATION.md) extends
 the original macOS record below; Linux arm64 remains unqualified.
 
+[GC4](GC4_RUNTIME_LIFETIMES.md) subsequently qualifies real managed exception
+owners on macOS arm64 under root ABI 2. The ABI-1 closure and results below
+remain the GC3 baseline; its scalar exception fixture is not GC4 evidence.
+
 ## Pre-change review
 
 Preserve production calloc/free, mandatory reclamation proofs in every unfreed

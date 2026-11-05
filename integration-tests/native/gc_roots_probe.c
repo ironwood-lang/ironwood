@@ -162,7 +162,7 @@ int main(int argc, char **argv) {
         iw_gc_types[i] = iw_gc_describe(layouts[i]); assert(iw_gc_types[i] != NULL);
     }
     struct iw_gc_root_config config = {1, 8, 1, 3, native_boundary, iw_gc_static_roots,
-            (size_t)iw_gc_static_root_count, iw_gc_native_roots, (size_t)iw_gc_native_root_count, 4096, 0, 0};
+            (size_t)iw_gc_static_root_count, iw_gc_native_roots, (size_t)iw_gc_native_root_count, 4096, 0, 0, NULL};
     int refuse_start = 0;
     if (!strcmp(selected, "version")) { config.version = 2; refuse_start = 1; }
     if (!strcmp(selected, "width")) { config.pointer_bytes = 4; refuse_start = 1; }
