@@ -16,7 +16,10 @@ import urllib.request
 
 ROOT = Path(__file__).resolve().parent.parent
 PINS = ROOT / 'packaging/bdwgc.json'
-ADAPTER = ('runtime/include/ironwood_gc_engine.h', 'runtime/src/ironwood_gc_engine.c')
+ADAPTER = ('runtime/include/ironwood_gc_engine.h', 'runtime/src/ironwood_gc_engine.c',
+           'compiler/src/main/cpp/GcNonmovingStatepoints.cpp')
+RUNTIME_INPUTS = ('runtime/src/ironwood_runtime.c', 'runtime/include/ironwood_runtime.h',
+                  'runtime/src/ironwood_gc_roots.c', 'runtime/include/ironwood_gc_roots.h')
 
 
 def digest(path):
@@ -72,10 +75,14 @@ def context(llvm, target):
     if width != 64 or '#define __BYTE_ORDER__ __ORDER_LITTLE_ENDIAN__' not in macros:
         raise ValueError('unqualified pointer width or byte order')
     config = {
+        'adapter.sha256': {name: digest(ROOT / name) for name in (*ADAPTER, *RUNTIME_INPUTS)},
+        'recipe.sha256': digest(Path(__file__)), 'pins.sha256': digest(PINS),
         'archive.sha256': pins['collector']['sha256'], 'configure': pins['profile']['configure'],
         'cflags': pins['profile']['cflags'], 'build.cflags': pins['build.cflags'],
         'adapter.abi': pins['adapter.abi'], 'memory.abi': pins['memory.abi'],
         'layout.version': pins['layout.version'], 'roots.version': pins['roots.version'],
+        'runtime.owner.version': pins['runtime.owner.version'],
+        'statepoint.pass.sha256': digest(ROOT / ADAPTER[2]),
         'target': target, 'target.triple': triple, 'target.data-layout': layout,
         'pointer.width': width, 'endianness': 'little', 'llvm.version': pins['llvm.version'],
         'llvm.stackmap.version': pins['llvm.stackmap.version'],
@@ -161,9 +168,9 @@ def verify(prefix, llvm, target):
     files = {str(p.relative_to(prefix)) for p in prefix.rglob('*') if p.is_file() and p.name != 'build.json'}
     required = {'lib/libgc.a', 'lib/libironwood_gc_engine.a', 'adapter.o',
                 'include/gc/gc.h', 'include/gc/gc_mark.h', 'include/config.h',
-                'include/ironwood_gc_configuration.h', 'configuration.json', 'configuration-audit.json',
+                'include/ironwood_gc_configuration.h', 'configuration.json', 'configuration-audit.json', 'build.properties',
                 'packaging/bdwgc.json', 'scripts/prepare-gc.py', 'licenses/BDWGC-NOTICES.txt',
-                'sources/gc-8.2.12.tar.gz', *ADAPTER}
+                'sources/gc-8.2.12.tar.gz', *ADAPTER, *RUNTIME_INPUTS}
     if files != set(hashes) or not required <= files:
         raise ValueError('GC SDK missing or unmanifested inputs')
     for name, value in hashes.items():
@@ -174,7 +181,7 @@ def verify(prefix, llvm, target):
             raise ValueError('GC SDK checksum mismatch: ' + name)
     if digest(prefix / 'sources/gc-8.2.12.tar.gz') != expected['archive.sha256']:
         raise ValueError('GC SDK source pin mismatch')
-    for name in (*ADAPTER, 'packaging/bdwgc.json', 'scripts/prepare-gc.py'):
+    for name in (*ADAPTER, *RUNTIME_INPUTS, 'packaging/bdwgc.json', 'scripts/prepare-gc.py'):
         if digest(prefix / name) != digest(ROOT / name):
             raise ValueError('GC SDK does not match current adapter/recipe: ' + name)
     for name in ('libgc.a', 'libironwood_gc_engine.a'):
@@ -264,7 +271,7 @@ def prepare(prefix, llvm, target, cache, jobs):
         shutil.copyfile(build / 'include/config.h', staged / 'include/config.h')
         for path in sorted((source / 'include').glob('*.h')):
             shutil.copyfile(path, staged / 'include/gc' / path.name)
-        for name in (*ADAPTER, 'packaging/bdwgc.json', 'scripts/prepare-gc.py'):
+        for name in (*ADAPTER, *RUNTIME_INPUTS, 'packaging/bdwgc.json', 'scripts/prepare-gc.py'):
             (staged / name).parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(ROOT / name, staged / name)
         identity = hashlib.sha256(canonical(config)).hexdigest()
@@ -282,6 +289,14 @@ def prepare(prefix, llvm, target, cache, jobs):
                         str(staged / 'adapter.o')], check=True, env=env)
         symbols = {name: audit_archive(staged / 'lib' / name, llvm, target)
                    for name in ('libgc.a', 'libironwood_gc_engine.a')}
+        properties = {'format': '1', 'configuration.sha256': identity, 'target': target,
+                      'target.triple': config['target.triple'], 'target.data-layout': config['target.data-layout'],
+                      'llvm.version': config['llvm.version'], 'adapter.abi': config['adapter.abi'],
+                      'roots.version': str(config['roots.version']), 'runtime.owner.version': str(config['runtime.owner.version'])}
+        properties.update({'sha256.' + str(p.relative_to(staged)): digest(p)
+                           for p in sorted(staged.rglob('*')) if p.is_file()})
+        (staged / 'build.properties').write_text('# SPDX-License-Identifier: MIT OR Apache-2.0\n'
+                + ''.join(k + '=' + v + '\n' for k, v in sorted(properties.items())))
         manifest = {'format': 1, 'gc.config.sha256': identity, 'configuration': config,
                     'compiler': output([llvm / 'bin/clang', '--version']).splitlines()[0],
                     'make': output(['make', '--version']).splitlines()[0], 'archives': symbols,

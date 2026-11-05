@@ -56,8 +56,5 @@ class IntArrayListIterator implements Iterator<IntHolder> {
         this.canRemove = false;
     }
 
-    destructor {
 
-        free this.holder;
-    }
 }

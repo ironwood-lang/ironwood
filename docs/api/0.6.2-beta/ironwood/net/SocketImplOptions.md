@@ -14,9 +14,9 @@
 public final class SocketImplOptions
 ```
 
-Provides process-lifetime tokens for the implementation protocol. They support dedicated socket
-accessors but are excluded from facade `supportedOptions()` inventories. Do not free these
-tokens.
+Provides process-lifetime tokens for the implementation protocol. They support dedicated
+socket accessors but are excluded from facade `supportedOptions()` inventories. The
+tokens have managed lifetimes.
 
 
 ## Member summary

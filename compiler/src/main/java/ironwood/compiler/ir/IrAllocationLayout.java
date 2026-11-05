@@ -3,7 +3,7 @@ package ironwood.compiler.ir;
 
 import java.util.List;
 
-/** Dormant GC2 storage description. Resolve again after physical-layout transforms. */
+/** Exact storage description, resolved again after physical-layout transforms. */
 public record IrAllocationLayout(String name, Shape shape, List<IrField> fields,
                                  IrType elementType, String refusal) {
     public enum Shape { FIXED, ARRAY, STRING, REFUSED }

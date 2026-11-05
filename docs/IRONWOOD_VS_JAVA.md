@@ -1,5 +1,15 @@
 # Ironwood vs Java
 
+## GC5 memory-model supersession
+
+The migration branch now uses [the GC5 managed memory contract](MEMORY.md).
+Canonical Memory.collect() is the only reclamation point. There is no source
+free, destructor, implicit temporary destruction or managed constructor rollback.
+General defer, initialization, native resource and pool protocols remain.
+Historical proof discussions and examples mentioning those removed forms are
+pre-GC5 records awaiting GC7 consumer migration, not alternate supported semantics.
+Native bridge/shared-library output remains refused until GC6 qualification.
+
 ## Purpose
 
 Ironwood aims to make a Java programmer feel at home while producing a native,
@@ -104,8 +114,8 @@ explanation.
 | [7](#feature-7). Constructor overloading and `this(...)` delegation                | ✅ Overloaded constructors and first-action delegation, with cycle detection.                                                                                 |
 | [8](#feature-8). Instance initialization order                                     | ✅ Superclass initialization, field initializers, initializer blocks, and constructor bodies run in Java order.                                               |
 | [9](#feature-9). `final` fields, locals, and parameters                            | ✅ Initialized and blank-final fields plus final local/parameter bindings and definite-assignment checks.                                                     |
-| [10](#feature-10). Garbage collection                                              | 💡 Ironwood has no automatic collector; compiler-checked `free` runs deterministic class destruction, unnamed temporaries are reclaimed at the end of their statement, and failed construction uses compiler-generated rollback. |
-| [11](#feature-11). Explicit safe `free`                                            | 💡 Ironwood proves one allocation unobservable, including cleanup on return, exception, `break`, `continue`, and `yield`, runs its destructor chain, then releases it. |
+| [10](#feature-10). Garbage collection                                              | 💡 Explicit synchronous Memory.collect() reclaims unreachable managed graphs; allocation never collects automatically. |
+| [11](#feature-11). Explicit safe `free`                                            | ❌ Source free and destructors are removed by GC5; use explicit collection and ordinary resource close. |
 | [12](#feature-12). Single class inheritance                                        | ✅ One direct superclass, as in Java; multiple class inheritance is not allowed.                                                                              |
 | [13](#feature-13). Abstract classes and methods                                    | ✅ Abstract stateful bases, abstract obligations, and concrete implementations.                                                                               |
 | [14](#feature-14). Final classes and methods                                       | ✅ Final classes cannot be extended and final methods cannot be overridden.                                                                                   |
@@ -133,7 +143,7 @@ explanation.
 | [36](#feature-36). Effectively-final local capture                                 | ✅ Local and anonymous classes capture final or effectively-final locals and parameters.                                                                      |
 | [37](#feature-37). Same-nest private access                                        | ✅ Types under one top-level source type may access one another's private members.                                                                            |
 | [38](#feature-38). Nested interfaces and member types in lexical classes           | ✅ Nested interfaces and types inside member, local, and anonymous contexts participate normally in OOP.                                                      |
-| [39](#feature-39). Captured references and reclamation safety                      | 💡 Ironwood extends Java-shaped capture with safe-`free` analysis that treats hidden capture and enclosing references as real aliases.                        |
+| [39](#feature-39). Captured references and reclamation safety                      | ✅ Hidden enclosing and captured references are traced as exact managed fields. |
 | [40](#feature-40). Generic classes and interfaces                                  | ✅ Invariant reference-type generics with exact source typing.                                                                                                |
 | [41](#feature-41). Upper, intersection, dependent, and recursive bounds            | ✅ Java-shaped reference bounds, including F-bounds.                                                                                                          |
 | [42](#feature-42). Generic methods and constructors                                | ✅ Explicit or inferred callable type arguments.                                                                                                              |
@@ -285,7 +295,7 @@ selects no subsequent implementation target. The comparison now contains 64 ✅,
 11 💡, 32 ❌, and 1 ⏳ entries.
 
 D082 implements Feature 91 and removes the final entry from the pending table.
-The comparison now contains 65 ✅, 11 💡, 32 ❌, and 0 ⏳ entries. Feature 104
+After GC5, the comparison contains 67 ✅, 9 💡, 32 ❌, and 0 ⏳ entries. Feature 104
 remains an open promotion decision with its current ❌ status, and no subsequent
 implementation target is selected.
 
@@ -573,124 +583,25 @@ Runnable Ironwood example: [`FinalBindings.iron`](../examples/finalbindings/src/
 
 ### 10. Garbage collection
 
-Java:
+Java uses automatic garbage collection. Ironwood uses explicit synchronous
+Memory.collect(). Allocation never schedules collection. Collection completes
+marking and sweeping before returning, with no finalizers or cleanup callbacks.
+Both models keep objects alive through reachable ordinary and hidden references.
+Ironwood's nonmoving exact heap has no ambient conservative scanning, write
+barriers, background work or continuous shadow stack. See [MEMORY.md](MEMORY.md).
+This remains 💡 because scheduling differs from Java.
 
-```java
-Buffer buffer = new Buffer();
-use(buffer);
-buffer = null;
-// The GC may eventually reclaim the unreachable Buffer.
-```
-
-Ironwood way for memory reclamation:
-
-```java
-Buffer buffer = new Buffer();
-use(buffer);
-free buffer; // Runs Buffer's destructor chain, then releases the allocation.
-```
-
-Java garbage collection tracks reachability automatically and lets the
-collector choose when to reclaim an unreachable object. Ironwood has no garbage
-collector, reference counting, or other automatic collector fallback. Memory
-reclamation of a named allocation is manual through `free`, which the compiler
-accepts only after it proves the allocation has no observable live alias. An
-unnamed temporary, such as the `Keeper` in `use(new Keeper())` or the
-concatenation in `println("Hello " + name)`, is reclaimed by the compiler at
-the end of its statement under the same proof (D185). If no such proof is
-possible, the allocation remains until process exit. A constructor that throws
-does not create a source value: compiler-generated rollback instead reclaims
-the receiver and proven-owned partial state without running the incomplete
-receiver's source destructor; completed owned children are destroyed normally.
 
 <a id="feature-11"></a>
 
 ### 11. Explicit safe `free`
 
-Java:
+This former Ironwood extension is removed and marked ❌. Source `free value;`,
+`defer free value;`, destructors and related diagnostics/options reject with
+migration guidance. There is no alternate manual heap mode. Resource close and
+pool release remain ordinary calls, including deferred calls. `free` and
+`destructor` are legal identifiers. See the [GC5 integration program](../integration-tests/cases/gc5_integrated.iron).
 
-```java
-Buffer buffer = new Buffer();
-use(buffer);
-// Java has no source operation that deterministically frees this object.
-```
-
-Ironwood way:
-
-```java
-class Buffer {
-    private byte[] storage = new byte[4096];
-
-    destructor {
-        free storage;
-    }
-}
-
-Buffer buffer = new Buffer();
-use(buffer);
-free buffer;
-// The compiler accepts free only when no live alias can use this exact
-// heap allocation afterward.
-// free buffer;        // Rejected: the allocation was already freed.
-// use(buffer);        // Rejected: the old value is dead, not null.
-buffer = new Buffer(); // Allowed: plain assignment reuses the variable.
-free buffer;
-```
-
-Cleanup may also cover every normal and abrupt exit from a method:
-
-```java
-void useBuffer() {
-
-    Buffer scoped = new Buffer();
-    defer free scoped;
-    use(scoped);
-}
-```
-
-`free` is Ironwood's compiler-checked extension for reclaiming heap-object or
-array-container memory. For an object it selects the most-derived runtime type,
-runs each declared destructor from derived class to root, and then releases the
-object allocation. A destructor may explicitly free only compiler-proven-owned
-fields and must be allocation-free, non-escaping, non-resurrecting, and unable
-to throw outward. Arrays have no destructor body. Destruction does not
-implicitly traverse arbitrary referenced objects or close an external resource. It
-does not assign `null` to the target variable: the freed value becomes
-compiler-tracked dead state, so a second `free` and every later observation are
-rejected. A plain assignment may reuse the variable because it replaces the
-dead value without reading it and starts a separate allocation lifetime.
-
-Compiler-proven-owned reusable helpers are a narrow compositional case rather
-than arbitrary graph traversal. For example, an `ArrayList` owns its cached
-iterator even though `iterator()` lends that object to ordinary Java-shaped
-code. The caller cannot free the iterator. Completed traversal may be followed
-by `free list;`; the list destructor destroys the iterator, and any later
-iterator observation is rejected. If the iterator or a nested reusable holder
-escapes somewhere observable or uncertain, `free list;` is rejected instead.
-See [Owned Helper Borrows](OWNED_HELPER_BORROWS.md).
-
-Known local bundled data structures also track loans to caller-owned items.
-After every retaining container clears or is destroyed, the caller may explicitly
-free an item if no other alias escaped or still retains it. Individual removal,
-exposed element/iterator aliases and uncertain callbacks remain conservative;
-the hybrid list requires destruction because its package accessor can read
-inactive slots. Containers never destroy those caller items. An unmodifiable
-view must be destroyed before its backing list can be freed. These are compiler
-proofs with no runtime ownership bookkeeping (D107).
-
-Feature 11 is 💡 rather than ✅ because `free` is an Ironwood-specific source
-operation, not Java syntax. It is the implemented language mechanism behind
-Feature 10's deterministic memory-reclamation alternative. The ownership proof
-tracks the compiler-generated copies of a `finally` block independently across
-normal completion, return, catch completion, exceptional unwinding, `break`,
-`continue`, and `yield`. It therefore accepts an exactly-once cleanup such as the
-example above without
-weakening double-free, post-free-use, live-alias, or escape rejection. Transfer
-destinations retain the post-cleanup state; an allocation possibly freed on an
-incoming path cannot be observed. Loop back edges reject newly freed carried
-references and incompatible ownership for a repeated free, while per-iteration
-local allocations may be freed before `continue`. A pending reference-valued
-`yield` remains an alias that cleanup cannot free.
 
 ## Inheritance and polymorphism
 
@@ -1469,31 +1380,12 @@ Runnable Ironwood examples: [`NestedInterfaces.iron`](../examples/nestedinterfac
 
 ### 39. Captured references and reclamation safety
 
-Java:
+Implemented ✅. Hidden captured and enclosing references participate in exact
+managed layouts. A reachable capturing object keeps its graph alive across
+collection, including collecting cleanup. Java-shaped effectively-final capture
+rules remain. General defer captures reference identity immediately, so later
+reassignment does not redirect its call. See [the integrated capture control](../integration-tests/cases/gc5_integrated.iron).
 
-```java
-Box box = new Box();
-Runnable reader = new Runnable() {
-    @Override public void run() { box.read(); }
-};
-// GC traces both box and the hidden captured reference.
-```
-
-Ironwood way:
-
-```java
-Box box = new Box();
-Reader reader = new Reader() {
-    @Override public int read() { return box.read(); }
-};
-// free box; // Rejected while reader's hidden captured alias may still observe it.
-```
-
-Runnable Ironwood example: [`CapturedAliases.iron`](../examples/capturedaliases/src/main/ironwood/org/ironwood/capturedaliases/CapturedAliases.iron).
-
-Feature 39 is 💡 because Java relies on garbage collection to keep captured
-objects alive, while Ironwood makes the same hidden references participate in
-its implemented compile-time proof for explicit `free`.
 
 ## Generics
 

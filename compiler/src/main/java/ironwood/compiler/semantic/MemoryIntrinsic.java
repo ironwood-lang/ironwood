@@ -51,9 +51,11 @@ final class MemoryIntrinsic {
                 && method.thrownTypes().isEmpty();
     }
 
-    private static boolean trusted(SourceFile source) {
+    private static boolean trusted(SourceFile source) { return trusted(source, SOURCE_SHA256); }
+
+    static boolean trusted(SourceFile source, String expected) {
         try {
-            return SOURCE_SHA256.equals(HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
+            return expected.equals(HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
                     .digest(source.content().getBytes(StandardCharsets.UTF_8))));
         } catch (NoSuchAlgorithmException impossible) {
             throw new IllegalStateException(impossible);

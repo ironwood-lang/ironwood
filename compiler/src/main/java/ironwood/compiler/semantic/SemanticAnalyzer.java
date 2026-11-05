@@ -486,9 +486,7 @@ public final class SemanticAnalyzer {
             }
         }
         Map<String, String> constructorDelegations = new LinkedHashMap<>();
-        List<IrFunction> functions = new ArrayList<>(buildConstructorRollbackFunctions(types, ownedArrayFields));
-        // Rollback construction installs descriptor linkage. Publish the final
-        // type metadata only after that linkage and refined ownership are ready.
+        List<IrFunction> functions = new ArrayList<>();
         buildIrTypes(types, hierarchy, dispatchSlots, escapeSummaries);
         functions.addAll(lowerFunctions(types, hierarchy, escapeSummaries, ownedArrayFields,
                 stringPool, diagnostics, constructorDelegations, true, refinementCompleted));
@@ -1640,7 +1638,7 @@ public final class SemanticAnalyzer {
             }
             type.setLayoutFields(layout);
             collectConstructor(type, declaration, resolver, hierarchy, diagnostics);
-            collectDestructor(type, declaration);
+            // GC5 has no source or synthetic destructors.
             if (type.isEnum()) {
                 for (MethodDeclaration method : enumSyntheticMethods(declaration)) {
                     collectClassMethod(type, method, resolver, hierarchy, diagnostics, true);
@@ -2537,15 +2535,20 @@ public final class SemanticAnalyzer {
     private void validateThrowableTraceLayout(Map<String, TypeSymbol> types, List<Diagnostic> diagnostics) {
         TypeSymbol throwable = types.get("ironwood.lang.Throwable");
         if (throwable == null) return;
+        if (!MemoryIntrinsic.trusted(throwable.source(), "8d2f0f0a3f8d14b2bc757c1eee7d5bc857bb999598037c7a8b16a90a6b9eda58")) {
+            diagnostics.add(Diagnostic.error(throwable.source(), throwable.declaration().span(),
+                    "unrecognized reserved Throwable representation; rebuild the bundled standard library"));
+            return;
+        }
         List<IrField> fields = throwable.layoutFields();
         if (throwable.declaredFields().values().stream().anyMatch(field -> field.accessModifier() != AccessModifier.PRIVATE)
                 || !fields.stream().map(IrField::name).toList().equals(List.of(
-                "message", "cause", "traceState", "ownedMessage", "causeInitialized"))
+                "message", "cause", "traceMetadata", "ownedMessage", "causeInitialized", "traceStatus"))
                 || !fields.stream().map(IrField::type).toList().equals(List.of(
                         IrType.reference("ironwood.lang.String"), IrType.reference("ironwood.lang.Throwable"),
-                        IrType.I64, IrType.reference("ironwood.lang.String"), IrType.I1))) {
+                        IrType.reference("ironwood.lang.Object"), IrType.reference("ironwood.lang.String"), IrType.I1, IrType.I32))) {
             diagnostics.add(Diagnostic.error(throwable.source(), throwable.declaration().span(),
-                    "bundled Throwable requires the current message, cause, traceState, ownedMessage and causeInitialized layout; rebuild the standard library"));
+                    "bundled Throwable requires the current managed Throwable layout; rebuild the standard library"));
         }
     }
 
@@ -2917,7 +2920,9 @@ public final class SemanticAnalyzer {
         }
         TypeSymbol resolved = resolution.type().orElse(null);
         if (resolved == null) {
-            diagnostics.add(error(type.span(), "unknown class type '" + type.referenceName() + "'"));
+            diagnostics.add(error(type.span(), type.referenceName().equals("free")
+                    ? "source free has been removed; use Memory.collect() for managed reclamation"
+                    : "unknown class type '" + type.referenceName() + "'"));
             return IrType.reference(type.referenceName(), type.typeArguments().stream()
                     .map(argument -> resolveType(owner, argument, resolver, diagnostics,
                             staticContext, callableVariables)).toList());

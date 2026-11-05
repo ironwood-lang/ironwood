@@ -43,9 +43,9 @@ ignores the scope. A retained interface snapshot is owned by this value and recl
 public static Inet6Address getByAddress(String host, byte[] address, NetworkInterface netif) throws UnknownHostException
 ```
 
-Creates an IPv6 value from copied bytes and an optional interface-derived scope. A supplied
-interface must contain a compatible IPv6 source; its snapshot is copied so the input owner
-may be freed afterward.
+Creates an IPv6 value from copied bytes and an optional interface-derived scope. A
+supplied interface must contain a compatible IPv6 source; its snapshot is copied
+independently of the input owner.
 
 **Parameters**
 
@@ -77,8 +77,7 @@ public NetworkInterface getScopedInterface()
 ```
 
 Returns the associated interface from this value's retained snapshot or its enclosing
-interface query. Do not free the result separately or use it after the address owner is
-freed.
+interface query. The managed result retains its snapshot.
 
 **Returns**
 

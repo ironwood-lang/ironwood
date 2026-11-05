@@ -1,0 +1,59 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Reuse remains allocation-free. Empty/growing slots preserve builder failure
+// order and leave the checkout pointer unchanged until construction succeeds.
+import ironwood.lang.Memory;
+import ironwood.pool.ArrayObjectPool;
+import ironwood.pool.MultiArrayObjectPool;
+import ironwood.pool.ObjectBuilder;
+
+class Gc5Pools {
+    static RuntimeException failure;
+    static class Item { int id; Item(int id) { this.id = id; } }
+    static class Builder implements ObjectBuilder<Item> {
+        int count;
+        int mode;
+        @Override public Item newInstance() {
+            this.count++;
+            if (this.mode == 1) throw failure;
+            if (this.mode == 2) return null;
+            if (this.mode == 3) Memory.collect();
+            return new Item(this.count);
+        }
+    }
+    static void require(boolean value) {
+        if (!value) throw new IllegalStateException("GC5 pool assertion");
+    }
+    public static int main(String[] args) {
+        failure = new RuntimeException("builder");
+        Builder builder = new Builder();
+        ArrayObjectPool<Item> pool = new ArrayObjectPool<Item>(1, 0, builder);
+        builder.mode = 1;
+        try { pool.get(); return 1; }
+        catch (RuntimeException same) { require(same == failure); }
+        builder.mode = 2;
+        try { pool.get(); return 2; }
+        catch (IllegalStateException expected) { }
+        builder.mode = 3;
+        Item first = pool.get();
+        Item second = pool.get();
+        Memory.collect();
+        require(first.id == 3 && second.id == 4 && first != second);
+        pool.release(second);
+        pool.release(first);
+        long before = System.allocationCount();
+        Item reused = pool.get();
+        require(reused == first && reused.id == 3);
+        pool.release(reused);
+        require(System.allocationCount() == before);
+        MultiArrayObjectPool<Item> multi = new MultiArrayObjectPool<Item>(1, builder);
+        Item value = multi.get();
+        multi.release(value);
+        Memory.collect();
+        before = System.allocationCount();
+        Item again = multi.get();
+        require(again == value);
+        multi.release(again);
+        require(System.allocationCount() == before);
+        return 0;
+    }
+}

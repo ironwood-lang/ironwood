@@ -16,8 +16,8 @@ public class SocketTimeoutException extends InterruptedIOException
 
 **Extends:** [`InterruptedIOException`](../io/InterruptedIOException.md)
 
-Reports expiration of a socket operation deadline. Message text is copied; it remains valid
-after the input string is freed.
+Reports expiration of a socket operation deadline. Message text is copied; it is independent
+of later caller input changes.
 
 
 ## Member summary

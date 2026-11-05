@@ -1,5 +1,14 @@
 # Standard library
 
+
+GC5 migration-branch status: normal executables use the single exact managed
+heap and explicit synchronous Memory.collect(). Source reclamation and managed
+destruction are removed. Historical manual-heap descriptions below are superseded
+by [the GC5 contract](../docs/MEMORY.md). Native bridge/shared-library output remains refused
+until GC6. Packaging/distribution and other-target qualification remain GC9 work.
+The selected GC SDK is staged at toolchain/ironwood-gc, with verified source,
+licenses, root/owner ABIs and exact build identities.
+
 The generated [IronDocs API reference](../docs/api/README.md) begins with
 [`ArrayObjectPool`](../docs/api/ironwood/pool/ArrayObjectPool.md). See the
 [IronDocs guide](../docs/IRONDOCS.md) to regenerate it from source comments.

@@ -33,7 +33,6 @@ public class CharSequenceMap<E extends Object> implements Iterable<E> {
     private StringBuilder currentIteratorKey;
     private boolean isPowerOfTwo;
     private int maxKeyLength;
-    // Keep the builder before the pool for reverse-order constructor rollback.
     private final ObjectBuilder<CharSequenceMapEntry<E>> entryBuilder;
     private final ArrayObjectPool<CharSequenceMapEntry<E>> entryPool;
     private CharSequenceMapIterator<E> reusableIterator;
@@ -160,7 +159,9 @@ public class CharSequenceMap<E extends Object> implements Iterable<E> {
 
     private void releaseEntryBackToPool(CharSequenceMapEntry<E> entry) {
 
-        // Reuse overwrites value and next before the entry is published again.
+        // The entry remains reusable; retired user graphs do not.
+        entry.value = null;
+        entry.next = null;
         this.entryPool.release(entry);
     }
 
@@ -186,7 +187,6 @@ public class CharSequenceMap<E extends Object> implements Iterable<E> {
             }
             oldIndex--;
         }
-        free oldData;
     }
     /** Returns the number of stored values. */
 
@@ -352,7 +352,6 @@ public class CharSequenceMap<E extends Object> implements Iterable<E> {
     public String toString() {
 
         StringBuilder builder = new StringBuilder();
-        defer free builder;
         builder.append('{');
         Iterator<E> iterator = iterator();
         boolean first = true;
@@ -413,11 +412,5 @@ public class CharSequenceMap<E extends Object> implements Iterable<E> {
         return reusableIterator;
     }
 
-    destructor {
 
-        free this.reusableIterator;
-        free this.data;
-        free this.entryPool;
-        free this.entryBuilder;
-    }
 }

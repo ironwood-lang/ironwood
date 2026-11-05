@@ -2,13 +2,12 @@
 
 # Explicit GC integration and memory-model migration
 
-Date: 2026-11-04. Status: GC0 through GC4 complete for their documented experimental
-closures; GC4 runtime owners are qualified on macOS arm64 and Linux x86-64.
-Production GC remains disabled. A [GC5 private checkpoint](GC5_IMPLEMENTATION.md)
-adds validated source collection IR and bounded preparation-OOM delivery;
-**GC5 remains incomplete** and ordinary native collection is refused.
-Current compiler behavior and the existing memory specification remain
-authoritative until the cutover.
+Updated 2026-11-05: GC0 through GC4 are complete for their prerequisite
+closures, and **GC5's integrated normal compiler/runtime/required-library
+checkpoint is complete** on macOS arm64 and Linux x86-64. Normal native programs
+use one exact managed model with explicit synchronous Memory.collect(). See
+[the GC5 report](GC5_IMPLEMENTATION.md). Bridge/shared-library output, Linux
+arm64 and arm64e remain gated. GC6-GC10 and self-hosting are not complete.
 
 The selected direction is BDWGC 8.2.12 with compiler-provided roots and exact
 layout metadata, synchronous `Memory.collect()`, removal of source `free` and
@@ -583,7 +582,7 @@ syntax, mandatory proofs and generation constants remain unchanged. The separate
 checks, 156 retained GC3 controls, offline SDK relocation and preserved production
 controls. Linux arm64 retains all previous gates. JNI/reentry, generated APIs and
 broad source activation remain
-GC5/GC6 work. The next bounded task is GC5, subject to those explicit refusals.
+GC5/GC6 work. At that historical checkpoint GC5 was next, subject to those refusals.
 
 ### GC5. Make the coordinated language and standard-library cutover
 
@@ -622,21 +621,17 @@ source/artifact diagnostics.
 on the migration branch. No shipped configuration is declared complete before
 bridge, consumer, performance and platform acceptance below.
 
-**Incomplete checkpoint, 2026-11-04:** [Implementation and verification](GC5_IMPLEMENTATION.md)
-records canonical declaration validation through source/class/archive analysis,
-transitive collection effects, mixed-heap final-link refusals and catchable
-root-scratch exhaustion in the GC4 native closure. The normal runtime still has
-legacy type/Throwable layouts, managed realloc/free and active generated cleanup.
-No normal GC image is emitted, no source reclamation rule is removed, and the
-required-library memory-model migration has not occurred. Continue GC5 before
-GC6; the milestone's integrated exit criterion is unmet.
+**Historical checkpoints:** [The partial implementation](GC5_CHECKPOINT_HISTORY.md)
+and [its Linux follow-up](GC5_LINUX_X86_64_QUALIFICATION.md) deliberately refused
+ordinary native collection before the coordinated cutover.
 
-**Qualification follow-up, 2026-11-05:** the
-[Linux x86-64 record](GC5_LINUX_X86_64_QUALIFICATION.md) validates the implemented
-checkpoint with 17 focused compiler selections and 296 native executions,
-including preparation OOM/refusal controls at O0/O1/O2/O3. It fixes only artifact
-test scratch setup. Normal native GC activation and the coordinated library
-cutover remain incomplete; this is not a GC6-ready handoff.
+**Integrated completion, 2026-11-05:** [Implementation and verification](GC5_IMPLEMENTATION.md)
+records the normal pipeline, actual layouts/root ABI 2/runtime-owner ABI 1,
+managed real exceptions and failure paths, complete required-library migration,
+removed reclamation producers, preserved general defer, reference cleanup and
+local qualification. The accompanying manifest binds source, SDK payload and
+native evidence. This satisfies GC5's exit criterion and leaves all GC6 gates
+closed. It does not accept GC7-GC10 or restart self-hosting.
 
 ### GC6. Complete foreign and library integration
 
@@ -807,12 +802,10 @@ checkpoints clearly. Record a concrete remaining gate at each stopping point.
 No branch creation beyond the maintainer's request, pushing, hosted jobs or
 automatic self-hosting restart is part of this document's implementation plan.
 
-GC0 through GC4 are complete for their documented experimental closures. The
-next bounded task remains GC5's coordinated language and standard-library cutover,
-continuing the explicitly incomplete checkpoint in [the GC5 record](GC5_IMPLEMENTATION.md).
-Preserve the GC4 owner contract and focused controls. Carry forward legacy-layout
-refusals until their source migration and Linux arm64's unqualified
-engine/layout/root-reader gates. Do not admit foreign
-segments or generated bridge outputs before GC6 qualification.
-Subsequent tasks can own one milestone or a named substage, carrying forward
-prerequisite commit IDs, evidence and remaining gates.
+GC0-GC5 are complete within their documented boundaries. The next separately
+authorized milestone is GC6. Preserve exact native roots, runtime owners,
+configuration/pass verification and explicit bridge/shared-library refusals until
+that qualification exists. Carry forward Linux arm64 and arm64e gates. GC7 owns
+remaining repository consumers and broad dead-proof removal; do not begin it as
+incidental cleanup. Subsequent work must retain prerequisite commits, compact
+evidence and remaining gates. No self-hosting restart is implied.

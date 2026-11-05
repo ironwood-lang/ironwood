@@ -37,7 +37,7 @@ def main():
         raise ValueError('ELF-specific control requires a native Linux target')
     sdk, llvm, out = args.sdk.resolve(), args.llvm_home.resolve(), args.output.resolve()
     manifest, flags = gc.verify(sdk, llvm, args.target)
-    assert manifest['configuration']['adapter.abi'] == 'ironwood-gc-engine-2'
+    assert manifest['configuration']['adapter.abi'] == 'ironwood-gc-engine-3'
     assert '-DUSE_MARK_BYTES=1' in manifest['configuration']['cflags']
     out.mkdir(parents=True, exist_ok=False)
     raw = out / 'raw'

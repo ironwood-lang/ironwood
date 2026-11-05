@@ -17,7 +17,6 @@ import ironwood.util.NoSuchElementException;
 
 public class LongLinkedList implements Iterable<LongHolder> {
 
-    // Keep the builder before the pool for reverse-order constructor rollback.
     private final ObjectBuilder<LongLinkedListEntry> entryBuilder;
     private final MultiArrayObjectPool<LongLinkedListEntry> entryPool;
     private int initialCapacity;
@@ -207,7 +206,6 @@ public class LongLinkedList implements Iterable<LongHolder> {
     public String toString() {
 
         StringBuilder builder = new StringBuilder();
-        defer free builder;
         builder.append('[');
         LongLinkedListEntry entry = this.head;
         while (entry != null) {
@@ -247,10 +245,5 @@ public class LongLinkedList implements Iterable<LongHolder> {
         return reusableIterator;
     }
 
-    destructor {
 
-        free this.reusableIterator;
-        free this.entryPool;
-        free this.entryBuilder;
-    }
 }

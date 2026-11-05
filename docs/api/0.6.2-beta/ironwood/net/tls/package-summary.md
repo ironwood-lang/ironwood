@@ -11,9 +11,9 @@
 **Package reference**
 
 Verified TLS 1.2/1.3 clients over direct TCP or explicit proxies. Clients own their transport
-and native TLS state; close before freeing, and do not free borrowed stream views. TLS
-operations require a matching optional SDK at final link. Trust comes from pinned bundled roots
-or an explicit replacement PEM file.
+and native TLS state; close explicitly; managed stream views retain their client. TLS
+operations require a matching optional SDK at final link. Trust comes from pinned bundled
+roots or an explicit replacement PEM file.
 
 | Type | Kind | Description |
 | --- | --- | --- |

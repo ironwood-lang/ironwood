@@ -36,8 +36,5 @@ public abstract class Reader implements Closeable {
     /** Closes this resource. */
     @Override
     public abstract void close() throws IOException;
-    destructor {
 
-        free this.scalar;
-    }
 }

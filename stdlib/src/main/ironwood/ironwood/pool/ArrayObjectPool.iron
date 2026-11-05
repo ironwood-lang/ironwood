@@ -4,66 +4,38 @@
  * Contributed to Ironwood by the original author and relicensed under
  * Ironwood's default project license.
  *
- * Modified for Ironwood: neutral package, explicit builders, and deterministic
- * reclamation of superseded backing arrays.
+ * Modified for Ironwood: neutral package, explicit builders, and managed backing arrays.
  */
 package ironwood.pool;
 
 /**
  * Reuses objects in a resizable array with configurable preloading and growth.
+ * Constructors can preload all or part of the initial capacity. A checkout
+ * builds a value only when its next available slot is empty.
  *
- * <p>Supply an {@code ObjectBuilder<E>} to create values. Constructors can fill
- * every slot immediately or preload only part of the initial capacity. A checkout
- * visits slots from front to back and builds a value only when its slot is empty.
- * Releasing a value makes it the next value returned by {@link #get()}.
+ * <p>This single-threaded pool retains every builder-created object, including
+ * checked-out objects. Return each checkout at most once, only to its originating
+ * pool. Neither checkout nor return resets state or closes resources. Stop using
+ * a returned object until a later checkout. These caller obligations have no
+ * identity lookup or checkout-state bookkeeping on the reuse path.
  *
- * <p><b>Reuse.</b> This single-threaded pool lends its builder-created objects
- * through {@link #get()}. Return each checkout at most once with
- * {@link #release(E)}, only to its originating pool. Neither operation resets
- * object state. Stop using a returned object until a later checkout. These
- * obligations are not checked with identity lookups or checkout-state tracking.
+ * <p>Builder results must be fresh and unescaped. Reuse allocates no pool storage
+ * after warmup. Creating a value records one reference; exhausted storage grows
+ * by the configured factor, rounded down but by at least one slot. Superseded
+ * arrays and a dropped pool graph become eligible for explicit collection.
+ * External objects are outside the return contract.
  *
- * <p><b>Destruction.</b> A separate growing creation array records each non-null
- * builder result once. Freeing the pool destroys every recorded object,
- * including checked-out objects, then frees both array containers. It does not
- * destroy objects by walking the availability array. Duplicate returns cannot
- * duplicate creation records, but can corrupt reuse. External objects are
- * outside the return contract and are not destroyed by the pool.
- *
- * <p>The compiler requires fresh, unescaped builder results and rejects use of
- * pool-dependent references after destruction. The builder itself is borrowed
- * and remains the caller's responsibility. A checked-out object cannot be
- * freed independently or transferred to another pool.
- *
- * <p><b>Allocation.</b> Reusing existing objects does not touch the creation
- * array and allocates no pool storage after warmup. Creating an object appends
- * one reference and may grow the creation array. Exhaustion and release into a
- * full pool grow the availability array by the configured factor, rounded down
- * but by at least one slot. Growth frees the superseded array container.
- *
- * <p><b>Example.</b> This complete program exits with status {@code 0} when a
- * released item is reused. It destroys the pool while the reused item is checked
- * out, then frees the separately owned builder. It produces no console output.
+ * <p>This complete example exits 0 when a returned item is reused:
  * <pre>{@code
  * import ironwood.pool.ArrayObjectPool;
  * import ironwood.pool.ObjectBuilder;
  * import ironwood.pool.ObjectPool;
- *
- * class Item {
- *     int value;
- * }
- *
+ * class Item { int value; }
  * class ItemBuilder implements ObjectBuilder<Item> {
- *     @Override
- *     public Item newInstance() {
-
-     return new Item();
- }
+ *     @Override public Item newInstance() { return new Item(); }
  * }
- *
  * public class PoolExample {
  *     public static int main(String[] args) {
-
  *         ItemBuilder builder = new ItemBuilder();
  *         ObjectPool<Item> pool = new ArrayObjectPool<Item>(4, 0, builder);
  *         Item first = pool.get();
@@ -71,14 +43,12 @@ package ironwood.pool;
  *         pool.release(first);
  *         Item reused = pool.get();
  *         int result = reused.value == 42 ? 0 : 1;
- *         free pool;
- *         free builder;
+ *         pool.release(reused);
  *         return result;
  *     }
  * }
  * }</pre>
- *
- * @param <E> the reference type of objects owned by this pool
+ * @param <E> the reference type of pooled objects
  * @see #get()
  * @see #release(E)
  */
@@ -212,7 +182,6 @@ public final class ArrayObjectPool<E extends Object> implements ObjectPool<E> {
             System.arraycopy(oldArray, 0, this.array, offset, oldLength);
         }
 
-        free oldArray;
         return offset;
     }
 
@@ -224,19 +193,27 @@ public final class ArrayObjectPool<E extends Object> implements ObjectPool<E> {
      * caller can return it with {@link #release(E)} after use. A reused value
      * keeps its previous state. Builder exceptions propagate to the caller.
      *
-     * @return a non-null borrowed value whose lifetime is bounded by this pool
+     * @return a non-null checked-out managed value
      * @throws IllegalStateException if the builder returns null during checkout
      */
     @Override
     public final E get() {
 
-        if (this.pointer == this.array.length) grow(true);
-        E value = this.array[this.pointer];
-        if (value == null) {
-            value = buildObject();
-        } else {
-            this.array[this.pointer] = null;
+        if (this.pointer != this.array.length) {
+            E value = this.array[this.pointer];
+            if (value != null) {
+                this.array[this.pointer] = null;
+                this.pointer = this.pointer + 1;
+                return value;
+            }
         }
+        return buildCheckout();
+    }
+
+    private E buildCheckout() {
+
+        if (this.pointer == this.array.length) grow(true);
+        E value = buildObject();
         this.pointer = this.pointer + 1;
         return value;
     }
@@ -248,7 +225,6 @@ public final class ArrayObjectPool<E extends Object> implements ObjectPool<E> {
             Object[] oldArray = this.createdObjects;
             this.createdObjects = new Object[newLength];
             System.arraycopy(oldArray, 0, this.createdObjects, 0, oldArray.length);
-            free oldArray;
         }
     }
 
@@ -274,7 +250,7 @@ public final class ArrayObjectPool<E extends Object> implements ObjectPool<E> {
      *
      * <p>Return each checkout at most once, only to this pool. Stop using it
      * until it is checked out again. Duplicate returns are not checked.
-     * External objects are unsupported and are not recorded for destruction.
+     * External objects are unsupported.
      * When no return slot is available, the backing array grows while preserving
      * its available values. This method does not touch the creation array.
      *
@@ -291,14 +267,5 @@ public final class ArrayObjectPool<E extends Object> implements ObjectPool<E> {
         this.array[this.pointer] = instance;
     }
 
-    destructor {
 
-        // Only this array determines object destruction. The availability
-        // array may contain duplicate returns or unsupported external objects.
-        for (int index = 0; index < this.createdObjects.length; index++) {
-            free this.createdObjects[index];
-        }
-        free this.createdObjects;
-        free this.array;
-    }
 }

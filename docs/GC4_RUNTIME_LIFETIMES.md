@@ -2,6 +2,10 @@
 
 # GC4 runtime lifetimes and failure cleanup
 
+
+Historical prerequisite record. GC5 replaces its manual-heap production rules;
+see [the current managed contract](MEMORY.md) and [GC5 report](GC5_IMPLEMENTATION.md).
+
 Date: 2026-11-04. **GC4 complete for the selected macOS arm64 and Linux x86-64
 experimental runtime. Production GC remains disabled.** Read with the
 [integration plan](BDWGC_INTEGRATION_PLAN.md), [GC3](GC3_ROOTS_AND_STATEPOINTS.md)

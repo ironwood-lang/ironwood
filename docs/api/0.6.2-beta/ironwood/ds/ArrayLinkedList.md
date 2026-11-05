@@ -34,7 +34,10 @@ Provides an array-backed linked list.
 | [`equals(Object)`](#member-equals-28-Object-29-) | Tests this value for equality with another object. |
 | [`hashCode()`](#member-hashCode-28--29-) | Returns this value's hash code. |
 | [`toString()`](#member-toString-28--29-) | Returns a textual representation of this value. |
-| [`clear(boolean)`](#member-clear-28-boolean-29-) | Removes all elements and optionally nulls the live fixed-array prefix. |
+| [`clear()`](#member-clear-28--29-) | Removes membership and clears every obsolete physical reference. |
+| [`resetForReuse()`](#member-resetForReuse-28--29-) | Retains fixed-array references for deliberate reuse; overflow entries are recycled. |
+| [`clearUnusedReferences()`](#member-clearUnusedReferences-28--29-) | Clears inactive fixed capacity without changing active values. |
+| [`clear(boolean)`](#member-clear-28-boolean-29-) | Compatibility spelling: false explicitly retains fixed-array references. |
 | [`iterator()`](#member-iterator-28--29-) | Returns an iterator over this value's elements. |
 
 ## Constructors
@@ -161,6 +164,45 @@ Returns a textual representation of this value.
 
 [Back to member summary](#member-summary)
 
+<a name="member-clear-28--29-"></a>
+
+### `clear()`
+
+```java
+public void clear()
+```
+
+Removes membership and clears every obsolete physical reference.
+
+
+[Back to member summary](#member-summary)
+
+<a name="member-resetForReuse-28--29-"></a>
+
+### `resetForReuse()`
+
+```java
+public void resetForReuse()
+```
+
+Retains fixed-array references for deliberate reuse; overflow entries are recycled.
+
+
+[Back to member summary](#member-summary)
+
+<a name="member-clearUnusedReferences-28--29-"></a>
+
+### `clearUnusedReferences()`
+
+```java
+public void clearUnusedReferences()
+```
+
+Clears inactive fixed capacity without changing active values.
+
+
+[Back to member summary](#member-summary)
+
 <a name="member-clear-28-boolean-29-"></a>
 
 ### `clear(boolean)`
@@ -169,22 +211,7 @@ Returns a textual representation of this value.
 public void clear(boolean nullifyLiveArrayPrefix)
 ```
 
-Removes all elements and optionally nulls the live fixed-array prefix.
-
-
-
-When `nullifyLiveArrayPrefix` is `true`, only slots in the
-current live fixed-array prefix are nulled. Inactive tail slots left by a
-prior removal or `clear(false)` may remain unchanged. The active
-linked overflow is cleared in either case. Neither option destroys
-caller-owned elements or releases this list's caller-item loans before
-destruction.
-
-**Parameters**
-
-| Name | Description |
-| --- | --- |
-| `nullifyLiveArrayPrefix` | whether to null slots in the current live fixed-array prefix |
+Compatibility spelling: false explicitly retains fixed-array references.
 
 
 [Back to member summary](#member-summary)

@@ -282,9 +282,7 @@ public static InetAddress[] getAllByName(String host) throws UnknownHostExceptio
 
 Resolves all addresses, grouping IPv4 before IPv6 while preserving host resolver order
 within each family. Null or empty text selects loopback; a numeric literal produces a
-one-element array. The array and each distinct element are separately caller-owned. Detach
-and free the elements before freeing the array; freeing the array alone does not reclaim
-them.
+one-element array. The array and its distinct elements have ordinary managed lifetimes.
 
 **Parameters**
 
@@ -338,8 +336,8 @@ public final String getHostName()
 ```
 
 Returns a supplied host label when present, otherwise lazily performs a reverse lookup
-confirmed by forward resolution. Failed confirmation falls back to numeric text. The result
-is cached and owned by this address; do not free it separately.
+confirmed by forward resolution. Failed confirmation falls back to numeric text. The
+result is cached by this address and has a managed lifetime.
 
 **Returns**
 
@@ -356,9 +354,9 @@ borrowed host-name or numeric text
 public final String getCanonicalHostName()
 ```
 
-Lazily performs a reverse lookup confirmed by forward resolution, even when a host label was
-supplied. Failed confirmation falls back to numeric text. The result is cached and owned by
-this address; do not free it separately.
+Lazily performs a reverse lookup confirmed by forward resolution, even when a host label
+was supplied. Failed confirmation falls back to numeric text. The result is cached by
+this address and has a managed lifetime.
 
 **Returns**
 

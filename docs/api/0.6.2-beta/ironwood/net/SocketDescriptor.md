@@ -14,10 +14,10 @@
 public final class SocketDescriptor
 ```
 
-Opaque state borrowed from a [`native socket implementation`](NativeSocketImpl.md). It exposes neither raw handles nor
-resource operations to applications. Delegating implementations return their delegate's
-descriptor for native accept; do not free it separately. Its owner must close the resource
-before reclaiming the managed storage.
+Opaque state borrowed from a [`native socket implementation`](NativeSocketImpl.md). It
+exposes neither raw handles nor resource operations to applications. Delegating
+implementations return their delegate's descriptor for native accept; its managed reference
+retains the required graph. Its owner must close the resource explicitly.
 
 
 ---

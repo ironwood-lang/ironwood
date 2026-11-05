@@ -36,7 +36,7 @@ These obligations add no runtime validation to the measurement path.
 
 Recording and reset allocate nothing. Printing uses a reusable builder
 and creates no report String. [`results()`](#member-results-28--29-) instead returns a fresh
-caller-owned snapshot. Free snapshots and the benchmark after use. Instances
+managed snapshot. Instances
 are unsynchronized and intended for one thread. All reported times are
 integral nanoseconds; the mean is truncated toward zero.
 Use [`reset()`](#member-reset-28--29-) to reuse the benchmark; [`getMeasurements()`](#member-getMeasurements-28--29-),
@@ -46,7 +46,7 @@ its statistics.
 
 
 This example records 1,000 busy waits using `mark()` and
-`measure()`. It prints the statistics, reclaims the benchmark, and
+`measure()`. It prints the statistics and
 exits with status `0`. Actual timings vary by machine.
 
 
@@ -66,7 +66,6 @@ public class NanoBenchExample {
             bench.measure();
         }
         bench.printResults();
-        free bench;
         return 0;
     }
 }

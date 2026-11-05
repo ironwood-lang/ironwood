@@ -176,7 +176,6 @@ public class Integer {
             digits[position] = Character.forDigit(digit, 36);
             current = current >>> shift;
         } while (current != 0);
-        defer free digits;
         return new String(digits, position, digits.length - position);
     }
 

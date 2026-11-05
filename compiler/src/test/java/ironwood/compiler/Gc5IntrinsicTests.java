@@ -12,7 +12,7 @@ import java.util.List;
 final class Gc5IntrinsicTests {
     static final String RESOLUTION = "GC5 canonical collection intrinsic validates reconstructed declarations";
     static final String EFFECTS = "GC5 source collection effects survive dispatch initialization defer and specialization";
-    static final String REFUSAL = "GC5 incomplete native cutover refuses collection without a stub or mixed heap";
+    static final String REFUSAL = "GC5 normal emission uses one managed model and migration diagnostics";
     static final String FINAL_LINK = "GC5 final link rejects every reachable legacy managed deallocation family";
     private static final String TYPE = "ironwood.lang.Memory";
 
@@ -52,6 +52,36 @@ final class Gc5IntrinsicTests {
         check(ordinary.program().orElseThrow().functions().stream().flatMap(f -> f.blocks().stream())
                 .flatMap(b -> GcEffects.operations(b).stream()).noneMatch(IrGcCollectInstruction.class::isInstance),
                 "a noncanonical Memory name became intrinsic");
+        SourceFile throwable = SourceFile.read(Path.of("stdlib/src/main/ironwood/ironwood/lang/Throwable.iron"));
+        rejected(SourceFile.of("forged-Throwable.iron", throwable.content() + "\n"), "unrecognized reserved Throwable");
+        embeddedMigration();
+    }
+
+    private static void embeddedMigration() throws Exception {
+        SourceFile source = SourceFile.of("Legacy.iron", "class Legacy { void old() { Object value = new Object(); } }");
+        Files.createDirectories(Path.of("workspace"));
+        Path directory = Files.createTempDirectory(Path.of("workspace"), "gc5-legacy-");
+        Path loose = directory.resolve("Legacy.ironclass"), archive = directory.resolve("legacy.ironjar");
+        IronClass.write(loose, SourceParser.parse(source).unit().orElseThrow(), "Legacy");
+        var bytes = new java.io.ByteArrayOutputStream();
+        try (var input = new java.util.zip.ZipInputStream(Files.newInputStream(loose));
+             var output = new java.util.zip.ZipOutputStream(bytes)) {
+            java.util.zip.ZipEntry entry;
+            while ((entry = input.getNextEntry()) != null) {
+                byte[] payload = input.readAllBytes();
+                if (entry.getName().startsWith("source/")) payload = new String(payload, java.nio.charset.StandardCharsets.UTF_8)
+                        .replace("new Object();", "new Object(); free value;").getBytes(java.nio.charset.StandardCharsets.UTF_8);
+                output.putNextEntry(new java.util.zip.ZipEntry(entry.getName()));
+                output.write(payload); output.closeEntry();
+            }
+        }
+        Files.write(loose, bytes.toByteArray());
+        IronJar.create(archive, List.of(loose));
+        for (SourceFile embedded : List.of(IronClass.read(loose).source("Legacy").orElseThrow(),
+                IronJar.read(archive).source("Legacy").orElseThrow())) {
+            check(embedded.path().toString().contains("!/"), "lost embedded source identity");
+            rejected(embedded, "removed");
+        }
     }
 
     static void effects() {
@@ -115,8 +145,8 @@ final class Gc5IntrinsicTests {
                 class Old { destructor { Memory.collect(); } }
                 """)));
         check(!oldDestructor.valid() && oldDestructor.diagnostics().stream()
-                .anyMatch(d -> d.message().contains("exception may escape this destructor")),
-                "collection preparation OOM was hidden from existing exceptional-path analysis");
+                .anyMatch(d -> d.message().contains("source destructors have been removed")),
+                "obsolete destructor source lost its migration diagnostic");
     }
 
     static void refusal() {
@@ -126,9 +156,56 @@ final class Gc5IntrinsicTests {
                     public static void main(String[] args) { Memory.collect(); }
                 }
                 """));
-        check(!artifact.valid() && artifact.llvmIr().isEmpty(), "incomplete source cutover emitted native code");
-        check(artifact.diagnostics().stream().anyMatch(d -> d.message().contains("integrated managed native generation")),
-                artifact.diagnostics().toString());
+        check(artifact.valid() && artifact.llvmIr().isPresent(), artifact.diagnostics().toString());
+        String llvm = artifact.llvmIr().orElseThrow();
+        check(llvm.contains("@iw_gc_experiment_collect()") && llvm.contains("@iw_gc_root_abi = hidden constant i32 2"),
+                "normal compiler lost collection or root ABI");
+        check(!llvm.contains("@ironwood_deallocate") && !llvm.contains("ironwood.destroy"),
+                "normal emission retained managed deallocation");
+        var names = new CompilerPipeline(UnfreedMode.OFF).analyze(List.of(SourceFile.of("Names.iron", """
+                class Names {
+                    static void free(Object destructor) {}
+                    static int destructor(int free) { free++; return free; }
+                    static void use() { Object free = new Object(); defer free(free); }
+                }
+                class free { }
+                class destructor { free value = new free(); }
+                """)));
+        check(names.valid(), names.diagnostics().toString());
+        String poolSource = """
+                import ironwood.pool.*;
+                class Item {}
+                class Builder implements ObjectBuilder<Item> {
+                    @Override public Item newInstance() { return new Item(); }
+                }
+                class Pools {
+                    static void use() {
+                        Builder builder = new Builder();
+                        ArrayObjectPool<Item> pool = new ArrayObjectPool<Item>(1, builder);
+                        ArrayObjectPool<Item> other = new ArrayObjectPool<Item>(1, builder);
+                        Item item = pool.get();
+                        %s.release(item);
+                    }
+                }
+                """;
+        var samePool = new CompilerPipeline(UnfreedMode.OFF).analyze(List.of(SourceFile.of("Pools.iron", poolSource.formatted("pool"))));
+        check(samePool.valid(), samePool.diagnostics().toString());
+        var wrongPool = new CompilerPipeline(UnfreedMode.OFF).analyze(List.of(SourceFile.of("Pools.iron", poolSource.formatted("other"))));
+        check(!wrongPool.valid() && wrongPool.diagnostics().stream().anyMatch(d -> d.message().contains("owned by another pool")),
+                "wrong-pool return lost its protocol diagnostic: " + wrongPool.diagnostics());
+        for (String form : List.of("free this.value;", "defer free value;", "destructor {}", "@SuppressUnfreed Object value;")) {
+            String member = form.startsWith("destructor") ? form : "void old() { " + form + " }";
+            var rejected = new CompilerPipeline(UnfreedMode.OFF).analyze(List.of(SourceFile.of("Old.iron",
+                    "class Old { Object value; " + member + " }")));
+            check(!rejected.valid() && rejected.diagnostics().stream().anyMatch(d -> d.message().contains("removed")),
+                    "missing reclamation migration diagnostic: " + form + " " + rejected.diagnostics());
+        }
+        for (String option : List.of("--unfreed=off", "--unfreed=error", "--explain-rejected-free")) {
+            var bytes = new java.io.ByteArrayOutputStream();
+            var stream = new java.io.PrintStream(bytes);
+            check(Main.run(new String[]{option}, stream, stream) == 2 && bytes.toString().contains("removed"),
+                    "obsolete option was accepted: " + option);
+        }
     }
 
     static void finalLink() throws Exception {

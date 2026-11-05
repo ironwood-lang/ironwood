@@ -52,8 +52,8 @@ Warmup primes caches and storage in native code; there is no JIT compilation.
 
 
 
-Free the benchmark after use to reclaim its histogram and counters.
-`results()` returns an independent String that the caller must free;
+The benchmark and its histogram use managed storage.
+`results()` returns an independent managed String;
 `printResults()` handles its own temporary report. Reports use comma
 grouping, a decimal point, and three fractional digits, regardless of locale.
 [`printResults()`](#member-printResults-28--29-) includes percentiles; use
@@ -63,8 +63,7 @@ grouping, a decimal point, and three fractional digits, regardless of locale.
 
 This example measures a 1,000 ns busy wait, excludes 1,000 warmup
 iterations, and records 10,000 measurements. Replace `sleepFor(1000)`
-with the operation you want to time. It prints a report, reclaims the
-benchmark, and exits with status `0`. Actual timings vary by machine.
+with the operation you want to time. It prints a report and exits with status `0`. Actual timings vary by machine.
 
 
 
@@ -90,7 +89,6 @@ public class BenchExample {
             bench.measure(System.nanoTime() - start);
         }
         bench.printResults();
-        free bench;
         return 0;
     }
 }
@@ -142,8 +140,8 @@ while (bench.getIterations() < warmup + measurements) {
 | [`getAverage()`](#member-getAverage-28--29-) | Returns mean nanoseconds rounded to two fractional digits, or zero if empty. |
 | [`results(boolean)`](#member-results-28-boolean-29-) | Creates an independent report with counts, mean, minimum, and maximum. |
 | [`results()`](#member-results-28--29-) | Returns a fresh caller-owned report including percentiles. |
-| [`printResults(boolean)`](#member-printResults-28-boolean-29-) | Prints a report and a blank line, reclaiming the temporary String. |
-| [`printResults()`](#member-printResults-28--29-) | Prints a report including percentiles and reclaims the temporary String. |
+| [`printResults(boolean)`](#member-printResults-28-boolean-29-) | Prints a report and a blank line. |
+| [`printResults()`](#member-printResults-28--29-) | Prints a report including percentiles. |
 
 ## Constructors
 
@@ -405,7 +403,7 @@ An empty benchmark reports only its counts.
 
 **Returns**
 
-a fresh caller-owned String; free it after use
+a fresh managed String
 
 
 [Back to member summary](#member-summary)
@@ -431,7 +429,7 @@ Returns a fresh caller-owned report including percentiles.
 public void printResults(boolean includePercentiles)
 ```
 
-Prints a report and a blank line, reclaiming the temporary String.
+Prints a report and a blank line.
 
 **Parameters**
 
@@ -450,7 +448,7 @@ Prints a report and a blank line, reclaiming the temporary String.
 public void printResults()
 ```
 
-Prints a report including percentiles and reclaims the temporary String.
+Prints a report including percentiles.
 
 
 [Back to member summary](#member-summary)

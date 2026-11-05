@@ -1,0 +1,84 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Normal runtime failure controls. Each selected mode exits 0 on success.
+// allocation uses IRONWOOD_ALLOCATION_LIMIT=3; preparation uses root capacity 1.
+import ironwood.lang.Memory;
+
+class Gc5Oom {
+    static class Bare { int value; Bare() { this.value = 41; } }
+    static class Holder { Throwable failure; }
+    static Holder holder;
+    static Bare published;
+    static RuntimeException construction;
+    static class Failing extends Bare {
+        Failing() { published = this; throw construction; }
+    }
+    static void throwOne(RuntimeException failure) { throw failure; }
+    static void makeEmergency() {
+        holder = new Holder();
+        RuntimeException first = new RuntimeException("first");
+        RuntimeException last = new RuntimeException("last");
+        try {
+            defer throwOne(last);
+            defer throwOne(first);
+            new Bare();
+        } catch (OutOfMemoryError primary) {
+            holder.failure = primary;
+        }
+    }
+    static int allocation() {
+        Memory.collect();
+        long baseline = System.liveAllocationCount();
+        long total = System.allocationCount();
+        makeEmergency();
+        Memory.collect();
+        if (System.allocationCount() != total + 3) return 11;
+        if (holder == null || holder.failure == null) return 12;
+        if (holder.failure.getSecondaryExceptionCount() != 2) return 13;
+        if (!holder.failure.getSecondaryException(0).getMessage().equals("first")) return 14;
+        if (!holder.failure.getSecondaryException(1).getMessage().equals("last")) return 15;
+        // Only the managed holder reaches the cached native OOM and its cells.
+        // Dropping it must release that entire graph at the next explicit GC.
+        holder = null;
+        Memory.collect();
+        if (System.liveAllocationCount() != baseline) return 16;
+        return 0;
+    }
+    static int preparation() {
+        RuntimeException first = new RuntimeException("first");
+        RuntimeException last = new RuntimeException("last");
+        long total = System.allocationCount();
+        long live = System.liveAllocationCount();
+        try {
+            defer throwOne(last);
+            defer throwOne(first);
+            Memory.collect();
+            return 21;
+        } catch (OutOfMemoryError primary) {
+            if (primary.getSecondaryExceptionCount() != 2) return 22;
+            if (primary.getSecondaryException(0) != first) return 23;
+            if (primary.getSecondaryException(1) != last) return 24;
+            if (System.allocationCount() != total || System.liveAllocationCount() != live) return 25;
+            return 0;
+        }
+    }
+    static int constructorFailure() {
+        construction = new RuntimeException("construction");
+        long total = System.allocationCount();
+        try { new Failing(); return 31; }
+        catch (RuntimeException same) { if (same != construction) return 32; }
+        if (System.allocationCount() != total + 1) return 33;
+        Memory.collect();
+        if (published == null || published.value != 41 || !(published instanceof Failing)) return 34;
+        published = null;
+        construction = null;
+        Memory.collect();
+        return 0;
+    }
+    public static int main(String[] args) {
+        if (args.length != 1) return 2;
+        if (args[0].equals("allocation")) return allocation();
+        if (args[0].equals("preparation")) return preparation();
+        if (args[0].equals("constructor")) return constructorFailure();
+        return 3;
+    }
+}

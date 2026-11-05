@@ -47,8 +47,5 @@ class LongSetIterator implements Iterator<LongHolder> {
         this.iterator.remove();
     }
 
-    destructor {
 
-        free this.holder;
-    }
 }

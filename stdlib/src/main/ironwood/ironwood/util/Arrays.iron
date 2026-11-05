@@ -631,7 +631,6 @@ public final class Arrays {
 
         if (array == null) return new String("null");
         StringBuilder builder = new StringBuilder();
-        defer free builder;
         builder.append('[');
         for (int index = 0; index < array.length; index++) {
             if (index > 0) builder.append(", ");
@@ -646,7 +645,6 @@ public final class Arrays {
 
         if (array == null) return new String("null");
         StringBuilder builder = new StringBuilder();
-        defer free builder;
         builder.append('[');
         for (int index = 0; index < array.length; index++) {
             if (index > 0) builder.append(", ");
@@ -661,7 +659,6 @@ public final class Arrays {
 
         if (array == null) return new String("null");
         StringBuilder builder = new StringBuilder();
-        defer free builder;
         builder.append('[');
         for (int index = 0; index < array.length; index++) {
             if (index > 0) builder.append(", ");
@@ -676,7 +673,6 @@ public final class Arrays {
 
         if (array == null) return new String("null");
         StringBuilder builder = new StringBuilder();
-        defer free builder;
         builder.append('[');
         for (int index = 0; index < array.length; index++) {
             if (index > 0) builder.append(", ");
@@ -691,7 +687,6 @@ public final class Arrays {
 
         if (array == null) return new String("null");
         StringBuilder builder = new StringBuilder();
-        defer free builder;
         builder.append('[');
         for (int index = 0; index < array.length; index++) {
             if (index > 0) builder.append(", ");
@@ -706,7 +701,6 @@ public final class Arrays {
 
         if (array == null) return new String("null");
         StringBuilder builder = new StringBuilder();
-        defer free builder;
         builder.append('[');
         for (int index = 0; index < array.length; index++) {
             if (index > 0) builder.append(", ");
@@ -721,7 +715,6 @@ public final class Arrays {
 
         if (array == null) return new String("null");
         StringBuilder builder = new StringBuilder();
-        defer free builder;
         builder.append('[');
         for (int index = 0; index < array.length; index++) {
             if (index > 0) builder.append(", ");
@@ -736,7 +729,6 @@ public final class Arrays {
 
         if (array == null) return new String("null");
         StringBuilder builder = new StringBuilder();
-        defer free builder;
         builder.append('[');
         for (int index = 0; index < array.length; index++) {
             if (index > 0) builder.append(", ");
@@ -751,7 +743,6 @@ public final class Arrays {
 
         if (array == null) return new String("null");
         StringBuilder builder = new StringBuilder();
-        defer free builder;
         builder.append('[');
         for (int index = 0; index < array.length; index++) {
             if (index > 0) builder.append(", ");

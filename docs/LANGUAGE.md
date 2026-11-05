@@ -1,51 +1,27 @@
 # Ironwood language status
 
-Ironwood is a Java-like, closed-world AOT systems language. Objects and
-references follow familiar Java semantics except that Ironwood has no garbage
-collector: ordinary reclamation is performed explicitly with compiler-checked
-`free`. This document distinguishes implemented behavior from future design so
-tests never become the only specification. For the consolidated current,
-roadmap, and permanent-non-goal feature matrix, see
-[`LANGUAGE_SPECS.md`](LANGUAGE_SPECS.md).
+Ironwood is a Java-shaped, closed-world native AOT language. References use
+one nonmoving managed heap with explicit synchronous collection. The consolidated
+status is in [LANGUAGE_SPECS.md](LANGUAGE_SPECS.md).
 
-## Explicit deferred cleanup: Milestone 1
+## GC5 memory-model supersession
 
-`defer methodInvocation;` reserves `defer` and schedules a selected `void`
-method call when the enclosing explicit source block exits. `defer free name;`
-schedules proven-safe reclamation of an existing local reference in that block.
-Both forms implement Milestone 1 under [D168](DECISIONS.md#d168---plan-explicit-block-scoped-defer).
-Milestone 2's [performance stage](DEFER_PERFORMANCE_VERIFICATION.md) is accepted.
-Its [runnable example](../examples/deferredcleanup/README.md) demonstrates close,
-free, failure order and pool release. [SimpleTcpEcho adoption](DEFER_PROJECT_VERIFICATION.md)
-and the [final audit](DEFER_FINAL_VERIFICATION.md) complete Milestone 2 locally,
-ready for final maintainer review. Integration requires separate direction.
-Ordinary `free` and `finally` remain available.
+The migration branch now uses [the GC5 managed memory contract](MEMORY.md).
+Canonical Memory.collect() is the only reclamation point. There is no source
+free, destructor, implicit temporary destruction or managed constructor rollback.
+General defer, initialization, native resource and pool protocols remain.
+Historical proof discussions and examples mentioning those removed forms are
+pre-GC5 records awaiting GC7 consumer migration, not alternate supported semantics.
+Native bridge/shared-library output remains refused until GC6 qualification.
 
-A defer must be a direct statement in a braced method, constructor, initializer,
-destructor, conditional, loop, labeled, try, catch, finally, or switch-arm block.
-Use braces around a conditional/loop body or switch case containing a defer.
-Blocks, assignments, construction alone, control transfers, declarations, and
-non-void calls are invalid actions. Ordinary lookup, access, overload, generic,
-static, virtual, interface, and `super` rules select the invocation.
+## Explicit deferred cleanup
 
-A deferred free binds the resolved local without creating another reference
-capture. Fields, array elements, construction expressions, and parenthesized
-targets are not accepted. The binding cannot be assigned or updated while its
-free is pending, including self-assignment and writes in nested expressions or
-source finally. Reading or mutating the live object remains legal. Assignment
-before registration or after inner-block cleanup may reuse the local under the
-ordinary ownership and loop rules. Early/manual/double free, escaping or returned
-aliases, pending reference yields, and later cleanup observers remain errors in
-every `--unfreed` mode. A parameter or borrowed value gains no ownership exemption.
-Aliases whose lexical scope ends before this cleanup may expire; outer aliases
-remain observable and block reclamation. Declare free before a close/use call
-to execute the call first, including when it throws:
+`defer methodInvocation;` captures a selected void call for block-scoped LIFO
+execution on every exit. `defer free value;` is removed; `defer free(value);`
+is legal when ordinary lookup selects a void method named free. A defer must
+be a direct statement in a braced source block. Non-void calls, assignments,
+construction alone and control transfers are invalid actions.
 
-```java
-Socket client = server.accept();
-defer free client;
-defer client.close();
-```
 
 Receiver/value qualifier and arguments are evaluated and converted once, left
 to right, when reached. References capture identity, primitives capture value;
@@ -65,9 +41,9 @@ Try-body cleanup runs before enclosing catch dispatch. Catch-body cleanup is
 not handled by sibling catches. Calls inside source finally follow the same
 rules; ordinary finally reads locals at execution time. Checked exceptions are
 checked against the owning block's cleanup handlers or enclosing throws list,
-not handlers crossed by a particular return. Constructor cleanup precedes failed
-construction rollback; destructor allocation and escaping-exception restrictions
-still apply. Process exit and fatal termination have ordinary finally's limits.
+not handlers crossed by a particular return. Captures and pending return/yield/exception
+references survive collecting cleanup. There is no managed construction rollback.
+Process exit and fatal termination have ordinary finally's limits.
 
 ## Implemented language subset
 
@@ -95,7 +71,7 @@ enumDeclaration = { modifier }, "enum", identifier,
                   "{", [ enumConstant, { ",", enumConstant }, [ "," ] ],
                   [ ";", { classBodyDeclaration } ], "}" ;
 enumConstant = identifier, [ arguments ] ;
-classBodyDeclaration = constructorDeclaration | destructorDeclaration | fieldDeclaration
+classBodyDeclaration = constructorDeclaration | fieldDeclaration
                      | methodDeclaration | typeDeclaration | block ;
 interfaceBodyDeclaration = fieldDeclaration | methodDeclaration
                          | typeDeclaration ;
@@ -103,7 +79,6 @@ constructorDeclaration = { modifier }, [ typeParameters ], identifier,
                          "(", [ parameter, { ",", parameter } ], ")",
                          "{", [ constructorInvocation ], { blockStatement }, "}" ;
 constructorInvocation = superConstructorInvocation | thisConstructorInvocation ;
-destructorDeclaration = "destructor", block ;
 superConstructorInvocation = "super", arguments, ";" ;
 thisConstructorInvocation = "this", arguments, ";" ;
 fieldDeclaration = { modifier }, valueType, identifier, [ "=", expression ], ";" ;
@@ -147,7 +122,6 @@ statement = block
           | "continue", [ identifier ], ";"
           | "return", [ expression ], ";"
           | "throw", expression, ";"
-          | "free", expression, ";"
           | tryStatement
           | expression, ";"
           | ";" ;
@@ -395,7 +369,7 @@ compatible with both source and target. `null` succeeds and remains null; a
 non-null mismatch throws `ironwood.lang.ClassCastException` through the ordinary
 language exception mechanism. A statically disjoint cast is rejected instead of
 emitting an always-failing operation. Successful checked casts preserve the same
-reference and allocation identity, including for safe-`free` analysis.
+reference and allocation identity for exact collection and optimization.
 
 Concrete parameterized narrowing casts are accepted only when the source type
 and complete hierarchy prove every overlapping runtime implementation has the
@@ -447,8 +421,7 @@ identity, repeated `hashCode` calls return the same opaque identity hash for the
 allocation's lifetime, and `toString` returns
 `<qualified-runtime-type-name>@<lowercase-hex-identity-hash>`. The hash may
 collide and does not expose a source-level address. The default runtime-created
-`toString` result is a fresh caller-owned String and may be reclaimed with
-`free` after all aliases are dead. `Serializable`, `Cloneable`,
+`toString` result is a fresh managed String. `Serializable`, `Cloneable`,
 `Object.clone()`, finalization, reflection through `Class`, and monitors are not
 implemented.
 
@@ -666,8 +639,7 @@ whole-value range. The compiler/runtime range operation copies directly into
 one exact-size String allocation and never borrows the source's storage.
 `toCharArray()` likewise returns a fresh caller-owned array containing the
 exact UTF-16 code units. These results retain fresh allocation identity through
-closed-world wrapper calls and may be reclaimed with `free` when no alias
-remains.
+closed-world wrapper calls and follow ordinary managed reachability.
 
 U1 makes `String` final and adds copy and checked `char[]` constructors. Each
 copies into one distinct caller-owned String, borrows rather than retains its
@@ -698,12 +670,9 @@ implements source `+`/`+=` concatenation as Feature 76;
 constant expressions join the final-program literal pool, while each maximal
 dynamic chain produces one ordinary exact-size non-interned allocation rather
 than a hidden builder graph. Object operands use `toString()` temporarily.
-Fresh owned renderings are reclaimed after use and during exceptional cleanup,
-while borrowed renderings are preserved.
-`StringBuilder.toString()` returns a caller-owned fresh String that never
-aliases builder storage. Freeing a proven fresh builder runs its destructor and
-reclaims the backing array; failed construction rolls back a completed backing
-array before reclaiming the incomplete builder.
+Renderings and immutable String snapshots have ordinary managed lifetimes.
+StringBuilder.toString() never aliases mutable builder storage. Its backing array
+and failed-construction graph use the same heap model as ordinary source objects.
 
 D119 deliberately makes `StringBuilder.setLength(int)` return its receiver
 instead of Java's void, enabling reset-and-append chains. Truncation, zero
@@ -844,50 +813,15 @@ from a static context. A constructor may use
 `return;` or fall through, but cannot return a value; superclass construction has
 already occurred before either path.
 
-### Destructors and failed construction
+### Managed construction
 
-An ordinary, abstract, nested, local, or anonymous class may declare exactly
-one unmodified `destructor { ... }`. Interfaces, enums, and enum-constant bodies
-cannot declare one. A destructor has no parameters, result type, modifiers,
-overloads, override directive, or explicit `return`.
+Source destructors and managed constructor rollback are removed. A constructor
+may publish its receiver; a thrown constructor leaves a valid zero-initialized
+managed graph, including already installed fields and dynamic type identity.
+Normal definite assignment, initialization and native lifetime rules still apply.
+Native acquisitions need explicit rollback and resource close remains explicit.
+Captured and enclosing references are exact physical layout fields traced by GC.
 
-An accepted object `free` invokes the runtime-selected most-derived destructor.
-Normal completion continues directly with the superclass destructor, so cleanup
-order is derived-to-root and every declared body runs exactly once. A
-destructor may free a compiler-proven owned field directly; that field is
-cleared before its child destructor runs. Array `free` has no destructor body
-and still releases only the array container.
-
-Closed-world typed-IR effects require every reachable destructor path to be
-allocation-free, prevent `this` publication or resurrection, and reject an
-exception that can escape. Each destructor is checked for an exact instance of
-its own class, so a subclass override is reported at that subclass. Calls that may throw are permitted only when the
-exception is handled inside the destructor. A runtime-observed destructor
-escape is a fatal invariant violation. Field reads through `this` or its direct
-SSA aliases introduce no nullable-receiver failure path, nor does a dereference
-of a local, value or final field that a dominating `!= null`, `== null` or
-`instanceof` test or an earlier dereference proves non-null (D287), including a
-value merged at a join or loop from values that are each non-null (D288), or a
-final field of the destroyed object, declared by its class or a superclass, that
-every constructor sets to a proven non-null value and the destructor has not yet
-freed (D289), also in the methods it calls on that object (D290); reads through a
-genuinely nullable receiver retain their ordinary null exception effect.
-
-If construction throws, the incomplete receiver's source destructor does not
-run. The compiler emits a separate rollback callable that releases zero-or-more
-already acquired owned fields in reverse acquisition/layout order, including
-normal destruction of completed child objects, then raw-deallocates the
-incomplete receiver and rethrows the exact original exception. `this(...)`
-delegation still rolls the allocation back exactly once. Publishing in-progress
-`this` is a compile-time error.
-
-Static nested classes carry no enclosing receiver. Member inner classes carry
-one immutable hidden enclosing reference. Block-scoped local classes and
-anonymous classes may additionally capture final or effectively-final locals
-and parameters; any plain, compound, prefix, or postfix write invalidates
-capture. Captures become compiler-owned hidden fields/constructor operands and
-are ordinary aliases for escape and safe-`free` analysis. Types in the same
-top-level lexical nest may directly access one another's private members.
 
 ### Enums
 
@@ -1082,17 +1016,10 @@ did not cause the earlier primary failure. Association is compiler-controlled;
 there is no public mutator. If `finally` begins without a pending exception, an
 exception escaping it is primary and has no automatically added secondary.
 
-Resource closure and allocation reclamation remain independent. A programmer
-places `resource.close()` in `finally` to release an external capability and may
-place a separate explicit `free` in the same cleanup when safe-free analysis
-proves the wrapper allocation dead. Closing never recursively frees the wrapper
-or anything it references. Multiple cleanup operations that must all run use deferred calls or
-nested `try`/`finally` regions; for example, an inner `finally` can free the
-wrapper even if `close()` throws. Ordinary statements following a throwing
-statement are not executed. Cleanup crossed by `break`, `continue`, or `yield`
-may contain a proven-safe `free`; its effects are visible at the destination.
-A pending reference-valued `yield` keeps its allocation observable during
-cleanup, so cleanup cannot free that result.
+Resource closure and collection remain independent. General defer or nested
+try/finally ensures that all required actions run on every exit. Captured
+references and pending return/yield/exception values survive collecting cleanup.
+Collection never calls close or source cleanup.
 
 Native propagation uses the platform unwind ABI on the supported macOS and
 Linux targets. An exception that reaches the generated native `main` after all
@@ -1283,7 +1210,7 @@ crossing `finally` runs every cleanup from inner to outer before completing the
 expression, and an abrupt cleanup supersedes that pending result. An unlabeled
 `break` cannot exit a switch expression; labeled outer transfers and loop
 `continue` retain their ordinary targets. Reference results remain subject to
-the same conservative alias and safe-`free` proof as other structured
+the same typed control flow and exact root reconstruction as other structured
 expression flow. Pattern labels, guards, record/unnamed patterns, and preview
 primitive patterns remain deliberately unsupported Features 106–108.
 
@@ -1302,165 +1229,14 @@ pending `finally` cleanup crossed on the path. Cleanup runs inner-to-outer; an
 abrupt cleanup supersedes a pending transfer. A loop transfer that stays inside
 an already-active outer try/finally remains direct.
 
-## Explicit memory reclamation
+## Managed memory
 
-The compiler defaults to `--unfreed=warn` for proven local allocation
-abandonment. `--unfreed=error` rejects the same findings; `--unfreed=off` disables
-this diagnostic without weakening safe-`free` checks. These modes never change
-what is reclaimed. Intentional omissions of a named allocation remain legal in
-the default mode, and an absence of warnings does not establish leak freedom.
-Coverage and conservative omissions are specified in [the memory model](MEMORY.md)
-and D140.
+See [MEMORY.md](MEMORY.md) for normative allocation, collection, root metadata,
+OOM, emergency delivery, counters and collection/pool retention rules. `free`
+and `destructor` are ordinary identifiers. Removed reclamation forms and options
+diagnose their migration, also in embedded artifact sources. Container format 1
+continues to reconstruct source and perform full semantic revalidation.
 
-An unnamed temporary (D185), a fresh allocation that nothing observes once the
-full expression creating it completes, is reclaimed by the compiler at the end
-of that full expression when the ordinary safe-`free` proof succeeds, on normal
-and exceptional completion alike, in every `--unfreed` mode. `Sink.use(new
-Keeper());` and `System.out.println("Hello " + name);` therefore need no local
-and no `free`. Full expressions are expression and assignment statements,
-including the expression body of a switch statement rule, local
-and field initializers, loop and `if` conditions, classic `for` initializers
-and updates, enhanced-for sources, switch selectors, `return`, `yield`, and
-`throw` operands, and explicit constructor invocations. A value that moves on
-through one of those transfers, a pattern-bound value, a `defer` operand, and
-an allocation made inside a conditional, switch, or short-circuit expression
-are never reclaimed this way; a `yield` operand inside a switch-expression
-block is its own full expression. Naming the allocation opts out when the name
-still holds it as the full expression completes. See
-[unnamed temporaries](MEMORY.md#unnamed-temporaries) for the complete rule.
-
-The built-in `@SuppressUnfreed` directive (D145) on a reference local declaration
-suppresses missing-free findings for its initializer's tracked allocation,
-even under `--unfreed=error`. It takes no arguments, may be interleaved with
-`final`, and also accepts classic `for` initializers. Suppression follows
-existing aliases of that allocation, including each execution of a declaration
-inside a loop. Later allocations assigned to that variable and unrelated
-allocations remain reportable. Null or untracked initializers do not exempt
-future assignments. Other declaration targets and primitive locals are errors.
-The directive survives class/archive reconstruction and native linking without
-changing safe-`free` checks, generated code, or runtime allocation behavior.
-See [per-allocation suppression](MEMORY.md#per-allocation-suppression) for the
-complete scope and limits.
-
-Ironwood does not reclaim ordinary objects based on reachability. A named
-allocation created by `new` remains allocated until a compiler-proven-safe
-`free expression;` reclaims that exact allocation or the process terminates;
-an unnamed temporary is reclaimed at the end of its full expression as above.
-Omitting `free` is legal, but the allocation remains unreclaimed; a program that
-continues allocating without enough successful `free` operations eventually
-exhausts memory and terminates under the runtime's allocation-failure policy.
-
-`free` does not clear only one variable or infer recursive ownership from every
-field. For an object it runs the declared derived-to-root destructor chain;
-arrays have no destructor. Ordinary assignments retain Java-like
-aliasing. A `free` is accepted only when the compiler proves that no subsequent
-observation is possible through any local, argument, return value, field,
-static/global, array element, closure, call-mediated alias, widened class or
-interface reference, native exception wrapper, catch value, or pending cleanup
-path. When proof is uncertain, compilation fails at the `free`; removing it is
-safe but retains the allocation.
-
-For an exact local receiver, a resolved instance method that retains an argument
-only in one private, encapsulated receiver field creates a compiler-tracked
-borrow rather than a general escape. The child cannot be freed while the
-receiver is live. Freeing the receiver removes the field alias but does not
-reclaim the child, so the caller may then free it; abandoning it instead remains
-eligible for a missing-free diagnostic. Receiver publication propagates to the
-child. Unknown receivers, exposed or ambiguous fields, and uncertain dispatch
-remain conservative escapes. This rule does not transfer ownership.
-
-One source `finally` block may be lowered into mutually exclusive cleanup copies
-for normal, return, catch, exceptional, `break`, `continue`, and `yield` paths.
-The ownership proof snapshots each predecessor independently, so an exactly-once
-`free` in that source block
-is not mistaken for a double free merely because the compiler emits several
-copies. A join that may contain a freed allocation forbids its observation or
-reclamation. Loops additionally check back edges: body-local allocations may be
-recreated and freed each iteration, but a newly freed reference cannot be
-carried into the next iteration. Reclaiming an entry allocation inside a loop
-requires unchanged live ownership and identity on every continuing path.
-
-After a successful `free local;`, `local` is not automatically set to `null`.
-Its previous value is semantically dead: reading it, comparing it, passing it,
-returning it, or freeing it again is rejected. A plain assignment that does not
-read the old value may reuse the variable and begins tracking the replacement
-value independently. Compound assignment reads the old value and therefore
-cannot reuse a dead value.
-
-The proof accepts a local reference to an object or array allocation created by
-`new`, a closed-world-proven fresh-or-null factory result, and identities that
-remain exact through supported structured control-flow joins.
-It also accepts a local holding the previous allocation of a compiler-proven
-exclusive private backing-array field after that field has been replaced by a
-fresh array. Field eligibility is closed-world: every write installs a directly
-created array, and no method may publish the field's container reference through
-a return, throw, another field or array, construction, or a retaining/uncertain
-call. Array element access and `.length` do not publish the container.
-
-The proof tracks local reference conversions and aliases, permits an alias after
-that alias's lexical scope ends, and uses conservative closed-world summaries
-for direct and devirtualized calls. Such a call may observe a local allocation
-without blocking `free` only when its implementation does not retain, return,
-throw, or otherwise escape the reference. A call made while a borrowed backing
-array is still installed in its field is conservatively considered potentially
-reentrant; the field must be detached before the call or the later `free` is
-rejected.
-
-A compiler-proven-owned private helper may be returned as a dependent borrow
-without transferring its allocation. This is the model used by reusable
-collection iterators and primitive holders. The owner destructor may free the
-helper. Source cannot free the borrowed helper independently; any later helper
-use is rejected as use-after-free. A local borrow need not leave lexical scope
-before owner destruction when it has no later observation. An exact wrapper
-method may return the borrow while preserving its dependency on the original
-owner. Storing, returning it out of the current allocation region, capturing,
-or passing the borrow to a retaining or uncertain call instead marks the owner
-escaped and rejects its `free`. Concrete helper provenance is carried
-through its Java-shaped interface reference so ordinary closed-world-proven
-`Iterator` calls do not create a false escape. Constructor containment of an
-owner backlink is accepted only when the freshly installed owned helper keeps
-that backlink private and never republishes it. Merging helper borrows from
-different possible owners conservatively blocks `free` of every possible owner
-while the merged borrow remains observable. Full scenarios are specified in
-[Owned Helper Borrows](OWNED_HELPER_BORROWS.md).
-
-The current proof rejects a primitive, borrowed/mixed-origin call result,
-caught exception, or other value without known owned allocation identity.
-Owned fields are freeable directly only from their declaring destructor; an
-arbitrary field expression remains ineligible. A private array is not sufficient by itself:
-a getter, aliased parameter assignment, publication to another storage location,
-or uncertain call makes the field ineligible. The proof also rejects a live
-local alias, free before field replacement, conditional-only replacement,
-field/return/throw escape, escaping constructor or call, genuinely polymorphic
-call with uncertain targets, second free, and every later use through a tracked
-local. Path-sensitive joins retain an identity only when every incoming path is
-compatible. A detached owned backing array may cross a migration loop when its
-SSA identity is unchanged. For a known local array and constant index, the
-proof also records a directly stored child allocation. That child is not
-freeable while the slot retains it; directly overwriting the slot with `null`
-or freeing the outer container proves detachment. These conservative boundaries
-may be relaxed by stronger proof without changing the safety rule.
-
-Freeing an array releases only its container and never recursively releases its
-reference elements. Constant-slot stores and loads through a known local array
-preserve the tracked child allocation identity. Dynamic indices, escaped
-containers, calls that can observe elements, and bulk copies remain
-conservative and escape affected children. Primitive array elements introduce
-no aliases.
-`System.arraycopy` may retain element aliases in its destination. Until the
-safe-`free` proof models per-element provenance across this bulk operation, a
-locally allocated tracked destination is conservatively treated as escaped and
-cannot subsequently be freed. The exclusive-backing-field proof separately
-tracks container identity: exact `System.arraycopy` does not publish either
-array container, so a detached old backing container can still be freed after a
-copy. This does not make any copied element freeable.
-
-The runtime may release its own implementation storage, such as transient native
-exception wrappers, because those wrappers are not Ironwood objects. A failed
-constructor runs compiler-generated rollback for every completed
-compiler-proven-owned field in reverse installation order, then raw-deallocates
-the incomplete receiver without running its source destructor. Construction
-that may publish in-progress `this` is rejected.
 
 ## Specified but not implemented
 
@@ -1574,8 +1350,7 @@ Nothing in the current source tree is designated experimental.
 - Java's runtime-selectable `assert` statement; use ordinary conditions and
   explicit thrown failures for validation that must run consistently
 - Java-style leading-zero octal literals and intersection cast expressions
-- General annotations. The compiler-owned `@Override`, `@Test`, and
-  `@SuppressUnfreed` directives are not annotation instances. Records and
+- General annotations. The compiler-owned `@Override` and `@Test` directives are not annotation instances. Records and
   sealed types; lambdas, closures,
   and method references; reference type patterns for `switch`;
   record/unnamed patterns; and preview primitive patterns are also unsupported.

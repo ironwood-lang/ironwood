@@ -28,7 +28,7 @@ Stores unique values by reference identity.
 | [`IdentityHashSet(int,float)`](#member-IdentityHashSet-28-int-2c-float-29-) | Creates a new IdentityHashSet. |
 | [`IdentityHashSet(int)`](#member-IdentityHashSet-28-int-29-) | Creates a new IdentityHashSet. |
 | [`IdentityHashSet()`](#member-IdentityHashSet-28--29-) | Creates a new IdentityHashSet. |
-| [`copy()`](#member-copy-28--29-) | Creates independent mutable membership with separately owned map and iterator storage. |
+| [`copy()`](#member-copy-28--29-) | Creates independent mutable membership with separate map and iterator storage, preserving element identity. |
 | [`getInitialCapacity()`](#member-getInitialCapacity-28--29-) | Returns the initial capacity. |
 | [`getLoadFactor()`](#member-getLoadFactor-28--29-) | Returns the load factor. |
 | [`size()`](#member-size-28--29-) | Returns the number of stored values. |
@@ -93,15 +93,11 @@ Creates a new IdentityHashSet.
 public IdentityHashSet<E> copy()
 ```
 
-Creates independent mutable membership with separately owned map and
-iterator storage. Non-null items are borrowed; the caller owns the result.
-Source cursor state is untouched. Partial construction reclaims storage.
+Creates independent mutable membership with separate map and iterator
+storage, preserving element identity. Source cursor state is unchanged.
 The backing map uses load factor 1.0 and max(1, size()) initial capacity;
-unused source pool capacity is not copied. Destruction reclaims private
-storage and never frees caller-owned items.
-Membership loans remain until clear or destruction, subject to retained
-aliases; individual removal does not discharge a compiler loan.
-Reference identity is preserved and no item callbacks are invoked.
+unused source pool capacity is not copied. Callbacks must not mutate source
+membership. Their exceptions propagate; partial graphs remain managed.
 
 **Returns**
 

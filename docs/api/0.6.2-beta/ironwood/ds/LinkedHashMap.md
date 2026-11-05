@@ -34,7 +34,7 @@ Maps keys to values while preserving insertion order.
 | [`getLoadFactor()`](#member-getLoadFactor-28--29-) | Returns the load factor. |
 | [`getCurrIteratorKey()`](#member-getCurrIteratorKey-28--29-) | Returns the curr iterator key. |
 | [`size()`](#member-size-28--29-) | Returns the number of stored values. |
-| [`copy()`](#member-copy-28--29-) | Creates independent mutable membership with fresh entries and pool storage. |
+| [`copy()`](#member-copy-28--29-) | Creates an independently mutable shallow copy with fresh entries and pool storage. |
 | [`isEmpty()`](#member-isEmpty-28--29-) | Returns whether this value is empty. |
 | [`containsKey(K)`](#member-containsKey-28-K-29-) | Returns whether a value is associated with the supplied key. |
 | [`containsValue(E)`](#member-containsValue-28-E-29-) | Returns whether the supplied value is present. |
@@ -178,21 +178,12 @@ Returns the number of stored values.
 public LinkedHashMap<K, E> copy()
 ```
 
-Creates independent mutable membership with fresh entries and pool storage.
-Keys and values are non-null under the existing insertion contract and
-are borrowed, preserving identity. The source reusable
-iterator is untouched. The copy uses load factor 1.0 and at least one
-bucket; insertion follows this map's ordinary key comparison contract.
-Destroying either map never destroys caller-owned keys or values.
-The caller owns the result and keeps borrowed keys and values alive while
-observable. Current proofs retire membership loans on clear or destruction;
-retained aliases can still prevent reclamation. Individual removal does
-not currently retire a compiler-tracked loan.
-Copying reruns key hashCode and, for colliding keys, equals callbacks.
-Callback exceptions propagate after destination cleanup. Callbacks must
-not mutate the source membership during traversal.
-The copy preserves the source insertion order.
-Partial construction reclaims destination storage before rethrowing.
+Creates an independently mutable shallow copy with fresh entries and pool
+storage. Non-null keys and values preserve their identity and are retained
+by both maps. Source iterator state is unchanged. The copy uses load factor
+1.0 and at least one bucket. Unused source pool capacity is not copied.
+Hash/equality callbacks run again and must not mutate source membership.
+Their exceptions propagate; partial destination graphs remain managed.
 
 **Returns**
 

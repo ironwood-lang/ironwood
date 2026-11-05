@@ -34,7 +34,6 @@ final class InterfaceSnapshot {
             return new InterfaceSnapshot(query);
         } finally {
             query.close();
-            free query;
         }
     }
 
@@ -59,11 +58,5 @@ final class InterfaceSnapshot {
         return -1;
     }
 
-    destructor {
 
-        for (int index = 0; index < this.interfaces.length; index++) {
-            free this.interfaces[index];
-        }
-        free this.interfaces;
-    }
 }

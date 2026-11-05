@@ -39,8 +39,8 @@ import ironwood.ds.LongArrayList;
  * long. These caller obligations are not checked on the recording path.
  * Warmup primes caches and storage in native code; there is no JIT compilation.
  *
- * <p>Free the benchmark after use to reclaim its histogram and counters.
- * {@code results()} returns an independent String that the caller must free;
+ * <p>The benchmark and its histogram use managed storage.
+ * {@code results()} returns an independent managed String;
  * {@code printResults()} handles its own temporary report. Reports use comma
  * grouping, a decimal point, and three fractional digits, regardless of locale.
  * {@link #printResults()} includes percentiles; use
@@ -48,8 +48,7 @@ import ironwood.ds.LongArrayList;
  *
  * <p>This example measures a 1,000 ns busy wait, excludes 1,000 warmup
  * iterations, and records 10,000 measurements. Replace {@code sleepFor(1000)}
- * with the operation you want to time. It prints a report, reclaims the
- * benchmark, and exits with status {@code 0}. Actual timings vary by machine.
+ * with the operation you want to time. It prints a report and exits with status {@code 0}. Actual timings vary by machine.
  *
  * <pre>{@code
  * import ironwood.bench.Bench;
@@ -73,7 +72,6 @@ import ironwood.ds.LongArrayList;
  *             bench.measure(System.nanoTime() - start);
  *         }
  *         bench.printResults();
- *         free bench;
  *         return 0;
  *     }
  * }
@@ -124,7 +122,6 @@ public class Bench {
                 int position = slot(duration);
                 this.slots[position] = index + 1;
             }
-            free oldSlots;
         }
 
         void record(long duration) {
@@ -173,12 +170,7 @@ public class Bench {
             this.counts.clear();
         }
 
-        destructor {
 
-            free this.slots;
-            free this.counts;
-            free this.durations;
-        }
     }
 
     private final Histogram histogram;
@@ -355,7 +347,6 @@ public class Bench {
     private static void appendGrouped(StringBuilder builder, long value) {
 
         String digits = Long.toString(value);
-        defer free digits;
         for (int index = 0; index < digits.length(); index++) {
             char digit = digits.charAt(index);
             builder.append(digit);
@@ -384,7 +375,6 @@ public class Bench {
         }
         double value = Math.round(nanos / divisor * 1000.0) / 1000.0;
         String number = String.formatFixed(value, 0, 3);
-        defer free number;
         builder.append(number);
         builder.append(value > 1.0 ? plural : singular);
     }
@@ -441,12 +431,11 @@ public class Bench {
      * An empty benchmark reports only its counts.
      *
      * @param includePercentiles whether to append the six percentile summaries
-     * @return a fresh caller-owned String; free it after use
+     * @return a fresh managed String
      */
     public String results(boolean includePercentiles) {
 
         StringBuilder builder = new StringBuilder(1024);
-        defer free builder;
         builder.append("Measurements: ");
         appendGrouped(builder, this.measurements);
         builder.append(" | Warm-Up: ");
@@ -464,7 +453,6 @@ public class Bench {
             builder.append('\n');
             if (includePercentiles) {
                 long[] keys = new long[this.histogram.size()];
-                defer free keys;
                 for (int index = 0; index < keys.length; index++) {
                     keys[index] = this.histogram.durationAt(index);
                 }
@@ -487,25 +475,21 @@ public class Bench {
     }
 
     /**
-     * Prints a report and a blank line, reclaiming the temporary String.
+     * Prints a report and a blank line.
      *
      * @param includePercentiles whether to append percentile summaries
      */
     public void printResults(boolean includePercentiles) {
 
         String report = results(includePercentiles);
-        defer free report;
         System.out.println(report);
     }
 
-    /** Prints a report including percentiles and reclaims the temporary String. */
+    /** Prints a report including percentiles. */
     public void printResults() {
 
         printResults(true);
     }
 
-    destructor {
 
-        free this.histogram;
-    }
 }

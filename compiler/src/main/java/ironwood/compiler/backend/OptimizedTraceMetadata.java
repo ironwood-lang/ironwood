@@ -59,7 +59,8 @@ final class OptimizedTraceMetadata {
         }
         StringBuilder injected = new StringBuilder();
         if (!withoutDeclaration.contains("@ironwood_trace_register(")) {
-            injected.append("\ndeclare void @ironwood_trace_register(ptr, i32, ptr, i32)\n");
+            injected.append("\ndeclare void @ironwood_trace_register(ptr, i32, ptr, i32)")
+                    .append(gc ? " \"gc-leaf-function\"" : "").append('\n');
         }
         injected.append("\n@ironwood_trace_functions = private constant [")
                 .append(functions.size()).append(" x { i64, ptr }] ");
@@ -83,7 +84,8 @@ final class OptimizedTraceMetadata {
                     .append(" x { i64, ptr }], ptr @ironwood_trace_functions\n");
         }
         injected.append(shared ? "\ndefine hidden void" : "\ndefine void")
-                .append(" @ironwood_trace_register_current(ptr %sites, i32 %site.count) {\n")
+                .append(" @ironwood_trace_register_current(ptr %sites, i32 %site.count)")
+                .append(gc ? " \"gc-leaf-function\"" : "").append(" {\n")
                 .append("entry:\n")
                 .append("  call void @ironwood_trace_register(ptr %sites, i32 %site.count, ptr @ironwood_trace_functions, i32 ")
                 .append(functions.size()).append(")\n")
@@ -108,7 +110,7 @@ final class OptimizedTraceMetadata {
         return result;
     }
 
-    private static String decodeSymbol(String symbol) {
+    static String decodeSymbol(String symbol) {
         if (!symbol.startsWith("@\"")) {
             return symbol.substring(1);
         }

@@ -24,6 +24,13 @@ public final class GcManagedHeapVerifier {
             }
             for (IrBasicBlock block : function.blocks()) {
                 for (IrInstruction instruction : GcEffects.operations(block)) {
+                    if (instruction instanceof IrForeignCallInstruction || instruction instanceof IrByteViewInstruction
+                            || instruction instanceof IrBridgeArrayCopyInstruction || instruction instanceof IrBridgeStringCopyInstruction
+                            || instruction instanceof IrBridgeFailureSnapshotInstruction || instruction instanceof IrBridgeBatchAppendInstruction
+                            || instruction instanceof IrBridgeResultStoreInstruction || instruction instanceof IrBridgeSlotStoreInstruction) {
+                        throw new IllegalArgumentException("GC6 boundary: reachable foreign transition or bridge owner is not qualified: "
+                                + instruction.getClass().getSimpleName());
+                    }
                     if (instruction instanceof IrFreeInstruction || instruction instanceof IrRawDeallocateInstruction
                             || instruction instanceof IrRollbackInstruction || instruction instanceof IrDestroyArrayElementsInstruction
                             || instruction instanceof IrReleaseOwnedToStringResultInstruction

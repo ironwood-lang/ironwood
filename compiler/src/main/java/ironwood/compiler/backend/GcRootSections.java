@@ -83,8 +83,8 @@ final class GcRootSections {
         if (size < 16 || data.get(map) != 3 || data.get(map + 1) != 0 || data.getShort(map + 2) != 0) throw invalid("map version");
         long functions = Integer.toUnsignedLong(data.getInt(map + 4)), constants = Integer.toUnsignedLong(data.getInt(map + 8));
         long records = Integer.toUnsignedLong(data.getInt(map + 12));
-        if (functions == 0 || functions > (size - 16) / 24 || constants > (size - 16 - 24 * functions) / 8
-                || records == 0 || records > 1048576) throw invalid("map counts");
+        if (functions == 0 && (constants != 0 || records != 0 || size != 16) || functions > (size - 16) / 24 || constants > (size - 16 - 24 * functions) / 8
+                || functions != 0 && records == 0 || records > 1048576) throw invalid("map counts");
         long relocationOffset = Integer.toUnsignedLong(data.getInt(root + 56));
         long relocations = Integer.toUnsignedLong(data.getInt(root + 60));
         extent(object, relocationOffset, 8 * relocations);
@@ -161,8 +161,8 @@ final class GcRootSections {
         if (size < 16 || data.get(map) != 3 || data.get(map + 1) != 0 || data.getShort(map + 2) != 0) throw invalid("ELF map version");
         long functions = Integer.toUnsignedLong(data.getInt(map + 4)), constants = Integer.toUnsignedLong(data.getInt(map + 8));
         long records = Integer.toUnsignedLong(data.getInt(map + 12));
-        if (functions == 0 || functions > (size - 16) / 24 || constants > (size - 16 - 24 * functions) / 8
-                || records == 0 || records > 1048576) throw invalid("ELF map counts");
+        if (functions == 0 && (constants != 0 || records != 0 || size != 16) || functions > (size - 16) / 24 || constants > (size - 16 - 24 * functions) / 8
+                || functions != 0 && records == 0 || records > 1048576) throw invalid("ELF map counts");
         byte[] normalized = java.util.Arrays.copyOfRange(object, map, (int)(offset + size));
         var canonical = ByteBuffer.wrap(normalized).order(ByteOrder.LITTLE_ENDIAN);
         Set<Long> locations = new HashSet<>();

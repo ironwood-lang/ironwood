@@ -47,6 +47,8 @@ recorded as a new decision that explicitly supersedes the old one.
 
 ## D005 - `free` requires a compiler safety proof
 
+- **GC5 supersession:** D320 replaces this entry's managed reclamation or
+  incomplete-native-cutover clauses. This record remains historical evidence.
 - **Status:** Accepted
 - **Context:** Deterministic reclamation is useful for native programs but cannot
   introduce use-after-free behavior.
@@ -605,6 +607,8 @@ recorded as a new decision that explicitly supersedes the old one.
 
 ## D027 - Explicit compiler-checked reclamation without a collector
 
+- **GC5 supersession:** D320 replaces this entry's managed reclamation or
+  incomplete-native-cutover clauses. This record remains historical evidence.
 - **Status:** Superseded in part by D083; supersedes D004 and refines D005 and
   D019
 - **Context:** Ironwood should retain Java-like source syntax, object identity,
@@ -3503,6 +3507,8 @@ occurrence order. If no
 
 ## D083 - Implement deterministic destruction and failed-construction rollback
 
+- **GC5 supersession:** D320 replaces this entry's managed reclamation or
+  incomplete-native-cutover clauses. This record remains historical evidence.
 - **Status:** Superseded in part by D084 and D102; supersedes D027's no-destructor and
   failed-construction-retention rules and refines D005
 - **Context:** Compiler-proven `free` previously raw-deallocated exactly one
@@ -5850,6 +5856,8 @@ occurrence order. If no
 
 ## D140 - Warn by default about proven abandoned allocations
 
+- **GC5 supersession:** D320 replaces this entry's managed reclamation or
+  incomplete-native-cutover clauses. This record remains historical evidence.
 - **Status:** Accepted and implemented. Amends D027's diagnostic policy for
   omitted reclamation while retaining its explicit lifetime model and D005's
   mandatory safe-`free` proof.
@@ -5981,6 +5989,8 @@ occurrence order. If no
 
 ## D145 - Exempt individual allocations from missing-free diagnostics
 
+- **GC5 supersession:** D320 replaces this entry's managed reclamation or
+  incomplete-native-cutover clauses. This record remains historical evidence.
 - **Status:** Accepted and implemented.
 - **Supersedes:** D140's exclusion of per-site suppression syntax. Its default
   severity, diagnostic coverage, and separation from mandatory safety remain.
@@ -7424,6 +7434,8 @@ occurrence order. If no
 
 ## D184 - Add structured notes for rejected reclamation diagnostics
 
+- **GC5 supersession:** D320 replaces this entry's managed reclamation or
+  incomplete-native-cutover clauses. This record remains historical evidence.
 - **Status:** Accepted; superseded in part by D185, under which a located
   warning also carries notes. M1b implements the shared diagnostic API and renderer;
   M1c adds eligibility/readiness notes and a nullable semantic observer; M1d
@@ -7482,6 +7494,8 @@ occurrence order. If no
 
 ## D185 - Reclaim unnamed temporaries at the end of their full expression
 
+- **GC5 supersession:** D320 replaces this entry's managed reclamation or
+  incomplete-native-cutover clauses. This record remains historical evidence.
 - **Status:** Accepted and implemented through Milestone 4 of
   [TEMPORARIES_RULE_PLAN.md](TEMPORARIES_RULE_PLAN.md). Supersedes, for
   unnamed temporaries only, D027's rule that an ordinary allocation remains
@@ -12541,6 +12555,8 @@ occurrence order. If no
 
 ## D319 - Validate collection source IR without activating an incomplete heap cutover
 
+- **GC5 supersession:** D320 replaces this entry's managed reclamation or
+  incomplete-native-cutover clauses. This record remains historical evidence.
 - **Status:** Incomplete GC5 private checkpoint on 2026-11-04. Extends D315-D318.
   No production memory-model, source reclamation or bridge decision is superseded.
 - **Intrinsic:** Validate the canonical bundled `ironwood.lang.Memory` declaration
@@ -12562,3 +12578,41 @@ occurrence order. If no
 - **Boundary:** [The GC5 record](GC5_IMPLEMENTATION.md) identifies the implemented
   subset, evidence and unmet integrated exit criteria. No GC6, JNI reentry,
   generated lifetime API, Linux arm64 or arm64e qualification follows.
+
+
+## D320 - Complete the integrated explicit-collection memory model
+
+- **Status:** Implemented GC5 migration-branch checkpoint, 2026-11-05. Completes
+  the cutover authorized by D315 and supersedes D319's ordinary-native refusal.
+  Extends D316-D319 exact layouts, root ABI 2, runtime-owner ABI 1 and preparation
+  OOM controls. D051, D132 and D133 remain unchanged.
+- **Supersessions:** Replaces D005/D027 manual reclamation, D083 destruction and
+  managed rollback, D140/D145 missing-free options/suppression, D184 rejected-free
+  explanations, D185 temporary destruction, owned-rendering release portions of
+  D111/D114, and managed confinement-only portions of D084, D090-D091,
+  D102-D105, D169-D170 and D251-D253. D168 retains general defer and loses only
+  deferred-free behavior. Earlier proof refinements remain historical where they
+  exist solely to prove managed deallocation. Preserve independent optimization,
+  initialization, native/resource, pool-origin and reuse contracts. D004's
+  automatic collection is not reinstated.
+- **Decision:** Use one exact nonmoving heap for ordinary native output and the
+  complete required library. Only validated canonical public static void
+  Memory.collect() synchronously marks and sweeps. Allocation/counter reads never
+  collect. Remove source reclamation, destruction and managed rollback producers;
+  final linking rejects every reachable legacy release. Published failed
+  construction remains a valid graph. Explicit native/resource cleanup remains.
+- **Implementation:** Bind actual layouts, SDK configuration/payloads, required
+  LLVM 23 nonmoving pass, retained maps and runtime owners. Preserve exceptional
+  pending roots, optimized traces, bounded emergency graphs and catchable
+  preparation OOM without partial reclamation. Corrupt/incompatible metadata
+  refuses before collection. No ambient scanning, workers, barriers, finalizers,
+  continuous shadow stack or per-defer registration is added.
+- **Library and artifacts:** Rebuild all main/testing sources and format-1
+  source-reconstructing artifacts; regenerate development API docs. Clear stale
+  reference slots/entry links. Preserve intentional pool retention and named
+  resetForReuse()/clearUnusedReferences() operations. See [MEMORY.md](MEMORY.md)
+  and [the implementation/validation report](GC5_IMPLEMENTATION.md).
+- **Boundary:** Refuse all native bridge/shared-library output until GC6, including
+  scalar-only entries with allocating initialization/failure. No RootHandle,
+  listener migration or JVM reentry is implemented. Linux arm64/arm64e remain
+  unqualified. GC7-GC10 and self-hosting remain separately bounded work.

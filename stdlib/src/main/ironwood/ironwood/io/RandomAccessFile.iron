@@ -20,7 +20,6 @@ public class RandomAccessFile implements Closeable {
 
         if (path == null) throw new NullPointerException();
         String name = new String(path.toString());
-        defer free name;
         this.descriptor = StreamSupport.openFile(name, modeValue(mode));
     }
 
@@ -167,7 +166,6 @@ public class RandomAccessFile implements Closeable {
     public String readLine() throws IOException {
 
         StringBuffer text = new StringBuffer();
-        defer free text;
         while (true) {
             int value = read();
             if (value < 0) return text.length() == 0 ? null : text.toString();
@@ -187,7 +185,6 @@ public class RandomAccessFile implements Closeable {
 
         int byteLength = readUnsignedShort();
         char[] units = new char[byteLength];
-        defer free units;
         int input = 0;
         int output = 0;
         while (input < byteLength) {

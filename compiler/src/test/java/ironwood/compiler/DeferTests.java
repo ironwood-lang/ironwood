@@ -36,7 +36,8 @@ final class DeferTests {
         }
         ParsedSource free = SourceParser.parse(SourceFile.of("test/Main.iron",
                 source.replace("defer action();", "defer free value;")));
-        require(free.diagnostics().isEmpty(), "deferred local free should parse: " + free.diagnostics());
+        require(free.diagnostics().stream().anyMatch(d -> d.message().contains("defer free has been removed")),
+                "deferred free lost its migration diagnostic: " + free.diagnostics());
         for (String statement : List.of("if (true) { defer action(); }", "while (false) { defer action(); }",
                 "label: { defer action(); }", "switch (1) { case 1: { defer action(); } }",
                 "switch (1) { default -> { defer action(); } }",
@@ -74,15 +75,16 @@ final class DeferTests {
                 "try { if (args.length == 0) return 1; return 2; } finally { defer action(); }"), UnfreedMode.OFF);
         require(repeated.diagnostics().stream().filter(d -> d.message().contains("unreported checked exception")).count() == 1,
                 "duplicate cleanup diagnostics: " + repeated.diagnostics());
-        // Initializer/delegation and destructor restrictions still apply to delayed calls.
-        accept("class Main { static { defer action(); } { defer action(); } Main() { defer action(); } static void action() {} public static int main(String[] args) { Main m = new Main(); free m; return 0; } }");
+        // Initializer/delegation and checked-exception rules survive the heap cutover.
+        accept("class Main { static { defer action(); } { defer action(); } Main() { defer action(); } static void action() {} public static int main(String[] args) { Main m = new Main(); return 0; } }");
         reject("class Main { Main() { defer action(); super(); } static void action() {} public static int main(String[] args) { return 0; } }",
                 "first statement", UnfreedMode.OFF);
         reject("class Main { static void action() { Object o = new Object(); } destructor { defer action(); } public static int main(String[] args) { Main m = new Main(); free m; return 0; } }",
                 "destructor", UnfreedMode.OFF);
-        reject("class Main { static Error failure; static void action() { throw failure; } "
-                + "destructor { defer action(); } public static int main(String[] args) { return 0; } }",
-                "exception may escape", UnfreedMode.OFF);
+        reject("class Failure extends Exception {} class Main { static Failure failure; "
+                        + "static void action() throws Failure { throw failure; } Main() { defer action(); } "
+                        + "public static int main(String[] args) { return 0; } }",
+                "unreported checked exception", UnfreedMode.OFF);
     }
 
     static void ownership() {

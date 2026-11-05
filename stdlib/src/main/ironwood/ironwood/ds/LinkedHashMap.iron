@@ -29,7 +29,6 @@ public class LinkedHashMap<K extends Object, E extends Object> implements Iterab
     private int count;
     private int threshold;
     private float loadFactor;
-    // Keep the builder before the pool for reverse-order constructor rollback.
     private final ObjectBuilder<LinkedHashMapEntry<K, E>> entryBuilder;
     private final ArrayObjectPool<LinkedHashMapEntry<K, E>> entryPool;
     private LinkedHashMapEntry<K, E> head;
@@ -131,9 +130,12 @@ public class LinkedHashMap<K extends Object, E extends Object> implements Iterab
 
     private void releaseEntryBackToPool(LinkedHashMapEntry<K, E> entry) {
 
-        // User fields are overwritten before reuse; ordering links are not.
         entry.before = null;
         entry.after = null;
+        // The entry remains reusable; retired user graphs do not.
+        entry.key = null;
+        entry.value = null;
+        entry.next = null;
         this.entryPool.release(entry);
     }
 
@@ -185,7 +187,6 @@ public class LinkedHashMap<K extends Object, E extends Object> implements Iterab
             }
             oldIndex--;
         }
-        free oldData;
     }
     /** Returns the curr iterator key. */
 
@@ -200,22 +201,12 @@ public class LinkedHashMap<K extends Object, E extends Object> implements Iterab
         return count;
     }
     /**
-     * Creates independent mutable membership with fresh entries and pool storage.
-     * Keys and values are non-null under the existing insertion contract and
-     * are borrowed, preserving identity. The source reusable
-     * iterator is untouched. The copy uses load factor 1.0 and at least one
-     * bucket; insertion follows this map's ordinary key comparison contract.
-     * Destroying either map never destroys caller-owned keys or values.
-     * The caller owns the result and keeps borrowed keys and values alive while
-     * observable. Current proofs retire membership loans on clear or destruction;
-     * retained aliases can still prevent reclamation. Individual removal does
-     * not currently retire a compiler-tracked loan.
-     * Copying reruns key hashCode and, for colliding keys, equals callbacks.
-     * Callback exceptions propagate after destination cleanup. Callbacks must
-     * not mutate the source membership during traversal.
-     * The copy preserves the source insertion order.
-     * Partial construction reclaims destination storage before rethrowing.
-     *
+     * Creates an independently mutable shallow copy with fresh entries and pool
+     * storage. Non-null keys and values preserve their identity and are retained
+     * by both maps. Source iterator state is unchanged. The copy uses load factor
+     * 1.0 and at least one bucket. Unused source pool capacity is not copied.
+     * Hash/equality callbacks run again and must not mutate source membership.
+     * Their exceptions propagate; partial destination graphs remain managed.
      * @return an independently mutable shallow copy
      */
     public LinkedHashMap<K, E> copy() {
@@ -229,7 +220,6 @@ public class LinkedHashMap<K extends Object, E extends Object> implements Iterab
             }
             return result;
         } catch (RuntimeException | Error failure) {
-            free result;
             throw failure;
         }
     }
@@ -375,7 +365,6 @@ public class LinkedHashMap<K extends Object, E extends Object> implements Iterab
     public String toString() {
 
         StringBuilder builder = new StringBuilder();
-        defer free builder;
         builder.append('{');
         LinkedHashMapEntry<K, E> entry = this.head;
         while (entry != null) {
@@ -447,11 +436,5 @@ public class LinkedHashMap<K extends Object, E extends Object> implements Iterab
         return reusableIterator;
     }
 
-    destructor {
 
-        free this.reusableIterator;
-        free this.data;
-        free this.entryPool;
-        free this.entryBuilder;
-    }
 }

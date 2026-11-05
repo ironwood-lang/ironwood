@@ -30,7 +30,7 @@ Stores unique values in insertion order.
 | [`LinkedHashSet()`](#member-LinkedHashSet-28--29-) | Creates a new LinkedHashSet. |
 | [`LinkedHashSet(int)`](#member-LinkedHashSet-28-int-29-) | Creates a new LinkedHashSet. |
 | [`LinkedHashSet(int,float)`](#member-LinkedHashSet-28-int-2c-float-29-) | Creates a new LinkedHashSet. |
-| [`copy()`](#member-copy-28--29-) | Creates independent mutable membership with separately owned map and iterator storage. |
+| [`copy()`](#member-copy-28--29-) | Creates independent mutable membership with separate map and iterator storage, preserving element identity. |
 | [`getInitialCapacity()`](#member-getInitialCapacity-28--29-) | Returns the initial capacity. |
 | [`getLoadFactor()`](#member-getLoadFactor-28--29-) | Returns the load factor. |
 | [`add(E)`](#member-add-28-E-29-) | Adds the supplied value. |
@@ -123,17 +123,11 @@ Creates a new LinkedHashSet.
 public LinkedHashSet<E> copy()
 ```
 
-Creates independent mutable membership with separately owned map and
-iterator storage. Non-null items are borrowed; the caller owns the result.
-Source cursor state is untouched. Partial construction reclaims storage.
+Creates independent mutable membership with separate map and iterator
+storage, preserving element identity. Source cursor state is unchanged.
 The backing map uses load factor 1.0 and max(1, size()) initial capacity;
-unused source pool capacity is not copied. Destruction reclaims private
-storage and never frees caller-owned items.
-Membership loans remain until clear or destruction, subject to retained
-aliases; individual removal does not discharge a compiler loan.
-Ordinary item hash/equality callbacks run again; their exceptions
-propagate after cleanup. They must not mutate source membership.
-The copy preserves insertion order.
+unused source pool capacity is not copied. Callbacks must not mutate source
+membership. Their exceptions propagate; partial graphs remain managed.
 
 **Returns**
 

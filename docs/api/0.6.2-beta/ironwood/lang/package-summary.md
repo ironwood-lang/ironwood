@@ -36,6 +36,7 @@ exceptions.
 | [`Iterable`](Iterable.md) | interface | Defines traversal through an iterator. |
 | [`Long`](Long.md) | class | Provides 64-bit integer operations. |
 | [`Math`](Math.md) | class | Provides numerical operations. |
+| [`Memory`](Memory.md) | class | Explicit managed-heap collection. |
 | [`NegativeArraySizeException`](NegativeArraySizeException.md) | class | Signals an invalid negative array length. |
 | [`NullPointerException`](NullPointerException.md) | class | Signals an attempted null dereference. |
 | [`Number`](Number.md) | class | Defines primitive numeric conversions. |

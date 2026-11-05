@@ -211,9 +211,7 @@ public abstract class InetAddress {
     /**
      * Resolves all addresses, grouping IPv4 before IPv6 while preserving host resolver order
      * within each family. Null or empty text selects loopback; a numeric literal produces a
-     * one-element array. The array and each distinct element are separately caller-owned. Detach
-     * and free the elements before freeing the array; freeing the array alone does not reclaim
-     * them.
+     * one-element array. The array and its distinct elements have ordinary managed lifetimes.
      *
      * @param host a hostname or numeric address, or null for loopback
      * @return a fresh nonempty array of fresh address values
@@ -228,7 +226,6 @@ public abstract class InetAddress {
                 result[0] = getByName(host);
                 return result;
             } catch (UnknownHostException | Error failure) {
-                free result;
                 throw failure;
             }
         }
@@ -246,7 +243,6 @@ public abstract class InetAddress {
     public static InetAddress getLocalHost() throws UnknownHostException {
 
         String host = ResolverQuery.localName();
-        defer free host;
         return ResolverQuery.first(host);
     }
 
@@ -275,7 +271,6 @@ public abstract class InetAddress {
             return null;
         }
         byte[] bytes = new byte[16];
-        defer free bytes;
         if (!IpLiteralParser.ipv6(host, start, scopeStart < 0 ? end : scopeStart, bytes)) {
             throw new UnknownHostException(host);
         }
@@ -297,11 +292,9 @@ public abstract class InetAddress {
         }
         if (numeric) return new Inet6Address(first, second, third, fourth, null, (int) scope, null);
         String name = host.substring(scopeStart + 1, end);
-        defer free name;
         try {
             NetworkInterface netif = NetworkInterface.getByName(name);
             if (netif == null) throw new UnknownHostException(host);
-            defer free netif;
             return new Inet6Address(first, second, third, fourth, null, netif.scopeFor(first), name, netif);
         } catch (SocketException failure) {
             throw new UnknownHostException(host);
@@ -333,8 +326,8 @@ public abstract class InetAddress {
 
     /**
      * Returns a supplied host label when present, otherwise lazily performs a reverse lookup
-     * confirmed by forward resolution. Failed confirmation falls back to numeric text. The result
-     * is cached and owned by this address; do not free it separately.
+     * confirmed by forward resolution. Failed confirmation falls back to numeric text. The
+     * result is cached by this address and has a managed lifetime.
      *
      * @return borrowed host-name or numeric text
      */
@@ -346,9 +339,9 @@ public abstract class InetAddress {
     }
 
     /**
-     * Lazily performs a reverse lookup confirmed by forward resolution, even when a host label was
-     * supplied. Failed confirmation falls back to numeric text. The result is cached and owned by
-     * this address; do not free it separately.
+     * Lazily performs a reverse lookup confirmed by forward resolution, even when a host label
+     * was supplied. Failed confirmation falls back to numeric text. The result is cached by
+     * this address and has a managed lifetime.
      *
      * @return borrowed canonical host-name or numeric text
      */
@@ -415,7 +408,6 @@ public abstract class InetAddress {
     public final String getHostAddress() {
 
         StringBuilder text = new StringBuilder(40);
-        defer free text;
         int count = this.family == 4 ? 4 : 8;
         for (int index = 0; index < count; index++) {
             if (index != 0) text.append(this.family == 4 ? '.' : ':');
@@ -598,15 +590,7 @@ public abstract class InetAddress {
     public String toString() {
 
         String host = this.getHostAddress();
-        defer free host;
         return this.label() == null ? "/" + host : this.label() + "/" + host;
     }
-    destructor {
 
-        free this.originalName;
-        free this.hostName;
-        free this.canonicalName;
-        free this.numericName;
-        free this.scopeName;
-    }
 }

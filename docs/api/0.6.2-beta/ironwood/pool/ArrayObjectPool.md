@@ -17,73 +17,40 @@ public final class ArrayObjectPool<E extends Object> implements ObjectPool<E>
 **Implements:** [`ObjectPool<E>`](ObjectPool.md)
 
 Reuses objects in a resizable array with configurable preloading and growth.
+Constructors can preload all or part of the initial capacity. A checkout
+builds a value only when its next available slot is empty.
 
 
 
-Supply an `ObjectBuilder<E>` to create values. Constructors can fill
-every slot immediately or preload only part of the initial capacity. A checkout
-visits slots from front to back and builds a value only when its slot is empty.
-Releasing a value makes it the next value returned by [`get()`](#member-get-28--29-).
+This single-threaded pool retains every builder-created object, including
+checked-out objects. Return each checkout at most once, only to its originating
+pool. Neither checkout nor return resets state or closes resources. Stop using
+a returned object until a later checkout. These caller obligations have no
+identity lookup or checkout-state bookkeeping on the reuse path.
 
 
 
-**Reuse.** This single-threaded pool lends its builder-created objects
-through [`get()`](#member-get-28--29-). Return each checkout at most once with
-[`release(E)`](#member-release-28-E-29-), only to its originating pool. Neither operation resets
-object state. Stop using a returned object until a later checkout. These
-obligations are not checked with identity lookups or checkout-state tracking.
+Builder results must be fresh and unescaped. Reuse allocates no pool storage
+after warmup. Creating a value records one reference; exhausted storage grows
+by the configured factor, rounded down but by at least one slot. Superseded
+arrays and a dropped pool graph become eligible for explicit collection.
+External objects are outside the return contract.
 
 
 
-**Destruction.** A separate growing creation array records each non-null
-builder result once. Freeing the pool destroys every recorded object,
-including checked-out objects, then frees both array containers. It does not
-destroy objects by walking the availability array. Duplicate returns cannot
-duplicate creation records, but can corrupt reuse. External objects are
-outside the return contract and are not destroyed by the pool.
-
-
-
-The compiler requires fresh, unescaped builder results and rejects use of
-pool-dependent references after destruction. The builder itself is borrowed
-and remains the caller's responsibility. A checked-out object cannot be
-freed independently or transferred to another pool.
-
-
-
-**Allocation.** Reusing existing objects does not touch the creation
-array and allocates no pool storage after warmup. Creating an object appends
-one reference and may grow the creation array. Exhaustion and release into a
-full pool grow the availability array by the configured factor, rounded down
-but by at least one slot. Growth frees the superseded array container.
-
-
-
-**Example.** This complete program exits with status `0` when a
-released item is reused. It destroys the pool while the reused item is checked
-out, then frees the separately owned builder. It produces no console output.
+This complete example exits 0 when a returned item is reused:
 
 
 ```java
 import ironwood.pool.ArrayObjectPool;
 import ironwood.pool.ObjectBuilder;
 import ironwood.pool.ObjectPool;
-
-class Item {
-    int value;
-}
-
+class Item { int value; }
 class ItemBuilder implements ObjectBuilder<Item> {
-    @Override
-    public Item newInstance() {
-
-     return new Item();
- }
+    @Override public Item newInstance() { return new Item(); }
 }
-
 public class PoolExample {
     public static int main(String[] args) {
-
         ItemBuilder builder = new ItemBuilder();
         ObjectPool<Item> pool = new ArrayObjectPool<Item>(4, 0, builder);
         Item first = pool.get();
@@ -91,8 +58,7 @@ public class PoolExample {
         pool.release(first);
         Item reused = pool.get();
         int result = reused.value == 42 ? 0 : 1;
-        free pool;
-        free builder;
+        pool.release(reused);
         return result;
     }
 }
@@ -102,7 +68,7 @@ public class PoolExample {
 
 | Name | Description |
 | --- | --- |
-| `<E>` | the reference type of objects owned by this pool |
+| `<E>` | the reference type of pooled objects |
 
 **See also**
 
@@ -314,7 +280,7 @@ keeps its previous state. Builder exceptions propagate to the caller.
 
 **Returns**
 
-a non-null borrowed value whose lifetime is bounded by this pool
+a non-null checked-out managed value
 
 
 [Back to member summary](#member-summary)
@@ -334,7 +300,7 @@ Returns a checked-out value for reuse without changing its state.
 
 Return each checkout at most once, only to this pool. Stop using it
 until it is checked out again. Duplicate returns are not checked.
-External objects are unsupported and are not recorded for destruction.
+External objects are unsupported.
 When no return slot is available, the backing array grows while preserving
 its available values. This method does not touch the creation array.
 

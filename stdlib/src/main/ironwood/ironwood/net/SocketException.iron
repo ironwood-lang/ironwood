@@ -5,8 +5,8 @@ package ironwood.net;
 import ironwood.io.IOException;
 
 /**
- * Reports a socket state or native networking failure. Message text is copied; it remains valid
- * after the input string is freed.
+ * Reports a socket state or native networking failure. Message text is copied; it is
+ * independent of later caller input changes.
  */
 public class SocketException extends IOException {
 
@@ -32,7 +32,7 @@ public class SocketException extends IOException {
     }
 
     /**
-     * Returns the detail text owned by this exception. Do not free the result separately.
+     * Returns this exception's managed detail text.
      *
      * @return borrowed message text, or null when no message was supplied
      */
@@ -42,8 +42,5 @@ public class SocketException extends IOException {
         return this.detail;
     }
 
-    destructor {
 
-        free this.detail;
-    }
 }

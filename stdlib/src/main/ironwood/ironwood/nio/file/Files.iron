@@ -97,7 +97,6 @@ public final class Files {
             // A user-defined sequence may mutate or throw while being observed.
             // Snapshot once before opening the destination, then always reclaim it.
             char[] snapshot = new char[content.length()];
-            defer free snapshot;
             copy(content, snapshot);
             error = writeCharsValue(text, snapshot);
         }
@@ -134,22 +133,24 @@ public final class Files {
     }
 
     /**
-     * Creates a new empty file in {@code dir} and returns its path. The name
-     * is the prefix, an unsigned decimal value from the host's secure random
-     * source and the suffix; the file is created exclusively, with owner-only
-     * read and write permission before the umask, and is never replaced. A
-     * name that would contain a separator before its trailing separators is
-     * rejected, as Java rejects a generated name with a parent.
+     * Creates a new empty file in {@code dir} and returns its path. The name is the
+     * prefix, an unsigned decimal value from the host's secure random source and the
+     * suffix; the file is created exclusively, with owner-only read and write permission
+     * before the umask, and is never replaced. A name that would contain a separator
+     * before its trailing separators is rejected, as Java rejects a generated name with a
+     * parent.
      *
-     * <p>Deleting the file stays the caller's responsibility: freeing the
-     * returned path releases only the path object.
+     * <p>Deleting the file stays the caller's responsibility; collecting a path never
+     * deletes its file.
      *
      * @param dir an existing directory; borrowed for the call
+     *
      * @param prefix the name's beginning, or null for none
+     *
      * @param suffix the name's end, or null for {@code ".tmp"}
      * @return a fresh caller-owned path of the new file
-     * @throws IllegalArgumentException if the prefix or suffix would give the
-     *         name a parent
+     * @throws IllegalArgumentException if the prefix or suffix would give the name a
+     * parent
      * @throws InvalidPathException if the prefix or suffix contains NUL
      * @throws IOException if the file cannot be created
      */
@@ -177,7 +178,6 @@ public final class Files {
     public static Path createTempFile(String prefix, String suffix) throws IOException {
 
         Path dir = defaultTemporaryDirectory();
-        defer free dir;
         return temporary(dir, prefix, suffix == null ? ".tmp" : suffix, false);
     }
 
@@ -213,14 +213,12 @@ public final class Files {
     public static Path createTempDirectory(String prefix) throws IOException {
 
         Path dir = defaultTemporaryDirectory();
-        defer free dir;
         return temporary(dir, prefix, null, true);
     }
 
     private static Path defaultTemporaryDirectory() {
 
         String text = System.getProperty("java.io.tmpdir");
-        defer free text;
         return Path.of(text);
     }
 
@@ -241,7 +239,6 @@ public final class Files {
         }
         String directoryText = dir.toString();
         String stem = temporaryStem(directoryText, namePrefix);
-        defer free stem;
         return new UnixPath(directoryText, stem, directory ? null : suffix);
     }
 
@@ -413,46 +410,16 @@ public final class Files {
     public static ArrayList<String> readAllLines(Path path) throws IOException {
 
         ArrayList<String> lines = new ArrayList<String>();
-        BufferedReader reader = null;
-        String pending = null;
-        boolean successful = false;
-        try {
-            reader = new BufferedReader(path);
-            defer free reader;
-            defer reader.close();
+        BufferedReader reader = new BufferedReader(path);
+        defer reader.close();
+        String pending = reader.readLine();
+        while (pending != null) {
+            lines.add(pending);
             pending = reader.readLine();
-            while (pending != null) {
-                lines.add(pending);
-                pending = null;
-                pending = reader.readLine();
-            }
-            // Commit only after close succeeds; deferred close still covers failure.
-            reader.close();
-            successful = true;
-            return lines;
-        } finally {
-            if (!successful) {
-                if (pending != null) releaseOwnedLine(pending);
-                releaseOwnedLines(lines);
-            }
         }
-    }
-
-    private static void releaseOwnedLine(String line) {
-
-        // Exact private compiler contract. Callers pass only a freshly read line
-        // after it has been detached from the temporary list.
-    }
-
-    private static void releaseOwnedLines(ArrayList<String> lines) {
-
-        while (lines.size() > 0) releaseOwnedLine(lines.removeLast());
-        releaseOwnedLineList(lines);
-    }
-
-    private static void releaseOwnedLineList(ArrayList<String> lines) {
-
-        // Exact private compiler contract for the failed result container.
+        // Commit only after close succeeds; deferred close still covers failure.
+        reader.close();
+        return lines;
     }
 
     // Needed by streaming cp to reject aliases, including symlinks and hard links,
@@ -572,7 +539,6 @@ public final class Files {
         String text = path.toString();
         long[] values = readAttributesValue(text, followLinks);
         if (values == null) throw failure(text, lastError());
-        defer free values;
         return new UnixFileAttributes(values[0], values[1], values[2], values[3],
                 (int) values[4]);
     }
@@ -589,7 +555,7 @@ public final class Files {
         }
 
         if (!attributes.isDirectory() || depth >= maxDepth) {
-            defer releaseVisitedAttributes(attributes);
+
             return checkedVisitResult(visitor.visitFile(path, attributes));
         }
 
@@ -598,15 +564,14 @@ public final class Files {
             try {
                 loop = createsTraversalLoop(start, path);
             } catch (IOException failure) {
-                releaseVisitedAttributes(attributes);
+
                 return visitFailed(visitor, path, failure);
             } catch (OutOfMemoryError failure) {
-                // This visit still owns its attributes when the check cannot allocate.
-                releaseVisitedAttributes(attributes);
+
                 throw failure;
             }
             if (loop) {
-                releaseVisitedAttributes(attributes);
+
                 FileSystemLoopException failure = new FileSystemLoopException(path.toString());
                 return visitFailed(visitor, path, failure);
             }
@@ -616,11 +581,10 @@ public final class Files {
         try {
             stream = new UnixDirectoryStream(path);
         } catch (IOException failure) {
-            releaseVisitedAttributes(attributes);
+
             return visitFailed(visitor, path, failure);
         } catch (OutOfMemoryError failure) {
-            // This visit still owns its attributes when the stream cannot be allocated.
-            releaseVisitedAttributes(attributes);
+
             throw failure;
         }
 
@@ -636,7 +600,7 @@ public final class Files {
                 while (stream.hasNext()) {
                     Path child = stream.nextEntry();
                     FileVisitResult childResult = null;
-                    defer releaseVisitedPath(child);
+
                     childResult = walkEntry(start, child, depth + 1, maxDepth,
                             followLinks, visitor);
                     if (childResult == FileVisitResult.TERMINATE) return childResult;
@@ -656,7 +620,7 @@ public final class Files {
             }
             return postDirectory(visitor, path, iterationFailure);
         } finally {
-            defer releaseVisitedDirectoryStream(stream);
+
             if (!closed) stream.close();
         }
     }
@@ -669,7 +633,7 @@ public final class Files {
             boolean reachedStart = parent.equals(start);
             Path next = null;
             boolean same = false;
-            defer releaseVisitedPath(parent);
+
             same = isSameFile(path, parent);
             if (!same && !reachedStart) next = parent.getParent();
             if (same) return true;
@@ -702,25 +666,12 @@ public final class Files {
     private static FileVisitResult preDirectory(FileVisitor<Path> visitor, Path path,
                                                 BasicFileAttributes attributes) throws IOException {
 
-        // Release this visit's attributes before invoking descendant callbacks.
-        defer releaseVisitedAttributes(attributes);
+
         return checkedVisitResult(visitor.preVisitDirectory(path, attributes));
     }
 
-    private static void releaseVisitedPath(Path path) {
 
-        // Exact private compiler contract. Traversal callback paths are borrowed.
-    }
 
-    private static void releaseVisitedAttributes(BasicFileAttributes attributes) {
-
-        // Exact private compiler contract. Traversal callback attributes are borrowed.
-    }
-
-    private static void releaseVisitedDirectoryStream(UnixDirectoryStream stream) {
-
-        // Exact private compiler contract for a closed traversal stream.
-    }
     /** Returns the number of stored values. */
 
     public static long size(Path path) throws IOException {

@@ -86,12 +86,8 @@ public default Iterator<E> asIterator()
 ```
 
 Creates an iterator that advances this same enumeration. The iterator borrows this
-enumeration and does not own its elements; free the iterator before its enumeration. Removal
-is unsupported.
-
-**Returns**
-
-a fresh iterator owned by the caller
+enumeration and does not own its elements; both objects have managed lifetimes. Removal
+is unsupported.  @return a fresh iterator owned by the caller
 
 
 [Back to member summary](#member-summary)

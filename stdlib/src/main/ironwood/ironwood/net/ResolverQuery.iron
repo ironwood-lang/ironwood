@@ -22,7 +22,6 @@ final class ResolverQuery {
     private ResolverQuery(String host) throws UnknownHostException {
 
         byte[] bytes = host.getBytes();
-        defer free bytes;
         checked(TcpNative.resolveStart(bytes, this), host);
     }
 
@@ -50,7 +49,6 @@ final class ResolverQuery {
             return query.address(0, host);
         } finally {
             query.close();
-            free query;
         }
     }
 
@@ -66,48 +64,40 @@ final class ResolverQuery {
                 for (int index = 0; index < result.length; index++) {
                     InetAddress completed = result[index];
                     result[index] = null;
-                    free completed;
                 }
-                free result;
                 throw failure;
             }
         } finally {
             query.close();
-            free query;
         }
     }
 
     private static String text(byte[] buffer, int length) {
 
         byte[] exact = Arrays.copyOf(buffer, length);
-        defer free exact;
         return new String(exact);
     }
 
     static String localName() throws UnknownHostException {
 
         byte[] buffer = new byte[1025];
-        defer free buffer;
         return text(buffer, checked(TcpNative.localName(buffer), "Local hostname unavailable"));
     }
 
     static int scope(String name, int first) throws UnknownHostException {
 
         byte[] bytes = name.getBytes();
-        defer free bytes;
         return checked(TcpNative.scopeId(bytes, first), name);
     }
 
     static String reverse(InetAddress address) {
 
         byte[] buffer = new byte[1025];
-        defer free buffer;
         long status = TcpNative.reverseName(address.family(), address.wordAt(0), address.wordAt(1),
             address.wordAt(2), address.wordAt(3), address.scopeId(), buffer);
         if ((int) (status >>> 32) == 2) throw new OutOfMemoryError();
         if ((int) (status >>> 32) != 0) return address.getHostAddress();
         String name = text(buffer, (int) status);
-        defer free name;
         try {
             ResolverQuery query = new ResolverQuery(name);
             try {
@@ -119,7 +109,6 @@ final class ResolverQuery {
                 }
             } finally {
                 query.close();
-                free query;
             }
         } catch (UnknownHostException failure) {
         }

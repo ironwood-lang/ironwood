@@ -20,16 +20,16 @@ import ironwood.net.SocketTimeoutException;
  * check IP subject alternative names without SNI. Uses pinned bundled roots or an explicit
  * replacement PEM file, not ambient system trust. There is no verification bypass, revocation
  * checking, session resumption or early data.
- * <p>Configuration inputs are copied. Stream views borrow this client and must not be freed
- * separately. Close the client before freeing it: close releases TLS and TCP resources, while
- * destruction only reclaims the managed graph. Closing either stream closes the client. Connection
- * history remains true after closure.
+ * <p>Configuration inputs are copied. Stream views
+ * retain this client. Explicit close releases TLS and TCP resources; collection does not.
+ * Closing either stream closes the client. Connection history remains true after closure.
  * <p>Connect, read and write use separate per-operation deadline budgets. Zero disables a
  * deadline. Synchronous DNS cannot be interrupted, but its elapsed time is charged when it
  * returns. A failed connection attempt, record timeout or fatal record error closes the client;
  * create a new client to retry.
- * <p>Retained TLS operations require the matching optional Ironwood TLS SDK at final link. This
- * API uses native transports and bypasses global socket factories.
+ * <p>Retained TLS operations require the matching optional
+ * Ironwood TLS SDK at final link. This API uses native transports and bypasses global socket
+ * factories.
  */
 public final class TlsClient implements Closeable {
 
@@ -67,15 +67,15 @@ public final class TlsClient implements Closeable {
     }
 
     /**
-     * Creates an unconnected client with copied route configuration and trust-file path. A custom
-     * PEM file replaces bundled roots rather than augmenting them; it is loaded and validated
-     * during connect. Caller inputs may be freed after construction.
+     * Creates an unconnected client with copied route configuration and trust-file path. A
+     * custom PEM file replaces bundled roots rather than augmenting them; it is loaded and
+     * validated during connect. The configuration retains independent copies of caller inputs.
      *
      * @param proxy the proxy configuration to copy, or Proxy.NO_PROXY
      * @param caBundle a custom certificate PEM path to copy, or null for bundled roots
      * @throws NullPointerException if proxy is null
-     * @throws IllegalArgumentException if the path is empty, contains NUL, or the proxy route type
-     *     is unsupported
+     * @throws IllegalArgumentException if the path is empty, contains NUL, or the proxy route
+     * type is unsupported
      */
     public TlsClient(Proxy proxy, String caBundle) {
 
@@ -115,7 +115,6 @@ public final class TlsClient implements Closeable {
         try {
             this.prepare(host);
             InetSocketAddress endpoint = this.endpoint(host, port);
-            defer free endpoint;
             this.connectPrepared(endpoint, timeout, deadline);
             complete = true;
         } finally {
@@ -195,7 +194,6 @@ public final class TlsClient implements Closeable {
 
         if (caBundle == null) return TlsNative.create(null);
         byte[] path = caBundle.getBytes();
-        defer free path;
         return TlsNative.create(path);
     }
 
@@ -205,7 +203,6 @@ public final class TlsClient implements Closeable {
         check(created);
         this.handle = created;
         byte[] name = identity.getBytes();
-        defer free name;
         boolean numeric = identity.indexOf(':') >= 0;
         boolean decimal = true;
         for (int index = 0; index < identity.length(); index++) {
@@ -214,9 +211,7 @@ public final class TlsClient implements Closeable {
         }
         if (numeric || decimal) {
             InetAddress address = InetAddress.getByName(identity);
-            defer free address;
             byte[] bytes = address.getAddress();
-            defer free bytes;
             check(TlsNative.configure(this.handle, name, bytes));
         } else {
             check(TlsNative.configure(this.handle, name, null));
@@ -353,11 +348,11 @@ public final class TlsClient implements Closeable {
     }
 
     /**
-     * Returns a cached input view borrowing this client. Do not free it separately or use it after
-     * freeing the client. Reads borrow caller buffers only for the call; zero-length reads perform
-     * no native I/O. Clean TLS shutdown produces EOF; transport truncation is an error. The read
-     * timeout or a fatal record error closes the client. available() reports already decrypted
-     * bytes; closing the view closes the client.
+     * Returns a cached input view borrowing this client. The view retains the client; explicit
+     * closure still governs native I/O. Reads borrow caller buffers only for the call;
+     * zero-length reads perform no native I/O. Clean TLS shutdown produces EOF; transport
+     * truncation is an error. The read timeout or a fatal record error closes the client.
+     * available() reports already decrypted bytes; closing the view closes the client.
      *
      * @return the stable borrowed input stream
      * @throws SocketException if this client is unconnected or closed
@@ -370,11 +365,11 @@ public final class TlsClient implements Closeable {
     }
 
     /**
-     * Returns a cached output view borrowing this client. Do not free it separately or use it
-     * after freeing the client. Writes borrow caller buffers only for the call; zero-length writes
-     * perform no native I/O. Each write has one configured deadline across retries. A timeout or
-     * fatal record error closes the client and may follow partial delivery. Closing the view
-     * closes the client.
+     * Returns a cached output view borrowing this client. The view retains the client; explicit
+     * closure still governs native I/O. Writes borrow caller buffers only for the call;
+     * zero-length writes perform no native I/O. Each write has one configured deadline across
+     * retries. A timeout or fatal record error closes the client and may follow partial
+     * delivery. Closing the view closes the client.
      *
      * @return the stable borrowed output stream
      * @throws SocketException if this client is unconnected or closed
@@ -446,9 +441,8 @@ public final class TlsClient implements Closeable {
     /**
      * Closes the client idempotently, attempts one nonblocking TLS close notification, then
      * releases native TLS state and closes TCP. Does not wait for the peer notification or
-     * guarantee delivery on a blocked transport. Managed storage and borrowed views remain
-     * allocated until the client is freed. Resources are still released when shutdown reports an
-     * error.
+     * guarantee delivery on a blocked transport. Managed storage and views remain valid while
+     * reachable. Resources are still released when shutdown reports an error.
      *
      * @throws IOException if TLS shutdown or TCP closure reports a failure
      */
@@ -471,13 +465,7 @@ public final class TlsClient implements Closeable {
         this.transport.close();
     }
 
-    destructor {
 
-        free this.output;
-        free this.input;
-        free this.caBundle;
-        free this.transport;
-    }
 
     private static final class TlsInput extends InputStream {
 

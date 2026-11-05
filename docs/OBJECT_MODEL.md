@@ -1,5 +1,15 @@
 # Ironwood source-level object model
 
+## GC5 memory-model supersession
+
+The migration branch now uses [the GC5 managed memory contract](MEMORY.md).
+Canonical Memory.collect() is the only reclamation point. There is no source
+free, destructor, implicit temporary destruction or managed constructor rollback.
+General defer, initialization, native resource and pool protocols remain.
+Historical proof discussions and examples mentioning those removed forms are
+pre-GC5 records awaiting GC7 consumer migration, not alternate supported semantics.
+Native bridge/shared-library output remains refused until GC6 qualification.
+
 ## Status and purpose
 
 This document defines Ironwood's completed Java-shaped source-level object
@@ -19,12 +29,12 @@ examples is in [`IRONWOOD_VS_JAVA.md`](IRONWOOD_VS_JAVA.md).
 The governing rule is:
 
 > Prefer the result a Java programmer expects unless it conflicts with
-> closed-world native compilation, Ironwood's explicit safe-`free` model, or an
+> closed-world native compilation, Ironwood's explicit collection model, or an
 > explicit project non-goal.
 
 The result is source familiarity and object-oriented completeness, not JVM
 compatibility. These rules introduce no bytecode, runtime class loading,
-reflection, garbage collector, or JIT.
+reflection or JIT.
 
 ## Completion boundary
 
@@ -48,7 +58,7 @@ following work together:
    and nested owner types; and
 8. preservation of these semantics through source discovery, `.ironclass`,
    `.ironjar`, typed IR, native execution, closed-world dispatch,
-   devirtualization, and safe-`free` analysis.
+   devirtualization, and exact managed layouts.
 
 Completion was established with positive behavior tests and focused rejection
 diagnostics, native execution at `-O0` through `-O3`, and source-path,
@@ -117,7 +127,7 @@ PASS: 30 object-model examples
 | Effectively-final lexical capture | [`LexicalCapture.iron`](../examples/lexicalcapture/src/main/ironwood/org/ironwood/lexicalcapture/LexicalCapture.iron) | Local and anonymous classes capture explicit-final parameters, effectively-final locals, and their enclosing instance. |
 | Source-nest private access | [`NestAccess.iron`](../examples/nestaccess/src/main/ironwood/org/ironwood/nestaccess/NestAccess.iron) | Member, local, and anonymous classes directly access private members within one top-level source nest. |
 | Member types inside lexical classes | [`LexicalMemberTypes.iron`](../examples/lexicalmembertypes/src/main/ironwood/org/ironwood/lexicalmembertypes/LexicalMemberTypes.iron) | Local and anonymous classes may themselves contain inner classes, interfaces, and implementations. |
-| Captured-reference safe-`free` aliases | [`CapturedAliases.iron`](../examples/capturedaliases/src/main/ironwood/org/ironwood/capturedaliases/CapturedAliases.iron) | An unretained allocation can be freed, while the commented invalid form shows that a hidden captured alias prevents freeing its referent. |
+| Historical pre-GC5 captured-alias example | [`CapturedAliases.iron`](../examples/capturedaliases/src/main/ironwood/org/ironwood/capturedaliases/CapturedAliases.iron) | This old manual-heap example awaits GC7 migration; current captured graphs follow MEMORY.md. |
 | Interface fields and method kinds | [`InterfaceMembers.iron`](../examples/interfacemembers/src/main/ironwood/org/ironwood/interfacemembers/InterfaceMembers.iron) | Constants, abstract/default/static/private-instance/private-static methods, generic overrides, and qualified default calls work together. |
 | Interface default resolution | [`InterfaceDefaults.iron`](../examples/interfacedefaults/src/main/ironwood/org/ironwood/interfacedefaults/InterfaceDefaults.iron) | Class-wins, most-specific default, explicit interface-super, re-abstraction, and concrete conflict resolution. |
 | Upper, intersection, dependent, and recursive bounds | [`BoundedGenerics.iron`](../examples/boundedgenerics/src/main/ironwood/org/ironwood/boundedgenerics/BoundedGenerics.iron) | Bound members are callable, intersection constraints are enforced, and an F-bound dispatches with exact substitution. |
@@ -204,41 +214,15 @@ Recursive `this(...)` delegation is invalid. Instance initialization occurs
 exactly once in the constructor chain that ultimately invokes `super(...)`.
 Constructor dispatch is never virtual.
 
-### Destruction and construction rollback
+### Managed construction and resource closure
 
-A class may declare one `destructor { ... }` body. It is not a Java override or
-ordinary method: it has no name, modifiers, parameters, result, overloads, or
-explicit return. Interfaces and enum objects do not declare destructors.
+A failed constructor does not destroy its receiver or managed fields. Published
+partially constructed objects retain their dynamic type and valid installed
+references. Zero initialization and definite-assignment rules remain. Explicit
+native acquisition rollback and resource closure must still run on failure.
+General defer can close resources or return pool checkouts independently of GC.
+No source destructor is accepted. See [MEMORY.md](MEMORY.md).
 
-`free` selects the dynamic class's destructor entry. The declared body completes
-before the direct superclass destructor, producing deterministic derived-to-root
-order. A body may directly free a private reference field only when the
-closed-world ownership summary proves that storage remains confined to the
-dying owner. It may not allocate, publish/resurrect `this`, or allow an
-exception to escape.
-
-Failed construction uses a distinct compiler-generated rollback chain. It
-releases proven owned fields of the incomplete base-first object in reverse
-order, normally destroys completed owned child objects, and raw-deallocates the
-receiver without running that incomplete receiver's source destructor.
-Publishing in-progress `this` is rejected, and a `this(...)` chain shares one
-rollback obligation. Passing that receiver or a proved alias to a helper
-constructor requires confinement; an observable retained owner could otherwise
-outlive automatic rollback. Publication also follows identity stored in
-fields: storing `this` in its own field, or a helper that holds it, and later
-publishing that field publishes the receiver (D253). This is a mandatory
-construction check independent of explicit frees or missing-free diagnostic
-settings.
-
-An encapsulated reusable helper may remain owned by its containing object while
-a method returns a dependent borrow. This is how `ironwood.ds` collections lend
-their cached iterator and primitive holder without transferring ownership. The
-caller cannot free the helper; owner destruction invalidates it, and any escaped,
-uncertain, or later-observed borrow prevents successful compilation. See
-[Owned Helper Borrows](OWNED_HELPER_BORROWS.md).
-
-Runnable example:
-[`ExplicitReclamation.iron`](../examples/reclamation/src/main/ironwood/org/ironwood/reclamation/ExplicitReclamation.iron).
 
 ## Fields and initialization
 
@@ -383,8 +367,7 @@ A non-static member class is an inner class:
   enclosing instance explicit where needed.
 
 The hidden reference is compiler-owned and does not appear in source overload
-signatures. It is nevertheless a real reference for escape and safe-`free`
-analysis.
+signatures. It remains a real reference for escape analysis and exact collection.
 
 ### Local classes
 
@@ -453,20 +436,13 @@ Captured values lower to immutable compiler-owned fields and hidden constructor
 arguments. Hidden parameters must not affect source overload resolution,
 diagnostics, or public signatures.
 
-### Safe-`free` interaction
+### Managed captured references
 
-Enclosing and captured references are aliases under Ironwood's normal memory
-model. Constructing an object that retains such a reference must create an
-explicit escape edge in compiler analysis. Therefore:
+Hidden enclosing/capture fields participate in exact layouts and root tracing.
+A reachable inner/local/anonymous object keeps its captured graph alive. No
+source reclamation proof is needed for ordinary managed references. Preserve
+escape summaries consumed by optimization and native/resource protocols.
 
-- an allocation retained by a live inner, local, or anonymous object cannot be
-  accepted by a later `free` merely because the original local is dead;
-- freeing the inner object runs only its declared destructor chain; it does not
-  infer ownership of its enclosing instance or captured objects; and
-- conservative rejection remains correct when the compiler cannot prove that
-  every retained alias is dead.
-
-Compiler-owned hidden fields do not create a second ownership system.
 
 ### Nest-based private access
 
@@ -757,7 +733,7 @@ The following are deliberately excluded and will not be supported without an
 explicit future reversal:
 
 - annotations, annotation declarations, annotation processing, and annotation
-  reflection; the built-in `@Override`, `@Test`, and `@SuppressUnfreed`
+  reflection; the built-in `@Override` and `@Test`
   directives are not annotations;
 - variable-arity parameters and expanded varargs calls;
 - raw generic types, legacy unchecked raw conversions, non-reifiable generic

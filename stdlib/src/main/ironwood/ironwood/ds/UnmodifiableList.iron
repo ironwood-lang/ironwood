@@ -95,10 +95,7 @@ public final class UnmodifiableList<E extends Object> implements Iterable<E> {
         return reusableIterator;
     }
 
-    destructor {
 
-        free this.reusableIterator;
-    }
 
     private static class ReadOnlyIterator<T extends Object> implements Iterator<T> {
 

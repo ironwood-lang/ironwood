@@ -18,9 +18,7 @@ final class HttpConnectProtocol {
         }
         if (host.length() == 0) throw new SocketException("Empty HTTP CONNECT host");
         String authority = authority(host, target.getPort());
-        defer free authority;
         byte[] encoded = authority.getBytes();
-        defer free encoded;
         exchange.putAscii("CONNECT ");
         exchange.putBytes(encoded);
         exchange.putAscii(" HTTP/1.1\r\nHost: ");

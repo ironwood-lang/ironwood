@@ -141,11 +141,6 @@ final class ClosedWorldEffectAnalyzer {
                     diagnostics.add(Diagnostic.error(owner.source(), function.sourceSpan(),
                             "destructor may publish or resurrect 'this'"));
                 }
-            } else if (function.kind() == IrCallableKind.CONSTRUCTOR && mayPublish
-                    && (objectsSummary(function, objects).publishedParameters().get(0)
-                    || receiverPublished(receivers, function, objects))) {
-                diagnostics.add(Diagnostic.error(owner.source(), function.sourceSpan(),
-                        "constructor may publish in-progress 'this' before construction completes"));
             }
         }
     }

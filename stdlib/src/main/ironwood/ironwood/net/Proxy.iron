@@ -3,11 +3,11 @@
 package ironwood.net;
 
 /**
- * Immutable explicit proxy configuration with copied endpoint and credential inputs. Sockets and
- * TLS clients copy the configuration again, so an ordinary proxy may be freed after client
- * construction. The shared {@code NO_PROXY} value must not be freed. No environment variables,
- * system proxy discovery, automatic authentication, or protocol fallback are used. Equality
- * compares route type and endpoint, ignoring credentials and SOCKS version.
+ * Immutable explicit proxy configuration with copied endpoint and credential inputs. Sockets
+ * and TLS clients copy the configuration again. The shared {@code NO_PROXY} value has process
+ * lifetime. No environment variables, system proxy discovery, automatic authentication, or
+ * protocol fallback are used. Equality compares route type and endpoint, ignoring credentials
+ * and SOCKS version.
  */
 public class Proxy {
 
@@ -48,8 +48,7 @@ public class Proxy {
     }
 
     /**
-     * Shared direct-route sentinel with process lifetime. It has no endpoint or credentials and
-     * must not be freed.
+     * Shared direct-route sentinel with process lifetime. It has no endpoint or credentials.
      */
     public static final Proxy NO_PROXY = new Proxy();
 
@@ -185,8 +184,7 @@ public class Proxy {
     }
 
     /**
-     * Returns the immutable endpoint owned by this proxy. Do not free it or retain it beyond the
-     * proxy's lifetime.
+     * Returns this proxy's immutable managed endpoint.
      *
      * @return a borrowed proxy endpoint, or null for NO_PROXY
      */
@@ -272,14 +270,8 @@ public class Proxy {
         if (type == null) throw new NullPointerException();
         if (type == Type.DIRECT) return new String("DIRECT");
         String address = this.address().toString();
-        defer free address;
         return (type == Type.HTTP ? "HTTP @ " : "SOCKS @ ") + address;
     }
 
-    destructor {
 
-        free this.password;
-        free this.username;
-        free this.endpoint;
-    }
 }

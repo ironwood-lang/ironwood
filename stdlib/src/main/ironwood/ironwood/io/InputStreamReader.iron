@@ -141,8 +141,5 @@ public class InputStreamReader extends Reader {
             }
         }
     }
-    destructor {
 
-        free this.buffer; free this.ownedInput;
-    }
 }

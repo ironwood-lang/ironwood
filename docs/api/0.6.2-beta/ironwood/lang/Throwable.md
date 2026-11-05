@@ -30,10 +30,10 @@ Base class for exception and error reporting.
 | [`fillInStackTrace()`](#member-fillInStackTrace-28--29-) | Performs the fill in stack trace operation. |
 | [`printStackTrace()`](#member-printStackTrace-28--29-) | Performs the print stack trace operation. |
 | [`printStackTrace(PrintStream)`](#member-printStackTrace-28-PrintStream-29-) | Performs the print stack trace operation. |
-| [`getStackTrace()`](#member-getStackTrace-28--29-) | Returns a caller-owned array whose immutable elements are immortal. |
+| [`getStackTrace()`](#member-getStackTrace-28--29-) | Returns a managed array whose immutable elements are immortal. |
 | [`getMessage()`](#member-getMessage-28--29-) | Returns the message. |
 | [`getLocalizedMessage()`](#member-getLocalizedMessage-28--29-) | Returns getMessage() by default. |
-| [`toString()`](#member-toString-28--29-) | Returns a caller-owned description using the concrete class name and the localized message. |
+| [`toString()`](#member-toString-28--29-) | Returns a managed description using the concrete class name and the localized message. |
 | [`getCause()`](#member-getCause-28--29-) | Returns the cause. |
 | [`initCause(Throwable)`](#member-initCause-28-Throwable-29-) | Performs the init cause operation. |
 | [`getSecondaryExceptionCount()`](#member-getSecondaryExceptionCount-28--29-) | Returns the number of exceptions that arose after this primary exception while an enclosing finally block or deferred action was executing. |
@@ -142,7 +142,7 @@ Performs the print stack trace operation.
 public StackTraceElement[] getStackTrace()
 ```
 
-Returns a caller-owned array whose immutable elements are immortal.
+Returns a managed array whose immutable elements are immortal.
 
 
 [Back to member summary](#member-summary)
@@ -182,7 +182,7 @@ Returns getMessage() by default. Subclasses may supply localized text.
 public String toString()
 ```
 
-Returns a caller-owned description using the concrete class name and the
+Returns a managed description using the concrete class name and the
 localized message. A null message omits the separator; an empty message
 retains it. No cause or stack trace is included.
 

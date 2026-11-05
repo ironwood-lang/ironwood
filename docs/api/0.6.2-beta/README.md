@@ -6,7 +6,7 @@
 
 # Ironwood Standard Library
 
-**API reference** · 170 documented types · 16 packages
+**API reference** · 171 documented types · 16 packages
 
 Browse packages below, then open a type for its declaration, examples, and member reference.
 
@@ -18,7 +18,7 @@ Browse packages below, then open a type for its declaration, examples, and membe
 | [`ironwood.bridge`](ironwood/bridge/package-summary.md) | 1 |  |
 | [`ironwood.ds`](ironwood/ds/package-summary.md) | 26 | Low-allocation lists, maps, sets, and primitive collections. |
 | [`ironwood.io`](ironwood/io/package-summary.md) | 32 | Synchronous byte and character streams, standard input/output/error, and checked I/O failures. |
-| [`ironwood.lang`](ironwood/lang/package-summary.md) | 38 | Object model, text, iteration, resource cleanup, numeric helpers, system services, and exceptions. |
+| [`ironwood.lang`](ironwood/lang/package-summary.md) | 39 | Object model, text, iteration, resource cleanup, numeric helpers, system services, and exceptions. |
 | [`ironwood.net`](ironwood/net/package-summary.md) | 26 | Blocking TCP sockets, immutable IP endpoints, host-interface snapshots and explicit proxy routes. |
 | [`ironwood.net.tls`](ironwood/net/tls/package-summary.md) | 1 | Verified TLS 1.2/1.3 clients over direct TCP or explicit proxies. |
 | [`ironwood.nio`](ironwood/nio/package-summary.md) | 5 | Checked heap byte buffers. |
@@ -117,6 +117,7 @@ Browse packages below, then open a type for its declaration, examples, and membe
 | [`Iterable`](ironwood/lang/Iterable.md) | `ironwood.lang` | Defines traversal through an iterator. |
 | [`Long`](ironwood/lang/Long.md) | `ironwood.lang` | Provides 64-bit integer operations. |
 | [`Math`](ironwood/lang/Math.md) | `ironwood.lang` | Provides numerical operations. |
+| [`Memory`](ironwood/lang/Memory.md) | `ironwood.lang` | Explicit managed-heap collection. |
 | [`NegativeArraySizeException`](ironwood/lang/NegativeArraySizeException.md) | `ironwood.lang` | Signals an invalid negative array length. |
 | [`NullPointerException`](ironwood/lang/NullPointerException.md) | `ironwood.lang` | Signals an attempted null dereference. |
 | [`Number`](ironwood/lang/Number.md) | `ironwood.lang` | Defines primitive numeric conversions. |

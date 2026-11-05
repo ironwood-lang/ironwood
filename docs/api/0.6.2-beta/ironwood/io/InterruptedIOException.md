@@ -29,7 +29,7 @@ zero; the reporting operation is responsible for setting it. Message text is cop
 | [`bytesTransferred`](#member-bytesTransferred) | The number of bytes transferred before the interruption, initially zero. |
 | [`InterruptedIOException()`](#member-InterruptedIOException-28--29-) | Creates an exception without a detail message and with a zero transfer count. |
 | [`InterruptedIOException(String)`](#member-InterruptedIOException-28-String-29-) | Creates an exception with copied detail text and a zero transfer count. |
-| [`getMessage()`](#member-getMessage-28--29-) | Returns the detail text owned by this exception. |
+| [`getMessage()`](#member-getMessage-28--29-) | Returns this exception's managed detail text. |
 
 ## Fields
 
@@ -92,7 +92,7 @@ Creates an exception with copied detail text and a zero transfer count.
 public String getMessage()
 ```
 
-Returns the detail text owned by this exception. Do not free it separately.
+Returns this exception's managed detail text.
 
 **Returns**
 

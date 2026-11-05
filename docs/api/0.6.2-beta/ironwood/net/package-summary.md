@@ -11,9 +11,10 @@
 **Package reference**
 
 Blocking TCP sockets, immutable IP endpoints, host-interface snapshots and explicit proxy
-routes. Close socket resources before freeing their owners. Stream, address, option-inventory
-and interface getters may return borrowed values; follow each member's ownership contract. DNS
-is synchronous. UDP, channels and selectors are outside this package's implemented surface.
+routes. Close socket resources explicitly; collection never closes them. Stream, address,
+option-inventory and interface getters may return borrowed values; follow each member's
+ownership contract. DNS is synchronous. UDP, channels and selectors are outside this
+package's implemented surface.
 
 | Type | Kind | Description |
 | --- | --- | --- |

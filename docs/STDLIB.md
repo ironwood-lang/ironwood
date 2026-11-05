@@ -1,10 +1,17 @@
 # Ironwood standard library
 
-The migration branch's bundled, Java-shaped standard library has 255 source
-files and 171 public and protected types across 16 packages. This includes the
-provisional `ironwood.lang.Memory` declaration: its intrinsic is validated in
-source/class/archive analysis, but ordinary native collection is refused pending
-the [GC5 runtime/library cutover](GC5_IMPLEMENTATION.md).
+## GC5 memory-model supersession
+
+The migration branch now uses [the GC5 managed memory contract](MEMORY.md).
+Canonical Memory.collect() is the only reclamation point. There is no source
+free, destructor, implicit temporary destruction or managed constructor rollback.
+General defer, initialization, native resource and pool protocols remain.
+Historical proof discussions and examples mentioning those removed forms are
+pre-GC5 records awaiting GC7 consumer migration, not alternate supported semantics.
+Native bridge/shared-library output remains refused until GC6 qualification.
+
+The compiler builds the bundled Java-shaped standard library from 255
+source files. IronDocs covers 171 public and protected types across 16 packages:
 
 | Package | Documented types | Purpose |
 | --- | ---: | --- |
@@ -30,19 +37,19 @@ is an inventory and behavioral guide rather than an API-stability promise. The
 `.iron` sources under [`stdlib/src/main/ironwood`](../stdlib/src/main/ironwood)
 remain authoritative for exact signatures.
 
-Library and testing-library cleanup use `defer free` and deferred void calls
-where they preserve existing lifetimes and failure behavior. Conditional
-rollback and cleanup that reads mutable state at exit retain ordinary `finally`.
-See the [stdlib migration verification](DEFER_STDLIB_VERIFICATION.md) for the
-scope, retained cases, focused tests, and compiled-code comparisons.
+Main and testing libraries use one managed model. Canonical Memory.collect()
+works through normal source/class/archive compilation. Explicit resource close,
+pool release and native acquisition rollback remain; managed destruction does
+not. The source-only bridge API remains present for artifact reconstruction,
+but native use and all bridge/shared-library output refuse until GC6.
 
 ## `ironwood.bench`
 
 `Bench` records nanosecond durations with optional warmup and six percentile
 summaries. `NanoBench` provides an allocation-free recording path with count,
 integer mean, minimum, and maximum. Both support clock-based and caller-supplied
-durations, reset/reuse, printable reports, and explicit destruction. Report
-Strings are independent caller-owned snapshots. The histogram uses primitive
+durations, reset/reuse, and printable reports. Report Strings are independent
+managed snapshots. The histogram uses primitive
 `ironwood.ds.LongArrayList` storage; no compiler or runtime ownership exception
 is required. See [Benchmarking with ironwood.bench](BENCH.md) for contracts,
 examples, formatting, and allocation behavior.

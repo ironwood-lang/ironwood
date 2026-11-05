@@ -60,8 +60,5 @@ public class BufferedOutputStream extends OutputStream {
             try { drain(); this.output.flush(); } finally { this.output.close(); }
         }
     }
-    destructor {
 
-        free this.buffer;
-    }
 }

@@ -1,0 +1,7 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// The one managed heap model also supports programs with no collection calls.
+// The optimized native image carries a verified empty root-map inventory.
+class Gc5NoCollect {
+    static int scalar(int value) { return value * 3 + 2; }
+    public static int main(String[] args) { return scalar(5) == 17 ? 0 : 1; }
+}

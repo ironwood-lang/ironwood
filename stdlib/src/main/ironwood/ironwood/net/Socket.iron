@@ -9,13 +9,13 @@ import ironwood.io.OutputStream;
 import ironwood.ds.UnmodifiableList;
 
 /**
- * Blocking TCP client facade with explicit resource lifetime. Close before freeing: close releases
- * the native resource, while destruction reclaims owned managed storage. Default and proven fresh
- * factory implementations are owned; explicitly injected implementations are borrowed. Reclaim
- * outer wrappers and the facade before a caller-owned implementation or its delegates.
- * <p>Streams, cached addresses and option inventories are borrowed unless a getter explicitly
- * returns a fresh result. Close does not invalidate managed metadata or clear connection/binding
- * history. DNS and ordinary TCP writes are blocking; SO_TIMEOUT bounds reads only.
+ * Blocking TCP client facade with explicit resource lifetime. Explicit close releases native
+ * resources; collection never closes them. Default and proven fresh factory implementations are
+ * owned; explicitly injected implementations are borrowed. Managed references retain the implementation and its delegates.
+ * <p>Streams, cached addresses
+ * and option inventories are borrowed unless a getter explicitly returns a fresh result. Close
+ * does not invalidate managed metadata or clear connection/binding history. DNS and ordinary
+ * TCP writes are blocking; SO_TIMEOUT bounds reads only.
  */
 public class Socket implements Closeable {
 
@@ -44,8 +44,9 @@ public class Socket implements Closeable {
 
     /**
      * Creates an unconnected socket with an explicit route. NO_PROXY uses the configured socket
-     * factory; HTTP and SOCKS routes use native proxy implementations and copy the configuration,
-     * including credentials. The caller may free an ordinary proxy after construction.
+     * factory; HTTP and SOCKS routes use native proxy implementations and copy the
+     * configuration, including credentials. The implementation retains independent
+     * configuration copies.
      *
      * @param proxy the explicit route, or Proxy.NO_PROXY for a direct connection
      * @throws IllegalArgumentException if proxy is null or its route type is unsupported
@@ -124,7 +125,6 @@ public class Socket implements Closeable {
         try {
             checkPorts(port, localPort);
             InetAddress destination = InetAddress.getByName(host);
-            defer free destination;
             this.connectInitial(destination, port, localAddress, localPort, bindLocal);
             complete = true;
         } finally {
@@ -165,11 +165,9 @@ public class Socket implements Closeable {
             if (address == null) throw new NullPointerException();
             if (bindLocal) {
                 InetSocketAddress local = new InetSocketAddress(localAddress, localPort);
-                defer free local;
                 this.bind(local);
             }
             InetSocketAddress remote = new InetSocketAddress(address, port);
-            defer free remote;
             this.connect(remote);
             complete = true;
         } finally {
@@ -178,10 +176,10 @@ public class Socket implements Closeable {
     }
 
     /**
-     * Creates a facade borrowing a caller-owned implementation, or adopts a fresh factory result
-     * when null is supplied. Closing cascades to the implementation, but freeing the facade does
-     * not free a supplied implementation. Keep that implementation and its delegates alive until
-     * all facade views and the facade have been reclaimed.
+     * Creates a facade borrowing a caller-owned implementation, or adopts a fresh factory
+     * result when null is supplied. Closing cascades to the implementation. Managed references
+     * retain implementations and delegates; preserve native protocol validity until all facade
+     * views and the facade have been reclaimed.
      *
      * @param implementation a borrowed implementation, or null to use the configured factory
      */
@@ -195,9 +193,9 @@ public class Socket implements Closeable {
 
     /**
      * Registers the factory used by future client sockets. A non-null registration is permitted
-     * only once. Null is a no-op before registration; every later call fails. The factory and its
-     * captured references are retained for the process lifetime and must not be freed while
-     * registered. Each factory result must be proven fresh and unpublished.
+     * only once. Null is a no-op before registration; every later call fails. The factory and
+     * its captured references are retained for the process lifetime. Each factory result must
+     * be proven fresh and unpublished.
      *
      * @param value the factory to retain, or null before registration
      * @throws SocketException if a non-null factory has already been registered
@@ -326,14 +324,13 @@ public class Socket implements Closeable {
     }
 
     /**
-     * Returns a cached stream view borrowing this socket and its implementation. Do not free the
-     * view separately or use it after freeing the socket. Closing it closes the socket. Read
-     * buffers are borrowed only during each call; SO_TIMEOUT bounds each read and leaves the
-     * socket usable on expiration.
+     * Returns a cached stream view borrowing this socket and its implementation. The managed
+     * view retains the socket. Closing it closes the socket. Read buffers are borrowed only
+     * during each call; SO_TIMEOUT bounds each read and leaves the socket usable on expiration.
      *
      * @return the stable borrowed input stream
      * @throws IOException if closed, unconnected, input-shutdown, or the implementation cannot
-     *     provide input
+     * provide input
      */
     public InputStream getInputStream() throws IOException {
 
@@ -351,14 +348,14 @@ public class Socket implements Closeable {
     }
 
     /**
-     * Returns a cached stream view borrowing this socket and its implementation. Do not free the
-     * view separately or use it after freeing the socket. Closing it closes the socket. Write
-     * buffers are borrowed only during each call. Plain TCP writes can block without a deadline;
-     * SO_TIMEOUT does not bound them.
+     * Returns a cached stream view borrowing this socket and its implementation. The managed
+     * view retains the socket. Closing it closes the socket. Write buffers are borrowed only
+     * during each call. Plain TCP writes can block without a deadline; SO_TIMEOUT does not
+     * bound them.
      *
      * @return the stable borrowed output stream
      * @throws IOException if closed, unconnected, output-shutdown, or the implementation cannot
-     *     provide output
+     * provide output
      */
     public OutputStream getOutputStream() throws IOException {
 
@@ -437,9 +434,9 @@ public class Socket implements Closeable {
     }
 
     /**
-     * Returns the implementation's cached peer address. The value is borrowed and must not be
-     * freed separately. A closed socket retains peer metadata; an unresolved proxy destination may
-     * have no address bits.
+     * Returns the implementation's cached peer address. The value is borrowed and follows
+     * ordinary managed reachability. A closed socket retains peer metadata; an unresolved proxy
+     * destination may have no address bits.
      *
      * @return a borrowed peer address, or null when unconnected or unresolved
      */
@@ -452,8 +449,7 @@ public class Socket implements Closeable {
 
     /**
      * Returns a borrowed local address, or a cached wildcard when unbound or closed. Previously
-     * returned native address values remain alive until the socket owner is reclaimed. Do not free
-     * the result separately.
+     * returned native address values remain alive until the socket owner is reclaimed. The returned address has a managed lifetime.
      *
      * @return an address borrowed from the socket or implementation
      */
@@ -493,8 +489,7 @@ public class Socket implements Closeable {
 
     /**
      * Copies the peer endpoint into an independent value. Proxy routes preserve the original
-     * destination, including unresolved names. The copy remains valid after the socket is freed.
-     *
+     * destination, including unresolved names. The copy has an independent managed lifetime.
      * @return a fresh caller-owned endpoint, or null before connection
      */
     public SocketAddress getRemoteSocketAddress() {
@@ -932,17 +927,10 @@ public class Socket implements Closeable {
         if (this.getInetAddress() == null)
             return "Socket[addr=null,port=" + this.getPort() + ",localport=" + this.getLocalPort() + "]";
         String address = this.getInetAddress().toString();
-        defer free address;
         return "Socket[addr=" + address + ",port=" + this.getPort() + ",localport=" + this.getLocalPort() + "]";
     }
 
-    destructor {
 
-        free this.output;
-        free this.input;
-        free this.wildcard;
-        free this.owned;
-    }
 
     private static final class SocketInput extends InputStream {
 

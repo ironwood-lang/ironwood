@@ -1,43 +1,27 @@
 # Differences from Java
 
+## GC5 memory-model supersession
+
+The migration branch now uses [the GC5 managed memory contract](MEMORY.md).
+Canonical Memory.collect() is the only reclamation point. There is no source
+free, destructor, implicit temporary destruction or managed constructor rollback.
+General defer, initialization, native resource and pool protocols remain.
+Historical proof discussions and examples mentioning those removed forms are
+pre-GC5 records awaiting GC7 consumer migration, not alternate supported semantics.
+Native bridge/shared-library output remains refused until GC6 qualification.
+
 Ironwood deliberately feels like Java, but some familiar-looking constructs
 have different semantics. This file records differences that Java programmers
 might otherwise miss. See `docs/IRONWOOD_VS_JAVA.md` for the broader, numbered
 feature comparison.
 
-The [explicit-GC migration contracts](GC0_BASELINE_AND_CONTRACTS.md) describe an
-accepted future change (D315), including removal of free/destructors and a
-separate Java Bridge root handle. Production behavior has not changed; the
-current differences below still apply until the coordinated cutover.
+## Explicit collection
 
-## Per-allocation missing-free suppression
-
-`@SuppressUnfreed` is a compiler-owned directive on a reference local declaration,
-not a Java annotation. It exempts the initializer's tracked allocation from
-Ironwood's missing-free diagnostics even under `--unfreed=error`, follows
-existing aliases, and survives class/archive linking. It does not exempt
-later allocations assigned to the variable or weaken mandatory safe-`free`
-checks. See [the complete contract](MEMORY.md#per-allocation-suppression) and D145.
-
-## Unnamed temporaries are reclaimed at the end of their statement
-
-Java leaves every object to the collector. Ironwood reclaims an unnamed
-temporary, an allocation that nothing can observe once the full expression
-creating it completes, at the end of that expression when the safe-`free`
-proof succeeds (D185). `Sink.use(new Keeper());` destroys the `Keeper` after
-`use` returns, and `System.out.println("Hello " + name)` reclaims the
-concatenation after `println` returns. Two consequences differ from Java:
-the object's destructor runs at that point, so an object whose destructor
-releases a native resource must be named if something else still uses that
-resource through a copied handle; and a temporary a callee retains, for
-example through a container or a field, is left alone exactly as before. Naming
-the allocation, `Keeper keeper = new Keeper();`, keeps it until a source
-`free`, as long as the name still holds it when the statement completes. Values that move on through `return`, `yield`, `throw`, a switch
-selector, or an enhanced-for source, pattern-bound values, `defer` operands,
-and allocations inside conditional, switch, or short-circuit expressions are
-never reclaimed this way, while a `yield` operand inside a switch-expression
-block is its own full expression. See
-[the complete rule](MEMORY.md#unnamed-temporaries).
+Java schedules collection automatically. Ironwood collects only when canonical
+Memory.collect() executes and completes marking and sweeping before returning.
+Unnamed temporaries and failed constructions use the same managed lifetime as
+ordinary objects. No source destructor or temporary cleanup callback runs.
+Removed reclamation syntax and options diagnose migration.
 
 ## Chainable StringBuilder length changes
 
@@ -83,20 +67,10 @@ timezones remain absent and cannot be called. See the
 
 ## Explicit deferred cleanup
 
-The D168 Milestone 1 implementation adds `defer` for block-scoped void calls. It
-captures receiver and arguments when reached and invokes them on exit in LIFO
-order, retaining Ironwood's primary/secondary exception rules. Java resource
-headers remain rejected, and close, pool release, and memory reclamation stay
-separate operations. `defer free name;` schedules an existing local's proven-safe
-reclamation and forbids writes to that binding until cleanup. It does not add
-automatic reclamation or ownership privileges. Milestone 2's
-[performance stage](DEFER_PERFORMANCE_VERIFICATION.md) is accepted, and a
-[runnable example](../examples/deferredcleanup/README.md) demonstrates both
-operations and pool release. [SimpleTcpEcho adoption](DEFER_PROJECT_VERIFICATION.md)
-and the [final audit](DEFER_FINAL_VERIFICATION.md) complete Milestone 2 locally,
-ready for final review and separately directed integration.
-`defer` is reserved, including when older format-1 artifacts reload their source;
-rename conflicting identifiers and rebuild. See [the language contract](LANGUAGE.md#explicit-deferred-cleanup-milestone-1).
+Block-scoped defer captures an ordinary void method call immediately and runs
+it in LIFO order on every exit. Captured identity survives reassignment and
+collecting cleanup. D051 primary/secondary exception ordering is unchanged.
+Use defer for explicit close and pool release. See [MEMORY.md](MEMORY.md).
 
 ## Exception traces and emergency printing
 

@@ -477,11 +477,13 @@ public final class Parser {
                                       List<TypeDeclaration> memberTypes) {
         Token start = peek();
         Modifiers modifiers = parseModifiers();
-        if (match(TokenKind.DESTRUCTOR)) {
+        if (check(TokenKind.IDENTIFIER) && peek().lexeme().equals("destructor")
+                && checkNext(TokenKind.LEFT_BRACE)) {
+            advance();
             rejectOverrideDirective(modifiers);
             Block body = parseBlock("expected '{' after 'destructor'",
                     "expected '}' to close destructor body");
-            diagnostics.add(error(start, "interfaces cannot declare destructors"));
+            diagnostics.add(error(start, "source destructors have been removed; use explicit resource methods"));
             if (body == null) {
                 synchronizeMember();
             }
@@ -663,34 +665,12 @@ public final class Parser {
         Token start = peek();
         Modifiers modifiers = parseModifiers();
 
-        if (match(TokenKind.DESTRUCTOR)) {
-            Token keyword = previous();
-            if (modifiers.accessToken() != null || modifiers.isStatic() || modifiers.isFinal()
-                    || modifiers.isAbstract() || modifiers.isDefault()
-                    || modifiers.hasOverrideDirective()) {
-                diagnostics.add(error(start,
-                        "destructors cannot have modifiers or @Override"));
-            }
-            if (modifiers.hasTestDirective()) {
-                diagnostics.add(error(modifiers.testToken(),
-                        "the @Test directive may only be used on methods"));
-            }
-            Block body = parseBlock("expected '{' after 'destructor'",
-                    "expected '}' to close destructor body");
-            if (enumConstantBody) {
-                diagnostics.add(error(keyword, anonymousClass
-                        ? "enum constant bodies cannot declare destructors"
-                        : "enums cannot declare destructors"));
-            } else if (body != null) {
-                if (!destructors.isEmpty()) {
-                    diagnostics.add(error(keyword,
-                            "class may declare at most one destructor"));
-                } else {
-                    destructors.add(new DestructorDeclaration(body, keyword.span(),
-                            new SourceSpan(start.span().start(), body.span().end())));
-                }
-            }
-            if (body == null) {
+        if (check(TokenKind.IDENTIFIER) && peek().lexeme().equals("destructor")
+                && checkNext(TokenKind.LEFT_BRACE)) {
+            Token keyword = advance();
+            diagnostics.add(error(keyword, "source destructors have been removed; "
+                    + "put resource closure in an explicit method and use defer or finally"));
+            if (parseBlock("expected '{'", "expected '}' to close obsolete destructor") == null) {
                 synchronizeMember();
             }
             return;
@@ -991,10 +971,10 @@ public final class Parser {
                         }
                     } else if (name.lexeme().equals("SuppressUnfreed")) {
                         diagnostics.add(error(at,
-                                "the @SuppressUnfreed directive may only be used on local variable declarations"));
+                                "@SuppressUnfreed has been removed with manual managed reclamation"));
                     } else {
                         diagnostics.add(error(name, "general annotations are not supported; "
-                                + "only the built-in @Override, @Test, and @SuppressUnfreed directives are recognized"));
+                                + "only the built-in @Override and @Test directives are recognized"));
                     }
                     if ((name.lexeme().equals("Override") || name.lexeme().equals("Test")
                             || name.lexeme().equals("SuppressUnfreed"))
@@ -1055,23 +1035,17 @@ public final class Parser {
             Token modifier = advance();
             if (modifier.kind() == TokenKind.AT) {
                 Token name = expect(TokenKind.IDENTIFIER,
-                        "expected 'SuppressUnfreed' after '@' on a local variable");
+                        "expected a directive name after '@' on a local variable");
                 if (name == null) continue;
                 if (name.lexeme().equals("SuppressUnfreed")) {
-                    if (!role.equals("local variable")) {
-                        diagnostics.add(error(modifier,
-                                "the @SuppressUnfreed directive may only be used on local variable declarations"));
-                    }
-                    if (suppressUnfreed) {
-                        diagnostics.add(error(modifier, "duplicate '@SuppressUnfreed' directive"));
-                    }
-                    suppressUnfreed = true;
+                    diagnostics.add(error(modifier,
+                            "@SuppressUnfreed has been removed with manual managed reclamation"));
                 } else if (name.lexeme().equals("Override") || name.lexeme().equals("Test")) {
                     diagnostics.add(error(modifier,
                             "the @" + name.lexeme() + " directive may only be used on methods"));
                 } else {
                     diagnostics.add(error(name, "general annotations are not supported; "
-                            + "only the built-in @Override, @Test, and @SuppressUnfreed directives are recognized"));
+                            + "only the built-in @Override and @Test directives are recognized"));
                 }
                 if (check(TokenKind.LEFT_PAREN)) {
                     diagnostics.add(error(peek(), "the @" + name.lexeme()
@@ -1306,8 +1280,11 @@ public final class Parser {
         if (match(TokenKind.YIELD)) {
             return parseYield(previous());
         }
-        if (match(TokenKind.FREE)) {
-            return parseFree(previous());
+        if (obsoleteFree()) {
+            Token keyword = advance();
+            diagnostics.add(error(keyword, "source free has been removed; managed storage is reclaimed by Memory.collect()"));
+            parseFree(keyword);
+            return null;
         }
         if (match(TokenKind.THROW)) {
             return parseThrow(previous());
@@ -1408,16 +1385,12 @@ public final class Parser {
     }
 
     private Statement parseDefer(Token keyword) {
-        if (match(TokenKind.FREE)) {
-            boolean startsWithName = check(TokenKind.IDENTIFIER);
-            FreeStatement free = parseFree(previous());
-            if (free == null) return null;
-            if (!startsWithName || !(free.value() instanceof NameExpression target)) {
-                diagnostics.add(error(keyword, "defer free requires a local variable name"));
-                return null;
-            }
-            return new DeferredFreeStatement(target,
-                    new SourceSpan(keyword.span().start(), free.span().end()));
+        if (obsoleteFree() || check(TokenKind.IDENTIFIER) && peek().lexeme().equals("free")
+                && checkNext(TokenKind.IDENTIFIER)) {
+            Token free = advance();
+            diagnostics.add(error(free, "defer free has been removed; use defer for explicit resource methods"));
+            parseFree(free);
+            return null;
         }
         Expression action = parseExpression();
         Token semicolon = expect(TokenKind.SEMICOLON, "expected ';' after defer statement");
@@ -1427,6 +1400,18 @@ public final class Parser {
         }
         return new DeferStatement(call, new SourceSpan(keyword.span().start(),
                 semicolon == null ? call.span().end() : semicolon.span().end()));
+    }
+
+    private boolean obsoleteFree() {
+        // A class named free still admits initialized local declarations. A
+        // bare operand followed by ';', field access or indexing is old syntax.
+        return check(TokenKind.IDENTIFIER) && peek().lexeme().equals("free")
+                && (checkNext(TokenKind.THIS) || checkNext(TokenKind.SUPER)
+                || checkNext(TokenKind.NEW) || checkNext(TokenKind.NULL)
+                || checkNext(TokenKind.IDENTIFIER) && current + 2 < tokens.size()
+                    && (tokens.get(current + 2).kind() == TokenKind.SEMICOLON
+                        || tokens.get(current + 2).kind() == TokenKind.DOT
+                        || tokens.get(current + 2).kind() == TokenKind.LEFT_BRACKET));
     }
 
     private FreeStatement parseFree(Token freeKeyword) {

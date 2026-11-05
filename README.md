@@ -27,15 +27,14 @@ pointers, borrow syntax, or an unfamiliar ownership-driven programming model.
 
 - **Performance:** Compile directly to native executables with LLVM. Closed-world
   compilation lets the compiler optimize across the whole program, with no JVM,
-  JIT, or garbage collector in the generated application. Profile-guided
+  JIT, or automatic collection in the generated application. Profile-guided
   optimization and a compiler-owned `@Inline` directive are on the roadmap so
   Ironwood keeps pushing the envelope for maximum performance.
 
-- **Safety:** Reclaim memory explicitly with compiler-proven `free` when you need
-  to, or reuse objects through the native `ironwood.pool` standard library. The
-  compiler rejects reclamation it cannot prove safe, preventing dangling
-  references, double frees, and use after free. Allocations remain valid until
-  an accepted `free` reclaims them or the process ends.
+- **Safety:** Ordinary references use one exact nonmoving managed heap.
+  `ironwood.lang.Memory.collect()` synchronously reclaims unreachable graphs.
+  Allocation never collects automatically. Close native resources explicitly
+  and preserve pool reuse protocols. See [the memory contract](docs/MEMORY.md).
 
 - **Familiarity:** Use the Java programming model you already know: classes and
   interfaces, inheritance and polymorphism, Java-width primitives, generics,
@@ -132,66 +131,30 @@ The resulting `target/hello` is a native executable. It does not need the IDK (I
 
 ## Memory Management
 
-Ironwood does not have a garbage collector. A named object stays allocated until you free it. An unnamed temporary, like the greeting `"Hello " + chatter.getWord() + "!"` passed straight to `println`, is reclaimed by the compiler at the end of that statement once it proves nothing else can observe it. For our short `Hello World` program a leaked `chatter` wouldn't be a problem but let's change it to show how Ironwood handles memory explicitly.
-
-> The previous Hello World example will compile with a warning because `chatter` is not freed. The default compiler option is `--unfreed=warn`. You can use `--unfreed=off` to silence these warnings or the stricter `--unfreed=error` to fail compilation with an error. To suppress the diagnostic for a particular allocation, you can place `@SuppressUnfreed` before its local variable declaration, even when using `--unfreed=error`. Suppression never disables memory-safety checks. Click [here](docs/MEMORY_MANAGEMENT.md) for more details.
-
-For a rejected `free`, use `--explain-rejected-free` to get more information from the compiler/linker of why exactly your `free` is being rejected; see the [worked compile and link examples](docs/EXPLAIN_REJECTED_FREE_EXAMPLES.md).
-
-### Hello.iron
+GC5 uses one managed model for objects, arrays, Strings and compiler-created
+heap values. Collection is explicit and synchronous:
 
 ```java
-package org.ironwood.hello;
+import ironwood.lang.Memory;
 
-public class Hello {
-
-    public static void main(String[] args) {
-
-        Chatter chatter = new Chatter();
-
-        // The greeting is an unnamed temporary: the compiler reclaims it
-        // after println returns, so it needs no local variable and no free
-        System.out.println("Hello " + chatter.getWord() + "!");
-
-        free chatter; // destroy object and reclaim the memory
-
-        // System.out.println(chatter); // use after free NEVER compiles
+class ManagedExample {
+    public static int main(String[] args) {
+        Object value = new Object();
+        Memory.collect();
+        return value == null ? 1 : 0;
     }
 }
 ```
 
-### Chatter.iron
-
-```java
-package org.ironwood.hello;
-
-import ironwood.util.Random;
-
-class Chatter {
-
-    private static final String[] WORDS = { "World", "Ironwood", "Developers" };
-
-    private final Random rand = new Random();
-
-    String getWord() {
-        int index = this.rand.nextInt(WORDS.length);
-        return WORDS[index];
-    }
-
-    destructor {
-      free rand; // destroy object and reclaim the memory
-    }
-}
-```
-
-The cleanup above demonstrates how the same code can manage memory deterministically in a long-running native application. When execution reaches `free chatter;`, the compiler first proves that the object cannot be observed through another live reference. The `Chatter` destructor then runs and reclaims its privately owned `Random` instance before
-the `Chatter` object itself is reclaimed. A destructor does not run merely because an object becomes unreachable. It runs only as part of a `free` operation that the compiler has accepted and proven safe.
-
-If the compiler cannot prove that either reclamation is safe, compilation fails. There is no unsafe fallback, and a successfully freed reference cannot be used again.
-
-Ironwood does not support general ownership transfer for an existing allocation. Once ownership is established, passing or storing a reference elsewhere does not give ownership to the recipient. The allocation may remain until process termination. If it is to be reclaimed earlier, the original owner remains responsible for calling `free` after all observable borrows and aliases have ended. If the compiler cannot prove that all observable borrows and aliases have ended, it rejects the `free` with a compilation error.
-
-> Yes: no C/C++ dangling pointers or unpredictable references. The compiler won't allow it.
+Reachable references survive collection, including deferred captures and pending
+returns or exceptions. There is no source `free`, destructor, implicit temporary
+destruction or managed constructor rollback. Removed syntax, `--unfreed`,
+`--explain-rejected-free` and `@SuppressUnfreed` produce migration diagnostics.
+Close files and sockets explicitly; collection never closes them. See
+[Memory management](docs/MEMORY_MANAGEMENT.md) for scheduling and reuse guidance.
+Native bridge/shared-library output remains refused until GC6, and Linux arm64
+and arm64e remain unqualified. Old repository consumers using reclamation syntax
+are scheduled for GC7 migration; self-hosting has not restarted.
 
 ## Deterministic Cleanup with `defer`
 
@@ -200,8 +163,7 @@ Ironwood does not support general ownership transfer for an existing allocation.
 ```java
 public int readFirstByte(String path) throws IOException {
     FileInputStream fis = new FileInputStream(path);
-    defer free fis;     // Runs second: reclaim the object.
-    defer fis.close();  // Runs first: close the file.
+    defer fis.close();  // Close on return and exception.
     return fis.read();  // Cleanup runs before the method returns.
 }
 ```
@@ -220,7 +182,7 @@ while (i < 3) {
 }
 ```
 
-Use `defer` instead of a `try`/`finally` block whose only purpose is to free an allocation or run cleanup:
+Use `defer` instead of a `try`/`finally` block whose only purpose is to run cleanup:
 
 ```java
 // Without defer: borrow from an existing pool.
@@ -229,7 +191,7 @@ public String message(String name) {
     try {
         sb.setLength(0);
         sb.append("Hello ").append(name);
-        return sb.toString(); // caller will own this allocation
+        return sb.toString(); // managed result survives pool release
     } finally {
         this.pool.release(sb);
     }
@@ -243,7 +205,7 @@ public String message(String name) {
     defer this.pool.release(sb);
     sb.setLength(0);
     sb.append("Hello ").append(name);
-    return sb.toString(); // caller will own this allocation
+    return sb.toString(); // managed result survives pool release
 }
 ```
 

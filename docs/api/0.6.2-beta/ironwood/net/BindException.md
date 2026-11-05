@@ -16,8 +16,8 @@ public class BindException extends SocketException
 
 **Extends:** [`SocketException`](SocketException.md)
 
-Reports that a local address is unavailable or already in use. Message text is copied; it
-remains valid after the input string is freed.
+Reports that a local address is unavailable or already in use. Message text is copied; it is
+independent of later caller input changes.
 
 
 ## Member summary

@@ -2,6 +2,10 @@
 
 # GC4 Linux x86-64 native qualification
 
+
+Historical prerequisite record. GC5 replaces its manual-heap production rules;
+see [the current managed contract](MEMORY.md) and [GC5 report](GC5_IMPLEMENTATION.md).
+
 Date: 2026-11-04. **The selected GC4 runtime-owner closure is qualified on native
 Linux x86-64. Production GC remains disabled.** This extends
 [GC4 runtime lifetimes](GC4_RUNTIME_LIFETIMES.md), with separate

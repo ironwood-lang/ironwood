@@ -181,7 +181,6 @@ public class Long {
             digits[position] = Character.forDigit(digit, 36);
             current = current >>> shift;
         } while (current != 0L);
-        defer free digits;
         return new String(digits, position, digits.length - position);
     }
 

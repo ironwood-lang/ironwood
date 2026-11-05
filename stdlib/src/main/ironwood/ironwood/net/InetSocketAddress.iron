@@ -100,9 +100,8 @@ public final class InetSocketAddress extends SocketAddress {
     }
 
     /**
-     * Returns the unresolved label or the resolved address's host name. The latter may trigger a
-     * synchronous reverse lookup. Do not free the returned text separately.
-     *
+     * Returns the unresolved label or the resolved address's host name. The latter may trigger
+     * a synchronous reverse lookup. The returned text has an ordinary managed lifetime.
      * @return host text borrowed from this endpoint
      */
     public String getHostName() {
@@ -112,8 +111,8 @@ public final class InetSocketAddress extends SocketAddress {
     }
 
     /**
-     * Returns a host label or numeric text without triggering reverse DNS. Do not free the
-     * returned text separately.
+     * Returns a host label or numeric text without triggering reverse DNS. The returned text
+     * has an ordinary managed lifetime.
      *
      * @return host text borrowed from this endpoint
      */
@@ -124,9 +123,7 @@ public final class InetSocketAddress extends SocketAddress {
     }
 
     /**
-     * Returns this endpoint's copied immutable address. Its lifetime is bounded by this endpoint;
-     * do not free it separately.
-     *
+     * Returns this endpoint's copied immutable address. It has an ordinary managed lifetime.
      * @return a borrowed address, or null when unresolved
      */
     public InetAddress getAddress() {
@@ -182,7 +179,6 @@ public final class InetSocketAddress extends SocketAddress {
         if (this.address != null) return this.address.hashCode() + this.port;
         if (this.hashComputed) return this.unresolvedHash;
         String lower = this.unresolvedName.toLowerCase();
-        defer free lower;
         this.unresolvedHash = lower.hashCode() + this.port;
         this.hashComputed = true;
         return this.unresolvedHash;
@@ -199,7 +195,6 @@ public final class InetSocketAddress extends SocketAddress {
 
         if (this.address == null) return this.unresolvedName + "/<unresolved>:" + this.port;
         String host = this.address.getHostAddress();
-        defer free host;
         String label = this.address.label();
         if (this.address.family() == 6) {
             return label == null ? "/[" + host + "]:" + this.port : label + "/[" + host + "]:" + this.port;
@@ -207,9 +202,5 @@ public final class InetSocketAddress extends SocketAddress {
         return label == null ? "/" + host + ":" + this.port : label + "/" + host + ":" + this.port;
     }
 
-    destructor {
 
-        free this.address;
-        free this.unresolvedName;
-    }
 }

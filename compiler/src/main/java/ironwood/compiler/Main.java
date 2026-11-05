@@ -48,10 +48,10 @@ public final class Main {
             return 0;
         }
 
-        if (java.util.Arrays.asList(args).contains("--java-bridge-values")) return BridgeValuesLibrary.run(args, out, err);
-        if (java.util.Arrays.asList(args).contains("--java-bridge-assemble")) return BridgeAssembler.run(args, out, err);
-        if (java.util.Arrays.asList(args).contains("--java-bridge-distribution")) return BridgeDistributionCommand.run(args, out, err);
-        if (java.util.Arrays.asList(args).contains("--java-bridge")) return BridgeProducerCommand.run(args, out, err);
+        if (java.util.Arrays.stream(args).anyMatch(argument -> argument.startsWith("--java-bridge"))) {
+            err.println("error: GC6 boundary: native bridge/shared-library outputs are not qualified for managed roots and foreign transitions");
+            return 1;
+        }
 
         CommandLine commandLine = CommandLine.parse(args, err);
         if (commandLine == null) {
@@ -391,14 +391,16 @@ public final class Main {
                         optimizationSpecified = true;
                     }
                     case "-march=native" -> targetMachine = TargetMachine.NATIVE;
-                    case "--explain-rejected-free" -> explainRejectedFree = true;
+                    case "--explain-rejected-free", "--unfreed" -> {
+                        return usage(err, "manual reclamation options have been removed; use Memory.collect() for explicit collection");
+                    }
                     case "-h", "--help" -> {
                         printUsage(err);
                         return null;
                     }
                     default -> {
                         if (args[index].startsWith("--explain-rejected-free=")) {
-                            return usage(err, "--explain-rejected-free does not take a value");
+                            return usage(err, "--explain-rejected-free has been removed with manual reclamation");
                         }
                         if (args[index].startsWith("--partial-inlining=")) {
                             String value = args[index].substring("--partial-inlining=".length());
@@ -418,12 +420,7 @@ public final class Main {
                             continue;
                         }
                         if (args[index].startsWith("--unfreed=")) {
-                            try {
-                                unfreedMode = UnfreedMode.parse(args[index].substring("--unfreed=".length()));
-                            } catch (IllegalArgumentException invalid) {
-                                return usage(err, "invalid --unfreed mode; expected off, warn, or error");
-                            }
-                            continue;
+                            return usage(err, "--unfreed has been removed; managed storage uses Memory.collect()");
                         }
                         if (args[index].startsWith("-")) {
                             return usage(err, "unknown option: " + args[index]);
@@ -511,8 +508,6 @@ public final class Main {
             stream.println("                 [--optimization-report <file.yaml>]  (optional LLVM remarks)");
             stream.println("       Inlining defaults: threshold 1000 at -O3 (LLVM default otherwise), selective on.");
             stream.println("       Partial inlining defaults: on at -O3, LLVM default otherwise.");
-            stream.println("       Both compilation and linking accept --unfreed=off|warn|error (default: warn)");
-            stream.println("       and --explain-rejected-free (notes on rejected frees; default: off).");
             stream.println("       ironwoodc --version|-v  (compiler version and LLVM selection)");
             BridgeProducerCommand.usage(stream);
         }

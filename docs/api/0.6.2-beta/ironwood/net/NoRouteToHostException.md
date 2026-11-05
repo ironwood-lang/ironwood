@@ -16,8 +16,8 @@ public class NoRouteToHostException extends SocketException
 
 **Extends:** [`SocketException`](SocketException.md)
 
-Reports that the destination has no available network route. Message text is copied; it remains
-valid after the input string is freed.
+Reports that the destination has no available network route. Message text is copied; it is
+independent of later caller input changes.
 
 
 ## Member summary

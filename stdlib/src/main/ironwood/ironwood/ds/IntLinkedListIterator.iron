@@ -55,8 +55,5 @@ class IntLinkedListIterator implements Iterator<IntHolder> {
         this.current = null;
     }
 
-    destructor {
 
-        free this.holder;
-    }
 }

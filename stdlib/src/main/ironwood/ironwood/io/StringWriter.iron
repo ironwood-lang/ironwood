@@ -90,8 +90,5 @@ public class StringWriter extends Writer {
     public void close() {
 
     }
-    destructor {
 
-        free this.buffer;
-    }
 }

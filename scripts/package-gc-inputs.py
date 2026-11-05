@@ -23,7 +23,7 @@ def main():
     parser.add_argument('--llvm-home', type=Path, default=os.environ.get('IRONWOOD_LLVM_HOME'))
     args = parser.parse_args()
     stage = args.stage.resolve()
-    inputs = [*gc.ADAPTER, 'packaging/bdwgc.json', 'scripts/prepare-gc.py',
+    inputs = [*gc.ADAPTER, *gc.RUNTIME_INPUTS, 'packaging/bdwgc.json', 'packaging/bdwgc-qualified.properties', 'scripts/prepare-gc.py',
               'scripts/build-gc-fixture.py', 'scripts/test-gc-engine.py', 'scripts/package-gc-inputs.py',
               'integration-tests/native/gc_engine_probe.c', 'docs/GC1_ENGINE_PREPARATION.md',
               'docs/BDWGC_INTEGRATION_PLAN.md', 'docs/GC0_BASELINE_AND_CONTRACTS.md',
@@ -32,14 +32,14 @@ def main():
         destination = stage / name
         destination.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(ROOT / name, destination)
-    record = {'format': 1, 'production.enabled': False, 'sdk.bundled': False,
+    record = {'format': 1, 'production.enabled': True, 'sdk.bundled': False,
               'inputs.sha256': {name: gc.digest(stage / name) for name in inputs}}
     if args.sdk:
         if not args.llvm_home:
             raise ValueError('bundling a GC SDK requires --llvm-home or IRONWOOD_LLVM_HOME')
         sdk, llvm = args.sdk.resolve(), args.llvm_home.resolve()
         manifest, _ = gc.verify(sdk, llvm, gc.host_target())
-        destination = stage / 'runtime/gc-sdk'
+        destination = stage / 'toolchain/ironwood-gc'
         shutil.copytree(sdk, destination)  # Preserve source, headers, licenses and build evidence together.
         gc.verify(destination, llvm, gc.host_target())
         record.update({'sdk.bundled': True, 'gc.config.sha256': manifest['gc.config.sha256'],

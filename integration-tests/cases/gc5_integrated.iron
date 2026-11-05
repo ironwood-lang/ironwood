@@ -1,0 +1,222 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Normal compiler GC5 integration. Exits 0 after checking managed graphs,
+// collecting construction, D051 cleanup ordering and explicit pool retention.
+import ironwood.lang.Memory;
+import ironwood.ds.ArrayList;
+import ironwood.ds.HashMap;
+import ironwood.pool.ArrayObjectPool;
+import ironwood.pool.ObjectBuilder;
+
+class Gc5Integrated {
+    static Node published;
+    static Node captured;
+    static int order;
+    static HashMap<String, Node> map;
+    static ArrayList<Node> list;
+    static long containerPeak;
+
+    static class Node {
+        Node next;
+        Object child;
+        int value;
+        Node(int value) { this.value = value; }
+    }
+    static class Collecting extends Node {
+        Node later;
+        Collecting(boolean fail) {
+            super(37);
+            published = this;
+            this.child = new Node(11);
+            Memory.collect();
+            if (fail) throw new RuntimeException("construction");
+            this.later = new Node(19);
+        }
+    }
+    static class Initialized {
+        static Node value = initialize();
+        static Node initialize() {
+            Node result = new Node(71);
+            Memory.collect();
+            return result;
+        }
+    }
+    static class CollectingFailure extends RuntimeException {
+        Node child;
+        CollectingFailure() { super("collecting failure"); this.child = new Node(13); }
+        @Override public Throwable fillInStackTrace() {
+            Memory.collect();
+            return super.fillInStackTrace();
+        }
+    }
+    static class FailedInitialization {
+        static int value = initialize();
+        static int initialize() {
+            Memory.collect();
+            throw new RuntimeException("initialization");
+        }
+    }
+    static class Builder implements ObjectBuilder<Node> {
+        @Override public Node newInstance() { return new Node(5); }
+    }
+    static void require(boolean value) {
+        if (!value) throw new IllegalStateException("GC5 integrated assertion");
+    }
+    static void free(Node destructor) {
+        Memory.collect();
+        captured = destructor;
+        order = order * 10 + destructor.value;
+    }
+    static Node pending() {
+        Node result = new Node(8);
+        defer Memory.collect();
+        return result;
+    }
+    static Node nestedFinally() {
+        Node result = new Node(17);
+        try {
+            try { return result; }
+            finally { Memory.collect(); }
+        } finally { Memory.collect(); }
+    }
+    static Node yielding(int selector) {
+        return switch (selector) {
+            case 1 -> {
+                // This case scopes collecting cleanup before delivering the yield.
+                Node result = new Node(12);
+                defer Memory.collect();
+                yield result;
+            }
+            default -> new Node(0);
+        };
+    }
+    static void captures() {
+        Node value = new Node(1);
+        defer free(value);
+        value = new Node(2);
+        defer free(value);
+        defer Memory.collect();
+    }
+    static void throwAfterCollect(RuntimeException failure) {
+        Memory.collect();
+        throw failure;
+    }
+    static void transfers() {
+        Node saved = captured;
+        int savedOrder = order;
+        order = 0;
+        for (int index = 0; index < 4; index++) {
+            defer free(new Node(index + 1));
+            if (index == 0) continue;
+            break;
+        }
+        outer: for (int index = 0; index < 2; index++) {
+            defer free(new Node(3));
+            for (int inner = 0; inner < 2; inner++) {
+                defer free(new Node(4));
+                break outer;
+            }
+        }
+        require(order == 1243 && captured.value == 3);
+        captured = saved;
+        order = savedOrder;
+    }
+    static void failures() {
+        RuntimeException primary = new RuntimeException("primary");
+        RuntimeException first = new RuntimeException("first");
+        RuntimeException last = new RuntimeException("last");
+        defer throwAfterCollect(last);
+        defer throwAfterCollect(first);
+        throw primary;
+    }
+    static void dropCycle() {
+        Node first = new Node(3);
+        Node second = new Node(4);
+        first.next = second;
+        second.next = first;
+        Node[] shared = new Node[3];
+        shared[0] = first;
+        shared[1] = second;
+        shared[2] = first;
+        Memory.collect();
+        require(shared[0] == shared[2] && shared[1].next == first);
+    }
+    static void containers() {
+        map = new HashMap<String, Node>();
+        list = new ArrayList<Node>();
+        for (int index = 0; index < 32; index++) list.add(new Node(index));
+        map.put("one", new Node(1));
+        map.put("two", new Node(2));
+        Memory.collect();
+        require(map.get("two").value == 2 && list.get(17).value == 17);
+        containerPeak = System.liveAllocationCount();
+        list.clear();
+        map.clear();
+    }
+    static void pool() {
+        Builder builder = new Builder();
+        ArrayObjectPool<Node> pool = new ArrayObjectPool<Node>(2, builder);
+        Node first = pool.get();
+        first.value = 93;
+        pool.release(first);
+        Memory.collect();
+        Node again = pool.get();
+        require(first == again && again.value == 93);
+        pool.release(again);
+    }
+    public static int main(String[] args) {
+        require(Initialized.value.value == 71);
+        Collecting complete = new Collecting(false);
+        require(complete.value == 37 && complete.later.value == 19);
+        try { new Collecting(true); }
+        catch (RuntimeException expected) {
+            Memory.collect();
+            require(published.value == 37 && published.child != null);
+        }
+        require(pending().value == 8);
+        require(nestedFinally().value == 17 && yielding(1).value == 12);
+        CollectingFailure traced = new CollectingFailure();
+        Memory.collect();
+        require(traced.child.value == 13);
+        RuntimeException initialization = null;
+        try { int ignored = FailedInitialization.value; }
+        catch (RuntimeException failure) { initialization = failure; }
+        Memory.collect();
+        try { int ignored = FailedInitialization.value; }
+        catch (RuntimeException same) { require(same == initialization); }
+        captures();
+        require(order == 21 && captured.value == 1);
+        transfers();
+        require(order == 21 && captured.value == 1);
+        try { failures(); }
+        catch (RuntimeException primary) {
+            Memory.collect();
+            require(primary.getMessage().equals("primary"));
+            require(primary.getSecondaryExceptionCount() == 2);
+            require(primary.getSecondaryException(0).getMessage().equals("first"));
+            require(primary.getSecondaryException(1).getMessage().equals("last"));
+            StackTraceElement[] frames = primary.getStackTrace();
+            Memory.collect();
+            require(frames.length > 0 && frames[0].getClassName().equals("Gc5Integrated"));
+            require(frames[0].getMethodName().equals("failures") && frames[0].getLineNumber() > 0);
+            try { throw primary; }
+            catch (RuntimeException same) { require(same == primary); }
+        }
+        Memory.collect();
+        long before = System.liveAllocationCount();
+        dropCycle();
+        Memory.collect();
+        require(System.liveAllocationCount() == before);
+        containers();
+        Memory.collect();
+        require(map.size() == 0 && list.size() == 0);
+        require(System.liveAllocationCount() == containerPeak - 34);
+        pool();
+        char[] units = new char[3];
+        units[0] = 'G'; units[1] = 'C'; units[2] = '5';
+        String text = new String(units);
+        Memory.collect();
+        require(text.equals("GC5"));
+        System.out.println("GC5 integrated passed");
+        return 0;
+    }
+}

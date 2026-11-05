@@ -1,5 +1,15 @@
 # Important native optimizations
 
+## GC5 memory-model supersession
+
+The migration branch now uses [the GC5 managed memory contract](MEMORY.md).
+Canonical Memory.collect() is the only reclamation point. There is no source
+free, destructor, implicit temporary destruction or managed constructor rollback.
+General defer, initialization, native resource and pool protocols remain.
+Historical proof discussions and examples mentioning those removed forms are
+pre-GC5 records awaiting GC7 consumer migration, not alternate supported semantics.
+Native bridge/shared-library output remains refused until GC6 qualification.
+
 This document explains Ironwood's native compiler optimizations: the LLVM
 lowering constraints they address, why they preserve semantics, how they
 interact with stack traces, and how they were verified. The maintained OrderBook

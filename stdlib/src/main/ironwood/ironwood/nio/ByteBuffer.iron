@@ -537,9 +537,6 @@ public class ByteBuffer {
         return putLong(index, Double.doubleToLongBits(value));
     }
 
-    destructor {
 
-        free this.ownedStorage;
-    }
 
 }

@@ -97,6 +97,45 @@ public final class GcEffects {
                 || instruction instanceof IrFloatingBitsInstruction || instruction instanceof IrMathUnaryInstruction
                 || instruction instanceof IrMathBinaryInstruction || instruction instanceof IrCharacterInstruction
                 || instruction instanceof IrIdentityHashCodeInstruction) return LEAF;
+        // Reviewed GC5 runtime intrinsics do not enter source code, foreign
+        // callbacks or collection. Native scratch never survives these calls.
+        if (runtimeOwners && (instruction instanceof IrObjectHashCodeInstruction
+                || instruction instanceof IrObjectToStringInstruction
+                || instruction instanceof IrThrowableDescriptionInstruction
+                || instruction instanceof IrFloatingParseInstruction
+                || instruction instanceof IrStringCaseInstruction
+                || instruction instanceof IrStringCharAtInstruction
+                || instruction instanceof IrStringConcatInstruction
+                || instruction instanceof IrStringCopyInstruction
+                || instruction instanceof IrStringEqualsIgnoreCaseInstruction
+                || instruction instanceof IrStringEqualsInstruction
+                || instruction instanceof IrStringFromCharRangeInstruction
+                || instruction instanceof IrStringFromCharacterInstruction
+                || instruction instanceof IrStringFromCharsInstruction
+                || instruction instanceof IrStringFromIntegerInstruction
+                || instruction instanceof IrStringFromRangeInstruction
+                || instruction instanceof IrStringFromUtf8Instruction
+                || instruction instanceof IrStringHashCodeInstruction
+                || instruction instanceof IrStringJoinInstruction
+                || instruction instanceof IrStringRepeatInstruction
+                || instruction instanceof IrStringReplaceCharInstruction
+                || instruction instanceof IrStringReplaceTextInstruction
+                || instruction instanceof IrSystemArrayCopyInstruction
+                || instruction instanceof IrSystemClockInstruction
+                || instruction instanceof IrSystemExitInstruction
+                || instruction instanceof IrSystemGetenvInstruction
+                || instruction instanceof IrSystemPropertyInstruction
+                || instruction instanceof IrPrintStreamCheckErrorInstruction
+                || instruction instanceof IrPrintStreamFlushInstruction
+                || instruction instanceof IrPrintStreamPrintlnInstruction
+                || instruction instanceof IrPrintStreamWriteInstruction
+                || instruction instanceof IrFileInstruction
+                || instruction instanceof IrStreamInstruction
+                || instruction instanceof IrTcpInstruction
+                || instruction instanceof IrTlsInstruction
+                || instruction instanceof IrProcessInstruction
+                || instruction instanceof IrThrowableTraceInstruction trace
+                && trace.operation() != IrThrowableTraceInstruction.Operation.RELEASE)) return LEAF;
         // Native calls and every new operation require an explicit compiler review.
         // In particular foreign callbacks, destruction and exception transport are
         // not silently treated as leaves because their bodies are absent here.

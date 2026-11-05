@@ -28,7 +28,7 @@ Provides standard streams and platform services.
 | [`err`](#member-err) | The err constant. |
 | [`identityHashCode(Object)`](#member-identityHashCode-28-Object-29-) | Performs the identity hash code operation. |
 | [`allocationCount()`](#member-allocationCount-28--29-) | Returns the process-wide number of successful ordinary Ironwood object, array, and runtime-created String allocations. |
-| [`liveAllocationCount()`](#member-liveAllocationCount-28--29-) | Returns the current number of non-immortal live Ironwood allocations. |
+| [`liveAllocationCount()`](#member-liveAllocationCount-28--29-) | Returns cached live language allocations from the most recent collection, plus subsequent successful allocations. |
 | [`arraycopy(Object,int,Object,int,int)`](#member-arraycopy-28-Object-2c-int-2c-Object-2c-int-2c-int-29-) | Performs the arraycopy operation. |
 | [`lineSeparator()`](#member-lineSeparator-28--29-) | Performs the line separator operation. |
 | [`getenv(String)`](#member-getenv-28-String-29-) | Returns the env. |
@@ -115,7 +115,9 @@ array, and runtime-created String allocations.
 public static long liveAllocationCount()
 ```
 
-Returns the current number of non-immortal live Ironwood allocations.
+Returns cached live language allocations from the most recent collection,
+plus subsequent successful allocations. Internal sidecars are excluded.
+Reading this counter never collects.
 
 
 [Back to member summary](#member-summary)

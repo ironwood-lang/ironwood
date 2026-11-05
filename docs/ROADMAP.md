@@ -1,5 +1,12 @@
 # Roadmap
 
+
+GC5 migration-branch checkpoint: the normal compiler and complete required
+library now use [explicit synchronous collection](GC5_IMPLEMENTATION.md), with
+one managed model and preserved general defer. Earlier free/destructor milestones
+below are historical. GC6 bridge/shared-library qualification remains gated;
+GC7-GC10 and self-hosting have not started through this work.
+
 For the consolidated current support matrix, deferred language/library work,
 and permanent non-goals, see [`LANGUAGE_SPECS.md`](LANGUAGE_SPECS.md). This file
 retains milestone history and the active design checkpoints. The proposed

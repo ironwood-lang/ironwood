@@ -137,7 +137,6 @@ public class DataInputStream extends InputStream {
 
         int byteLength = readUnsignedShort();
         char[] units = new char[byteLength];
-        defer free units;
         int input = 0;
         int output = 0;
         while (input < byteLength) {

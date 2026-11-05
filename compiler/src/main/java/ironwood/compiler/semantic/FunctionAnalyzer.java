@@ -312,10 +312,8 @@ final class FunctionAnalyzer {
 
     FunctionAnalyzer withUnfreedChecks(ironwood.compiler.UnfreedMode mode,
                                        ClosedWorldEffectAnalyzer reclamationEffects) {
+        // Retain effect facts for resource/pool analysis; missing-free findings are obsolete.
         this.reclamationEffects = reclamationEffects;
-        if (mode != ironwood.compiler.UnfreedMode.OFF) {
-            unfreed = new UnfreedAllocationTracker<>(source, mode);
-        }
         return this;
     }
 
@@ -486,15 +484,6 @@ final class FunctionAnalyzer {
                     blocks.values().stream().map(MutableBlock::freeze).toList(), function.span());
         }
 
-        if (isReleaseOwnedThrowableMessageIntrinsic()) {
-            currentBlock.addInstruction(new IrReleaseOwnedThrowableMessageInstruction(
-                    parameters.get(0).value(), parameters.get(1).value(), function.span()));
-            currentBlock.terminate(new IrReturnTerminator(Optional.empty(), function.span()));
-            exitScope();
-            return new IrFunction(function.ownerType(), function.sourceName(), function.linkageName(),
-                    function.returnType(), parameters,
-                    blocks.values().stream().map(MutableBlock::freeze).toList(), function.span());
-        }
 
         if (AllocationResultSemantics.isThrowableDescription(function)) {
             IrValueReference result = newValue(STRING_TYPE, function.span());
@@ -508,25 +497,7 @@ final class FunctionAnalyzer {
                     blocks.values().stream().map(MutableBlock::freeze).toList(), function.span());
         }
 
-        if (isReleaseOwnedToStringResultIntrinsic()) {
-            currentBlock.addInstruction(new IrReleaseOwnedToStringResultInstruction(
-                    parameters.get(0).value(), parameters.get(1).value(), function.span()));
-            currentBlock.terminate(new IrReturnTerminator(Optional.empty(), function.span()));
-            exitScope();
-            return new IrFunction(function.ownerType(), function.sourceName(), function.linkageName(),
-                    function.returnType(), parameters,
-                    blocks.values().stream().map(MutableBlock::freeze).toList(), function.span());
-        }
 
-        if (isReleaseOwnedFileAllocationIntrinsic()) {
-            currentBlock.addInstruction(new IrFreeInstruction(
-                    parameters.getFirst().value(), function.span()));
-            currentBlock.terminate(new IrReturnTerminator(Optional.empty(), function.span()));
-            exitScope();
-            return new IrFunction(function.ownerType(), function.sourceName(), function.linkageName(),
-                    function.returnType(), parameters,
-                    blocks.values().stream().map(MutableBlock::freeze).toList(), function.span());
-        }
 
         if (isSystemIdentityHashCodeIntrinsic()) {
             IrValueReference result = newValue(IrType.I32, function.span());
@@ -1439,11 +1410,7 @@ final class FunctionAnalyzer {
                     }
                 }
             } else if (statement instanceof DeferredFreeStatement deferred) {
-                DeferredFreeAction action = prepareDeferredFree(deferred);
-                if (action != null) {
-                    return lowerDeferredTail(action, deferred.span(),
-                            statements, index + 1, enclosingBlock);
-                }
+                diagnostics.add(error(deferred.span(), "defer free has been removed; defer an explicit resource method"));
             } else {
                 reachable = lowerStatement(statement);
             }
@@ -1589,7 +1556,7 @@ final class FunctionAnalyzer {
             return true;
         }
         if (statement instanceof FreeStatement freeStatement) {
-            lowerFree(freeStatement);
+            diagnostics.add(error(freeStatement.span(), "source free has been removed; use Memory.collect()"));
             return true;
         }
         if (statement instanceof ReturnStatement returnStatement) {
@@ -3094,7 +3061,7 @@ final class FunctionAnalyzer {
                 "allocation has conflicting ownership across exceptional paths", paths);
         environment = mergeExceptionalEnvironment(before, region, span);
         IrValueReference handle = newValue(IrType.EXCEPTION, span);
-        IrValueReference object = newValue(IrType.EXCEPTION, span);
+        IrValueReference object = newValue(IrType.reference("ironwood.lang.Throwable"), span);
         currentBlock.addInstruction(new IrExceptionLandingPadInstruction(handle, object, span));
         return object;
     }
@@ -6161,15 +6128,7 @@ final class FunctionAnalyzer {
                                              IrOperand value, SourceSpan span) { }
 
     private void validateConstructorHelperArguments() {
-        // Defer until loop and branch phis contain all incoming values. A helper
-        // must not publish the parent that constructor unwind will reclaim.
-        for (ConstructorHelperArgument argument : constructorHelperArguments) {
-            if (isConstructingThisAlias(argument.value(), new LinkedHashSet<>())
-                    && !escapeSummaries.constructorArgumentIsConfined(argument.constructor(), argument.index())) {
-                ownershipVerdict(error(argument.span(),
-                        "constructor may publish in-progress 'this' through an unconfined helper argument"));
-            }
-        }
+        // Publication is legal under GC5; initialization and native protocol checks remain separate.
     }
 
     private boolean isConstructingThisAlias(IrOperand value, Set<IrOperand> visited) {
@@ -7380,41 +7339,12 @@ final class FunctionAnalyzer {
     private <T> T emitWithRenderedStringCleanup(
             List<RenderedStringCleanup> renderedStrings,
             Supplier<T> emitter, SourceSpan span) {
-        if (renderedStrings.isEmpty()) {
-            return emitter.get();
-        }
-        List<ExceptionRegion> outerRegions = List.copyOf(exceptionRegions);
-        LinkedHashMap<LocalSymbol, IrOperand> before = copyEnvironment();
-        OwnershipSnapshot ownershipBefore = snapshotOwnership();
-        ExceptionRegion cleanup = new ExceptionRegion(
-                createBlock("string.render.cleanup", span));
-        exceptionRegions.push(cleanup);
-        T result = emitter.get();
-        MutableBlock normal = currentBlock;
-        LinkedHashMap<LocalSymbol, IrOperand> normalEnvironment = copyEnvironment();
-        OwnershipSnapshot normalOwnership = snapshotOwnership();
-        restoreDeque(exceptionRegions, outerRegions);
-        if (cleanup.edges.isEmpty()) {
-            cleanup.landingPad.terminate(new IrUnreachable(span));
-        } else {
-            IrOperand exception = beginExceptionHandler(cleanup, before,
-                    ownershipBefore, span);
-            releaseRenderedStrings(renderedStrings, span);
-            emitThrow(exception, span);
-        }
-        currentBlock = normal;
-        environment = normalEnvironment;
-        restoreOwnership(normalOwnership);
-        return result;
+        return emitter.get();
     }
 
     private void releaseRenderedStrings(
             List<RenderedStringCleanup> renderedStrings, SourceSpan span) {
-        for (int index = renderedStrings.size() - 1; index >= 0; index--) {
-            RenderedStringCleanup rendered = renderedStrings.get(index);
-            currentBlock.addInstruction(new IrReleaseOwnedToStringResultInstruction(
-                    rendered.object(), rendered.result(), span));
-        }
+        // Rendered results are ordinary managed references.
     }
 
     private IrOperand emitToStringConversion(TypedValue value, IrOperand receiver,
@@ -10139,7 +10069,9 @@ final class FunctionAnalyzer {
         }
         TypeSymbol resolved = resolution.type().orElse(null);
         if (resolved == null) {
-            diagnostics.add(error(type.span(), "unknown class type '" + type.referenceName() + "'"));
+            diagnostics.add(error(type.span(), type.referenceName().equals("free")
+                    ? "source free has been removed; use Memory.collect() for managed reclamation"
+                    : "unknown class type '" + type.referenceName() + "'"));
             return IrType.reference(type.referenceName(), type.typeArguments().stream()
                     .map(this::resolveType).toList());
         }
@@ -12355,18 +12287,7 @@ final class FunctionAnalyzer {
 
     /** Records a completed fresh allocation as a candidate of the innermost full expression. */
     private void registerTemporary(AllocationInfo allocation, IrOperand operand, SourceSpan span) {
-        TemporaryScope scope = temporaryScopes.peek();
-        if (scope == null || allocation == null || operand == null
-                || !allocation.present || allocation.state != AllocationState.ACTIVE
-                || expressionBranchDepth != scope.branchDepth) {
-            return;
-        }
-        // The region captures every unwind edge between this point and the end of
-        // the statement, like constructor rollback; the pad frees only this temporary.
-        ExceptionRegion region = new ExceptionRegion(createBlock("temporary.cleanup", span));
-        List<ExceptionRegion> outer = List.copyOf(exceptionRegions);
-        exceptionRegions.push(region);
-        scope.candidates.add(new TemporaryCandidate(allocation, operand, span, region, outer));
+        // GC5: full-expression allocations are managed, without implicit destruction.
     }
 
     private void completeTemporaryCall(IrInstruction call) {
@@ -12622,28 +12543,8 @@ final class FunctionAnalyzer {
     private void emitConstructorCallWithRollback(IrInstruction call,
                                                  IrOperand allocation,
                                                  SourceSpan span) {
-        List<ExceptionRegion> outerRegions = List.copyOf(exceptionRegions);
-        LinkedHashMap<LocalSymbol, IrOperand> before = copyEnvironment();
-        OwnershipSnapshot ownershipBefore = snapshotOwnership();
-        ExceptionRegion rollback = new ExceptionRegion(
-                createBlock("constructor.rollback", span));
-        exceptionRegions.push(rollback);
+        // Failed construction leaves a zero-initialized managed graph, including published aliases.
         emitCall(call, span);
-        MutableBlock normal = currentBlock;
-        LinkedHashMap<LocalSymbol, IrOperand> normalEnvironment = copyEnvironment();
-        OwnershipSnapshot normalOwnership = snapshotOwnership();
-        restoreDeque(exceptionRegions, outerRegions);
-        if (rollback.edges.isEmpty()) {
-            rollback.landingPad.terminate(new IrUnreachable(span));
-        } else {
-            IrOperand exception = beginExceptionHandler(rollback, before,
-                    ownershipBefore, span);
-            currentBlock.addInstruction(new IrRollbackInstruction(allocation, span));
-            emitThrow(exception, span);
-        }
-        currentBlock = normal;
-        environment = normalEnvironment;
-        restoreOwnership(normalOwnership);
     }
 
     private MutableBlock createBlock(String prefix, SourceSpan span) {

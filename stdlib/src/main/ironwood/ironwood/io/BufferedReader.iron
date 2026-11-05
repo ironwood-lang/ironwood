@@ -83,7 +83,6 @@ public class BufferedReader extends Reader {
         char[] old = this.line;
         this.line = new char[size];
         System.arraycopy(old, 0, this.line, 0, count);
-        free old;
     }
     /** Reads line. */
     public String readLine() throws IOException {
@@ -137,8 +136,5 @@ public class BufferedReader extends Reader {
             }
         }
     }
-    destructor {
 
-        free this.line; free this.buffer; free this.ownedInput;
-    }
 }

@@ -55,8 +55,5 @@ class LongLinkedListIterator implements Iterator<LongHolder> {
         this.current = null;
     }
 
-    destructor {
 
-        free this.holder;
-    }
 }

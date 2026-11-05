@@ -41,7 +41,7 @@ implementation or transpiler:
 > Java designed to replace C++ instead of to run on a virtual machine.
 
 - Use the behavior a Java programmer expects unless it conflicts with
-  closed-world native compilation, explicit safe reclamation, or an accepted
+  closed-world native compilation, explicit synchronous collection, or an accepted
   Ironwood decision. Prioritize high-performance Java-shaped applications
   needing native AOT, not the full Java platform. Before adding a broad subsystem
   for a familiar API,
@@ -55,12 +55,16 @@ implementation or transpiler:
 - Keep ordinary source Java-shaped: classes, interfaces, references, packages,
   exceptions, generics, arrays, and control flow. Do not expose raw pointers,
   pointer arithmetic, manual vtables, or Rust-style lifetime syntax.
-- There is no GC. Ordinary `new` allocations remain until a compiler-proven
-  `free` or process termination. Reject `free` when safety cannot be proved;
-  never weaken the guarantee or silently reclaim unreachable objects.
-  The migration branch's [GC5 checkpoint](docs/GC5_IMPLEMENTATION.md) validates
-  `Memory.collect()` in source/artifacts but refuses ordinary native collection.
-  Do not bypass its mixed-heap gates or describe GC5 as complete.
+- Ordinary native programs use the single GC5 managed heap model. Only canonical
+  `ironwood.lang.Memory.collect()` reclaims unreachable storage, synchronously.
+  Allocation never collects. Source `free`, `defer free`, destructors, implicit
+  temporary destruction and managed constructor rollback are removed. Ordinary
+  methods and identifiers named `free` or `destructor` are legal. Preserve exact
+  layouts, root ABI 2, owner ABI 1, nonmoving statepoints and fail-closed metadata
+  verification. See [the GC5 contract](docs/MEMORY.md).
+- Refuse native bridge/shared-library outputs until GC6 qualifies roots, generated
+  cleanup, foreign transitions and JNI ownership. Linux arm64 and arm64e remain
+  unqualified. Do not restart self-hosting or remove GC7 scaffolding incidentally.
 - Keep the mandatory runtime small; unreachable standard-library code is removed
   from the closed-world program, allowing a broad library.
 - Use UTF-8 `.iron` source, a Java 21 bootstrap compiler, and the pinned LLVM 23
@@ -77,24 +81,21 @@ implementation or transpiler:
   problem and minimizing them is not an objective. Do not reject a faster
   implementation or constrain inlining, specialization, or code duplication
   solely to keep code or executables small.
-- Memory-safety enforcement is mandatory in every compiler mode. Preserve
-  compile-time protection against dangling references, use after free, and
-  double free. If aliasing, escape, or lifetime facts cannot prove a `free`
-  safe, reject it with a compilation error. Never assume unknown effects are
-  non-retaining or grant borrowing/ownership exemptions merely to silence
-  diagnostics or make code compile.
-- Keep missing-free diagnostics (`--unfreed=off|warn|error`) separate from
-  memory-safety enforcement; no setting may disable or downgrade mandatory
-  safety errors. Fix false positives by correcting analysis or code without
-  weakening reclamation proofs. Changes to ownership or escape analysis need
-  focused regressions for both accepted safe cases and rejected unsafe cases.
+- Memory safety is mandatory in every mode. Unknown collection, native lifetime
+  and retaining effects remain conservative. Preserve initialization, pool
+  membership, native acquisition rollback and resource protocol checks. Managed
+  rollback proofs no longer restrict publication of partially constructed objects.
+  Changes to shared analysis need paired accepted/rejected focused regressions.
+- `--unfreed`, `--explain-rejected-free` and `@SuppressUnfreed` are removed with
+  migration diagnostics. No option selects the former memory model. The final
+  link must reject every reachable legacy managed-deallocation instruction.
 - Safety must not add runtime overhead on valid paths. Prefer compile-time
   proofs and eliminated checks. Do not add scans, hash lookups, registries,
   state tracking, or allocations solely to detect library-contract misuse;
   document caller obligations instead. Constant-time, allocation-free checks
   still cost something. Discuss any safety requirement needing runtime overhead
   with the human before implementation; do not silently add overhead or weaken
-  compiler-proven reclamation.
+  native/resource safety.
 - Preserve D132 and D133 in `docs/DECISIONS.md`: no compiler-injected per-call or
   per-operation bookkeeping on valid steady-state paths, including continuous
   trace maintenance, TLS access, allocations, registry lookups, synchronization,
@@ -159,9 +160,9 @@ implementation or transpiler:
   compiler, runtime, ownership, or native mechanisms. Preserve the same public
   API compatibility goal either way.
 - Extend `ironwood.ds` for collections; do not duplicate the Java Collections
-  Framework. Audit every allocation and ownership transfer without assuming GC.
-  Respect pool ownership and reuse contracts; do not add unnecessary `free`
-  operations for pooled storage.
+  Framework. Audit managed allocations, stale reference slots and native resources separately.
+  Respect pool ownership and intentional retention. Use named reset and cold
+  reference-cleanup operations where reuse requires retained slots.
 
 ## Licensing and provenance
 
@@ -227,11 +228,8 @@ substantially adapting source. It is authoritative.
 ## Documentation
 
 Focused documentation snippets may omit surrounding setup and cleanup unrelated
-to the concept being explained. Complete runnable programs should demonstrate
-appropriate cleanup. Examples teaching memory management must show the relevant
-ownership and reclamation operations. Do not report missing-`free` omissions as
-documentation defects solely because an audit wraps an intentional fragment in
-a complete program.
+to the concept being explained. Complete runnable programs should demonstrate explicit resource closure. Memory
+examples should distinguish collection from closure and intentional pool retention.
 
 Read relevant source before changing behavior. Use `rg` to find needed sections;
 do not preload documents. Read only needed files or ranges, expanding scope for

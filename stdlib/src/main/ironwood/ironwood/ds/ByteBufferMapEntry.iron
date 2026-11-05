@@ -34,8 +34,5 @@ class ByteBufferMapEntry<E extends Object> {
         return keyBuffer;
     }
 
-    destructor {
 
-        free this.keyBuffer;
-    }
 }

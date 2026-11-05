@@ -92,8 +92,5 @@ final class ProxyExchange {
         return this.bytes[this.cursor++] & 255;
     }
 
-    destructor {
 
-        free this.bytes;
-    }
 }

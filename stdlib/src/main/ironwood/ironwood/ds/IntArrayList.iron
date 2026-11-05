@@ -81,7 +81,6 @@ public class IntArrayList implements Iterable<IntHolder> {
         int[] oldArray = this.array;
         this.array = new int[newCapacity];
         System.arraycopy(oldArray, 0, this.array, 0, this.size);
-        free oldArray;
     }
     /** Removes all stored values. */
 
@@ -240,7 +239,6 @@ public class IntArrayList implements Iterable<IntHolder> {
     public String toString() {
 
         StringBuilder builder = new StringBuilder();
-        defer free builder;
         builder.append('[');
         int index = 0;
         while (index < this.size) {
@@ -260,9 +258,5 @@ public class IntArrayList implements Iterable<IntHolder> {
         return reusableIterator;
     }
 
-    destructor {
 
-        free this.reusableIterator;
-        free this.array;
-    }
 }

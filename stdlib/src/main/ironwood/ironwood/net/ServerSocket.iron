@@ -7,14 +7,13 @@ import ironwood.io.IOException;
 import ironwood.ds.UnmodifiableList;
 
 /**
- * Blocking TCP listener facade with explicit resource lifetime. Close before freeing: close
- * releases the native resource, while destruction reclaims owned managed storage. Default and
- * proven fresh factory implementations are owned; explicitly injected implementations are
- * borrowed. Reclaim outer wrappers and the facade before a caller-owned implementation or its
- * delegates.
- * <p>Streams, cached addresses and option inventories are borrowed unless a getter explicitly
- * returns a fresh result. Close does not invalidate managed metadata or clear connection/binding
- * history. DNS and ordinary TCP writes are blocking; SO_TIMEOUT bounds accept only.
+ * Blocking TCP listener facade with explicit resource lifetime. Explicit close releases native
+ * resources; collection never closes them. Default and proven fresh factory implementations are
+ * owned; explicitly injected implementations are borrowed. Managed references retain the implementation and its delegates.
+ * <p>Streams, cached addresses
+ * and option inventories are borrowed unless a getter explicitly returns a fresh result. Close
+ * does not invalidate managed metadata or clear connection/binding history. DNS and ordinary
+ * TCP writes are blocking; SO_TIMEOUT bounds accept only.
  */
 public class ServerSocket implements Closeable {
 
@@ -79,7 +78,6 @@ public class ServerSocket implements Closeable {
         boolean complete = false;
         try {
             InetSocketAddress endpoint = new InetSocketAddress(address, port);
-            defer free endpoint;
             this.bind(endpoint, backlog);
             complete = true;
         } finally {
@@ -105,8 +103,8 @@ public class ServerSocket implements Closeable {
     /**
      * Registers the factory used by future listeners. A non-null registration is permitted only
      * once. Null is a no-op before registration; every later call fails. The factory and its
-     * captured references are retained for the process lifetime and must not be freed while
-     * registered. Each factory result must be proven fresh and unpublished.
+     * captured references are retained for the process lifetime. Each factory result must be
+     * proven fresh and unpublished.
      *
      * @param value the factory to retain, or null before registration
      * @throws SocketException if a non-null factory has already been registered
@@ -176,9 +174,9 @@ public class ServerSocket implements Closeable {
     }
 
     /**
-     * Waits for a connection and transfers its native resource into a new client socket from the
-     * client factory. The accepted socket is independent of this listener and must be closed and
-     * freed separately. A configured SO_TIMEOUT limits the wait; timeout leaves the listener
+     * Waits for a connection and transfers its native resource into a new client socket from
+     * the client factory. The accepted socket is independent of this listener and must be
+     * closed explicitly. A configured SO_TIMEOUT limits the wait; timeout leaves the listener
      * usable.
      *
      * @return a fresh connected socket owned by the caller
@@ -193,16 +191,13 @@ public class ServerSocket implements Closeable {
             this.implAccept(result);
         } catch (IOException failure) {
             // Rethrow before entering cleanup so Ironwood keeps the acquisition
-            // failure primary if either close or destruction also fails.
-            defer free result;
+            // failure primary if close also fails.
             defer result.close();
             throw failure;
         } catch (RuntimeException failure) {
-            defer free result;
             defer result.close();
             throw failure;
         } catch (Error failure) {
-            defer free result;
             defer result.close();
             throw failure;
         }
@@ -273,8 +268,7 @@ public class ServerSocket implements Closeable {
     }
 
     /**
-     * Returns the bound local address from the implementation, including after close. Do not free
-     * the result separately.
+     * Returns the bound local address from the implementation, including after close. The returned address has a managed lifetime.
      *
      * @return a borrowed bound address, or null before binding
      */
@@ -491,12 +485,8 @@ public class ServerSocket implements Closeable {
 
         if (!this.bound) return new String("ServerSocket[unbound]");
         String address = this.getInetAddress().toString();
-        defer free address;
         return "ServerSocket[addr=" + address + ",localport=" + this.getLocalPort() + "]";
     }
 
-    destructor {
 
-        free this.owned;
-    }
 }

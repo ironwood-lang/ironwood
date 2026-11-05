@@ -29,8 +29,5 @@ class CharSequenceMapEntry<E extends Object> {
         return keyBuilder;
     }
 
-    destructor {
 
-        free this.keyBuilder;
-    }
 }

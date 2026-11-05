@@ -6,7 +6,7 @@ import ironwood.compiler.ir.IrType;
 
 import java.util.List;
 
-/** Experimental descriptors only; never called by production LLVM emission. */
+/** Exact physical descriptors shared by normal emission and qualification controls. */
 public final class GcLayoutEmitter {
     private GcLayoutEmitter() {}
 

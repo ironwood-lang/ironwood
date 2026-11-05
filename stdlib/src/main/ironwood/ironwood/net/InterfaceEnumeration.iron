@@ -32,8 +32,5 @@ final class InterfaceEnumeration implements Enumeration<NetworkInterface> {
         return this.snapshot.at(this.position++);
     }
 
-    destructor {
 
-        free this.snapshot;
-    }
 }

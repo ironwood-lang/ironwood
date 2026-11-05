@@ -17,7 +17,6 @@ import ironwood.util.NoSuchElementException;
 
 public class LinkedList<E extends Object> implements Iterable<E> {
 
-    // Keep the builder before the pool for reverse-order constructor rollback.
     private final ObjectBuilder<LinkedListEntry<E>> entryBuilder;
     private final MultiArrayObjectPool<LinkedListEntry<E>> entryPool;
     private int initialCapacity;
@@ -51,9 +50,10 @@ public class LinkedList<E extends Object> implements Iterable<E> {
 
     private void releaseEntryBackToPool(LinkedListEntry<E> entry) {
 
-        // value is overwritten before reuse; only structural links need reset.
         entry.previous = null;
         entry.next = null;
+        // The entry remains reusable; retired user graphs do not.
+        entry.value = null;
         this.entryPool.release(entry);
     }
 
@@ -216,7 +216,6 @@ public class LinkedList<E extends Object> implements Iterable<E> {
     public String toString() {
 
         StringBuilder builder = new StringBuilder();
-        defer free builder;
         builder.append('[');
         LinkedListEntry<E> entry = this.head;
         while (entry != null) {
@@ -260,10 +259,5 @@ public class LinkedList<E extends Object> implements Iterable<E> {
         return reusableIterator;
     }
 
-    destructor {
 
-        free this.reusableIterator;
-        free this.entryPool;
-        free this.entryBuilder;
-    }
 }

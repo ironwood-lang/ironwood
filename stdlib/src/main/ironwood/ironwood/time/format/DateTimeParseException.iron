@@ -38,7 +38,7 @@ public class DateTimeParseException extends DateTimeException {
         return this.errorIndex;
     }
 
-    // A fresh snapshot lets the caller keep diagnostic text after freeing this exception.
+    // A fresh snapshot has an independent managed lifetime.
     /** Returns the parsed string. */
     public String getParsedString() {
 
@@ -49,8 +49,5 @@ public class DateTimeParseException extends DateTimeException {
 
     }
 
-    destructor {
 
-        free this.parsed;
-    }
 }

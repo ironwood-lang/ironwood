@@ -3,9 +3,9 @@
 package ironwood.net;
 
 /**
- * Provides process-lifetime tokens for the implementation protocol. They support dedicated socket
- * accessors but are excluded from facade {@code supportedOptions()} inventories. Do not free these
- * tokens.
+ * Provides process-lifetime tokens for the implementation protocol. They support dedicated
+ * socket accessors but are excluded from facade {@code supportedOptions()} inventories. The
+ * tokens have managed lifetimes.
  */
 public final class SocketImplOptions {
 

@@ -32,7 +32,6 @@ final class ProxySocketImpl extends NativeSocketImpl {
         SocketDescriptor descriptor = this.getFileDescriptor();
         connectRoute(descriptor, route, timed, deadline);
         ProxyExchange exchange = new ProxyExchange(descriptor, timed, deadline);
-        defer free exchange;
         exchange.begin();
         this.configuration.negotiate(exchange, this.target);
         exchange.finish();
@@ -46,7 +45,6 @@ final class ProxySocketImpl extends NativeSocketImpl {
             return;
         }
         InetSocketAddress resolved = new InetSocketAddress(route.getHostString(), route.getPort());
-        defer free resolved;
         if (resolved.isUnresolved()) throw new UnknownHostException(resolved.getHostString());
         descriptor.connect(resolved, timed, deadline);
     }
@@ -71,9 +69,5 @@ final class ProxySocketImpl extends NativeSocketImpl {
         return Proxy.copyEndpoint(this.target);
     }
 
-    destructor {
 
-        free this.target;
-        free this.configuration;
-    }
 }

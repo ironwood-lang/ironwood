@@ -93,7 +93,6 @@ public final class NetworkInterface {
 
         NetworkInterface result = new NetworkInterface(name, index, address, mode);
         if (result.record >= 0) return result;
-        free result;
         return null;
     }
 
@@ -144,9 +143,8 @@ public final class NetworkInterface {
     }
 
     /**
-     * Captures the current interfaces in a fresh owning enumeration. Returned interfaces and their
-     * metadata borrow this snapshot. Exhausting the cursor does not reclaim it; free it only after
-     * all borrowed values and subordinate cursors are no longer needed.
+     * Captures the current interfaces in a fresh owning enumeration. Returned interfaces and
+     * metadata retain their captured snapshot. Each remains valid while reachable.
      *
      * @return a fresh caller-owned enumeration, possibly empty
      * @throws SocketException if capturing the host interface snapshot fails
@@ -198,7 +196,7 @@ public final class NetworkInterface {
     }
 
     /**
-     * Returns the parent from the same captured snapshot. Do not free the result separately.
+     * Returns the managed parent from the same captured snapshot.
      *
      * @return a borrowed parent interface, or null if there is none
      */
@@ -210,8 +208,7 @@ public final class NetworkInterface {
 
     /**
      * Creates a cursor over captured address values. The cursor and its elements borrow this
-     * interface's snapshot; free the cursor before the owner, and do not free the addresses
-     * separately.
+     * interface's snapshot; each reference retains the required managed snapshot.
      *
      * @return a fresh enumeration owned by the caller
      */
@@ -222,8 +219,7 @@ public final class NetworkInterface {
 
     /**
      * Creates a cursor over captured child interfaces. The cursor and its elements borrow this
-     * interface's snapshot; free the cursor before the owner, and do not free the child interfaces
-     * separately.
+     * interface's snapshot; each reference retains the required managed snapshot.
      *
      * @return a fresh enumeration owned by the caller
      */
@@ -234,8 +230,7 @@ public final class NetworkInterface {
 
     /**
      * Creates a mutable list containing borrowed address/prefix entries. Mutating the list does
-     * not alter the snapshot. Free the list before the snapshot owner; do not free its borrowed
-     * entries separately.
+     * not alter the snapshot. The managed list retains its entries and their snapshot.
      *
      * @return a fresh list owned by the caller
      */
@@ -248,7 +243,6 @@ public final class NetworkInterface {
             }
             return result;
         } catch (RuntimeException | Error failure) {
-            free result;
             throw failure;
         }
     }
@@ -399,7 +393,6 @@ public final class NetworkInterface {
     public byte[] getHardwareAddress() throws SocketException {
 
         byte[] buffer = new byte[256];
-        defer free buffer;
         int count = InterfaceQuery.checked(TcpNative.interfaceHardware(this.encodedName, buffer));
         if (count == 0) return null;
         return Arrays.copyOf(buffer, count);
@@ -446,14 +439,5 @@ public final class NetworkInterface {
         return "name:" + this.name + " (" + this.name + ")";
     }
 
-    destructor {
 
-        for (int position = 0; position < this.addresses.length; position++) {
-            free this.addresses[position];
-        }
-        free this.addresses;
-        free this.encodedName;
-        free this.name;
-        free this.owned;
-    }
 }

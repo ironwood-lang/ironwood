@@ -138,6 +138,7 @@ public final class LlvmEmitter {
 
     private ironwood.compiler.ir.GcEffects gcEffects;
     private IrProgram gcProgram;
+    private boolean experimental;
     private List<ironwood.compiler.ir.IrAllocationLayout> gcLayouts = List.of();
     private List<IrValueReference> gcSlots = List.of();
     private TracePlan tracePlan;
@@ -155,6 +156,7 @@ public final class LlvmEmitter {
     }
 
     public String emitGcExperiment(IrProgram program, boolean runtimeOwners) {
+        experimental = true;
         gcEffects = GcExperimentalClosure.validate(program, runtimeOwners);
         gcProgram = program;
         gcLayouts = ironwood.compiler.ir.IrAllocationLayout.of(program);
@@ -229,14 +231,14 @@ public final class LlvmEmitter {
                 String aggregate = names.next("gc.cleanup");
                 output.append(aggregate).append(" = landingpad { ptr, i32 } cleanup\n  ")
                         .append(operand(unwind.handle())).append(" = extractvalue { ptr, i32 } ").append(aggregate).append(", 0");
-            } else output.append("call void @_Unwind_Resume(ptr ").append(operand(unwind.handle())).append(')');
+            } else output.append("call void @_Unwind_Resume(").append(llvmType(unwind.handle().type())).append(' ').append(operand(unwind.handle())).append(')');
             return true;
         }
         if (instruction instanceof IrExceptionLandingPadInstruction pad) {
             String aggregate = names.next("gc.landing");
             output.append(aggregate).append(" = landingpad { ptr, i32 } catch ptr null\n  ")
                     .append(operand(pad.exceptionHandle())).append(" = extractvalue { ptr, i32 } ").append(aggregate).append(", 0\n  ")
-                    .append(operand(pad.exceptionObject())).append(" = call ptr addrspace(1) @iw_gc_exception_take(ptr ")
+                    .append(operand(pad.exceptionObject())).append(" = call ptr addrspace(1) @iw_gc_exception_take(").append(llvmType(pad.exceptionHandle().type())).append(' ')
                     .append(operand(pad.exceptionHandle())).append(')');
             return true;
         }
@@ -294,11 +296,11 @@ public final class LlvmEmitter {
             return true;
         }
         if (instruction instanceof ironwood.compiler.ir.IrGcRootSlotInstruction slot) {
-            output.append("store ptr addrspace(1) ").append(operand(slot.value())).append(", ptr ").append(operand(slot.slot()));
+            output.append("store ptr addrspace(1) ").append(operand(slot.value())).append(", ").append(llvmType(slot.slot().type())).append(' ').append(operand(slot.slot()));
             return true;
         }
         if (instruction instanceof ironwood.compiler.ir.IrGcRootLoadInstruction load) {
-            output.append(operand(load.result())).append(" = load ptr addrspace(1), ptr ").append(operand(load.slot()));
+            output.append(operand(load.result())).append(" = load ptr addrspace(1), ").append(llvmType(load.slot().type())).append(' ').append(operand(load.slot()));
             return true;
         }
         if (instruction instanceof IrAllocateInstruction allocate) {
@@ -378,19 +380,13 @@ public final class LlvmEmitter {
     }
 
     private String emit(IrProgram program, boolean selectiveInlining, Set<String> bridgeEntries) {
-        if (program.functions().stream().flatMap(f -> f.blocks().stream())
-                .flatMap(b -> ironwood.compiler.ir.GcEffects.operations(b).stream())
-                .anyMatch(i -> i instanceof ironwood.compiler.ir.IrGcCollectInstruction
-                        || i instanceof ironwood.compiler.ir.IrGcRootSlotInstruction
-                        || i instanceof ironwood.compiler.ir.IrGcRootLoadInstruction
-                        || i instanceof ironwood.compiler.ir.IrGcProjectionInstruction
-                        || i instanceof ironwood.compiler.ir.IrGcReadProjectionInstruction
-                        || i instanceof ironwood.compiler.ir.IrGcTestExceptionInstruction
-                        || i instanceof ironwood.compiler.ir.IrGcUnwindInstruction)) {
-            throw new IllegalArgumentException("GC5 collection requires integrated managed native generation; legacy allocation/destruction cannot be linked");
-        }
-        gcProgram = null;
-        gcEffects = null;
+        GcManagedHeapVerifier.verify(program);
+        if (!bridgeEntries.isEmpty()) throw new IllegalArgumentException("GC6 boundary: native bridge/shared outputs are not qualified");
+        experimental = false;
+        gcProgram = program;
+        gcLayouts = ironwood.compiler.ir.IrAllocationLayout.of(program);
+        gcLayouts.forEach(ironwood.compiler.ir.IrAllocationLayout::requireSupported);
+        gcEffects = ironwood.compiler.ir.GcEffects.analyzeRuntimeOwners(program);
         gcSlots = List.of();
         this.bridgeEntries = Set.copyOf(bridgeEntries);
         tracePlan = new TracePlan(program);
@@ -400,7 +396,7 @@ public final class LlvmEmitter {
         StringBuilder output = new StringBuilder();
         output.append("; ModuleID = '").append(escapeComment(program.moduleName())).append("'\n");
         output.append("source_filename = \"").append(escapeString(program.moduleName())).append("\"\n\n");
-        output.append("%\"ironwood.typeinfo\" = type { i32, ptr, ptr, ptr, i32, ptr, ptr, i1, i1 }\n");
+        output.append("%\"ironwood.typeinfo\" = type { i64, i64, %iw.layout, ptr, ptr, ptr, i32, ptr, ptr, i1, i1 }\n");
         output.append("%\"ironwood.array\" = type { ptr, i64, i64, i32, i32, [0 x i8] }\n");
         output.append("%\"ironwood.byteview\" = type { ptr, i32, i8 }\n");
         output.append("%\"ironwood.string\" = type { ptr, i32, i32, [0 x i16] }\n");
@@ -411,6 +407,7 @@ public final class LlvmEmitter {
             }
         }
         output.append('\n');
+        output.append(GcLayoutEmitter.llvm(program));
         int typeCount = program.classes().stream().mapToInt(IrClass::typeId).max().orElse(-1) + 1;
         for (IrClass irClass : program.classes()) {
             if (irClass.isClass()) {
@@ -479,7 +476,7 @@ public final class LlvmEmitter {
             output.append(initializationStateName(initialization.typeName()))
                     .append(" = internal global i8 0\n")
                     .append(initializationFailureName(initialization.typeName()))
-                    .append(" = internal global ptr null\n");
+                    .append(" = internal global ptr addrspace(1) null\n");
         }
         if (!program.typeInitializations().isEmpty()) {
             output.append('\n');
@@ -491,60 +488,62 @@ public final class LlvmEmitter {
             output.append('\n');
         }
         emitThrowableTraceMetadata(output, program);
+        emitGcImageMetadata(output, program, immortalObjects, enumConstants);
         emitForeignDeclarations(output, program);
         for (IrThrowableTraceInstruction.Operation operation : IrThrowableTraceInstruction.Operation.values()) {
+            if (operation == IrThrowableTraceInstruction.Operation.RELEASE) continue;
             output.append("declare ").append(llvmType(operation.returnType())).append(" @")
                     .append(operation.runtimeName()).append('(')
                     .append(operation.parameterTypes().stream().map(this::llvmType).collect(Collectors.joining(", ")));
             if (operation == IrThrowableTraceInstruction.Operation.ARRAY) {
-                output.append(", ptr, ptr");
+                output.append(", ptr, ptr addrspace(1)");
             }
-            output.append(")\n");
+            output.append(") \"gc-leaf-function\"\n");
         }
         // Both allocators return fresh storage or raise the allocation failure;
         // they never return null, so LLVM may fold null checks on new objects.
-        output.append("declare noalias nonnull ptr @ironwood_allocate(i64, ptr, ptr)\n");
-        output.append("declare noalias nonnull ptr @ironwood_allocate_array(i32, i64, i32, ptr, ptr)\n");
-        output.append("declare i64 @ironwood_allocation_count()\n");
-        output.append("declare i64 @ironwood_live_allocation_count()\n");
-        output.append("declare i32 @ironwood_identity_hash_code(ptr)\n");
-        output.append("declare i32 @ironwood_object_hash_code(ptr)\n");
-        output.append("declare ptr @ironwood_object_to_string(ptr, ptr, ptr)\n");
-        output.append("declare ptr @ironwood_throwable_description(ptr, ptr, ptr, ptr)\n");
-        output.append("declare void @ironwood_release_owned_throwable_message(ptr, ptr)\n");
-        output.append("declare void @ironwood_release_owned_to_string_result(ptr, ptr)\n");
-        output.append("declare i1 @ironwood_string_equals(ptr, ptr, ptr)\n");
-        output.append("declare i32 @ironwood_string_hash_code(ptr)\n");
-        output.append("declare ptr @ironwood_string_copy(ptr, ptr, ptr)\n");
-        output.append("declare ptr @ironwood_string_from_chars(ptr, i32, ptr, ptr)\n");
-        output.append("declare ptr @ironwood_string_case(ptr, i1, ptr, ptr)\n");
-        output.append("declare ptr @ironwood_string_repeat(ptr, i32, ptr, ptr)\n");
-        output.append("declare ptr @ironwood_string_replace_char(ptr, i16, i16, ptr, ptr)\n");
-        output.append("declare ptr @ironwood_string_replace_text(ptr, ptr, ptr, ptr, ptr)\n");
-        output.append("declare i1 @ironwood_string_equals_ignore_case(ptr, ptr)\n");
-        output.append("declare ptr @ironwood_string_join(ptr, ptr, ptr, ptr)\n");
-        output.append("declare ptr @ironwood_string_from_utf8(ptr, i32, ptr, ptr)\n");
-        output.append("declare ptr @ironwood_string_from_char_range(ptr, i32, i32, ptr, ptr)\n");
-        output.append("declare ptr @ironwood_string_from_range(ptr, i32, i32, ptr, ptr)\n");
-        output.append("declare ptr @ironwood_string_from_integer(i64, i32, ptr, ptr)\n");
-        output.append("declare ptr @ironwood_string_from_character(i16, ptr, ptr)\n");
-        output.append("declare ptr @ironwood_string_concat(ptr, i32, ptr, ptr)\n");
-        output.append("declare ptr @ironwood_process_arguments(i32, ptr, ptr, ptr)\n");
-        output.append("declare void @ironwood_system_arraycopy(ptr, i32, ptr, i32, i32)\n");
-        output.append("declare ptr @ironwood_system_getenv(ptr, ptr, ptr)\n");
-        output.append("declare ptr @ironwood_system_get_property(ptr, ptr, ptr)\n");
-        output.append("declare void @ironwood_system_exit(i32) noreturn\n");
-        output.append("declare i64 @ironwood_current_time_millis()\n");
-        output.append("declare i64 @ironwood_nano_time()\n");
-        output.append("declare float @ironwood_parse_float(ptr)\n");
-        output.append("declare double @ironwood_parse_double(ptr)\n");
+        output.append("declare noalias nonnull ptr addrspace(1) @ironwood_allocate(i64, ptr, ptr addrspace(1)) \"gc-leaf-function\"\n");
+        output.append("declare noalias nonnull ptr addrspace(1) @ironwood_allocate_array(i32, i64, i32, ptr, ptr addrspace(1)) \"gc-leaf-function\"\n");
+        output.append("declare i64 @ironwood_allocation_count() \"gc-leaf-function\"\n");
+        output.append("declare i64 @ironwood_live_allocation_count() \"gc-leaf-function\"\n");
+        output.append("declare i32 @ironwood_identity_hash_code(ptr addrspace(1)) \"gc-leaf-function\"\n");
+        output.append("declare i32 @ironwood_object_hash_code(ptr addrspace(1)) \"gc-leaf-function\"\n");
+        output.append("declare ptr addrspace(1) @ironwood_object_to_string(ptr addrspace(1), ptr, ptr addrspace(1)) \"gc-leaf-function\"\n");
+        output.append("declare ptr addrspace(1) @ironwood_throwable_description(ptr addrspace(1), ptr addrspace(1), ptr, ptr addrspace(1)) \"gc-leaf-function\"\n");
+
+
+        output.append("declare i1 @ironwood_string_equals(ptr addrspace(1), ptr addrspace(1), ptr) \"gc-leaf-function\"\n");
+        output.append("declare i32 @ironwood_string_hash_code(ptr addrspace(1)) \"gc-leaf-function\"\n");
+        output.append("declare ptr addrspace(1) @ironwood_string_copy(ptr addrspace(1), ptr, ptr addrspace(1)) \"gc-leaf-function\"\n");
+        output.append("declare ptr addrspace(1) @ironwood_string_from_chars(ptr addrspace(1), i32, ptr, ptr addrspace(1)) \"gc-leaf-function\"\n");
+        output.append("declare ptr addrspace(1) @ironwood_string_case(ptr addrspace(1), i1, ptr, ptr addrspace(1)) \"gc-leaf-function\"\n");
+        output.append("declare ptr addrspace(1) @ironwood_string_repeat(ptr addrspace(1), i32, ptr, ptr addrspace(1)) \"gc-leaf-function\"\n");
+        output.append("declare ptr addrspace(1) @ironwood_string_replace_char(ptr addrspace(1), i16, i16, ptr, ptr addrspace(1)) \"gc-leaf-function\"\n");
+        output.append("declare ptr addrspace(1) @ironwood_string_replace_text(ptr addrspace(1), ptr addrspace(1), ptr addrspace(1), ptr, ptr addrspace(1)) \"gc-leaf-function\"\n");
+        output.append("declare i1 @ironwood_string_equals_ignore_case(ptr addrspace(1), ptr addrspace(1)) \"gc-leaf-function\"\n");
+        output.append("declare ptr addrspace(1) @ironwood_string_join(ptr addrspace(1), ptr addrspace(1), ptr, ptr addrspace(1)) \"gc-leaf-function\"\n");
+        output.append("declare ptr addrspace(1) @ironwood_string_from_utf8(ptr addrspace(1), i32, ptr, ptr addrspace(1)) \"gc-leaf-function\"\n");
+        output.append("declare ptr addrspace(1) @ironwood_string_from_char_range(ptr addrspace(1), i32, i32, ptr, ptr addrspace(1)) \"gc-leaf-function\"\n");
+        output.append("declare ptr addrspace(1) @ironwood_string_from_range(ptr addrspace(1), i32, i32, ptr, ptr addrspace(1)) \"gc-leaf-function\"\n");
+        output.append("declare ptr addrspace(1) @ironwood_string_from_integer(i64, i32, ptr, ptr addrspace(1)) \"gc-leaf-function\"\n");
+        output.append("declare ptr addrspace(1) @ironwood_string_from_character(i16, ptr, ptr addrspace(1)) \"gc-leaf-function\"\n");
+        output.append("declare ptr addrspace(1) @ironwood_string_concat(ptr, i32, ptr, ptr addrspace(1)) \"gc-leaf-function\"\n");
+        output.append("declare ptr addrspace(1) @ironwood_process_arguments(i32, ptr, ptr, ptr) \"gc-leaf-function\"\n");
+        output.append("declare void @ironwood_system_arraycopy(ptr addrspace(1), i32, ptr addrspace(1), i32, i32) \"gc-leaf-function\"\n");
+        output.append("declare ptr addrspace(1) @ironwood_system_getenv(ptr addrspace(1), ptr, ptr addrspace(1)) \"gc-leaf-function\"\n");
+        output.append("declare ptr addrspace(1) @ironwood_system_get_property(ptr addrspace(1), ptr, ptr addrspace(1)) \"gc-leaf-function\"\n");
+        output.append("declare void @ironwood_system_exit(i32) noreturn \"gc-leaf-function\"\n");
+        output.append("declare i64 @ironwood_current_time_millis() \"gc-leaf-function\"\n");
+        output.append("declare i64 @ironwood_nano_time() \"gc-leaf-function\"\n");
+        output.append("declare float @ironwood_parse_float(ptr addrspace(1)) \"gc-leaf-function\"\n");
+        output.append("declare double @ironwood_parse_double(ptr addrspace(1)) \"gc-leaf-function\"\n");
         for (IrCharacterInstruction.Operation operation : IrCharacterInstruction.Operation.values()) {
-            output.append("declare i32 @").append(operation.functionName()).append("(i32)\n");
+            output.append("declare i32 @").append(operation.functionName()).append("(i32) \"gc-leaf-function\"\n");
         }
         for (IrTlsInstruction.Operation tls : IrTlsInstruction.Operation.values()) {
             output.append("declare i64 @").append(tls.runtimeName()).append('(')
                     .append(tls.parameterTypes().stream().map(this::llvmType)
-                            .collect(java.util.stream.Collectors.joining(", "))).append(")\n");
+                            .collect(java.util.stream.Collectors.joining(", "))).append(") \"gc-leaf-function\"\n");
         }
         for (IrTcpInstruction.Operation tcp : IrTcpInstruction.Operation.values()) {
             output.append("declare ").append(llvmType(tcp.resultType())).append(" @")
@@ -557,93 +556,89 @@ public final class LlvmEmitter {
                 for (String ignored : tcp.outputNames()) nativeParameters.add("ptr");
             }
             output.append(String.join(", ", nativeParameters));
-            output.append(")\n");
+            output.append(") \"gc-leaf-function\"\n");
         }
         for (IrStreamInstruction.Operation stream : IrStreamInstruction.Operation.values()) {
             output.append("declare ").append(llvmType(stream.resultType())).append(" @")
                     .append(stream.runtimeName()).append('(');
             output.append(stream.parameterTypes().stream().map(this::llvmType)
                     .collect(java.util.stream.Collectors.joining(", ")));
-            if (stream == IrStreamInstruction.Operation.OPEN) { output.append(", ptr"); }
-            output.append(")\n");
+            if (stream == IrStreamInstruction.Operation.OPEN) { output.append(", ptr addrspace(1)"); }
+            output.append(") \"gc-leaf-function\"\n");
         }
-        output.append("declare i32 @ironwood_file_same(ptr, ptr, ptr)\n");
-        output.append("declare ptr @ironwood_file_read_all_bytes(ptr, ptr, ptr)\n");
-        output.append("declare ptr @ironwood_file_read_string(ptr, ptr, ptr)\n");
-        output.append("declare i32 @ironwood_file_write_bytes(ptr, ptr, ptr)\n");
-        output.append("declare i32 @ironwood_file_write_string(ptr, ptr, ptr)\n");
-        output.append("declare i32 @ironwood_file_write_chars(ptr, ptr, ptr)\n");
-        output.append("declare i32 @ironwood_file_delete(ptr, ptr)\n");
-        output.append("declare i32 @ironwood_file_create_directories(ptr, ptr)\n");
-        output.append("declare i32 @ironwood_file_copy(ptr, ptr, ptr)\n");
-        output.append("declare i32 @ironwood_file_move(ptr, ptr, ptr)\n");
-        output.append("declare ptr @ironwood_file_create_temp_file(ptr, ptr, ptr, ptr)\n");
-        output.append("declare ptr @ironwood_file_create_temp_directory(ptr, ptr, ptr)\n");
-        output.append("declare ptr @ironwood_file_real_path(ptr, ptr, ptr)\n");
-        output.append("declare i32 @ironwood_file_access(ptr, i32, ptr)\n");
-        output.append("declare i32 @ironwood_file_move_atomic(ptr, ptr, ptr)\n");
-        output.append("declare i32 @ironwood_file_move_replacing(ptr, ptr, ptr)\n");
-        output.append("declare i32 @ironwood_file_move_exclusive(ptr, ptr, ptr)\n");
-        output.append("declare i64 @ironwood_process_run(ptr, ptr, ptr, ptr)\n");
-        output.append("declare i64 @ironwood_directory_open(ptr, ptr)\n");
-        output.append("declare i32 @ironwood_directory_has_next(i64)\n");
-        output.append("declare ptr @ironwood_directory_next(i64, ptr, ptr)\n");
-        output.append("declare i32 @ironwood_directory_close(i64)\n");
-        output.append("declare ptr @ironwood_file_read_attributes(ptr, i1, ptr, ptr)\n");
-        output.append("declare ptr @ironwood_path_resolve_sibling(ptr, ptr, ptr, ptr)\n");
-        output.append("declare ptr @ironwood_path_absolute(ptr, ptr, ptr)\n");
-        output.append("declare i32 @ironwood_file_kind(ptr, ptr)\n");
-        output.append("declare i32 @ironwood_file_kind_nofollow(ptr, ptr)\n");
-        output.append("declare i64 @ironwood_file_size(ptr, ptr)\n");
-        output.append("declare i32 @ironwood_file_last_error()\n");
-        output.append("declare ptr @ironwood_path_current_directory(ptr, ptr)\n");
-        output.append("declare ptr @ironwood_path_normalize_syntax(ptr, ptr, ptr)\n");
-        output.append("declare ptr @ironwood_path_normalize(ptr, ptr, ptr)\n");
-        output.append("declare ptr @ironwood_path_file_name(ptr, ptr, ptr)\n");
-        output.append("declare ptr @ironwood_path_parent(ptr, ptr, ptr)\n");
-        output.append("declare ptr @ironwood_path_resolve(ptr, ptr, ptr, ptr)\n");
-        output.append("declare void @ironwood_deallocate(ptr)\n");
-        output.append("declare void @ironwood_destructor_failed() noreturn\n");
-        output.append("declare void @ironwood_stdout_println(ptr)\n");
-        output.append("declare void @ironwood_print_stream_write(ptr, i32, i64, i1)\n");
-        output.append("declare void @ironwood_print_stream_flush(ptr)\n");
-        output.append("declare i1 @ironwood_print_stream_check_error(ptr)\n");
+        output.append("declare i32 @ironwood_file_same(ptr addrspace(1), ptr addrspace(1), ptr addrspace(1)) \"gc-leaf-function\"\n");
+        output.append("declare ptr addrspace(1) @ironwood_file_read_all_bytes(ptr addrspace(1), ptr, ptr addrspace(1)) \"gc-leaf-function\"\n");
+        output.append("declare ptr addrspace(1) @ironwood_file_read_string(ptr addrspace(1), ptr, ptr addrspace(1)) \"gc-leaf-function\"\n");
+        output.append("declare i32 @ironwood_file_write_bytes(ptr addrspace(1), ptr addrspace(1), ptr addrspace(1)) \"gc-leaf-function\"\n");
+        output.append("declare i32 @ironwood_file_write_string(ptr addrspace(1), ptr addrspace(1), ptr addrspace(1)) \"gc-leaf-function\"\n");
+        output.append("declare i32 @ironwood_file_write_chars(ptr addrspace(1), ptr addrspace(1), ptr addrspace(1)) \"gc-leaf-function\"\n");
+        output.append("declare i32 @ironwood_file_delete(ptr addrspace(1), ptr addrspace(1)) \"gc-leaf-function\"\n");
+        output.append("declare i32 @ironwood_file_create_directories(ptr addrspace(1), ptr addrspace(1)) \"gc-leaf-function\"\n");
+        output.append("declare i32 @ironwood_file_copy(ptr addrspace(1), ptr addrspace(1), ptr addrspace(1)) \"gc-leaf-function\"\n");
+        output.append("declare i32 @ironwood_file_move(ptr addrspace(1), ptr addrspace(1), ptr addrspace(1)) \"gc-leaf-function\"\n");
+        output.append("declare ptr addrspace(1) @ironwood_file_create_temp_file(ptr addrspace(1), ptr addrspace(1), ptr, ptr addrspace(1)) \"gc-leaf-function\"\n");
+        output.append("declare ptr addrspace(1) @ironwood_file_create_temp_directory(ptr addrspace(1), ptr, ptr addrspace(1)) \"gc-leaf-function\"\n");
+        output.append("declare ptr addrspace(1) @ironwood_file_real_path(ptr addrspace(1), ptr, ptr addrspace(1)) \"gc-leaf-function\"\n");
+        output.append("declare i32 @ironwood_file_access(ptr addrspace(1), i32, ptr addrspace(1)) \"gc-leaf-function\"\n");
+        output.append("declare i32 @ironwood_file_move_atomic(ptr addrspace(1), ptr addrspace(1), ptr addrspace(1)) \"gc-leaf-function\"\n");
+        output.append("declare i32 @ironwood_file_move_replacing(ptr addrspace(1), ptr addrspace(1), ptr addrspace(1)) \"gc-leaf-function\"\n");
+        output.append("declare i32 @ironwood_file_move_exclusive(ptr addrspace(1), ptr addrspace(1), ptr addrspace(1)) \"gc-leaf-function\"\n");
+        output.append("declare i64 @ironwood_process_run(ptr addrspace(1), ptr addrspace(1), ptr addrspace(1), ptr addrspace(1)) \"gc-leaf-function\"\n");
+        output.append("declare i64 @ironwood_directory_open(ptr addrspace(1), ptr addrspace(1)) \"gc-leaf-function\"\n");
+        output.append("declare i32 @ironwood_directory_has_next(i64) \"gc-leaf-function\"\n");
+        output.append("declare ptr addrspace(1) @ironwood_directory_next(i64, ptr, ptr addrspace(1)) \"gc-leaf-function\"\n");
+        output.append("declare i32 @ironwood_directory_close(i64) \"gc-leaf-function\"\n");
+        output.append("declare ptr addrspace(1) @ironwood_file_read_attributes(ptr addrspace(1), i1, ptr, ptr addrspace(1)) \"gc-leaf-function\"\n");
+        output.append("declare ptr addrspace(1) @ironwood_path_resolve_sibling(ptr addrspace(1), ptr addrspace(1), ptr, ptr addrspace(1)) \"gc-leaf-function\"\n");
+        output.append("declare ptr addrspace(1) @ironwood_path_absolute(ptr addrspace(1), ptr, ptr addrspace(1)) \"gc-leaf-function\"\n");
+        output.append("declare i32 @ironwood_file_kind(ptr addrspace(1), ptr addrspace(1)) \"gc-leaf-function\"\n");
+        output.append("declare i32 @ironwood_file_kind_nofollow(ptr addrspace(1), ptr addrspace(1)) \"gc-leaf-function\"\n");
+        output.append("declare i64 @ironwood_file_size(ptr addrspace(1), ptr addrspace(1)) \"gc-leaf-function\"\n");
+        output.append("declare i32 @ironwood_file_last_error() \"gc-leaf-function\"\n");
+        output.append("declare ptr addrspace(1) @ironwood_path_current_directory(ptr, ptr addrspace(1)) \"gc-leaf-function\"\n");
+        output.append("declare ptr addrspace(1) @ironwood_path_normalize_syntax(ptr addrspace(1), ptr, ptr addrspace(1)) \"gc-leaf-function\"\n");
+        output.append("declare ptr addrspace(1) @ironwood_path_normalize(ptr addrspace(1), ptr, ptr addrspace(1)) \"gc-leaf-function\"\n");
+        output.append("declare ptr addrspace(1) @ironwood_path_file_name(ptr addrspace(1), ptr, ptr addrspace(1)) \"gc-leaf-function\"\n");
+        output.append("declare ptr addrspace(1) @ironwood_path_parent(ptr addrspace(1), ptr, ptr addrspace(1)) \"gc-leaf-function\"\n");
+        output.append("declare ptr addrspace(1) @ironwood_path_resolve(ptr addrspace(1), ptr addrspace(1), ptr, ptr addrspace(1)) \"gc-leaf-function\"\n");
+
+
+        output.append("declare void @ironwood_stdout_println(ptr addrspace(1)) \"gc-leaf-function\"\n");
+        output.append("declare void @ironwood_print_stream_write(ptr addrspace(1), i32, i64, i1) \"gc-leaf-function\"\n");
+        output.append("declare void @ironwood_print_stream_flush(ptr addrspace(1)) \"gc-leaf-function\"\n");
+        output.append("declare i1 @ironwood_print_stream_check_error(ptr addrspace(1)) \"gc-leaf-function\"\n");
         output.append("declare double @llvm.sin.f64(double)\n");
         output.append("declare double @llvm.cos.f64(double)\n");
-        output.append("declare double @tan(double)\n");
+        output.append("declare double @tan(double) \"gc-leaf-function\"\n");
         output.append("declare double @llvm.exp.f64(double)\n");
         output.append("declare double @llvm.log.f64(double)\n");
         output.append("declare double @llvm.log10.f64(double)\n");
         output.append("declare double @llvm.sqrt.f64(double)\n");
-        output.append("declare double @cbrt(double)\n");
+        output.append("declare double @cbrt(double) \"gc-leaf-function\"\n");
         output.append("declare double @llvm.rint.f64(double)\n");
-        output.append("declare double @atan2(double, double)\n");
+        output.append("declare double @atan2(double, double) \"gc-leaf-function\"\n");
         output.append("declare double @llvm.pow.f64(double, double)\n");
-        output.append("declare double @hypot(double, double)\n");
-        output.append("declare void @ironwood_throw(ptr) noreturn cold\n");
-        output.append("declare ptr @ironwood_exception_take(ptr)\n");
-        output.append("declare void @ironwood_exception_caught(ptr)\n");
-        output.append("declare void @ironwood_bridge_snapshot_failure(ptr, ptr)\n");
-        output.append("declare ptr @ironwood_bridge_copy_string(ptr, i32, ptr, ptr)\n");
-        output.append("declare ptr @ironwood_bridge_copy_array(ptr, i64, i32, ptr, ptr)\n");
-        output.append("declare void @ironwood_exception_add_secondary(ptr, ptr)\n");
-        output.append("declare i32 @ironwood_exception_secondary_count(ptr)\n");
-        output.append("declare ptr @ironwood_exception_secondary_at(ptr, i32)\n");
+        output.append("declare double @hypot(double, double) \"gc-leaf-function\"\n");
+        output.append("declare void @ironwood_throw(ptr addrspace(1)) noreturn cold \"gc-leaf-function\"\n");
+        output.append("declare ptr addrspace(1) @ironwood_exception_take(ptr) \"gc-leaf-function\"\n");
+        output.append("declare void @ironwood_exception_caught(ptr addrspace(1)) \"gc-leaf-function\"\n");
+        output.append("declare void @ironwood_bridge_snapshot_failure(ptr addrspace(1), ptr) \"gc-leaf-function\"\n");
+        output.append("declare ptr addrspace(1) @ironwood_bridge_copy_string(ptr, i32, ptr, ptr addrspace(1)) \"gc-leaf-function\"\n");
+        output.append("declare ptr addrspace(1) @ironwood_bridge_copy_array(ptr, i64, i32, ptr, ptr addrspace(1)) \"gc-leaf-function\"\n");
+        output.append("declare void @ironwood_exception_add_secondary(ptr addrspace(1), ptr addrspace(1)) \"gc-leaf-function\"\n");
+        output.append("declare i32 @ironwood_exception_secondary_count(ptr addrspace(1)) \"gc-leaf-function\"\n");
+        output.append("declare ptr addrspace(1) @ironwood_exception_secondary_at(ptr addrspace(1), i32) \"gc-leaf-function\"\n");
         output.append("declare void @llvm.pseudoprobe(i64, i64, i32, i64)\n");
         output.append("declare i1 @llvm.expect.i1(i1, i1)\n");
-        output.append("declare void @ironwood_trace_register_current(ptr, i32)\n");
-        output.append("declare void @ironwood_trace_register(ptr, i32, ptr, i32)\n");
-        output.append("declare void @ironwood_uncaught_exception(ptr, i64) noreturn\n");
+        output.append("declare void @ironwood_trace_register_current(ptr, i32) \"gc-leaf-function\"\n");
+        output.append("declare void @ironwood_trace_register(ptr, i32, ptr, i32) \"gc-leaf-function\"\n");
+        output.append("declare void @ironwood_uncaught_exception(ptr addrspace(1), i64) noreturn \"gc-leaf-function\"\n");
         output.append("declare i32 @__gxx_personality_v0(...)\n\n");
         emitInstanceOfHelper(output);
         output.append('\n');
         emitExactArrayTypeHelper(output);
         output.append('\n');
-        emitDestroyHelper(output);
-        emitDestroyArrayElementsHelper(output);
-        output.append('\n');
-        emitRollbackHelper(output);
-        output.append('\n');
+
         for (IrTypeInitialization initialization : program.typeInitializations()) {
             emitTypeInitializer(output, initialization);
             output.append('\n');
@@ -742,8 +737,8 @@ public final class LlvmEmitter {
             output.append("i8 ").append(typeMembership.contains(index) ? '1' : '0');
         }
         output.append("]\n");
-        output.append(typeInfoName(name)).append(" = private constant %\"ironwood.typeinfo\" { i32 ")
-                .append(typeId).append(", ptr ").append(dispatchTableName(name))
+        output.append(typeInfoName(name)).append(" = private global %\"ironwood.typeinfo\" { i64 ")
+                .append(typeId).append(", i64 0, %iw.layout zeroinitializer, ptr ").append(dispatchTableName(name))
                 .append(", ptr ").append(membershipTableName(name)).append(", ptr ")
                 .append(typeNameConstant(name)).append(", i32 ")
                 .append(arrayType ? 1 : 0).append(", ptr ")
@@ -756,15 +751,15 @@ public final class LlvmEmitter {
     }
 
     private void emitInstanceOfHelper(StringBuilder output) {
-        output.append("define internal i1 @\"ironwood.is_instance\"(ptr %object, i32 %target) {\n")
+        output.append("define internal i1 @\"ironwood.is_instance\"(ptr addrspace(1) %object, i32 %target) \"gc-leaf-function\" {\n")
                 .append("entry:\n")
-                .append("  %is.null = icmp eq ptr %object, null\n")
+                .append("  %is.null = icmp eq ptr addrspace(1) %object, null\n")
                 .append("  br i1 %is.null, label %null, label %non.null\n")
                 .append("null:\n")
                 .append("  ret i1 false\n")
                 .append("non.null:\n")
-                .append("  %typeinfo = load ptr, ptr %object\n")
-                .append("  %membership.address = getelementptr inbounds %\"ironwood.typeinfo\", ptr %typeinfo, i32 0, i32 2\n")
+                .append("  %typeinfo = load ptr, ptr addrspace(1) %object\n")
+                .append("  %membership.address = getelementptr inbounds %\"ironwood.typeinfo\", ptr %typeinfo, i32 0, i32 4\n")
                 .append("  %membership = load ptr, ptr %membership.address\n")
                 .append("  %membership.entry = getelementptr inbounds i8, ptr %membership, i32 %target\n")
                 .append("  %membership.value = load i8, ptr %membership.entry\n")
@@ -852,14 +847,14 @@ public final class LlvmEmitter {
     }
 
     private void emitExactArrayTypeHelper(StringBuilder output) {
-        output.append("define internal i1 @\"ironwood.is_exact_array\"(ptr %object, ptr %target) {\n")
+        output.append("define internal i1 @\"ironwood.is_exact_array\"(ptr addrspace(1) %object, ptr %target) \"gc-leaf-function\" {\n")
                 .append("entry:\n")
-                .append("  %is.null = icmp eq ptr %object, null\n")
+                .append("  %is.null = icmp eq ptr addrspace(1) %object, null\n")
                 .append("  br i1 %is.null, label %null, label %non.null\n")
                 .append("null:\n")
                 .append("  ret i1 false\n")
                 .append("non.null:\n")
-                .append("  %typeinfo = load ptr, ptr %object\n")
+                .append("  %typeinfo = load ptr, ptr addrspace(1) %object\n")
                 .append("  %matches = icmp eq ptr %typeinfo, %target\n")
                 .append("  ret i1 %matches\n")
                 .append("}\n");
@@ -953,8 +948,14 @@ public final class LlvmEmitter {
             }
             output.append(block.label()).append(":\n");
             if (blockIndex == 0) {
+                for (var operation : function.blocks().stream().flatMap(b -> ironwood.compiler.ir.GcEffects.operations(b).stream()).toList()) {
+                    if (operation instanceof IrStringConcatInstruction concat) {
+                        output.append("  %string.concat.storage.").append(concat.result().id()).append(" = alloca [")
+                                .append(concat.parts().size()).append(" x %\"ironwood.string.concat.part\"], align 8\n");
+                    }
+                }
                 for (var slot : gcSlots) {
-                    output.append("  ").append(operand(slot)).append(" = alloca ptr addrspace(1), align 8\n  store ptr addrspace(1) null, ptr ")
+                    output.append("  ").append(operand(slot)).append(" = alloca ptr addrspace(1), align 8\n  store ptr addrspace(1) null, ").append(llvmType(slot.type())).append(' ')
                             .append(operand(slot)).append("\n");
                 }
                 output.append("  ");
@@ -991,13 +992,18 @@ public final class LlvmEmitter {
                     "native entry point must accept exactly one ironwood.lang.String[] parameter");
         }
         TraceScope traceScope = tracePlan.nativeEntryScope();
-        output.append("define i32 @main(i32 %argc, ptr %argv) \"disable-tail-calls\"=\"true\" ")
+        output.append("define i32 @main(i32 %argc, ptr %argv) noinline uwtable \"disable-tail-calls\"=\"true\" \"gc-leaf-function\" {\nentry:\n")
+                .append("  call void @ironwood_gc_start()\n")
+                .append("  call void @ironwood_gc_bind_layouts()\n")
+                .append("  call void @ironwood_gc_start_roots(ptr @main, ptr addrspace(1) ").append(allocationFailureName()).append(")\n")
+                .append("  %status = call i32 @ironwood_run(i32 %argc, ptr %argv)\n  ret i32 %status\n}\n")
+                .append("define internal i32 @ironwood_run(i32 %argc, ptr %argv) noinline uwtable \"disable-tail-calls\"=\"true\" gc \"statepoint-example\" ")
                 .append("personality ptr @__gxx_personality_v0 !dbg !")
                 .append(traceScope.subprogramMetadata()).append(" {\n")
                 .append("entry:\n")
                 .append("  call void @ironwood_trace_register_current(ptr @ironwood_trace_sites, i32 ")
                 .append(tracePlan.sites().size()).append(")\n")
-                .append("  %arguments = call ptr @ironwood_process_arguments(i32 %argc, ptr %argv, ptr ")
+                .append("  %arguments = call ptr addrspace(1) @ironwood_process_arguments(i32 %argc, ptr %argv, ptr ")
                 .append(typeInfoName("ironwood.lang.String")).append(", ptr ")
                 .append(typeInfoName("ironwood.lang.String[]")).append(")\n")
                 .append("  invoke void ")
@@ -1008,14 +1014,14 @@ public final class LlvmEmitter {
         if (entryPoint.returnType().equals(IrType.I32)) {
             output.append("  %result = invoke i32 ")
                     .append(functionName(entryPoint.linkageName()))
-                    .append("(ptr %arguments) to label %completed unwind label %uncaught, !dbg !")
+                    .append("(ptr addrspace(1) %arguments) to label %completed unwind label %uncaught, !dbg !")
                     .append(traceScope.locationMetadata()).append("\n")
                     .append("completed:\n")
                     .append("  ret i32 %result\n");
         } else if (entryPoint.returnType().equals(IrType.VOID)) {
             output.append("  invoke void ")
                     .append(functionName(entryPoint.linkageName()))
-                    .append("(ptr %arguments) to label %completed unwind label %uncaught, !dbg !")
+                    .append("(ptr addrspace(1) %arguments) to label %completed unwind label %uncaught, !dbg !")
                     .append(traceScope.locationMetadata()).append("\n")
                     .append("completed:\n")
                     .append("  ret i32 0\n");
@@ -1025,17 +1031,17 @@ public final class LlvmEmitter {
         output.append("uncaught:\n")
                 .append("  %landing = landingpad { ptr, i32 } catch ptr null\n")
                 .append("  %exception = extractvalue { ptr, i32 } %landing, 0\n")
-                .append("  %object = call ptr @ironwood_exception_take(ptr %exception)\n");
+                .append("  %object = call ptr addrspace(1) @ironwood_exception_take(ptr %exception)\n");
         IrField messageField = throwableMessageField(program);
         if (messageField == null) {
-            output.append("  call void @ironwood_uncaught_exception(ptr %object, i64 0)\n");
+            output.append("  call void @ironwood_uncaught_exception(ptr addrspace(1) %object, i64 0)\n");
         } else {
             output.append("  %message.offset.pointer = getelementptr ")
                     .append(classType("ironwood.lang.Throwable"))
                     .append(", ptr null, i32 0, i32 ")
                     .append(messageField.layoutIndex() + 1).append("\n")
                     .append("  %message.offset = ptrtoint ptr %message.offset.pointer to i64\n")
-                    .append("  call void @ironwood_uncaught_exception(ptr %object, i64 %message.offset)\n");
+                    .append("  call void @ironwood_uncaught_exception(ptr addrspace(1) %object, i64 %message.offset)\n");
         }
         output
                 .append("  unreachable\n")
@@ -1063,7 +1069,11 @@ public final class LlvmEmitter {
 
     private void emitInstruction(StringBuilder output, IrFunction function, IrInstruction instruction,
                                  ScratchNames scratchNames) {
-        if (gcProgram != null && emitGcInstruction(output, function, instruction, scratchNames)) return;
+        if (experimental && emitGcInstruction(output, function, instruction, scratchNames)) return;
+        if (instruction instanceof ironwood.compiler.ir.IrGcCollectInstruction) {
+            output.append("call void @iw_gc_experiment_collect()").append(gcBundle(instruction));
+            return;
+        }
         if (writesTraceLine(instruction)) {
             emitTraceProbe(output, tracePlan.site(function, instruction));
             output.append("\n  ");
@@ -1085,8 +1095,8 @@ public final class LlvmEmitter {
             output.append(base).append(" = inttoptr i64 ").append(operand(store.frameAddress())).append(" to ptr\n  ")
                     .append(holder).append(" = getelementptr i8, ptr ").append(base).append(", i64 ").append(offset).append("\n  ")
                     .append(value).append(" = getelementptr i8, ptr ").append(base).append(", i64 ").append(offset + 8).append("\n  ")
-                    .append("store ptr ").append(operand(store.holder())).append(", ptr ").append(holder).append(", align 8\n  ")
-                    .append("store ptr ").append(operand(store.value())).append(", ptr ").append(value).append(", align 8");
+                    .append("store ").append(llvmType(store.holder().type())).append(' ').append(operand(store.holder())).append(", ptr ").append(holder).append(", align 8\n  ")
+                    .append("store ").append(llvmType(store.value().type())).append(' ').append(operand(store.value())).append(", ptr ").append(value).append(", align 8");
             return;
         }
         if (instruction instanceof ironwood.compiler.ir.IrBridgeResultStoreInstruction store) {
@@ -1127,9 +1137,9 @@ public final class LlvmEmitter {
             output.append(sizePointer).append(" = getelementptr ")
                     .append(classType(allocate.className())).append(", ptr null, i32 1\n  ")
                     .append(size).append(" = ptrtoint ptr ").append(sizePointer).append(" to i64\n  ")
-                    .append(operand(allocate.result())).append(" = call ptr @ironwood_allocate(i64 ")
+                    .append(operand(allocate.result())).append(" = call ptr addrspace(1) @ironwood_allocate(i64 ")
                     .append(size).append(", ptr ").append(typeInfoName(allocate.className()))
-                    .append(", ptr ").append(allocationFailureName()).append("), !dbg !")
+                    .append(", ptr addrspace(1) ").append(allocationFailureName()).append("), !dbg !")
                     .append(tracePlan.site(function, instruction).callLocationMetadata());
             return;
         }
@@ -1139,12 +1149,12 @@ public final class LlvmEmitter {
             output.append(sizePointer).append(" = getelementptr ")
                     .append(llvmType(allocate.elementType())).append(", ptr null, i32 1\n  ")
                     .append(size).append(" = ptrtoint ptr ").append(sizePointer).append(" to i64\n  ")
-                    .append(operand(allocate.result())).append(" = call ptr @ironwood_allocate_array(i32 ")
+                    .append(operand(allocate.result())).append(" = call ptr addrspace(1) @ironwood_allocate_array(i32 ")
                     .append(operand(allocate.length())).append(", i64 ").append(size)
                     .append(", i32 ").append(arrayElementKind(allocate.elementType()))
                     .append(", ptr ")
                     .append(typeInfoName(allocate.result().type().erasure().displayName()))
-                    .append(", ptr ").append(allocationFailureName()).append("), !dbg !")
+                    .append(", ptr addrspace(1) ").append(allocationFailureName()).append("), !dbg !")
                     .append(tracePlan.site(function, instruction).callLocationMetadata());
             return;
         }
@@ -1213,9 +1223,9 @@ public final class LlvmEmitter {
             return;
         }
         if (instruction instanceof IrSystemArrayCopyInstruction copy) {
-            output.append("call void @ironwood_system_arraycopy(ptr ")
+            output.append("call void @ironwood_system_arraycopy(").append(llvmType(copy.source().type())).append(' ')
                     .append(operand(copy.source())).append(", i32 ")
-                    .append(operand(copy.sourcePosition())).append(", ptr ")
+                    .append(operand(copy.sourcePosition())).append(", ").append(llvmType(copy.destination().type())).append(' ')
                     .append(operand(copy.destination())).append(", i32 ")
                     .append(operand(copy.destinationPosition())).append(", i32 ")
                     .append(operand(copy.length())).append(')');
@@ -1250,17 +1260,17 @@ public final class LlvmEmitter {
         }
         if (instruction instanceof IrSystemGetenvInstruction getenv) {
             output.append(operand(getenv.result()))
-                    .append(" = call ptr @ironwood_system_getenv(ptr ")
+                    .append(" = call ptr addrspace(1) @ironwood_system_getenv(").append(llvmType(getenv.name().type())).append(' ')
                     .append(operand(getenv.name())).append(", ptr ")
-                    .append(typeInfoName("ironwood.lang.String")).append(", ptr ")
+                    .append(typeInfoName("ironwood.lang.String")).append(", ptr addrspace(1) ")
                     .append(allocationFailureName()).append(')');
             return;
         }
         if (instruction instanceof IrSystemPropertyInstruction property) {
             output.append(operand(property.result()))
-                    .append(" = call ptr @ironwood_system_get_property(ptr ")
+                    .append(" = call ptr addrspace(1) @ironwood_system_get_property(").append(llvmType(property.name().type())).append(' ')
                     .append(operand(property.name())).append(", ptr ")
-                    .append(typeInfoName("ironwood.lang.String")).append(", ptr ")
+                    .append(typeInfoName("ironwood.lang.String")).append(", ptr addrspace(1) ")
                     .append(allocationFailureName()).append(')');
             return;
         }
@@ -1276,7 +1286,7 @@ public final class LlvmEmitter {
             return;
         }
         if (instruction instanceof IrPrintStreamPrintlnInstruction println) {
-            output.append("call void @ironwood_stdout_println(ptr ")
+            output.append("call void @ironwood_stdout_println(").append(llvmType(println.value().type())).append(' ')
                     .append(operand(println.value())).append(')');
             return;
         }
@@ -1284,20 +1294,20 @@ public final class LlvmEmitter {
             int kind = write.value().map(part -> part.kind().ordinal()).orElse(-1);
             String payload = write.value().map(part ->
                     concatPayload(output, part, scratchNames)).orElse("0");
-            output.append("call void @ironwood_print_stream_write(ptr ")
+            output.append("call void @ironwood_print_stream_write(").append(llvmType(write.stream().type())).append(' ')
                     .append(operand(write.stream())).append(", i32 ").append(kind)
                     .append(", i64 ").append(payload).append(", i1 ")
                     .append(write.newline() ? "true" : "false").append(')');
             return;
         }
         if (instruction instanceof IrPrintStreamFlushInstruction flush) {
-            output.append("call void @ironwood_print_stream_flush(ptr ")
+            output.append("call void @ironwood_print_stream_flush(").append(llvmType(flush.stream().type())).append(' ')
                     .append(operand(flush.stream())).append(')');
             return;
         }
         if (instruction instanceof IrPrintStreamCheckErrorInstruction error) {
             output.append(operand(error.result()))
-                    .append(" = call i1 @ironwood_print_stream_check_error(ptr ")
+                    .append(" = call i1 @ironwood_print_stream_check_error(").append(llvmType(error.stream().type())).append(' ')
                     .append(operand(error.stream())).append(')');
             return;
         }
@@ -1361,28 +1371,28 @@ public final class LlvmEmitter {
             return;
         }
         if (instruction instanceof IrDestroyArrayElementsInstruction destroy) {
-            output.append("call void @\"ironwood.destroy_array_elements\"(ptr ")
+            output.append("call void @\"ironwood.destroy_array_elements\"(").append(llvmType(destroy.array().type())).append(' ')
                     .append(operand(destroy.array())).append(')');
             return;
         }
         if (instruction instanceof IrFreeInstruction free) {
-            output.append("call void @\"ironwood.destroy\"(ptr ")
+            output.append("call void @\"ironwood.destroy\"(").append(llvmType(free.allocation().type())).append(' ')
                     .append(operand(free.allocation())).append(')');
             return;
         }
         if (instruction instanceof IrRawDeallocateInstruction raw) {
-            output.append("call void @ironwood_deallocate(ptr ")
+            output.append("call void @ironwood_deallocate(").append(llvmType(raw.allocation().type())).append(' ')
                     .append(operand(raw.allocation())).append(')');
             return;
         }
         if (instruction instanceof IrReleaseOwnedToStringResultInstruction release) {
-            output.append("call void @ironwood_release_owned_to_string_result(ptr ")
-                    .append(operand(release.object())).append(", ptr ")
+            output.append("call void @ironwood_release_owned_to_string_result(").append(llvmType(release.object().type())).append(' ')
+                    .append(operand(release.object())).append(", ").append(llvmType(release.result().type())).append(' ')
                     .append(operand(release.result())).append(')');
             return;
         }
         if (instruction instanceof IrRollbackInstruction rollback) {
-            output.append("call void @\"ironwood.rollback\"(ptr ")
+            output.append("call void @\"ironwood.rollback\"(").append(llvmType(rollback.allocation().type())).append(' ')
                     .append(operand(rollback.allocation())).append(')');
             return;
         }
@@ -1393,34 +1403,34 @@ public final class LlvmEmitter {
         }
         if (instruction instanceof IrIdentityHashCodeInstruction hashCode) {
             output.append(operand(hashCode.result()))
-                    .append(" = call i32 @ironwood_identity_hash_code(ptr ")
+                    .append(" = call i32 @ironwood_identity_hash_code(").append(llvmType(hashCode.object().type())).append(' ')
                     .append(operand(hashCode.object())).append(')');
             return;
         }
         if (instruction instanceof IrObjectHashCodeInstruction hashCode) {
-            output.append(operand(hashCode.result())).append(" = call i32 @ironwood_object_hash_code(ptr ")
+            output.append(operand(hashCode.result())).append(" = call i32 @ironwood_object_hash_code(").append(llvmType(hashCode.object().type())).append(' ')
                     .append(operand(hashCode.object())).append(')');
             return;
         }
         if (instruction instanceof IrReleaseOwnedThrowableMessageInstruction release) {
-            output.append("call void @ironwood_release_owned_throwable_message(ptr ")
-                    .append(operand(release.throwable())).append(", ptr ")
+            output.append("call void @ironwood_release_owned_throwable_message(").append(llvmType(release.throwable().type())).append(' ')
+                    .append(operand(release.throwable())).append(", ").append(llvmType(release.message().type())).append(' ')
                     .append(operand(release.message())).append(')');
             return;
         }
         if (instruction instanceof IrThrowableDescriptionInstruction description) {
             output.append(operand(description.result()))
-                    .append(" = call ptr @ironwood_throwable_description(ptr ")
-                    .append(operand(description.throwable())).append(", ptr ")
+                    .append(" = call ptr addrspace(1) @ironwood_throwable_description(").append(llvmType(description.throwable().type())).append(' ')
+                    .append(operand(description.throwable())).append(", ").append(llvmType(description.message().type())).append(' ')
                     .append(operand(description.message())).append(", ptr ")
-                    .append(typeInfoName("ironwood.lang.String")).append(", ptr ")
+                    .append(typeInfoName("ironwood.lang.String")).append(", ptr addrspace(1) ")
                     .append(allocationFailureName()).append(')');
             return;
         }
         if (instruction instanceof IrObjectToStringInstruction toString) {
-            output.append(operand(toString.result())).append(" = call ptr @ironwood_object_to_string(ptr ")
+            output.append(operand(toString.result())).append(" = call ptr addrspace(1) @ironwood_object_to_string(").append(llvmType(toString.object().type())).append(' ')
                     .append(operand(toString.object())).append(", ptr ")
-                    .append(typeInfoName("ironwood.lang.String")).append(", ptr ")
+                    .append(typeInfoName("ironwood.lang.String")).append(", ptr addrspace(1) ")
                     .append(allocationFailureName()).append(')');
             return;
         }
@@ -1432,117 +1442,117 @@ public final class LlvmEmitter {
             // Unchecked UTF-16 unit access: the runtime string layout places the
             // units directly after the descriptor and the two length fields.
             String unitPointer = scratchNames.next("string.unit.ptr");
-            output.append(unitPointer).append(" = getelementptr inbounds %\"ironwood.string\", ptr ")
+            output.append(unitPointer).append(" = getelementptr inbounds %\"ironwood.string\", ptr addrspace(1) ")
                     .append(operand(charAt.string())).append(", i64 0, i32 3, i32 ")
                     .append(operand(charAt.index())).append("\n  ")
-                    .append(operand(charAt.result())).append(" = load i16, ptr ").append(unitPointer);
+                    .append(operand(charAt.result())).append(" = load i16, ptr addrspace(1) ").append(unitPointer);
             return;
         }
         if (instruction instanceof IrStringEqualsInstruction equals) {
-            output.append(operand(equals.result())).append(" = call i1 @ironwood_string_equals(ptr ")
-                    .append(operand(equals.string())).append(", ptr ")
+            output.append(operand(equals.result())).append(" = call i1 @ironwood_string_equals(").append(llvmType(equals.string().type())).append(' ')
+                    .append(operand(equals.string())).append(", ").append(llvmType(equals.other().type())).append(' ')
                     .append(operand(equals.other())).append(", ptr ")
                     .append(typeInfoName("ironwood.lang.String")).append(')');
             return;
         }
         if (instruction instanceof IrStringHashCodeInstruction hashCode) {
-            output.append(operand(hashCode.result())).append(" = call i32 @ironwood_string_hash_code(ptr ")
+            output.append(operand(hashCode.result())).append(" = call i32 @ironwood_string_hash_code(").append(llvmType(hashCode.string().type())).append(' ')
                     .append(operand(hashCode.string())).append(')');
             return;
         }
         if (instruction instanceof IrStringCopyInstruction copy) {
-            output.append(operand(copy.result())).append(" = call ptr @ironwood_string_copy(ptr ")
+            output.append(operand(copy.result())).append(" = call ptr addrspace(1) @ironwood_string_copy(").append(llvmType(copy.source().type())).append(' ')
                     .append(operand(copy.source())).append(", ptr ")
-                    .append(typeInfoName("ironwood.lang.String")).append(", ptr ")
+                    .append(typeInfoName("ironwood.lang.String")).append(", ptr addrspace(1) ")
                     .append(allocationFailureName()).append(')');
             return;
         }
         if (instruction instanceof IrStringCaseInstruction value) {
-            output.append(operand(value.result())).append(" = call ptr @ironwood_string_case(")
-                    .append("ptr ").append(operand(value.source()))
+            output.append(operand(value.result())).append(" = call ptr addrspace(1) @ironwood_string_case(")
+                    .append("").append(llvmType(value.source().type())).append(' ').append(operand(value.source()))
                     .append(", i1 ").append(operand(value.upper()))
                     .append(", ptr ").append(typeInfoName("ironwood.lang.String"))
-                    .append(", ptr ").append(allocationFailureName())
+                    .append(", ptr addrspace(1) ").append(allocationFailureName())
                     .append(')');
             return;
         }
         if (instruction instanceof IrStringRepeatInstruction value) {
-            output.append(operand(value.result())).append(" = call ptr @ironwood_string_repeat(")
-                    .append("ptr ").append(operand(value.source()))
+            output.append(operand(value.result())).append(" = call ptr addrspace(1) @ironwood_string_repeat(")
+                    .append("").append(llvmType(value.source().type())).append(' ').append(operand(value.source()))
                     .append(", i32 ").append(operand(value.count()))
                     .append(", ptr ").append(typeInfoName("ironwood.lang.String"))
-                    .append(", ptr ").append(allocationFailureName())
+                    .append(", ptr addrspace(1) ").append(allocationFailureName())
                     .append(')');
             return;
         }
         if (instruction instanceof IrStringReplaceCharInstruction value) {
-            output.append(operand(value.result())).append(" = call ptr @ironwood_string_replace_char(")
-                    .append("ptr ").append(operand(value.source()))
+            output.append(operand(value.result())).append(" = call ptr addrspace(1) @ironwood_string_replace_char(")
+                    .append("").append(llvmType(value.source().type())).append(' ').append(operand(value.source()))
                     .append(", i16 ").append(operand(value.oldChar()))
                     .append(", i16 ").append(operand(value.newChar()))
                     .append(", ptr ").append(typeInfoName("ironwood.lang.String"))
-                    .append(", ptr ").append(allocationFailureName())
+                    .append(", ptr addrspace(1) ").append(allocationFailureName())
                     .append(')');
             return;
         }
         if (instruction instanceof IrStringReplaceTextInstruction value) {
-            output.append(operand(value.result())).append(" = call ptr @ironwood_string_replace_text(")
-                    .append("ptr ").append(operand(value.source()))
-                    .append(", ptr ").append(operand(value.target()))
-                    .append(", ptr ").append(operand(value.replacement()))
+            output.append(operand(value.result())).append(" = call ptr addrspace(1) @ironwood_string_replace_text(")
+                    .append("").append(llvmType(value.source().type())).append(' ').append(operand(value.source()))
+                    .append(", ").append(llvmType(value.target().type())).append(' ').append(operand(value.target()))
+                    .append(", ").append(llvmType(value.replacement().type())).append(' ').append(operand(value.replacement()))
                     .append(", ptr ").append(typeInfoName("ironwood.lang.String"))
-                    .append(", ptr ").append(allocationFailureName())
+                    .append(", ptr addrspace(1) ").append(allocationFailureName())
                     .append(')');
             return;
         }
         if (instruction instanceof IrStringEqualsIgnoreCaseInstruction value) {
             output.append(operand(value.result())).append(" = call i1 @ironwood_string_equals_ignore_case(")
-                    .append("ptr ").append(operand(value.source()))
-                    .append(", ptr ").append(operand(value.other()))
+                    .append("").append(llvmType(value.source().type())).append(' ').append(operand(value.source()))
+                    .append(", ").append(llvmType(value.other().type())).append(' ').append(operand(value.other()))
                     .append(')');
             return;
         }
         if (instruction instanceof IrStringJoinInstruction value) {
-            output.append(operand(value.result())).append(" = call ptr @ironwood_string_join(")
-                    .append("ptr ").append(operand(value.delimiter()))
-                    .append(", ptr ").append(operand(value.elements()))
+            output.append(operand(value.result())).append(" = call ptr addrspace(1) @ironwood_string_join(")
+                    .append("").append(llvmType(value.delimiter().type())).append(' ').append(operand(value.delimiter()))
+                    .append(", ").append(llvmType(value.elements().type())).append(' ').append(operand(value.elements()))
                     .append(", ptr ").append(typeInfoName("ironwood.lang.String"))
-                    .append(", ptr ").append(allocationFailureName())
+                    .append(", ptr addrspace(1) ").append(allocationFailureName())
                     .append(')');
             return;
         }
         if (instruction instanceof IrStringFromUtf8Instruction snapshot) {
-            output.append(operand(snapshot.result())).append(" = call ptr @ironwood_string_from_utf8(ptr ")
+            output.append(operand(snapshot.result())).append(" = call ptr addrspace(1) @ironwood_string_from_utf8(").append(llvmType(snapshot.bytes().type())).append(' ')
                     .append(operand(snapshot.bytes())).append(", i32 ")
                     .append(operand(snapshot.length())).append(", ptr ")
-                    .append(typeInfoName("ironwood.lang.String")).append(", ptr ")
+                    .append(typeInfoName("ironwood.lang.String")).append(", ptr addrspace(1) ")
                     .append(allocationFailureName()).append(')');
             return;
         }
         if (instruction instanceof IrStringFromCharsInstruction snapshot) {
-            output.append(operand(snapshot.result())).append(" = call ptr @ironwood_string_from_chars(ptr ")
+            output.append(operand(snapshot.result())).append(" = call ptr addrspace(1) @ironwood_string_from_chars(").append(llvmType(snapshot.characters().type())).append(' ')
                     .append(operand(snapshot.characters())).append(", i32 ")
                     .append(operand(snapshot.length())).append(", ptr ")
-                    .append(typeInfoName("ironwood.lang.String")).append(", ptr ")
+                    .append(typeInfoName("ironwood.lang.String")).append(", ptr addrspace(1) ")
                     .append(allocationFailureName()).append(')');
             return;
         }
         if (instruction instanceof IrStringFromCharRangeInstruction snapshot) {
             output.append(operand(snapshot.result()))
-                    .append(" = call ptr @ironwood_string_from_char_range(ptr ")
+                    .append(" = call ptr addrspace(1) @ironwood_string_from_char_range(").append(llvmType(snapshot.characters().type())).append(' ')
                     .append(operand(snapshot.characters())).append(", i32 ")
                     .append(operand(snapshot.offset())).append(", i32 ")
                     .append(operand(snapshot.length())).append(", ptr ")
-                    .append(typeInfoName("ironwood.lang.String")).append(", ptr ")
+                    .append(typeInfoName("ironwood.lang.String")).append(", ptr addrspace(1) ")
                     .append(allocationFailureName()).append(')');
             return;
         }
         if (instruction instanceof IrStringFromRangeInstruction snapshot) {
-            output.append(operand(snapshot.result())).append(" = call ptr @ironwood_string_from_range(ptr ")
+            output.append(operand(snapshot.result())).append(" = call ptr addrspace(1) @ironwood_string_from_range(").append(llvmType(snapshot.source().type())).append(' ')
                     .append(operand(snapshot.source())).append(", i32 ")
                     .append(operand(snapshot.beginIndex())).append(", i32 ")
                     .append(operand(snapshot.length())).append(", ptr ")
-                    .append(typeInfoName("ironwood.lang.String")).append(", ptr ")
+                    .append(typeInfoName("ironwood.lang.String")).append(", ptr addrspace(1) ")
                     .append(allocationFailureName()).append(')');
             return;
         }
@@ -1559,7 +1569,7 @@ public final class LlvmEmitter {
             return;
         }
         if (instruction instanceof IrExceptionCaughtInstruction caught) {
-            output.append("call void @ironwood_exception_caught(ptr ")
+            output.append("call void @ironwood_exception_caught(").append(llvmType(caught.exception().type())).append(' ')
                     .append(operand(caught.exception())).append(')');
             return;
         }
@@ -1569,13 +1579,13 @@ public final class LlvmEmitter {
                     .append(operand(landingPad.exceptionHandle()))
                     .append(" = extractvalue { ptr, i32 } ").append(aggregate).append(", 0\n  ")
                     .append(operand(landingPad.exceptionObject()))
-                    .append(" = call ptr @ironwood_exception_take(ptr ")
+                    .append(" = call ptr addrspace(1) @ironwood_exception_take(").append(llvmType(landingPad.exceptionHandle().type())).append(' ')
                     .append(operand(landingPad.exceptionHandle())).append(')');
             return;
         }
         if (instruction instanceof IrAddSecondaryExceptionInstruction secondary) {
-            output.append("call void @ironwood_exception_add_secondary(ptr ")
-                    .append(operand(secondary.primary())).append(", ptr ")
+            output.append("call void @ironwood_exception_add_secondary(").append(llvmType(secondary.primary().type())).append(' ')
+                    .append(operand(secondary.primary())).append(", ").append(llvmType(secondary.secondary().type())).append(' ')
                     .append(operand(secondary.secondary())).append(')');
             return;
         }
@@ -1590,7 +1600,7 @@ public final class LlvmEmitter {
             if (trace.operation() == IrThrowableTraceInstruction.Operation.ARRAY) {
                 output.append(", ptr ")
                         .append(typeInfoName("ironwood.lang.StackTraceElement[]"))
-                        .append(", ptr ").append(allocationFailureName());
+                        .append(", ptr addrspace(1) ").append(allocationFailureName());
             }
             output.append(')');
             if (trace.operation() == IrThrowableTraceInstruction.Operation.CAPTURE
@@ -1602,13 +1612,13 @@ public final class LlvmEmitter {
         }
         if (instruction instanceof IrSecondaryExceptionCountInstruction count) {
             output.append(operand(count.result()))
-                    .append(" = call i32 @ironwood_exception_secondary_count(ptr ")
+                    .append(" = call i32 @ironwood_exception_secondary_count(").append(llvmType(count.primary().type())).append(' ')
                     .append(operand(count.primary())).append(')');
             return;
         }
         if (instruction instanceof IrSecondaryExceptionAtInstruction secondary) {
             output.append(operand(secondary.result()))
-                    .append(" = call ptr @ironwood_exception_secondary_at(ptr ")
+                    .append(" = call ptr addrspace(1) @ironwood_exception_secondary_at(").append(llvmType(secondary.primary().type())).append(' ')
                     .append(operand(secondary.primary())).append(", i32 ")
                     .append(operand(secondary.index())).append(')');
             return;
@@ -1718,14 +1728,14 @@ public final class LlvmEmitter {
             return;
         }
         if (instruction instanceof IrInstanceOfInstruction typeTest) {
-            output.append(operand(typeTest.result())).append(" = call i1 @\"ironwood.is_instance\"(ptr ")
+            output.append(operand(typeTest.result())).append(" = call i1 @\"ironwood.is_instance\"(").append(llvmType(typeTest.value().type())).append(' ')
                     .append(operand(typeTest.value())).append(", i32 ")
                     .append(typeTest.targetTypeId()).append(')');
             return;
         }
         if (instruction instanceof IrArrayTypeTestInstruction typeTest) {
             output.append(operand(typeTest.result()))
-                    .append(" = call i1 @\"ironwood.is_exact_array\"(ptr ")
+                    .append(" = call i1 @\"ironwood.is_exact_array\"(").append(llvmType(typeTest.value().type())).append(' ')
                     .append(operand(typeTest.value())).append(", ptr ")
                     .append(typeInfoName(typeTest.targetType().displayName())).append(')');
             return;
@@ -1747,15 +1757,13 @@ public final class LlvmEmitter {
                                          String operation,
                                          String suffix) {
         int count = concatenation.parts().size();
-        String descriptors = scratchNames.next("string.concat.parts");
-        output.append(descriptors).append(" = alloca [").append(count)
-                .append(" x %\"ironwood.string.concat.part\"]");
+        String descriptors = "%string.concat.storage." + concatenation.result().id();
         for (int index = 0; index < count; index++) {
             IrStringConcatPart part = concatenation.parts().get(index);
             String descriptor = scratchNames.next("string.concat.part");
             String kindAddress = scratchNames.next("string.concat.kind");
             String payloadAddress = scratchNames.next("string.concat.payload");
-            output.append("\n  ").append(descriptor).append(" = getelementptr inbounds [")
+            output.append(index == 0 ? "" : "\n  ").append(descriptor).append(" = getelementptr inbounds [")
                     .append(count).append(" x %\"ironwood.string.concat.part\"], ptr ")
                     .append(descriptors).append(", i32 0, i32 ").append(index)
                     .append("\n  ").append(kindAddress)
@@ -1770,9 +1778,9 @@ public final class LlvmEmitter {
         }
         output.append("\n  ").append(operand(concatenation.result()))
                 .append(" = ").append(operation)
-                .append(" ptr @ironwood_string_concat(ptr ").append(descriptors)
+                .append(" ptr addrspace(1) @ironwood_string_concat(ptr ").append(descriptors)
                 .append(", i32 ").append(count).append(", ptr ")
-                .append(typeInfoName("ironwood.lang.String")).append(", ptr ")
+                .append(typeInfoName("ironwood.lang.String")).append(", ptr addrspace(1) ")
                 .append(allocationFailureName()).append(')').append(suffix);
     }
 
@@ -1781,7 +1789,7 @@ public final class LlvmEmitter {
         IrOperand value = part.value();
         if (part.kind() == ironwood.compiler.ir.IrStringConcatPartKind.STRING) {
             String converted = scratchNames.next("string.concat.pointer.bits");
-            output.append(converted).append(" = ptrtoint ptr ").append(operand(value))
+            output.append(converted).append(" = ptrtoint ").append(llvmType(value.type())).append(' ').append(operand(value))
                     .append(" to i64\n  ");
             return converted;
         }
@@ -1962,9 +1970,9 @@ public final class LlvmEmitter {
         String dispatch = scratchNames.next(kind + ".dispatch");
         String slotAddress = scratchNames.next(kind + ".slot.address");
         String callee = scratchNames.next(kind + ".callee");
-        output.append(typeInfo).append(" = load ptr, ptr ").append(operand(receiver)).append("\n  ")
+        output.append(typeInfo).append(" = load ptr, ").append(llvmType(receiver.type())).append(' ').append(operand(receiver)).append("\n  ")
                 .append(dispatchAddress).append(" = getelementptr inbounds %\"ironwood.typeinfo\", ptr ")
-                .append(typeInfo).append(", i32 0, i32 1\n  ")
+                .append(typeInfo).append(", i32 0, i32 3\n  ")
                 .append(dispatch).append(" = load ptr, ptr ").append(dispatchAddress).append("\n  ")
                 .append(slotAddress).append(" = getelementptr inbounds ptr, ptr ").append(dispatch)
                 .append(", i32 ").append(slot).append("\n  ")
@@ -2044,7 +2052,7 @@ public final class LlvmEmitter {
         if (terminator instanceof IrThrowTerminator thrown) {
             emitTraceProbe(output, tracePlan.site(function, thrown));
             output.append("\n  ");
-            if (gcProgram != null) {
+            if (experimental) {
                 output.append(thrown.unwindTarget().isPresent() ? "invoke" : "call")
                         .append(" void @iw_gc_throw(ptr addrspace(1) ").append(operand(thrown.exception())).append(')');
                 if (thrown.unwindTarget().isPresent()) output.append(" to label %").append(thrown.normalTarget())
@@ -2053,12 +2061,12 @@ public final class LlvmEmitter {
                 return;
             }
             if (thrown.unwindTarget().isPresent()) {
-                output.append("invoke void @ironwood_throw(ptr ").append(operand(thrown.exception()))
+                output.append("invoke void @ironwood_throw(").append(llvmType(thrown.exception().type())).append(' ').append(operand(thrown.exception()))
                         .append(") to label %").append(thrown.normalTarget())
                         .append(" unwind label %").append(thrown.unwindTarget().orElseThrow())
                         .append(", !dbg !").append(tracePlan.site(function, thrown).callLocationMetadata());
             } else {
-                output.append("call void @ironwood_throw(ptr ").append(operand(thrown.exception()))
+                output.append("call void @ironwood_throw(").append(llvmType(thrown.exception().type())).append(' ').append(operand(thrown.exception()))
                         .append("), !dbg !").append(tracePlan.site(function, thrown).callLocationMetadata())
                         .append("\n  unreachable");
             }
@@ -2094,12 +2102,12 @@ public final class LlvmEmitter {
             output.append("invoke void @iw_gc_experiment_collect()").append(gcBundle(call)).append(suffix);
             return;
         }
-        if (gcProgram != null && call instanceof IrAllocateInstruction allocate) {
+        if (experimental && call instanceof IrAllocateInstruction allocate) {
             output.append(operand(allocate.result())).append(" = invoke ptr addrspace(1) @iw_gc_experiment_new(i32 ")
                     .append(gcLayoutIndex(allocate.className())).append(", i64 0)").append(suffix);
             return;
         }
-        if (gcProgram != null && call instanceof ironwood.compiler.ir.IrGcTestExceptionInstruction test
+        if (experimental && call instanceof ironwood.compiler.ir.IrGcTestExceptionInstruction test
                 && test.operation() == ironwood.compiler.ir.IrGcTestExceptionInstruction.Operation.RAISE_SCALAR) {
             output.append("invoke void @iw_gc_test_raise()").append(suffix);
             return;
@@ -2111,9 +2119,9 @@ public final class LlvmEmitter {
         if (call instanceof ironwood.compiler.ir.IrBridgeStringCopyInstruction copy) {
             String characters = scratchNames.next("bridge.characters");
             output.append(characters).append(" = inttoptr i64 ").append(operand(copy.address())).append(" to ptr\n  ")
-                    .append(operand(copy.result())).append(" = invoke ptr @ironwood_bridge_copy_string(ptr ")
+                    .append(operand(copy.result())).append(" = invoke ptr addrspace(1) @ironwood_bridge_copy_string(ptr ")
                     .append(characters).append(", i32 ").append(operand(copy.length())).append(", ptr ")
-                    .append(typeInfoName("ironwood.lang.String")).append(", ptr ")
+                    .append(typeInfoName("ironwood.lang.String")).append(", ptr addrspace(1) ")
                     .append(allocationFailureName()).append(')').append(suffix);
             return;
         }
@@ -2124,16 +2132,16 @@ public final class LlvmEmitter {
             output.append(state).append(" = inttoptr i64 ").append(operand(copy.stateAddress())).append(" to ptr\n  ")
                     .append(sizePointer).append(" = getelementptr ").append(llvmType(copy.result().type().elementType()))
                     .append(", ptr null, i32 1\n  ").append(size).append(" = ptrtoint ptr ").append(sizePointer).append(" to i64\n  ")
-                    .append(operand(copy.result())).append(" = invoke ptr @ironwood_bridge_copy_array(ptr ").append(state)
+                    .append(operand(copy.result())).append(" = invoke ptr addrspace(1) @ironwood_bridge_copy_array(ptr ").append(state)
                     .append(", i64 ").append(size).append(", i32 ").append(arrayElementKind(copy.result().type().elementType()))
                     .append(", ptr ").append(typeInfoName(copy.result().type().displayName()))
-                    .append(", ptr ").append(allocationFailureName()).append(')').append(suffix);
+                    .append(", ptr addrspace(1) ").append(allocationFailureName()).append(')').append(suffix);
             return;
         }
         if (call instanceof ironwood.compiler.ir.IrBridgeFailureSnapshotInstruction snapshot) {
             String frame = scratchNames.next("bridge.snapshot.frame");
             output.append(frame).append(" = inttoptr i64 ").append(operand(snapshot.frameAddress())).append(" to ptr\n  ")
-                    .append("invoke void @ironwood_bridge_snapshot_failure(ptr ").append(operand(snapshot.exception()))
+                    .append("invoke void @ironwood_bridge_snapshot_failure(").append(llvmType(snapshot.exception().type())).append(' ').append(operand(snapshot.exception()))
                     .append(", ptr ").append(frame).append(')').append(suffix);
             return;
         }
@@ -2148,9 +2156,9 @@ public final class LlvmEmitter {
             output.append(sizePointer).append(" = getelementptr ")
                     .append(classType(allocate.className())).append(", ptr null, i32 1\n  ")
                     .append(size).append(" = ptrtoint ptr ").append(sizePointer).append(" to i64\n  ")
-                    .append(operand(allocate.result())).append(" = invoke ptr @ironwood_allocate(i64 ")
+                    .append(operand(allocate.result())).append(" = invoke ptr addrspace(1) @ironwood_allocate(i64 ")
                     .append(size).append(", ptr ").append(typeInfoName(allocate.className()))
-                    .append(", ptr ").append(allocationFailureName()).append(')').append(suffix);
+                    .append(", ptr addrspace(1) ").append(allocationFailureName()).append(')').append(suffix);
             return;
         }
         if (call instanceof IrArrayAllocateInstruction allocate) {
@@ -2160,121 +2168,121 @@ public final class LlvmEmitter {
                     .append(llvmType(allocate.elementType())).append(", ptr null, i32 1\n  ")
                     .append(size).append(" = ptrtoint ptr ").append(sizePointer).append(" to i64\n  ")
                     .append(operand(allocate.result()))
-                    .append(" = invoke ptr @ironwood_allocate_array(i32 ")
+                    .append(" = invoke ptr addrspace(1) @ironwood_allocate_array(i32 ")
                     .append(operand(allocate.length())).append(", i64 ").append(size)
                     .append(", i32 ").append(arrayElementKind(allocate.elementType()))
                     .append(", ptr ")
                     .append(typeInfoName(allocate.result().type().erasure().displayName()))
-                    .append(", ptr ").append(allocationFailureName()).append(')').append(suffix);
+                    .append(", ptr addrspace(1) ").append(allocationFailureName()).append(')').append(suffix);
             return;
         }
         if (call instanceof IrThrowableDescriptionInstruction description) {
             output.append(operand(description.result()))
-                    .append(" = invoke ptr @ironwood_throwable_description(ptr ")
-                    .append(operand(description.throwable())).append(", ptr ")
+                    .append(" = invoke ptr addrspace(1) @ironwood_throwable_description(").append(llvmType(description.throwable().type())).append(' ')
+                    .append(operand(description.throwable())).append(", ").append(llvmType(description.message().type())).append(' ')
                     .append(operand(description.message())).append(", ptr ")
-                    .append(typeInfoName("ironwood.lang.String")).append(", ptr ")
+                    .append(typeInfoName("ironwood.lang.String")).append(", ptr addrspace(1) ")
                     .append(allocationFailureName()).append(')').append(suffix);
             return;
         }
         if (call instanceof IrObjectToStringInstruction toString) {
             output.append(operand(toString.result()))
-                    .append(" = invoke ptr @ironwood_object_to_string(ptr ")
+                    .append(" = invoke ptr addrspace(1) @ironwood_object_to_string(").append(llvmType(toString.object().type())).append(' ')
                     .append(operand(toString.object())).append(", ptr ")
-                    .append(typeInfoName("ironwood.lang.String")).append(", ptr ")
+                    .append(typeInfoName("ironwood.lang.String")).append(", ptr addrspace(1) ")
                     .append(allocationFailureName()).append(')').append(suffix);
             return;
         }
         if (call instanceof IrStringCopyInstruction copy) {
             output.append(operand(copy.result()))
-                    .append(" = invoke ptr @ironwood_string_copy(ptr ")
+                    .append(" = invoke ptr addrspace(1) @ironwood_string_copy(").append(llvmType(copy.source().type())).append(' ')
                     .append(operand(copy.source())).append(", ptr ")
-                    .append(typeInfoName("ironwood.lang.String")).append(", ptr ")
+                    .append(typeInfoName("ironwood.lang.String")).append(", ptr addrspace(1) ")
                     .append(allocationFailureName()).append(')').append(suffix);
             return;
         }
         if (call instanceof IrStringCaseInstruction value) {
-            output.append(operand(value.result())).append(" = invoke ptr @ironwood_string_case(")
-                    .append("ptr ").append(operand(value.source()))
+            output.append(operand(value.result())).append(" = invoke ptr addrspace(1) @ironwood_string_case(")
+                    .append("").append(llvmType(value.source().type())).append(' ').append(operand(value.source()))
                     .append(", i1 ").append(operand(value.upper()))
                     .append(", ptr ").append(typeInfoName("ironwood.lang.String"))
-                    .append(", ptr ").append(allocationFailureName())
+                    .append(", ptr addrspace(1) ").append(allocationFailureName())
                     .append(')').append(suffix);
             return;
         }
         if (call instanceof IrStringRepeatInstruction value) {
-            output.append(operand(value.result())).append(" = invoke ptr @ironwood_string_repeat(")
-                    .append("ptr ").append(operand(value.source()))
+            output.append(operand(value.result())).append(" = invoke ptr addrspace(1) @ironwood_string_repeat(")
+                    .append("").append(llvmType(value.source().type())).append(' ').append(operand(value.source()))
                     .append(", i32 ").append(operand(value.count()))
                     .append(", ptr ").append(typeInfoName("ironwood.lang.String"))
-                    .append(", ptr ").append(allocationFailureName())
+                    .append(", ptr addrspace(1) ").append(allocationFailureName())
                     .append(')').append(suffix);
             return;
         }
         if (call instanceof IrStringReplaceCharInstruction value) {
-            output.append(operand(value.result())).append(" = invoke ptr @ironwood_string_replace_char(")
-                    .append("ptr ").append(operand(value.source()))
+            output.append(operand(value.result())).append(" = invoke ptr addrspace(1) @ironwood_string_replace_char(")
+                    .append("").append(llvmType(value.source().type())).append(' ').append(operand(value.source()))
                     .append(", i16 ").append(operand(value.oldChar()))
                     .append(", i16 ").append(operand(value.newChar()))
                     .append(", ptr ").append(typeInfoName("ironwood.lang.String"))
-                    .append(", ptr ").append(allocationFailureName())
+                    .append(", ptr addrspace(1) ").append(allocationFailureName())
                     .append(')').append(suffix);
             return;
         }
         if (call instanceof IrStringReplaceTextInstruction value) {
-            output.append(operand(value.result())).append(" = invoke ptr @ironwood_string_replace_text(")
-                    .append("ptr ").append(operand(value.source()))
-                    .append(", ptr ").append(operand(value.target()))
-                    .append(", ptr ").append(operand(value.replacement()))
+            output.append(operand(value.result())).append(" = invoke ptr addrspace(1) @ironwood_string_replace_text(")
+                    .append("").append(llvmType(value.source().type())).append(' ').append(operand(value.source()))
+                    .append(", ").append(llvmType(value.target().type())).append(' ').append(operand(value.target()))
+                    .append(", ").append(llvmType(value.replacement().type())).append(' ').append(operand(value.replacement()))
                     .append(", ptr ").append(typeInfoName("ironwood.lang.String"))
-                    .append(", ptr ").append(allocationFailureName())
+                    .append(", ptr addrspace(1) ").append(allocationFailureName())
                     .append(')').append(suffix);
             return;
         }
         if (call instanceof IrStringJoinInstruction value) {
-            output.append(operand(value.result())).append(" = invoke ptr @ironwood_string_join(")
-                    .append("ptr ").append(operand(value.delimiter()))
-                    .append(", ptr ").append(operand(value.elements()))
+            output.append(operand(value.result())).append(" = invoke ptr addrspace(1) @ironwood_string_join(")
+                    .append("").append(llvmType(value.delimiter().type())).append(' ').append(operand(value.delimiter()))
+                    .append(", ").append(llvmType(value.elements().type())).append(' ').append(operand(value.elements()))
                     .append(", ptr ").append(typeInfoName("ironwood.lang.String"))
-                    .append(", ptr ").append(allocationFailureName())
+                    .append(", ptr addrspace(1) ").append(allocationFailureName())
                     .append(')').append(suffix);
             return;
         }
         if (call instanceof IrStringFromUtf8Instruction snapshot) {
             output.append(operand(snapshot.result()))
-                    .append(" = invoke ptr @ironwood_string_from_utf8(ptr ")
+                    .append(" = invoke ptr addrspace(1) @ironwood_string_from_utf8(").append(llvmType(snapshot.bytes().type())).append(' ')
                     .append(operand(snapshot.bytes())).append(", i32 ")
                     .append(operand(snapshot.length())).append(", ptr ")
-                    .append(typeInfoName("ironwood.lang.String")).append(", ptr ")
+                    .append(typeInfoName("ironwood.lang.String")).append(", ptr addrspace(1) ")
                     .append(allocationFailureName()).append(')').append(suffix);
             return;
         }
         if (call instanceof IrStringFromCharsInstruction snapshot) {
             output.append(operand(snapshot.result()))
-                    .append(" = invoke ptr @ironwood_string_from_chars(ptr ")
+                    .append(" = invoke ptr addrspace(1) @ironwood_string_from_chars(").append(llvmType(snapshot.characters().type())).append(' ')
                     .append(operand(snapshot.characters())).append(", i32 ")
                     .append(operand(snapshot.length())).append(", ptr ")
-                    .append(typeInfoName("ironwood.lang.String")).append(", ptr ")
+                    .append(typeInfoName("ironwood.lang.String")).append(", ptr addrspace(1) ")
                     .append(allocationFailureName()).append(')').append(suffix);
             return;
         }
         if (call instanceof IrStringFromCharRangeInstruction snapshot) {
             output.append(operand(snapshot.result()))
-                    .append(" = invoke ptr @ironwood_string_from_char_range(ptr ")
+                    .append(" = invoke ptr addrspace(1) @ironwood_string_from_char_range(").append(llvmType(snapshot.characters().type())).append(' ')
                     .append(operand(snapshot.characters())).append(", i32 ")
                     .append(operand(snapshot.offset())).append(", i32 ")
                     .append(operand(snapshot.length())).append(", ptr ")
-                    .append(typeInfoName("ironwood.lang.String")).append(", ptr ")
+                    .append(typeInfoName("ironwood.lang.String")).append(", ptr addrspace(1) ")
                     .append(allocationFailureName()).append(')').append(suffix);
             return;
         }
         if (call instanceof IrStringFromRangeInstruction snapshot) {
             output.append(operand(snapshot.result()))
-                    .append(" = invoke ptr @ironwood_string_from_range(ptr ")
+                    .append(" = invoke ptr addrspace(1) @ironwood_string_from_range(").append(llvmType(snapshot.source().type())).append(' ')
                     .append(operand(snapshot.source())).append(", i32 ")
                     .append(operand(snapshot.beginIndex())).append(", i32 ")
                     .append(operand(snapshot.length())).append(", ptr ")
-                    .append(typeInfoName("ironwood.lang.String")).append(", ptr ")
+                    .append(typeInfoName("ironwood.lang.String")).append(", ptr addrspace(1) ")
                     .append(allocationFailureName()).append(')').append(suffix);
             return;
         }
@@ -2292,28 +2300,28 @@ public final class LlvmEmitter {
         }
         if (call instanceof IrSystemGetenvInstruction getenv) {
             output.append(operand(getenv.result()))
-                    .append(" = invoke ptr @ironwood_system_getenv(ptr ")
+                    .append(" = invoke ptr addrspace(1) @ironwood_system_getenv(").append(llvmType(getenv.name().type())).append(' ')
                     .append(operand(getenv.name())).append(", ptr ")
-                    .append(typeInfoName("ironwood.lang.String")).append(", ptr ")
+                    .append(typeInfoName("ironwood.lang.String")).append(", ptr addrspace(1) ")
                     .append(allocationFailureName()).append(')').append(suffix);
             return;
         }
         if (call instanceof IrSystemPropertyInstruction property) {
             output.append(operand(property.result()))
-                    .append(" = invoke ptr @ironwood_system_get_property(ptr ")
+                    .append(" = invoke ptr addrspace(1) @ironwood_system_get_property(").append(llvmType(property.name().type())).append(' ')
                     .append(operand(property.name())).append(", ptr ")
-                    .append(typeInfoName("ironwood.lang.String")).append(", ptr ")
+                    .append(typeInfoName("ironwood.lang.String")).append(", ptr addrspace(1) ")
                     .append(allocationFailureName()).append(')').append(suffix);
             return;
         }
         if (call instanceof IrThrowableTraceInstruction trace
                 && trace.operation() == IrThrowableTraceInstruction.Operation.ARRAY) {
             output.append(operand(trace.result().orElseThrow()))
-                    .append(" = invoke ptr @ironwood_throwable_trace_array(ptr ")
+                    .append(" = invoke ptr addrspace(1) @ironwood_throwable_trace_array(").append(llvmType(trace.arguments().getFirst().type())).append(' ')
                     .append(operand(trace.arguments().getFirst()))
                     .append(", ptr ")
                     .append(typeInfoName("ironwood.lang.StackTraceElement[]"))
-                    .append(", ptr ").append(allocationFailureName()).append(')')
+                    .append(", ptr addrspace(1) ").append(allocationFailureName()).append(')')
                     .append(suffix);
             return;
         }
@@ -2394,19 +2402,19 @@ public final class LlvmEmitter {
     private void emitIntegerString(StringBuilder output, IrStringFromIntegerInstruction formatting,
                                     String operation, String suffix) {
         output.append(operand(formatting.result())).append(" = ").append(operation)
-                .append(" ptr @ironwood_string_from_integer(i64 ")
+                .append(" ptr addrspace(1) @ironwood_string_from_integer(i64 ")
                 .append(operand(formatting.value())).append(", i32 ")
                 .append(operand(formatting.radix())).append(", ptr ")
-                .append(typeInfoName("ironwood.lang.String")).append(", ptr ")
+                .append(typeInfoName("ironwood.lang.String")).append(", ptr addrspace(1) ")
                 .append(allocationFailureName()).append(')').append(suffix);
     }
 
     private void emitCharacterString(StringBuilder output, IrStringFromCharacterInstruction formatting,
                                       String operation, String suffix) {
         output.append(operand(formatting.result())).append(" = ").append(operation)
-                .append(" ptr @ironwood_string_from_character(i16 ")
+                .append(" ptr addrspace(1) @ironwood_string_from_character(i16 ")
                 .append(operand(formatting.value())).append(", ptr ")
-                .append(typeInfoName("ironwood.lang.String")).append(", ptr ")
+                .append(typeInfoName("ironwood.lang.String")).append(", ptr addrspace(1) ")
                 .append(allocationFailureName()).append(')').append(suffix);
     }
 
@@ -2430,7 +2438,7 @@ public final class LlvmEmitter {
             output.append(llvmType(argument.type())).append(' ').append(operand(argument));
         }
         if (stream.operation() == IrStreamInstruction.Operation.OPEN) {
-            output.append(", ptr ").append(allocationFailureName());
+            output.append(", ptr addrspace(1) ").append(allocationFailureName());
         }
         output.append(')').append(suffix);
     }
@@ -2443,7 +2451,7 @@ public final class LlvmEmitter {
                 for (IrField field : tcp.outputFields()) {
                     String pointer = scratchNames.next("tcp.state");
                     output.append(pointer).append(" = getelementptr inbounds ")
-                            .append(classType(field.ownerClass())).append(", ptr ")
+                            .append(classType(field.ownerClass())).append(", ").append(llvmType(argument.type())).append(' ')
                             .append(operand(argument)).append(", i32 0, i32 ")
                             .append(field.layoutIndex() + 1).append("\n  ");
                     parameters.add("ptr " + pointer);
@@ -2458,9 +2466,9 @@ public final class LlvmEmitter {
     private void emitProcessInstruction(StringBuilder output, ironwood.compiler.ir.IrProcessInstruction process,
                                         String callKind, String suffix) {
         output.append(operand(process.result())).append(" = ").append(callKind)
-                .append(" i64 @ironwood_process_run(ptr ").append(operand(process.command()))
-                .append(", ptr ").append(operand(process.directory())).append(", ptr ")
-                .append(operand(process.output())).append(", ptr ").append(allocationFailureName())
+                .append(" i64 @ironwood_process_run(").append(llvmType(process.command().type())).append(' ').append(operand(process.command()))
+                .append(", ").append(llvmType(process.directory().type())).append(' ').append(operand(process.directory())).append(", ").append(llvmType(process.output().type())).append(' ')
+                .append(operand(process.output())).append(", ptr addrspace(1) ").append(allocationFailureName())
                 .append(')').append(suffix);
     }
 
@@ -2468,124 +2476,124 @@ public final class LlvmEmitter {
                                      String callKind, String suffix) {
         output.append(operand(file.result())).append(" = ").append(callKind).append(' ');
         switch (file.operation()) {
-            case READ_ALL_BYTES -> output.append("ptr @ironwood_file_read_all_bytes(ptr ")
+            case READ_ALL_BYTES -> output.append("ptr addrspace(1) @ironwood_file_read_all_bytes(").append(llvmType(file.path().orElseThrow().type())).append(' ')
                     .append(operand(file.path().orElseThrow())).append(", ptr ")
                     .append(typeInfoName(IrType.array(IrType.I8).erasure().displayName()))
-                    .append(", ptr ").append(allocationFailureName()).append(')');
-            case READ_STRING -> output.append("ptr @ironwood_file_read_string(ptr ")
+                    .append(", ptr addrspace(1) ").append(allocationFailureName()).append(')');
+            case READ_STRING -> output.append("ptr addrspace(1) @ironwood_file_read_string(").append(llvmType(file.path().orElseThrow().type())).append(' ')
                     .append(operand(file.path().orElseThrow())).append(", ptr ")
-                    .append(typeInfoName("ironwood.lang.String")).append(", ptr ")
+                    .append(typeInfoName("ironwood.lang.String")).append(", ptr addrspace(1) ")
                     .append(allocationFailureName()).append(')');
-            case WRITE_BYTES -> output.append("i32 @ironwood_file_write_bytes(ptr ")
-                    .append(operand(file.path().orElseThrow())).append(", ptr ")
-                    .append(operand(file.value().orElseThrow())).append(", ptr ")
+            case WRITE_BYTES -> output.append("i32 @ironwood_file_write_bytes(").append(llvmType(file.path().orElseThrow().type())).append(' ')
+                    .append(operand(file.path().orElseThrow())).append(", ").append(llvmType(file.value().orElseThrow().type())).append(' ')
+                    .append(operand(file.value().orElseThrow())).append(", ptr addrspace(1) ")
                     .append(allocationFailureName()).append(')');
-            case WRITE_STRING -> output.append("i32 @ironwood_file_write_string(ptr ")
-                    .append(operand(file.path().orElseThrow())).append(", ptr ")
-                    .append(operand(file.value().orElseThrow())).append(", ptr ")
+            case WRITE_STRING -> output.append("i32 @ironwood_file_write_string(").append(llvmType(file.path().orElseThrow().type())).append(' ')
+                    .append(operand(file.path().orElseThrow())).append(", ").append(llvmType(file.value().orElseThrow().type())).append(' ')
+                    .append(operand(file.value().orElseThrow())).append(", ptr addrspace(1) ")
                     .append(allocationFailureName()).append(')');
-            case WRITE_CHARS -> output.append("i32 @ironwood_file_write_chars(ptr ")
-                    .append(operand(file.path().orElseThrow())).append(", ptr ")
-                    .append(operand(file.value().orElseThrow())).append(", ptr ")
+            case WRITE_CHARS -> output.append("i32 @ironwood_file_write_chars(").append(llvmType(file.path().orElseThrow().type())).append(' ')
+                    .append(operand(file.path().orElseThrow())).append(", ").append(llvmType(file.value().orElseThrow().type())).append(' ')
+                    .append(operand(file.value().orElseThrow())).append(", ptr addrspace(1) ")
                     .append(allocationFailureName()).append(')');
-            case DELETE -> output.append("i32 @ironwood_file_delete(ptr ")
-                    .append(operand(file.path().orElseThrow())).append(", ptr ")
+            case DELETE -> output.append("i32 @ironwood_file_delete(").append(llvmType(file.path().orElseThrow().type())).append(' ')
+                    .append(operand(file.path().orElseThrow())).append(", ptr addrspace(1) ")
                     .append(allocationFailureName()).append(')');
-            case CREATE_DIRECTORIES -> output.append("i32 @ironwood_file_create_directories(ptr ")
-                    .append(operand(file.path().orElseThrow())).append(", ptr ")
+            case CREATE_DIRECTORIES -> output.append("i32 @ironwood_file_create_directories(").append(llvmType(file.path().orElseThrow().type())).append(' ')
+                    .append(operand(file.path().orElseThrow())).append(", ptr addrspace(1) ")
                     .append(allocationFailureName()).append(')');
-            case COPY -> output.append("i32 @ironwood_file_copy(ptr ")
-                    .append(operand(file.path().orElseThrow())).append(", ptr ")
-                    .append(operand(file.value().orElseThrow())).append(", ptr ")
+            case COPY -> output.append("i32 @ironwood_file_copy(").append(llvmType(file.path().orElseThrow().type())).append(' ')
+                    .append(operand(file.path().orElseThrow())).append(", ").append(llvmType(file.value().orElseThrow().type())).append(' ')
+                    .append(operand(file.value().orElseThrow())).append(", ptr addrspace(1) ")
                     .append(allocationFailureName()).append(')');
-            case MOVE -> output.append("i32 @ironwood_file_move(ptr ")
-                    .append(operand(file.path().orElseThrow())).append(", ptr ")
-                    .append(operand(file.value().orElseThrow())).append(", ptr ")
+            case MOVE -> output.append("i32 @ironwood_file_move(").append(llvmType(file.path().orElseThrow().type())).append(' ')
+                    .append(operand(file.path().orElseThrow())).append(", ").append(llvmType(file.value().orElseThrow().type())).append(' ')
+                    .append(operand(file.value().orElseThrow())).append(", ptr addrspace(1) ")
                     .append(allocationFailureName()).append(')');
-            case OPEN_DIRECTORY -> output.append("i64 @ironwood_directory_open(ptr ")
-                    .append(operand(file.path().orElseThrow())).append(", ptr ")
+            case OPEN_DIRECTORY -> output.append("i64 @ironwood_directory_open(").append(llvmType(file.path().orElseThrow().type())).append(' ')
+                    .append(operand(file.path().orElseThrow())).append(", ptr addrspace(1) ")
                     .append(allocationFailureName()).append(')');
             case DIRECTORY_HAS_NEXT -> output.append("i32 @ironwood_directory_has_next(i64 ")
                     .append(operand(file.path().orElseThrow())).append(')');
-            case NEXT_DIRECTORY_ENTRY -> output.append("ptr @ironwood_directory_next(i64 ")
+            case NEXT_DIRECTORY_ENTRY -> output.append("ptr addrspace(1) @ironwood_directory_next(i64 ")
                     .append(operand(file.path().orElseThrow())).append(", ptr ")
-                    .append(typeInfoName("ironwood.lang.String")).append(", ptr ")
+                    .append(typeInfoName("ironwood.lang.String")).append(", ptr addrspace(1) ")
                     .append(allocationFailureName()).append(')');
             case CLOSE_DIRECTORY -> output.append("i32 @ironwood_directory_close(i64 ")
                     .append(operand(file.path().orElseThrow())).append(')');
-            case READ_ATTRIBUTES -> output.append("ptr @ironwood_file_read_attributes(ptr ")
+            case READ_ATTRIBUTES -> output.append("ptr addrspace(1) @ironwood_file_read_attributes(").append(llvmType(file.path().orElseThrow().type())).append(' ')
                     .append(operand(file.path().orElseThrow())).append(", i1 ")
                     .append(operand(file.value().orElseThrow())).append(", ptr ")
                     .append(typeInfoName(IrType.array(IrType.I64).erasure().displayName()))
-                    .append(", ptr ").append(allocationFailureName()).append(')');
-            case SAME_FILE -> output.append("i32 @ironwood_file_same(ptr ")
-                    .append(operand(file.path().orElseThrow())).append(", ptr ")
-                    .append(operand(file.value().orElseThrow())).append(", ptr ")
+                    .append(", ptr addrspace(1) ").append(allocationFailureName()).append(')');
+            case SAME_FILE -> output.append("i32 @ironwood_file_same(").append(llvmType(file.path().orElseThrow().type())).append(' ')
+                    .append(operand(file.path().orElseThrow())).append(", ").append(llvmType(file.value().orElseThrow().type())).append(' ')
+                    .append(operand(file.value().orElseThrow())).append(", ptr addrspace(1) ")
                     .append(allocationFailureName()).append(')');
-            case FILE_KIND -> output.append("i32 @ironwood_file_kind(ptr ")
-                    .append(operand(file.path().orElseThrow())).append(", ptr ")
+            case FILE_KIND -> output.append("i32 @ironwood_file_kind(").append(llvmType(file.path().orElseThrow().type())).append(' ')
+                    .append(operand(file.path().orElseThrow())).append(", ptr addrspace(1) ")
                     .append(allocationFailureName()).append(')');
-            case FILE_KIND_NOFOLLOW -> output.append("i32 @ironwood_file_kind_nofollow(ptr ")
-                    .append(operand(file.path().orElseThrow())).append(", ptr ")
+            case FILE_KIND_NOFOLLOW -> output.append("i32 @ironwood_file_kind_nofollow(").append(llvmType(file.path().orElseThrow().type())).append(' ')
+                    .append(operand(file.path().orElseThrow())).append(", ptr addrspace(1) ")
                     .append(allocationFailureName()).append(')');
-            case FILE_SIZE -> output.append("i64 @ironwood_file_size(ptr ")
-                    .append(operand(file.path().orElseThrow())).append(", ptr ")
+            case FILE_SIZE -> output.append("i64 @ironwood_file_size(").append(llvmType(file.path().orElseThrow().type())).append(' ')
+                    .append(operand(file.path().orElseThrow())).append(", ptr addrspace(1) ")
                     .append(allocationFailureName()).append(')');
             case LAST_ERROR -> output.append("i32 @ironwood_file_last_error()");
-            case CURRENT_DIRECTORY -> output.append("ptr @ironwood_path_current_directory(ptr ")
-                    .append(typeInfoName("ironwood.lang.String")).append(", ptr ")
+            case CURRENT_DIRECTORY -> output.append("ptr addrspace(1) @ironwood_path_current_directory(ptr ")
+                    .append(typeInfoName("ironwood.lang.String")).append(", ptr addrspace(1) ")
                     .append(allocationFailureName()).append(')');
-            case NORMALIZE_SYNTAX -> output.append("ptr @ironwood_path_normalize_syntax(ptr ")
+            case NORMALIZE_SYNTAX -> output.append("ptr addrspace(1) @ironwood_path_normalize_syntax(").append(llvmType(file.path().orElseThrow().type())).append(' ')
                     .append(operand(file.path().orElseThrow())).append(", ptr ")
-                    .append(typeInfoName("ironwood.lang.String")).append(", ptr ")
+                    .append(typeInfoName("ironwood.lang.String")).append(", ptr addrspace(1) ")
                     .append(allocationFailureName()).append(')');
-            case NORMALIZE_PATH -> output.append("ptr @ironwood_path_normalize(ptr ")
+            case NORMALIZE_PATH -> output.append("ptr addrspace(1) @ironwood_path_normalize(").append(llvmType(file.path().orElseThrow().type())).append(' ')
                     .append(operand(file.path().orElseThrow())).append(", ptr ")
-                    .append(typeInfoName("ironwood.lang.String")).append(", ptr ")
+                    .append(typeInfoName("ironwood.lang.String")).append(", ptr addrspace(1) ")
                     .append(allocationFailureName()).append(')');
-            case FILE_NAME -> output.append("ptr @ironwood_path_file_name(ptr ")
+            case FILE_NAME -> output.append("ptr addrspace(1) @ironwood_path_file_name(").append(llvmType(file.path().orElseThrow().type())).append(' ')
                     .append(operand(file.path().orElseThrow())).append(", ptr ")
-                    .append(typeInfoName("ironwood.lang.String")).append(", ptr ")
+                    .append(typeInfoName("ironwood.lang.String")).append(", ptr addrspace(1) ")
                     .append(allocationFailureName()).append(')');
-            case PARENT -> output.append("ptr @ironwood_path_parent(ptr ")
+            case PARENT -> output.append("ptr addrspace(1) @ironwood_path_parent(").append(llvmType(file.path().orElseThrow().type())).append(' ')
                     .append(operand(file.path().orElseThrow())).append(", ptr ")
-                    .append(typeInfoName("ironwood.lang.String")).append(", ptr ")
+                    .append(typeInfoName("ironwood.lang.String")).append(", ptr addrspace(1) ")
                     .append(allocationFailureName()).append(')');
-            case RESOLVE -> output.append("ptr @ironwood_path_resolve(ptr ")
-                    .append(operand(file.path().orElseThrow())).append(", ptr ")
+            case RESOLVE -> output.append("ptr addrspace(1) @ironwood_path_resolve(").append(llvmType(file.path().orElseThrow().type())).append(' ')
+                    .append(operand(file.path().orElseThrow())).append(", ").append(llvmType(file.value().orElseThrow().type())).append(' ')
                     .append(operand(file.value().orElseThrow())).append(", ptr ")
-                    .append(typeInfoName("ironwood.lang.String")).append(", ptr ")
+                    .append(typeInfoName("ironwood.lang.String")).append(", ptr addrspace(1) ")
                     .append(allocationFailureName()).append(')');
-            case RESOLVE_SIBLING -> output.append("ptr @ironwood_path_resolve_sibling(ptr ")
-                    .append(operand(file.path().orElseThrow())).append(", ptr ")
+            case RESOLVE_SIBLING -> output.append("ptr addrspace(1) @ironwood_path_resolve_sibling(").append(llvmType(file.path().orElseThrow().type())).append(' ')
+                    .append(operand(file.path().orElseThrow())).append(", ").append(llvmType(file.value().orElseThrow().type())).append(' ')
                     .append(operand(file.value().orElseThrow())).append(", ptr ")
-                    .append(typeInfoName("ironwood.lang.String")).append(", ptr ")
+                    .append(typeInfoName("ironwood.lang.String")).append(", ptr addrspace(1) ")
                     .append(allocationFailureName()).append(')');
-            case ABSOLUTE_PATH -> output.append("ptr @ironwood_path_absolute(ptr ")
+            case ABSOLUTE_PATH -> output.append("ptr addrspace(1) @ironwood_path_absolute(").append(llvmType(file.path().orElseThrow().type())).append(' ')
                     .append(operand(file.path().orElseThrow())).append(", ptr ")
-                    .append(typeInfoName("ironwood.lang.String")).append(", ptr ")
+                    .append(typeInfoName("ironwood.lang.String")).append(", ptr addrspace(1) ")
                     .append(allocationFailureName()).append(')');
-            case CREATE_TEMP_FILE -> output.append("ptr @ironwood_file_create_temp_file(ptr ")
-                    .append(operand(file.path().orElseThrow())).append(", ptr ")
+            case CREATE_TEMP_FILE -> output.append("ptr addrspace(1) @ironwood_file_create_temp_file(").append(llvmType(file.path().orElseThrow().type())).append(' ')
+                    .append(operand(file.path().orElseThrow())).append(", ").append(llvmType(file.value().orElseThrow().type())).append(' ')
                     .append(operand(file.value().orElseThrow())).append(", ptr ")
-                    .append(typeInfoName("ironwood.lang.String")).append(", ptr ")
+                    .append(typeInfoName("ironwood.lang.String")).append(", ptr addrspace(1) ")
                     .append(allocationFailureName()).append(')');
-            case CREATE_TEMP_DIRECTORY -> output.append("ptr @ironwood_file_create_temp_directory(ptr ")
+            case CREATE_TEMP_DIRECTORY -> output.append("ptr addrspace(1) @ironwood_file_create_temp_directory(").append(llvmType(file.path().orElseThrow().type())).append(' ')
                     .append(operand(file.path().orElseThrow())).append(", ptr ")
-                    .append(typeInfoName("ironwood.lang.String")).append(", ptr ")
+                    .append(typeInfoName("ironwood.lang.String")).append(", ptr addrspace(1) ")
                     .append(allocationFailureName()).append(')');
-            case REAL_PATH -> output.append("ptr @ironwood_file_real_path(ptr ")
+            case REAL_PATH -> output.append("ptr addrspace(1) @ironwood_file_real_path(").append(llvmType(file.path().orElseThrow().type())).append(' ')
                     .append(operand(file.path().orElseThrow())).append(", ptr ")
-                    .append(typeInfoName("ironwood.lang.String")).append(", ptr ")
+                    .append(typeInfoName("ironwood.lang.String")).append(", ptr addrspace(1) ")
                     .append(allocationFailureName()).append(')');
-            case ACCESS -> output.append("i32 @ironwood_file_access(ptr ")
+            case ACCESS -> output.append("i32 @ironwood_file_access(").append(llvmType(file.path().orElseThrow().type())).append(' ')
                     .append(operand(file.path().orElseThrow())).append(", i32 ")
-                    .append(operand(file.value().orElseThrow())).append(", ptr ")
+                    .append(operand(file.value().orElseThrow())).append(", ptr addrspace(1) ")
                     .append(allocationFailureName()).append(')');
             case MOVE_ATOMIC, MOVE_REPLACING, MOVE_EXCLUSIVE -> output.append("i32 @ironwood_file_")
-                    .append(file.operation().name().toLowerCase(java.util.Locale.ROOT)).append("(ptr ")
-                    .append(operand(file.path().orElseThrow())).append(", ptr ")
-                    .append(operand(file.value().orElseThrow())).append(", ptr ")
+                    .append(file.operation().name().toLowerCase(java.util.Locale.ROOT)).append("(").append(llvmType(file.path().orElseThrow().type())).append(' ')
+                    .append(operand(file.path().orElseThrow())).append(", ").append(llvmType(file.value().orElseThrow().type())).append(' ')
+                    .append(operand(file.value().orElseThrow())).append(", ptr addrspace(1) ")
                     .append(allocationFailureName()).append(')');
         }
         output.append(suffix);
@@ -2608,18 +2616,91 @@ public final class LlvmEmitter {
             return "null";
         }
         if (value instanceof IrStringConstant constant) {
-            return stringLiteralName(constant.id());
+            return managedConstant(stringLiteralName(constant.id()));
         }
         if (value instanceof IrEnumConstant constant) {
-            return enumConstantName(constant);
+            return managedConstant(enumConstantName(constant));
         }
         if (value instanceof IrImmortalObject object) {
-            return immortalObjectName(object);
+            return managedConstant(immortalObjectName(object));
         }
         if (value instanceof IrValueReference reference) {
             return "%v" + reference.id();
         }
         throw new IllegalStateException("unsupported IR operand " + value.getClass().getSimpleName());
+    }
+
+    private void emitGcImageMetadata(StringBuilder output, IrProgram program,
+                                     List<IrImmortalObject> objects, List<IrEnumConstant> enums) {
+        output.append("@iw_gc_root_abi = hidden constant i32 2\n")
+                .append("@iw_gc_owner_requirements = hidden constant i32 7\n")
+                .append("declare i32 @iw_gc_bind_type(ptr, ptr) \"gc-leaf-function\"\n")
+                .append("declare void @ironwood_gc_start() \"gc-leaf-function\"\n")
+                .append("declare void @ironwood_gc_start_roots(ptr, ptr addrspace(1)) \"gc-leaf-function\"\n")
+                .append("declare void @ironwood_gc_invalid_layout() noreturn \"gc-leaf-function\"\n")
+                .append("declare void @iw_gc_experiment_collect()\n")
+                .append("define internal void @ironwood_gc_bind_layouts() \"gc-leaf-function\" {\nentry:\n");
+        for (int i = 0; i < gcLayouts.size(); i++) {
+            output.append("  %ok.").append(i).append(" = call i32 @iw_gc_bind_type(ptr ")
+                    .append(typeInfoName(gcLayouts.get(i).name())).append(", ptr @iw_llvm_layout_").append(i).append(")\n")
+                    .append("  %valid.").append(i).append(" = icmp ne i32 %ok.").append(i).append(", 0\n")
+                    .append("  br i1 %valid.").append(i).append(", label %next.").append(i).append(", label %invalid\nnext.").append(i).append(":\n");
+        }
+        output.append("  ret void\ninvalid:\n  call void @ironwood_gc_invalid_layout()\n  unreachable\n}\n");
+        var roots = new ArrayList<String>();
+        program.staticFields().stream().filter(f -> f.type().isReference()).forEach(f -> roots.add(staticFieldName(f)));
+        program.typeInitializations().forEach(i -> roots.add(initializationFailureName(i.typeName())));
+        var bases = new LinkedHashMap<String, String>();
+        objects.forEach(o -> bases.put(immortalObjectName(o), o.storageType().referenceName()));
+        enums.forEach(e -> bases.put(enumConstantName(e), e.storageType().referenceName()));
+        for (var base : bases.entrySet()) {
+            // Allocation-failure storage is an immortal identity, not a permanent
+            // root of its latest emergency graph. Exact native traversal follows
+            // it only from a source root, managed edge or active unwind owner.
+            if (base.getValue().equals("ironwood.lang.OutOfMemoryError")) continue;
+            var type = program.classes().stream().filter(c -> c.name().equals(base.getValue())).findFirst().orElseThrow();
+            for (var field : type.fields()) if (field.type().isReference()) {
+                roots.add("getelementptr (" + classType(type.name()) + ", ptr " + base.getKey() + ", i32 0, i32 " + (field.layoutIndex() + 1) + ")");
+            }
+        }
+        output.append("@iw_gc_static_root_count = hidden constant i64 ").append(roots.size()).append('\n');
+        output.append("@iw_gc_static_roots = hidden constant [").append(roots.size()).append(" x ptr] [")
+                .append(roots.stream().map(v -> "ptr " + v).collect(Collectors.joining(", "))).append("]\n");
+        program.stringConstants().forEach(c -> bases.put(stringLiteralName(c.id()), ""));
+        if (program.classes().stream().anyMatch(c -> c.name().equals("ironwood.lang.StackTraceElement"))) {
+            for (var entry : tracePublicEntries(program)) {
+                bases.put(tracePublicElementName(entry), "");
+                bases.put(tracePublicClassNameConstant(entry.function()), "");
+                bases.put(tracePublicMethodNameConstant(entry.function()), "");
+                bases.put(tracePublicFileNameConstant(entry.function()), "");
+            }
+        }
+        for (String name : List.of("implicit_failure_metadata", "emergency_association_metadata", "implicit_failure_storage")) {
+            output.append('@').append(name).append(" = external global i8\n");
+            bases.put("@" + name, "");
+        }
+        output.append("%ironwood.emergency.cell = type { ptr, ptr addrspace(1), ptr addrspace(1), ptr addrspace(1), i1, i64 }\n")
+                .append("@emergency_secondary_pool = external global [64 x %ironwood.emergency.cell]\n");
+        for (int i = 0; i < 64; i++) {
+            bases.put("getelementptr ([64 x %ironwood.emergency.cell], ptr @emergency_secondary_pool, i32 0, i32 " + i + ")", "");
+        }
+        var abi = new ArrayList<String>();
+        abi.add("ptrtoint (ptr getelementptr (%\"ironwood.typeinfo\", ptr null, i32 1) to i64)");
+        for (int index : List.of(3, 4)) abi.add("ptrtoint (ptr getelementptr (%\"ironwood.typeinfo\", ptr null, i32 0, i32 " + index + ") to i64)");
+        abi.add("ptrtoint (ptr getelementptr (" + classType("ironwood.lang.Throwable") + ", ptr null, i32 1) to i64)");
+        for (int index : List.of(2, 3, 6)) abi.add("ptrtoint (ptr getelementptr (" + classType("ironwood.lang.Throwable") + ", ptr null, i32 0, i32 " + index + ") to i64)");
+        for (String type : List.of("%\"ironwood.array\"", "%\"ironwood.string\"", "%ironwood.emergency.cell")) {
+            abi.add("ptrtoint (ptr getelementptr (" + type + ", ptr null, i32 1) to i64)");
+        }
+        output.append("@iw_gc_runtime_layouts = hidden constant [10 x i64] [")
+                .append(abi.stream().map(v -> "i64 " + v).collect(Collectors.joining(", "))).append("]\n");
+        output.append("@iw_gc_immortal_count = hidden constant i64 ").append(bases.size()).append('\n')
+                .append("@iw_gc_immortal_bases = hidden constant [").append(bases.size()).append(" x ptr] [")
+                .append(bases.keySet().stream().map(v -> "ptr " + v).collect(Collectors.joining(", "))).append("]\n");
+    }
+
+    private String managedConstant(String symbol) {
+        return gcProgram == null ? symbol : "addrspacecast (ptr " + symbol + " to ptr addrspace(1))";
     }
 
     private String functionName(String linkageName) {
@@ -2644,9 +2725,9 @@ public final class LlvmEmitter {
             output.append(tracePublicElementName(entry)).append(" = private constant ")
                     .append(classType("ironwood.lang.StackTraceElement"))
                     .append(" { ptr ").append(typeInfoName("ironwood.lang.StackTraceElement"))
-                    .append(", ptr ").append(tracePublicClassNameConstant(entry.function()))
-                    .append(", ptr ").append(tracePublicMethodNameConstant(entry.function()))
-                    .append(", ptr ").append(tracePublicFileNameConstant(entry.function()))
+                    .append(", ptr addrspace(1) ").append(managedConstant(tracePublicClassNameConstant(entry.function())))
+                    .append(", ptr addrspace(1) ").append(managedConstant(tracePublicMethodNameConstant(entry.function())))
+                    .append(", ptr addrspace(1) ").append(managedConstant(tracePublicFileNameConstant(entry.function())))
                     .append(", i32 ").append(entry.line()).append(" }\n");
         }
         Map<String, TracePublicEntry> publicBySite = publicEntries.stream()
@@ -2903,7 +2984,7 @@ public final class LlvmEmitter {
     }
 
     private String allocationFailureName() {
-        return "@\"ironwood.immortal.implicit allocation failure\"";
+        return managedConstant("@\"ironwood.immortal.implicit allocation failure\"");
     }
 
     private String enumConstantName(IrEnumConstant constant) {
@@ -2931,7 +3012,7 @@ public final class LlvmEmitter {
         TraceScope traceScope = initializerTrace.scope();
         output.append("define internal void ")
                 .append(typeInitializerName(initialization.typeName()))
-                .append("() alwaysinline {\n")
+                .append("() alwaysinline uwtable gc \"statepoint-example\" {\n")
                 .append("entry:\n")
                 .append("  %initialization.state = load i8, ptr ")
                 .append(initializationStateName(initialization.typeName())).append("\n")
@@ -2952,7 +3033,7 @@ public final class LlvmEmitter {
         // Metadata-only probes preserve source callers around the cold initialization path.
         output.append("define internal void ")
                 .append(slowTypeInitializerName(initialization.typeName()))
-                .append("(i8 %initialization.state) noinline ")
+                .append("(i8 %initialization.state) noinline uwtable gc \"statepoint-example\" ")
                 .append("personality ptr @__gxx_personality_v0 !dbg !")
                 .append(traceScope.subprogramMetadata()).append(" {\n")
                 .append("entry:\n")
@@ -3000,21 +3081,21 @@ public final class LlvmEmitter {
                 .append("already.initialized:\n")
                 .append("  ret void\n")
                 .append("previously.failed:\n")
-                .append("  %previous.failure = load ptr, ptr ")
+                .append("  %previous.failure = load ptr addrspace(1), ptr ")
                 .append(initializationFailureName(initialization.typeName())).append("\n")
-                .append("  call void @ironwood_throw(ptr %previous.failure)\n")
+                .append("  call void @ironwood_throw(ptr addrspace(1) %previous.failure)\n")
                 .append("  unreachable\n")
                 .append("initialization.failed:\n")
                 .append("  %initialization.landing = landingpad { ptr, i32 } catch ptr null\n")
                 .append("  %initialization.handle = extractvalue { ptr, i32 } ")
                 .append("%initialization.landing, 0\n")
-                .append("  %initialization.failure = call ptr @ironwood_exception_take(ptr ")
+                .append("  %initialization.failure = call ptr addrspace(1) @ironwood_exception_take(ptr ")
                 .append("%initialization.handle)\n")
-                .append("  store ptr %initialization.failure, ptr ")
+                .append("  store ptr addrspace(1) %initialization.failure, ptr ")
                 .append(initializationFailureName(initialization.typeName())).append("\n")
                 .append("  store i8 3, ptr ")
                 .append(initializationStateName(initialization.typeName())).append("\n")
-                .append("  call void @ironwood_throw(ptr %initialization.failure)\n")
+                .append("  call void @ironwood_throw(ptr addrspace(1) %initialization.failure)\n")
                 .append("  unreachable\n")
                 .append("}\n");
     }
@@ -3773,7 +3854,7 @@ public final class LlvmEmitter {
     private void emitThrowHelpers(StringBuilder output) {
         for (ThrowHelper helper : throwHelpers.values()) {
             output.append("\ndefine internal void ").append(functionName(helper.name())).append('(');
-            StringBuilder arguments = new StringBuilder("ptr %exception");
+            StringBuilder arguments = new StringBuilder("ptr addrspace(1) %exception");
             for (int index = 0; index < helper.parameterTypes().size(); index++) {
                 if (index > 0) {
                     output.append(", ");
@@ -3781,7 +3862,7 @@ public final class LlvmEmitter {
                 output.append(helper.parameterTypes().get(index)).append(" %a").append(index);
                 arguments.append(", ").append(helper.parameterTypes().get(index)).append(" %a").append(index);
             }
-            output.append(") noinline cold noreturn personality ptr @__gxx_personality_v0 {\n")
+            output.append(") noinline cold noreturn uwtable gc \"statepoint-example\" personality ptr @__gxx_personality_v0 {\n")
                     .append("entry:\n");
             if (helper.ensureInitialized()) {
                 output.append("  call void ").append(typeInitializerName(helper.className())).append("()\n");
@@ -3789,8 +3870,8 @@ public final class LlvmEmitter {
             output.append("  %size.ptr = getelementptr ").append(classType(helper.className()))
                     .append(", ptr null, i32 1\n")
                     .append("  %size = ptrtoint ptr %size.ptr to i64\n")
-                    .append("  %exception = call ptr @ironwood_allocate(i64 %size, ptr ")
-                    .append(typeInfoName(helper.className())).append(", ptr ")
+                    .append("  %exception = call ptr addrspace(1) @ironwood_allocate(i64 %size, ptr ")
+                    .append(typeInfoName(helper.className())).append(", ptr addrspace(1) ")
                     .append(allocationFailureName()).append(")\n");
             if (helper.rollback()) {
                 output.append("  invoke void ").append(functionName(helper.constructorLinkageName()))
@@ -3798,16 +3879,16 @@ public final class LlvmEmitter {
                         .append("rollback:\n")
                         .append("  %landing = landingpad { ptr, i32 } catch ptr null\n")
                         .append("  %handle = extractvalue { ptr, i32 } %landing, 0\n")
-                        .append("  %pending = call ptr @ironwood_exception_take(ptr %handle)\n")
+                        .append("  %pending = call ptr addrspace(1) @ironwood_exception_take(ptr %handle)\n")
                         .append("  call void @\"ironwood.rollback\"(ptr %exception)\n")
-                        .append("  call void @ironwood_throw(ptr %pending)\n")
+                        .append("  call void @ironwood_throw(ptr addrspace(1) %pending)\n")
                         .append("  unreachable\n")
                         .append("throw:\n");
             } else {
                 output.append("  call void ").append(functionName(helper.constructorLinkageName()))
                         .append('(').append(arguments).append(")\n");
             }
-            output.append("  call void @ironwood_throw(ptr %exception)\n")
+            output.append("  call void @ironwood_throw(ptr addrspace(1) %exception)\n")
                     .append("  unreachable\n")
                     .append("}\n");
         }
@@ -3828,7 +3909,7 @@ public final class LlvmEmitter {
                 .map(argument -> llvmType(argument.type()) + " " + operand(argument))
                 .collect(Collectors.joining(", "));
         String typeInfo = scratchNames.next("guard.typeinfo");
-        output.append(typeInfo).append(" = load ptr, ptr ").append(operand(arguments.getFirst())).append('\n');
+        output.append(typeInfo).append(" = load ptr, ").append(llvmType(arguments.getFirst().type())).append(' ').append(operand(arguments.getFirst())).append('\n');
         for (int index = 0; index < receivers.size(); index++) {
             DispatchReceiver receiver = receivers.get(index);
             String test = scratchNames.next("guard.test");
@@ -3871,7 +3952,7 @@ public final class LlvmEmitter {
         String callee = scratchNames.next("guard.callee");
         output.append("  ").append(dispatchAddress)
                 .append(" = getelementptr inbounds %\"ironwood.typeinfo\", ptr ").append(typeInfo)
-                .append(", i32 0, i32 1\n  ")
+                .append(", i32 0, i32 3\n  ")
                 .append(dispatch).append(" = load ptr, ptr ").append(dispatchAddress).append("\n  ")
                 .append(slotAddress).append(" = getelementptr inbounds ptr, ptr ").append(dispatch)
                 .append(", i32 ").append(slot).append("\n  ")

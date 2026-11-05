@@ -1,20 +1,28 @@
 # Runtime
 
+
+GC5 migration-branch status: normal executables use the single exact managed
+heap and explicit synchronous Memory.collect(). Source reclamation and managed
+destruction are removed. Historical manual-heap descriptions below are superseded
+by [the GC5 contract](../docs/MEMORY.md). Native bridge/shared-library output remains refused
+until GC6. Packaging/distribution and other-target qualification remain GC9 work.
+The selected GC SDK is staged at toolchain/ironwood-gc, with verified source,
+licenses, root/owner ABIs and exact build identities.
+
 The isolated bootstrap runtime exposes these C ABI functions:
 
-- `ironwood_allocate`, which zero-initializes storage with `calloc`, installs
+- `ironwood_allocate`, which uses the completely zeroed collector domain, installs
   the compiler-provided type descriptor, and raises the compiler-provided
   immortal allocation-failure object when source allocation fails;
 - `ironwood_allocate_array`, which receives a compiler-validated nonnegative
   element count, defends the total-size calculation, records the length and
   compiler-provided descriptor and element size/kind, zero-initializes the
   array elements, and uses the same catchable failure boundary;
-- `ironwood_allocation_count`, which atomically snapshots a process-wide count
+- `ironwood_allocation_count`, which snapshots a process-wide count
   incremented exactly once after each successful object, array, or
   runtime-created String allocation;
-- `ironwood_live_allocation_count`, which atomically snapshots the number of
-  currently live ordinary allocations and decreases on every non-null raw
-  deallocation;
+- `ironwood_live_allocation_count`, which reads collection-time cached live allocations plus
+  successful allocations since that collection; counter reads never collect;
 - `ironwood_identity_hash_code`, which returns zero for null and otherwise a
   stable mixed allocation-identity hash without virtual dispatch;
 - `ironwood_system_arraycopy`, which validates two exact-compatible arrays and
@@ -53,10 +61,6 @@ The isolated bootstrap runtime exposes these C ABI functions:
 - the U2 lexical path helpers, which normalize, absolutize, inspect, and
   resolve POSIX path text without adding filesystem providers or runtime class
   loading;
-- `ironwood_deallocate`, which performs the raw release after a
-  compiler-validated destructor or rollback path reaches the runtime boundary;
-- `ironwood_destructor_failed`, which terminates deterministically if an
-  exception crosses the backend's no-unwind destructor boundary;
 - `ironwood_stream_open`, `ironwood_stream_read_byte/read_bytes`,
   `ironwood_stream_write_byte/write_bytes`, `ironwood_stream_available`, and
   `ironwood_stream_close`: original descriptor-only U3 boundaries. Open/read/write
@@ -205,53 +209,24 @@ stores and rethrows the exact language exception object. Entry initialization
 participates in the same on-demand native unwind and pseudo-probe decoding as
 other source calls.
 
-Objects carry one descriptor pointer before their base-first instance fields.
-The descriptor contains closed-world dispatch and membership metadata plus
-optional destructor and constructor-rollback entries.
-The allocator installs that descriptor in otherwise zeroed storage before the
-synthesized or declared root-to-leaf constructor chain runs. An exception
-thrown by construction therefore cannot publish a partially constructed
-result. Ordinary language objects are retained until a validated
-source `free` destroys and releases them or the process exits. If a constructor
-throws before producing a result, compiler-emitted rollback visits proven-owned
-fields in reverse layout order, normally destroys completed owned children, and
-raw-deallocates the receiver without running that incomplete receiver's source
-destructor. Constructor analysis rejects publication of in-progress `this`, so
-the rolled-back receiver cannot remain observable. Thrown objects remain ordinary
-allocations after their short-lived native unwind wrappers are destroyed. The
-ordinary Throwable constructor snapshots the active trace into runtime-private
-C storage through virtual `fillInStackTrace`; throwing or rethrowing that object
-preserves the snapshot. Explicit refresh releases the old frame buffer. A
-private slot on Throwable owns metadata and secondary association nodes, which
-its destructor and constructor rollback release. Trace nodes do not increment
-`System.allocationCount()` and cannot be directly targeted by source `free`.
-If capture allocation fails, propagation still works and printing uses
-`<trace unavailable>`. Emergency allocation failures reuse bounded static
-storage. D121 changes capture/storage without adding frame instrumentation to
-normal calls or adding work to ordinary object destruction.
-Arrays carry the same descriptor pointer as class instances, followed by a
-native length, element-size/kind header, and their contiguous elements. Their compiler-emitted
-descriptors provide `Object` membership and inherited Object dispatch.
-Compiler-emitted literal strings are immutable, immortal objects with UTF-16
-code-unit and exact UTF-8 byte lengths plus trailing UTF-16 units; they are not
-allocator results. Runtime-created strings use the same one-allocation tail.
-Standard output combines surrogate pairs and emits U+FFFD for unmatched units.
+Objects carry one dynamic type pointer before their base-first fields. The
+actual type metadata embeds the engine descriptor and compiler-derived layout,
+followed by dispatch and membership data. Deprecated destructor/rollback slots
+remain inert ABI scaffolding and are always null. The allocator installs the
+dynamic type into completely zeroed storage before constructors run. Published
+failed constructions remain valid managed graphs. Throwable's reserved Object
+field points to exact managed metadata; trace buffers and secondary nodes use
+internal sidecar layouts. Immutable image literals and emergency cells have
+registered exact native bases; only reachable emergency graphs retain children.
+Array and String tails preserve their existing physical source/runtime layouts.
 
-Ironwood deliberately has no garbage collector. Compiler-emitted
-`ironwood.destroy` selects the most-derived descriptor entry, runs the
-derived-to-root source destructor chain, and then calls the raw deallocator.
-Arrays bypass source destructors. Compiler-emitted `ironwood.rollback` selects
-the constructor-rollback entry after a failed construction and preserves the
-original exception object. Runtime-owned unwind
-wrappers continue to be released internally because they are not Ironwood
-objects. Ordered exception associations and captured traces are held in
-runtime-private metadata owned through Throwable's reserved private slot;
-they expose no public native handle and do not affect Ironwood allocation counts. `System.allocationCount()` remains cumulative;
-`System.liveAllocationCount()` provides the current-live diagnostic used by
-reclamation and rollback tests. If source code omits `free`, ordinary
-allocations remain allocated until process termination and may exhaust memory.
-The current header, allocation boundary, unwind wrapper, and exception metadata
-are not a stable external ABI.
+Normal allocation, native ownership and exact collection follow
+[MEMORY.md](../docs/MEMORY.md). There are no runtime managed frees, source
+rollback/destructor helpers or trace-release lowering. Native exception wrappers
+and native acquisition scratch retain explicit native cleanup. Trace metadata,
+secondary nodes and trace buffers are internal managed sidecars, excluded from
+language allocation counters. Source Throwable APIs and optimized trace rendering
+remain. The private runtime ABI is bound to the GC5 SDK and compiler inputs.
 
 ## Fixed-convention String transformations
 

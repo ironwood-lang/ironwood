@@ -48,7 +48,6 @@ public abstract class InputStream implements Closeable {
     public byte[] readAllBytes() throws IOException {
 
         ByteArrayOutputStream output = new ByteArrayOutputStream();
-        defer free output;
         int value = read();
         while (value >= 0) {
             output.write(value);

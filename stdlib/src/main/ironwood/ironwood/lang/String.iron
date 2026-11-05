@@ -394,7 +394,6 @@ public final class String implements CharSequence, Comparable<String> {
         int length = elements.length;
         if (length > 1) separator.length();
         StringBuilder result = new StringBuilder();
-        defer free result;
         int index = 0;
         while (index < length) {
             if (index > 0) result.append(separator);
@@ -570,7 +569,6 @@ public final class String implements CharSequence, Comparable<String> {
         }
         int length = width > bodyLength ? width : bodyLength;
         char[] result = new char[length];
-        defer free result;
         int padding = length - bodyLength;
         int index = 0;
         while (index < padding) {
@@ -612,8 +610,6 @@ public final class String implements CharSequence, Comparable<String> {
             int renderedLength = rendered.length();
             int length = width > renderedLength ? width : renderedLength;
             char[] result = new char[length];
-            defer free rendered;
-            defer free result;
             int padding = length - renderedLength;
             int index = 0;
             while (index < padding) {
@@ -649,7 +645,6 @@ public final class String implements CharSequence, Comparable<String> {
         int bodyLength = (negative ? 1 : 0) + wholeLength + (precision > 0 ? precision + 1 : 0);
         int length = width > bodyLength ? width : bodyLength;
         char[] result = new char[length];
-        defer free result;
         int padding = length - bodyLength;
         index = 0;
         while (index < padding) {

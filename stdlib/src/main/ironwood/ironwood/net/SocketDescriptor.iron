@@ -5,10 +5,10 @@ package ironwood.net;
 import ironwood.io.IOException;
 
 /**
- * Opaque state borrowed from a {@link NativeSocketImpl native socket implementation}. It exposes neither raw handles nor
- * resource operations to applications. Delegating implementations return their delegate's
- * descriptor for native accept; do not free it separately. Its owner must close the resource
- * before reclaiming the managed storage.
+ * Opaque state borrowed from a {@link NativeSocketImpl native socket implementation}. It
+ * exposes neither raw handles nor resource operations to applications. Delegating
+ * implementations return their delegate's descriptor for native accept; its managed reference
+ * retains the required graph. Its owner must close the resource explicitly.
  */
 public final class SocketDescriptor {
 
@@ -443,11 +443,5 @@ public final class SocketDescriptor {
         return this.remotePort;
     }
 
-    destructor {
 
-        free this.remoteAddress;
-        free this.localAddress;
-        free this.boundAddress;
-        free this.unboundAddress;
-    }
 }

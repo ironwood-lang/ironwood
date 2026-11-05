@@ -47,8 +47,5 @@ class IntSetIterator implements Iterator<IntHolder> {
         this.iterator.remove();
     }
 
-    destructor {
 
-        free this.holder;
-    }
 }

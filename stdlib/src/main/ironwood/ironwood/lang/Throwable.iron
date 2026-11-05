@@ -10,10 +10,11 @@ public class Throwable {
 
     private String message;
     private Throwable cause;
-    // Reserved native metadata slot. Only compiler-owned trace operations access it.
-    private long traceState;
+    // Reserved managed metadata. Only compiler-owned trace operations access it.
+    private Object traceMetadata;
     private String ownedMessage;
     private boolean causeInitialized;
+    private int traceStatus;
     /** Creates a new Throwable. */
 
     public Throwable() {
@@ -55,7 +56,6 @@ public class Throwable {
         } else {
 
             String rendered = cause.toString();
-            defer releaseRenderedString(cause, rendered);
             if (rendered == null) {
                 this.ownedMessage = null;
             } else {
@@ -67,9 +67,6 @@ public class Throwable {
         this.fillInStackTrace();
     }
 
-    private static void releaseRenderedString(Object object, String rendered) {
-
-    }
     /** Performs the fill in stack trace operation. */
 
     public Throwable fillInStackTrace() {
@@ -90,14 +87,13 @@ public class Throwable {
         if (stream == null) throw new NullPointerException();
         try {
             ThrowablePrinter printer = new ThrowablePrinter();
-            defer free printer;
             printer.print(this, stream, null, 0, "");
         } catch (OutOfMemoryError unavailable) {
             printEmergencyTrace(this, stream);
         }
     }
 
-    /** Returns a caller-owned array whose immutable elements are immortal. */
+    /** Returns a managed array whose immutable elements are immortal. */
     public StackTraceElement[] getStackTrace() {
 
         return null;
@@ -107,9 +103,6 @@ public class Throwable {
 
     }
 
-    private static void releaseTrace(Throwable value) {
-
-    }
 
     private static int commonTrace(Throwable value, Throwable parent) {
 
@@ -152,17 +145,10 @@ public class Throwable {
             if (cause != null) print(cause, stream, value, indentation, "Caused by: ");
         }
 
-        destructor {
 
-            free this.visited;
-        }
     }
 
-    destructor {
 
-        free this.ownedMessage;
-        releaseTrace(this);
-    }
     /** Returns the message. */
 
     public String getMessage() {
@@ -180,7 +166,7 @@ public class Throwable {
     }
 
     /**
-     * Returns a caller-owned description using the concrete class name and the
+     * Returns a managed description using the concrete class name and the
      * localized message. A null message omits the separator; an empty message
      * retains it. No cause or stack trace is included.
      */
@@ -188,9 +174,6 @@ public class Throwable {
     public String toString() {
 
         String localized = this.getLocalizedMessage();
-        // Only a result proven fresh and unescaped for this concrete getter
-        // is released. Borrowed, retained, and uncertain results stay live.
-        defer releaseLocalizedMessage(this, localized);
         return renderDescription(this, localized);
     }
 
@@ -199,9 +182,6 @@ public class Throwable {
         return "";
     }
 
-    private static void releaseLocalizedMessage(Throwable throwable, String message) {
-
-    }
     /** Returns the cause. */
 
     public Throwable getCause() {

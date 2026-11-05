@@ -23,10 +23,9 @@ replacement PEM file, not ambient system trust. There is no verification bypass,
 checking, session resumption or early data.
 
 
-Configuration inputs are copied. Stream views borrow this client and must not be freed
-separately. Close the client before freeing it: close releases TLS and TCP resources, while
-destruction only reclaims the managed graph. Closing either stream closes the client. Connection
-history remains true after closure.
+Configuration inputs are copied. Stream views
+retain this client. Explicit close releases TLS and TCP resources; collection does not.
+Closing either stream closes the client. Connection history remains true after closure.
 
 
 Connect, read and write use separate per-operation deadline budgets. Zero disables a
@@ -35,8 +34,9 @@ returns. A failed connection attempt, record timeout or fatal record error close
 create a new client to retry.
 
 
-Retained TLS operations require the matching optional Ironwood TLS SDK at final link. This
-API uses native transports and bypasses global socket factories.
+Retained TLS operations require the matching optional
+Ironwood TLS SDK at final link. This API uses native transports and bypasses global socket
+factories.
 
 
 ## Member summary
@@ -111,9 +111,9 @@ roots.
 public TlsClient(Proxy proxy, String caBundle)
 ```
 
-Creates an unconnected client with copied route configuration and trust-file path. A custom
-PEM file replaces bundled roots rather than augmenting them; it is loaded and validated
-during connect. Caller inputs may be freed after construction.
+Creates an unconnected client with copied route configuration and trust-file path. A
+custom PEM file replaces bundled roots rather than augmenting them; it is loaded and
+validated during connect. The configuration retains independent copies of caller inputs.
 
 **Parameters**
 
@@ -334,11 +334,11 @@ the timeout in milliseconds, or zero for no deadline
 public InputStream getInputStream() throws IOException
 ```
 
-Returns a cached input view borrowing this client. Do not free it separately or use it after
-freeing the client. Reads borrow caller buffers only for the call; zero-length reads perform
-no native I/O. Clean TLS shutdown produces EOF; transport truncation is an error. The read
-timeout or a fatal record error closes the client. available() reports already decrypted
-bytes; closing the view closes the client.
+Returns a cached input view borrowing this client. The view retains the client; explicit
+closure still governs native I/O. Reads borrow caller buffers only for the call;
+zero-length reads perform no native I/O. Clean TLS shutdown produces EOF; transport
+truncation is an error. The read timeout or a fatal record error closes the client.
+available() reports already decrypted bytes; closing the view closes the client.
 
 **Throws**
 
@@ -361,11 +361,11 @@ the stable borrowed input stream
 public OutputStream getOutputStream() throws IOException
 ```
 
-Returns a cached output view borrowing this client. Do not free it separately or use it
-after freeing the client. Writes borrow caller buffers only for the call; zero-length writes
-perform no native I/O. Each write has one configured deadline across retries. A timeout or
-fatal record error closes the client and may follow partial delivery. Closing the view
-closes the client.
+Returns a cached output view borrowing this client. The view retains the client; explicit
+closure still governs native I/O. Writes borrow caller buffers only for the call;
+zero-length writes perform no native I/O. Each write has one configured deadline across
+retries. A timeout or fatal record error closes the client and may follow partial
+delivery. Closing the view closes the client.
 
 **Throws**
 
@@ -391,9 +391,8 @@ public void close() throws IOException
 
 Closes the client idempotently, attempts one nonblocking TLS close notification, then
 releases native TLS state and closes TCP. Does not wait for the peer notification or
-guarantee delivery on a blocked transport. Managed storage and borrowed views remain
-allocated until the client is freed. Resources are still released when shutdown reports an
-error.
+guarantee delivery on a blocked transport. Managed storage and views remain valid while
+reachable. Resources are still released when shutdown reports an error.
 
 **Throws**
 

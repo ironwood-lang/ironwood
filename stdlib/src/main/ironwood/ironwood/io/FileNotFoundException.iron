@@ -27,8 +27,5 @@ public class FileNotFoundException extends IOException {
         return detail;
     }
 
-    destructor {
 
-        free this.detail;
-    }
 }

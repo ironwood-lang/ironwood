@@ -29,7 +29,6 @@ public class HashMap<K extends Object, E extends Object> implements Iterable<E> 
     private int count;
     private int threshold;
     private float loadFactor;
-    // Keep the builder before the pool for reverse-order constructor rollback.
     private final ObjectBuilder<HashMapEntry<K, E>> entryBuilder;
     private final ArrayObjectPool<HashMapEntry<K, E>> entryPool;
     private HashMapIterator<K, E> reusableIterator;
@@ -96,7 +95,10 @@ public class HashMap<K extends Object, E extends Object> implements Iterable<E> 
 
     private void releaseEntryBackToPool(HashMapEntry<K, E> entry) {
 
-        // getEntryFromPool overwrites every field before it can be observed.
+        // The entry remains reusable; retired user graphs do not.
+        entry.key = null;
+        entry.value = null;
+        entry.next = null;
         this.entryPool.release(entry);
     }
 
@@ -117,22 +119,12 @@ public class HashMap<K extends Object, E extends Object> implements Iterable<E> 
         return count;
     }
     /**
-     * Creates independent mutable membership with fresh entries and pool storage.
-     * Keys and values are non-null under the existing insertion contract and
-     * are borrowed, preserving identity. The source reusable
-     * iterator is untouched. The copy uses load factor 1.0 and at least one
-     * bucket; insertion follows this map's ordinary key comparison contract.
-     * Destroying either map never destroys caller-owned keys or values.
-     * The caller owns the result and keeps borrowed keys and values alive while
-     * observable. Current proofs retire membership loans on clear or destruction;
-     * retained aliases can still prevent reclamation. Individual removal does
-     * not currently retire a compiler-tracked loan.
-     * Copying reruns key hashCode and, for colliding keys, equals callbacks.
-     * Callback exceptions propagate after destination cleanup. Callbacks must
-     * not mutate the source membership during traversal.
-     *
-     * Partial construction reclaims destination storage before rethrowing.
-     *
+     * Creates an independently mutable shallow copy with fresh entries and pool
+     * storage. Non-null keys and values preserve their identity and are retained
+     * by both maps. Source iterator state is unchanged. The copy uses load factor
+     * 1.0 and at least one bucket. Unused source pool capacity is not copied.
+     * Hash/equality callbacks run again and must not mutate source membership.
+     * Their exceptions propagate; partial destination graphs remain managed.
      * @return an independently mutable shallow copy
      */
     public HashMap<K, E> copy() {
@@ -148,7 +140,6 @@ public class HashMap<K extends Object, E extends Object> implements Iterable<E> 
             }
             return result;
         } catch (RuntimeException | Error failure) {
-            free result;
             throw failure;
         }
     }
@@ -195,7 +186,6 @@ public class HashMap<K extends Object, E extends Object> implements Iterable<E> 
     public String toString() {
 
         StringBuilder builder = new StringBuilder();
-        defer free builder;
         builder.append('{');
         Iterator<E> iterator = iterator();
         boolean first = true;
@@ -310,7 +300,6 @@ public class HashMap<K extends Object, E extends Object> implements Iterable<E> 
             }
             index = index - 1;
         }
-        free oldData;
     }
     /** Associates the supplied key with the supplied value. */
 
@@ -427,11 +416,5 @@ public class HashMap<K extends Object, E extends Object> implements Iterable<E> 
         return reusableIterator;
     }
 
-    destructor {
 
-        free this.reusableIterator;
-        free this.data;
-        free this.entryPool;
-        free this.entryBuilder;
-    }
 }

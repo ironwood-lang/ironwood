@@ -158,7 +158,6 @@ public class ByteMap<E extends Object> implements Iterable<E> {
     public String toString() {
 
         StringBuilder builder = new StringBuilder();
-        defer free builder;
         builder.append('{');
         boolean first = true;
         int index = 0;
@@ -200,9 +199,5 @@ public class ByteMap<E extends Object> implements Iterable<E> {
         this.count--;
     }
 
-    destructor {
 
-        free this.reusableIterator;
-        free this.data;
-    }
 }

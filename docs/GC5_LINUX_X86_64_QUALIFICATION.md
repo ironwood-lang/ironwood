@@ -2,6 +2,11 @@
 
 # GC5 checkpoint Linux x86-64 qualification
 
+
+Historical partial-checkpoint qualification. The integrated cutover and current
+evidence are recorded in [GC5_IMPLEMENTATION.md](GC5_IMPLEMENTATION.md). This
+record remains evidence for its explicitly limited pre-cutover source snapshot.
+
 Date: 2026-11-05. Baseline: `3ff18cdd`, the explicitly incomplete
 [GC5 checkpoint](GC5_IMPLEMENTATION.md). **Its implemented subset is qualified on
 native Linux x86-64**, with one artifact-test setup fix and

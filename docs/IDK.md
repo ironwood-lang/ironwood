@@ -1,5 +1,14 @@
 # Ironwood Development Kit
 
+
+GC5 migration-branch status: normal executables use the single exact managed
+heap and explicit synchronous Memory.collect(). Source reclamation and managed
+destruction are removed. Historical manual-heap descriptions below are superseded
+by [the GC5 contract](MEMORY.md). Native bridge/shared-library output remains refused
+until GC6. Packaging/distribution and other-target qualification remain GC9 work.
+The selected GC SDK is staged at toolchain/ironwood-gc, with verified source,
+licenses, root/owner ABIs and exact build identities.
+
 The Ironwood Development Kit (IDK) is a prebuilt, platform-specific compiler
 distribution. It includes the Ironwood compiler, `ironjar`, `irondoc`, its
 private Java runtime, bundled standard-library source/classes, LLVM 23, Clang,
@@ -247,66 +256,9 @@ ironwoodc --link -cp target/example.ironjar:app/target/classes \
   --main-class com.example.App -o app/target/App
 ```
 
-Add `--explain-rejected-free` to a compile or link invocation to request
-source-related notes for eligible rejected `free` operations. The option is
-disabled by default and is not stored in `.ironclass` or `.ironjar` files;
-linking reanalyzes loaded source from those artifacts. See
-[rejected-free explanations](MEMORY.md#rejected-free-explanations) for coverage
-and limits, and the [worked examples](EXPLAIN_REJECTED_FREE_EXAMPLES.md) for
-compile and link commands.
-
-`ironjar --license <file>` may be repeated during creation to place license or
-notice metadata below `META-INF/LICENSES`. Archive entries, indexes, and
-timestamps are deterministic; malformed, duplicate, nested, or unsafe archive
-content is rejected. Only referenced archived classes enter the final closed
-world. The IDK itself ships its bundled standard library as
-`lib/ironwood-stdlib.ironjar` while retaining loose sources/classes for
-inspection and bootstrap compatibility; applications do not add that archive to
-`-cp` manually.
-
-The optional standard-library testing framework ships separately as
-`lib/ironwood-testing.ironjar`. Add that archive to `-cp` when compiling and
-linking tests. It is not implicit in production builds. See `docs/TESTING.md`
-inside the IDK for a complete class, test suite, compile, link, and run example.
-
-The IDK also carries `LICENSE`, the MIT and Apache-2.0 texts,
-`LICENSE_MECHANICS`, the GPLv2 and Classpath Exception texts, third-party
-notices, the source-provenance ledger, the S0, U1, and U2 source/provenance
-reviews, and the floating-point parsing review. The complete
-`projects/minigrep` application is also included with its compile, link, run,
-and sample-data files.
-Including the latter texts prepares
-the distribution for tracked derived library files and does not relicense
-default-licensed source. See `LICENSE_MECHANICS` for downstream distribution
-rules.
-
-`-d` uses Java's class-output convention and performs class-only compilation,
-even when a source declares `main`. Every type uses `.ironclass`; a main class is
-distinguished only by entry-point metadata inside the same format. Format 1
-embeds validated source so the compiler can rebuild the final closed-world
-program, including destructor bodies, effect proofs, and constructor rollback.
-It is a compile-time artifact, not a runtime class-loading mechanism.
-
-Compile a main class now and link it later from the class path with:
-
-```sh
-ironwoodc --source-path examples/basic/src/main/ironwood -d examples/basic/target/classes \
-  examples/basic/src/main/ironwood/org/ironwood/basic/Main.iron
-ironwoodc --link -cp examples/basic/target/classes \
-  --main-class org.ironwood.basic.Main -o examples/basic/target/Main
-```
-
-`--main-class` always names both the first class to load and the native entry
-class, so it is required and must be present on `-cp` (default `.`).
-Link mode rejects source files and `--source-path`. It creates a native launcher
-at link time; it does not create a different kind of class file.
-
-The IDK relocates its private toolchain automatically the first time it runs, so
-extract it to a location writable by your user. The compiled executable is
-native and does not require the IDK, Java, or LLVM when deployed. Exception
-support uses the target platform's standard C++ ABI personality/unwind library
-as a native system dependency; Ironwood objects and catch typing do not use C++
-RTTI or C++ object semantics.
+Artifacts retain format-1 embedded sources and full semantic revalidation.
+Removed reclamation syntax/options diagnose migration, including embedded paths.
+There is no container-format migration or manual/GC mode selector.
 
 ## JVM options
 
@@ -441,19 +393,18 @@ and Linux GLIBC requirements. It also builds the shipped wget project through
 its scripts and class/archive inputs, runs local HTTP/HTTPS peers, and audits
 both downloader executables. The N1 event-loop phase remains pending.
 
-## GC development inputs
+## GC native inputs
 
-Host packages and IDKs carry the isolated GC recipe, adapter source and pins,
-with `packaging/gc-inputs.json` recording their hashes and
-`production.enabled=false`. They do not need a collector SDK to compile current
-programs. To bundle a separately prepared SDK, explicitly set
-`IRONWOOD_GC_HOME`; packaging validates it offline and copies its complete
-source, notices, headers, libraries and manifest to `runtime/gc-sdk/`. It is
-excluded from Conda relocation and listed in the IDK third-party inventory only
-when bundled. `IRONWOOD_GC_HOME` is not a compiler or runtime activation flag.
-See [GC1 preparation](GC1_ENGINE_PREPARATION.md) for target-specific setup,
-offline fixture links. [GC2](GC2_LAYOUTS_AND_QUALIFICATION.md) adds exact layouts
-and descriptor-preserving recovery with adapter ABI ironwood-gc-engine-2.
-Reprepare older SDKs; do not mix GC1 libraries/headers with GC2 inputs.
-[Native Linux x86-64 qualification](GC2_LINUX_X86_64_QUALIFICATION.md) passed
-for the new profile; Linux arm64 remains unqualified.
+Normal native linking requires a GC5 qualified SDK. Set IRONWOOD_GC_HOME in a
+source checkout, or stage the complete verified SDK at toolchain/ironwood-gc in
+a distribution. This selects inputs, not a memory mode. Missing or stale inputs
+refuse before execution. The normal link verifies exact target/configuration,
+LLVM 23.1.0, engine-3, root ABI 2, owner ABI 1, the required nonmoving pass and
+all copied source/payload checksums. package-gc-inputs.py copies source, notices,
+headers, libraries and manifests together and records production.enabled=true.
+No dependency is downloaded by normal linking or offline verification.
+
+Prepare pinned BDWGC 8.2.12 with scripts/prepare-gc.py. GC5's exact profile keeps
+USE_MARK_BYTES=1. See [the current implementation report](GC5_IMPLEMENTATION.md).
+Full IDK/native distribution qualification remains GC9, and bridge output remains
+refused until GC6. Linux arm64 and arm64e remain unqualified.

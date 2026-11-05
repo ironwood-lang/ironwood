@@ -28,7 +28,6 @@ public class ByteArrayOutputStream extends OutputStream {
         byte[] old = this.buffer;
         this.buffer = new byte[capacity];
         System.arraycopy(old, 0, this.buffer, 0, this.count);
-        free old;
     }
     /** Writes the supplied data. */
     @Override
@@ -90,8 +89,5 @@ public class ByteArrayOutputStream extends OutputStream {
     public void close() {
 
     }
-    destructor {
 
-        free this.buffer;
-    }
 }

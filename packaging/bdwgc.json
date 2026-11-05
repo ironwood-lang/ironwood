@@ -32,12 +32,12 @@
       "-DUSE_MARK_BYTES=1"
     ],
     "startup": "GC_set_dont_precollect(1); GC_INIT(); GC_disable();",
-    "root_and_layout": "Compiler-owned exact physical layouts; indirect type descriptors, fixed bitmaps and exact large/array mark procedures; descriptor-preserving overflow recovery."
+    "root_and_layout": "Compiler-owned exact physical layouts; indirect type descriptors, pointer-free maps and exact reference mark procedures including conditional native graphs; descriptor-preserving overflow recovery."
   },
   "memory.abi": "ironwood-native-gc-1",
-  "adapter.abi": "ironwood-gc-engine-2",
+  "adapter.abi": "ironwood-gc-engine-3",
   "layout.version": 1,
-  "roots.version": 1,
+  "roots.version": 2,
   "llvm.version": "23.1.0",
   "llvm.stackmap.version": 3,
   "build.cflags": [
@@ -59,5 +59,6 @@
       "triple": "x86_64-unknown-linux-gnu",
       "isolation": "ELF hidden definitions; local:* version map; -Bsymbolic; --exclude-libs,ALL"
     }
-  }
+  },
+  "runtime.owner.version": 1
 }

@@ -162,8 +162,8 @@ a fresh endpoint owned by the caller
 public String getHostName()
 ```
 
-Returns the unresolved label or the resolved address's host name. The latter may trigger a
-synchronous reverse lookup. Do not free the returned text separately.
+Returns the unresolved label or the resolved address's host name. The latter may trigger
+a synchronous reverse lookup. The returned text has an ordinary managed lifetime.
 
 **Returns**
 
@@ -180,8 +180,8 @@ host text borrowed from this endpoint
 public String getHostString()
 ```
 
-Returns a host label or numeric text without triggering reverse DNS. Do not free the
-returned text separately.
+Returns a host label or numeric text without triggering reverse DNS. The returned text
+has an ordinary managed lifetime.
 
 **Returns**
 
@@ -198,8 +198,7 @@ host text borrowed from this endpoint
 public InetAddress getAddress()
 ```
 
-Returns this endpoint's copied immutable address. Its lifetime is bounded by this endpoint;
-do not free it separately.
+Returns this endpoint's copied immutable address. It has an ordinary managed lifetime.
 
 **Returns**
 

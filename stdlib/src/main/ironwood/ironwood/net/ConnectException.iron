@@ -5,8 +5,8 @@ package ironwood.net;
 import ironwood.io.IOException;
 
 /**
- * Reports a refused TCP connection. Message text is copied; it remains valid after the input
- * string is freed.
+ * Reports a refused TCP connection. Message text is copied; it is independent of later caller
+ * input changes.
  */
 public class ConnectException extends SocketException {
 

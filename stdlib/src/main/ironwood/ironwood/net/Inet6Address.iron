@@ -47,16 +47,16 @@ public final class Inet6Address extends InetAddress {
     }
 
     /**
-     * Creates an IPv6 value from copied bytes and an optional interface-derived scope. A supplied
-     * interface must contain a compatible IPv6 source; its snapshot is copied so the input owner
-     * may be freed afterward.
+     * Creates an IPv6 value from copied bytes and an optional interface-derived scope. A
+     * supplied interface must contain a compatible IPv6 source; its snapshot is copied
+     * independently of the input owner.
      *
      * @param host an optional host label to copy without DNS
      * @param address exactly 16 network-order bytes to copy
      * @param netif an interface to copy and derive scope from, or null for no scope
      * @return a fresh IPv6 value owned by the caller
      * @throws UnknownHostException if the byte array is null, its length is not 16, or no
-     *     compatible interface scope exists
+     * compatible interface scope exists
      */
     public static Inet6Address getByAddress(String host, byte[] address, NetworkInterface netif) throws UnknownHostException {
 
@@ -69,8 +69,7 @@ public final class Inet6Address extends InetAddress {
 
     /**
      * Returns the associated interface from this value's retained snapshot or its enclosing
-     * interface query. Do not free the result separately or use it after the address owner is
-     * freed.
+     * interface query. The managed result retains its snapshot.
      *
      * @return a borrowed interface, or null for numeric or unspecified scope
      */
@@ -119,8 +118,5 @@ public final class Inet6Address extends InetAddress {
         return this.wordAt(0) == 0 && this.wordAt(1) == 0 && this.wordAt(2) == 0;
     }
 
-    destructor {
 
-        free this.scopedInterface;
-    }
 }

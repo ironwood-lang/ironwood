@@ -35,7 +35,6 @@ public class ByteBufferMap<E extends Object> implements Iterable<E> {
     private ByteBuffer currentIteratorKey;
     private boolean isPowerOfTwo;
     private int maxKeyLength;
-    // Keep the builder before the pool for reverse-order constructor rollback.
     private final ObjectBuilder<ByteBufferMapEntry<E>> entryBuilder;
     private final ArrayObjectPool<ByteBufferMapEntry<E>> entryPool;
     private ByteBufferMapIterator<E> reusableIterator;
@@ -220,7 +219,9 @@ public class ByteBufferMap<E extends Object> implements Iterable<E> {
 
     private void releaseEntryBackToPool(ByteBufferMapEntry<E> entry) {
 
-        // Reuse overwrites value and next before the entry is published again.
+        // The entry remains reusable; retired user graphs do not.
+        entry.value = null;
+        entry.next = null;
         this.entryPool.release(entry);
     }
 
@@ -246,7 +247,6 @@ public class ByteBufferMap<E extends Object> implements Iterable<E> {
             }
             oldIndex--;
         }
-        free oldData;
     }
 
     private ByteBufferMapEntry<E> findEntry(byte[] key, int start, int keyLength) {
@@ -561,7 +561,6 @@ public class ByteBufferMap<E extends Object> implements Iterable<E> {
     public String toString() {
 
         StringBuilder builder = new StringBuilder();
-        defer free builder;
         builder.append('{');
         Iterator<E> iterator = iterator();
         boolean first = true;
@@ -623,11 +622,5 @@ public class ByteBufferMap<E extends Object> implements Iterable<E> {
         return reusableIterator;
     }
 
-    destructor {
 
-        free this.reusableIterator;
-        free this.data;
-        free this.entryPool;
-        free this.entryBuilder;
-    }
 }

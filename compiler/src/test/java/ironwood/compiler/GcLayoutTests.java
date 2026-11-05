@@ -35,7 +35,6 @@ public final class GcLayoutTests {
                     static int drive() {
                         Box<long> number = new Box<long>(42L);
                         long result = number.get();
-                        free number;
                         return (int) result;
                     }
                 }
@@ -114,26 +113,25 @@ public final class GcLayoutTests {
             check(IrAllocationLayout.of(type).equals(IrAllocationLayout.of(before)), "specialized clone changed a map");
         }
         var throwable = input.classes().stream().filter(type -> type.name().equals("ironwood.lang.Throwable")).findFirst().orElseThrow();
-        var refusal = IrAllocationLayout.of(throwable);
-        check(refusal.shape() == IrAllocationLayout.Shape.REFUSED && refusal.refusal().contains("traceState"), "hidden native links accepted");
+        var managedThrowable = IrAllocationLayout.of(throwable);
+        managedThrowable.requireSupported();
+        check(managedThrowable.references().size() == 4, "real Throwable references are incomplete");
         check(IrAllocationLayout.of(input).size() == input.classes().stream().filter(IrClass::isClass).count() + input.arrayTypes().size(),
                 "full inventory silently omitted layouts");
-        denied(() -> GcLayoutEmitter.c(input));
-        denied(() -> GcLayoutEmitter.llvm(input));
+        check(!GcLayoutEmitter.c(input).isEmpty() && !GcLayoutEmitter.llvm(input).isEmpty(), "actual source inventory refused");
         var inheritedFailure = new IrClass("DerivedFailure", IrTypeKind.CLASS, Optional.of(throwable.name()), List.of(),
                 throwable.fields(), 0, List.of(), List.of(), throwable.sourceSpan());
-        denied(() -> IrAllocationLayout.of(inheritedFailure).requireSupported());
+        IrAllocationLayout.of(inheritedFailure).requireSupported();
         var view = new IrArrayType(IrType.array(IrType.reference("ironwood.bridge.ByteView")), 0, List.of(), List.of(), false);
         denied(() -> IrAllocationLayout.of(view).requireSupported());
-        denied(() -> GcLayoutEmitter.c(List.of(refusal)));
-        denied(() -> GcLayoutEmitter.llvm(List.of(refusal)));
         var badField = new IrField("Bad", "hole", IrType.I64, 3, throwable.sourceSpan());
         var bad = new IrClass("Bad", IrTypeKind.CLASS, Optional.empty(), List.of(), List.of(badField), 0, List.of(), List.of(), throwable.sourceSpan());
         denied(() -> IrAllocationLayout.of(bad).requireSupported());
         String ordinary = new LlvmEmitter().emit(input);
-        check(ordinary.contains("%\"ironwood.class.Shape\" = type { ptr, i8, ptr, i1, double, ptr, i64 }"),
+        check(ordinary.contains("%\"ironwood.class.Shape\" = type { ptr, i8, ptr addrspace(1), i1, double, ptr addrspace(1), i64 }"),
                 "experimental fixture no longer matches production physical storage");
-        check(!ordinary.contains("iw_gc_") && !ordinary.contains("iw.layout"), "dormant metadata entered production output");
+        check(ordinary.contains("@iw_gc_root_abi = hidden constant i32 2") && ordinary.contains("iw.layout"),
+                "normal output lost exact GC metadata");
         check(GcLayoutEmitter.c(layouts).contains("offsetof(struct iw_shape_1, f1)"), "C offsets guessed");
         check(GcLayoutEmitter.llvm(layouts).contains("getelementptr (%iw.shape.1, ptr null, i32 0, i32 2)"), "LLVM offsets guessed");
     }

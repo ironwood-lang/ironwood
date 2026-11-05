@@ -201,7 +201,6 @@ public final class StringBuffer implements CharSequence {
         char[] oldValue = this.value;
         this.value = new char[newCapacity];
         System.arraycopy(oldValue, 0, this.value, 0, this.count);
-        free oldValue;
     }
     /** Appends the supplied value. */
 
@@ -329,7 +328,6 @@ public final class StringBuffer implements CharSequence {
     public StringBuffer append(float number) {
 
         String rendered = String.valueOf(number);
-        defer free rendered;
         appendString(rendered);
         return this;
     }
@@ -338,7 +336,6 @@ public final class StringBuffer implements CharSequence {
     public StringBuffer append(double number) {
 
         String rendered = String.valueOf(number);
-        defer free rendered;
         appendString(rendered);
         return this;
     }
@@ -464,7 +461,6 @@ public final class StringBuffer implements CharSequence {
     public StringBuffer insert(int offset, float number) {
 
         String rendered = String.valueOf(number);
-        defer free rendered;
         insertString(offset, rendered);
         return this;
     }
@@ -473,7 +469,6 @@ public final class StringBuffer implements CharSequence {
     public StringBuffer insert(int offset, double number) {
 
         String rendered = String.valueOf(number);
-        defer free rendered;
         insertString(offset, rendered);
         return this;
     }
@@ -553,8 +548,5 @@ public final class StringBuffer implements CharSequence {
         return initialLength + 16;
     }
 
-    destructor {
 
-        free this.value;
-    }
 }

@@ -33,8 +33,8 @@ Actual timings vary by machine.
 
 
 
-Reset retains storage for reuse. Free each benchmark after use and free
-any report String returned by `results()`. The class pages contain
+Reset retains storage for reuse. Report Strings and dropped benchmarks
+become eligible for explicit collection. The class pages contain
 complete examples and the timing, reset, and reporting contracts.
 
 **See also**

@@ -51,7 +51,6 @@ public class BufferedInputStream extends InputStream {
                 byte[] old = this.buffer;
                 this.buffer = new byte[capacity];
                 System.arraycopy(old, 0, this.buffer, 0, this.end);
-                free old;
             }
         }
         int read = this.input.read(this.buffer, this.end, this.buffer.length - this.end);
@@ -140,8 +139,5 @@ public class BufferedInputStream extends InputStream {
 
         if (!this.closed) { this.closed = true; this.input.close(); }
     }
-    destructor {
 
-        free this.buffer;
-    }
 }

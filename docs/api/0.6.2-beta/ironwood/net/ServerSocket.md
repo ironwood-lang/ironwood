@@ -16,16 +16,15 @@ public class ServerSocket implements Closeable
 
 **Implements:** [`Closeable`](../io/Closeable.md)
 
-Blocking TCP listener facade with explicit resource lifetime. Close before freeing: close
-releases the native resource, while destruction reclaims owned managed storage. Default and
-proven fresh factory implementations are owned; explicitly injected implementations are
-borrowed. Reclaim outer wrappers and the facade before a caller-owned implementation or its
-delegates.
+Blocking TCP listener facade with explicit resource lifetime. Explicit close releases native
+resources; collection never closes them. Default and proven fresh factory implementations are
+owned; explicitly injected implementations are borrowed. Managed references retain the implementation and its delegates.
 
 
-Streams, cached addresses and option inventories are borrowed unless a getter explicitly
-returns a fresh result. Close does not invalidate managed metadata or clear connection/binding
-history. DNS and ordinary TCP writes are blocking; SO_TIMEOUT bounds accept only.
+Streams, cached addresses
+and option inventories are borrowed unless a getter explicitly returns a fresh result. Close
+does not invalidate managed metadata or clear connection/binding history. DNS and ordinary
+TCP writes are blocking; SO_TIMEOUT bounds accept only.
 
 
 ## Member summary
@@ -202,8 +201,8 @@ public static void setSocketFactory(SocketImplFactory value) throws IOException
 
 Registers the factory used by future listeners. A non-null registration is permitted only
 once. Null is a no-op before registration; every later call fails. The factory and its
-captured references are retained for the process lifetime and must not be freed while
-registered. Each factory result must be proven fresh and unpublished.
+captured references are retained for the process lifetime. Each factory result must be
+proven fresh and unpublished.
 
 **Parameters**
 
@@ -285,9 +284,9 @@ The operating system may adjust the backlog hint.
 public Socket accept() throws IOException
 ```
 
-Waits for a connection and transfers its native resource into a new client socket from the
-client factory. The accepted socket is independent of this listener and must be closed and
-freed separately. A configured SO_TIMEOUT limits the wait; timeout leaves the listener
+Waits for a connection and transfers its native resource into a new client socket from
+the client factory. The accepted socket is independent of this listener and must be
+closed explicitly. A configured SO_TIMEOUT limits the wait; timeout leaves the listener
 usable.
 
 **Throws**
@@ -400,8 +399,7 @@ true after successful binding, including after close
 public InetAddress getInetAddress()
 ```
 
-Returns the bound local address from the implementation, including after close. Do not free
-the result separately.
+Returns the bound local address from the implementation, including after close. The returned address has a managed lifetime.
 
 **Returns**
 

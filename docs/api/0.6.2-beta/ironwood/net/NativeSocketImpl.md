@@ -17,13 +17,13 @@ public class NativeSocketImpl extends SocketImpl
 **Extends:** [`SocketImpl`](SocketImpl.md)
 
 Publicly callable native TCP delegate for custom SocketImpl implementations. Owns descriptor
-storage and lazily created stream views. Call close, including after failed use, before freeing;
-destruction reclaims only managed storage. Facades may borrow this delegate or adopt it as a
+storage and lazily created stream views. Call close explicitly, including after failed use;
+collection never closes native resources. Facades may borrow this delegate or adopt it as a
 proven fresh factory result.
 
 
-Borrowed streams, addresses and descriptor state must not be freed separately. Address
-metadata survives close until owner reclamation. Generic native options use primitive
+Managed streams, addresses and descriptor state retain their
+graph. Address metadata survives close while reachable. Generic native options use primitive
 specialization without boxing; public inventories contain only supported standard tokens.
 Timeout configuration is available separately through SocketImplOptions.SO_TIMEOUT.
 
@@ -108,10 +108,10 @@ listener mode does not bind or start listening.
 public static NativeSocketImpl forProxy(Proxy proxy)
 ```
 
-Creates a native client transport with an independent copy of explicit proxy configuration,
-bypassing global socket factories. After successful negotiation, data uses ordinary native
-TCP streams. Close the result even after failure, then free it; caller proxy inputs may be
-freed after construction.
+Creates a native client transport with an independent copy of explicit proxy
+configuration, bypassing global socket factories. After successful negotiation, data uses
+ordinary native TCP streams. Close the result explicitly, including after failure. Proxy
+inputs are copied.
 
 **Parameters**
 
@@ -225,8 +225,7 @@ public void connect(String host, int port) throws IOException
 ```
 
 Builds a temporary endpoint, resolves synchronously, and delegates to connect with no
-deadline. The temporary endpoint is freed after delegation, so overrides must not retain it
-without copying.
+deadline. The managed endpoint may be retained by an override.
 
 **Parameters**
 
@@ -254,8 +253,8 @@ without copying.
 public void connect(InetAddress address, int port) throws IOException
 ```
 
-Builds a temporary copied endpoint and delegates to connect with no deadline. The temporary
-is freed after delegation, so overrides must not retain it without copying.
+Builds a temporary copied endpoint and delegates to connect with no deadline. The managed
+endpoint may be retained by an override.
 
 **Parameters**
 
@@ -410,9 +409,9 @@ public InputStream getInputStream()
 ```
 
 Returns a stable, lazily cached input view. It remains tied to this implementation or its
-delegate and must not be freed separately. Closing the native view closes the delegate.
-Reads use the configured read timeout; expiration leaves native TCP usable. Resource state
-is checked by I/O operations, not by this getter.
+delegate and follows ordinary managed reachability. Closing the native view closes the
+delegate. Reads use the configured read timeout; expiration leaves native TCP usable.
+Resource state is checked by I/O operations, not by this getter.
 
 **Returns**
 
@@ -430,10 +429,10 @@ a borrowed input stream
 public OutputStream getOutputStream()
 ```
 
-Returns a stable, lazily cached output view. It remains tied to this implementation or its
-delegate and must not be freed separately. Closing the native view closes the delegate.
-Ordinary TCP writes have no deadline and may partially complete before failure. Resource
-state is checked by I/O operations, not by this getter.
+Returns a stable, lazily cached output view. It remains tied to this implementation or
+its delegate and follows ordinary managed reachability. Closing the native view closes
+the delegate. Ordinary TCP writes have no deadline and may partially complete before
+failure. Resource state is checked by I/O operations, not by this getter.
 
 **Returns**
 
@@ -701,9 +700,9 @@ descriptor lazily.
 public UnmodifiableList<SocketOptionDescriptor> supportedOptions()
 ```
 
-Returns the process-lifetime native client or listener inventory. Do not free the list or
-its tokens. Implementation-only timeout and urgent-data tokens are excluded. Custom
-inventories must remain alive with their implementation.
+Returns the process-lifetime native client or listener inventory. The list and tokens
+have managed lifetimes. Implementation-only timeout and urgent-data tokens are excluded.
+Custom inventories must remain alive with their implementation.
 
 **Returns**
 

@@ -214,7 +214,6 @@ public class PrintStream extends OutputStream {
         } else {
 
             String text = String.valueOf(value);
-            defer free text;
             customPrint(text);
         }
     }
@@ -227,7 +226,6 @@ public class PrintStream extends OutputStream {
         } else {
 
             String text = String.valueOf(value);
-            defer free text;
             customPrint(text);
         }
     }
@@ -240,7 +238,6 @@ public class PrintStream extends OutputStream {
         } else {
 
             String text = String.valueOf(value);
-            defer free text;
             customPrint(text);
         }
     }
@@ -253,7 +250,6 @@ public class PrintStream extends OutputStream {
         } else {
 
             String text = String.valueOf(value);
-            defer free text;
             customPrint(text);
         }
     }

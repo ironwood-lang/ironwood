@@ -18,10 +18,10 @@ Owns reusable objects and lends them to callers through [`get()`](#member-get-28
 
 
 
-The bundled implementations are single-threaded. Destroying a pool destroys
-all values created by its builder, including those still checked out. The compiler must
-prove that no later access or escaped alias can observe a destroyed value.
-The builder is borrowed, not owned by the pool.
+The bundled implementations are single-threaded and intentionally retain
+builder-created values, including checked-out objects. Checkout references
+keep their objects alive independently under GC. Returning a value changes
+its reuse state; it never closes native resources or resets object state.
 
 **Parameters**
 
@@ -59,7 +59,7 @@ Borrows an available object or creates a fresh pool-owned object.
 
 **Returns**
 
-a non-null value that must not outlive this pool
+a non-null value checked out from this pool
 
 
 [Back to member summary](#member-summary)
@@ -79,7 +79,7 @@ Returns a checked-out object for reuse without changing its state.
 Return each checkout at most once, only to its originating pool. Stop
 using it until a later checkout. Duplicate returns are not checked and may
 corrupt reuse. External objects are outside this contract: they are not
-recorded and will not be destroyed when the pool is freed.
+valid checkout results.
 
 **Parameters**
 

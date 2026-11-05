@@ -1,5 +1,15 @@
 # Compiler architecture
 
+## GC5 memory-model supersession
+
+The migration branch now uses [the GC5 managed memory contract](MEMORY.md).
+Canonical Memory.collect() is the only reclamation point. There is no source
+free, destructor, implicit temporary destruction or managed constructor rollback.
+General defer, initialization, native resource and pool protocols remain.
+Historical proof discussions and examples mentioning those removed forms are
+pre-GC5 records awaiting GC7 consumer migration, not alternate supported semantics.
+Native bridge/shared-library output remains refused until GC6 qualification.
+
 ## Launcher JVM configuration
 
 The `ironwoodc`, `ironjar`, and `irondoc` launchers share the optional
@@ -25,16 +35,16 @@ explicit UTF-8 sources
   -> override, interface-obligation, layout, and dispatch analysis
   -> provisional typed function lowering with resolved calls and normal/exceptional control flow
   -> receiver-flow fixed point and call-site borrow targets
-  -> final name, visibility, conversion, type, ownership/effect, and safe-free validation/lowering
-  -> compiler-owned typed SSA/control-flow, hierarchy, exception, array, I/O, destructor, rollback, and free IR
+  -> final name, visibility, conversion, type, effect, native/resource and pool validation/lowering
+  -> compiler-owned typed SSA/control-flow, hierarchy, exception, array, I/O and collection IR
   -> closed-world primitive-generic shape and callable specialization
   -> LLVM text emitter
   -> native-link target triple and data layout from configured Clang
   -> llvm-as (IR validation and bitcode assembly)
   -> opt (LLVM optimization pipeline)
-  -> compiler-finalized on-demand trace metadata
-  -> llvm-as (final bitcode assembly)
-  -> llc (native program object generation)
+  -> optimized trace attribution and required nonmoving statepoints
+  -> final strategy/stack-region verification and llvm-as
+  -> llc plus retained exact root sections and image map contract
   -> llvm-objcopy (Linux trace-section mapping)
   -> Clang (bootstrap runtime C object generation)
   -> Clang C++ driver mode (platform unwind runtime and link)
@@ -1467,7 +1477,7 @@ in typed IR; reading the diagnostic count is side-effect-free with respect to
 language allocation, identity hashing bypasses virtual dispatch, and bulk copy
 retains ordinary reference aliases rather than transferring ownership.
 
-## Safe-free analysis and lowering
+## Historical safe-free analysis and lowering (GC7 scaffolding)
 
 Before emitting an `IrFreeInstruction`, semantic lowering proves the identity of
 the target allocation and conservatively accounts for its aliases and escapes.
@@ -1629,7 +1639,7 @@ site. LLVM emission performs no memory-safety reasoning: it lowers accepted
 which calls the descriptor's dynamic destructor entry and then
 `ironwood_deallocate`.
 
-## Destructor effects and constructor rollback
+## Historical destructor effects and constructor rollback (GC7 scaffolding)
 
 Callable symbols and `IrFunction` carry an explicit kind: method, constructor,
 destructor, class initializer, or constructor rollback. Each class descriptor

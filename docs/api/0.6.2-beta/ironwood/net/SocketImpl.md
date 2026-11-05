@@ -14,17 +14,16 @@
 public abstract class SocketImpl
 ```
 
-TCP implementation protocol for custom socket facades and delegation. A supplied implementation
-is borrowed; a proven fresh factory result is adopted. An implementation may own a fresh
-delegate or borrow a caller-owned delegate. Ordinary ownership analysis applies to every
-reachable override; this protocol grants no blanket non-retention exemption.
+TCP implementation protocol for custom socket facades and delegation. A supplied
+implementation is borrowed; a proven fresh factory result is adopted. An implementation may
+own a fresh delegate or borrow a caller-owned delegate. Ordinary ownership analysis applies
+to every reachable override; this protocol grants no blanket non-retention exemption.
 
 
 Descriptor, stream and address getters return helpers tied to their implementation or
-delegate. Reclaim outer stream wrappers and facades before caller-owned implementations and
-delegates. close releases resources and must be idempotent; destruction only reclaims managed
-storage. Accept transfers one resource into destination-owned storage and never adopts the
-destination.
+delegate. Managed references retain implementations and delegates. close releases resources
+and must be idempotent; collection never closes resources. Accept transfers one resource into
+destination-owned storage and never adopts the destination.
 
 
 ## Member summary
@@ -148,8 +147,7 @@ protected void connect(String host, int port) throws IOException
 ```
 
 Builds a temporary endpoint, resolves synchronously, and delegates to connect with no
-deadline. The temporary endpoint is freed after delegation, so overrides must not retain it
-without copying.
+deadline. The managed endpoint may be retained by an override.
 
 **Parameters**
 
@@ -176,8 +174,8 @@ without copying.
 protected void connect(InetAddress address, int port) throws IOException
 ```
 
-Builds a temporary copied endpoint and delegates to connect with no deadline. The temporary
-is freed after delegation, so overrides must not retain it without copying.
+Builds a temporary copied endpoint and delegates to connect with no deadline. The managed
+endpoint may be retained by an override.
 
 **Parameters**
 
@@ -261,9 +259,9 @@ protected abstract InputStream getInputStream() throws IOException
 ```
 
 Returns an implementation-dependent borrowed input view. It remains tied to this
-implementation or its delegate and must not be freed separately. Closing the native view
-closes the delegate. Reads use the configured read timeout; expiration leaves native TCP
-usable. Custom overrides participate in ownership analysis.
+implementation or its delegate and follows ordinary managed reachability. Closing the
+native view closes the delegate. Reads use the configured read timeout; expiration leaves
+native TCP usable. Custom overrides participate in ownership analysis.
 
 **Throws**
 
@@ -287,9 +285,9 @@ protected abstract OutputStream getOutputStream() throws IOException
 ```
 
 Returns an implementation-dependent borrowed output view. It remains tied to this
-implementation or its delegate and must not be freed separately. Closing the native view
-closes the delegate. Ordinary TCP writes have no deadline and may partially complete before
-failure. Custom overrides participate in ownership analysis.
+implementation or its delegate and follows ordinary managed reachability. Closing the
+native view closes the delegate. Ordinary TCP writes have no deadline and may partially
+complete before failure. Custom overrides participate in ownership analysis.
 
 **Throws**
 
@@ -335,9 +333,9 @@ the number of bytes currently available without blocking
 protected abstract void close() throws IOException
 ```
 
-Releases the resource idempotently without reclaiming managed descriptor, stream or address
-storage. An override must close its owned resource or delegate without freeing borrowed
-objects.
+Releases the resource idempotently without reclaiming managed descriptor, stream or
+address storage. An override must close its owned resource or delegate without changing
+unrelated native ownership.
 
 **Throws**
 
@@ -635,9 +633,9 @@ protected UnmodifiableList<SocketOptionDescriptor> supportedOptions()
 ```
 
 Returns the read-only inventory of supported public options; the default is a
-process-lifetime empty list. Do not free the list or its tokens. Implementation-only timeout
-and urgent-data tokens are excluded. Custom inventories must remain alive with their
-implementation.
+process-lifetime empty list. The list and tokens have managed lifetimes.
+Implementation-only timeout and urgent-data tokens are excluded. Custom inventories must
+remain alive with their implementation.
 
 **Returns**
 

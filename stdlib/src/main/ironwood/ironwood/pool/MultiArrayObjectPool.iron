@@ -4,27 +4,22 @@
  * Contributed to Ironwood by the original author and relicensed under
  * Ironwood's default project license.
  *
- * Modified for Ironwood: explicit builders and deterministic destruction.
+ * Modified for Ironwood: explicit builders and managed storage.
  */
 package ironwood.pool;
 
 /**
  * Reuses objects across linked array segments without copying existing slots.
  *
- * <p>This single-threaded pool records every non-null builder result once and
- * destroys those objects when the pool is freed, including checked-out objects.
- * Checkout and return do not perform identity lookups. Return each checkout at
- * most once and return only objects obtained from this pool. External objects
- * are outside the contract and are never registered or destroyed by the pool.
+ * <p>This single-threaded pool retains every non-null builder result, including
+ * checked-out objects. Return each checkout at most once and only to its
+ * originating pool. Checkout and return do not reset state, close resources or
+ * perform identity lookups. External objects are outside the return contract.
  *
- * <p>Existing segments remain allocated until pool destruction. Growth adds a
- * segment with twice the current length, capped at the maximum array length.
- * A growing creation array records builder results and segment holders; each
- * holder frees its array container, without freeing the objects in its slots.
- * Reusing existing values does not touch this creation array or allocate.
- *
- * <p>The compiler requires fresh, unescaped builder results and prevents use of
- * pool-dependent references after destruction. The builder itself is borrowed.
+ * <p>Growth adds a segment with twice the current length, capped at the maximum
+ * array length. The creation array retains builder results and segment holders.
+ * Reuse does not touch that array or allocate. Dropped managed graphs become
+ * eligible for explicit collection. Builder results must be fresh and unescaped.
  *
  * @param <E> the reference type of pooled objects
  * @see ArrayObjectPool
@@ -44,17 +39,13 @@ public final class MultiArrayObjectPool<E extends Object> implements ObjectPool<
             this.array = new E[length];
         }
 
-        destructor {
 
-            free this.array;
-        }
     }
 
     private ArrayHolder<E> arrayHolder;
     private int pointer;
     private final ObjectBuilder<E> builder;
-    // Creation order includes segment holders, whose destructors free their
-    // arrays. No linked-list traversal is needed during partial construction.
+    // Retain created objects and segment holders independently of checkout state.
     private Object[] createdObjects;
     private int createdCount;
 
@@ -73,7 +64,7 @@ public final class MultiArrayObjectPool<E extends Object> implements ObjectPool<
      *
      * <p>The builder is called exactly {@code preloadCount} times. A null result
      * leaves an empty slot to retry on checkout. Builder exceptions propagate;
-     * failed construction reclaims already-created objects and private storage.
+     * failed construction leaves a valid managed graph eligible for collection.
      *
      * @param initialCapacity the positive initial segment length
      * @param preloadCount the initial number of builder calls, from zero to capacity
@@ -117,7 +108,6 @@ public final class MultiArrayObjectPool<E extends Object> implements ObjectPool<
             Object[] oldArray = this.createdObjects;
             this.createdObjects = new Object[newLength];
             System.arraycopy(oldArray, 0, this.createdObjects, 0, oldArray.length);
-            free oldArray;
         }
     }
 
@@ -155,7 +145,7 @@ public final class MultiArrayObjectPool<E extends Object> implements ObjectPool<
 
     /**
      * Checks out a value, creating one when its slot is empty.
-     * @return a non-null value whose lifetime is bounded by the pool
+     * @return a non-null checked-out managed value
      * @throws IllegalStateException if the builder returns null
      */
     @Override
@@ -191,7 +181,7 @@ public final class MultiArrayObjectPool<E extends Object> implements ObjectPool<
      *
      * <p>Return each checkout at most once and only to its originating pool.
      * Duplicate returns are not checked. External objects are unsupported and
-     * are not recorded for destruction.
+     * are outside the return contract.
      *
      * @param instance the non-null checked-out object
      * @throws IllegalArgumentException if the argument is null
@@ -211,13 +201,5 @@ public final class MultiArrayObjectPool<E extends Object> implements ObjectPool<
         arrayHolder.array[--this.pointer] = instance;
     }
 
-    destructor {
 
-        // Each builder result and segment holder is destroyed exactly once.
-        // Holder destruction frees array storage, never the objects in its slots.
-        for (int index = 0; index < this.createdObjects.length; index++) {
-            free this.createdObjects[index];
-        }
-        free this.createdObjects;
-    }
 }

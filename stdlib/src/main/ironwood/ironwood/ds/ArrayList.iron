@@ -90,20 +90,27 @@ public class ArrayList<E extends Object> implements Iterable<E> {
         E[] oldArray = this.array;
         this.array = new E[newCapacity];
         System.arraycopy(oldArray, 0, this.array, 0, this.currentSize);
-        free oldArray;
     }
 
-    /*
-     * currentSize is the visibility boundary: inactive slots are never read,
-     * and add/insert overwrite them before making them observable. Ironwood
-     * has no tracing GC. A proven clear releases the compiler's caller-item
-     * loans without destroying any items or scrubbing unobservable aliases.
-     * Removal likewise leaves inactive slots unchanged.
-     */
-    /** Removes all stored values. */
+    /** Removes all values and clears their physical reference slots. */
     public void clear() {
 
         this.currentSize = 0;
+        clearUnusedReferences();
+    }
+
+    /** Resets membership while deliberately retaining storage references for reuse. */
+    public void resetForReuse() {
+
+        this.currentSize = 0;
+    }
+
+    /** Clears inactive capacity after a retaining reset, without changing active values. */
+    public void clearUnusedReferences() {
+
+        for (int index = this.currentSize; index < this.array.length; index++) {
+            this.array[index] = null;
+        }
     }
     /** Adds the supplied value. */
 
@@ -140,6 +147,7 @@ public class ArrayList<E extends Object> implements Iterable<E> {
         if (this.currentSize == 0) throw new NoSuchElementException();
         this.currentSize = this.currentSize - 1;
         E result = this.array[this.currentSize];
+        this.array[this.currentSize] = null;
         return result;
     }
     /** Inserts the supplied value. */
@@ -188,6 +196,7 @@ public class ArrayList<E extends Object> implements Iterable<E> {
         int shiftCount = this.currentSize - index - 1;
         if (shiftCount > 0) System.arraycopy(this.array, index + 1, this.array, index, shiftCount);
         this.currentSize = this.currentSize - 1;
+        this.array[this.currentSize] = null;
         return result;
     }
     /** Returns whether the supplied value is present. */
@@ -241,14 +250,12 @@ public class ArrayList<E extends Object> implements Iterable<E> {
      * <p>The result owns its array and reusable iterator, with the default
      * growth factor and initial capacity equal to the larger of one and this
      * list's size. Unused source capacity is not copied.
-     * Elements are borrowed, retain their identity and are never destroyed by
-     * this operation or either list's destructor. Null elements cannot occur
+     * Elements preserve their identity and are retained by both lists. Null elements cannot occur
      * in a valid list. The source iterator's position is unchanged.
      *
      * <p>This operation takes linear time and allocates one list, one iterator,
-     * and one backing array for an ordinary list. On failure all result storage is
-     * reclaimed and source membership is unchanged. Free the result only after
-     * its last consumer; keep its borrowed elements alive until then.
+     * and one backing array for an ordinary list. On failure the partial graph
+     * remains managed and source membership is unchanged.
      *
      * @return a fresh mutable list with the same ordered element references
      */
@@ -261,10 +268,8 @@ public class ArrayList<E extends Object> implements Iterable<E> {
             }
             return result;
         } catch (RuntimeException failure) {
-            free result;
             throw failure;
         } catch (Error failure) {
-            free result;
             throw failure;
         }
     }
@@ -280,7 +285,7 @@ public class ArrayList<E extends Object> implements Iterable<E> {
      * <p>Only indexes {@code [0, size())} are compared and reordered. Elements
      * the comparator considers equal keep their encounter order. Size,
      * capacity, growth factor and the reusable iterator's position are
-     * unchanged, elements keep their identity and none is freed. The
+     * unchanged and elements keep their identity. The
      * comparator is required even for an empty list; unlike Java's
      * {@code List.sort}, there is no natural-order fallback.
      *
@@ -305,7 +310,6 @@ public class ArrayList<E extends Object> implements Iterable<E> {
             return;
         }
         E[] scratch = new E[size / 2];
-        defer free scratch;
         mergeSort(scratch, 0, size, comparator);
     }
 
@@ -417,7 +421,6 @@ public class ArrayList<E extends Object> implements Iterable<E> {
     public String toString() {
 
         StringBuilder builder = new StringBuilder();
-        defer free builder;
         builder.append('[');
         int index = 0;
         while (index < this.currentSize) {
@@ -442,9 +445,5 @@ public class ArrayList<E extends Object> implements Iterable<E> {
         return reusableIterator;
     }
 
-    destructor {
 
-        free this.reusableIterator;
-        free this.array;
-    }
 }

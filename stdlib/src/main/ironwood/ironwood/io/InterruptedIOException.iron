@@ -35,7 +35,7 @@ public class InterruptedIOException extends IOException {
     }
 
     /**
-     * Returns the detail text owned by this exception. Do not free it separately.
+     * Returns this exception's managed detail text.
      *
      * @return borrowed message text, or null
      */
@@ -45,8 +45,5 @@ public class InterruptedIOException extends IOException {
         return this.detail;
     }
 
-    destructor {
 
-        free this.detail;
-    }
 }

@@ -54,7 +54,6 @@ public class BitSet {
         long[] old = this.words;
         this.words = new long[capacity];
         System.arraycopy(old, 0, this.words, 0, this.wordsInUse);
-        free old;
     }
 
     private void recalculateWordsInUse() {
@@ -422,7 +421,6 @@ public class BitSet {
     public String toString() {
 
         StringBuilder builder = new StringBuilder();
-        defer free builder;
         builder.append('{');
         int bit = nextSetBit(0);
         boolean first = true;
@@ -437,8 +435,5 @@ public class BitSet {
         return builder.toString();
     }
 
-    destructor {
 
-        free this.words;
-    }
 }

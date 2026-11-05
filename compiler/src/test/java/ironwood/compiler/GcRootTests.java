@@ -119,7 +119,8 @@ public final class GcRootTests {
         var renamed = new IrCfgRenamer(v -> new IrValueReference(v.id() + 100, v.type(), v.sourceSpan()), l -> "copy." + l)
                 .block(program.functions().stream().filter(f -> f.linkageName().equals("gc3_stack")).findFirst().orElseThrow().blocks().getFirst());
         check(((IrGcRootSlotInstruction)renamed.instructions().getFirst()).slot().id() == 102, "native stack owner not cloned");
-        denied(() -> new LlvmEmitter().emit(program));
+        check(new LlvmEmitter().emit(sourceUnchecked()).contains("@iw_gc_root_abi = hidden constant i32 2"),
+                "normal source emission lost integrated root ABI");
         denied(() -> GcExperimentalClosure.validate(sourceUnchecked()));
         String output = new LlvmEmitter().emitGcExperiment(transformed);
         check(output.contains("ptr addrspace(1)") && output.contains("\"deopt\"(i64 1230455603"), "stack/SSA root descriptions missing");
@@ -194,9 +195,9 @@ public final class GcRootTests {
                     function.parameters(), blocks, function.sourceSpan(), function.sourceFileName(), function.kind());
         }).toList();
         var collecting = copy(input, functions);
-        // This legacy source program is an effect-analysis control, not a GC
-        // native closure. GC5 now refuses its destruction metadata at final link.
-        denied(() -> NativeLinkTransformation.apply(collecting));
+        // GC5 no longer synthesizes managed destruction metadata for this
+        // ordinary source control. Final-link admission must now succeed.
+        ironwood.compiler.backend.GcManagedHeapVerifier.verify(NativeLinkTransformation.apply(collecting).program());
         var transformed = ClosedWorldPruner.prune(NativeLinkPipeline.optimize(collecting));
         var effects = GcEffects.analyze(transformed);
         var clones = transformed.functions().stream().filter(f -> f.linkageName().contains(".$enumarg.")).toList();

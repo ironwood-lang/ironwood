@@ -14,11 +14,11 @@
 public class Proxy
 ```
 
-Immutable explicit proxy configuration with copied endpoint and credential inputs. Sockets and
-TLS clients copy the configuration again, so an ordinary proxy may be freed after client
-construction. The shared `NO_PROXY` value must not be freed. No environment variables,
-system proxy discovery, automatic authentication, or protocol fallback are used. Equality
-compares route type and endpoint, ignoring credentials and SOCKS version.
+Immutable explicit proxy configuration with copied endpoint and credential inputs. Sockets
+and TLS clients copy the configuration again. The shared `NO_PROXY` value has process
+lifetime. No environment variables, system proxy discovery, automatic authentication, or
+protocol fallback are used. Equality compares route type and endpoint, ignoring credentials
+and SOCKS version.
 
 
 ## Nested types
@@ -39,7 +39,7 @@ compares route type and endpoint, ignoring credentials and SOCKS version.
 | [`socks5(InetSocketAddress,byte[],byte[])`](#member-socks5-28-InetSocketAddress-2c-byte-5b--5d--2c-byte-5b--5d--29-) | Creates SOCKS5 configuration requiring username/password authentication. |
 | [`httpConnectBasic(InetSocketAddress,byte[],byte[])`](#member-httpConnectBasic-28-InetSocketAddress-2c-byte-5b--5d--2c-byte-5b--5d--29-) | Creates HTTP CONNECT configuration with copied Basic credentials. |
 | [`type()`](#member-type-28--29-) | Returns the configured route type. |
-| [`address()`](#member-address-28--29-) | Returns the immutable endpoint owned by this proxy. |
+| [`address()`](#member-address-28--29-) | Returns this proxy's immutable managed endpoint. |
 | [`equals(Object)`](#member-equals-28-Object-29-) | Compares route type and endpoint, ignoring credentials and SOCKS version. |
 | [`hashCode()`](#member-hashCode-28--29-) | Hashes the route type and endpoint, ignoring credentials and SOCKS version. |
 | [`toString()`](#member-toString-28--29-) | Formats the route and endpoint without exposing credentials or resolving DNS. |
@@ -54,8 +54,7 @@ compares route type and endpoint, ignoring credentials and SOCKS version.
 public static final Proxy NO_PROXY = new Proxy();
 ```
 
-Shared direct-route sentinel with process lifetime. It has no endpoint or credentials and
-must not be freed.
+Shared direct-route sentinel with process lifetime. It has no endpoint or credentials.
 
 
 [Back to member summary](#member-summary)
@@ -248,8 +247,7 @@ the type supplied at construction, including null, or DIRECT for NO_PROXY
 public SocketAddress address()
 ```
 
-Returns the immutable endpoint owned by this proxy. Do not free it or retain it beyond the
-proxy's lifetime.
+Returns this proxy's immutable managed endpoint.
 
 **Returns**
 

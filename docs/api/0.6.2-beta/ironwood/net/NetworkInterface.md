@@ -35,7 +35,7 @@ current host by the captured interface name and can fail if it disappears.
 | [`getDisplayName()`](#member-getDisplayName-28--29-) | Returns the captured interface name as its display name on the supported native platforms. |
 | [`getIndex()`](#member-getIndex-28--29-) | Returns the interface index captured with the snapshot. |
 | [`isVirtual()`](#member-isVirtual-28--29-) | Tests whether the captured name identifies a colon-named subinterface. |
-| [`getParent()`](#member-getParent-28--29-) | Returns the parent from the same captured snapshot. |
+| [`getParent()`](#member-getParent-28--29-) | Returns the managed parent from the same captured snapshot. |
 | [`getInetAddresses()`](#member-getInetAddresses-28--29-) | Creates a cursor over captured address values. |
 | [`getSubInterfaces()`](#member-getSubInterfaces-28--29-) | Creates a cursor over captured child interfaces. |
 | [`getInterfaceAddresses()`](#member-getInterfaceAddresses-28--29-) | Creates a mutable list containing borrowed address/prefix entries. |
@@ -152,9 +152,8 @@ a fresh caller-owned interface query, or null when no interface matches
 public static Enumeration<NetworkInterface> getNetworkInterfaces() throws SocketException
 ```
 
-Captures the current interfaces in a fresh owning enumeration. Returned interfaces and their
-metadata borrow this snapshot. Exhausting the cursor does not reclaim it; free it only after
-all borrowed values and subordinate cursors are no longer needed.
+Captures the current interfaces in a fresh owning enumeration. Returned interfaces and
+metadata retain their captured snapshot. Each remains valid while reachable.
 
 **Throws**
 
@@ -246,7 +245,7 @@ true for a colon-named subinterface
 public NetworkInterface getParent()
 ```
 
-Returns the parent from the same captured snapshot. Do not free the result separately.
+Returns the managed parent from the same captured snapshot.
 
 **Returns**
 
@@ -264,8 +263,7 @@ public Enumeration<InetAddress> getInetAddresses()
 ```
 
 Creates a cursor over captured address values. The cursor and its elements borrow this
-interface's snapshot; free the cursor before the owner, and do not free the addresses
-separately.
+interface's snapshot; each reference retains the required managed snapshot.
 
 **Returns**
 
@@ -283,8 +281,7 @@ public Enumeration<NetworkInterface> getSubInterfaces()
 ```
 
 Creates a cursor over captured child interfaces. The cursor and its elements borrow this
-interface's snapshot; free the cursor before the owner, and do not free the child interfaces
-separately.
+interface's snapshot; each reference retains the required managed snapshot.
 
 **Returns**
 
@@ -302,8 +299,7 @@ public ArrayList<InterfaceAddress> getInterfaceAddresses()
 ```
 
 Creates a mutable list containing borrowed address/prefix entries. Mutating the list does
-not alter the snapshot. Free the list before the snapshot owner; do not free its borrowed
-entries separately.
+not alter the snapshot. The managed list retains its entries and their snapshot.
 
 **Returns**
 

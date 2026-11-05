@@ -16,15 +16,15 @@ public class Socket implements Closeable
 
 **Implements:** [`Closeable`](../io/Closeable.md)
 
-Blocking TCP client facade with explicit resource lifetime. Close before freeing: close releases
-the native resource, while destruction reclaims owned managed storage. Default and proven fresh
-factory implementations are owned; explicitly injected implementations are borrowed. Reclaim
-outer wrappers and the facade before a caller-owned implementation or its delegates.
+Blocking TCP client facade with explicit resource lifetime. Explicit close releases native
+resources; collection never closes them. Default and proven fresh factory implementations are
+owned; explicitly injected implementations are borrowed. Managed references retain the implementation and its delegates.
 
 
-Streams, cached addresses and option inventories are borrowed unless a getter explicitly
-returns a fresh result. Close does not invalidate managed metadata or clear connection/binding
-history. DNS and ordinary TCP writes are blocking; SO_TIMEOUT bounds reads only.
+Streams, cached addresses
+and option inventories are borrowed unless a getter explicitly returns a fresh result. Close
+does not invalidate managed metadata or clear connection/binding history. DNS and ordinary
+TCP writes are blocking; SO_TIMEOUT bounds reads only.
 
 
 ## Member summary
@@ -110,8 +110,9 @@ public Socket(Proxy proxy)
 ```
 
 Creates an unconnected socket with an explicit route. NO_PROXY uses the configured socket
-factory; HTTP and SOCKS routes use native proxy implementations and copy the configuration,
-including credentials. The caller may free an ordinary proxy after construction.
+factory; HTTP and SOCKS routes use native proxy implementations and copy the
+configuration, including credentials. The implementation retains independent
+configuration copies.
 
 **Parameters**
 
@@ -259,10 +260,10 @@ failed construction closes any opened resource.
 protected Socket(SocketImpl implementation) throws SocketException
 ```
 
-Creates a facade borrowing a caller-owned implementation, or adopts a fresh factory result
-when null is supplied. Closing cascades to the implementation, but freeing the facade does
-not free a supplied implementation. Keep that implementation and its delegates alive until
-all facade views and the facade have been reclaimed.
+Creates a facade borrowing a caller-owned implementation, or adopts a fresh factory
+result when null is supplied. Closing cascades to the implementation. Managed references
+retain implementations and delegates; preserve native protocol validity until all facade
+views and the facade have been reclaimed.
 
 **Parameters**
 
@@ -284,9 +285,9 @@ public static void setSocketImplFactory(SocketImplFactory value) throws IOExcept
 ```
 
 Registers the factory used by future client sockets. A non-null registration is permitted
-only once. Null is a no-op before registration; every later call fails. The factory and its
-captured references are retained for the process lifetime and must not be freed while
-registered. Each factory result must be proven fresh and unpublished.
+only once. Null is a no-op before registration; every later call fails. The factory and
+its captured references are retained for the process lifetime. Each factory result must
+be proven fresh and unpublished.
 
 **Parameters**
 
@@ -404,10 +405,9 @@ facade; use a new socket to retry. Synchronous proxy-host DNS cannot be interrup
 public InputStream getInputStream() throws IOException
 ```
 
-Returns a cached stream view borrowing this socket and its implementation. Do not free the
-view separately or use it after freeing the socket. Closing it closes the socket. Read
-buffers are borrowed only during each call; SO_TIMEOUT bounds each read and leaves the
-socket usable on expiration.
+Returns a cached stream view borrowing this socket and its implementation. The managed
+view retains the socket. Closing it closes the socket. Read buffers are borrowed only
+during each call; SO_TIMEOUT bounds each read and leaves the socket usable on expiration.
 
 **Throws**
 
@@ -430,10 +430,10 @@ the stable borrowed input stream
 public OutputStream getOutputStream() throws IOException
 ```
 
-Returns a cached stream view borrowing this socket and its implementation. Do not free the
-view separately or use it after freeing the socket. Closing it closes the socket. Write
-buffers are borrowed only during each call. Plain TCP writes can block without a deadline;
-SO_TIMEOUT does not bound them.
+Returns a cached stream view borrowing this socket and its implementation. The managed
+view retains the socket. Closing it closes the socket. Write buffers are borrowed only
+during each call. Plain TCP writes can block without a deadline; SO_TIMEOUT does not
+bound them.
 
 **Throws**
 
@@ -520,9 +520,9 @@ sends the end-of-stream indication; subsequent writes fail.
 public InetAddress getInetAddress()
 ```
 
-Returns the implementation's cached peer address. The value is borrowed and must not be
-freed separately. A closed socket retains peer metadata; an unresolved proxy destination may
-have no address bits.
+Returns the implementation's cached peer address. The value is borrowed and follows
+ordinary managed reachability. A closed socket retains peer metadata; an unresolved proxy
+destination may have no address bits.
 
 **Returns**
 
@@ -540,8 +540,7 @@ public InetAddress getLocalAddress()
 ```
 
 Returns a borrowed local address, or a cached wildcard when unbound or closed. Previously
-returned native address values remain alive until the socket owner is reclaimed. Do not free
-the result separately.
+returned native address values remain alive until the socket owner is reclaimed. The returned address has a managed lifetime.
 
 **Returns**
 
@@ -593,7 +592,7 @@ public SocketAddress getRemoteSocketAddress()
 ```
 
 Copies the peer endpoint into an independent value. Proxy routes preserve the original
-destination, including unresolved names. The copy remains valid after the socket is freed.
+destination, including unresolved names. The copy has an independent managed lifetime.
 
 **Returns**
 

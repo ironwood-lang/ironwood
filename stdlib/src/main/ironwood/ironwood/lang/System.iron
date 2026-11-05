@@ -35,7 +35,11 @@ public class System {
         return 0L;
     }
 
-    /** Returns the current number of non-immortal live Ironwood allocations. */
+    /**
+     * Returns cached live language allocations from the most recent collection,
+     * plus subsequent successful allocations. Internal sidecars are excluded.
+     * Reading this counter never collects.
+     */
     public static long liveAllocationCount() {
 
         return 0L;

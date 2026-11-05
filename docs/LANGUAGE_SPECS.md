@@ -1,13 +1,13 @@
 # Ironwood language specification and support status
 
 > **Ironwood's goal is to stay as close to Java as practical while removing the
-> JVM, garbage collection, and dynamic runtime machinery that conflict with
+> JVM and dynamic runtime machinery that conflict with
 > closed-world native compilation. Think of it as Java designed to replace C++
 > instead of to run on a virtual machine.**
 
 Ironwood is a new language, not a Java implementation or a JVM. Familiar Java
 source structure and semantics are the default whenever they are compatible with
-ahead-of-time native compilation, deterministic memory management, and a small
+ahead-of-time native compilation, explicit synchronous collection, and a small
 runtime. Where those goals conflict, Ironwood deliberately chooses its native
 systems model.
 
@@ -29,6 +29,16 @@ models are detailed in [`OBJECT_MODEL.md`](OBJECT_MODEL.md) and
 [`GENERICS.md`](GENERICS.md). The feature-oriented Java comparison is
 [`IRONWOOD_VS_JAVA.md`](IRONWOOD_VS_JAVA.md).
 
+## GC5 memory-model supersession
+
+The migration branch now uses [the GC5 managed memory contract](MEMORY.md).
+Canonical Memory.collect() is the only reclamation point. There is no source
+free, destructor, implicit temporary destruction or managed constructor rollback.
+General defer, initialization, native resource and pool protocols remain.
+Historical proof discussions and examples mentioning those removed forms are
+pre-GC5 records awaiting GC7 consumer migration, not alternate supported semantics.
+Native bridge/shared-library output remains refused until GC6 qualification.
+
 ## Current language model
 
 ### Native, closed-world execution
@@ -47,7 +57,7 @@ models are detailed in [`OBJECT_MODEL.md`](OBJECT_MODEL.md) and
 The complete reachable program is known at native link time. Ironwood uses that
 knowledge for hierarchy validation, type membership, dispatch tables,
 class-granular standard-library inclusion, exact-target devirtualization, call
-escape summaries, and safe-`free` analysis.
+escape summaries and exact managed layouts.
 
 The entry parameter is a non-null `String[]` containing the command-line
 arguments after the executable name. Each non-null element is decoded from
@@ -100,10 +110,10 @@ Supported today:
 - Instance and static fields; instance and static methods; constructors;
   implicit default constructors; `this(...)` delegation; explicit or implicit
   superclass construction.
-- One unmodified `destructor { ... }` per class, with derived-to-root execution,
-  allocation-free/non-escaping effect checks, and separate failed-construction
-  rollback that destroys completed owned children but never runs the incomplete
-  receiver's source destructor.
+- Managed construction preserves published incomplete graphs on failure. Source
+  destructors and managed rollback are removed; native acquisitions still require
+  explicit cleanup.
+
 - Method and constructor overloading, inherited member lookup, overriding,
   covariant reference returns, and visibility checks.
 - The exact built-in `@Override` directive is mandatory on every declared
@@ -115,11 +125,8 @@ Supported today:
   source-order dispatch and a native test entry point. It adds no annotation
   metadata, processing, runtime discovery, or reflection, and `Test` remains a
   legal identifier outside the directive.
-- The exact built-in `@SuppressUnfreed` directive exempts a reference local
-  initializer's tracked allocation from missing-free warnings and errors.
-  It has no arguments, follows existing allocation aliases, survives artifact
-  reconstruction, and leaves mandatory reclamation proofs and generated code
-  unchanged. Later assignments of different allocations are not exempt (D145).
+- Removed @SuppressUnfreed and manual reclamation options diagnose migration.
+
 - Instance field/initializer-block execution in textual order, path-sensitive
   blank-final assignment, and statically selected Java-shaped field hiding.
 - `this`, `this(...)`, `Outer.this`, `super(...)`, `super.field`, direct
@@ -160,7 +167,7 @@ imports retain the ordinary constant-folding, overload, accessibility,
 active-use initialization, and artifact-reconstruction rules of their selected
 members; unchecked generic casts remain deliberately unsupported.
 General annotations remain outside the language model. The built-in
-`@Override`, `@Test`, and `@SuppressUnfreed` directives do not change that exclusion.
+`@Override` and `@Test` directives do not change that exclusion.
 
 ### Primitive types and expressions
 
@@ -266,8 +273,7 @@ Supported today:
   validate and read the selected element.
 - Overlap-safe `System.arraycopy` when source and destination have the same exact
   invariant array descriptor.
-- Explicit safe reclamation of the array container. Freeing an array never
-  recursively frees referenced elements.
+- Exact collection of array containers and their reference elements by reachability.
 
 The compiler can prove direct child detachment through a known local constant
 slot: an explicitly created or initializer-created child remains live until
@@ -348,12 +354,10 @@ Supported today:
   non-fallthrough arrow rules, expressions, `yield`, target-aware result
   merging, and required `default` or complete exact-enum coverage.
 - Explicit resource cleanup through ordinary `try`/`finally` and block-scoped
-  `defer` void calls and local-name `defer free`. Receiver and arguments are
+  `defer` void calls. Receiver and arguments are
   captured once; invocation checks and effects occur at LIFO cleanup on every
   supported exit, preserving D051.
-  Pending reference captures remain observers for mandatory safe-free analysis.
-  Deferred free keeps its bound local unchanged until cleanup and applies the
-  existing ownership proof to every exit. [D168 Milestone 1](DEFER_PLAN.md) is
+  Captured references and pending values survive collecting cleanup. [D168 Milestone 1](DEFER_PLAN.md) is
   implemented; Milestone 2's [performance stage](DEFER_PERFORMANCE_VERIFICATION.md)
   is accepted, and its [focused example](../examples/deferredcleanup/README.md)
   is accepted. [SimpleTcpEcho adoption](DEFER_PROJECT_VERIFICATION.md) and the
@@ -364,7 +368,7 @@ Supported today:
 - Named reifiable reference patterns in `instanceof`, with evaluated-once typed
   aliases, optional `final`, Java-shaped definite-match scope through boolean
   expressions, branches, guards, and supported loops, plus ordinary lexical
-  capture and safe-`free` identity tracking.
+  capture and exact managed identity tracking.
 - Control-flow-aware return checking, unreachable-statement diagnostics, SSA phi
   construction, and loop update semantics. Literal-true loops and conditionless
   classic `for` loops cannot complete normally without a reachable exiting
@@ -449,84 +453,18 @@ and `throw null` raise ordinary catchable unchecked exceptions. These failures
 use the same captured trace, catch, `finally`, and ordered secondary exception
 machinery as explicit throws.
 
-## Explicit memory reclamation
+## Managed memory
 
-Ironwood has no garbage collector. `new` has familiar Java allocation and
-aliasing semantics, but an ordinary allocation remains allocated until an
-accepted source-level `free` reclaims it or the process terminates.
+Objects, arrays, Strings, compiler-created heap temporaries and internal sidecars
+use [one managed model](MEMORY.md). Memory.collect() validates canonical identity
+and public static void signature, preserves MayCollect through all compiler
+phases, and completes marking/sweeping before return. Allocation does not collect.
+Temporary values and failed constructions are not destroyed. Exact statepoints,
+root ABI 2 and runtime-owner ABI 1 bind real representations. Preparation OOM
+is catchable with no reclamation; corrupt metadata refuses before collection.
+Counter reads do not collect. Source free/destructor syntax and related options
+are removed. Native bridge/shared-library output remains refused until GC6.
 
-```java
-Buffer value = new Buffer(1024);
-use(value);
-free value;
-```
-
-The compiler accepts `free` only when it proves that the exact allocation cannot
-subsequently be observed through any live alias. The current proof supports:
-
-- Object and array allocations whose identities remain known through supported
-  path-sensitive control flow, including direct `new` and fresh-or-null factory
-  results derived by closed-world return summaries.
-- Local aliases that are dead before the `free`.
-- Direct and devirtualized calls proven not to retain, return, throw, or
-  otherwise escape the allocation.
-- Caller allocations retained only in a private, encapsulated field of a known
-  local receiver. The receiver holds a borrow until it is freed; freeing it
-  removes that alias without recursively freeing the caller allocation.
-- A superseded private backing array after closed-world analysis proves the
-  field exclusive and a fresh replacement detaches the old container.
-- Detached backing arrays carried through migration loops when their SSA
-  identity remains unchanged.
-- Child allocations stored in a known constant slot of a local array, after a
-  direct overwrite proves detachment or after the outer container is freed.
-- Direct cleanup of a declaring class's compiler-proven owned fields from its
-  destructor.
-- Dependent borrows of encapsulated compiler-owned reusable helpers. The owner
-  destructor may reclaim the helper when no later observation exists; direct
-  helper `free`, post-owner use, and escaped or uncertain borrows are rejected.
-- Fresh results from compiler-owned allocation intrinsics and their
-  closed-world wrappers, including default `Object.toString()`,
-  String constructors, `String.substring(...)`, `String.concat(...)`,
-  primitive text factories, `String.toCharArray()`, `System.getenv(...)`, and
-  `StringBuilder.toString()`.
-- Existing local allocations whose identity and non-escape proof remain common
-  across `try`/`catch` paths, including exactly-once cleanup written in
-  `finally` for normal, return, catch, and exceptional exits.
-
-The compiler conservatively rejects unknown provenance, live aliases, parameters,
-arbitrary fields or call results, publication through fields/statics or unknown
-array slots, escaping or uncertain calls, unsafe polymorphism, conditional
-detachment, double-free, and post-free use. Failure to prove safety is a
-compile-time error; removing `free` is safe but leaves the allocation
-unreclaimed.
-
-Compiler-generated copies of one source `finally` block are mutually exclusive
-runtime paths. Safe-free analysis snapshots ownership per predecessor before
-lowering those copies and conservatively rejects any real path disagreement;
-the duplication itself therefore neither causes a false double-free diagnostic
-nor permits an actual double free. This path-specific proof currently covers
-normal, return, catch, exceptional, `break`, `continue`, and `yield` completion.
-Transfer destinations retain post-cleanup ownership, possibly-freed joins reject
-observation, and pending reference-valued yields cannot be freed by cleanup.
-Loop back edges permit per-iteration local reclamation but reject newly freed
-carried references or incompatible entry ownership for a repeated free.
-
-`free` releases only the target allocation and any owned children explicitly
-freed by its destructor; it does not null arbitrary aliases or recursively free
-array elements. Object destruction runs declared bodies from the dynamic class
-to the root. Constructors that throw use compiler-generated ownership rollback,
-not source destructors, and rethrow the original exception. The runtime may
-release its own transient native storage, which is not an Ironwood object.
-
-A successful `free local;` leaves the old local value semantically dead rather
-than assigning `null`. Reading, comparing, passing, returning, or freeing that
-value again is rejected. Plain assignment may reuse the variable without
-reading the dead value; the replacement allocation then has an independent
-identity and lifetime. Compound assignment reads the old value and is rejected.
-
-This design retains normal Java reference assignment without adding ownership,
-borrow, or lifetime syntax to ordinary source code. Safety is enforced at the
-operation that requests reclamation.
 
 ## Current standard library
 
@@ -544,14 +482,10 @@ program.
 | `ironwood.pool` | `ArrayObjectPool` and `MultiArrayObjectPool`, using explicit `ObjectBuilder` implementations. |
 | `ironwood.ds` | Generic and primitive lists, maps, linked maps, sets, character-sequence maps, fixed-domain maps, and `ByteBufferMap`, with reusable iterators and pooled internal entries. |
 
-Collections borrow inserted user objects. Object pools own objects created by
-builders or transferred through `release`; `get` lends them to callers. Pool
-destruction includes checked-out values and requires a compiler safety proof.
-`takeRetained` is removed. Replaced and terminal proven backing storage is reclaimed;
-borrowed reusable iterators and primitive holders remain producer-owned. Their
-destructors reclaim the cached helpers, and the compiler rejects every
-observable or uncertain borrow that would outlive the producer. See
-[Owned Helper Borrows](OWNED_HELPER_BORROWS.md).
+Collections retain inserted managed references; clear/remove drop retired slots.
+Pools intentionally retain reusable values and preserve their return protocols.
+Cached iterators and holders remain managed graphs; caller references keep them
+alive independently. See [MEMORY.md](MEMORY.md) for reference cleanup and reset APIs.
 
 ## Roadmap: later support
 
@@ -731,7 +665,7 @@ that source code may be unable to reclaim.
 ### Deliberately excluded language families
 
 - No general annotations or annotation processing. The implemented
-  `@Override`, `@Test`, and `@SuppressUnfreed` directives do not imply annotations.
+  `@Override` and `@Test` directives do not imply annotations.
 - No records or sealed types.
 - No lambdas, closures, or method references; explicit anonymous classes remain
   available.

@@ -1,0 +1,57 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Resource closure is explicit and independent of collection or preparation OOM.
+// The file result is assembled in native scratch then copied into managed storage.
+import ironwood.lang.Memory;
+import ironwood.nio.file.Files;
+import ironwood.nio.file.Path;
+import ironwood.io.IOException;
+import ironwood.io.FileInputStream;
+import ironwood.ds.ArrayList;
+
+class Gc5Resources {
+    static ArrayList<Object> reusable;
+    static void retained() {
+        reusable = new ArrayList<Object>();
+        reusable.add(new Object());
+        reusable.resetForReuse();
+    }
+    public static int main(String[] args) throws IOException {
+        if (args.length != 1) return 2;
+        Path file = Files.createTempFile("gc5-", ".txt");
+        defer Files.delete(file);
+        Files.writeString(file, "first\nsecond\n");
+        FileInputStream stream = new FileInputStream(file.toString());
+        try {
+            defer stream.close();
+            if (args[0].equals("failure")) {
+                try { Memory.collect(); return 3; }
+                catch (OutOfMemoryError expected) { }
+            } else {
+                Memory.collect();
+                if (stream.read() != 'f') return 4;
+            }
+        } finally { }
+        try { stream.read(); return 5; }
+        catch (IOException expected) { }
+        if (args[0].equals("failure")) return 0;
+        byte[] bytes = Files.readAllBytes(file);
+        Memory.collect();
+        if (bytes.length != 13 || bytes[12] != '\n') return 6;
+        ArrayList<String> lines = Files.readAllLines(file);
+        Memory.collect();
+        if (lines.size() != 2 || !lines.get(1).equals("second")) return 7;
+        byte[] large = new byte[20000];
+        large[19999] = 93;
+        Files.write(file, large);
+        byte[] grown = Files.readAllBytes(file);
+        Memory.collect();
+        if (grown.length != 20000 || grown[0] != 0 || grown[19999] != 93) return 9;
+        retained();
+        Memory.collect();
+        long retaining = System.liveAllocationCount();
+        reusable.clearUnusedReferences();
+        Memory.collect();
+        if (System.liveAllocationCount() != retaining - 1) return 8;
+        return 0;
+    }
+}

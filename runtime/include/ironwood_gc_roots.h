@@ -5,7 +5,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-/* Development closure ABI, separate from the unchanged GC2 engine-2 SDK.
+/* Exact image root ABI. Normal images require ABI 2 and the engine-3 SDK.
  * Immutable image metadata plus explicitly admitted native static base slots.
  * The compiler exports iw_gc_static_root_count/iw_gc_static_roots and the fixed
  * native component exports iw_gc_native_root_count/iw_gc_native_roots. Config

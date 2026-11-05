@@ -33,7 +33,9 @@ Provides a resizable array-backed list.
 | [`ArrayList(int,float)`](#member-ArrayList-28-int-2c-float-29-) | Creates a new ArrayList. |
 | [`getInitialCapacity()`](#member-getInitialCapacity-28--29-) | Returns the initial capacity. |
 | [`getGrowthFactor()`](#member-getGrowthFactor-28--29-) | Returns the growth factor. |
-| [`clear()`](#member-clear-28--29-) | Removes all stored values. |
+| [`clear()`](#member-clear-28--29-) | Removes all values and clears their physical reference slots. |
+| [`resetForReuse()`](#member-resetForReuse-28--29-) | Resets membership while deliberately retaining storage references for reuse. |
+| [`clearUnusedReferences()`](#member-clearUnusedReferences-28--29-) | Clears inactive capacity after a retaining reset, without changing active values. |
 | [`add(E)`](#member-add-28-E-29-) | Adds the supplied value. |
 | [`addLast(E)`](#member-addLast-28-E-29-) | Adds the supplied last. |
 | [`addFirst(E)`](#member-addFirst-28-E-29-) | Adds the supplied first. |
@@ -174,7 +176,33 @@ Returns the growth factor.
 public void clear()
 ```
 
-Removes all stored values.
+Removes all values and clears their physical reference slots.
+
+
+[Back to member summary](#member-summary)
+
+<a name="member-resetForReuse-28--29-"></a>
+
+### `resetForReuse()`
+
+```java
+public void resetForReuse()
+```
+
+Resets membership while deliberately retaining storage references for reuse.
+
+
+[Back to member summary](#member-summary)
+
+<a name="member-clearUnusedReferences-28--29-"></a>
+
+### `clearUnusedReferences()`
+
+```java
+public void clearUnusedReferences()
+```
+
+Clears inactive capacity after a retaining reset, without changing active values.
 
 
 [Back to member summary](#member-summary)
@@ -363,16 +391,14 @@ Copies ordered membership into independent mutable storage.
 The result owns its array and reusable iterator, with the default
 growth factor and initial capacity equal to the larger of one and this
 list's size. Unused source capacity is not copied.
-Elements are borrowed, retain their identity and are never destroyed by
-this operation or either list's destructor. Null elements cannot occur
+Elements preserve their identity and are retained by both lists. Null elements cannot occur
 in a valid list. The source iterator's position is unchanged.
 
 
 
 This operation takes linear time and allocates one list, one iterator,
-and one backing array for an ordinary list. On failure all result storage is
-reclaimed and source membership is unchanged. Free the result only after
-its last consumer; keep its borrowed elements alive until then.
+and one backing array for an ordinary list. On failure the partial graph
+remains managed and source membership is unchanged.
 
 **Returns**
 
@@ -396,7 +422,7 @@ Sorts the live elements stably with an explicit comparator.
 Only indexes `[0, size())` are compared and reordered. Elements
 the comparator considers equal keep their encounter order. Size,
 capacity, growth factor and the reusable iterator's position are
-unchanged, elements keep their identity and none is freed. The
+unchanged and elements keep their identity. The
 comparator is required even for an empty list; unlike Java's
 `List.sort`, there is no natural-order fallback.
 

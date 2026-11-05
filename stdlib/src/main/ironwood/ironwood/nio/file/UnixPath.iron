@@ -141,7 +141,6 @@ final class UnixPath implements Path {
             units[offset] = this.value.charAt(start + offset);
             offset++;
         }
-        defer free units;
         return new UnixPath(units);
     }
 
@@ -158,7 +157,6 @@ final class UnixPath implements Path {
         if (other == null) throw new NullPointerException();
         if (other.indexOf(0) >= 0) throw new InvalidPathException(other, "Nul character not allowed");
         String normalized = Paths.normalizeSyntax(other);
-        defer free normalized;
         return startsWithText(normalized);
     }
 
@@ -222,7 +220,6 @@ final class UnixPath implements Path {
         if (separators != 0) units[output++] = '/';
         int index = 0;
         while (index < suffix) units[output++] = target.charAt(right + index++);
-        defer free units;
         return new UnixPath(units);
     }
 
@@ -299,8 +296,5 @@ final class UnixPath implements Path {
         return value;
     }
 
-    destructor {
 
-        free this.value;
-    }
 }

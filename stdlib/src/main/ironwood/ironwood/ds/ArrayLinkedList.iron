@@ -55,6 +55,7 @@ public class ArrayLinkedList<E extends Object> implements Iterable<E> {
         } else {
             int index = this.count - 1;
             result = this.array[index];
+            this.array[index] = null;
         }
         this.count = this.count - 1;
         return result;
@@ -112,7 +113,6 @@ public class ArrayLinkedList<E extends Object> implements Iterable<E> {
     public String toString() {
 
         StringBuilder builder = new StringBuilder();
-        defer free builder;
         builder.append('[');
         Iterator<E> overflowIterator = this.linkedList.iterator();
         int index = 0;
@@ -137,39 +137,34 @@ public class ArrayLinkedList<E extends Object> implements Iterable<E> {
         return builder.toString();
     }
 
-    /**
-     * Removes all elements and optionally nulls the live fixed-array prefix.
-     *
-     * <p>When {@code nullifyLiveArrayPrefix} is {@code true}, only slots in the
-     * current live fixed-array prefix are nulled. Inactive tail slots left by a
-     * prior removal or {@code clear(false)} may remain unchanged. The active
-     * linked overflow is cleared in either case. Neither option destroys
-     * caller-owned elements or releases this list's caller-item loans before
-     * destruction.
-     *
-     * @param nullifyLiveArrayPrefix whether to null slots in the current live
-     *                               fixed-array prefix
-     */
+    /** Removes membership and clears every obsolete physical reference. */
+    public void clear() {
+
+        this.linkedList.clear();
+        this.count = 0;
+        clearUnusedReferences();
+    }
+
+    /** Retains fixed-array references for deliberate reuse; overflow entries are recycled. */
+    public void resetForReuse() {
+
+        this.linkedList.clear();
+        this.count = 0;
+    }
+
+    /** Clears inactive fixed capacity without changing active values. */
+    public void clearUnusedReferences() {
+
+        for (int index = Math.min(this.count, this.array.length); index < this.array.length; index++) {
+            this.array[index] = null;
+        }
+    }
+
+    /** Compatibility spelling: false explicitly retains fixed-array references. */
     public void clear(boolean nullifyLiveArrayPrefix) {
 
-        if (this.count > this.array.length) this.linkedList.clear();
-        if (nullifyLiveArrayPrefix) {
-            /*
-             * count is the visibility boundary for the fixed array. Slots
-             * outside its live prefix are never read, and addLast overwrites
-             * them before making them observable through public operations.
-             * Honor nullifyLiveArrayPrefix for the live prefix only. An older
-             * clear(false) tail may remain, so the unchecked package accessor
-             * keeps caller-item loans live until this list is destroyed.
-             */
-            int index = 0;
-            int maximum = Math.min(this.array.length, this.count);
-            while (index < maximum) {
-                this.array[index] = null;
-                index = index + 1;
-            }
-        }
-        this.count = 0;
+        if (nullifyLiveArrayPrefix) clear();
+        else resetForReuse();
     }
 
     E arrayElement(int index) {
@@ -190,10 +185,5 @@ public class ArrayLinkedList<E extends Object> implements Iterable<E> {
         return reusableIterator;
     }
 
-    destructor {
 
-        free this.reusableIterator;
-        free this.linkedList;
-        free this.array;
-    }
 }

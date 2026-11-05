@@ -134,6 +134,7 @@ public final class CompilerPipeline {
 
         addBundledType(StandardLibrary.ROOT_OBJECT, standardLibrary, units, diagnostics);
         addBundledType("ironwood.lang.String", standardLibrary, units, diagnostics);
+        if (requireMain) addBundledType("ironwood.lang.OutOfMemoryError", standardLibrary, units, diagnostics);
         addBundledDependencyClosure(standardLibrary, units, diagnostics);
         if (Diagnostic.hasErrors(diagnostics)) {
             return new CompilationArtifact(Optional.empty(), Optional.empty(), diagnostics);

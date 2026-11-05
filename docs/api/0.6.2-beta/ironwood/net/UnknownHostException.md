@@ -16,8 +16,8 @@ public class UnknownHostException extends IOException
 
 **Extends:** [`IOException`](../io/IOException.md)
 
-Reports an invalid numeric address or a host that cannot be resolved. Message text is copied; it
-remains valid after the input string is freed.
+Reports an invalid numeric address or a host that cannot be resolved. Message text is copied;
+it is independent of later caller input changes.
 
 
 ## Member summary
@@ -28,7 +28,7 @@ remains valid after the input string is freed.
 | --- | --- |
 | [`UnknownHostException()`](#member-UnknownHostException-28--29-) | Creates an exception without a detail message. |
 | [`UnknownHostException(String)`](#member-UnknownHostException-28-String-29-) | Creates an exception with a copy of the supplied detail message. |
-| [`getMessage()`](#member-getMessage-28--29-) | Returns the detail text owned by this exception. |
+| [`getMessage()`](#member-getMessage-28--29-) | Returns this exception's managed detail text. |
 
 ## Constructors
 
@@ -75,7 +75,7 @@ Creates an exception with a copy of the supplied detail message.
 public String getMessage()
 ```
 
-Returns the detail text owned by this exception. Do not free the result separately.
+Returns this exception's managed detail text.
 
 **Returns**
 

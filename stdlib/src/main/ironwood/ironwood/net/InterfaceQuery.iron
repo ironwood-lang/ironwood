@@ -53,7 +53,6 @@ final class InterfaceQuery {
     String name() {
 
         byte[] exact = Arrays.copyOf(this.nameBytes, this.nameLength);
-        defer free exact;
         return new String(exact);
     }
 
@@ -117,8 +116,5 @@ final class InterfaceQuery {
         TcpNative.interfacesRelease(handle);
     }
 
-    destructor {
 
-        free this.nameBytes;
-    }
 }

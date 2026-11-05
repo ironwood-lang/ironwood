@@ -121,7 +121,6 @@ public class LongSet implements Iterable<LongHolder> {
     public String toString() {
 
         StringBuilder builder = new StringBuilder();
-        defer free builder;
         builder.append('[');
         Iterator<Object> iterator = this.map.iterator();
         boolean first = true;
@@ -153,9 +152,5 @@ public class LongSet implements Iterable<LongHolder> {
         return reusableIterator;
     }
 
-    destructor {
 
-        free this.reusableIterator;
-        free this.map;
-    }
 }

@@ -6,7 +6,6 @@ import importlib.util
 import json
 from pathlib import Path
 import re
-import subprocess
 import sys
 
 sys.dont_write_bytecode = True
@@ -44,24 +43,24 @@ def main():
                      '-I' + str(generated)]
     for index, source in enumerate(sources):
         obj = out / ('c' + str(index) + '.o')
-        subprocess.run([str(llvm / 'bin/clang'), *compile_flags, '-c', str(source), '-o', str(obj)], check=True)
+        results.append(engine.run([str(llvm / 'bin/clang'), *compile_flags, '-c', str(source), '-o', str(obj)], raw, 'layout-c-' + str(index)))
         objects.append(obj)
     # Apply the exact target data layout obtained by SDK verification before
     # assembly/optimization, just like the production compiler pipeline.
     ll = generated / 'layouts.ll'
     ll.write_text('target datalayout = "' + manifest['configuration']['target.data-layout'] + '"\n'
                   'target triple = "' + manifest['configuration']['target.triple'] + '"\n' + ll.read_text())
-    subprocess.run([str(llvm / 'bin/llvm-as'), str(ll), '-o', str(out / 'layouts.bc')], check=True)
-    subprocess.run([str(llvm / 'bin/opt'), '-passes=default<O3>', str(out / 'layouts.bc'),
-                    '-o', str(out / 'layouts.opt.bc')], check=True)
+    results.append(engine.run([str(llvm / 'bin/llvm-as'), str(ll), '-o', str(out / 'layouts.bc')], raw, 'layout-assemble'))
+    results.append(engine.run([str(llvm / 'bin/opt'), '-passes=default<O3>', str(out / 'layouts.bc'),
+                    '-o', str(out / 'layouts.opt.bc')], raw, 'layout-optimize'))
     llvm_obj = out / 'layouts.o'
-    subprocess.run([str(llvm / 'bin/llc'), '-O=3', '--relocation-model=pic', '-filetype=obj',
-                    str(out / 'layouts.opt.bc'), '-o', str(llvm_obj)], check=True)
+    results.append(engine.run([str(llvm / 'bin/llc'), '-O=3', '--relocation-model=pic', '-filetype=obj',
+                    str(out / 'layouts.opt.bc'), '-o', str(llvm_obj)], raw, 'layout-codegen'))
     objects.append(llvm_obj)
     executable = out / 'probe'
     libraries = [sdk / 'lib/libironwood_gc_engine.a', sdk / 'lib/libgc.a']
-    subprocess.run([str(llvm / 'bin/clang'), *flags, *manifest['configuration']['target.ldflags'],
-                    *map(str, objects), *map(str, libraries), '-o', str(executable)], check=True)
+    results.append(engine.run([str(llvm / 'bin/clang'), *flags, *manifest['configuration']['target.ldflags'],
+                    *map(str, objects), *map(str, libraries), '-o', str(executable)], raw, 'layout-link'))
     for case in args.case or ('layouts', 'arrays', 'sidecars', 'metadata', 'failure', 'overflow', 'construction', 'resident', 'virtual'):
         results.append(engine.run([str(executable), case], raw, case))
     overflow = (raw / 'overflow.stderr').read_text() if (raw / 'overflow.stderr').exists() else ''

@@ -218,17 +218,17 @@ true if this call deleted the entry, false if it did not exist
 public static Path createTempFile(Path dir, String prefix, String suffix) throws IOException
 ```
 
-Creates a new empty file in `dir` and returns its path. The name
-is the prefix, an unsigned decimal value from the host's secure random
-source and the suffix; the file is created exclusively, with owner-only
-read and write permission before the umask, and is never replaced. A
-name that would contain a separator before its trailing separators is
-rejected, as Java rejects a generated name with a parent.
+Creates a new empty file in `dir` and returns its path. The name is the
+prefix, an unsigned decimal value from the host's secure random source and the
+suffix; the file is created exclusively, with owner-only read and write permission
+before the umask, and is never replaced. A name that would contain a separator
+before its trailing separators is rejected, as Java rejects a generated name with a
+parent.
 
 
 
-Deleting the file stays the caller's responsibility: freeing the
-returned path releases only the path object.
+Deleting the file stays the caller's responsibility; collecting a path never
+deletes its file.
 
 **Parameters**
 

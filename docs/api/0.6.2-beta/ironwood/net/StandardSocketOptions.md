@@ -14,9 +14,10 @@
 public final class StandardSocketOptions
 ```
 
-Provides process-lifetime typed option tokens for blocking TCP. Do not free the tokens or their
-metadata. Consult a socket's supported inventory before using an optional token; operating
-systems may adjust requested buffer sizes or interpret network hints differently.
+Provides process-lifetime typed option tokens for blocking TCP. The tokens and metadata are
+immutable managed values. Consult a socket's supported inventory before using an optional
+token; operating systems may adjust requested buffer sizes or interpret network hints
+differently.
 
 
 ## Member summary

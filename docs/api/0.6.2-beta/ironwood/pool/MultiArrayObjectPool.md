@@ -20,24 +20,17 @@ Reuses objects across linked array segments without copying existing slots.
 
 
 
-This single-threaded pool records every non-null builder result once and
-destroys those objects when the pool is freed, including checked-out objects.
-Checkout and return do not perform identity lookups. Return each checkout at
-most once and return only objects obtained from this pool. External objects
-are outside the contract and are never registered or destroyed by the pool.
+This single-threaded pool retains every non-null builder result, including
+checked-out objects. Return each checkout at most once and only to its
+originating pool. Checkout and return do not reset state, close resources or
+perform identity lookups. External objects are outside the return contract.
 
 
 
-Existing segments remain allocated until pool destruction. Growth adds a
-segment with twice the current length, capped at the maximum array length.
-A growing creation array records builder results and segment holders; each
-holder frees its array container, without freeing the objects in its slots.
-Reusing existing values does not touch this creation array or allocate.
-
-
-
-The compiler requires fresh, unescaped builder results and prevents use of
-pool-dependent references after destruction. The builder itself is borrowed.
+Growth adds a segment with twice the current length, capped at the maximum
+array length. The creation array retains builder results and segment holders.
+Reuse does not touch that array or allocate. Dropped managed graphs become
+eligible for explicit collection. Builder results must be fresh and unescaped.
 
 **Parameters**
 
@@ -97,7 +90,7 @@ Creates a pool with the requested preload count.
 
 The builder is called exactly `preloadCount` times. A null result
 leaves an empty slot to retry on checkout. Builder exceptions propagate;
-failed construction reclaims already-created objects and private storage.
+failed construction leaves a valid managed graph eligible for collection.
 
 **Parameters**
 
@@ -137,7 +130,7 @@ Checks out a value, creating one when its slot is empty.
 
 **Returns**
 
-a non-null value whose lifetime is bounded by the pool
+a non-null checked-out managed value
 
 
 [Back to member summary](#member-summary)
@@ -157,7 +150,7 @@ Returns a checkout for reuse without changing its state.
 
 Return each checkout at most once and only to its originating pool.
 Duplicate returns are not checked. External objects are unsupported and
-are not recorded for destruction.
+are outside the return contract.
 
 **Parameters**
 

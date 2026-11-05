@@ -158,8 +158,5 @@ public class OutputStreamWriter extends Writer {
             }
         }
     }
-    destructor {
 
-        free this.buffer; free this.ownedOutput;
-    }
 }

@@ -8,6 +8,9 @@
 #include "../include/ironwood_runtime.h"
 #include "../include/ironwood_bridge.h"
 #include "../include/ironwood_case.h"
+#include "../include/ironwood_gc_engine.h"
+#include "../include/ironwood_gc_roots.h"
+#include "gc_mark.h"
 
 #include <errno.h>
 #include <dirent.h>
@@ -59,7 +62,9 @@ enum ironwood_array_element_kind {
 };
 
 struct ironwood_type_info {
-    uint32_t type_id;
+    uintptr_t type_id;
+    uintptr_t gc_descriptor;
+    struct iw_gc_layout gc_layout;
     const void *dispatch;
     const unsigned char *membership;
     const char *name;
@@ -75,24 +80,43 @@ int32_t ironwood_bridge_type_id(const void *object) {
 }
 
 /* Compiler validation enforces this base-first Throwable layout.
- * The reserved integer slot owns native metadata; it is never a public handle. */
+ * The reserved reference owns an exact managed metadata graph. */
 struct ironwood_throwable {
     const struct ironwood_type_info *type;
     void *message;
     void *cause;
-    uint64_t trace_state;
+    struct ironwood_exception_metadata *trace_metadata;
+    void *owned_message;
+    _Bool cause_initialized;
+    int32_t trace_status;
 };
 
 struct ironwood_exception {
+    struct ironwood_exception *previous, *next;
     void *object;
     _Bool emergency;
     struct _Unwind_Exception unwind;
 };
 
 struct ironwood_secondary_exception {
+    const struct iw_gc_type *gc_type;
     void *object;
     struct ironwood_secondary_exception *next;
 };
+
+/* Bounded allocation-free occurrence storage. The owning metadata is an
+ * exact reference, so a retained primary keeps its cells and their identity. */
+struct ironwood_emergency_cell {
+    struct ironwood_secondary_exception value;
+    struct ironwood_exception_metadata *owner;
+    _Bool in_use;
+    uint64_t delivery;
+};
+_Static_assert(sizeof(struct ironwood_emergency_cell) == 48,
+        "GC5 compiler/runtime emergency-cell ABI changed");
+_Static_assert(offsetof(struct ironwood_emergency_cell, owner) == 24,
+        "GC5 emergency owner offset changed");
+#define IRONWOOD_EMERGENCY_SECONDARY_CAPACITY 64
 
 struct ironwood_trace_element {
     const struct ironwood_trace_site *site;
@@ -104,14 +128,21 @@ enum ironwood_trace_state {
     IRONWOOD_TRACE_UNAVAILABLE = 2
 };
 
+struct ironwood_trace_storage {
+    const struct iw_gc_type *gc_type;
+    struct ironwood_trace_element elements[];
+};
+
 struct ironwood_exception_metadata {
+    const struct iw_gc_type *gc_type;
     void *primary;
     int32_t secondary_count;
     struct ironwood_secondary_exception *first_secondary;
     struct ironwood_secondary_exception *last_secondary;
     enum ironwood_trace_state trace_state;
     int32_t trace_count;
-    struct ironwood_trace_element *trace;
+    struct ironwood_trace_element *trace; /* Derived pointer; trace_storage is its exact base owner. */
+    struct ironwood_trace_storage *trace_storage;
     _Bool trace_truncated;
 };
 
@@ -150,8 +181,8 @@ _Static_assert(sizeof(struct ironwood_string_concat_part) == 16,
 
 /* Diagnostic only: relaxed ordering is sufficient for an exact process-wide
  * event count, including when language threads are added later. */
-static _Atomic uint64_t allocation_count = UINT64_C(0);
-static _Atomic uint64_t live_allocation_count = UINT64_C(0);
+static struct ironwood_exception *active_exceptions;
+static const struct iw_gc_type *metadata_type, *secondary_type, *trace_storage_type, *emergency_cell_type;
 
 static const struct ironwood_trace_site *trace_sites;
 static int32_t trace_site_count;
@@ -163,13 +194,16 @@ static size_t trace_section_size;
 #define IRONWOOD_EMERGENCY_PC_CAPACITY 96
 #define IRONWOOD_EMERGENCY_TRACE_CAPACITY 64
 
-static struct ironwood_exception_metadata implicit_failure_metadata;
-static struct ironwood_exception_metadata emergency_association_metadata;
-static struct ironwood_secondary_exception emergency_secondary;
-static struct ironwood_trace_element implicit_failure_trace[IRONWOOD_EMERGENCY_TRACE_CAPACITY];
+struct ironwood_exception_metadata implicit_failure_metadata;
+struct ironwood_exception_metadata emergency_association_metadata;
+struct ironwood_emergency_cell emergency_secondary_pool[IRONWOOD_EMERGENCY_SECONDARY_CAPACITY];
+static uint64_t emergency_delivery;
+struct {
+    const struct iw_gc_type *gc_type;
+    struct ironwood_trace_element elements[IRONWOOD_EMERGENCY_TRACE_CAPACITY];
+} implicit_failure_storage;
+#define implicit_failure_trace (implicit_failure_storage.elements)
 static _Bool emergency_association_metadata_in_use;
-static _Bool emergency_secondary_in_use;
-static struct ironwood_exception_metadata *emergency_secondary_owner;
 static void *active_implicit_failure;
 static _Thread_local struct ironwood_exception emergency_exception;
 static _Thread_local _Bool emergency_exception_in_use;
@@ -252,15 +286,16 @@ static void *try_allocate_object(size_t size, const void *object_type,
     if (allocation_limit_reached(allocation_failure)) {
         return NULL;
     }
-    void *allocation = calloc(1, size == 0 ? 1 : size);
+    // Layouts are bound and verified before source entry; checked callers have
+    // already established the physical size. Allocation never schedules GC.
+    void *allocation = GC_generic_malloc(size, iw_gc_language_kind);
     if (allocation == NULL) {
         return NULL;
     }
     if (object_type != NULL) {
         *(const void **) allocation = object_type;
     }
-    atomic_fetch_add_explicit(&allocation_count, UINT64_C(1), memory_order_relaxed);
-    atomic_fetch_add_explicit(&live_allocation_count, UINT64_C(1), memory_order_relaxed);
+    ++iw_gc_language_total;
     record_limited_allocation(allocation_failure);
     return allocation;
 }
@@ -407,7 +442,7 @@ static uint32_t decode_utf8_code_point(const unsigned char *bytes, size_t length
 static struct ironwood_string *string_from_utf8_bytes(
         const unsigned char *bytes, size_t byte_length,
         const struct ironwood_type_info *type, void *allocation_failure) {
-    if (bytes == NULL && byte_length != 0 || type == NULL) {
+    if ((bytes == NULL && byte_length != 0) || type == NULL) {
         abort();
     }
     if (byte_length > (size_t) INT32_MAX) {
@@ -497,7 +532,7 @@ static _Bool valid_utf8(const unsigned char *bytes, size_t length) {
 static struct ironwood_string *try_string_from_valid_utf8_bytes(
         const unsigned char *bytes, size_t byte_length,
         const struct ironwood_type_info *type, void *allocation_failure) {
-    if (bytes == NULL && byte_length != 0 || type == NULL
+    if ((bytes == NULL && byte_length != 0) || type == NULL
             || byte_length > (size_t) INT32_MAX) {
         return NULL;
     }
@@ -599,6 +634,11 @@ static void cleanup_exception(_Unwind_Reason_Code reason,
                               struct _Unwind_Exception *unwind) {
     (void) reason;
     struct ironwood_exception *exception = exception_wrapper(unwind);
+    if (exception->previous != NULL) exception->previous->next = exception->next;
+    else active_exceptions = exception->next;
+    if (exception->next != NULL) exception->next->previous = exception->previous;
+    exception->object = NULL;
+    exception->previous = exception->next = NULL;
     if (exception->emergency) {
         emergency_exception_in_use = 0;
     } else {
@@ -616,16 +656,15 @@ static const char *object_type_name(const void *object) {
 
 static struct ironwood_exception_metadata *find_exception_metadata(const void *primary) {
     if (primary == NULL) { return NULL; }
-    uint64_t state = ((const struct ironwood_throwable *) primary)->trace_state;
-    return state <= 1 ? NULL : (struct ironwood_exception_metadata *) (uintptr_t) state;
+    return ((const struct ironwood_throwable *) primary)->trace_metadata;
 }
 
 static void attach_exception_metadata(void *primary, struct ironwood_exception_metadata *metadata) {
-    ((struct ironwood_throwable *) primary)->trace_state = (uint64_t) (uintptr_t) metadata;
+    ((struct ironwood_throwable *) primary)->trace_metadata = metadata;
 }
 
 static struct ironwood_exception_metadata *create_exception_metadata(void *primary) {
-    struct ironwood_exception_metadata *metadata = calloc(1, sizeof(*metadata));
+    struct ironwood_exception_metadata *metadata = iw_gc_new_storage(metadata_type, sizeof(*metadata));
     if (metadata == NULL) { return NULL; }
     metadata->primary = primary;
     attach_exception_metadata(primary, metadata);
@@ -638,46 +677,26 @@ static void remove_metadata(struct ironwood_exception_metadata *target) {
     }
 }
 
-static void detach_emergency_secondary(void) {
-    if (!emergency_secondary_in_use) {
-        return;
-    }
-    struct ironwood_exception_metadata *metadata = emergency_secondary_owner;
-    if (metadata != NULL) {
-        struct ironwood_secondary_exception **link = &metadata->first_secondary;
-        struct ironwood_secondary_exception *previous = NULL;
-        while (*link != NULL) {
-            if (*link == &emergency_secondary) {
-                *link = emergency_secondary.next;
-                if (metadata->last_secondary == &emergency_secondary) {
-                    metadata->last_secondary = previous;
-                }
-                if (metadata->secondary_count > 0) {
-                    metadata->secondary_count--;
-                }
-                break;
-            }
-            previous = *link;
-            link = &(*link)->next;
+static void reset_cached_oom_occurrences(void) {
+    // Only the cached OOM's current payload is superseded. Never detach an
+    // occurrence from an independently surviving ordinary primary.
+    for (size_t i = 0; i < IRONWOOD_EMERGENCY_SECONDARY_CAPACITY; ++i) {
+        struct ironwood_emergency_cell *cell = &emergency_secondary_pool[i];
+        if (cell->in_use && cell->owner == &implicit_failure_metadata) {
+            memset(cell, 0, sizeof(*cell));
+            cell->value.gc_type = emergency_cell_type;
         }
     }
-    memset(&emergency_secondary, 0, sizeof(emergency_secondary));
-    emergency_secondary_in_use = 0;
-    emergency_secondary_owner = NULL;
 }
 
 static void prepare_implicit_failure(void *object) {
-    detach_emergency_secondary();
+    reset_cached_oom_occurrences();
     remove_metadata(&implicit_failure_metadata);
-    if (emergency_association_metadata_in_use) {
-        remove_metadata(&emergency_association_metadata);
-        memset(&emergency_association_metadata, 0,
-                sizeof(emergency_association_metadata));
-        emergency_association_metadata_in_use = 0;
-    }
     memset(&implicit_failure_metadata, 0, sizeof(implicit_failure_metadata));
+    implicit_failure_metadata.gc_type = metadata_type;
     implicit_failure_metadata.primary = object;
     attach_exception_metadata(object, &implicit_failure_metadata);
+    if (++emergency_delivery == 0) fatal_emergency("ironwood: emergency delivery identity exhausted");
     active_implicit_failure = object;
 }
 
@@ -1017,7 +1036,7 @@ static void capture_exception_trace(void *object) {
     if (metadata == NULL) {
         metadata = create_exception_metadata(object);
         if (metadata == NULL) {
-            ((struct ironwood_throwable *) object)->trace_state = 1;
+            ((struct ironwood_throwable *) object)->trace_status = IRONWOOD_TRACE_UNAVAILABLE;
             return;
         }
     }
@@ -1056,6 +1075,8 @@ static void capture_exception_trace(void *object) {
     }
 
     struct ironwood_trace_element *trace = emergency ? implicit_failure_trace : NULL;
+    struct ironwood_trace_storage *storage = emergency
+            ? (struct ironwood_trace_storage *)&implicit_failure_storage : NULL;
     int32_t capacity = emergency ? IRONWOOD_EMERGENCY_TRACE_CAPACITY : 0;
     int32_t count = 0;
     _Bool hiding = 1;
@@ -1091,20 +1112,20 @@ static void capture_exception_trace(void *object) {
                         : capacity <= INT32_MAX / 2 ? capacity * 2 : INT32_MAX;
                 if (grown == capacity
                         || (size_t) grown > SIZE_MAX / sizeof(*trace)) {
-                    free(trace);
                     free(capture.pcs);
                     metadata->trace_state = IRONWOOD_TRACE_UNAVAILABLE;
                     return;
                 }
-                struct ironwood_trace_element *replacement =
-                        realloc(trace, (size_t) grown * sizeof(*trace));
+                struct ironwood_trace_storage *replacement = iw_gc_new_storage(trace_storage_type,
+                        sizeof(*storage) + (size_t) grown * sizeof(*trace));
                 if (replacement == NULL) {
-                    free(trace);
                     free(capture.pcs);
                     metadata->trace_state = IRONWOOD_TRACE_UNAVAILABLE;
                     return;
                 }
-                trace = replacement;
+                if (count != 0) memcpy(replacement->elements, trace, (size_t)count * sizeof(*trace));
+                storage = replacement;
+                trace = replacement->elements;
                 capacity = grown;
             }
             trace[count++].site = site;
@@ -1113,37 +1134,20 @@ static void capture_exception_trace(void *object) {
     }
     if (!emergency) { free(capture.pcs); }
     if (!decoded) {
-        if (!emergency) { free(trace); }
         metadata->trace_state = IRONWOOD_TRACE_UNAVAILABLE;
         return;
     }
+    metadata->trace_storage = storage;
     metadata->trace = trace;
     metadata->trace_count = count;
     metadata->trace_truncated = capture.truncated;
     metadata->trace_state = IRONWOOD_TRACE_CAPTURED;
 }
 
-void ironwood_throwable_trace_release(void *object) {
-    struct ironwood_exception_metadata *metadata = find_exception_metadata(object);
-    attach_exception_metadata(object, NULL);
-    if (metadata == NULL) { return; }
-    if (emergency_secondary_owner == metadata) { detach_emergency_secondary(); }
-    struct ironwood_secondary_exception *entry = metadata->first_secondary;
-    while (entry != NULL) {
-        struct ironwood_secondary_exception *next = entry->next;
-        if (entry != &emergency_secondary) { free(entry); }
-        entry = next;
-    }
-    if (metadata->trace != implicit_failure_trace) { free(metadata->trace); }
-    if (metadata != &implicit_failure_metadata && metadata != &emergency_association_metadata) {
-        free(metadata);
-    }
-}
-
 void ironwood_throwable_trace_capture(void *object) {
     struct ironwood_exception_metadata *metadata = find_exception_metadata(object);
     if (metadata != NULL) {
-        if (metadata->trace != implicit_failure_trace) { free(metadata->trace); }
+        metadata->trace_storage = NULL;
         metadata->trace = NULL;
         metadata->trace_count = 0;
         metadata->trace_truncated = 0;
@@ -1156,18 +1160,22 @@ static void append_secondary_object(struct ironwood_exception_metadata *metadata
     if (metadata->secondary_count == INT32_MAX) {
         abort();
     }
-    struct ironwood_secondary_exception *entry;
-    if (active_implicit_failure != NULL && !emergency_secondary_in_use) {
-        entry = &emergency_secondary;
-        memset(entry, 0, sizeof(*entry));
-        emergency_secondary_in_use = 1;
-        emergency_secondary_owner = metadata;
+    struct ironwood_secondary_exception *entry = NULL;
+    if (active_implicit_failure != NULL) {
+        for (size_t i = 0; i < IRONWOOD_EMERGENCY_SECONDARY_CAPACITY; ++i) {
+            struct ironwood_emergency_cell *cell = &emergency_secondary_pool[i];
+            if (!cell->in_use) {
+                cell->owner = metadata;
+                cell->in_use = 1;
+                cell->delivery = emergency_delivery;
+                entry = &cell->value;
+                break;
+            }
+        }
     } else {
-        entry = calloc(1, sizeof(*entry));
+        entry = iw_gc_new_storage(secondary_type, sizeof(*entry));
     }
-    if (entry == NULL) {
-        fatal_emergency("ironwood: exception association storage exhausted");
-    }
+    if (entry == NULL) fatal_emergency("ironwood: bounded exception association storage exhausted");
     entry->object = object;
     if (metadata->last_secondary == NULL) {
         metadata->first_secondary = entry;
@@ -1220,11 +1228,11 @@ void *ironwood_process_arguments(int32_t argc, const char *const *argv,
 }
 
 uint64_t ironwood_allocation_count(void) {
-    return atomic_load_explicit(&allocation_count, memory_order_relaxed);
+    return iw_gc_language_total;
 }
 
 uint64_t ironwood_live_allocation_count(void) {
-    return atomic_load_explicit(&live_allocation_count, memory_order_relaxed);
+    return iw_gc_live_at_collection + iw_gc_language_total - iw_gc_total_at_collection;
 }
 
 static uint32_t identity_hash(const void *object) {
@@ -1739,9 +1747,9 @@ int32_t ironwood_file_same(const void *first, const void *second, void *allocati
     return left.st_dev == right.st_dev && left.st_ino == right.st_ino;
 }
 
-/* The result is not published until the descriptor is closed. Resizing that
- * same allocation does not create an additional language object or scratch
- * buffer. A failed resize leaves the original allocation available for cleanup. */
+/* Native construction scratch is never a language allocation. After closing
+ * the descriptor, copy its initialized payload into one exact managed result.
+ * Failed growth leaves the native buffer available for explicit cleanup. */
 static void *reserve_file_result(void *result, size_t header, size_t element_size,
                                  size_t required, size_t *capacity) {
     if (required <= *capacity) { return result; }
@@ -1774,10 +1782,7 @@ static void *read_file_result(const struct ironwood_string *path, const void *ty
     }
     size_t header = text ? sizeof(struct ironwood_string) : sizeof(struct ironwood_array);
     size_t element_size = text ? sizeof(uint16_t) : sizeof(uint8_t);
-    void *result = text
-            ? (void *) try_allocate_string((int32_t) capacity, type, allocation_failure)
-            : (void *) try_allocate_array((int32_t) capacity, 1, IRONWOOD_ARRAY_BYTE,
-                    type, allocation_failure);
+    void *result = malloc(header + capacity * element_size);
     _Bool out_of_memory = result == NULL;
     if (out_of_memory) { goto failed; }
     unsigned char chunk[IRONWOOD_IO_CHUNK_CAPACITY];
@@ -1842,24 +1847,25 @@ static void *read_file_result(const struct ironwood_string *path, const void *ty
     if (remaining != 0) { goto malformed; }
     if (close(descriptor) != 0) {
         set_file_error_from_errno(errno);
-        ironwood_deallocate(result);
+        free(result);
         return NULL;
     }
-    if (text) {
-        ((struct ironwood_string *) result)->utf16_length = (int32_t) length;
-        ((struct ironwood_string *) result)->utf8_length = (int32_t) byte_length;
-    } else { ((struct ironwood_array *) result)->length = length; }
-    // Shrinking is optional: failure must not discard an already valid result.
-    if (length < capacity) {
-        void *compact = realloc(result, header + length * element_size);
-        if (compact != NULL) { result = compact; }
+    void *managed = text
+            ? (void *) try_allocate_string((int32_t) length, type, allocation_failure)
+            : (void *) try_allocate_array((int32_t) length, 1, IRONWOOD_ARRAY_BYTE, type, allocation_failure);
+    if (managed == NULL) {
+        free(result);
+        raise_allocation_failure(allocation_failure);
     }
-    return result;
+    memcpy((unsigned char *)managed + header, (unsigned char *)result + header, length * element_size);
+    if (text) ((struct ironwood_string *)managed)->utf8_length = (int32_t) byte_length;
+    free(result);
+    return managed;
 
 malformed:
     last_file_error = IRONWOOD_FILE_ERROR_INVALID_UTF8;
 failed:
-    if (result != NULL) { ironwood_deallocate(result); }
+    if (result != NULL) { free(result); }
     close(descriptor);
     if (out_of_memory) { raise_allocation_failure(allocation_failure); }
     return NULL;
@@ -3940,36 +3946,6 @@ void *ironwood_string_concat(const struct ironwood_string_concat_part *parts,
     return result;
 }
 
-void ironwood_deallocate(void *object) {
-    if (object == NULL) {
-        return;
-    }
-    atomic_fetch_sub_explicit(&live_allocation_count, UINT64_C(1), memory_order_relaxed);
-    free(object);
-}
-
-void ironwood_release_owned_to_string_result(const void *object, void *result) {
-    if (object == NULL) {
-        return;
-    }
-    const struct ironwood_type_info *type =
-            *(const struct ironwood_type_info *const *) object;
-    if (type == NULL) {
-        abort();
-    }
-    if (type->to_string_returns_owned_fresh) {
-        ironwood_deallocate(result);
-    }
-}
-
-void ironwood_release_owned_throwable_message(const void *object, void *message) {
-    const struct ironwood_type_info *type =
-            *(const struct ironwood_type_info *const *) object;
-    if (type->localized_message_returns_owned_fresh) {
-        ironwood_deallocate(message);
-    }
-}
-
 _Noreturn void ironwood_destructor_failed(void) {
     fatal_emergency("fatal: an exception escaped an Ironwood destructor");
 }
@@ -4161,6 +4137,9 @@ static _Noreturn void raise_language_exception(void *object) {
             fatal_emergency("ironwood: native exception wrapper allocation failed");
         }
     }
+    exception->next = active_exceptions;
+    if (active_exceptions != NULL) active_exceptions->previous = exception;
+    active_exceptions = exception;
     exception->object = object;
     exception->unwind.exception_class = UINT64_C(0x49524f4e574f4f44);
     exception->unwind.exception_cleanup = cleanup_exception;
@@ -4247,7 +4226,7 @@ void ironwood_exception_add_secondary(void *primary, void *secondary) {
             find_exception_metadata(secondary);
     struct ironwood_exception_metadata *metadata = find_exception_metadata(primary);
     if (metadata == NULL) {
-        _Bool trace_unavailable = ((const struct ironwood_throwable *) primary)->trace_state == 1;
+        _Bool trace_unavailable = ((const struct ironwood_throwable *) primary)->trace_status == IRONWOOD_TRACE_UNAVAILABLE;
         metadata = create_exception_metadata(primary);
         if (metadata == NULL) {
             if (active_implicit_failure == NULL
@@ -4256,6 +4235,7 @@ void ironwood_exception_add_secondary(void *primary, void *secondary) {
             }
             memset(&emergency_association_metadata, 0,
                     sizeof(emergency_association_metadata));
+            emergency_association_metadata.gc_type = metadata_type;
             emergency_association_metadata.primary = primary;
             attach_exception_metadata(primary, &emergency_association_metadata);
             emergency_association_metadata_in_use = 1;
@@ -4323,7 +4303,7 @@ int32_t ironwood_throwable_trace_common(const void *object, const void *parent) 
 void ironwood_throwable_trace_print(const void *object, const void *stream, int32_t indentation, int32_t common) {
     FILE *target = stream == NULL ? stderr : print_stream_target(stream);
     struct ironwood_exception_metadata *metadata = find_exception_metadata(object);
-    if ((metadata == NULL && ((const struct ironwood_throwable *) object)->trace_state == 1)
+    if ((metadata == NULL && ((const struct ironwood_throwable *) object)->trace_status == IRONWOOD_TRACE_UNAVAILABLE)
             || (metadata != NULL && metadata->trace_state == IRONWOOD_TRACE_UNAVAILABLE)) {
         for (int32_t index = 0; index < indentation; index++) { fputc('\t', target); }
         fputs("\tat <trace unavailable>\n", target);
@@ -4401,4 +4381,111 @@ _Noreturn void ironwood_uncaught_exception(void *object, size_t message_offset) 
         }
     }
     exit(1);
+}
+
+/* GC5 image startup is cold. No user callbacks or collection occur here. */
+extern const char iw_gc_expected_configuration[];
+extern const uint64_t iw_gc_static_root_count, iw_gc_immortal_count, iw_gc_runtime_layouts[10];
+extern void *const iw_gc_static_roots[], *const iw_gc_immortal_bases[];
+const uint64_t iw_gc_native_root_count = 0;
+void *const iw_gc_native_roots[1] = {NULL};
+static void *collection_allocation_failure;
+
+static int enumerate_runtime_owners(int (*visit)(uintptr_t)) {
+    for (struct ironwood_exception *entry = active_exceptions; entry != NULL; entry = entry->next) {
+        if (!visit((uintptr_t)entry->object)) return 0;
+    }
+    if (active_implicit_failure != NULL) {
+        if (!visit((uintptr_t)active_implicit_failure)) return 0;
+        for (size_t i = 0; i < IRONWOOD_EMERGENCY_SECONDARY_CAPACITY; ++i) {
+            struct ironwood_emergency_cell *cell = &emergency_secondary_pool[i];
+            if (cell->in_use && cell->delivery == emergency_delivery
+                    && !visit((uintptr_t)cell)) return 0;
+        }
+        if (emergency_association_metadata_in_use
+                && !visit((uintptr_t)&emergency_association_metadata)) return 0;
+    }
+    return 1;
+}
+
+_Noreturn void ironwood_gc_invalid_layout(void) {
+    fatal_emergency("ironwood: incompatible GC image layout/configuration/root metadata");
+}
+
+void ironwood_gc_start(void) {
+    if (!iw_gc_init(iw_gc_expected_configuration, SIZE_MAX / 2, 0)) ironwood_gc_invalid_layout();
+    static const size_t metadata_refs[] = {
+        offsetof(struct ironwood_exception_metadata, primary),
+        offsetof(struct ironwood_exception_metadata, first_secondary),
+        offsetof(struct ironwood_exception_metadata, last_secondary),
+        offsetof(struct ironwood_exception_metadata, trace_storage)
+    };
+    static const size_t secondary_refs[] = {
+        offsetof(struct ironwood_secondary_exception, object), offsetof(struct ironwood_secondary_exception, next)
+    };
+    static const size_t emergency_refs[] = {
+        offsetof(struct ironwood_emergency_cell, value.object),
+        offsetof(struct ironwood_emergency_cell, value.next),
+        offsetof(struct ironwood_emergency_cell, owner)
+    };
+    const struct iw_gc_layout emergency = {1, IW_GC_FIXED, 0, 0,
+        sizeof(struct ironwood_emergency_cell), 3, emergency_refs};
+    const struct iw_gc_layout metadata = {1, IW_GC_FIXED, 0, 0,
+        sizeof(struct ironwood_exception_metadata), 4, metadata_refs};
+    const struct iw_gc_layout secondary = {1, IW_GC_FIXED, 0, 0,
+        sizeof(struct ironwood_secondary_exception), 2, secondary_refs};
+    const struct iw_gc_layout trace = {1, IW_GC_FIXED, 0, 0,
+        sizeof(struct ironwood_trace_storage), 0, NULL};
+    metadata_type = iw_gc_describe(&metadata);
+    secondary_type = iw_gc_describe(&secondary);
+    trace_storage_type = iw_gc_describe(&trace);
+    emergency_cell_type = iw_gc_describe(&emergency);
+    if (!metadata_type || !secondary_type || !trace_storage_type || !emergency_cell_type) ironwood_gc_invalid_layout();
+    implicit_failure_metadata.gc_type = emergency_association_metadata.gc_type = metadata_type;
+    for (size_t i = 0; i < IRONWOOD_EMERGENCY_SECONDARY_CAPACITY; ++i) {
+        emergency_secondary_pool[i].value.gc_type = emergency_cell_type;
+    }
+    implicit_failure_storage.gc_type = trace_storage_type;
+}
+
+static _Noreturn void collection_preparation_oom(void) {
+    raise_allocation_failure(collection_allocation_failure);
+}
+
+void ironwood_gc_start_roots(void (*boundary)(void), void *allocation_failure) {
+    const uint64_t expected[] = {
+        sizeof(struct ironwood_type_info), offsetof(struct ironwood_type_info, dispatch),
+        offsetof(struct ironwood_type_info, membership), sizeof(struct ironwood_throwable),
+        offsetof(struct ironwood_throwable, cause), offsetof(struct ironwood_throwable, trace_metadata),
+        offsetof(struct ironwood_throwable, trace_status), sizeof(struct ironwood_array),
+        sizeof(struct ironwood_string), sizeof(struct ironwood_emergency_cell)
+    };
+    if (memcmp(expected, iw_gc_runtime_layouts, sizeof(expected))) ironwood_gc_invalid_layout();
+    static struct iw_gc_owner_protocol owners;
+    owners = (struct iw_gc_owner_protocol){1, 7, 0, 0, enumerate_runtime_owners,
+        iw_gc_immortal_bases, (size_t)iw_gc_immortal_count};
+    collection_allocation_failure = allocation_failure;
+    size_t capacity = 65536;
+    const char *configured = getenv("IRONWOOD_GC_ROOT_CAPACITY");
+    if (configured != NULL) {
+        char *end;
+        unsigned long parsed = strtoul(configured, &end, 10);
+        if (*configured == '\0' || *end || parsed < 1 || parsed > 1048576) ironwood_gc_invalid_layout();
+        capacity = (size_t)parsed;
+    }
+    const struct iw_gc_root_config config = {2, 8, 1, 3, boundary, iw_gc_static_roots,
+        (size_t)iw_gc_static_root_count, iw_gc_native_roots, 0, capacity, 3, 4, &owners};
+    if (!iw_gc_roots_start(&config)) ironwood_gc_invalid_layout();
+    if (!iw_gc_register_immortals(iw_gc_immortal_bases, (size_t)iw_gc_immortal_count)
+            || !iw_gc_weak_native(&implicit_failure_metadata)
+            || !iw_gc_weak_native(&emergency_association_metadata)
+            || !iw_gc_weak_native_slot(&emergency_association_metadata,
+                    &emergency_association_metadata_in_use, sizeof(emergency_association_metadata_in_use))) {
+        ironwood_gc_invalid_layout();
+    }
+    for (size_t i = 0; i < IRONWOOD_EMERGENCY_SECONDARY_CAPACITY; ++i) {
+        if (!iw_gc_weak_native(&emergency_secondary_pool[i])) ironwood_gc_invalid_layout();
+    }
+    if (!iw_gc_roots_set_preparation_oom(collection_preparation_oom)) ironwood_gc_invalid_layout();
+
 }

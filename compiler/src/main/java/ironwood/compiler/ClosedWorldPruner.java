@@ -90,6 +90,12 @@ final class ClosedWorldPruner {
     private IrProgram run() {
         program.entryPoint().ifPresent(entry -> enqueueFunction(entry.linkageName()));
         program.exportRoots().forEach(this::enqueueFunction);
+        // Native argument creation and runtime failure delivery exist even when
+        // the source entry is scalar. Keep their actual source-defined graph.
+        if (program.entryPoint().isPresent()) {
+            allocationFailureReachable = true;
+            program.allocationFailure().ifPresent(error -> enqueueClass(error.type().referenceName()));
+        }
         if (!program.exportRoots().isEmpty()) {
             // Protected foreign entry work must never lose its valid implicit-OOM
             // context, including conversion and failure-snapshot paths.

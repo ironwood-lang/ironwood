@@ -25,18 +25,14 @@ public final class StringJoiner {
 
         if (delimiter == null || prefix == null || suffix == null) throw new NullPointerException();
         StringBuilder builder = new StringBuilder();
-        defer free builder;
         builder.append((Object) prefix);
         String prefixText = builder.toString();
-        defer free prefixText;
         builder.setLength(0);
         builder.append((Object) delimiter);
         String delimiterText = builder.toString();
-        defer free delimiterText;
         builder.setLength(0);
         builder.append((Object) suffix);
         String suffixText = builder.toString();
-        defer free suffixText;
         int prefixLength = prefixText.length();
         int delimiterLength = delimiterText.length();
         int suffixLength = suffixText.length();
@@ -78,7 +74,6 @@ public final class StringJoiner {
         char[] old = this.value;
         this.value = new char[capacity];
         System.arraycopy(old, 0, this.value, 0, this.valueLength);
-        free old;
     }
 
     private void ensureEmptyCapacity(int required) {
@@ -90,7 +85,6 @@ public final class StringJoiner {
         char[] old = this.emptyValue;
         this.emptyValue = new char[capacity];
         System.arraycopy(old, 0, this.emptyValue, 0, this.emptyValueLength);
-        free old;
     }
 
     private void addStringElement(String element) {
@@ -129,20 +123,16 @@ public final class StringJoiner {
     private void addSequenceElement(CharSequence element) {
 
         StringBuilder builder = new StringBuilder();
-        defer free builder;
         builder.append((Object) element);
         String snapshot = builder.toString();
-        defer free snapshot;
         addStringElement(snapshot);
     }
 
     private void setEmptySequence(CharSequence text) {
 
         StringBuilder builder = new StringBuilder();
-        defer free builder;
         builder.append((Object) text);
         String snapshot = builder.toString();
-        defer free snapshot;
         setEmptyString(snapshot);
     }
     /** Sets the empty value. */
@@ -212,7 +202,6 @@ public final class StringJoiner {
 
         if (this.elementCount == 0) return new String(this.emptyValue, 0, this.emptyValueLength);
         char[] result = new char[length()];
-        defer free result;
         int output = 0;
         for (int index = 0; index < this.prefix.length; index++) {
             result[output] = this.prefix[index];
@@ -229,12 +218,5 @@ public final class StringJoiner {
         return new String(result);
     }
 
-    destructor {
 
-        free this.value;
-        free this.emptyValue;
-        free this.suffix;
-        free this.prefix;
-        free this.delimiter;
-    }
 }

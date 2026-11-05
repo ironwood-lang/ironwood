@@ -29,7 +29,6 @@ public class IntMap<E extends Object> implements Iterable<E> {
     private int count;
     private int threshold;
     private float loadFactor;
-    // Keep the builder before the pool for reverse-order constructor rollback.
     private final ObjectBuilder<IntMapEntry<E>> entryBuilder;
     private final ArrayObjectPool<IntMapEntry<E>> entryPool;
     private IntMapIterator<E> reusableIterator;
@@ -94,7 +93,9 @@ public class IntMap<E extends Object> implements Iterable<E> {
 
     private void releaseEntryBackToPool(IntMapEntry<E> entry) {
 
-        // getEntryFromPool overwrites every field before it can be observed.
+        // The entry remains reusable; retired user graphs do not.
+        entry.value = null;
+        entry.next = null;
         this.entryPool.release(entry);
     }
 
@@ -156,7 +157,6 @@ public class IntMap<E extends Object> implements Iterable<E> {
     public String toString() {
 
         StringBuilder builder = new StringBuilder();
-        defer free builder;
         builder.append('{');
         Iterator<E> iterator = iterator();
         boolean first = true;
@@ -243,7 +243,6 @@ public class IntMap<E extends Object> implements Iterable<E> {
             }
             index = index - 1;
         }
-        free oldData;
     }
     /** Associates the supplied key with the supplied value. */
 
@@ -344,11 +343,5 @@ public class IntMap<E extends Object> implements Iterable<E> {
         return reusableIterator;
     }
 
-    destructor {
 
-        free this.reusableIterator;
-        free this.data;
-        free this.entryPool;
-        free this.entryBuilder;
-    }
 }

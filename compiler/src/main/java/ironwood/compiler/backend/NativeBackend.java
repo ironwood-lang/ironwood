@@ -46,8 +46,7 @@ public final class NativeBackend {
             if (!result.success()) return result;
             // Trace attribution sees optimized function identities. Statepoints are
             // inserted afterward in every mode; no optimizer runs after them.
-            String optimizedText = Files.readString(optimized);
-            GcLateVerification.strategies(optimizedText);
+            String optimizedText = GcLateVerification.optimizedStrategies(Files.readString(input), Files.readString(optimized));
             Files.writeString(traced, OptimizedTraceMetadata.injectGc(optimizedText, macho), StandardCharsets.UTF_8);
             var statepoints = new java.util.ArrayList<>(List.of(toolchain.opt().toString()));
             if (runtimeOwners) {
@@ -156,6 +155,9 @@ public final class NativeBackend {
                                  OptimizationLevel optimizationLevel, NativeLinkRequirements requirements,
                                  TargetMachine targetMachine, Integer inlineThreshold, Boolean partialInlining,
                                  Path optimizationReport, NativeOutputKind kind, List<Path> adapterObjects, MacNativeTools selectedMacTools) {
+        if (kind != NativeOutputKind.EXECUTABLE || !adapterObjects.isEmpty()) {
+            return new LinkResult(false, "GC6 boundary: shared-library/native bridge output is not qualified for managed roots and foreign transitions");
+        }
         boolean shared = kind == NativeOutputKind.SHARED_LIBRARY;
         Path temporaryDirectory = null;
         try {
@@ -183,15 +185,18 @@ public final class NativeBackend {
 
             TlsDependency tls = requirements.tls() ? TlsDependency.discover(
                     runtime.source().orElseThrow().getParent().getParent().getParent(), toolchain) : null;
+            Path distribution = runtime.source().orElseThrow().getParent().getParent().getParent();
+            GcDependency gc = GcDependency.discover(distribution, toolchain);
             BridgeNativeSupport bridgeSupport = shared && System.getProperty("os.name").startsWith("Linux")
                     ? BridgeNativeSupport.discover(toolchain) : null;
             MacNativeTools macTools = System.getProperty("os.name").startsWith("Mac")
                     ? selectedMacTools == null ? MacNativeTools.discover() : selectedMacTools : null;
             List<String> targetFlags = new java.util.ArrayList<>(targetMachine.clangArguments());
-            if (shared) targetFlags.add("-fvisibility=hidden");
+            targetFlags.add("-fvisibility=hidden");
             if (macTools != null) targetFlags.addAll(macTools.compileFlags());
             if (bridgeSupport != null) targetFlags.addAll(bridgeSupport.compileFlags());
             if (tls != null) targetFlags.addAll(tls.compileFlags());
+            targetFlags.addAll(gc.compileFlags());
 
             // Resolve the runtime's target before even assembling the program:
             // assembly also assigns implicit load/store alignment from the layout.
@@ -205,9 +210,11 @@ public final class NativeBackend {
             LinkResult targetQuery = run("native target discovery", targetCommand);
             if (!targetQuery.success()) return targetQuery;
             NativeTarget target = NativeTarget.fromLlvm(Files.readString(targetLlvm, StandardCharsets.UTF_8));
+            if (!target.equals(gc.target())) return new LinkResult(false, "GC dependency target/layout mismatch");
             targetFlags.add("--target=" + target.triple());
             Path targetedLlvm = temporaryDirectory.resolve("program.target.ll");
-            Files.writeString(targetedLlvm, target.applyTo(Files.readString(llvmIr, StandardCharsets.UTF_8)),
+            Files.writeString(targetedLlvm, target.applyTo(Files.readString(llvmIr, StandardCharsets.UTF_8)
+                            + "\n@iw_gc_expected_configuration = hidden constant [65 x i8] c\"" + gc.identity() + "\\00\"\n"),
                     StandardCharsets.UTF_8);
             LinkResult assemble = run("LLVM IR assembly", List.of(
                     toolchain.llvmAs().toString(), targetedLlvm.toString(), "-o", assembledBitcode.toString()));
@@ -233,19 +240,32 @@ public final class NativeBackend {
                 return optimize;
             }
             try {
-                Files.writeString(tracedLlvm, OptimizedTraceMetadata.inject(
-                        Files.readString(optimizedLlvm, StandardCharsets.UTF_8),
-                        System.getProperty("os.name").startsWith("Mac"), shared), StandardCharsets.UTF_8);
+                Files.writeString(tracedLlvm, OptimizedTraceMetadata.injectGc(
+                        GcLateVerification.optimizedStrategies(Files.readString(llvmIr),
+                                Files.readString(optimizedLlvm, StandardCharsets.UTF_8)),
+                        System.getProperty("os.name").startsWith("Mac")), StandardCharsets.UTF_8);
             } catch (IllegalArgumentException exception) {
                 return new LinkResult(false, "cannot finalize stack-trace metadata: "
                         + exception.getMessage());
             }
-            LinkResult assembleTraces = run("LLVM stack-trace metadata assembly", List.of(
-                    toolchain.llvmAs().toString(), tracedLlvm.toString(),
-                    "-o", optimizedBitcode.toString()));
-            if (!assembleTraces.success()) {
-                return assembleTraces;
-            }
+            Path plugin = temporaryDirectory.resolve("nonmoving-statepoints.so");
+            var passBuild = new java.util.ArrayList<>(List.of(toolchain.clang().toString(), "--driver-mode=g++"));
+            if (System.getProperty("os.name").equals("Linux")) passBuild.add("--gcc-toolchain=/usr");
+            passBuild.addAll(List.of("-std=c++17", "-fno-exceptions", "-fPIC", "-shared", "-O2",
+                    "-I" + toolchain.home().resolve("include"), "-L" + toolchain.home().resolve("lib"),
+                    "-Wl,-rpath," + toolchain.home().resolve("lib"), "-lLLVM",
+                    distribution.resolve("compiler/src/main/cpp/GcNonmovingStatepoints.cpp").toString(), "-o", plugin.toString()));
+            LinkResult pass = run("required nonmoving statepoint pass build", passBuild);
+            if (!pass.success()) return pass;
+            Path rooted = temporaryDirectory.resolve("program.roots.ll");
+            LinkResult rewrite = run("required nonmoving statepoints and final verification", List.of(toolchain.opt().toString(),
+                    "-load-pass-plugin=" + plugin, "-passes=ironwood-nonmoving-statepoints,verify", "-S",
+                    tracedLlvm.toString(), "-o", rooted.toString()));
+            if (!rewrite.success()) return rewrite;
+            GcLateVerification.stackRegions(Files.readString(rooted));
+            LinkResult assembleTraces = run("verified statepoint assembly", List.of(toolchain.llvmAs().toString(),
+                    rooted.toString(), "-o", optimizedBitcode.toString()));
+            if (!assembleTraces.success()) return assembleTraces;
             List<String> codeCommand = new java.util.ArrayList<>(List.of(toolchain.llc().toString(),
                     "-filetype=obj", "--relocation-model=pic", optimizationLevel.llcArgument()));
             codeCommand.addAll(targetMachine.llvmArguments());
@@ -255,8 +275,23 @@ public final class NativeBackend {
             if (!codeGeneration.success()) {
                 return codeGeneration;
             }
-            if (shared) {
-                Files.write(objectFile, SharedTraceOrder.canonicalize(Files.readAllBytes(objectFile)));
+            Files.write(objectFile, GcRootSections.retain(Files.readAllBytes(objectFile)));
+            Path contract = temporaryDirectory.resolve("root-contract.c");
+            Files.writeString(contract, GcRootSections.contract(Files.readAllBytes(objectFile)));
+            Path contractObject = temporaryDirectory.resolve("root-contract.o");
+            var contractCommand = new java.util.ArrayList<>(List.of(toolchain.clang().toString(), "-std=c11",
+                    optimizationLevel.clangArgument(), "-fvisibility=hidden", "-c", contract.toString(), "-o", contractObject.toString()));
+            contractCommand.addAll(targetFlags);
+            LinkResult contractBuild = run("verified root contract compilation", contractCommand);
+            if (!contractBuild.success()) return contractBuild;
+            Path rootObject = temporaryDirectory.resolve("ironwood_gc_roots.o");
+            LinkResult rootBuild = prepareRuntimeObject(toolchain, distribution.resolve("runtime/src/ironwood_gc_roots.c"),
+                    optimizationLevel, rootObject, targetFlags, gc.identity());
+            if (!rootBuild.success()) return rootBuild;
+            if (System.getProperty("os.name").equals("Linux")) {
+                LinkResult rename = run("retained GC root section naming", List.of(toolchain.llvmObjcopy().toString(),
+                        "--rename-section", ".llvm_stackmaps=ironwood_gc_maps", objectFile.toString()));
+                if (!rename.success()) return rename;
             }
             if (System.getProperty("os.name").startsWith("Linux")) {
                 LinkResult traceSection = run("LLVM stack-trace section preparation", List.of(
@@ -268,26 +303,34 @@ public final class NativeBackend {
                 }
             }
             LinkResult runtimeCompilation = prepareRuntimeObject(toolchain,
-                    runtime.source().orElseThrow(), optimizationLevel, runtimeObjectFile, targetFlags, "");
+                    runtime.source().orElseThrow(), optimizationLevel, runtimeObjectFile, targetFlags, gc.identity());
             if (!runtimeCompilation.success()) {
                 return runtimeCompilation;
             }
             LinkResult caseCompilation = prepareRuntimeObject(toolchain,
                     runtime.source().orElseThrow().resolveSibling("ironwood_case.c"),
-                    optimizationLevel, caseObjectFile, targetFlags, "");
+                    optimizationLevel, caseObjectFile, targetFlags, gc.identity());
             if (!caseCompilation.success()) return caseCompilation;
             LinkResult tcpCompilation = prepareRuntimeObject(toolchain,
                     runtime.source().orElseThrow().resolveSibling("ironwood_tcp.c"),
-                    optimizationLevel, tcpObjectFile, targetFlags, "");
+                    optimizationLevel, tcpObjectFile, targetFlags, gc.identity());
             if (!tcpCompilation.success()) return tcpCompilation;
             LinkResult hostCompilation = prepareRuntimeObject(toolchain,
                     runtime.source().orElseThrow().resolveSibling("ironwood_host.c"),
-                    optimizationLevel, hostObjectFile, targetFlags, "");
+                    optimizationLevel, hostObjectFile, targetFlags, gc.identity());
             if (!hostCompilation.success()) return hostCompilation;
             List<String> linkCommand = new java.util.ArrayList<>(List.of(
                     toolchain.clang().toString(), "--driver-mode=g++", "--target=" + target.triple(),
                     objectFile.toString(), runtimeObjectFile.toString(), caseObjectFile.toString(),
                     tcpObjectFile.toString(), hostObjectFile.toString()));
+            linkCommand.add(contractObject.toString());
+            linkCommand.add(rootObject.toString());
+            linkCommand.addAll(gc.linkFlags());
+            if (System.getProperty("os.name").equals("Linux")) {
+                Path script = temporaryDirectory.resolve("root-contract.ld");
+                Files.writeString(script, GcRootSections.elfLinkerScript());
+                linkCommand.add("-Wl,-T," + script);
+            }
             if (macTools != null) linkCommand.addAll(macTools.linkFlags());
             if (shared) linkCommand.add(System.getProperty("os.name").startsWith("Mac") ? "-dynamiclib" : "-shared");
             if (shared && System.getProperty("os.name").startsWith("Mac")) {
@@ -304,7 +347,7 @@ public final class NativeBackend {
                         "-I", tls.home().resolve("share").toString()));
                 LinkResult compiled = prepareRuntimeObject(toolchain,
                         runtime.source().orElseThrow().resolveSibling("ironwood_tls.c"),
-                        optimizationLevel, tlsObject, tlsFlags, tls.identity());
+                        optimizationLevel, tlsObject, tlsFlags, tls.identity() + gc.identity());
                 if (!compiled.success()) return compiled;
                 linkCommand.add(tlsObject.toString());
                 linkCommand.addAll(tls.linkFlags());
@@ -314,7 +357,7 @@ public final class NativeBackend {
             LinkResult linked = run("native link", linkCommand);
             if (linked.success() && bridgeSupport != null) bridgeSupport.deliver(output);
             return linked;
-        } catch (IOException exception) {
+        } catch (IOException | IllegalArgumentException exception) {
             return new LinkResult(false, "cannot prepare native backend: " + exception.getMessage());
         } finally {
             deleteTree(temporaryDirectory);

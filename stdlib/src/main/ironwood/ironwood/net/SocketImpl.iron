@@ -8,15 +8,14 @@ import ironwood.io.OutputStream;
 import ironwood.ds.UnmodifiableList;
 
 /**
- * TCP implementation protocol for custom socket facades and delegation. A supplied implementation
- * is borrowed; a proven fresh factory result is adopted. An implementation may own a fresh
- * delegate or borrow a caller-owned delegate. Ordinary ownership analysis applies to every
- * reachable override; this protocol grants no blanket non-retention exemption.
+ * TCP implementation protocol for custom socket facades and delegation. A supplied
+ * implementation is borrowed; a proven fresh factory result is adopted. An implementation may
+ * own a fresh delegate or borrow a caller-owned delegate. Ordinary ownership analysis applies
+ * to every reachable override; this protocol grants no blanket non-retention exemption.
  * <p>Descriptor, stream and address getters return helpers tied to their implementation or
- * delegate. Reclaim outer stream wrappers and facades before caller-owned implementations and
- * delegates. close releases resources and must be idempotent; destruction only reclaims managed
- * storage. Accept transfers one resource into destination-owned storage and never adopts the
- * destination.
+ * delegate. Managed references retain implementations and delegates. close releases resources
+ * and must be idempotent; collection never closes resources. Accept transfers one resource into
+ * destination-owned storage and never adopts the destination.
  */
 public abstract class SocketImpl {
 
@@ -54,8 +53,7 @@ public abstract class SocketImpl {
 
     /**
      * Builds a temporary endpoint, resolves synchronously, and delegates to connect with no
-     * deadline. The temporary endpoint is freed after delegation, so overrides must not retain it
-     * without copying.
+     * deadline. The managed endpoint may be retained by an override.
      *
      * @param host a non-null hostname or numeric address; empty selects loopback
      * @param port 0 through 65535
@@ -65,13 +63,12 @@ public abstract class SocketImpl {
     protected void connect(String host, int port) throws IOException {
 
         InetSocketAddress endpoint = new InetSocketAddress(host, port);
-        defer free endpoint;
         this.connect(endpoint, 0);
     }
 
     /**
-     * Builds a temporary copied endpoint and delegates to connect with no deadline. The temporary
-     * is freed after delegation, so overrides must not retain it without copying.
+     * Builds a temporary copied endpoint and delegates to connect with no deadline. The managed
+     * endpoint may be retained by an override.
      *
      * @param address the address to copy, or null for a wildcard
      * @param port 0 through 65535
@@ -81,7 +78,6 @@ public abstract class SocketImpl {
     protected void connect(InetAddress address, int port) throws IOException {
 
         InetSocketAddress endpoint = new InetSocketAddress(address, port);
-        defer free endpoint;
         this.connect(endpoint, 0);
     }
 
@@ -109,9 +105,9 @@ public abstract class SocketImpl {
 
     /**
      * Returns an implementation-dependent borrowed input view. It remains tied to this
-     * implementation or its delegate and must not be freed separately. Closing the native view
-     * closes the delegate. Reads use the configured read timeout; expiration leaves native TCP
-     * usable. Custom overrides participate in ownership analysis.
+     * implementation or its delegate and follows ordinary managed reachability. Closing the
+     * native view closes the delegate. Reads use the configured read timeout; expiration leaves
+     * native TCP usable. Custom overrides participate in ownership analysis.
      *
      * @return a borrowed input stream
      * @throws IOException if the implementation cannot provide the stream
@@ -120,9 +116,9 @@ public abstract class SocketImpl {
 
     /**
      * Returns an implementation-dependent borrowed output view. It remains tied to this
-     * implementation or its delegate and must not be freed separately. Closing the native view
-     * closes the delegate. Ordinary TCP writes have no deadline and may partially complete before
-     * failure. Custom overrides participate in ownership analysis.
+     * implementation or its delegate and follows ordinary managed reachability. Closing the
+     * native view closes the delegate. Ordinary TCP writes have no deadline and may partially
+     * complete before failure. Custom overrides participate in ownership analysis.
      *
      * @return a borrowed output stream
      * @throws IOException if the implementation cannot provide the stream
@@ -138,9 +134,9 @@ public abstract class SocketImpl {
     protected abstract int available() throws IOException;
 
     /**
-     * Releases the resource idempotently without reclaiming managed descriptor, stream or address
-     * storage. An override must close its owned resource or delegate without freeing borrowed
-     * objects.
+     * Releases the resource idempotently without reclaiming managed descriptor, stream or
+     * address storage. An override must close its owned resource or delegate without changing
+     * unrelated native ownership.
      *
      * @throws IOException if resource closure reports a failure
      */
@@ -230,7 +226,6 @@ public abstract class SocketImpl {
         InetAddress address = this.getInetAddress();
         if (address == null) return "Socket[addr=null,port=" + this.getPort() + ",localport=" + this.getLocalPort() + "]";
         String text = address.toString();
-        defer free text;
         return "Socket[addr=" + text + ",port=" + this.getPort() + ",localport=" + this.getLocalPort() + "]";
     }
 
@@ -293,9 +288,9 @@ public abstract class SocketImpl {
 
     /**
      * Returns the read-only inventory of supported public options; the default is a
-     * process-lifetime empty list. Do not free the list or its tokens. Implementation-only timeout
-     * and urgent-data tokens are excluded. Custom inventories must remain alive with their
-     * implementation.
+     * process-lifetime empty list. The list and tokens have managed lifetimes.
+     * Implementation-only timeout and urgent-data tokens are excluded. Custom inventories must
+     * remain alive with their implementation.
      *
      * @return a borrowed read-only option inventory
      */

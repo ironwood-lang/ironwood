@@ -2,6 +2,10 @@
 
 # GC0 baseline, consumers and migration contracts
 
+
+Historical prerequisite record. GC5 replaces its manual-heap production rules;
+see [the current managed contract](MEMORY.md) and [GC5 report](GC5_IMPLEMENTATION.md).
+
 Date: 2026-11-04. **GC0 complete; production GC is not implemented.**
 Baseline: `bb0fbab690871cbdba00b0770532653ebdba713d`, including the planning
 commit and evaluation. Work stayed on the existing local migration branch.

@@ -1,199 +1,227 @@
 <!-- SPDX-License-Identifier: MIT OR Apache-2.0 -->
 
-# GC5 incomplete implementation checkpoint
+# GC5 integrated compiler, runtime and library cutover
 
-Baseline: `1b0e7674`, following GC4 implementation `777a26ff`. Work is local on
-`codex/bdwgc-integration-plan`. **GC5 is incomplete. Normal native collection is
-refused.** This record describes a guarded private checkpoint, not the requested
-integrated memory-model cutover. Read with the
-[integration plan](BDWGC_INTEGRATION_PLAN.md) and
-[compact evidence](gc-evaluation/gc5-checkpoint-2026-11-04-manifest.json).
+Date: 2026-11-05. **GC5's integrated checkpoint is complete on the migration
+branch.** Ordinary native executables and the complete required main/testing
+library use one exact, nonmoving managed heap. This is not completion of the GC
+project. Native bridge/shared-library output refuses until GC6; repository-wide
+consumer migration, performance acceptance and distribution qualification remain
+GC7-GC10 work. Self-hosting has not restarted.
 
-The subsequent [Linux x86-64 qualification](GC5_LINUX_X86_64_QUALIFICATION.md)
-covers this implemented subset, including a fresh-export artifact-test setup fix.
-It does not satisfy the integrated GC5 exit criterion.
+Baseline: `23190dcd`, preserving the partial checkpoint and its Linux follow-up,
+after GC4 `1b0e7674`/`777a26ff`. All work stays local on
+`codex/bdwgc-integration-plan`. The former [implementation checkpoint](GC5_CHECKPOINT_HISTORY.md)
+and [Linux partial qualification](GC5_LINUX_X86_64_QUALIFICATION.md) are historical.
+Read [MEMORY.md](MEMORY.md), [the pre-change review](GC5_CUTOVER_VERIFICATION.md),
+D320 and the [compact evidence](gc-evaluation/gc5-integrated-2026-11-05-manifest.json).
 
-## Pre-change review
+## Compiler and build contract
 
-GC5 replaces managed reclamation proofs with explicit synchronous collection.
-Preserve Java 21, LLVM 23.1.0, pinned BDWGC 8.2.12 engine-2 with USE_MARK_BYTES,
-exact roots/layouts, full zeroing and dynamic identity, D051, D132/D133, native
-resource cleanup and pool-origin/reuse contracts. Allocation and counter reads
-must never collect. No legacy managed destruction may reach a collector image.
+Canonical public static void ironwood.lang.Memory.collect() validates declaration
+identity and signature before lowering to IrGcCollectInstruction. Malformed,
+unknown or altered reserved declarations cannot execute an empty library stub.
+Format-1 source/class/archive reconstruction retains full semantic revalidation
+and useful embedded-source migration paths. Unknown effects remain conservative;
+MayCollect survives dispatch, initialization, specialization, pruning and cleanup.
 
-Affected contracts and analysis consumers:
+Normal LlvmEmitter/NativeBackend use actual source layouts and runtime ownership,
+without experimental projections, unsupported-class filtering or guessed roots.
+The Java 21 pipeline remains typed IR, LLVM IR, llvm-as, opt, optimized trace
+attribution, the required LLVM 23.1.0 nonmoving statepoint pass and verification,
+llvm-as, llc, isolated Clang runtime compilation and native linking. New internal
+functions produced by LLVM partial inlining inherit the managed strategy through
+validated definition inventories. Original definitions losing it still refuse.
 
-- Source reconstruction feeds parsing and full semantic validation for source,
-  class and archive inputs. Canonical collection declarations must be validated
-  before lowering, including unused malformed declarations. The dedicated
-  collection instruction feeds GcEffects, specialization, pruning and LLVM.
-- FunctionAnalyzer's temporary, rendered-result and constructor-failure cleanup
-  and SemanticAnalyzer's destructor/rollback producers are managed-reclamation
-  consumers to retire. Initialization/type checks and native acquisition failure
-  cleanup remain. Escape/dispatch facts used by optimization or resource/pool
-  protocols remain conservative. GC7 owns deletion of dead proof scaffolding.
-- Exact physical fields, inherited/captured/generic fields, array elements,
-  static initialization failures, pending return/yield/exception values and
-  deferred captures feed layout/root generation. Unknown calls remain unknown.
-  The GC4 fixture projection is not a source representation or admission rule.
-- Native type descriptors, ordinary allocation, inline Strings, file-result
-  growth, Throwable metadata, secondary links, trace rendering, live unwind
-  wrappers and bounded emergency state must migrate together. Native scratch
-  retains matched native cleanup. Collector storage never reaches realloc/free.
-- Reference-container physical slots and retired map links require clearing;
-  intentional pool reuse remains reachable. Any retaining reset needs a named
-  operation and a cold cleanup contract, without per-operation tracking.
-- Native outputs must bind root ABI 2, runtime-owner ABI 1, configuration,
-  layouts and the nonmoving statepoint pass. GC6 bridge/shared-library and
-  foreign-root paths remain refused, including scalar exports with allocating
-  initialization or failure paths. Linux arm64 and arm64e remain gated.
+The real type descriptor embeds the exact engine prefix before dispatch and
+membership data. Cold startup binds compiler-derived layouts and compares actual
+C/LLVM sizes and offsets. The executable binds root ABI 2, runtime-owner ABI 1,
+layout/configuration identity, retained map digest and optimized function catalog.
+The native main boundary cannot tail-call away its approved frame. Fixed-size
+String concatenation scratch is hoisted into the entry block, including invokes;
+the dynamic-frame refusal remains intact.
 
-Paired cases: canonical collect versus malformed/spoofed declarations; source,
-class and archive parity versus embedded obsolete forms; live aliases/cycles
-versus dropped-root reclamation; pointer fields versus pointer-shaped integers;
-collecting initialization and published failed construction versus native
-acquisition rollback; live exceptions/deferred captures/pending values versus
-stale metadata; same-pool reuse versus wrong-pool return; explicit resource
-close versus collection without closure; successful preparation versus scratch
-OOM with zero collections and corrupt metadata refusal.
+The statepoint pass preserves exceptional-only LLVM-proven base roots in typed
+native spills described at their associated collecting invokes. Late verification
+requires immediately preceding stores, inventory coverage and no other spill
+uses, including fastcc invokes. These are collection-boundary spills, without
+continuous maintenance, entry clearing, per-defer registration or heap action lists.
 
-Focused verification selection: registered GC5 parser/semantic/typed-IR and
-artifact tests; normal source/native programs at O0/O1/O2/O3 for roots,
-construction, exceptional/deferred cleanup and accounting; retained GC2 layout,
-GC3 root and GC4 owner controls relevant to changed components; exact existing
-defer, pool, trace, allocation-failure and resource controls with obsolete heap
-expectations explicitly adapted. Inspect O3 noncollecting machine code and run
-the deterministic call/pool benchmark if hot lowering changes. All subprocesses
-use bounded execution and the existing 16 GiB process-group RSS guard. No full
-suite, hosted workflow, push, bridge API migration or self-hosting is authorized.
+## Allocation, exceptions and failure
 
-## Implemented subset and revised verification scope
+Ordinary objects, arrays, Strings and generated heap values use the language
+collector domain. Allocation directly uses the qualified zeroing kind, installs
+dynamic identity and increments the successful-allocation count. It performs no
+collection, polling, TLS update, root registration or registry lookup. Existing
+bounds, overflow and allocation-failure precedence remain. Internal metadata,
+secondary nodes and pointer-free trace buffers use separate managed sidecar
+layouts and are excluded from language counters.
 
-The new `ironwood.lang.Memory` source declares public static void collect() with
-no overloads. This is an original Ironwood API, not an OpenJDK translation or a
-Java System.gc compatibility claim. It promises explicit synchronous collection
-with no cleanup callbacks and no allocation-triggered collections. Its no-argument
-signature admits no numeric widening cases. Final/private class construction and
-the canonical declaration are validated before ordinary source lowering.
+Real Throwable has a reserved managed metadata reference and trace status, with
+validated bundled-source authority. Source cause/message/trace/secondary APIs and
+optimized trace attribution remain. Native unwind wrappers explicitly own their
+live source exceptions. Fixed emergency cells and image-owned exception metadata
+have exact native graphs: managed containers can keep those graphs alive, while
+dropped graphs lose their children. Traversal is bounded and allocation-free
+during marking and replays native edges during mark-stack overflow recovery.
+Unreachable fixed emergency payloads and associated native state clear after GC,
+without callbacks, pool cleanup or permanent stale roots.
 
-Declaration authority uses an exact bundled-source fingerprint, following the
-existing ByteView precedent. Malformed signatures, unknown members, altered
-bodies and forged declarations diagnose before executing a stub, including unused
-declarations reconstructed from class/archive sources. Noncanonical user classes
-named Memory keep ordinary method behavior. Format-1 containers are unchanged.
-The complete main/testing libraries and their artifacts rebuild; the main archive
-contains all 255 source files, including identical embedded Memory source. This
-rebuild does not mean the other library sources have migrated to GC semantics.
+Preparation scratch exhaustion validates all remaining roots, clears/unregisters
+scratch and throws cached OutOfMemoryError with no partial reclamation. Corrupt
+metadata and returning failure continuations still terminate before collection.
+Emergency storage remains bounded. Cached OOM reuse does not detach occurrences
+from independently surviving ordinary primaries. Catch/rethrow preserves identity;
+D051 preserves the primary and ordered secondary cleanup failures.
 
-FunctionAnalyzer emits IrGcCollectInstruction through ordinary analysis.
-BorrowDispatchAnalysis correctly records no new reference flow, without granting
-borrowing exemptions. Primitive specialization preserves the operation. GcEffects
-recomputes transitive MayCollect through calls, dispatch, initialization and
-cleanup; unknown effects remain conservative. ClosedWorldEffectAnalyzer records
-catchable preparation failure without inventing language allocation, publication
-or parameter deallocation. Old destructor exceptional-path restrictions remain
-active in this incomplete checkpoint.
+Native whole-file construction grows native scratch, closes the descriptor,
+allocates one final managed result, copies its initialized payload and releases
+scratch. Growth and final-result failure explicitly release native storage.
+Managed storage is never passed to realloc/free. Explicit native acquisition
+rollback and close calls remain separate from collection.
 
-GcManagedHeapVerifier protects final GC linking against seven legacy release
-families, destructor/rollback descriptors and cleanup functions. The admitted GC3
-and GC4 native closures call it unconditionally. Normal final linking calls it
-when collection survives reachability pruning; ordinary LLVM emission still
-refuses collection altogether and returns a diagnostic. When the normal managed
-allocator is eventually activated, its final verifier must run for every GC image,
-including images with no reachable collection instruction. No mixed image or
-second supported memory mode is introduced here.
+System counters preserve GC0: successful allocations count even if construction
+throws; internal sidecars do not count. Live accounting is cached at completed
+collection plus allocations since then. Counter reads do not collect.
 
-The source-backed GC3 enum-specialization effect test previously passed legacy
-destruction metadata plus injected collection through final linking. That is now
-an intentional negative case. It still runs the actual optimization and pruning
-passes separately to verify cloned effects. Its admitted native closure and all
-root controls remain unchanged. No test or safety check was disabled.
+## Language and complete required library
 
-## Collection preparation failure
+The lexer admits ordinary free/destructor identifiers. Removed source free,
+deferred free, destructors, --unfreed, --explain-rejected-free and SuppressUnfreed
+produce migration diagnostics. Normal lowering no longer produces implicit
+full-expression destruction, owned-rendering release or managed constructor
+rollback. The final verifier unconditionally rejects all seven legacy managed
+release families and destructor/rollback metadata or functions, even without a
+reachable collection call. No second supported heap mode exists.
 
-ABI-2 callers can select one image-owned runtime OOM continuation during cold
-setup. The reader checks that its address belongs to executable image storage;
-null, duplicate and ABI-1 setup cannot select it. No ordinary call or reference
-operation consults this state.
+All 77 main-library destructors were classified against GC0's individual body
+inventory before removal: 76 contained only managed release, and Throwable also
+released its old native trace representation, now a managed sidecar. Explicit
+close, pool operations and native acquisition rollback remain. All 255 main
+sources and six testing sources rebuild into source-reconstructing class/archive
+artifacts. The current development IronDocs reference is regenerated, including
+Memory and the reuse/reset APIs; frozen historical versions stay unchanged.
 
-Scratch exhaustion now records capacity failure and validates the rest of the
-complete root inventory. A later invalid root still takes the fatal refusal,
-not the OOM continuation. Once complete validation establishes capacity as the
-failure, the reader unregisters/zeros scratch with GC disabled and delivers OOM.
-No mark/sweep operation has run. A returning continuation refuses with exit 86.
-ABI-1 and ABI-2 callers without the new continuation retain fatal capacity refusal.
+Reference lists clear retired physical slots. Pooled map entries clear retired
+keys, values and structural links, while copied-key reusable buffers remain
+intentionally retained. ArrayList/ArrayLinkedList expose resetForReuse() for
+retaining resets and clearUnusedReferences() for explicit cold cleanup. Primitive
+clear paths remain cheap. Pool-created reusable objects remain reachable; known
+origin conflicts remain compile-time errors and unknown origins retain the
+same-pool, at-most-once caller obligation without runtime membership checks.
+Populated ArrayObjectPool checkout has an explicit early-return path; growth and
+building preserve pointer advancement only after successful construction.
 
-The new typed invoke control catches the original immortal OOM through GC4's
-actual native unwind transport. Internal/native allocation is deliberately
-exhausted, forcing its bounded emergency wrapper. Both successful language
-allocations remain accounted for; zero collections occur; native resources
-remain open until explicit acquisition abort. Closing the anchors and collecting
-again succeeds and reports zero language/internal live objects. Corruption after
-capacity exhaustion and a returning continuation both refuse before collection
-while explicit resource cleanup still balances.
-
-The engine-2 SDK, pinned collector, configuration, USE_MARK_BYTES and payloads are
-unchanged. Root ABI 2 and runtime-owner ABI 1 remain separate source-built inputs;
-their new hashes are recorded in this checkpoint's evidence. They have not been
-silently added to an old SDK or advertised as an integrated native generation.
+General defer still captures receiver/arguments once immediately, preserves
+identity after reassignment, executes block-scoped LIFO on every exit and retains
+D051. Captures and pending return/yield/exception references survive collecting
+cleanup. Published failed constructions remain valid graphs with installed fields
+and dynamic identity. Initialization, native lifetime and pool protocols remain.
 
 ## Verification
 
-Executed locally on machost, macOS arm64, Java 21.0.1, LLVM 23.1.0, SDK 27.2,
-deployment 14.0 for the GC native matrices. No dependency download/rebuild occurred.
-Raw reports and generated files remain ignored under `workspace/gc5-*`.
+Qualified hosts are macOS arm64 and Linux x86-64. Both use Java 21 and LLVM
+23.1.0 with pinned BDWGC 8.2.12 and USE_MARK_BYTES=1. Regenerated engine-3 SDKs
+bind the actual runtime, root reader, pass and recipe source identities. Normal
+linking verifies every payload and refuses missing, stale, extra or incompatible
+inputs offline. SDK staging includes source, notices, licenses and manifests at
+toolchain/ironwood-gc. This is focused staging validation, not GC9 acceptance.
 
-- Four registered GC5 selections pass: canonical source/class/archive resolution,
-  source effect propagation, incomplete native-output refusal and final-link
-  rejection of each legacy release family and stale cleanup descriptors.
-- Thirteen exact existing controls pass, covering GC2 layouts, GC3 effects/late
-  verification, GC4 owners, paired safe/unsafe free proofs, three pool helper
-  contracts, deferred/finally ordering, catchable allocation failure and native
-  Throwable trace behavior. The old heap tests validate the still-active legacy
-  normal runtime; they do not qualify its GC replacement.
-- The GC4 native matrix passes **132 cases**, 33 scenarios at O0/O1/O2/O3:
-  all 120 existing cases plus 12 new catchable/preparation-refusal executions.
-  The GC3 matrix retains **148 native cases** and both structural ELF controls.
-  Structural objects do not qualify native Linux execution.
-- O3 Node.read (**8 bytes**), Main.scalar (**48 bytes**) and collecting Node.step
-  (**32 bytes**) are byte-identical to the GC4 macOS baseline. Read/scalar contain
-  no calls, polls, TLS or root registration. The call/pool deterministic controls
-  run two alternating rounds of 32 million operations per variant, with zero
-  warmed allocations/live delta and identical deferred/handwritten assembly.
-- Every native child retains its 60-second bound and sampled **16 GiB**
-  process-group RSS guard. The primary GC4 matrix's largest sample is 901,008 KiB;
-  GC3's is 787,696 KiB. These are sampled values, not resident-capacity claims.
-  Compiler build/test and benchmark selections also run under that guard.
+The evidence manifest records exact commands, case selections, report hashes,
+source/payload identities, RSS samples, code fingerprints and timing samples.
+The focused selections include:
 
-The evidence records exact names, commands, successful/failing run disposition,
-report/input hashes, counters, fingerprints and benchmark timings. License,
-tracked-file, Python syntax, local documentation-link, forbidden-character and
-diff checks accompany the commits. No full compiler suite was run.
+- Eleven compiler selections: four GC5 intrinsic/effect/migration/final-link
+  controls, GC2 real-layout proof, GC3 closure and late-verification proofs, GC4
+  owners, and three general defer parser/semantic/typed-capture controls. Obsolete
+  manual-heap expectations are explicitly replaced; safety negatives remain.
+- Normal source-derived executables at O0/O1/O2/O3: aliases, cycles, sharing and
+  dropped roots; collecting constructors and class initialization; published
+  construction failure and cached initialization failure; real exception traces,
+  collecting cleanup, rethrow identity, captured reassignment, nested finally,
+  pending return/yield and labeled break/continue; exact counters and slot removal.
+- Allocation-budget OOM, preparation OOM with no reclamation, constructor-failure
+  accounting, managed-to-native emergency graphs and later dropped-root release.
+  Standalone GC2 controls retain actual bounded collector exhaustion/no-auto-GC.
+- Explicit file closure on success and preparation OOM, native whole-file scratch
+  growth through 20,000 bytes, managed byte/String/line results, pool retention
+  and cold stale-slot cleanup, plus null/throwing/collecting pool builders.
+- Ordinary class/archive native parity and ten stale SDK negatives, plus three
+  unconditional bridge-output refusals. Embedded obsolete source and canonical
+  declaration spoof/malformed controls retain source diagnostics.
+- Retained GC2: seven native cases, including 120 observed mark-stack overflows
+  at 4,096 entries with recovery. Collector diagnostic time was 3.100 ms for
+  this stress, within historical retained samples of 2.783-3.473 ms. These times
+  exclude root reconstruction and post-collection accounting. Native emergency
+  graph stress separately
+  observes overflow while preserving 131,073 exact live objects and later zero;
+  its two collector diagnostic times were 1.107 and 1.061 ms.
+- Retained GC3: 72 selected native cases on macOS, 80 on Linux including writable
+  map and stripped-unwind refusals. GC4: 64 selected native cases on macOS, 72
+  on Linux. All modes preserve stale PC/slot/function, ABI/owner, boundary and
+  foreign-transition refusals before collection.
+- Linux normal images retain PIE, protected RELRO maps, unwind headers, no text
+  relocations, no dynamic collector definitions and GLIBC requirements <=2.17.
+- O3 inspection and deterministic call/pool defer-versus-finally controls use two
+  alternating rounds of 32 million operations. Both have identical normalized
+  application code including ironwood_run, with zero warmed allocations/live
+  delta. The call's timed native kernel retains the prior 25 instructions after
+  relocated-branch normalization. Pool code has no new TLS, polls or registration;
+  legacy deallocation disappears from cold growth. The pool helper's native
+  frame is 48 bytes versus the prior 32 bytes, with extra register saves rather
+  than root maintenance. The longer alternating control below records its timing
+  implication instead of asserting byte-identical pool code across heap models.
+- A separate same-path GC4/GC5/A-A control uses four alternating rounds of 320
+  million operations: call medians 358,154,000/354,446,500 ns; pool medians
+  756,908,500/760,252,500 ns. The identical GC5 label measures 359,653,500 and
+  760,737,000 ns respectively. These bounded samples do not establish a stable
+  throughput regression or replace GC8 performance acceptance.
 
-## Unmet integrated exit criteria and bounded continuation
+Every compiler/native child remains bounded with the 16 GiB process-group RSS
+guard and 60-second limit. Remote orchestration also enforces an 8 GiB enclosing
+checkout cap, at least 20 GiB free disk and 900 seconds per run. Remote use remains
+about 1 GiB with over 100 GiB free; its two pre-existing script edits and Git
+state are preserved. Raw logs, SDKs, archives, binaries and exports stay ignored.
+No unfiltered suite, hosted job, push, main integration or branch/worktree change
+occurred. License, tracked-file, generated-doc consistency and diff checks apply.
 
-**The normal compiler and required library do not yet build and run with the GC
-model. GC5's exit criterion is unmet.** The concrete unresolved integration is:
+## Remaining scaffolding and bounded handoff
 
-| Required contract | Remaining implementation |
-| --- | --- |
-| Actual dynamic type/layout identity | Normal ironwood_type_info and GC2 iw_gc_type are different descriptors. Replacing the allocator without unifying them breaks dispatch, instance tests and exact scanning. No type filtering/projection is an acceptable normal path. |
-| Real Throwable/trace ownership | Source traceState is still long; production metadata, trace rendering and emergency associations retain native ownership. GC4's projected typed metadata and raw PC snapshots cannot replace the full source APIs by relabeling them. |
-| Managed allocation domains | Ordinary allocation still uses calloc. File-result growth still passes its result to realloc, and production trace/result/rendering paths still free storage. These require coordinated domain-safe replacement and failure cleanup before enabling reclamation. |
-| Source and generated reclamation | free/defer-free/destructor syntax, obsolete options/directives, temporary destruction, rendered-result release and constructor rollback remain active. Ordinary free/destructor identifiers and published failed construction are not yet admitted under the new rules. |
-| Required library and containers | The complete library's source reclamation forms, stale reference slots/entry links and measured retaining-reset contracts still require migration. Rebuilding artifacts alone is insufficient. |
-| Native inputs and boundaries | The normal pipeline does not yet bind actual root-2/owner-1/layout/pass identities into verified GC native inputs. GC6 bridge/shared-library refusals must accompany activation, including scalar initialization/failure paths. |
+GC7 retains dead FreeStatement/DeferredFreeStatement/destructor AST shapes,
+reclamation IR records, ownership/free proof structures, old option enums,
+private legacy lowering/rollback builders and inert descriptor slots. Parser and
+semantic entry points reject their source forms; normal producers are disabled
+and final linking refuses injected legacy IR. Broad deletion is deliberately
+not part of this milestone. Do not delete shared facts still consumed by
+optimization, initialization, pools, native acquisitions or resource protocols.
 
-No free/destructor AST or proof infrastructure was broadly deleted. Its current
-normal-runtime role remains active, so it cannot yet be called dead scaffolding.
-GC7 deletion follows actual producer retirement; retain optimization,
-initialization, pool-origin and native/resource facts during GC5.
+GC6 may qualify generated native/JNI roots, foreign transitions, source/generated
+cleanup, library image ownership and the planned RootHandle/listener surface.
+All such outputs remain refused, including scalar-only bridge entry points with
+allocating initialization/failure paths. No RootHandle/listener API or JVM reentry
+qualification is claimed. Linux arm64 and arm64e remain gated. GC7 migrates old
+repository consumers/tests; GC8 qualifies critical-path and resident memory;
+GC9 qualifies distributions. Stop here without starting those milestones.
 
-Continue **GC5**, first unifying actual type/Throwable representations and native
-allocator domains, then retiring managed lowering while migrating all required
-library sources and enabling the normal verified root pipeline. Carry forward
-these paired controls and GC0 counters. Do not start GC6/GC7 or self-hosting from
-this checkpoint. The separate Linux x86-64 record qualifies the implemented
-checkpoint there. Linux arm64 and arm64e gates remain closed.
-GC6's RootHandle/listener API, JNI retirement, foreign transitions, JVM reentry
-and multi-image qualification remain later work; no GC6-ready handoff is claimed.
+
+Focused reproduction uses fresh ignored output directories and an already
+verified SDK, with IRONWOOD_GC_HOME, JAVA_HOME and the qualified native toolchain:
+
+```sh
+python3 scripts/test-gc-integrated.py --sdk "$IRONWOOD_GC_HOME" \
+  --llvm-home "$IRONWOOD_LLVM_HOME" --java-home "$JAVA_HOME" \
+  --output workspace/gc5-normal --case integrated --case oom \
+  --case no_collect --case resources --case pools --case graphs
+python3 scripts/test-gc-inputs.py --sdk "$IRONWOOD_GC_HOME" \
+  --llvm-home "$IRONWOOD_LLVM_HOME" --java-home "$JAVA_HOME" \
+  --output workspace/gc5-inputs
+python3 scripts/test-gc-performance.py --sdk "$IRONWOOD_GC_HOME" \
+  --llvm-home "$IRONWOOD_LLVM_HOME" --java-home "$JAVA_HOME" \
+  --output workspace/gc5-performance
+```
+
+The performance driver currently inspects macOS arm64 assembly. The evidence
+manifest supplies the exact retained GC2-GC4 case selections and compiler test
+names; never substitute an unfiltered compiler suite. macOS uses the qualified
+SDKROOT, and Linux uses the qualified glibc 2.17 sysroot and pinned lld. SDK
+preparation and full distribution acceptance remain distinct from ordinary links.

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
-// Collection-time native roots for explicit GC3 development images only.
+// Collection-time exact roots for normal images and retained qualification controls.
 #if defined(__linux__)
 #define _GNU_SOURCE 1
 #endif
@@ -236,6 +236,7 @@ static int validate_location(const unsigned char *p) {
 static int parse_maps(const unsigned char *map, size_t bytes) {
     if (bytes < 16 || map[0] != 3 || map[1] != 0 || read16(map + 2) != 0) return 0;
     uint32_t nf = read32(map + 4), nc = read32(map + 8), nr = read32(map + 12);
+    if (nf == 0) return nc == 0 && nr == 0 && bytes == 16;
     if (!nf || nf > IW_MAX_MAP_ITEMS || nc > IW_MAX_MAP_ITEMS || !nr || nr > IW_MAX_MAP_ITEMS
             || nf > (bytes - 16) / 24) return 0;
     size_t offset = 16 + (size_t)nf * 24;
@@ -290,7 +291,7 @@ static int parse_maps(const unsigned char *map, size_t bytes) {
 static int slot_table(void *const *slots, size_t count) {
     if (count > IW_MAX_MAP_ITEMS || (count != 0 && !in_image((uintptr_t)slots, count * sizeof(void *), 0, 0))) return 0;
     for (size_t i = 0; i < count; ++i) {
-        if ((uintptr_t)slots[i] % sizeof(void *) != 0 || !in_image((uintptr_t)slots[i], sizeof(void *), 1, 0)) return 0;
+        if ((uintptr_t)slots[i] % sizeof(void *) != 0 || !in_image((uintptr_t)slots[i], sizeof(void *), 0, 0)) return 0;
     }
     return 1;
 }
@@ -342,7 +343,7 @@ int iw_gc_roots_start(const struct iw_gc_root_config *config) {
         iw_gc_roots_stop(); return 0;
     }
     if (config->version == 2) for (size_t i = 0; i < config->owners->immortal_count; ++i) {
-        if (!in_image((uintptr_t)config->owners->immortal_bases[i], sizeof(void *), 1, 0)) {
+        if (!in_image((uintptr_t)config->owners->immortal_bases[i], sizeof(void *), 0, 0)) {
             iw_gc_roots_stop(); return 0;
         }
     }
@@ -364,7 +365,7 @@ static int append_root(uintptr_t root) {
     if (configuration.owners != NULL) for (size_t i = 0; i < configuration.owners->immortal_count; ++i) {
         // Only fixed image-owned bases are admitted. Their reference slots are
         // enumerated by the same owner protocol; no arbitrary native heap scan.
-        if (root == (uintptr_t)configuration.owners->immortal_bases[i]) return 1;
+        if (root == (uintptr_t)configuration.owners->immortal_bases[i]) return iw_gc_expand_native_roots((void *)root, append_root);
     }
     if (GC_base((void *)root) != (void *)root) return 0;
     if (root_count == configuration.scratch_capacity) {
@@ -482,6 +483,7 @@ __attribute__((noinline)) void iw_gc_experiment_collect(void) {
     const char *reason = "initialization/context";
     root_count = 0; last_count = 0; last_frames = 0; scratch_exhausted = 0;
     if (!started || !iw_gc_snapshot().disabled) goto refused;
+    iw_gc_prepare_native_graphs();
 #if defined(__APPLE__) && defined(__aarch64__)
     unw_context_t context;
     unw_cursor_t cursor;

@@ -24,84 +24,8 @@ final class BridgeProducerCommand {
     private BridgeProducerCommand() {}
 
     static int run(String[] arguments, PrintStream out, PrintStream err) {
-        Options options;
-        try { options = parse(arguments); }
-        catch (IllegalArgumentException invalid) {
-            err.println("error: " + invalid.getMessage()); usage(err); return 2;
-        }
-        var loaded = new SourceSetLoader(options.sources(), options.classes()).loadBridge(options.inputs(), options.exports());
-        if (!loaded.diagnostics().isEmpty()) { diagnostics(loaded.diagnostics(), err); return 1; }
-        var artifact = new CompilerPipeline(options.unfreed(), options.explain(), null).analyzeForBridge(loaded.sources());
-        diagnostics(artifact.diagnostics(), err);
-        if (!artifact.valid()) return 1;
-        var selection = BridgeExportSurface.staticValues(artifact, options.exports());
-        BridgeObjectAdmission objects = null;
-        BridgeCallbackAdmission callbacks = null;
-        BridgeOwnedCallbackAdmission owners = null;
-        if (selection.surface().isEmpty()) {
-            selection = BridgeExportSurface.objectValues(artifact, options.exports());
-            if (selection.surface().isPresent()) {
-                var proof = BridgeObjectAdmission.prove(artifact, options.exports());
-                if (proof.contract().isEmpty()) { err.println("error: Java Bridge object admission failed: " + proof.reason()); return 1; }
-                objects = proof.contract().orElseThrow();
-            } else {
-                // Generic facades currently have only the P7d1 object contract.
-                // Callback fallback cannot admit them and would obscure the
-                // precise generic boundary diagnostic with a scalar-shape error.
-                if (artifact.bridgeApiFacts().orElseThrow().types().values().stream().anyMatch(type ->
-                        type.accessible() && type.generic() && options.exports().contains(type.packageName()))) {
-                    diagnostics(selection.diagnostics(), err); return 1;
-                }
-                // Reconstruct compiler-owned proxies before every mandatory source
-                // proof; an interface inventory alone never admits foreign effects.
-                try {
-                    var sources = new ArrayList<>(loaded.sources());
-                    var carrier = BridgeCallbackCarrierSources.discover(artifact);
-                    sources.add(carrier.source());
-                    var pipeline = new CompilerPipeline(options.unfreed(), options.explain(), null);
-                    var withCarrier = pipeline.analyzeForBridge(sources);
-                    if (!withCarrier.valid()) { diagnostics(withCarrier.diagnostics(), err); return 1; }
-                    var listeners = BridgeListenerProxies.discover(withCarrier, options.exports());
-                    artifact = pipeline.analyzeForBridge(sources, listeners);
-                    if (!artifact.valid()) { diagnostics(artifact.diagnostics(), err); return 1; }
-                    selection = BridgeExportSurface.synchronousCallbacks(artifact, options.exports());
-                    if (selection.surface().isPresent()) {
-                        var proof = BridgeCallbackAdmission.prove(artifact, listeners, carrier, options.exports());
-                        if (proof.contract().isEmpty()) { err.println("error: Java Bridge callback admission failed: " + proof.reason()); return 1; }
-                        callbacks = proof.contract().orElseThrow();
-                    } else {
-                        selection = BridgeExportSurface.ownedCallbacks(artifact, options.exports());
-                        if (selection.surface().isEmpty()) { diagnostics(selection.diagnostics(), err); return 1; }
-                        var proof = BridgeOwnedCallbackAdmission.prove(artifact, listeners, carrier, options.exports());
-                        if (proof.contract().isEmpty()) { err.println("error: Java Bridge owner callback admission failed: " + proof.reason()); return 1; }
-                        owners = proof.contract().orElseThrow();
-                    }
-                } catch (IllegalArgumentException failure) {
-                    err.println("error: Java Bridge callback admission failed: " + failure.getMessage()); return 1;
-                }
-            }
-        }
-        diagnostics(selection.diagnostics(), err);
-        if (selection.surface().isEmpty()) return 1;
-        var toolchain = LlvmToolchain.discover(options.llvmHome());
-        if (!toolchain.successful()) { err.println("error: " + toolchain.error()); return 1; }
-        try {
-            var packaging = new BridgeDistributionInputs.Options(options.classes(), options.licenses());
-            if (options.criticalCalls() && objects == null) {
-                err.println("note: --critical-calls=on applies to object projections; this artifact keeps JNI for every call");
-            }
-            if (owners != null) BridgeProducer.build(owners, options.output(), toolchain.toolchain().orElseThrow(),
-                    options.optimization(), packaging, err);
-            else if (callbacks != null) BridgeProducer.build(callbacks, options.output(), toolchain.toolchain().orElseThrow(),
-                    options.optimization(), packaging, err);
-            else if (objects == null) BridgeProducer.build(artifact, selection.surface().orElseThrow(), options.output(),
-                    toolchain.toolchain().orElseThrow(), options.optimization(), packaging, err);
-            else BridgeProducer.build(artifact, objects, options.output(), toolchain.toolchain().orElseThrow(), options.optimization(), packaging,
-                    options.criticalCalls(), err);
-            out.println("built " + options.output().toAbsolutePath().normalize()); return 0;
-        } catch (IOException | IllegalArgumentException failure) {
-            err.println("error: Java Bridge build failed: " + failure.getMessage()); return 1;
-        }
+        err.println("error: GC6 boundary: native bridge/shared-library outputs are not qualified for managed roots, cleanup and foreign transitions");
+        return 1;
     }
 
     private record Options(List<Path> inputs, List<Path> sources, List<Path> classes, List<String> exports, Path output,
@@ -128,10 +52,10 @@ final class BridgeProducerCommand {
                     case "-O1" -> optimization = OptimizationLevel.O1;
                     case "-O2" -> optimization = OptimizationLevel.O2;
                     case "-O3" -> optimization = OptimizationLevel.O3;
-                    case "--explain-rejected-free" -> explain = true;
+                    case "--explain-rejected-free" -> throw new IllegalArgumentException("manual reclamation options have been removed");
                     case "--help", "-h" -> throw new IllegalArgumentException("Java Bridge host builds support proved roots/views and bounded retention, permanent objects, enums, copied snapshots and primitive/String APIs on macos-arm64, linux-arm64 and linux-x86_64");
                     default -> {
-                        if (option.startsWith("--unfreed=")) unfreed = UnfreedMode.parse(option.substring("--unfreed=".length()));
+                        if (option.startsWith("--unfreed=")) throw new IllegalArgumentException("--unfreed has been removed");
                         else if (option.equals("--critical-calls=on")) criticalCalls = true;
                         else if (option.equals("--critical-calls=off")) criticalCalls = false;
                         else if (option.startsWith("-")) throw new IllegalArgumentException("unsupported Java Bridge option: " + option);
@@ -164,7 +88,6 @@ final class BridgeProducerCommand {
         stream.println("                 [-cp <class-path>] [--source-path <source-path>] [source.iron...]");
         stream.println("                 [-O0|-O1|-O2|-O3] [--llvm-home <directory>]");
         stream.println("                 [--license <notice-file>]...");
-        stream.println("                 [--unfreed=off|warn|error] [--explain-rejected-free]");
         stream.println("                 [--critical-calls=on|off]  (transition-free calls for proved entries; default: off)");
         stream.println("       ironwoodc --java-bridge-assemble -o <artifact.jar> <host.jar>...");
         stream.println("       ironwoodc --java-bridge-distribution --input <paired.jar> --group-id <group>");

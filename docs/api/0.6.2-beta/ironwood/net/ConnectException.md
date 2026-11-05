@@ -16,8 +16,8 @@ public class ConnectException extends SocketException
 
 **Extends:** [`SocketException`](SocketException.md)
 
-Reports a refused TCP connection. Message text is copied; it remains valid after the input
-string is freed.
+Reports a refused TCP connection. Message text is copied; it is independent of later caller
+input changes.
 
 
 ## Member summary
