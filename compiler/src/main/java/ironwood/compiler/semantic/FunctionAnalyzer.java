@@ -424,6 +424,15 @@ final class FunctionAnalyzer {
             }
         }
 
+        if (MemoryIntrinsic.matches(function, source)) {
+            emitCall(new ironwood.compiler.ir.IrGcCollectInstruction(function.span()), function.span());
+            currentBlock.terminate(new IrReturnTerminator(Optional.empty(), function.span()));
+            exitScope();
+            return new IrFunction(function.ownerType(), function.sourceName(), function.linkageName(),
+                    function.returnType(), parameters,
+                    blocks.values().stream().map(MutableBlock::freeze).toList(), function.span());
+        }
+
         IrThrowableTraceInstruction.Operation traceOperation = throwableTraceOperation();
         if (traceOperation != null) {
             Optional<IrValueReference> result = function.returnType().equals(IrType.VOID)

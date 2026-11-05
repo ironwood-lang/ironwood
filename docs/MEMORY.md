@@ -2,6 +2,11 @@
 
 For a short practical guide, see [Memory management](MEMORY_MANAGEMENT.md).
 
+This describes current normal native output. The migration branch's
+[GC5 checkpoint](GC5_IMPLEMENTATION.md) validates the future `Memory.collect()`
+declaration and typed effects, but native use is refused until the coordinated
+runtime/library cutover. The GC5 exit criterion is not met.
+
 Ironwood uses Java-like object creation, identity, nullable references, aliasing,
 fields, parameters, and returns, but it deliberately has no garbage collector.
 An ordinary allocation is freed before process termination only by a

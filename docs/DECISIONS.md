@@ -12538,3 +12538,27 @@ occurrence order. If no
   native checks and preserved GC3/production controls. Linux arm64 GC4 owners,
   generated JNI/bridge adoption, JVM reentry and multi-image qualification remain
   closed. The next task is the bounded GC5 cutover.
+
+## D319 - Validate collection source IR without activating an incomplete heap cutover
+
+- **Status:** Incomplete GC5 private checkpoint on 2026-11-04. Extends D315-D318.
+  No production memory-model, source reclamation or bridge decision is superseded.
+- **Intrinsic:** Validate the canonical bundled `ironwood.lang.Memory` declaration
+  and exact public static void collect() signature before normal analysis. Preserve
+  declaration authority across format-1 embedded-source reconstruction. Lower to
+  dedicated collection IR; never execute an unrecognized empty stub. Keep
+  MayCollect distinct from allocation, publication and managed deallocation, and
+  preserve preparation OOM in exceptional-path summaries.
+- **Safety gate:** Final GC linking rejects legacy deallocation operations,
+  destruction functions and rollback/destructor descriptors. Ordinary native
+  collection remains refused while its actual runtime/layouts and required
+  library remain unmigrated. There is no second supported memory mode.
+- **Preparation:** Narrowly supersedes D317's fatal scratch-capacity rule for
+  ABI-2 callers that select an image-owned runtime failure continuation during
+  cold setup. Validate every remaining root even after capacity exhaustion.
+  Clear/unregister scratch with collection disabled before delivering OOM;
+  perform no reclamation. Corrupt metadata, invalid roots and a returning failure
+  continuation remain fatal. ABI-1 behavior is unchanged.
+- **Boundary:** [The GC5 record](GC5_IMPLEMENTATION.md) identifies the implemented
+  subset, evidence and unmet integrated exit criteria. No GC6, JNI reentry,
+  generated lifetime API, Linux arm64 or arm64e qualification follows.

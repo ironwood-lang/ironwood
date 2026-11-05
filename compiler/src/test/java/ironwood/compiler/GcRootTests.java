@@ -193,7 +193,11 @@ public final class GcRootTests {
             return new IrFunction(function.ownerClass(), function.sourceName(), function.linkageName(), function.returnType(),
                     function.parameters(), blocks, function.sourceSpan(), function.sourceFileName(), function.kind());
         }).toList();
-        var transformed = NativeLinkTransformation.apply(copy(input, functions)).program();
+        var collecting = copy(input, functions);
+        // This legacy source program is an effect-analysis control, not a GC
+        // native closure. GC5 now refuses its destruction metadata at final link.
+        denied(() -> NativeLinkTransformation.apply(collecting));
+        var transformed = ClosedWorldPruner.prune(NativeLinkPipeline.optimize(collecting));
         var effects = GcEffects.analyze(transformed);
         var clones = transformed.functions().stream().filter(f -> f.linkageName().contains(".$enumarg.")).toList();
         check(!clones.isEmpty(), "did not exercise actual enum argument specialization");

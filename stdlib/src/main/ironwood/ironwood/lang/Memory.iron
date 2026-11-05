@@ -1,0 +1,20 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+package ironwood.lang;
+
+/** Explicit managed-heap collection. Allocation never schedules collection. */
+public final class Memory {
+
+    private Memory() {
+
+    }
+
+    /**
+     * Completes marking and sweeping synchronously on the calling thread.
+     * Collection never closes resources or invokes user cleanup. Preparation
+     * failure throws OutOfMemoryError without reclaiming managed storage.
+     */
+    public static void collect() {
+
+    }
+}

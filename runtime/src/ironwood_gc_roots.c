@@ -53,6 +53,8 @@ static struct iw_gc_root_config configuration;
 static void **scratch;
 static size_t root_count, last_count, last_frames, max_frames;
 static int started;
+static int scratch_exhausted;
+static void (*preparation_oom)(void);
 extern const uint32_t iw_gc_root_abi;
 extern const uint32_t iw_gc_owner_requirements;
 extern const uint64_t iw_gc_static_root_count;
@@ -298,6 +300,8 @@ void iw_gc_roots_stop(void) {
     if (scratch != NULL) memset(scratch, 0, configuration.scratch_capacity * sizeof(void *));
     free(scratch); free(records);
     scratch = NULL; records = NULL; started = 0; record_count = 0;
+    preparation_oom = NULL;
+    scratch_exhausted = 0;
     configuration = (struct iw_gc_root_config){0};
 }
 
@@ -348,6 +352,13 @@ int iw_gc_roots_start(const struct iw_gc_root_config *config) {
     return 1;
 }
 
+int iw_gc_roots_set_preparation_oom(void (*raise)(void)) {
+    if (!started || configuration.version != 2 || preparation_oom != NULL
+            || raise == NULL || !in_image((uintptr_t)raise, 1, 0, 1)) return 0;
+    preparation_oom = raise;
+    return 1;
+}
+
 static int append_root(uintptr_t root) {
     if (root == 0) return 1;
     if (configuration.owners != NULL) for (size_t i = 0; i < configuration.owners->immortal_count; ++i) {
@@ -355,7 +366,13 @@ static int append_root(uintptr_t root) {
         // enumerated by the same owner protocol; no arbitrary native heap scan.
         if (root == (uintptr_t)configuration.owners->immortal_bases[i]) return 1;
     }
-    if (root_count == configuration.scratch_capacity || GC_base((void *)root) != (void *)root) return 0;
+    if (GC_base((void *)root) != (void *)root) return 0;
+    if (root_count == configuration.scratch_capacity) {
+        // Validate the remaining inventory even when it cannot fit. Corruption
+        // must remain fatal instead of being hidden by a catchable budget error.
+        scratch_exhausted = 1;
+        return 1;
+    }
     scratch[root_count++] = (void *)root;
     return 1;
 }
@@ -463,7 +480,7 @@ static _Unwind_Reason_Code elf_frame(struct _Unwind_Context *context, void *argu
 
 __attribute__((noinline)) void iw_gc_experiment_collect(void) {
     const char *reason = "initialization/context";
-    root_count = 0; last_frames = 0;
+    root_count = 0; last_count = 0; last_frames = 0; scratch_exhausted = 0;
     if (!started || !iw_gc_snapshot().disabled) goto refused;
 #if defined(__APPLE__) && defined(__aarch64__)
     unw_context_t context;
@@ -526,6 +543,14 @@ __attribute__((noinline)) void iw_gc_experiment_collect(void) {
     }
     reason = "native owner coverage/base or scratch capacity";
     if (configuration.owners != NULL && !configuration.owners->enumerate(append_root)) goto refused;
+    if (scratch_exhausted) {
+        reason = "root scratch capacity";
+        if (!iw_gc_roots(NULL, 0)) goto refused;
+        memset(scratch, 0, configuration.scratch_capacity * sizeof(void *));
+        root_count = 0;
+        if (preparation_oom != NULL) preparation_oom();
+        goto refused; /* A returning failure continuation is not recovery. */
+    }
     last_count = root_count;
     reason = "engine roots/collection";
     if (!iw_gc_roots(root_count ? scratch : NULL, root_count) || !iw_gc_collect()) goto refused;

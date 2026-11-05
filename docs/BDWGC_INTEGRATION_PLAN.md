@@ -4,7 +4,9 @@
 
 Date: 2026-11-04. Status: GC0 through GC4 complete for their documented experimental
 closures; GC4 runtime owners are qualified on macOS arm64 and Linux x86-64.
-Production GC remains disabled.
+Production GC remains disabled. A [GC5 private checkpoint](GC5_IMPLEMENTATION.md)
+adds validated source collection IR and bounded preparation-OOM delivery;
+**GC5 remains incomplete** and ordinary native collection is refused.
 Current compiler behavior and the existing memory specification remain
 authoritative until the cutover.
 
@@ -620,6 +622,15 @@ source/artifact diagnostics.
 on the migration branch. No shipped configuration is declared complete before
 bridge, consumer, performance and platform acceptance below.
 
+**Incomplete checkpoint, 2026-11-04:** [Implementation and verification](GC5_IMPLEMENTATION.md)
+records canonical declaration validation through source/class/archive analysis,
+transitive collection effects, mixed-heap final-link refusals and catchable
+root-scratch exhaustion in the GC4 native closure. The normal runtime still has
+legacy type/Throwable layouts, managed realloc/free and active generated cleanup.
+No normal GC image is emitted, no source reclamation rule is removed, and the
+required-library memory-model migration has not occurred. Continue GC5 before
+GC6; the milestone's integrated exit criterion is unmet.
+
 ### GC6. Complete foreign and library integration
 
 Migrate generated facade `free()` APIs to explicit bridge lifetime handles and
@@ -790,7 +801,8 @@ No branch creation beyond the maintainer's request, pushing, hosted jobs or
 automatic self-hosting restart is part of this document's implementation plan.
 
 GC0 through GC4 are complete for their documented experimental closures. The
-next bounded task is GC5's coordinated language and standard-library cutover.
+next bounded task remains GC5's coordinated language and standard-library cutover,
+continuing the explicitly incomplete checkpoint in [the GC5 record](GC5_IMPLEMENTATION.md).
 Preserve the GC4 owner contract and focused controls. Carry forward legacy-layout
 refusals until their source migration and Linux arm64's unqualified
 engine/layout/root-reader gates. Do not admit foreign

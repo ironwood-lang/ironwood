@@ -3,5 +3,5 @@ package ironwood.compiler.ir;
 
 import ironwood.compiler.source.SourceSpan;
 
-/** Compiler-owned explicit collection. Only admitted development closures may lower it. */
+/** Explicit collection, including catchable preparation failure. Native admission is separate. */
 public record IrGcCollectInstruction(SourceSpan sourceSpan) implements IrInstruction {}

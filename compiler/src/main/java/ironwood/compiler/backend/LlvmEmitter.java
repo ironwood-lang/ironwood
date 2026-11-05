@@ -171,7 +171,7 @@ public final class LlvmEmitter {
         output.append(GcLayoutEmitter.llvm(program));
         output.append("@iw_gc_types = external global [").append(gcLayouts.size()).append(" x ptr]\n");
         output.append("declare noalias nonnull ptr addrspace(1) @iw_gc_experiment_new(i32, i64) nounwind \"gc-leaf-function\"\n");
-        output.append("declare void @iw_gc_experiment_collect() nounwind\n");
+        output.append("declare void @iw_gc_experiment_collect()\n");
         output.append("declare void @iw_gc_experiment_refuse() noreturn \"gc-leaf-function\"\n");
         output.append("declare void @iw_gc_test_raise() \"gc-leaf-function\"\n");
         output.append("declare void @iw_gc_test_catch(ptr) nounwind \"gc-leaf-function\"\n");
@@ -387,7 +387,7 @@ public final class LlvmEmitter {
                         || i instanceof ironwood.compiler.ir.IrGcReadProjectionInstruction
                         || i instanceof ironwood.compiler.ir.IrGcTestExceptionInstruction
                         || i instanceof ironwood.compiler.ir.IrGcUnwindInstruction)) {
-            throw new IllegalArgumentException("GC development IR requires explicit closure admission");
+            throw new IllegalArgumentException("GC5 collection requires integrated managed native generation; legacy allocation/destruction cannot be linked");
         }
         gcProgram = null;
         gcEffects = null;
@@ -2090,6 +2090,10 @@ public final class LlvmEmitter {
                 + " unwind label %" + invoke.unwindTarget()
                 + ", !dbg !" + traceSite.callLocationMetadata();
         IrInstruction call = invoke.call();
+        if (gcProgram != null && call instanceof ironwood.compiler.ir.IrGcCollectInstruction) {
+            output.append("invoke void @iw_gc_experiment_collect()").append(gcBundle(call)).append(suffix);
+            return;
+        }
         if (gcProgram != null && call instanceof IrAllocateInstruction allocate) {
             output.append(operand(allocate.result())).append(" = invoke ptr addrspace(1) @iw_gc_experiment_new(i32 ")
                     .append(gcLayoutIndex(allocate.className())).append(", i64 0)").append(suffix);

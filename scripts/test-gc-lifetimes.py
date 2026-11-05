@@ -17,7 +17,7 @@ engine, gc = roots.engine, roots.gc
 CASES = ('unwind', 'null-throw', 'nested', 'wrapper', 'nested-wrappers', 'rethrow', 'cycles', 'trace', 'trace-fail',
          'emergency', 'emergency-steps', 'immortal', 'oom', 'resources', 'published', 'published-success', 'anchors', 'carrier', 'pending', 'yield',
          'stale', 'missing', 'owner-version', 'coverage', 'foreign', 'owner-mask', 'preparation',
-         'stale-pc', 'stale-slot', 'stale-function')
+         'stale-pc', 'stale-slot', 'stale-function', 'preparation-catch', 'preparation-corrupt', 'preparation-returning')
 ELF_CASES = ('missing-unwind', 'writable-map')
 
 
@@ -103,7 +103,7 @@ def main():
                 destination = out / (level + '-' + case)
                 link(mutated, destination, level + '-' + case + '-link')
             results.append(engine.run([str(destination), case], raw, level + '-' + case,
-                                      expected_exit=86 if case in ('preparation', 'missing-unwind') else 0))
+                                      expected_exit=86 if case in ('preparation', 'preparation-corrupt', 'preparation-returning', 'missing-unwind') else 0))
     inputs = sources + [ROOT / 'runtime/include/ironwood_gc_lifetimes.h', ROOT / 'runtime/include/ironwood_gc_roots.h',
                         ROOT / 'integration-tests/cases/gc4_lifetimes.iron', ROOT / 'scripts/test-gc-lifetimes.py',
                         ROOT / 'compiler/src/test/java/ironwood/compiler/GcLifetimeTests.java',

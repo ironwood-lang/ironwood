@@ -83,6 +83,11 @@ public final class GcLifetimeTests {
         var later = value(2, OBJECT);
         var handle = value(3, IrType.EXCEPTION);
         var caught = value(4, THROWABLE);
+        functions.add(function("try_collect", THROWABLE, List.of(), List.of(
+                block("entry", List.of(), new IrInvokeTerminator(new IrGcCollectInstruction(SPAN), "success", "failed", SPAN)),
+                block("success", List.of(), new IrReturnTerminator(Optional.of(new IrNull(THROWABLE, SPAN)), SPAN)),
+                block("failed", List.of(new IrExceptionLandingPadInstruction(handle, caught, SPAN)),
+                        new IrReturnTerminator(Optional.of(caught), SPAN)))));
         // A cleanup-only pad leaves the real native wrapper alive while collecting.
         functions.add(function("live_wrapper", IrType.VOID, List.of(primary), List.of(
                 block("entry", List.of(), new IrThrowTerminator(primary, "unexpected", Optional.of("cleanup"), SPAN)),

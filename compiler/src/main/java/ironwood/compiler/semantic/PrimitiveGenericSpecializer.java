@@ -381,7 +381,8 @@ final class PrimitiveGenericSpecializer {
         if (instruction instanceof IrCallInstruction value) {
             return directCall(value, substitutions, function);
         }
-        if (instruction instanceof IrEnsureTypeInitializedInstruction) {
+        if (instruction instanceof IrEnsureTypeInitializedInstruction
+                || instruction instanceof ironwood.compiler.ir.IrGcCollectInstruction) {
             return instruction;
         }
         if (instruction instanceof ironwood.compiler.ir.IrTypeInitializedInstruction test) {

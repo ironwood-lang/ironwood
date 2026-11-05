@@ -38,6 +38,12 @@ struct iw_gc_root_config {
 
 int iw_gc_roots_start(const struct iw_gc_root_config *config);
 void iw_gc_roots_stop(void);
+/* Cold runtime-1 setup only. The image-owned failure continuation must throw or
+ * terminate. It runs after failed preparation has cleared/unregistered scratch,
+ * with GC disabled and no reclamation. Invalid metadata never selects it.
+ * ABI-1 callers retain fatal preparation refusal. No user cleanup is registered.
+ */
+int iw_gc_roots_set_preparation_oom(void (*raise)(void));
 /* Failure leaves collection disabled, performs no collection, and clears scratch.
  * Called directly by compiler statepoints, never through an unqualified shim.
  */

@@ -156,8 +156,13 @@ public final class CompilerPipeline {
                     semanticResult.bridgeConstructionFacts(), semanticResult.bridgeApiFacts());
         }
         var program = NativeLinkPipeline.optimize(semanticResult.program().orElseThrow());
-        String llvmIr = new LlvmEmitter().emit(program);
-        return new CompilationArtifact(Optional.of(program), Optional.of(llvmIr), diagnostics);
+        try {
+            String llvmIr = new LlvmEmitter().emit(program);
+            return new CompilationArtifact(Optional.of(program), Optional.of(llvmIr), diagnostics);
+        } catch (IllegalArgumentException refused) {
+            diagnostics.add(Diagnostic.global("cannot emit native program: " + refused.getMessage()));
+            return new CompilationArtifact(Optional.empty(), Optional.empty(), diagnostics);
+        }
     }
 
     private static String canonical(String packageName, String simpleName) {

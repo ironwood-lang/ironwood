@@ -645,6 +645,11 @@ final class ClosedWorldEffectAnalyzer {
     private Effect callEffect(IrFunction function, Map<Integer, IrOperand> conversions,
                               IrInstruction instruction, Map<Integer, BitSet> origins,
                               ObjectContext context) {
+        if (instruction instanceof IrGcCollectInstruction) {
+            // Preparation can throw the immortal OOM. Collection itself does
+            // not allocate language objects, publish inputs or deallocate them.
+            return new Effect(false, true, new BitSet(), new BitSet());
+        }
         if (instruction instanceof IrForeignCallInstruction call) {
             BitSet inputs = foreignOrigins(call, origins);
             return new Effect(true, true, inputs, (BitSet) inputs.clone());

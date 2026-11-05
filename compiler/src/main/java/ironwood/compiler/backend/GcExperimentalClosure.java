@@ -16,6 +16,7 @@ public final class GcExperimentalClosure {
     }
 
     public static GcEffects validate(IrProgram program, boolean runtimeOwners) {
+        GcManagedHeapVerifier.verify(program);
         if (program.entryPoint().isPresent() || program.allocationFailure().isPresent()
                 || !program.stringConstants().isEmpty() || program.exportRoots().isEmpty()) {
             throw new IllegalArgumentException("GC3 requires explicit standalone roots without legacy entry/exception owners");

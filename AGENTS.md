@@ -58,6 +58,9 @@ implementation or transpiler:
 - There is no GC. Ordinary `new` allocations remain until a compiler-proven
   `free` or process termination. Reject `free` when safety cannot be proved;
   never weaken the guarantee or silently reclaim unreachable objects.
+  The migration branch's [GC5 checkpoint](docs/GC5_IMPLEMENTATION.md) validates
+  `Memory.collect()` in source/artifacts but refuses ordinary native collection.
+  Do not bypass its mixed-heap gates or describe GC5 as complete.
 - Keep the mandatory runtime small; unreachable standard-library code is removed
   from the closed-world program, allowing a broad library.
 - Use UTF-8 `.iron` source, a Java 21 bootstrap compiler, and the pinned LLVM 23

@@ -278,6 +278,11 @@ public final class SemanticAnalyzer {
         }
         bindDeferredAnonymousParents(types, resolver, hierarchy, diagnostics,
                 hierarchyResolved, collected, collecting);
+        int beforeIntrinsicValidation = diagnostics.size();
+        types.values().forEach(type -> MemoryIntrinsic.validate(type, diagnostics));
+        if (diagnostics.size() != beforeIntrinsicValidation) {
+            return new SemanticResult(Optional.empty(), diagnostics);
+        }
         if (!validateAcyclicHierarchy(types, diagnostics)) {
             // Ownership and dispatch analysis require a DAG. A diagnosed cycle
             // must not reach superclass walks that assume this invariant.

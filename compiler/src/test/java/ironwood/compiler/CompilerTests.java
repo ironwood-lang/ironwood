@@ -130,6 +130,10 @@ public final class CompilerTests {
     }
 
     private int runAll() {
+        test(Gc5IntrinsicTests.RESOLUTION, Gc5IntrinsicTests::resolution);
+        test(Gc5IntrinsicTests.EFFECTS, Gc5IntrinsicTests::effects);
+        test(Gc5IntrinsicTests.REFUSAL, Gc5IntrinsicTests::refusal);
+        test(Gc5IntrinsicTests.FINAL_LINK, Gc5IntrinsicTests::finalLink);
         test(GcLayoutTests.NAME, GcLayoutTests::proofs);
         test(GcRootTests.NAME, GcRootTests::proofs);
         test(GcLifetimeTests.NAME, GcLifetimeTests::proofs);

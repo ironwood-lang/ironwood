@@ -1,11 +1,14 @@
 # Ironwood standard library
 
-Ironwood currently ships a bundled, Java-shaped standard library from 254
-source files. IronDocs covers 170 public and protected types across 16 packages:
+The migration branch's bundled, Java-shaped standard library has 255 source
+files and 171 public and protected types across 16 packages. This includes the
+provisional `ironwood.lang.Memory` declaration: its intrinsic is validated in
+source/class/archive analysis, but ordinary native collection is refused pending
+the [GC5 runtime/library cutover](GC5_IMPLEMENTATION.md).
 
 | Package | Documented types | Purpose |
 | --- | ---: | --- |
-| `ironwood.lang` | 38 | Object model, text, iteration, resource cleanup, numeric helpers, system services, and exceptions |
+| `ironwood.lang` | 39 | Object model, text, iteration, resource cleanup, numeric helpers, system services, and exceptions |
 | `ironwood.io` | 32 | Synchronous byte and character streams, standard input/output/error, and checked I/O failures |
 | `ironwood.util` | 10 | Iteration, object and array helpers, comparators, randomness, optionals, joins, and bit sets |
 | `ironwood.util.zip` | 1 | CRC-32 checksums |

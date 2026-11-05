@@ -32,6 +32,7 @@ extern struct iw_gc_throwable *gc4_catch_nested_wrappers(void *, void *, void *)
 extern struct iw_gc_throwable *gc4_rethrow(void *, void *, void *);
 extern struct iw_gc_throwable *gc4_published_failure(void *);
 extern struct iw_gc_throwable *gc4_published_success(void *);
+extern struct iw_gc_throwable *gc4_try_collect(void);
 struct node { const void *type; struct node *link; int64_t value; };
 extern void *const iw_gc_static_roots[];
 extern const uint64_t iw_gc_static_root_count;
@@ -44,12 +45,14 @@ static struct iw_gc_acquisition failure_slots[2];
 static struct iw_gc_acquisitions failure_owner = {failure_slots, 0, 2};
 static int preparation_failure;
 static int unwind_failure;
+static int corrupt_after_capacity;
+static int preparation_oom_raised;
 static size_t wrapper_collections, max_wrappers;
 
 static int enumerate(int (*visit)(uintptr_t)) {
     if (iw_gc_unwind_wrapper_count()) ++wrapper_collections;
     if (iw_gc_unwind_wrapper_count() > max_wrappers) max_wrappers = iw_gc_unwind_wrapper_count();
-    return iw_gc_lifetime_owners.enumerate(visit);
+    return iw_gc_lifetime_owners.enumerate(visit) && (!corrupt_after_capacity || visit(1));
 }
 static const struct iw_gc_owner_protocol probe_owners = {1, 7, 0, 0, enumerate, iw_gc_immortal_bases, 1};
 
@@ -94,6 +97,7 @@ static void acquire(struct iw_gc_acquisitions *owner, unsigned index) {
     ++resources;
 }
 static void preparation_exit(void) {
+    if (!strcmp(selected, "preparation-corrupt")) assert(!preparation_oom_raised);
     if (unwind_failure) {
         assert(iw_gc_snapshot().collections == 0 && iw_gc_snapshot().disabled);
         printf("{\"case\":\"%s\",\"refused_before_collection\":true}\n", selected);
@@ -131,7 +135,39 @@ static void resource_cases(void) {
     iw_gc_lifetimes_budget(SIZE_MAX);
 }
 
+static void preparation_oom(void) {
+    preparation_oom_raised = 1;
+    assert(iw_gc_snapshot().disabled && iw_gc_snapshot().collections == 0);
+    assert(iw_gc_roots_last_count() == 0);
+    if (!strcmp(selected, "preparation-returning")) return;
+    iw_gc_throw(iw_gc_oom_object(iw_gc_types[IW_GC_THROWABLE_TYPE]));
+}
+
 __attribute__((noinline)) static void native_boundary(void) {
+    if (!strcmp(selected, "preparation-catch") || !strcmp(selected, "preparation-corrupt")
+            || !strcmp(selected, "preparation-returning")) {
+        struct iw_gc_native_root first = {0}, second = {0};
+        assert(iw_gc_native_root_open(&first, exception()) && iw_gc_native_root_open(&second, exception()));
+        assert(iw_gc_roots_set_preparation_oom(preparation_oom));
+        assert(!iw_gc_roots_set_preparation_oom(preparation_oom));
+        corrupt_after_capacity = !strcmp(selected, "preparation-corrupt");
+        unwind_failure = corrupt_after_capacity || !strcmp(selected, "preparation-returning");
+        acquire(&failure_owner, 0); acquire(&failure_owner, 1);
+        preparation_failure = unwind_failure;
+        iw_gc_lifetimes_budget(0); /* Delivery uses the bounded emergency wrapper. */
+        struct iw_gc_throwable *result = gc4_try_collect();
+        assert(preparation_oom_raised && result == iw_gc_oom_object(iw_gc_types[IW_GC_THROWABLE_TYPE]));
+        assert(iw_gc_snapshot().collections == 0 && iw_gc_snapshot().disabled && iw_gc_snapshot().total == 2);
+        assert(iw_gc_unwind_wrapper_count() == 0 && resources == 2);
+        iw_gc_acquisitions_abort(&failure_owner);
+        assert(resources == 0 && released == 2 && release_order == 21);
+        iw_gc_native_root_close(&first); iw_gc_native_root_close(&second);
+        iw_gc_lifetimes_budget(SIZE_MAX);
+        phase();
+        assert(iw_gc_snapshot().collections == 1 && iw_gc_snapshot().live == 0 && iw_gc_snapshot().sidecars == 0);
+        printf("{\"case\":\"%s\",\"caught\":true,\"native_resources\":0,\"subsequent_collection\":true}\n", selected);
+        return;
+    }
     if (!strcmp(selected, "missing-unwind")) {
         unwind_failure = 1;
         phase();
@@ -305,7 +341,7 @@ int main(int argc, char **argv) {
         printf("{\"case\":\"%s\",\"refused_before_collection\":true}\n", selected);
         return 0;
     }
-    if (!strcmp(selected, "preparation")) config.scratch_capacity = 1;
+    if (!strncmp(selected, "preparation", 11)) config.scratch_capacity = 1;
     assert(iw_gc_roots_start(&config));
     assert(atexit(preparation_exit) == 0);
     native_boundary();
