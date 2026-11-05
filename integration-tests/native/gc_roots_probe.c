@@ -86,6 +86,10 @@ __attribute__((noinline)) static void native_boundary(void) {
         assert(result->value == 123 && iw_gc_snapshot().live == 1);
     } else if (!strcmp(selected, "stack-clear")) {
         assert(gc3_stack_clear(node(9)) == 9 && iw_gc_snapshot().live == 0);
+    } else if (!strcmp(selected, "missing-unwind")) {
+        report_refusal = 1;
+        phase();
+        abort();
     } else if (!strcmp(selected, "legacy-heap")) {
         report_refusal = 1;
         native_anchor = calloc(1, sizeof(*native_anchor));
@@ -170,7 +174,7 @@ int main(int argc, char **argv) {
     if (!strcmp(selected, "boundary")) config.native_boundary = wrong_boundary;
     if (!strcmp(selected, "missing-map") || !strcmp(selected, "stale-version") || !strcmp(selected, "bad-count")
             || !strcmp(selected, "bad-location") || !strcmp(selected, "stale-abi") || !strcmp(selected, "stale-pc")
-            || !strcmp(selected, "stale-slot") || !strcmp(selected, "stale-function")) refuse_start = 1;
+            || !strcmp(selected, "stale-slot") || !strcmp(selected, "stale-function") || !strcmp(selected, "writable-map")) refuse_start = 1;
     if (!strcmp(selected, "scratch")) config.scratch_capacity = 1;
     if (refuse_start) {
         assert(!iw_gc_roots_start(&config));

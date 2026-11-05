@@ -1449,3 +1449,6 @@ adds structural ELF checks without native target qualification. The supported
 closure, refusals, exact results and reproduction commands are in
 [GC3 roots and statepoints](GC3_ROOTS_AND_STATEPOINTS.md). Do not substitute an
 unfiltered compiler/platform suite or the historical handwritten root fixture.
+Native execution is qualified on macOS arm64 and Linux x86-64; the latter adds
+stripped-unwind and writable-map controls. See its separate
+[qualification record](GC3_LINUX_X86_64_QUALIFICATION.md). Linux arm64 still refuses.

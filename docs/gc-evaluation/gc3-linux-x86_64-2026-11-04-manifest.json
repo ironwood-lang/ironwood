@@ -1,0 +1,332 @@
+{
+  "USE_MARK_BYTES": true,
+  "archive_files_verified": 5458,
+  "base_revision": "6860bdfcb5cd4a6923b843f7ce77e9cff4e5c958",
+  "bounds": {
+    "child_seconds": 60,
+    "outer_seconds": 900,
+    "rss_guard_kib": 16777216
+  },
+  "branch": "codex/bdwgc-integration-plan",
+  "checks": {
+    "diff_check": "passed",
+    "license_audit": "license audit passed (5 OpenJDK-derived source files)",
+    "python_AST": "passed",
+    "tracked_file_audit": "passed"
+  },
+  "compiler_tests": {
+    "all_passed": true,
+    "native_driver_runs_new_proofs_and_source_class_archive_parity": true,
+    "new_exact": [
+      "GC3 collection effects and explicit closure fail closed",
+      "GC3 late verification rejects missing strategies and undescribed stack regions"
+    ],
+    "production_exact": [
+      "GC2 exact layouts follow resolved storage and refuse legacy hidden links",
+      "runtime allocation and deallocation ABI works",
+      "safe free accepts local allocation and ended aliases",
+      "safe free rejects live aliases and escaped allocations",
+      "catchable allocation failure boundaries run at O3",
+      "trace bookkeeping preserves allocation counts and safe free",
+      "pool release helpers preserve borrows and allocation-free reuse"
+    ]
+  },
+  "date": "2026-11-04",
+  "elf": {
+    "aslr_setting": "2",
+    "glibc_versions": [
+      "2.2.5",
+      "2.3",
+      "2.14",
+      "2.17"
+    ],
+    "no_dynamic_collector_definitions": true,
+    "normal_links": {
+      "O0-link": {
+        "map_bytes": 2800,
+        "maps_in_relro": true,
+        "no_text_relocations": true,
+        "pie": true,
+        "unwind_header": true
+      },
+      "O1-link": {
+        "map_bytes": 2864,
+        "maps_in_relro": true,
+        "no_text_relocations": true,
+        "pie": true,
+        "unwind_header": true
+      },
+      "O2-link": {
+        "map_bytes": 2864,
+        "maps_in_relro": true,
+        "no_text_relocations": true,
+        "pie": true,
+        "unwind_header": true
+      },
+      "O3-link": {
+        "map_bytes": 3256,
+        "maps_in_relro": true,
+        "no_text_relocations": true,
+        "pie": true,
+        "unwind_header": true
+      }
+    },
+    "object.sha256": "d56344950900e8f425aad5edb5c0e9f4cfbdd16cc940be1308072a3d6f23555e",
+    "program.sha256": "ded7621776b3a0ad67b19a2444d532c5cb347fa2755f1110e16c97896e0d5c63",
+    "runtime_library.sha256": {
+      "libgcc_s.so.1": "7cd19c412b9fbe2c5900f052ab78aaaaa54c03adcc61c80555b6a264133287a6",
+      "libstdc++.so.6": "e3549df69430b452252a93f037e7bb382ae1011ba247f39cf570e0927a3b3af0"
+    },
+    "unwinder": "system Itanium _Unwind_Backtrace; native CFA probe checked suspended SP"
+  },
+  "engine_abi": "ironwood-gc-engine-2",
+  "format": 1,
+  "guard_runs": [
+    {
+      "disk_free_bytes": 111321034752,
+      "exit": 0,
+      "log": "workspace/gc3-linux/compiler-clean.log",
+      "task_peak_sampled_bytes": 626393088
+    },
+    {
+      "disk_free_bytes": 111288188928,
+      "exit": 0,
+      "log": "workspace/gc3-linux/offline.log",
+      "task_peak_sampled_bytes": 656928768
+    },
+    {
+      "disk_free_bytes": 111317139456,
+      "exit": 0,
+      "log": "workspace/gc3-linux/production-controls.log",
+      "task_peak_sampled_bytes": 630153216
+    },
+    {
+      "disk_free_bytes": 111290232832,
+      "exit": 0,
+      "log": "workspace/gc3-linux/qualified-integrity.log",
+      "task_peak_sampled_bytes": 655060992
+    },
+    {
+      "disk_free_bytes": 111286603776,
+      "exit": 0,
+      "log": "workspace/gc3-linux/relocated-roots.log",
+      "task_peak_sampled_bytes": 659996672
+    }
+  ],
+  "host_role": "x86host",
+  "machine_code": {
+    "ironwood.Main.scalar": {
+      "assembly.sha256": "3110cdafcad8d71904b720bcf0edf69e7b3d5a7919aa0109ef700ae0ca873a38",
+      "code_bytes": 48,
+      "gc_maintenance": false
+    },
+    "ironwood.Node.read": {
+      "assembly.sha256": "ff698011fdd61e394368fd000480e58082ccfdcb7c9597ce6b071762113c15df",
+      "code_bytes": 5,
+      "gc_maintenance": false
+    },
+    "ironwood.Node.step": {
+      "assembly.sha256": "3d4d1451da5b384f946e0ce858ecf62cd17b3d814d989f3dfe67481b19382847",
+      "code_bytes": 16,
+      "gc_maintenance": true,
+      "root_reloads": 1,
+      "root_stores": 1,
+      "ssa_root_spill_bytes": 8,
+      "stackmap_frame_bytes": 8
+    },
+    "scope": "Experimental object; ordinary lowering unchanged. Root spill measured separately from noncollecting leaf/loop."
+  },
+  "macos_regression": {
+    "O3_followup_checks": 9,
+    "O3_program_sections": {
+      "__llvm_stackmaps": {
+        "original_full_and_followup_identical": true,
+        "sha256": "1e451c6822d72735f333ca810d51ebf863f8fe4021f5699bc0d69cb0b6701244"
+      },
+      "__text": {
+        "original_full_and_followup_identical": true,
+        "sha256": "4a4c20a61e7f2c3e08255918552fb051246a922371878624f8afe940d6e3b7bb"
+      }
+    },
+    "cross_ELF_structural_targets": [
+      "linux-arm64",
+      "linux-x86_64"
+    ],
+    "followup_report": "workspace/gc3-linux-followup/mac-final/results.json",
+    "followup_report.sha256": "69d5ddc24e7b4dac724afc19f7585f46405d493ff4cada0c13191cabb439afd5",
+    "full_report": "workspace/gc3-linux-followup/mac-regression/results.json",
+    "full_report.sha256": "43fdc4f057407f68040ea305b6a3750451b9340b7cbff1f7df5376b8b3c5f135",
+    "host_role": "machost",
+    "max_sampled_rss_kib": 1059424,
+    "native_checks": 148,
+    "source_scope": "Full matrix covers shared cursor changes; final O3 follow-up includes final probe and ELF linker preparation. Subsequent edits are Linux-only reader/link/driver controls."
+  },
+  "native": {
+    "checks": 156,
+    "max_sampled_rss_kib": 703720,
+    "per_mode": 39,
+    "precollection_refusals": 88,
+    "recursion_max_frames": {
+      "O0": 18,
+      "O1": 17,
+      "O2": 17,
+      "O3": 16
+    },
+    "scenarios": [
+      "allocate",
+      "recursion",
+      "merge",
+      "loop",
+      "pending",
+      "yield",
+      "capture",
+      "initialize",
+      "constructor",
+      "exception",
+      "derived",
+      "stack",
+      "stack-clear",
+      "dispatch",
+      "static",
+      "native",
+      "scalar",
+      "version",
+      "width",
+      "endian",
+      "exceptions",
+      "foreign",
+      "static-count",
+      "native-count",
+      "scratch",
+      "interior",
+      "one-past",
+      "missing-map",
+      "stale-version",
+      "bad-count",
+      "bad-location",
+      "stale-abi",
+      "stale-pc",
+      "stale-slot",
+      "stale-function",
+      "boundary",
+      "legacy-heap",
+      "missing-unwind",
+      "writable-map"
+    ],
+    "survival_reclamation_checks": 68
+  },
+  "offline": {
+    "copied_payload_files": 31,
+    "offline_verified": true,
+    "payload.sha256": {
+      "build.json": "54c233e2e8042ebbd9632c01aa61d56e3ca49d9a25123e28b4e6f10e2d258f96",
+      "lib/libgc.a": "83a3bd26b2bb8ff58ca3d4e422c928b11833bde1e984704534ae60c980cfbba3",
+      "lib/libironwood_gc_engine.a": "96039a6f22531dfed4b7ff4e83113a9a12157a67dae97c414b146fcbb43499f1"
+    },
+    "sdk_configuration": "443a7d4df11b69f991a7f7eebebe5d18948bd43ea19a727ab9e4d1f6f7a500e6",
+    "stale_gc1_refused": true
+  },
+  "packages": [
+    {
+      "build": "default_cfg_h691c86c_1",
+      "name": "clang",
+      "record.sha256": "527548d964fbf8969a2685296acf84a7721281287a4e3e31523adbfdb55afae9",
+      "version": "23.1.0"
+    },
+    {
+      "build": "default_h1971bec_1",
+      "name": "clang_impl_linux-64",
+      "record.sha256": "940cadb0fbfe2c1de67863e162dc022616e938efd1b89823afcece9d47696bf0",
+      "version": "23.1.0"
+    },
+    {
+      "build": "ha9f2e26_4",
+      "name": "libgcc",
+      "record.sha256": "8c129d791b6abcc503577e4b051427f4fb133d22ef0f8d96483a94c3d689faad",
+      "version": "16.2.0"
+    },
+    {
+      "build": "h474f4eb_0",
+      "name": "libllvm23",
+      "record.sha256": "c3558c6ad1e1a73aa9d013ebfbc94311d164d00df6f85eb888064106ce802db3",
+      "version": "23.1.0"
+    },
+    {
+      "build": "h934c35e_4",
+      "name": "libstdcxx",
+      "record.sha256": "20f4287fb38d30368bece64a0080a76f5ed584c28400c2869a7178dace8d49ee",
+      "version": "16.2.0"
+    },
+    {
+      "build": "h7148c6a_0",
+      "name": "llvm-tools",
+      "record.sha256": "35b4221a8a0d754866c93d3495767486c068b17ffbbd9f9ede22f6c95f9a6889",
+      "version": "23.1.0"
+    },
+    {
+      "build": "h1602c4f_22",
+      "name": "openjdk",
+      "record.sha256": "c6f75f625b1a7b2d42c15042f88bf5a60771087cebdcc29760336a9125971dfe",
+      "version": "21.0.10"
+    },
+    {
+      "build": "h0157908_18",
+      "name": "sysroot_linux-64",
+      "record.sha256": "f1dcba2c3ef87eec42905fdd16aab8e399919c7b565e615aa027bf3da1dddb68",
+      "version": "2.17"
+    }
+  ],
+  "parent_git_is_not_export_identity": true,
+  "preservation": {
+    "branch": "codex/bdwgc-integration-plan",
+    "diff_unchanged": true,
+    "human_scripts.sha256": {
+      "scripts/prepare-gc.py": "231aa96587fb1d4dff25e842acca7ba8fb1afb5eab6f08b2498b72ebcef4ebfc",
+      "scripts/test-gc-engine.py": "2e95276e25b73f7b9879eaf21ce0f19d53ad212245283ec9f8390bd39c3b0e0e"
+    },
+    "parent_revision": "e113c12fc1993709f8bcfa542f39bea7ccba6f71",
+    "status_unchanged": true
+  },
+  "production_enabled": false,
+  "relocated_native_cases": [
+    "O3-allocate",
+    "O3-recursion",
+    "O3-derived",
+    "O3-stack-clear",
+    "O3-static",
+    "O3-exception",
+    "O3-stale-function",
+    "O3-writable-map"
+  ],
+  "reports.sha256": {
+    "workspace/gc3-linux/ELF-image.txt": "83b3514f823f13be84199d7ad2a512d14b559e6a3bc8fb08390a20dc3c87f414",
+    "workspace/gc3-linux/ELF-symbols.txt": "a708bef35ff34fe469a10076cf274e7d20378ce369a8191833fe3ad50ad08a8a",
+    "workspace/gc3-linux/O3-object.txt": "4250f63e6861fe3dd2c3cbe9e345c0c01041076075c8f3ef23b62a442cfd33a0",
+    "workspace/gc3-linux/O3-stackmap.txt": "3a95e706a9b9d5cd9b9a979615d6e5c384f1639c279d6ced595e56bd0ae34f56",
+    "workspace/gc3-linux/compiler-clean.log": "1cd7a984f78550b7dd9f0b1b6c8eb2682bf5c393688ae8237aef5107f5ab6858",
+    "workspace/gc3-linux/offline.json": "8ac052462b1ef69d4c04942c654d61c34feb26fa4d009b6501652d30ee711798",
+    "workspace/gc3-linux/production-controls.log": "a31d130d8a31f883d43b4783a0e9605f094dd1ea0c8b94d06e4ae076ed746903",
+    "workspace/gc3-linux/qualified-integrity/results.json": "65e0b8fada89d22a1b3823e4ffa9382224ec0ae198eeff7afb3d3c13fc993e8c",
+    "workspace/gc3-linux/relocated-roots/results.json": "263e1179d62f8eaef94a939d5bf2a669c3eaf36141c3008e100ff19c32df0b34",
+    "workspace/gc3-linux/unwind_probe.c": "2d062b74191a1ab019cafd0746a752a3e01300adfdc5f0ef294a6a8fb8a941ec"
+  },
+  "root_abi": "ironwood-gc-roots-1",
+  "sdk_configuration": "443a7d4df11b69f991a7f7eebebe5d18948bd43ea19a727ab9e4d1f6f7a500e6",
+  "source_archive.sha256": "3c5a9751185999ac9d87e85fbd431fa00691ce611a3afddb4e615a35c830f885",
+  "source_export": "workspace/gc3-linux/source",
+  "source_overlays.sha256": {
+    "compiler/src/main/java/ironwood/compiler/backend/GcRootSections.java": "df11b63b9a14d11a8147d5550dc853f3c54e4ecb69b5e960ca1b67b8c53f1c68",
+    "compiler/src/main/java/ironwood/compiler/backend/NativeBackend.java": "de90a6a617bbca91f5ff4e9b2ed8a72ca3482468b526503d4ccb9cf7708712b4",
+    "integration-tests/native/gc_roots_probe.c": "205b69e9420d51cb4558b74fff19d37f6d1c9a3944b472a0ea9e35e912a82900",
+    "integration-tests/native/gc_scalar_exception.cpp": "cb57eaa604e7ba9d3fd54d9f9c6c23a1c0af01ec1151d83cbab10cdb18a8faed",
+    "runtime/src/ironwood_gc_roots.c": "cb1278d6f5d8a63e9d28ec44206b0eab732988f24773e8e42f2b21bc6de23ea7",
+    "scripts/test-gc-roots.py": "8458ff37850257ee108ba628feaddcdfdb31df5c35e2f257ff987b48082e5050"
+  },
+  "storage": {
+    "free_bytes": 111286542336,
+    "reserve_bytes": 21474836480,
+    "task_current_bytes": 660549632,
+    "task_limit_bytes": 8589934592,
+    "task_start_bytes": 541577216
+  }
+}

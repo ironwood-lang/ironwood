@@ -536,12 +536,15 @@ calls fail closed, and noncollecting hot code has no GC maintenance. Do not enab
 general source collection while exceptional/native roots remain incomplete.
 
 **Completion, 2026-11-04:** [GC3 roots and statepoints](GC3_ROOTS_AND_STATEPOINTS.md)
-records the explicit macOS arm64 standalone closure, compiler-owned effects and
+records the explicit macOS arm64 and Linux x86-64 standalone closure, compiler-owned effects and
 managed pointers, late statepoints in every mode, exact stack/static/native slots,
 optimized trace identity/map integrity, target readers and fail-closed boundaries.
 148 native checks, two exact compiler selections, structural ELF arm64/x86-64
 checks, seven production controls and unchanged GC0 hot-code fingerprints passed.
-Both Linux GC3 runtime gates remain closed pending native qualification. GC2's
+The separate [Linux x86-64 qualification](GC3_LINUX_X86_64_QUALIFICATION.md)
+adds 156 native checks, actual ELF/PIE/RELRO validation, stripped-unwind and
+writable-map refusals, offline SDK use and seven production controls. Linux
+arm64's GC3 runtime gate remains closed pending native qualification. GC2's
 engine-2/USE_MARK_BYTES profile and layout refusals remain authoritative. Actual
 Throwable/foreign roots, ordinary GC activation and the language/bridge cutover
 remain later milestones. The next bounded task is GC4, not production activation.
@@ -772,7 +775,7 @@ automatic self-hosting restart is part of this document's implementation plan.
 GC0 through GC3 are complete for their documented experimental closures. The
 next bounded task is GC4's runtime-only lifetimes and failure cleanup. Preserve
 production allocation, syntax, mandatory proofs and generation contracts until
-the coordinated cutover. Carry forward GC2's layout refusals, both Linux GC3
-native root-reader gates and the unexecuted Linux arm64 engine/layout gate.
+the coordinated cutover. Carry forward GC2's layout refusals, Linux arm64's GC3
+native root-reader gate and its unexecuted engine/layout gate.
 Subsequent tasks can own one milestone or a named substage, carrying forward
 prerequisite commit IDs, evidence and remaining gates.

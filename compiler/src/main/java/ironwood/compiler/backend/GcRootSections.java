@@ -13,17 +13,30 @@ final class GcRootSections {
     private GcRootSections() {}
 
     static byte[] retain(byte[] object) throws IOException {
-        if (object.length >= 4 && object[0] == 0x7f && object[1] == 'E' && object[2] == 'L' && object[3] == 'F') return elf(object);
-        return macho(object).object();
+        return prepare(object).object();
     }
 
     static String contract(byte[] object) throws IOException {
-        var prepared = macho(object);
+        var prepared = prepare(object);
         return "// SPDX-License-Identifier: MIT OR Apache-2.0\n#include <stdint.h>\n"
                 + "const uint64_t iw_gc_map_hash = UINT64_C(0x" + Long.toUnsignedString(prepared.hash(), 16) + ");\n";
     }
 
     private record Prepared(byte[] object, long hash) {}
+
+    static String elfLinkerScript() {
+        return "/* SPDX-License-Identifier: MIT OR Apache-2.0 */\nSECTIONS {\n"
+                + "  .data.rel.ro : ALIGN(8) {\n"
+                + "    HIDDEN(__start_ironwood_gc_maps = .);\n"
+                + "    KEEP(*(ironwood_gc_maps))\n"
+                + "    HIDDEN(__stop_ironwood_gc_maps = .);\n"
+                + "  }\n} INSERT BEFORE .dynamic;\n";
+    }
+
+    private static Prepared prepare(byte[] object) throws IOException {
+        if (object.length >= 4 && object[0] == 0x7f && object[1] == 'E' && object[2] == 'L' && object[3] == 'F') return elf(object);
+        return macho(object);
+    }
 
     private static Prepared macho(byte[] object) throws IOException {
         var data = ByteBuffer.wrap(object).order(ByteOrder.LITTLE_ENDIAN);
@@ -112,8 +125,8 @@ final class GcRootSections {
         return new Prepared(result, hash);
     }
 
-    /** Structural support only. NativeBackend still refuses unqualified ELF execution. */
-    private static byte[] elf(byte[] object) throws IOException {
+    /** Relocatable ELF admission; native execution has a separate exact target gate. */
+    private static Prepared elf(byte[] object) throws IOException {
         var data = ByteBuffer.wrap(object).order(ByteOrder.LITTLE_ENDIAN);
         if (object.length < 64 || object[4] != 2 || object[5] != 1 || data.getShort(16) != 1
                 || (data.getShort(18) != 183 && data.getShort(18) != 62)) throw invalid("expected supported ELF64 object");
@@ -146,8 +159,12 @@ final class GcRootSections {
         extent(object, offset, size);
         int map = (int)offset;
         if (size < 16 || data.get(map) != 3 || data.get(map + 1) != 0 || data.getShort(map + 2) != 0) throw invalid("ELF map version");
-        long functions = Integer.toUnsignedLong(data.getInt(map + 4));
-        if (functions == 0 || functions > (size - 16) / 24) throw invalid("ELF function count");
+        long functions = Integer.toUnsignedLong(data.getInt(map + 4)), constants = Integer.toUnsignedLong(data.getInt(map + 8));
+        long records = Integer.toUnsignedLong(data.getInt(map + 12));
+        if (functions == 0 || functions > (size - 16) / 24 || constants > (size - 16 - 24 * functions) / 8
+                || records == 0 || records > 1048576) throw invalid("ELF map counts");
+        byte[] normalized = java.util.Arrays.copyOfRange(object, map, (int)(offset + size));
+        var canonical = ByteBuffer.wrap(normalized).order(ByteOrder.LITTLE_ENDIAN);
         Set<Long> locations = new HashSet<>();
         for (int i = 0; i < count; i++) {
             int header = (int)table + i * stride;
@@ -160,24 +177,61 @@ final class GcRootSections {
             int symbols = (int)table + symbolsIndex * stride;
             long symbolOffset = data.getLong(symbols + 24), symbolSize = data.getLong(symbols + 32);
             extent(object, symbolOffset, symbolSize);
-            if (data.getLong(symbols + 56) != 24 || symbolSize % 24 != 0) throw invalid("ELF symbol stride");
+            if (data.getInt(symbols + 4) != 2 || data.getLong(symbols + 56) != 24 || symbolSize % 24 != 0) throw invalid("ELF symbol stride");
+            int stringsIndex = data.getInt(symbols + 40);
+            if (stringsIndex < 0 || stringsIndex >= count) throw invalid("ELF symbol strings");
+            int strings = (int)table + stringsIndex * stride;
+            long stringsOffset = data.getLong(strings + 24), stringsSize = data.getLong(strings + 32);
+            extent(object, stringsOffset, stringsSize);
+            if (data.getInt(strings + 4) != 3) throw invalid("ELF symbol string table");
             for (long p = relocationOffset; p < relocationOffset + relocationSize; p += 24) {
                 long address = data.getLong((int)p), info = data.getLong((int)p + 8), symbol = info >>> 32;
                 int type = (int)info, expected = data.getShort(18) == 183 ? 257 : 1;
                 if (address < 16 || (address - 16) % 24 != 0 || (address - 16) / 24 >= functions || type != expected
-                        || !locations.add(address) || symbol >= symbolSize / 24) throw invalid("ELF absolute function relocation");
-                int section = Short.toUnsignedInt(data.getShort((int)(symbolOffset + symbol * 24 + 6)));
+                        || !locations.add(address) || symbol >= symbolSize / 24 || data.getLong(map + (int)address) != 0) {
+                    throw invalid("ELF absolute function relocation");
+                }
+                int entry = (int)(symbolOffset + symbol * 24);
+                int section = Short.toUnsignedInt(data.getShort(entry + 6));
                 if (section == 0 || section >= count || (data.getLong((int)table + section * stride + 8) & 4) == 0) {
                     throw invalid("ELF root relocation does not resolve executable storage");
                 }
+                int kind = Byte.toUnsignedInt(data.get(entry + 4)) & 15;
+                long value = data.getLong(entry + 8), addend = data.getLong((int)p + 16);
+                if ((kind != 2 && kind != 3) || value < 0 || addend < 0 || value > Long.MAX_VALUE - addend) {
+                    throw invalid("ELF function relocation target");
+                }
+                // Local functions may be expressed as section-symbol + addend.
+                // Resolve that address back to one named function, never a guessed
+                // section identity or an arbitrary interior instruction address.
+                int function = -1;
+                for (long s = symbolOffset; s < symbolOffset + symbolSize; s += 24) {
+                    int candidate = (int)s;
+                    if ((data.get(candidate + 4) & 15) == 2
+                            && Short.toUnsignedInt(data.getShort(candidate + 6)) == section
+                            && data.getLong(candidate + 8) == value + addend) {
+                        if (function != -1) throw invalid("ELF ambiguous function symbol");
+                        function = candidate;
+                    }
+                }
+                if (function == -1) throw invalid("ELF missing exact function symbol");
+                long name = Integer.toUnsignedLong(data.getInt(function));
+                if (name >= stringsSize) throw invalid("ELF function symbol name");
+                int start = (int)(stringsOffset + name), end = start;
+                while (end < stringsOffset + stringsSize && object[end] != 0) end++;
+                if (end == start || end == stringsOffset + stringsSize) throw invalid("ELF unterminated function symbol");
+                canonical.putLong((int)address, OptimizedTraceMetadata.linkageGuid(new String(object, start, end - start, StandardCharsets.UTF_8)));
             }
         }
         if (locations.size() != functions) throw invalid("ELF missing function relocations");
         byte[] result = object.clone();
-        // SHF_ALLOC | SHF_GNU_RETAIN. The linker must KEEP the named section too
-        // on older binutils; the final runtime boundary rejects an empty section.
-        ByteBuffer.wrap(result).order(ByteOrder.LITTLE_ENDIAN).putLong(root + 8, data.getLong(root + 8) | 2 | 0x200000);
-        return result;
+        // Absolute function relocations need writable input storage for PIE.
+        // The companion linker script places it in RELRO after relocation.
+        // SHF_ALLOC | SHF_WRITE | SHF_GNU_RETAIN; no executable text relocations.
+        ByteBuffer.wrap(result).order(ByteOrder.LITTLE_ENDIAN).putLong(root + 8, data.getLong(root + 8) | 3 | 0x200000);
+        long hash = 0xcbf29ce484222325L;
+        for (byte value : normalized) hash = (hash ^ Byte.toUnsignedInt(value)) * 0x100000001b3L;
+        return new Prepared(result, hash);
     }
 
     private static boolean name(byte[] bytes, int offset, String name) {

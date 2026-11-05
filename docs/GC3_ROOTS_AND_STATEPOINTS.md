@@ -2,10 +2,12 @@
 
 # GC3 effects, roots and statepoints
 
-Date: 2026-11-04. **GC3 complete for the selected macOS arm64 experimental
+Date: 2026-11-04. **GC3 complete for the selected macOS arm64 and Linux x86-64 experimental
 closure. Production GC remains disabled.** Baseline: `64c11fa3`, preserving all
 GC0/GC1/GC2 commits. Read with the [integration plan](BDWGC_INTEGRATION_PLAN.md)
-and [compact evidence](gc-evaluation/gc3-2026-11-04-manifest.json).
+and [compact evidence](gc-evaluation/gc3-2026-11-04-manifest.json). The separately
+executed [Linux x86-64 qualification](GC3_LINUX_X86_64_QUALIFICATION.md) extends
+the original macOS record below; Linux arm64 remains unqualified.
 
 ## Pre-change review
 
@@ -166,16 +168,20 @@ headers.
 The reader has no fixture-specific frame/root count. Mach-O discovery validates
 load commands and image ranges and finds the reader's own image through dyld.
 ELF support uses the matching dl_iterate_phdr image, PT_LOAD permissions,
-PT_GNU_EH_FRAME and named section boundaries. NativeBackend and runtime gates
-currently admit only the qualified macOS arm64 profile; arm64e and both Linux
-GC3 runtime targets refuse. ELF arm64/x86-64 object readers and relocation forms
-passed structural cross-compilation checks, not native execution qualification.
-Linux x86-64's GC2 engine/layout evidence is not GC3 root-reader evidence.
+PT_GNU_EH_FRAME, actual PT_GNU_RELRO coverage and named section boundaries.
+NativeBackend and runtime gates admit the qualified macOS arm64 and Linux x86-64
+profiles; arm64e and Linux arm64 refuse. ELF arm64 has structural checks only.
+Linux x86-64 has its own native GC3 evidence, separate from GC2 engine/layout
+qualification. Its system unwinder supplies exact return PCs, function starts
+and suspended-frame SPs; the next frame bounds each root read. It skips no frame.
 
 ld64 can discard an anonymous LLVM stack-map section despite a section-start
 reference, leaving an empty placeholder. GcRootSections validates the object
-and sets S_ATTR_NO_DEAD_STRIP. ELF uses SHF_ALLOC/SHF_GNU_RETAIN and the named
-`ironwood_gc_maps` section; older linker integration must retain it explicitly.
+and sets S_ATTR_NO_DEAD_STRIP. ELF uses SHF_ALLOC/SHF_WRITE/SHF_GNU_RETAIN on the
+named `ironwood_gc_maps` input section. A generated `root-contract.ld` retains it
+inside `.data.rel.ro`: absolute pointers relocate for PIE, then become read-only.
+Both the harness and runtime validate final RELRO coverage rather than its name.
+Only the pinned LLVM linker is qualified for this development executable.
 Missing/stripped maps refuse load before a collection. No conservative fallback
 is available.
 
@@ -216,7 +222,7 @@ report, code, map and image hashes. Raw binaries, archives and logs stay ignored
 | Native closure | 148 checks: 37 scenarios across O0/O1/O2/O3. Rooted objects/graphs survive, numeric lookalikes do not, and clearing roots reclaims graphs. Recursion reached 18/17/17/16 mapped frames respectively; O3 partial inlining accounts for the difference. |
 | Exceptional/pending state | Scalar native invoke/catch cleanup, constructors, source defer captures and pending return/yield values passed in all modes; actual legacy managed exceptions remain refused. |
 | Nearby negatives | Missing/stale maps, ABI/version/width/endian/counts, valid-looking stale slot/function/PC data, shortened static/native inventories, scratch exhaustion, wrong walk boundary, interior/one-past/legacy-heap roots and unqualified exception/foreign owners refused before collection. |
-| Target structure | Compiler-derived ELF arm64/x86-64 objects assembled, optimized, statepoint-rewritten and validated for unwind/absolute relocations/retention. No Linux native GC3 qualification claimed. |
+| Target structure | Compiler-derived ELF arm64/x86-64 objects assembled, optimized, statepoint-rewritten and validated for unwind/absolute relocations/retention. The later native Linux x86-64 follow-up is recorded separately. |
 | Production controls | Exact GC2 layout test and all six GC1 production controls passed, preserving allocator/free behavior, mandatory proofs, O3 allocation failure, traces and pool reuse. |
 | Production hot baseline | Deterministic call/pool defer workloads, two alternating rounds of 32 million operations per variant: correct checksums, zero warmed allocations/live delta; normalized assembly byte-identical to GC0's recorded baseline and to handwritten cleanup. |
 | Bounds | 16 GiB sampled process-group RSS guard and 60-second child limit. The main qualification's maximum sampled group RSS was 881,888 KiB, including compiler children. No resident-capacity or self-hosting claim. |
@@ -263,7 +269,7 @@ with focused exceptional survival/reclamation tests. Preserve this closure and
 noncollecting code baselines. Do not add source Memory.collect, remove free or
 destructors, change bridge APIs, begin GC5/GC6 or restart self-hosting.
 
-Carry the separate Linux native root-reader qualification gates forward. Linux
-arm64 also still lacks GC2 native qualification. Broad stdlib roots, actual
+Carry the Linux arm64 native root-reader gate forward; that target also still
+lacks GC2 native qualification. Broad stdlib roots, actual
 exceptions, foreign reentry, libraries/two images, IDK assembly and application
 performance remain later gates. GC3 completion is not production GC readiness.

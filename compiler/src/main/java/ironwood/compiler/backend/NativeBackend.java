@@ -18,8 +18,11 @@ public final class NativeBackend {
     /** Development-only object path. Caller must verify/link the GC2 SDK and root reader. */
     public LinkResult compileGcExperiment(LlvmToolchain toolchain, ironwood.compiler.ir.IrProgram program,
                                           NativeTarget target, Path directory, OptimizationLevel level) {
-        if (!target.triple().startsWith("arm64-apple-macosx")
-                || !target.dataLayout().equals("e-m:o-p270:32:32-p271:32:32-p272:64:64-i64:64-i128:128-n32:64-S128-Fn32")) {
+        boolean macho = target.triple().startsWith("arm64-apple-macosx")
+                && target.dataLayout().equals("e-m:o-p270:32:32-p271:32:32-p272:64:64-i64:64-i128:128-n32:64-S128-Fn32");
+        boolean elf = target.triple().equals("x86_64-unknown-linux-gnu")
+                && target.dataLayout().equals("e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-i128:128-f80:128-n8:16:32:64-S128");
+        if (!macho && !elf) {
             return new LinkResult(false, "GC3 native root reader is not qualified for " + target.triple());
         }
         if (!toolchain.version().equals("23.1.0")) return new LinkResult(false, "GC3 requires qualified LLVM 23.1.0");
@@ -40,7 +43,7 @@ public final class NativeBackend {
             // inserted afterward in every mode; no optimizer runs after them.
             String optimizedText = Files.readString(optimized);
             GcLateVerification.strategies(optimizedText);
-            Files.writeString(traced, OptimizedTraceMetadata.injectGc(optimizedText, true), StandardCharsets.UTF_8);
+            Files.writeString(traced, OptimizedTraceMetadata.injectGc(optimizedText, macho), StandardCharsets.UTF_8);
             result = run("GC3 late statepoints", List.of(toolchain.opt().toString(),
                     "-passes=rewrite-statepoints-for-gc,verify", "-S", traced.toString(), "-o", rooted.toString()));
             if (!result.success()) return result;
@@ -50,6 +53,11 @@ public final class NativeBackend {
             if (result.success()) {
                 Files.write(object, GcRootSections.retain(Files.readAllBytes(object)));
                 Files.writeString(directory.resolve("root-contract.c"), GcRootSections.contract(Files.readAllBytes(object)));
+                if (elf) {
+                    Files.writeString(directory.resolve("root-contract.ld"), GcRootSections.elfLinkerScript());
+                    result = run("GC3 ELF root section naming", List.of(toolchain.llvmObjcopy().toString(),
+                            "--rename-section", ".llvm_stackmaps=ironwood_gc_maps", object.toString()));
+                }
             }
             return result;
         } catch (IOException | IllegalArgumentException exception) {

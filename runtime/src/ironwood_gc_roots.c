@@ -6,13 +6,13 @@
 #include "ironwood_gc_roots.h"
 #include "ironwood_gc_engine.h"
 #include "gc.h"
-#include <libunwind.h>
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 #if defined(__APPLE__) && defined(__aarch64__)
+#include <libunwind.h>
 #include <mach-o/dyld.h>
 #include <mach-o/loader.h>
 extern const unsigned char iw_map_begin[] __asm__("section$start$__LLVM_STACKMAPS$__llvm_stackmaps");
@@ -24,8 +24,12 @@ extern const unsigned char iw_map_end[] __asm__("section$end$__LLVM_STACKMAPS$__
 #endif
 #elif defined(__linux__) && (defined(__aarch64__) || defined(__x86_64__))
 #include <link.h>
-/* ELF readers exist, but require their own native GC3 qualification. */
+#include <unwind.h>
+#if defined(__x86_64__)
+#define IW_ROOT_TARGET_QUALIFIED 1
+#else
 #define IW_ROOT_TARGET_QUALIFIED 0
+#endif
 #else
 #define IW_ROOT_TARGET_QUALIFIED 0
 #endif
@@ -107,11 +111,11 @@ static int map_integrity(const unsigned char *map, size_t bytes) {
 }
 
 #if defined(__linux__) && (defined(__aarch64__) || defined(__x86_64__))
-struct elf_image_search { int found, valid; };
+struct elf_image_search { int found, valid; uintptr_t map; size_t map_bytes; };
 
 static int elf_image(struct dl_phdr_info *image, size_t bytes, void *context) {
     struct elf_image_search *search = context;
-    int owns_reader = 0, unwind = 0;
+    int owns_reader = 0, unwind = 0, roots_readonly = 0;
     (void)bytes;
     for (ElfW(Half) i = 0; i < image->dlpi_phnum; ++i) {
         const ElfW(Phdr) *p = image->dlpi_phdr + i;
@@ -126,12 +130,17 @@ static int elf_image(struct dl_phdr_info *image, size_t bytes, void *context) {
     for (ElfW(Half) i = 0; i < image->dlpi_phnum; ++i) {
         const ElfW(Phdr) *p = image->dlpi_phdr + i;
         if (p->p_type == PT_GNU_EH_FRAME && p->p_memsz != 0) unwind = 1;
+        if (p->p_type == PT_GNU_RELRO && p->p_vaddr <= UINTPTR_MAX - image->dlpi_addr) {
+            uintptr_t begin = image->dlpi_addr + p->p_vaddr;
+            if (search->map >= begin && search->map - begin <= p->p_memsz
+                    && search->map_bytes <= p->p_memsz - (search->map - begin)) roots_readonly = 1;
+        }
         if (p->p_type != PT_LOAD) continue;
         if (p->p_filesz > p->p_memsz || p->p_vaddr > UINTPTR_MAX - image->dlpi_addr
                 || !add_range(image->dlpi_addr + p->p_vaddr, p->p_memsz,
                 (unsigned)(p->p_flags & PF_R), (unsigned)(p->p_flags & PF_W), (unsigned)(p->p_flags & PF_X))) return 1;
     }
-    search->valid = unwind;
+    search->valid = unwind && roots_readonly;
     return 1;
 }
 #endif
@@ -185,7 +194,7 @@ static int image_maps(const unsigned char **begin, size_t *bytes) {
     extern const unsigned char __start_ironwood_gc_maps[], __stop_ironwood_gc_maps[];
     *begin = __start_ironwood_gc_maps;
     *bytes = (size_t)(__stop_ironwood_gc_maps - __start_ironwood_gc_maps);
-    struct elf_image_search search = {0};
+    struct elf_image_search search = {0, 0, (uintptr_t)*begin, *bytes};
     (void)dl_iterate_phdr(elf_image, &search);
     return search.found && search.valid && *bytes != 0 && in_image((uintptr_t)*begin, *bytes, 0, 0);
 #else
@@ -323,11 +332,21 @@ static int append_root(uintptr_t root) {
     return 1;
 }
 
-static int locate(const unsigned char *location, unw_cursor_t *cursor, uintptr_t low, uintptr_t high, uintptr_t *value) {
+struct root_cursor { uintptr_t sp, fp; };
+
+static int locate(const unsigned char *location, const struct root_cursor *cursor, uintptr_t low, uintptr_t high, uintptr_t *value) {
     uint64_t constant;
     if (constant_value(location, &constant)) { *value = (uintptr_t)constant; return 1; }
-    unw_word_t reg;
-    if (unw_get_reg(cursor, (unw_regnum_t)read16(location + 4), &reg) != 0) return 0;
+    uint16_t number = read16(location + 4);
+#if defined(__aarch64__)
+    uintptr_t reg = number == 31 ? cursor->sp : cursor->fp;
+#elif defined(__x86_64__)
+    uintptr_t reg = number == 7 ? cursor->sp : cursor->fp;
+#else
+    (void)number; (void)cursor;
+    return 0;
+    uintptr_t reg = 0;
+#endif
     int32_t displacement = (int32_t)read32(location + 8);
     uintptr_t address = (uintptr_t)reg + (uintptr_t)(intptr_t)displacement;
     if (address < low || address > high || high - address < sizeof(void *)) return 0;
@@ -337,7 +356,7 @@ static int locate(const unsigned char *location, unw_cursor_t *cursor, uintptr_t
     return 1;
 }
 
-static int scan_frame(unw_cursor_t *cursor, const struct root_record *record, uintptr_t low, uintptr_t high) {
+static int scan_frame(const struct root_cursor *cursor, const struct root_record *record, uintptr_t low, uintptr_t high) {
     const unsigned char *locations = record->locations;
     if (record->deopt) {
         for (size_t i = 5; i < 3u + record->deopt; ++i) {
@@ -355,13 +374,74 @@ static int scan_frame(unw_cursor_t *cursor, const struct root_record *record, ui
     return 1;
 }
 
+static const struct root_record *caller_record(uintptr_t pc, uintptr_t function) {
+    for (size_t i = 0; i < record_count; ++i) {
+        if (records[i].pc == pc && records[i].function == function) return records + i;
+    }
+    return NULL;
+}
+
+#if defined(__linux__) && defined(__x86_64__)
+struct elf_walk {
+    const struct root_record *pending;
+    struct root_cursor cursor;
+    const char *reason;
+    size_t frames;
+    int complete;
+};
+
+static _Unwind_Reason_Code elf_frame(struct _Unwind_Context *context, void *argument) {
+    struct elf_walk *walk = argument;
+    uintptr_t pc = (uintptr_t)_Unwind_GetIP(context), function = (uintptr_t)_Unwind_GetRegionStart(context);
+    uintptr_t sp = (uintptr_t)_Unwind_GetCFA(context);
+    if (walk->frames++ == 0) {
+        walk->reason = "unexpected initial native collection frame";
+        return function == (uintptr_t)&iw_gc_experiment_collect ? _URC_NO_REASON : _URC_END_OF_STACK;
+    }
+    walk->reason = "unwind frame limit";
+    if (walk->frames > IW_MAX_MAP_ITEMS) return _URC_END_OF_STACK;
+    // GCC's context CFA is this suspended frame's SP. Delay scanning until the
+    // next callback supplies the actual parent SP, rather than inferring an
+    // extent from a frame size or treating an unpromoted alloca as an SSA root.
+    if (walk->pending != NULL) {
+        walk->reason = "unwind stack extent";
+        if (sp <= walk->cursor.sp || sp - walk->cursor.sp > 16 * 1024 * 1024) return _URC_END_OF_STACK;
+        walk->reason = "root location/base or scratch capacity";
+        if (!scan_frame(&walk->cursor, walk->pending, walk->cursor.sp, sp)) return _URC_END_OF_STACK;
+        ++last_frames;
+    }
+    if (function == (uintptr_t)configuration.native_boundary) {
+        walk->complete = 1;
+        return _URC_END_OF_STACK;
+    }
+    walk->reason = "missing exact caller map";
+    walk->pending = caller_record(pc, function);
+    if (walk->pending == NULL) return _URC_END_OF_STACK;
+    walk->cursor = (struct root_cursor){sp, 0};
+    for (size_t i = 0; i < walk->pending->count; ++i) {
+        const unsigned char *location = walk->pending->locations + 12 * i;
+        if ((location[0] == 2 || location[0] == 3) && read16(location + 4) == 6) {
+            walk->cursor.fp = (uintptr_t)_Unwind_GetGR(context, 6);
+            break;
+        }
+    }
+#ifdef IW_GC_ROOT_DIAGNOSTICS
+    fprintf(stderr, "GC3 ELF frame pc=%p function=%p sp=%p fp=%p\n", (void *)pc, (void *)function,
+            (void *)walk->cursor.sp, (void *)walk->cursor.fp);
+#endif
+    return _URC_NO_REASON;
+}
+#endif
+
 __attribute__((noinline)) void iw_gc_experiment_collect(void) {
+    const char *reason = "initialization/context";
+    root_count = 0; last_frames = 0;
+    if (!started || !iw_gc_snapshot().disabled) goto refused;
+#if defined(__APPLE__) && defined(__aarch64__)
     unw_context_t context;
     unw_cursor_t cursor;
     int complete = 0;
-    const char *reason = "initialization/context";
-    root_count = 0; last_frames = 0;
-    if (!started || !iw_gc_snapshot().disabled || unw_getcontext(&context) != 0 || unw_init_local(&cursor, &context) != 0) goto refused;
+    if (unw_getcontext(&context) != 0 || unw_init_local(&cursor, &context) != 0) goto refused;
     // Exactly this known native collection frame precedes the managed callers.
     // Every subsequent frame must match a statepoint until the approved boundary.
     for (size_t frames = 0; frames < IW_MAX_MAP_ITEMS; ++frames) {
@@ -373,26 +453,38 @@ __attribute__((noinline)) void iw_gc_experiment_collect(void) {
         if (unw_get_reg(&cursor, UNW_REG_IP, &pc) != 0 || unw_get_reg(&cursor, UNW_REG_SP, &sp) != 0
                 || unw_get_proc_info(&cursor, &info) != 0) goto refused;
         if (info.start_ip == (unw_word_t)(uintptr_t)configuration.native_boundary) { complete = 1; break; }
-        const struct root_record *record = NULL;
-        for (size_t i = 0; i < record_count; ++i) if (records[i].pc == pc) { record = records + i; break; }
+        const struct root_record *record = caller_record((uintptr_t)pc, (uintptr_t)info.start_ip);
 #ifdef IW_GC_ROOT_DIAGNOSTICS
         fprintf(stderr, "GC3 frame pc=%p function=%p mapped=%p sp=%p\n", (void *)(uintptr_t)pc,
                 (void *)(uintptr_t)info.start_ip, record == NULL ? NULL : (void *)record->function, (void *)(uintptr_t)sp);
 #endif
         // LLVM maps use the exact return PC. Do not subtract one or silently skip.
         reason = "missing exact caller map";
-        if (record == NULL || record->function != info.start_ip) goto refused;
+        if (record == NULL) goto refused;
         unw_cursor_t parent = cursor;
         unw_word_t parent_sp;
         reason = "unwind stack extent";
         if (unw_step(&parent) <= 0 || unw_get_reg(&parent, UNW_REG_SP, &parent_sp) != 0
                 || parent_sp <= sp || parent_sp - sp > 16 * 1024 * 1024) goto refused;
         reason = "root location/base or scratch capacity";
-        if (!scan_frame(&cursor, record, (uintptr_t)sp, (uintptr_t)parent_sp)) goto refused;
+        unw_word_t fp;
+        if (unw_get_reg(&cursor, 29, &fp) != 0) goto refused;
+        struct root_cursor location_cursor = {(uintptr_t)sp, (uintptr_t)fp};
+        if (!scan_frame(&location_cursor, record, (uintptr_t)sp, (uintptr_t)parent_sp)) goto refused;
         ++last_frames;
     }
     reason = "missing native boundary";
     if (!complete || last_frames == 0) goto refused;
+#elif defined(__linux__) && defined(__x86_64__)
+    struct elf_walk walk = {0};
+    walk.reason = "unwind coverage/native boundary";
+    (void)_Unwind_Backtrace(elf_frame, &walk);
+    reason = walk.reason;
+    if (!walk.complete || last_frames == 0) goto refused;
+#else
+    reason = "unqualified native unwinder";
+    goto refused;
+#endif
     if (last_frames > max_frames) max_frames = last_frames;
     for (size_t table = 0; table < 2; ++table) {
         void *const *slots = table ? configuration.native_slots : configuration.static_slots;

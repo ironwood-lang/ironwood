@@ -12487,9 +12487,9 @@ occurrence order. If no
   root sets with collection disabled; unregister and clear afterward. Unknown
   frames, stale metadata, incomplete inventories, wrong allocator domains and
   exhausted scratch stop before collection or managed execution resumes.
-- **Boundary:** The documented macOS arm64 standalone executable is qualified,
-  not arbitrary applications or production GC. Both Linux GC3 runtime gates
-  remain closed; ELF structural checks do not replace native qualification.
+- **Boundary:** The documented macOS arm64 and Linux x86-64 standalone executable
+  is qualified, not arbitrary applications or production GC. Linux arm64's GC3
+  runtime gate remains closed; ELF structural checks do not replace native qualification.
   GC2 engine-2/USE_MARK_BYTES and its legacy-layout refusals remain required.
   Actual Throwable/native exception owners, foreign segments, general aggregate
   stack roots, library/two-image integration and the language/bridge cutover
@@ -12499,4 +12499,7 @@ occurrence order. If no
   coverage, all-mode liveness/reclamation/refusal pairs, seven production
   controls, exact GC0 call/pool assembly fingerprints and measured root spills.
   The root ABI is ironwood-gc-roots-1, separate from the unchanged prepared
-  engine-2 SDK. Keep the next task bounded to GC4 runtime lifetimes/failure cleanup.
+  engine-2 SDK. The separate [Linux x86-64 record](GC3_LINUX_X86_64_QUALIFICATION.md)
+  adds 156 native checks, system unwind/PIE/actual RELRO validation, offline SDK
+  use and preserved production controls. Keep the next task bounded to GC4
+  runtime lifetimes/failure cleanup.
