@@ -136,6 +136,10 @@ public final class LlvmEmitter {
     private static final int MAX_GUARDED_TARGETS = 3;
     private static final String THROW_HELPER_PREFIX = "ironwood.throw.";
 
+    private ironwood.compiler.ir.GcEffects gcEffects;
+    private IrProgram gcProgram;
+    private List<ironwood.compiler.ir.IrAllocationLayout> gcLayouts = List.of();
+    private List<IrValueReference> gcSlots = List.of();
     private TracePlan tracePlan;
     private Map<Integer, List<DispatchReceiver>> slotReceivers = Map.of();
     private Set<String> selectiveInline = Set.of();
@@ -144,6 +148,165 @@ public final class LlvmEmitter {
     private String currentBlockLabel;
     private int guardOrdinal;
     private Set<String> bridgeEntries = Set.of();
+
+    /** Isolated development entry. No CLI, source intrinsic or production allocator selects it. */
+    public String emitGcExperiment(IrProgram program) {
+        gcEffects = GcExperimentalClosure.validate(program);
+        gcProgram = program;
+        gcLayouts = ironwood.compiler.ir.IrAllocationLayout.of(program);
+        bridgeEntries = program.exportRoots();
+        selectiveInline = SelectiveInlining.select(program);
+        tracePlan = new TracePlan(program);
+        throwHelpers.clear();
+        StringBuilder output = new StringBuilder("; ironwood-gc-roots-1 development closure\n");
+        output.append("source_filename = \"").append(escapeString(program.moduleName())).append("\"\n");
+        output.append("@iw_gc_root_abi = hidden constant i32 1\n");
+        output.append("%\"ironwood.array\" = type { ptr, i64, i64, i32, i32, [0 x i8] }\n");
+        for (var type : program.classes()) if (type.isClass()) emitClass(output, type);
+        output.append(GcLayoutEmitter.llvm(program));
+        output.append("@iw_gc_types = external global [").append(gcLayouts.size()).append(" x ptr]\n");
+        output.append("declare noalias nonnull ptr addrspace(1) @iw_gc_experiment_new(i32, i64) nounwind \"gc-leaf-function\"\n");
+        output.append("declare void @iw_gc_experiment_collect() nounwind\n");
+        output.append("declare void @iw_gc_experiment_refuse() noreturn \"gc-leaf-function\"\n");
+        output.append("declare void @iw_gc_test_raise() \"gc-leaf-function\"\n");
+        output.append("declare void @iw_gc_test_catch(ptr) nounwind \"gc-leaf-function\"\n");
+        output.append("declare i32 @__gxx_personality_v0(...)\n");
+        output.append("declare void @llvm.pseudoprobe(i64, i64, i32, i64)\n");
+        for (var field : program.staticFields()) {
+            output.append(staticFieldName(field)).append(" = internal global ").append(llvmType(field.type()))
+                    .append(' ').append(staticInitializer(field)).append('\n');
+        }
+        var staticSlots = new ArrayList<String>();
+        program.staticFields().stream().filter(field -> field.type().isReference())
+                .forEach(field -> staticSlots.add(staticFieldName(field)));
+        for (var initialization : program.typeInitializations()) {
+            output.append(initializationStateName(initialization.typeName())).append(" = internal global i8 0\n");
+            output.append(initializationFailureName(initialization.typeName())).append(" = internal global ptr addrspace(1) null\n");
+            staticSlots.add(initializationFailureName(initialization.typeName()));
+        }
+        output.append("@iw_gc_static_root_count = hidden constant i64 ").append(staticSlots.size()).append('\n');
+        output.append("@iw_gc_static_roots = hidden constant [").append(staticSlots.size()).append(" x ptr] [")
+                .append(staticSlots.stream().map(slot -> "ptr " + slot).collect(Collectors.joining(", "))).append("]\n");
+        for (var initialization : program.typeInitializations()) emitGcInitializer(output, initialization);
+        for (var function : program.functions()) emitFunction(output, function);
+        tracePlan.emitDebugMetadata(output);
+        return output.toString();
+    }
+
+    private String managedPointer() { return gcProgram == null ? "ptr" : "ptr addrspace(1)"; }
+
+    private String gcBundle(IrInstruction instruction) {
+        if (gcProgram == null || !gcEffects.instruction(instruction).mayCollect() || gcSlots.isEmpty()) return "";
+        // The native addresses in this bundle describe real program stack storage,
+        // independently of the SSA gc-live list synthesized by RS4GC.
+        return " [ \"deopt\"(i64 1230455603, i64 " + gcSlots.size()
+                + gcSlots.stream().map(slot -> ", ptr " + operand(slot)).collect(Collectors.joining()) + ") ]";
+    }
+
+    private int gcLayoutIndex(String name) {
+        for (int index = 0; index < gcLayouts.size(); index++) if (gcLayouts.get(index).name().equals(name)) return index;
+        throw new IllegalArgumentException("GC3 missing physical allocation layout: " + name);
+    }
+
+    private boolean emitGcInstruction(StringBuilder output, IrFunction function, IrInstruction instruction, ScratchNames names) {
+        if (instruction instanceof ironwood.compiler.ir.IrGcProjectionInstruction projection) {
+            output.append(operand(projection.result())).append(" = getelementptr inbounds ")
+                    .append(classType(projection.field().ownerClass())).append(", ptr addrspace(1) ")
+                    .append(operand(projection.base())).append(", i32 0, i32 ").append(projection.field().layoutIndex() + 1);
+            return true;
+        }
+        if (instruction instanceof ironwood.compiler.ir.IrGcReadProjectionInstruction load) {
+            output.append(operand(load.result())).append(" = load ").append(llvmType(load.result().type()))
+                    .append(", ptr addrspace(1) ").append(operand(load.address()));
+            return true;
+        }
+        if (instruction instanceof ironwood.compiler.ir.IrGcTestExceptionInstruction test) {
+            if (test.operation() != ironwood.compiler.ir.IrGcTestExceptionInstruction.Operation.CATCH_SCALAR) {
+                throw new IllegalArgumentException("GC3 native test raise requires invoke");
+            }
+            String landing = names.next("gc.test.landing"), handle = names.next("gc.test.handle");
+            output.append(landing).append(" = landingpad { ptr, i32 } catch ptr null\n  ")
+                    .append(handle).append(" = extractvalue { ptr, i32 } ").append(landing).append(", 0\n  ")
+                    .append("call void @iw_gc_test_catch(ptr ").append(handle).append(')');
+            return true;
+        }
+        if (instruction instanceof ironwood.compiler.ir.IrGcCollectInstruction) {
+            emitTraceProbe(output, tracePlan.site(function, instruction));
+            output.append("\n  call void @iw_gc_experiment_collect()").append(gcBundle(instruction))
+                    .append(", !dbg !").append(tracePlan.site(function, instruction).callLocationMetadata());
+            return true;
+        }
+        if (instruction instanceof ironwood.compiler.ir.IrGcRootSlotInstruction slot) {
+            output.append("store ptr addrspace(1) ").append(operand(slot.value())).append(", ptr ").append(operand(slot.slot()));
+            return true;
+        }
+        if (instruction instanceof ironwood.compiler.ir.IrGcRootLoadInstruction load) {
+            output.append(operand(load.result())).append(" = load ptr addrspace(1), ptr ").append(operand(load.slot()));
+            return true;
+        }
+        if (instruction instanceof IrAllocateInstruction allocate) {
+            output.append(operand(allocate.result())).append(" = call ptr addrspace(1) @iw_gc_experiment_new(i32 ")
+                    .append(gcLayoutIndex(allocate.className())).append(", i64 0)");
+            return true;
+        }
+        if (instruction instanceof IrArrayAllocateInstruction allocate) {
+            String length = names.next("gc.length");
+            output.append(length).append(" = sext i32 ").append(operand(allocate.length())).append(" to i64\n  ")
+                    .append(operand(allocate.result())).append(" = call ptr addrspace(1) @iw_gc_experiment_new(i32 ")
+                    .append(gcLayoutIndex(allocate.result().type().displayName())).append(", i64 ").append(length).append(')');
+            return true;
+        }
+        if (instruction instanceof IrVirtualCallInstruction call) {
+            emitGcDispatch(output, function, instruction, call.result(), call.slot(), call.returnType(), call.arguments(), names);
+            return true;
+        }
+        if (instruction instanceof IrInterfaceCallInstruction call) {
+            emitGcDispatch(output, function, instruction, call.result(), call.slot(), call.returnType(), call.arguments(), names);
+            return true;
+        }
+        return false;
+    }
+
+    private void emitGcDispatch(StringBuilder output, IrFunction function, IrInstruction instruction,
+                                Optional<IrValueReference> result, ironwood.compiler.ir.IrDispatchSlot slot,
+                                IrType resultType, List<IrOperand> arguments, ScratchNames names) {
+        String dynamic = names.next("gc.dynamic"), selected = "null";
+        output.append(dynamic).append(" = load ptr, ptr addrspace(1) ").append(operand(arguments.getFirst()));
+        for (var type : gcProgram.classes()) {
+            var target = type.dispatchEntries().stream().filter(entry -> entry.slot().equals(slot)).findFirst();
+            if (!type.isClass() || target.isEmpty()) continue;
+            String expected = names.next("gc.expected"), matches = names.next("gc.matches"), next = names.next("gc.target");
+            output.append("\n  ").append(expected).append(" = load ptr, ptr getelementptr ([").append(gcLayouts.size())
+                    .append(" x ptr], ptr @iw_gc_types, i32 0, i32 ").append(gcLayoutIndex(type.name())).append(")\n  ")
+                    .append(matches).append(" = icmp eq ptr ").append(dynamic).append(", ").append(expected).append("\n  ")
+                    .append(next).append(" = select i1 ").append(matches).append(", ptr ")
+                    .append(functionName(target.orElseThrow().targetLinkageName())).append(", ptr ").append(selected);
+            selected = next;
+        }
+        // Admission and described dynamic headers make the closed-world slot total.
+        output.append("\n  ");
+        result.ifPresent(value -> output.append(operand(value)).append(" = "));
+        output.append("call ").append(llvmType(resultType)).append(' ').append(selected).append('(')
+                .append(arguments.stream().map(argument -> llvmType(argument.type()) + " " + operand(argument))
+                        .collect(Collectors.joining(", "))).append(')');
+        if (!gcEffects.instruction(instruction).mayCollect()) output.append(" \"gc-leaf-function\"");
+        output.append(gcBundle(instruction));
+    }
+
+    private void emitGcInitializer(StringBuilder output, IrTypeInitialization initialization) {
+        // The development closure has no throwing/native initializer. Production
+        // failure replay and Throwable owners remain an explicit admission refusal.
+        output.append("define internal void ").append(typeInitializerName(initialization.typeName()))
+                .append("() uwtable");
+        if (!gcEffects.initialization(initialization.typeName()).mayCollect()) output.append(" \"gc-leaf-function\"");
+        output.append(" gc \"statepoint-example\" {\nentry:\n")
+                .append("  %state = load i8, ptr ").append(initializationStateName(initialization.typeName())).append('\n')
+                .append("  %started = icmp ne i8 %state, 0\n  br i1 %started, label %done, label %initialize\ninitialize:\n")
+                .append("  store i8 1, ptr ").append(initializationStateName(initialization.typeName())).append('\n');
+        for (String type : initialization.prerequisiteTypes()) output.append("  call void ").append(typeInitializerName(type)).append("()\n");
+        initialization.initializerLinkageName().ifPresent(symbol -> output.append("  call void ").append(functionName(symbol)).append("()\n"));
+        output.append("  store i8 2, ptr ").append(initializationStateName(initialization.typeName())).append("\n  br label %done\ndone:\n  ret void\n}\n");
+    }
 
     public String emit(IrProgram program) {
         return emit(program, true);
@@ -158,6 +321,19 @@ public final class LlvmEmitter {
     }
 
     private String emit(IrProgram program, boolean selectiveInlining, Set<String> bridgeEntries) {
+        if (program.functions().stream().flatMap(f -> f.blocks().stream())
+                .flatMap(b -> ironwood.compiler.ir.GcEffects.operations(b).stream())
+                .anyMatch(i -> i instanceof ironwood.compiler.ir.IrGcCollectInstruction
+                        || i instanceof ironwood.compiler.ir.IrGcRootSlotInstruction
+                        || i instanceof ironwood.compiler.ir.IrGcRootLoadInstruction
+                        || i instanceof ironwood.compiler.ir.IrGcProjectionInstruction
+                        || i instanceof ironwood.compiler.ir.IrGcReadProjectionInstruction
+                        || i instanceof ironwood.compiler.ir.IrGcTestExceptionInstruction)) {
+            throw new IllegalArgumentException("GC development IR requires explicit closure admission");
+        }
+        gcProgram = null;
+        gcEffects = null;
+        gcSlots = List.of();
         this.bridgeEntries = Set.copyOf(bridgeEntries);
         tracePlan = new TracePlan(program);
         throwHelpers.clear();
@@ -261,7 +437,7 @@ public final class LlvmEmitter {
         for (IrThrowableTraceInstruction.Operation operation : IrThrowableTraceInstruction.Operation.values()) {
             output.append("declare ").append(llvmType(operation.returnType())).append(" @")
                     .append(operation.runtimeName()).append('(')
-                    .append(operation.parameterTypes().stream().map(LlvmEmitter::llvmType).collect(Collectors.joining(", ")));
+                    .append(operation.parameterTypes().stream().map(this::llvmType).collect(Collectors.joining(", ")));
             if (operation == IrThrowableTraceInstruction.Operation.ARRAY) {
                 output.append(", ptr, ptr");
             }
@@ -309,14 +485,14 @@ public final class LlvmEmitter {
         }
         for (IrTlsInstruction.Operation tls : IrTlsInstruction.Operation.values()) {
             output.append("declare i64 @").append(tls.runtimeName()).append('(')
-                    .append(tls.parameterTypes().stream().map(LlvmEmitter::llvmType)
+                    .append(tls.parameterTypes().stream().map(this::llvmType)
                             .collect(java.util.stream.Collectors.joining(", "))).append(")\n");
         }
         for (IrTcpInstruction.Operation tcp : IrTcpInstruction.Operation.values()) {
             output.append("declare ").append(llvmType(tcp.resultType())).append(" @")
                     .append(tcp.runtimeName()).append('(');
             List<IrType> parameters = tcp.parameterTypes();
-            List<String> nativeParameters = parameters.stream().map(LlvmEmitter::llvmType)
+            List<String> nativeParameters = parameters.stream().map(this::llvmType)
                     .collect(java.util.stream.Collectors.toCollection(ArrayList::new));
             if (!tcp.outputNames().isEmpty()) {
                 nativeParameters.removeLast();
@@ -328,7 +504,7 @@ public final class LlvmEmitter {
         for (IrStreamInstruction.Operation stream : IrStreamInstruction.Operation.values()) {
             output.append("declare ").append(llvmType(stream.resultType())).append(" @")
                     .append(stream.runtimeName()).append('(');
-            output.append(stream.parameterTypes().stream().map(LlvmEmitter::llvmType)
+            output.append(stream.parameterTypes().stream().map(this::llvmType)
                     .collect(java.util.stream.Collectors.joining(", ")));
             if (stream == IrStreamInstruction.Operation.OPEN) { output.append(", ptr"); }
             output.append(")\n");
@@ -696,7 +872,19 @@ public final class LlvmEmitter {
                 .collect(Collectors.joining(", ")));
         output.append(')');
         if (selectiveInline.contains(function.linkageName())) output.append(" alwaysinline");
-        output.append(" \"disable-tail-calls\"=\"true\" personality ptr @__gxx_personality_v0 !dbg !")
+        if (gcProgram != null) {
+            output.append(" uwtable");
+            if (!gcEffects.function(function.linkageName()).mayCollect()) output.append(" \"gc-leaf-function\"");
+            gcSlots = function.blocks().stream().flatMap(b -> b.instructions().stream())
+                    .filter(ironwood.compiler.ir.IrGcRootSlotInstruction.class::isInstance)
+                    .map(ironwood.compiler.ir.IrGcRootSlotInstruction.class::cast)
+                    .map(ironwood.compiler.ir.IrGcRootSlotInstruction::slot)
+                    .collect(Collectors.toMap(IrValueReference::id, value -> value, (first, next) -> first, LinkedHashMap::new))
+                    .values().stream().toList();
+        }
+        output.append(" \"disable-tail-calls\"=\"true\"");
+        if (gcProgram != null) output.append(" gc \"statepoint-example\"");
+        output.append(" personality ptr @__gxx_personality_v0 !dbg !")
                 .append(tracePlan.function(function).subprogramMetadata()).append(" {\n");
         ScratchNames scratchNames = new ScratchNames();
         layout = planFunctionLayout(function);
@@ -707,6 +895,10 @@ public final class LlvmEmitter {
             }
             output.append(block.label()).append(":\n");
             if (blockIndex == 0) {
+                for (var slot : gcSlots) {
+                    output.append("  ").append(operand(slot)).append(" = alloca ptr addrspace(1), align 8\n  store ptr addrspace(1) null, ptr ")
+                            .append(operand(slot)).append("\n");
+                }
                 output.append("  ");
                 emitTraceProbe(output, tracePlan.function(function).entry());
                 output.append('\n');
@@ -729,6 +921,7 @@ public final class LlvmEmitter {
         }
         output.append("}\n");
         layout = null;
+        gcSlots = List.of();
     }
 
     private void emitNativeEntryPoint(StringBuilder output, IrFunction entryPoint,
@@ -812,6 +1005,7 @@ public final class LlvmEmitter {
 
     private void emitInstruction(StringBuilder output, IrFunction function, IrInstruction instruction,
                                  ScratchNames scratchNames) {
+        if (gcProgram != null && emitGcInstruction(output, function, instruction, scratchNames)) return;
         if (writesTraceLine(instruction)) {
             emitTraceProbe(output, tracePlan.site(function, instruction));
             output.append("\n  ");
@@ -865,7 +1059,7 @@ public final class LlvmEmitter {
         }
         if (instruction instanceof IrEnsureTypeInitializedInstruction ensure) {
             output.append("call void ").append(typeInitializerName(ensure.typeName()))
-                    .append("(), !dbg !")
+                    .append("()").append(gcBundle(instruction)).append(", !dbg !")
                     .append(tracePlan.site(function, instruction).callLocationMetadata());
             return;
         }
@@ -909,9 +1103,9 @@ public final class LlvmEmitter {
         if (instruction instanceof IrArrayLengthInstruction length) {
             String lengthPointer = scratchNames.next("array.length.ptr");
             String wideLength = scratchNames.next("array.length.wide");
-            output.append(lengthPointer).append(" = getelementptr inbounds %\"ironwood.array\", ptr ")
+            output.append(lengthPointer).append(" = getelementptr inbounds %\"ironwood.array\", ").append(managedPointer()).append(' ')
                     .append(operand(length.array())).append(", i32 0, i32 1\n  ")
-                    .append(wideLength).append(" = load i64, ptr ").append(lengthPointer).append("\n  ")
+                    .append(wideLength).append(" = load i64, ").append(managedPointer()).append(' ').append(lengthPointer).append("\n  ")
                     .append(operand(length.result())).append(" = trunc i64 ").append(wideLength)
                     .append(" to i32");
             return;
@@ -923,9 +1117,9 @@ public final class LlvmEmitter {
             // All array producers enforce 0 <= length <= INT32_MAX. An unsigned
             // int comparison therefore rejects negative indexes as well as the
             // upper bound, without changing the runtime's size_t header layout.
-            output.append(lengthPointer).append(" = getelementptr inbounds %\"ironwood.array\", ptr ")
+            output.append(lengthPointer).append(" = getelementptr inbounds %\"ironwood.array\", ").append(managedPointer()).append(' ')
                     .append(operand(check.array())).append(", i32 0, i32 1\n  ")
-                    .append(length).append(" = load i64, ptr ").append(lengthPointer).append("\n  ")
+                    .append(length).append(" = load i64, ").append(managedPointer()).append(' ').append(lengthPointer).append("\n  ")
                     .append(narrowLength).append(" = trunc i64 ").append(length).append(" to i32\n  ")
                     .append(operand(check.result())).append(" = icmp ult i32 ")
                     .append(operand(check.index())).append(", ").append(narrowLength);
@@ -939,25 +1133,25 @@ public final class LlvmEmitter {
         if (instruction instanceof IrArrayLoadInstruction load) {
             String data = scratchNames.next("array.data");
             String element = scratchNames.next("array.element.ptr");
-            output.append(data).append(" = getelementptr inbounds %\"ironwood.array\", ptr ")
+            output.append(data).append(" = getelementptr inbounds %\"ironwood.array\", ").append(managedPointer()).append(' ')
                     .append(operand(load.array())).append(", i32 0, i32 5\n  ")
                     .append(element).append(" = getelementptr inbounds ")
-                    .append(llvmType(load.result().type())).append(", ptr ").append(data)
+                    .append(llvmType(load.result().type())).append(", ").append(managedPointer()).append(' ').append(data)
                     .append(", i32 ").append(operand(load.index())).append("\n  ")
                     .append(operand(load.result())).append(" = load ")
-                    .append(llvmType(load.result().type())).append(", ptr ").append(element);
+                    .append(llvmType(load.result().type())).append(", ").append(managedPointer()).append(' ').append(element);
             return;
         }
         if (instruction instanceof IrArrayStoreInstruction store) {
             String data = scratchNames.next("array.data");
             String element = scratchNames.next("array.element.ptr");
-            output.append(data).append(" = getelementptr inbounds %\"ironwood.array\", ptr ")
+            output.append(data).append(" = getelementptr inbounds %\"ironwood.array\", ").append(managedPointer()).append(' ')
                     .append(operand(store.array())).append(", i32 0, i32 5\n  ")
                     .append(element).append(" = getelementptr inbounds ")
-                    .append(llvmType(store.value().type())).append(", ptr ").append(data)
+                    .append(llvmType(store.value().type())).append(", ").append(managedPointer()).append(' ').append(data)
                     .append(", i32 ").append(operand(store.index())).append("\n  store ")
                     .append(llvmType(store.value().type())).append(' ')
-                    .append(operand(store.value())).append(", ptr ").append(element);
+                    .append(operand(store.value())).append(", ").append(managedPointer()).append(' ').append(element);
             return;
         }
         if (instruction instanceof IrSystemArrayCopyInstruction copy) {
@@ -1079,21 +1273,21 @@ public final class LlvmEmitter {
         if (instruction instanceof IrFieldLoadInstruction load) {
             String fieldPointer = scratchNames.next("field.ptr");
             output.append(fieldPointer).append(" = getelementptr inbounds ")
-                    .append(classType(load.field().ownerClass())).append(", ptr ")
+                    .append(classType(load.field().ownerClass())).append(", ").append(managedPointer()).append(' ')
                     .append(operand(load.receiver())).append(", i32 0, i32 ")
                     .append(load.field().layoutIndex() + 1).append("\n  ")
                     .append(operand(load.result())).append(" = load ")
-                    .append(llvmType(load.field().type())).append(", ptr ").append(fieldPointer);
+                    .append(llvmType(load.field().type())).append(", ").append(managedPointer()).append(' ').append(fieldPointer);
             return;
         }
         if (instruction instanceof IrFieldStoreInstruction store) {
             String fieldPointer = scratchNames.next("field.ptr");
             output.append(fieldPointer).append(" = getelementptr inbounds ")
-                    .append(classType(store.field().ownerClass())).append(", ptr ")
+                    .append(classType(store.field().ownerClass())).append(", ").append(managedPointer()).append(' ')
                     .append(operand(store.receiver())).append(", i32 0, i32 ")
                     .append(store.field().layoutIndex() + 1).append("\n  store ")
                     .append(llvmType(store.field().type())).append(' ')
-                    .append(operand(store.value())).append(", ptr ").append(fieldPointer);
+                    .append(operand(store.value())).append(", ").append(managedPointer()).append(' ').append(fieldPointer);
             return;
         }
         if (instruction instanceof IrStaticFieldLoadInstruction load) {
@@ -1135,7 +1329,7 @@ public final class LlvmEmitter {
             return;
         }
         if (instruction instanceof IrNullCheckInstruction check) {
-            output.append(operand(check.result())).append(" = icmp ne ptr ")
+            output.append(operand(check.result())).append(" = icmp ne ").append(managedPointer()).append(' ')
                     .append(operand(check.receiver())).append(", null");
             return;
         }
@@ -1426,7 +1620,7 @@ public final class LlvmEmitter {
             output.append(call.arguments().stream()
                     .map(argument -> llvmType(argument.type()) + " " + operand(argument))
                     .collect(Collectors.joining(", ")));
-            output.append("), !dbg !")
+            output.append(')').append(gcBundle(instruction)).append(", !dbg !")
                     .append(tracePlan.site(function, instruction).callLocationMetadata());
             return;
         }
@@ -1457,7 +1651,7 @@ public final class LlvmEmitter {
             return;
         }
         if (instruction instanceof IrReferenceConversionInstruction conversion) {
-            output.append(operand(conversion.result())).append(" = getelementptr i8, ptr ")
+            output.append(operand(conversion.result())).append(" = getelementptr i8, ").append(managedPointer()).append(' ')
                     .append(operand(conversion.value())).append(", i64 0");
             return;
         }
@@ -1830,6 +2024,11 @@ public final class LlvmEmitter {
                 + " unwind label %" + invoke.unwindTarget()
                 + ", !dbg !" + traceSite.callLocationMetadata();
         IrInstruction call = invoke.call();
+        if (gcProgram != null && call instanceof ironwood.compiler.ir.IrGcTestExceptionInstruction test
+                && test.operation() == ironwood.compiler.ir.IrGcTestExceptionInstruction.Operation.RAISE_SCALAR) {
+            output.append("invoke void @iw_gc_test_raise()").append(suffix);
+            return;
+        }
         if (call instanceof ironwood.compiler.ir.IrForeignCallInstruction foreign) {
             emitForeignCall(output, foreign, "invoke", suffix);
             return;
@@ -2535,7 +2734,8 @@ public final class LlvmEmitter {
     }
 
     private static boolean writesTraceLine(IrInstruction instruction) {
-        return instruction instanceof IrCallInstruction
+        return instruction instanceof ironwood.compiler.ir.IrGcCollectInstruction
+                || instruction instanceof IrCallInstruction
                 || instruction instanceof ironwood.compiler.ir.IrForeignCallInstruction
                 || instruction instanceof IrVirtualCallInstruction
                 || instruction instanceof IrInterfaceCallInstruction
@@ -2793,7 +2993,8 @@ public final class LlvmEmitter {
         };
     }
 
-    private static String llvmType(IrType type) {
+    private String llvmType(IrType type) {
+        if (gcProgram != null && (type.isReference() || type.equals(IrType.NULL))) return "ptr addrspace(1)";
         return switch (type.kind()) {
             case I1 -> "i1";
             case I8 -> "i8";

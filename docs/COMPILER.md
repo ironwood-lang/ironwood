@@ -61,6 +61,14 @@ once, immediate null check, source constructor arguments, allocation, then
 construction. Feature 105 retains that ordering for catchable allocation
 failure rather than adopting Java's earlier allocation attempt.
 
+The isolated [GC3 development closure](GC3_ROOTS_AND_STATEPOINTS.md) additionally
+admits compiler-owned collection IR, recomputes transitive collection effects,
+preserves managed references and stack regions, and inserts statepoints after
+optimized trace metadata in every optimization mode. It uses the same typed-IR,
+LLVM and native object pipeline. Its exact-root reader and GC2 allocator are
+linked only by the dedicated development harness; ordinary programs keep the
+production pipeline and mandatory reclamation proofs above.
+
 ## Java Bridge producer and analysis foundations
 
 The `ironwoodc --java-bridge` producer composes scalar/String,

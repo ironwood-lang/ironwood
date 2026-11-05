@@ -15,6 +15,48 @@ public final class NativeBackend {
     private static final int MAX_CACHED_RUNTIME_OBJECTS = 8;
     private static final Map<RuntimeObjectKey, byte[]> RUNTIME_OBJECTS = new LinkedHashMap<>();
 
+    /** Development-only object path. Caller must verify/link the GC2 SDK and root reader. */
+    public LinkResult compileGcExperiment(LlvmToolchain toolchain, ironwood.compiler.ir.IrProgram program,
+                                          NativeTarget target, Path directory, OptimizationLevel level) {
+        if (!target.triple().startsWith("arm64-apple-macosx")
+                || !target.dataLayout().equals("e-m:o-p270:32:32-p271:32:32-p272:64:64-i64:64-i128:128-n32:64-S128-Fn32")) {
+            return new LinkResult(false, "GC3 native root reader is not qualified for " + target.triple());
+        }
+        if (!toolchain.version().equals("23.1.0")) return new LinkResult(false, "GC3 requires qualified LLVM 23.1.0");
+        try {
+            Files.createDirectories(directory);
+            Path input = directory.resolve("program.ll"), bitcode = directory.resolve("program.bc"),
+                    optimized = directory.resolve("program.opt.ll"), traced = directory.resolve("program.traced.ll"),
+                    rooted = directory.resolve("program.roots.ll"), object = directory.resolve("program.o");
+            Files.writeString(input, target.applyTo(new LlvmEmitter().emitGcExperiment(program)), StandardCharsets.UTF_8);
+            LinkResult result = run("GC3 LLVM assembly", List.of(toolchain.llvmAs().toString(), input.toString(), "-o", bitcode.toString()));
+            if (!result.success()) return result;
+            var optimize = new java.util.ArrayList<>(List.of(toolchain.opt().toString(), "-passes=" + level.optPassPipeline()));
+            optimize.addAll(level.optExtraArguments());
+            optimize.addAll(List.of("-S", bitcode.toString(), "-o", optimized.toString()));
+            result = run("GC3 LLVM optimization", optimize);
+            if (!result.success()) return result;
+            // Trace attribution sees optimized function identities. Statepoints are
+            // inserted afterward in every mode; no optimizer runs after them.
+            String optimizedText = Files.readString(optimized);
+            GcLateVerification.strategies(optimizedText);
+            Files.writeString(traced, OptimizedTraceMetadata.injectGc(optimizedText, true), StandardCharsets.UTF_8);
+            result = run("GC3 late statepoints", List.of(toolchain.opt().toString(),
+                    "-passes=rewrite-statepoints-for-gc,verify", "-S", traced.toString(), "-o", rooted.toString()));
+            if (!result.success()) return result;
+            GcLateVerification.stackRegions(Files.readString(rooted));
+            result = run("GC3 object generation", List.of(toolchain.llc().toString(), "-filetype=obj", "--relocation-model=pic",
+                    level.llcArgument(), rooted.toString(), "-o", object.toString()));
+            if (result.success()) {
+                Files.write(object, GcRootSections.retain(Files.readAllBytes(object)));
+                Files.writeString(directory.resolve("root-contract.c"), GcRootSections.contract(Files.readAllBytes(object)));
+            }
+            return result;
+        } catch (IOException | IllegalArgumentException exception) {
+            return new LinkResult(false, "GC3 development compilation refused: " + exception.getMessage());
+        }
+    }
+
     public LinkResult link(LlvmToolchain toolchain, Path llvmIr, Path output) {
         return link(toolchain, llvmIr, output, OptimizationLevel.O0);
     }

@@ -288,6 +288,18 @@ final class BorrowDispatchAnalysis {
 
     private void propagate(IrFunction function, IrInstruction instruction) {
         switch (instruction) {
+            case ironwood.compiler.ir.IrGcProjectionInstruction ignored ->
+                    throw new IllegalArgumentException("GC development lowering must follow source borrow analysis");
+            case ironwood.compiler.ir.IrGcReadProjectionInstruction ignored ->
+                    throw new IllegalArgumentException("GC development lowering must follow source borrow analysis");
+            case ironwood.compiler.ir.IrGcTestExceptionInstruction ignored ->
+                    throw new IllegalArgumentException("GC development lowering must follow source borrow analysis");
+            case ironwood.compiler.ir.IrGcCollectInstruction ignored ->
+                    throw new IllegalArgumentException("GC development lowering must follow source borrow analysis");
+            case ironwood.compiler.ir.IrGcRootSlotInstruction ignored ->
+                    throw new IllegalArgumentException("GC development lowering must follow source borrow analysis");
+            case ironwood.compiler.ir.IrGcRootLoadInstruction ignored ->
+                    throw new IllegalArgumentException("GC development lowering must follow source borrow analysis");
             case ironwood.compiler.ir.IrBridgeBatchAppendInstruction ignored ->
                     throw new IllegalArgumentException("bridge batching must follow source borrow analysis");
             case ironwood.compiler.ir.IrForeignCallInstruction call ->

@@ -26,6 +26,14 @@ final class OptimizedTraceMetadata {
     }
 
     static String inject(String optimizedLlvm, boolean leadingSymbolUnderscore, boolean shared) {
+        return inject(optimizedLlvm, leadingSymbolUnderscore, shared, false);
+    }
+
+    static String injectGc(String optimizedLlvm, boolean leadingSymbolUnderscore) {
+        return inject(optimizedLlvm, leadingSymbolUnderscore, false, true);
+    }
+
+    private static String inject(String optimizedLlvm, boolean leadingSymbolUnderscore, boolean shared, boolean gc) {
         List<Function> functions = optimizedFunctions(optimizedLlvm);
         if (leadingSymbolUnderscore) {
             functions = new ArrayList<>(functions);
@@ -68,6 +76,11 @@ final class OptimizedTraceMetadata {
                         .append(", ptr ").append(function.symbol()).append(" }");
             }
             injected.append("]\n");
+        }
+        if (gc) {
+            injected.append("\n@iw_gc_function_catalog_count = hidden constant i64 ").append(functions.size()).append('\n')
+                    .append("@iw_gc_function_catalog = hidden alias [").append(functions.size())
+                    .append(" x { i64, ptr }], ptr @ironwood_trace_functions\n");
         }
         injected.append(shared ? "\ndefine hidden void" : "\ndefine void")
                 .append(" @ironwood_trace_register_current(ptr %sites, i32 %site.count) {\n")
@@ -122,7 +135,7 @@ final class OptimizedTraceMetadata {
                 || value >= 'A' && value <= 'F';
     }
 
-    private static long linkageGuid(String linkageName) {
+    static long linkageGuid(String linkageName) {
         try {
             byte[] digest = MessageDigest.getInstance("MD5")
                     .digest(linkageName.getBytes(StandardCharsets.UTF_8));

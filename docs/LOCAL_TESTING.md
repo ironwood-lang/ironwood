@@ -1432,3 +1432,20 @@ stdlib coverage. The additional collection rendering regression is:
 ```sh
 ./scripts/test.sh --test 'deferred standard-library collection rendering preserves text and live counts'
 ```
+
+## Isolated GC3 roots and statepoints
+
+These exact selections do not enable GC in ordinary programs:
+
+```sh
+./scripts/test.sh --test 'GC3 collection effects and explicit closure fail closed' \
+  --test 'GC3 late verification rejects missing strategies and undescribed stack regions'
+```
+
+The bounded `scripts/test-gc-roots.py` harness uses a verified **GC2 engine-2** SDK
+with **USE_MARK_BYTES**, compiler-derived typed IR and actual collection at
+O0/O1/O2/O3. `--level` and `--case` select focused follow-ups; `--cross-objects`
+adds structural ELF checks without native target qualification. The supported
+closure, refusals, exact results and reproduction commands are in
+[GC3 roots and statepoints](GC3_ROOTS_AND_STATEPOINTS.md). Do not substitute an
+unfiltered compiler/platform suite or the historical handwritten root fixture.

@@ -1,0 +1,146 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Development input only: the GC3 harness replaces phase's empty typed body
+// with compiler-owned collection IR after source validation. Ordinary compilation
+// does not collect. Inputs and graph ownership are supplied by the native harness.
+// Its native probe exits 0 after successful assertions; preparation controls exit 86.
+interface Step {
+
+    Node step();
+}
+
+class Node implements Step {
+
+    Node link;
+
+    long value;
+
+    Node() {
+
+        Main.phase();
+        this.value = 17;
+    }
+
+    @Override
+    public Node step() {
+
+        Main.phase();
+        return this;
+    }
+
+    long read() {
+
+        return this.value;
+    }
+}
+
+class Init {
+
+    static Node held;
+
+    static int code = initialize();
+
+    static int initialize() {
+
+        Main.phase();
+        return 7;
+    }
+}
+
+class Main {
+
+    static Node root;
+
+    static Node captured;
+
+    static void phase() {
+
+    }
+
+    static Node identity(Node value, int depth) {
+
+        if (depth > 0) {
+            Node child = identity(value, depth - 1);
+            phase();
+            if (child == value) return value;
+        }
+        phase();
+        return value;
+    }
+
+    static Node merge(Node first, Node second, boolean pick) {
+
+        Node value = pick ? first : second;
+        phase();
+        return value;
+    }
+
+    static Node loop(Node value, int count) {
+
+        for (int index = 0; index < count; index++) phase();
+        return value;
+    }
+
+    static Node pending(Node value) {
+
+        defer phase();
+        return value;
+    }
+
+    static Node pendingYield(Node value) {
+
+        // The yielded reference remains pending while finally collects.
+        return switch (0) {
+            default -> {
+                try {
+                    yield value;
+                } finally {
+                    phase();
+                }
+            }
+        };
+    }
+
+    static void retain(Node value) {
+
+        phase();
+        captured = value;
+    }
+
+    static Node capture(Node value, Node result) {
+
+        // Defer retains the original operand after its source binding changes.
+        defer retain(value);
+        value = null;
+        return result;
+    }
+
+    static Node initialize(Node value) {
+
+        int code = Init.code;
+        phase();
+        return value;
+    }
+
+    static void save(Node value) {
+
+        root = value;
+    }
+
+    static Node saved() {
+
+        return root;
+    }
+
+    static void clear() {
+
+        root = null;
+        captured = null;
+        Init.held = null;
+    }
+
+    static long scalar(long value, int count) {
+
+        for (int index = 0; index < count; index++) value = value * 3 + index;
+        return value;
+    }
+}

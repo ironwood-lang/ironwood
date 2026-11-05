@@ -27,6 +27,12 @@ public final class IrCfgRenamer {
 
     public IrInstruction instruction(IrInstruction instruction) {
         return switch (instruction) {
+            case IrGcCollectInstruction i -> i;
+            case IrGcRootSlotInstruction i -> new IrGcRootSlotInstruction(values.apply(i.slot()), operand(i.value()), i.sourceSpan());
+            case IrGcRootLoadInstruction i -> new IrGcRootLoadInstruction(values.apply(i.result()), values.apply(i.slot()), i.sourceSpan());
+            case IrGcProjectionInstruction i -> new IrGcProjectionInstruction(values.apply(i.result()), operand(i.base()), i.field(), i.sourceSpan());
+            case IrGcReadProjectionInstruction i -> new IrGcReadProjectionInstruction(values.apply(i.result()), values.apply(i.address()), i.sourceSpan());
+            case IrGcTestExceptionInstruction i -> i;
             case IrBridgeBatchAppendInstruction i -> new IrBridgeBatchAppendInstruction(
                     values.apply(i.result()), operand(i.context()), operand(i.index()), operand(i.count()),
                     i.arguments().stream().map(this::operand).toList(), i.sourceSpan());

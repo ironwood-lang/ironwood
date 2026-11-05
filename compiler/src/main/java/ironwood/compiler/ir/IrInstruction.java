@@ -5,6 +5,9 @@ package ironwood.compiler.ir;
 import ironwood.compiler.source.SourceSpan;
 
 public sealed interface IrInstruction permits IrAddSecondaryExceptionInstruction,
+        IrGcCollectInstruction,
+        IrGcRootSlotInstruction, IrGcRootLoadInstruction,
+        IrGcProjectionInstruction, IrGcReadProjectionInstruction, IrGcTestExceptionInstruction,
         IrForeignCallInstruction, IrByteViewInstruction,
         IrBridgeBatchAppendInstruction,
         IrBridgeResultStoreInstruction,

@@ -2,7 +2,8 @@
 
 # Explicit GC integration and memory-model migration
 
-Date: 2026-11-04. Status: GC0, GC1 and GC2 complete; production integration unstarted.
+Date: 2026-11-04. Status: GC0 through GC3 complete for their documented experimental
+closures; production GC remains disabled.
 Current compiler behavior and the existing memory specification remain
 authoritative until the cutover.
 
@@ -534,6 +535,17 @@ before dereferencing reclaimed objects. Verify source/class/archive parity.
 calls fail closed, and noncollecting hot code has no GC maintenance. Do not enable
 general source collection while exceptional/native roots remain incomplete.
 
+**Completion, 2026-11-04:** [GC3 roots and statepoints](GC3_ROOTS_AND_STATEPOINTS.md)
+records the explicit macOS arm64 standalone closure, compiler-owned effects and
+managed pointers, late statepoints in every mode, exact stack/static/native slots,
+optimized trace identity/map integrity, target readers and fail-closed boundaries.
+148 native checks, two exact compiler selections, structural ELF arm64/x86-64
+checks, seven production controls and unchanged GC0 hot-code fingerprints passed.
+Both Linux GC3 runtime gates remain closed pending native qualification. GC2's
+engine-2/USE_MARK_BYTES profile and layout refusals remain authoritative. Actual
+Throwable/foreign roots, ordinary GC activation and the language/bridge cutover
+remain later milestones. The next bounded task is GC4, not production activation.
+
 ### GC4. Migrate runtime-only lifetimes and failure cleanup
 
 Implement exact exception/secondary/trace graphs, native unwind-wrapper roots,
@@ -757,10 +769,10 @@ checkpoints clearly. Record a concrete remaining gate at each stopping point.
 No branch creation beyond the maintainer's request, pushing, hosted jobs or
 automatic self-hosting restart is part of this document's implementation plan.
 
-GC0, GC1 and GC2 are complete; the next bounded task is GC3's effects,
-statepoints and root enumeration for an explicitly supported experimental
-closure, without enabling GC in production programs. Carry forward GC2's
-layout refusals and the unexecuted Linux arm64 qualification gate. Subsequent
-tasks can own one milestone or
-a named substage, carrying forward prerequisite commit IDs, evidence and
-remaining gates.
+GC0 through GC3 are complete for their documented experimental closures. The
+next bounded task is GC4's runtime-only lifetimes and failure cleanup. Preserve
+production allocation, syntax, mandatory proofs and generation contracts until
+the coordinated cutover. Carry forward GC2's layout refusals, both Linux GC3
+native root-reader gates and the unexecuted Linux arm64 engine/layout gate.
+Subsequent tasks can own one milestone or a named substage, carrying forward
+prerequisite commit IDs, evidence and remaining gates.

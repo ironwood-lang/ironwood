@@ -12401,7 +12401,7 @@ occurrence order. If no
 ## D315 - Freeze explicit-GC migration contracts without changing current semantics
 
 - **Status:** Accepted future implementation direction, GC0, isolated GC1
-  engine preparation and GC2 layout qualification complete on 2026-11-04.
+  engine preparation, GC2 layouts and the selected GC3 root closure complete on 2026-11-04.
   Production GC is not implemented.
   Supersedes no current behavior yet; the [activation map](GC0_BASELINE_AND_CONTRACTS.md#decision-supersession-map)
   assigns supersessions to the milestones that implement them.
@@ -12469,3 +12469,34 @@ occurrence order. If no
   [native Linux x86-64 follow-up](GC2_LINUX_X86_64_QUALIFICATION.md), with matching
   exact recovery, reproducible SDKs, ELF isolation and production controls.
   Linux arm64 remains unqualified. Production GC remains disabled.
+
+
+## D317 - Qualify compiler-owned roots in a standalone GC3 closure
+
+- **Status:** Accepted experimental implementation on 2026-11-04. Extends D315
+  and D316; supersedes no production source, allocation, ownership or generation
+  behavior.
+- **Decision:** Dedicated collection IR seeds a recomputed transitive MayCollect
+  graph. Unknown callbacks/effects remain unknown. Preserve managed bases in
+  LLVM address space 1, describe unpromoted stack slots explicitly and generate
+  late statepoints after optimized trace metadata in every optimization mode.
+  Noncollecting code receives no GC polling, TLS or root registration.
+- **Roots:** Use immutable compiler/static and reviewed native slot inventories,
+  optimized function identities, complete map integrity/target checks, native
+  unwind coverage and reusable collection-time scratch. Register only complete
+  root sets with collection disabled; unregister and clear afterward. Unknown
+  frames, stale metadata, incomplete inventories, wrong allocator domains and
+  exhausted scratch stop before collection or managed execution resumes.
+- **Boundary:** The documented macOS arm64 standalone executable is qualified,
+  not arbitrary applications or production GC. Both Linux GC3 runtime gates
+  remain closed; ELF structural checks do not replace native qualification.
+  GC2 engine-2/USE_MARK_BYTES and its legacy-layout refusals remain required.
+  Actual Throwable/native exception owners, foreign segments, general aggregate
+  stack roots, library/two-image integration and the language/bridge cutover
+  remain separate gates. The scalar exception fixture is not their migration.
+- **Verification:** [GC3 completion record](GC3_ROOTS_AND_STATEPOINTS.md) and its
+  manifest record 148 native checks, source/class/archive and actual clone
+  coverage, all-mode liveness/reclamation/refusal pairs, seven production
+  controls, exact GC0 call/pool assembly fingerprints and measured root spills.
+  The root ABI is ironwood-gc-roots-1, separate from the unchanged prepared
+  engine-2 SDK. Keep the next task bounded to GC4 runtime lifetimes/failure cleanup.

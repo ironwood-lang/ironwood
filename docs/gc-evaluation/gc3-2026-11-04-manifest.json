@@ -1,0 +1,304 @@
+{
+  "baseline_revision": "64c11fa31124096cda785dfebc87dd7f2a1a98d9",
+  "bounds": {
+    "max_sampled_primary_kib": 881888,
+    "method": "sample ps RSS summed over fresh child process group, including compiler children; not continuous peak",
+    "native_max_heap_bytes": 67108864,
+    "per_child_seconds": 60,
+    "root_scratch_slots": 4096,
+    "rss_guard_kib": 16777216
+  },
+  "branch": "codex/bdwgc-integration-plan",
+  "checks": {
+    "diff_check": "passed",
+    "license_audit": "passed, five existing OpenJDK-derived files",
+    "python_ast": "passed",
+    "tracked_file_audit": "passed"
+  },
+  "compiler_tests": {
+    "all_passed": true,
+    "captured_closure_followup": {
+      "exact": "GC3 collection effects and explicit closure fail closed",
+      "log": "workspace/gc3-closure-effects-final.log",
+      "log.sha256": "e84164508b5aad960d823a16f1ad43d7a0b8254f89bf1e94ee9eb2777e7fc1de",
+      "passed": true,
+      "scope": "Additional source-generated local capture class effect propagation; native program/code unchanged."
+    },
+    "new_exact": [
+      "GC3 collection effects and explicit closure fail closed",
+      "GC3 late verification rejects missing strategies and undescribed stack regions"
+    ],
+    "new_log": "workspace/gc3-compiler-catalog.log",
+    "new_log.sha256": "eeb992b9c16ece8c57522a37a6af10a649edb950b9c0ba6daf24f719266c80d3",
+    "production_exact": [
+      "GC2 exact layouts follow resolved storage and refuse legacy hidden links",
+      "runtime allocation and deallocation ABI works",
+      "safe free accepts local allocation and ended aliases",
+      "safe free rejects live aliases and escaped allocations",
+      "catchable allocation failure boundaries run at O3",
+      "trace bookkeeping preserves allocation counts and safe free",
+      "pool release helpers preserve borrows and allocation-free reuse"
+    ],
+    "production_log": "workspace/gc3-production-controls.log",
+    "production_log.sha256": "a233edfdf348fe55a35674aa1c72a8711080dc6dee63c9e0f14257e24578bfe5"
+  },
+  "date": "2026-11-04",
+  "host_role": "machost",
+  "implementation_inputs.sha256": {
+    "compiler/src/main/java/ironwood/compiler/backend/GcExperimentalClosure.java": "c7496eaea8e0dfc06cf736598594f410a940d590f93eb5d0ddfface05b2ff1f8",
+    "compiler/src/main/java/ironwood/compiler/backend/GcLateVerification.java": "aaa6f7358fefb1b9d43e8e49ca276cc031d387eae02fd0cc142cd5e318bda573",
+    "compiler/src/main/java/ironwood/compiler/backend/GcRootSections.java": "573addb533041cd0d85fc2512886fbfdcd0446c18f71e01ad669b0259abd646b",
+    "compiler/src/main/java/ironwood/compiler/backend/LlvmEmitter.java": "dbf1671c1e619dd579a71d8f7c7b10a733ae9e6f6e6adceede2fb0f8db503927",
+    "compiler/src/main/java/ironwood/compiler/backend/NativeBackend.java": "5ce90c2a16746acc256b99b6067ed5c7a0fac1f1abd1113e7a3ff2492471f292",
+    "compiler/src/main/java/ironwood/compiler/backend/OptimizedTraceMetadata.java": "0991a0fe3e30a41a9ec9496d1392b1d240f47b1b906e5d185f55a637333de22c",
+    "compiler/src/main/java/ironwood/compiler/ir/GcEffects.java": "efb40190e297052ac7c2b06b47d6c55b8d0007426f0b3d76d96b263a9fb4e6b1",
+    "compiler/src/main/java/ironwood/compiler/ir/IrCfgRenamer.java": "7cda3dcddafaf8d9ebd54f2bfb1a6213e5a34774a7e65bba685db18472ab9330",
+    "compiler/src/main/java/ironwood/compiler/ir/IrGcCollectInstruction.java": "a7d4ba65370aa5f92462e858e7fbc9e582fe68085da7f78488c9b875068ebf53",
+    "compiler/src/main/java/ironwood/compiler/ir/IrGcProjectionInstruction.java": "1000329466855f984964dc691a27b8b5993d1116d06a5de74b626f2490ee5d74",
+    "compiler/src/main/java/ironwood/compiler/ir/IrGcReadProjectionInstruction.java": "046586dead3b073f2d69a73d3f4f3b4c3e44879ebc52f6e22f976e8b06b484d7",
+    "compiler/src/main/java/ironwood/compiler/ir/IrGcRootLoadInstruction.java": "bac92f537a1f52a2bc8347c2820490df1f6a76f5878f09ce7730f699f5ab759f",
+    "compiler/src/main/java/ironwood/compiler/ir/IrGcRootSlotInstruction.java": "1d11f4264e795df00f893367de5c10a82dcc5f8135aa68fba347938d4de4d3cb",
+    "compiler/src/main/java/ironwood/compiler/ir/IrGcTestExceptionInstruction.java": "6c2cfde196ec859df6dec51f7afc2d89f5e4dd7ac7de66ad5fee90431493af56",
+    "compiler/src/main/java/ironwood/compiler/ir/IrInstruction.java": "3e8b87b1d8610f3f5aef2e1353ba6e11461dbc999e4d1fe933f9c63a38e35318",
+    "compiler/src/main/java/ironwood/compiler/ir/IrInvokeTerminator.java": "e98716372a8b71e95ff03a1d2be74db7d2444378879673699a3d5623e22e0c78",
+    "compiler/src/main/java/ironwood/compiler/semantic/BorrowDispatchAnalysis.java": "d5f24d77d04de4978a5cf8732f849b7de707f31dd59b5149ca5e300594980fb4",
+    "compiler/src/test/java/ironwood/compiler/CompilerTests.java": "23b8badb41b1b0917659698cef8c749b72e2ad5da3a469689b552f77315bfd8c",
+    "compiler/src/test/java/ironwood/compiler/GcRootTests.java": "0300788f97e20931f9a67b5f9df740e5db9b48a325e10ced3237c65f05a5971b",
+    "compiler/src/test/java/ironwood/compiler/backend/GcRootObjectTests.java": "bc421ed46e15f891d3411d0dcd8ad9b89960fb9bf55f37cc99a11de80d272732",
+    "integration-tests/cases/gc3_closure.iron": "067d5dc1edec286167b04151a65cedd090ce8568b045af60bf739338d3a3c1e8",
+    "integration-tests/native/gc_roots_probe.c": "58a1777f0d3e963d8d52b9598bf6d56cbe77f46836be76b50903383ec27ee927",
+    "integration-tests/native/gc_scalar_exception.cpp": "db1a38663be13884409617ad18305dc75aaeebce97b3b087b3ac31de74622c4a",
+    "runtime/include/ironwood_gc_roots.h": "1b851b1207885487df424caeb65cc6140f76fe87938896b3560911a97aaf04bc",
+    "runtime/src/ironwood_gc_roots.c": "d56169006cc14841037ce0bd15d3a4a2051505e253c3107e834acccd3cf36a35",
+    "scripts/test-gc-engine.py": "2eae379379b5cff2d59cbd60f5177ad80e85d36995c57889b3fd3f776dc0d811",
+    "scripts/test-gc-roots.py": "ba8fe51c85f2ece5aa6b98cec639406ac3c57fdf1d453d0adfc0730c191e53b3"
+  },
+  "machine_code": {
+    "collecting_step": {
+      "frame_bytes": 32,
+      "root_reload_count": 1,
+      "root_store_count": 1,
+      "ssa_root_spill_bytes": 8
+    },
+    "disassembly": "workspace/gc3-O3-disassembly.txt",
+    "disassembly.sha256": "5d69971fa40b562e778b03879ce1c9c9ece85629c36e236b539d2258893b5421",
+    "explicit_stack_slot": "separate real program storage; O3 additionally retains an SSA spill",
+    "leaf_read": [
+      "ldr x0, [x0, #16]",
+      "ret"
+    ],
+    "scalar_loop": "48 bytes; arithmetic/branches; no calls, stack spills, TLS, polling or root helpers"
+  },
+  "milestone": "GC3",
+  "native": {
+    "current_code_and_map_equivalence": {
+      "O0": {
+        "__llvm_stackmaps": {
+          "bytes": 2800,
+          "sha256": "cd32601bfc2c17f9a53dd23565dba5e559b4863c8b0bffd69655d33c414373db"
+        },
+        "__text": {
+          "bytes": 1628,
+          "sha256": "2945e6d04c482034dbd9c02c738ad9d68e4fd0ff0c45bf2cafb5339dc9801f73"
+        }
+      },
+      "O1": {
+        "__llvm_stackmaps": {
+          "bytes": 2864,
+          "sha256": "660b62022bdc744ed422e91ae812ab9d2fb68bec9d87c2b2d37b23e8842f8f09"
+        },
+        "__text": {
+          "bytes": 984,
+          "sha256": "1a6d9d8a9aaaf7998c06183649d4f4fbccbc7bc5bc5b9aefa7ea0d723ce379c6"
+        }
+      },
+      "O2": {
+        "__llvm_stackmaps": {
+          "bytes": 2864,
+          "sha256": "660b62022bdc744ed422e91ae812ab9d2fb68bec9d87c2b2d37b23e8842f8f09"
+        },
+        "__text": {
+          "bytes": 984,
+          "sha256": "1a6d9d8a9aaaf7998c06183649d4f4fbccbc7bc5bc5b9aefa7ea0d723ce379c6"
+        }
+      },
+      "O3": {
+        "__llvm_stackmaps": {
+          "bytes": 3256,
+          "sha256": "1e451c6822d72735f333ca810d51ebf863f8fe4021f5699bc0d69cb0b6701244"
+        },
+        "__text": {
+          "bytes": 1160,
+          "sha256": "4a4c20a61e7f2c3e08255918552fb051246a922371878624f8afe940d6e3b7bb"
+        }
+      }
+    },
+    "current_tested_fixture_inputs.sha256": {
+      "integration-tests/cases/gc3_closure.iron": "067d5dc1edec286167b04151a65cedd090ce8568b045af60bf739338d3a3c1e8",
+      "integration-tests/native/gc_roots_probe.c": "58a1777f0d3e963d8d52b9598bf6d56cbe77f46836be76b50903383ec27ee927",
+      "integration-tests/native/gc_scalar_exception.cpp": "db1a38663be13884409617ad18305dc75aaeebce97b3b087b3ac31de74622c4a",
+      "runtime/include/ironwood_gc_roots.h": "1b851b1207885487df424caeb65cc6140f76fe87938896b3560911a97aaf04bc",
+      "runtime/src/ironwood_gc_roots.c": "d56169006cc14841037ce0bd15d3a4a2051505e253c3107e834acccd3cf36a35",
+      "scripts/test-gc-roots.py": "ba8fe51c85f2ece5aa6b98cec639406ac3c57fdf1d453d0adfc0730c191e53b3"
+    },
+    "exception_scope": "fixed scalar int throw/catch ends before collecting cleanup; actual managed/native exception roots refused",
+    "format_followup": {
+      "cases": [
+        "O3-constructor",
+        "O3-yield",
+        "O3-stack-clear"
+      ],
+      "report": "workspace/gc3-format-check/results.json",
+      "report.sha256": "5129988bc094eda03174f0b2df9c115d9dc2891475e5f562d7918d02dbe044d2"
+    },
+    "images.sha256": {
+      "probe-O0": "8bee6f2c3a9bc96d8a55193e91db6fbd75ac4242038e3687655d33e87e078285",
+      "probe-O1": "a0b2fdbc14df2fc0c94450e97f578ffa1118bc865e515f139977361458e97256",
+      "probe-O2": "eedfec53b303dc2ae24b51f841b32ce6336e6073b3e4199f734687712ecf5316",
+      "probe-O3": "066b7cb157e6f07af049637e78e8c87cb958613660754466eca27bade9806b9e"
+    },
+    "legacy_heap_report": "workspace/gc3-legacy-refusal/results.json",
+    "legacy_heap_report.sha256": "ce1e61fce2b93d36d5ff87afff6d136bc64f3b6f3b6ab2e14ee351d6d3772217",
+    "per_mode": {
+      "O0": {
+        "native_scenarios": 37,
+        "positive": 17,
+        "pre_collection_refusals": 20,
+        "recursion_max_frames": 18
+      },
+      "O1": {
+        "native_scenarios": 37,
+        "positive": 17,
+        "pre_collection_refusals": 20,
+        "recursion_max_frames": 17
+      },
+      "O2": {
+        "native_scenarios": 37,
+        "positive": 17,
+        "pre_collection_refusals": 20,
+        "recursion_max_frames": 17
+      },
+      "O3": {
+        "native_scenarios": 37,
+        "positive": 17,
+        "pre_collection_refusals": 20,
+        "recursion_max_frames": 16
+      }
+    },
+    "post_qualification_note": "Source formatting/comments and test scratch-directory setup changed afterward. The added legacy-heap branch was checked in every mode. Regenerated program text and complete stack-map bytes remain identical in every mode; no compiler or root-reader behavior changed after the primary qualification.",
+    "primary_child_checks": 204,
+    "primary_native_scenarios": 144,
+    "primary_report": "workspace/gc3-integrity-qualified/results.json",
+    "primary_report.sha256": "2746234fc4ac1b89c04199cfdb666c25fd5a84c8a6e80b6f5ef1d5ecc23c5a2a",
+    "primary_tested_fixture_inputs.sha256": {
+      "integration-tests/cases/gc3_closure.iron": "32bcb1831372a037f77a254f748d468734289b852866ad30b1be97ba5e3f0aa8",
+      "integration-tests/native/gc_roots_probe.c": "7d774cc02f6375a8d351b899c2887f5117540de8d17cb8c3e27d0cb8ad56c742",
+      "integration-tests/native/gc_scalar_exception.cpp": "db1a38663be13884409617ad18305dc75aaeebce97b3b087b3ac31de74622c4a",
+      "runtime/include/ironwood_gc_roots.h": "62cfb8cf7bbb72e862ece13ef7c799bad406fc441d9094fd6e084bacdaf8b947",
+      "runtime/src/ironwood_gc_roots.c": "d56169006cc14841037ce0bd15d3a4a2051505e253c3107e834acccd3cf36a35",
+      "scripts/test-gc-roots.py": "fed2e28ecc439852a659f1a02375cd9b9f9ec8b335d27f1c56aacb1017a670a2"
+    },
+    "total_native_scenarios": 148,
+    "unique_scenarios_per_mode": 37
+  },
+  "next_task": "GC4 only; stop before GC5/GC6 or self-hosting",
+  "production_baselines": {
+    "call": {
+      "function_bytes": {
+        "_ironwood.initialize.slow.Main": 96,
+        "_ironwood.rollback": 20,
+        "_main": 1308
+      },
+      "iterations_per_variant_per_round": 32000000,
+      "matches_gc0": true,
+      "median_ns": {
+        "deferred": 38040000.0,
+        "nested": 35050500.0
+      },
+      "normalized_assembly.sha256": "3f4c4c705f344df205e6cff1f0273ce0883359912199bf49c3a851b4087e8c20",
+      "observed": {
+        "actions": 32000000,
+        "allocations": 0,
+        "bodies": 32000000,
+        "captures": 32000000,
+        "checksum": 8321000502409611264,
+        "failures": 0,
+        "first_allocations": 0,
+        "first_live_delta": 0,
+        "live_delta": 0
+      },
+      "report": "workspace/gc3-production-defer/call/report.json",
+      "report.sha256": "87bfbb04df552510d2f3d43ff2ff677437450586fe416600db55efba28e2d79b",
+      "rounds": 2
+    },
+    "pool": {
+      "function_bytes": {
+        "_ironwood.Builder.<constructor-rollback>": 16,
+        "_ironwood.Cell.<constructor-rollback>": 16,
+        "_ironwood.initialize.slow.Main": 96,
+        "_ironwood.rollback": 20,
+        "_main": 6224
+      },
+      "iterations_per_variant_per_round": 32000000,
+      "matches_gc0": true,
+      "median_ns": {
+        "deferred": 77690500.0,
+        "nested": 75279500.0
+      },
+      "normalized_assembly.sha256": "f730a786512bea886263c2c90f0a0d3a2ef8ff0a5db2d5feb5a8940f5c4db04a",
+      "observed": {
+        "actions": 0,
+        "allocations": 0,
+        "bodies": 32000000,
+        "captures": 0,
+        "checksum": -7167085265927709696,
+        "failures": 0,
+        "first_allocations": 0,
+        "first_live_delta": 0,
+        "live_delta": 0
+      },
+      "report": "workspace/gc3-production-defer/pool/report.json",
+      "report.sha256": "1cd635de7e6c85e3c7493d7633940eff7d346e7fcd30b32505cd2c7f927a7150",
+      "rounds": 2
+    }
+  },
+  "push_or_github_write": false,
+  "remaining_gates": [
+    "GC4 actual Throwable/secondary/trace/native wrapper/emergency lifetimes and resource failure cleanup",
+    "native GC3 root-reader qualification on both Linux targets",
+    "Linux arm64 GC2 engine/layout qualification",
+    "source Memory.collect and coordinated language cutover",
+    "foreign/JNI/suspended segment roots, libraries/two images and bridge APIs",
+    "IDK assembly and application performance/memory qualification"
+  ],
+  "schema": 1,
+  "sdk": {
+    "USE_MARK_BYTES": true,
+    "adapter.abi": "ironwood-gc-engine-2",
+    "build_manifest.sha256": "43abf1df2c7ab8e32ccf36814da341a49244b530fe6db8b8672b08c589792f89",
+    "configuration.sha256": "6fd39c7be9fc6ab1d5d5aea2e07610efad3113b4d1da6679aa3f6bad086f48fa",
+    "endianness": "little",
+    "libgc.a.sha256": "a2ba905dda9fac9b15e1fe7f0fa7b2049c8c06623cdac30c0de2f628d9e59335",
+    "libironwood_gc_engine.a.sha256": "1b1333bdc786f89ff6e727180162f8479287d0ff026ea22340ab1f48a1dd6085",
+    "pointer_bytes": 8,
+    "root.abi": "ironwood-gc-roots-1",
+    "stackmap.version": 3,
+    "stale_gc1": {
+      "reason": "GC SDK configuration/target/ABI mismatch",
+      "stale_gc1_rejected": true
+    }
+  },
+  "status": "complete for documented macOS arm64 standalone closure; production GC disabled",
+  "targets": {
+    "arm64e": "refused",
+    "linux-arm64": "ELF object structure checked; GC3 runtime and GC2 native qualification absent; output refused",
+    "linux-x86_64": "ELF object structure checked; GC3 runtime unqualified and output refused; prior GC2 qualification retained",
+    "macos-arm64": "native closure qualified"
+  },
+  "tools": {
+    "deployment": "14.0",
+    "java": "21.0.1",
+    "llvm": "23.1.0",
+    "sdk": "27.2"
+  }
+}

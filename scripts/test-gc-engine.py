@@ -22,7 +22,7 @@ gc = builder.gc
 GUARD_KIB = 16 * 1024 * 1024
 
 
-def run(command, directory, name, extra_env=None):
+def run(command, directory, name, extra_env=None, expected_exit=0):
     env = {key: value for key, value in os.environ.items() if not key.startswith('GC_')}
     env.update(extra_env or {})
     stdout, stderr = directory / (name + '.stdout'), directory / (name + '.stderr')
@@ -31,16 +31,17 @@ def run(command, directory, name, extra_env=None):
         child = subprocess.Popen(command, env=env, stdout=out, stderr=err, start_new_session=True)
         start = time.monotonic()
         while child.poll() is None:
-            rss = subprocess.run(['ps', '-o', 'rss=', '-p', str(child.pid)],
-                                 capture_output=True, text=True).stdout.strip()
-            if rss:
-                peak = max(peak, int(rss))
+            # Include toolchain children of a guarded compiler driver, not only
+            # the Java/Python parent. Every run owns this fresh process group.
+            rows = subprocess.run(['ps', '-axo', 'pgid=,rss='], capture_output=True, text=True).stdout.splitlines()
+            rss = sum(int(fields[1]) for row in rows if len(fields := row.split()) == 2 and fields[0] == str(child.pid))
+            peak = max(peak, rss)
             if peak >= GUARD_KIB or time.monotonic() - start > 60:
                 os.killpg(child.pid, signal.SIGKILL)
                 child.wait()
                 raise RuntimeError('16 GiB RSS guard or 60-second limit: ' + name)
             time.sleep(0.05)
-        if child.returncode != 0:
+        if child.returncode != expected_exit:
             raise RuntimeError(name + ': ' + stderr.read_text()[-2000:])
     return {'case': name, 'exit': child.returncode, 'sampled_peak_rss_kib': peak,
             'stdout.sha256': gc.digest(stdout), 'stderr.sha256': gc.digest(stderr),
