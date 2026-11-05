@@ -30,7 +30,6 @@ public final class NativeBackend {
         if (!macho && !elf) {
             return new LinkResult(false, "GC3 native root reader is not qualified for " + target.triple());
         }
-        if (runtimeOwners && !macho) return new LinkResult(false, "GC4 runtime owners require native target qualification: " + target.triple());
         if (!toolchain.version().equals("23.1.0")) return new LinkResult(false, "GC3 requires qualified LLVM 23.1.0");
         try {
             Files.createDirectories(directory);
@@ -53,11 +52,17 @@ public final class NativeBackend {
             var statepoints = new java.util.ArrayList<>(List.of(toolchain.opt().toString()));
             if (runtimeOwners) {
                 Path plugin = directory.resolve("nonmoving-statepoints.so");
-                result = run("GC4 nonmoving statepoint pass build", List.of(toolchain.clang().toString(), "--driver-mode=g++",
+                var hostBuild = new java.util.ArrayList<>(List.of(toolchain.clang().toString(), "--driver-mode=g++"));
+                // The pass runs inside host opt. Conda's runtime-only GCC can
+                // shadow installed C++ headers; use the native host development
+                // toolchain here, independently of the program's SDK/sysroot.
+                if (System.getProperty("os.name").equals("Linux")) hostBuild.add("--gcc-toolchain=/usr");
+                hostBuild.addAll(List.of(
                         "-std=c++17", "-fno-exceptions", "-fPIC", "-shared", "-O2",
                         "-I" + toolchain.home().resolve("include"), "-L" + toolchain.home().resolve("lib"),
                         "-Wl,-rpath," + toolchain.home().resolve("lib"), "-lLLVM",
                         "compiler/src/main/cpp/GcNonmovingStatepoints.cpp", "-o", plugin.toString()));
+                result = run("GC4 nonmoving statepoint pass build", hostBuild);
                 if (!result.success()) return result;
                 statepoints.add("-load-pass-plugin=" + plugin);
                 statepoints.add("-passes=ironwood-nonmoving-statepoints,verify");

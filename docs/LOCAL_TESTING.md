@@ -1461,5 +1461,8 @@ the GC4 fixture at O0/O1/O2/O3, retaining the 16 GiB process-group RSS guard and
 60-second child limit. `--case` and `--level` select focused follow-ups. It builds
 the original LLVM pass against the pinned LLVM 23.1.0 development headers/library.
 The [GC4 record](GC4_RUNTIME_LIFETIMES.md) gives commands, owner gates, native
-resource checks and platform limits. This is macOS arm64 experimental coverage,
-not production GC, JNI reentry or Linux owner qualification.
+resource checks and platform limits. Native execution is qualified on macOS arm64
+and [Linux x86-64](GC4_LINUX_X86_64_QUALIFICATION.md); Linux additionally checks
+stripped unwind tables and removed RELRO protection in every mode. Linux host
+pass compilation needs installed GCC C++ development headers under `/usr`.
+This is experimental coverage, not production GC or JNI reentry. Linux arm64 refuses.

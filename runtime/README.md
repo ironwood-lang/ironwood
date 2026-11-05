@@ -334,8 +334,9 @@ preparation; fixture links verify the SDK offline. See
 secondary, trace and carrier blocks, scoped native roots, unwind wrappers and
 bounded emergency ownership. It is linked only by `scripts/test-gc-lifetimes.py`
 with the verified GC2 SDK and GC3 reader. Root ABI 2 requires runtime-owner ABI 1;
-ABI 1 still refuses exception/foreign owners. The native qualification is macOS
-arm64 only. Ordinary production runtime allocation and generation are unchanged.
+ABI 1 still refuses exception/foreign owners. Native qualification covers macOS
+arm64 and [Linux x86-64](../docs/GC4_LINUX_X86_64_QUALIFICATION.md). Linux arm64
+remains refused. Ordinary production runtime allocation and generation are unchanged.
 
 Caller-provided native acquisition records reserve before acquisition, arm on
 success and transfer ownership at commit. Explicit failure cleanup releases

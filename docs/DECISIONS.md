@@ -12507,7 +12507,8 @@ occurrence order. If no
 ## D318 - Qualify runtime-only ownership in the experimental GC4 closure
 
 - **Status:** Accepted experimental implementation on 2026-11-04. Extends D317
-  on macOS arm64 only. Supersedes its blanket exceptional-owner refusal only for
+  on macOS arm64 and, through separate native qualification, Linux x86-64.
+  Supersedes its blanket exceptional-owner refusal only for
   root ABI 2 with qualified runtime-owner ABI 1; ABI 1 retains its old gates.
   Supersedes D315's future root-version-1 reservation for these owners, without
   changing current production native/bridge generations or source semantics.
@@ -12533,5 +12534,7 @@ occurrence order. If no
 - **Boundary and evidence:** [GC4](GC4_RUNTIME_LIFETIMES.md) records all-mode real
   exception/wrapper/cleanup, cycle/reclamation, OOM, resource and anchor evidence,
   retained GC3/production controls and identical noncollecting machine code.
-  Linux GC4 owners, generated JNI/bridge adoption, JVM reentry and multi-image
-  qualification remain closed. The next task is the bounded GC5 cutover.
+  The separate [Linux x86-64 record](GC4_LINUX_X86_64_QUALIFICATION.md) adds 128
+  native checks and preserved GC3/production controls. Linux arm64 GC4 owners,
+  generated JNI/bridge adoption, JVM reentry and multi-image qualification remain
+  closed. The next task is the bounded GC5 cutover.

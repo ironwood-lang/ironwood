@@ -151,8 +151,8 @@ public final class GcLifetimeTests {
         }
         denied(() -> GcExperimentalClosure.validate(program));
         denied(() -> new LlvmEmitter().emit(program));
-        for (var target : List.of(new NativeTarget("aarch64-unknown-linux-gnu", "e"), new NativeTarget("x86_64-unknown-linux-gnu",
-                "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-i128:128-f80:128-n8:16:32:64-S128"))) {
+        for (var target : List.of(new NativeTarget("aarch64-unknown-linux-gnu", "e"),
+                new NativeTarget("x86_64-unknown-linux-gnu", "e"))) {
             check(!new NativeBackend().compileGcExperiment(null, program, target, Path.of("workspace/gc4-unqualified"), OptimizationLevel.O3, true)
                     .success(), "unqualified GC4 target admitted");
         }

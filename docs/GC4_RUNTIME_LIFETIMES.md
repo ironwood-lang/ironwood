@@ -2,10 +2,14 @@
 
 # GC4 runtime lifetimes and failure cleanup
 
-Date: 2026-11-04. **GC4 complete for the selected macOS arm64 experimental
-runtime. Production GC remains disabled.** Read with the
+Date: 2026-11-04. **GC4 complete for the selected macOS arm64 and Linux x86-64
+experimental runtime. Production GC remains disabled.** Read with the
 [integration plan](BDWGC_INTEGRATION_PLAN.md), [GC3](GC3_ROOTS_AND_STATEPOINTS.md)
 and [compact evidence](gc-evaluation/gc4-2026-11-04-manifest.json).
+
+The separate [Linux x86-64 qualification](GC4_LINUX_X86_64_QUALIFICATION.md)
+extends the original macOS checkpoint below without changing its ownership
+contracts or production behavior. Its evidence and platform checks are separate.
 
 ## Pre-change review
 
@@ -252,8 +256,8 @@ destructors/finalizers. Explicit resource failure cleanup remains available when
 managed/native allocation or collection preparation fails. **GC4's selected exit
 criteria are met.** Current production behavior is unchanged.
 
-Linux x86-64 retains its qualified GC3 ABI-1 closure but refuses GC4 owners until
-native lifetime qualification. Linux arm64 retains unqualified engine/layout/root
+Linux x86-64 is additionally qualified by the separate native record linked
+above. Linux arm64 retains unqualified engine/layout/root
 gates; arm64e remains refused. General source output, full stdlib/trace API
 integration, borrowed ByteView, generated bridge APIs, JNI reference retirement,
 suspended JVM segments, shared libraries/two images and final SDK/IDK integration

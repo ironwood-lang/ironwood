@@ -3,8 +3,8 @@
 # Explicit GC integration and memory-model migration
 
 Date: 2026-11-04. Status: GC0 through GC4 complete for their documented experimental
-closures; GC4 runtime owners are qualified only on macOS arm64. Production GC
-remains disabled.
+closures; GC4 runtime owners are qualified on macOS arm64 and Linux x86-64.
+Production GC remains disabled.
 Current compiler behavior and the existing memory specification remain
 authoritative until the cutover.
 
@@ -576,9 +576,11 @@ tests cover real managed exceptions, nested live wrappers, cleanup ordering,
 identity/rethrow, cycles, trace refill, immortal OOM, exhaustion without collection,
 published failed construction, resource failures and released-anchor reclamation.
 The GC2 engine SDK and USE_MARK_BYTES remain unchanged. Production allocation,
-syntax, mandatory proofs and generation constants remain unchanged. GC4 owners
-on Linux x86-64 require separate native qualification; Linux arm64 retains all
-previous gates. JNI/reentry, generated APIs and broad source activation remain
+syntax, mandatory proofs and generation constants remain unchanged. The separate
+[Linux x86-64 qualification](GC4_LINUX_X86_64_QUALIFICATION.md) adds 128 native
+checks, 156 retained GC3 controls, offline SDK relocation and preserved production
+controls. Linux arm64 retains all previous gates. JNI/reentry, generated APIs and
+broad source activation remain
 GC5/GC6 work. The next bounded task is GC5, subject to those explicit refusals.
 
 ### GC5. Make the coordinated language and standard-library cutover
@@ -790,8 +792,8 @@ automatic self-hosting restart is part of this document's implementation plan.
 GC0 through GC4 are complete for their documented experimental closures. The
 next bounded task is GC5's coordinated language and standard-library cutover.
 Preserve the GC4 owner contract and focused controls. Carry forward legacy-layout
-refusals until their source migration, Linux x86-64's GC4 owner gate and Linux
-arm64's unqualified engine/layout/root-reader gates. Do not admit foreign
+refusals until their source migration and Linux arm64's unqualified
+engine/layout/root-reader gates. Do not admit foreign
 segments or generated bridge outputs before GC6 qualification.
 Subsequent tasks can own one milestone or a named substage, carrying forward
 prerequisite commit IDs, evidence and remaining gates.

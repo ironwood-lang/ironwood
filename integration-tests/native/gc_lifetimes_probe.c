@@ -43,6 +43,7 @@ static size_t resources, released, release_order;
 static struct iw_gc_acquisition failure_slots[2];
 static struct iw_gc_acquisitions failure_owner = {failure_slots, 0, 2};
 static int preparation_failure;
+static int unwind_failure;
 static size_t wrapper_collections, max_wrappers;
 
 static int enumerate(int (*visit)(uintptr_t)) {
@@ -93,6 +94,10 @@ static void acquire(struct iw_gc_acquisitions *owner, unsigned index) {
     ++resources;
 }
 static void preparation_exit(void) {
+    if (unwind_failure) {
+        assert(iw_gc_snapshot().collections == 0 && iw_gc_snapshot().disabled);
+        printf("{\"case\":\"%s\",\"refused_before_collection\":true}\n", selected);
+    }
     if (!preparation_failure) return;
     iw_gc_acquisitions_abort(&failure_owner);
     assert(resources == 0 && released == 2 && release_order == 21);
@@ -127,6 +132,11 @@ static void resource_cases(void) {
 }
 
 __attribute__((noinline)) static void native_boundary(void) {
+    if (!strcmp(selected, "missing-unwind")) {
+        unwind_failure = 1;
+        phase();
+        abort();
+    }
     if (!strcmp(selected, "preparation")) {
         acquire(&failure_owner, 0); acquire(&failure_owner, 1);
         preparation_failure = 1;
@@ -286,7 +296,8 @@ int main(int argc, char **argv) {
     else if (!strcmp(selected, "coverage")) config.owners = &incomplete_owners;
     else if (!strcmp(selected, "foreign")) config.owners = &foreign_owners;
     else if (!strcmp(selected, "owner-mask")) config.exception_owners = 0;
-    else if (!strcmp(selected, "stale-pc") || !strcmp(selected, "stale-slot") || !strcmp(selected, "stale-function")) { /* Mutated image. */ }
+    else if (!strcmp(selected, "stale-pc") || !strcmp(selected, "stale-slot") || !strcmp(selected, "stale-function")
+            || !strcmp(selected, "writable-map")) { /* Mutated image. */ }
     else refusal = 0;
     if (refusal) {
         assert(!iw_gc_roots_start(&config));

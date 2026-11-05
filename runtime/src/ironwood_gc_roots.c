@@ -305,7 +305,8 @@ int iw_gc_roots_start(const struct iw_gc_root_config *config) {
     const unsigned char *map = NULL;
     size_t bytes = 0;
     const uint16_t endian = 1;
-#if !defined(__APPLE__) || !defined(__aarch64__) || defined(__arm64e__)
+#if !(defined(__APPLE__) && defined(__aarch64__) && !defined(__arm64e__)) \
+        && !(defined(__linux__) && defined(__x86_64__))
     if (config != NULL && config->version == 2) return 0; /* GC4 native qualification gate. */
 #endif
     if (started || !IW_ROOT_TARGET_QUALIFIED || config == NULL || !iw_gc_snapshot().disabled
