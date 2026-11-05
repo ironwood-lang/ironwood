@@ -65,6 +65,8 @@ implementation or transpiler:
 - Refuse native bridge/shared-library outputs until GC6 qualifies roots, generated
   cleanup, foreign transitions and JNI ownership. Linux arm64 and arm64e remain
   unqualified. Do not restart self-hosting or remove GC7 scaffolding incidentally.
+  The [GC6 carrier checkpoint](docs/GC6_IMPLEMENTATION.md) is incomplete and does
+  not authorize lifting those refusals or starting GC7.
 - Keep the mandatory runtime small; unreachable standard-library code is removed
   from the closed-world program, allowing a broad library.
 - Use UTF-8 `.iron` source, a Java 21 bootstrap compiler, and the pinned LLVM 23

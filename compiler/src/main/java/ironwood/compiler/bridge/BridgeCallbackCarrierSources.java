@@ -22,7 +22,8 @@ public final class BridgeCallbackCarrierSources {
     public IrType type() { return IrType.reference(NAME); }
 
     public record Bound(IrFunction factory, IrFunction reference, IrFunction next, IrFunction exhausted,
-                        IrFunction unchangedReference, IrFunction cause, IrFunction secondaryCount, IrFunction secondary) {}
+                        IrFunction unchangedReference, IrFunction cause, IrFunction secondaryCount, IrFunction secondary,
+                        IrFunction takeReference) {}
 
     public static BridgeCallbackCarrierSources discover(CompilationArtifact original) {
         if (!original.valid() || original.bridgeApiFacts().isEmpty()
@@ -45,14 +46,15 @@ public final class BridgeCallbackCarrierSources {
                 || !declaration.source().content().equals(source.content())) {
             throw new IllegalArgumentException("callback carrier requires its exact compiler-owned declaration");
         }
-        return new Bound(method(analyzed, "create", List.of(IrType.I64, IrType.I64), type()),
+        return new Bound(method(analyzed, "create", List.of(IrType.I64, type()), type()),
                 method(analyzed, "reference", List.of(IrType.reference("ironwood.lang.Throwable")), IrType.I64),
-                method(analyzed, "next", List.of(type()), IrType.I64),
+                method(analyzed, "next", List.of(type()), type()),
                 method(analyzed, "exhausted", List.of(), IrType.VOID),
                 method(analyzed, "unchangedReference", List.of(IrType.reference("ironwood.lang.Throwable")), IrType.I64),
                 method(analyzed, "cause", List.of(type()), IrType.reference("ironwood.lang.Throwable")),
                 method(analyzed, "secondaryCount", List.of(type()), IrType.I32),
-                method(analyzed, "secondary", List.of(type(), IrType.I32), IrType.reference("ironwood.lang.Throwable")));
+                method(analyzed, "secondary", List.of(type(), IrType.I32), IrType.reference("ironwood.lang.Throwable")),
+                method(analyzed, "takeReference", List.of(type()), IrType.I64));
     }
 
     private static IrFunction method(CompilationArtifact analyzed, String name, List<IrType> parameters, IrType result) {
@@ -69,32 +71,48 @@ public final class BridgeCallbackCarrierSources {
             // Internal transport only. Native handlers see an unchecked foreign
             // failure; unchanged carriers rethrow the original Java throwable.
             final class _ForeignFailure extends RuntimeException {
-                // Opaque JNI reference and invocation-owned chain link. Neither
-                // is a source-visible pointer or an invitation to source free.
-                private final long javaReference;
-                private final long nextCarrier;
 
-                private _ForeignFailure(long reference, long next) {
+                // JNI ownership ends at translation completion. The exact managed
+                // chain can remain reachable after its JNI references are released.
+                private long javaReference;
+
+                private final _ForeignFailure nextCarrier;
+
+                private _ForeignFailure(long reference, _ForeignFailure next) {
+
                     this.javaReference = reference;
                     this.nextCarrier = next;
                 }
 
-                static _ForeignFailure create(long reference, long next) {
+                static _ForeignFailure create(long reference, _ForeignFailure next) {
+
                     return new _ForeignFailure(reference, next);
                 }
 
                 static long reference(Throwable failure) {
+
                     if (failure instanceof _ForeignFailure) {
                         return ((_ForeignFailure) failure).javaReference;
                     }
                     return 0L;
                 }
 
-                static long next(_ForeignFailure failure) {
+                static _ForeignFailure next(_ForeignFailure failure) {
+
                     return failure.nextCarrier;
                 }
 
+                // Native completion deletes the returned JNI global. Clearing the
+                // cookie first makes repeated completion release ownership once.
+                static long takeReference(_ForeignFailure failure) {
+
+                    long reference = failure.javaReference;
+                    failure.javaReference = 0L;
+                    return reference;
+                }
+
                 static long unchangedReference(Throwable failure) {
+
                     if (failure instanceof _ForeignFailure) {
                         _ForeignFailure carrier = (_ForeignFailure) failure;
                         if (carrier.getCause() == null && carrier.getSecondaryExceptionCount() == 0) {
@@ -104,13 +122,25 @@ public final class BridgeCallbackCarrierSources {
                     return 0L;
                 }
 
-                static Throwable cause(_ForeignFailure failure) { return failure.getCause(); }
-                static int secondaryCount(_ForeignFailure failure) { return failure.getSecondaryExceptionCount(); }
-                static Throwable secondary(_ForeignFailure failure, int index) { return failure.getSecondaryException(index); }
+                static Throwable cause(_ForeignFailure failure) {
+
+                    return failure.getCause();
+                }
+
+                static int secondaryCount(_ForeignFailure failure) {
+
+                    return failure.getSecondaryExceptionCount();
+                }
+
+                static Throwable secondary(_ForeignFailure failure, int index) {
+
+                    return failure.getSecondaryException(index);
+                }
 
                 // Used after JNI cannot retain a callback throwable. Allocation
                 // exhaustion itself uses the existing native emergency object.
                 static void exhausted() {
+
                     throw new OutOfMemoryError();
                 }
             }

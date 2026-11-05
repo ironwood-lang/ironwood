@@ -11,7 +11,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-/** Per-entry D227 policy. Retention never substitutes for a destruction proof. */
+/** Per-entry JNI completion policy. Unknown invocation lifetimes grant no cleanup authority. */
 public final class BridgeCallbackCarrierPolicy {
     private final IrProgram program;
     private final BridgeRootSet roots;
@@ -30,6 +30,7 @@ public final class BridgeCallbackCarrierPolicy {
                 && roots.equals(requested.revalidate(program));
     }
 
+    /** Historical name: selects JNI completion, never managed reclamation. */
     public boolean reclaims(BridgeCallableId callable) {
         var lifetime = lifetimes.get(callable);
         if (lifetime == null) throw new IllegalArgumentException("entry is absent from carrier policy");

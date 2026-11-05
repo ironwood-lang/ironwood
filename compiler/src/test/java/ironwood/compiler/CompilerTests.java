@@ -134,6 +134,7 @@ public final class CompilerTests {
         test(Gc5IntrinsicTests.EFFECTS, Gc5IntrinsicTests::effects);
         test(Gc5IntrinsicTests.REFUSAL, Gc5IntrinsicTests::refusal);
         test(Gc5IntrinsicTests.FINAL_LINK, Gc5IntrinsicTests::finalLink);
+        test(Gc6CarrierTests.NAME, Gc6CarrierTests::proofs);
         test(GcLayoutTests.NAME, GcLayoutTests::proofs);
         test(GcRootTests.NAME, GcRootTests::proofs);
         test(GcLifetimeTests.NAME, GcLifetimeTests::proofs);

@@ -2,6 +2,11 @@
 
 # Java Bridge producer
 
+The GC migration branch currently refuses all bridge/shared-library output,
+including scalar-only images, pending GC6 qualification. See the
+[incomplete implementation report](GC6_IMPLEMENTATION.md). The pre-GC API and
+platform descriptions below are historical until their GC migration passes.
+
 The producer builds host-target Java dependencies for macOS ARM64,
 Linux ARM64 and Linux x86-64, exposing primitive,
 copied-String and proved copied primitive-array APIs, Java-owned bounded ByteView

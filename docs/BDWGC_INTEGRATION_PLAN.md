@@ -8,6 +8,8 @@ checkpoint is complete** on macOS arm64 and Linux x86-64. Normal native programs
 use one exact managed model with explicit synchronous Memory.collect(). See
 [the GC5 report](GC5_IMPLEMENTATION.md). Bridge/shared-library output, Linux
 arm64 and arm64e remain gated. GC6-GC10 and self-hosting are not complete.
+An [incomplete GC6 carrier checkpoint](GC6_IMPLEMENTATION.md) implements exact
+carrier linkage and separate JNI completion, without qualifying foreign output.
 
 The selected direction is BDWGC 8.2.12 with compiler-provided roots and exact
 layout metadata, synchronous `Memory.collect()`, removal of source `free` and
@@ -653,6 +655,13 @@ Inspect the scalar noncollecting entry path for new TLS, helper calls or lookups
 **Exit:** all currently supported bridge categories have a sound GC path or an
 explicitly reviewed compatibility change. Do not quietly ship regressions by
 omitting formerly exported members or changing resource methods into traps.
+
+**Incomplete checkpoint, 2026-11-05:** [Carrier migration and remaining gates](GC6_IMPLEMENTATION.md)
+records exact managed carrier links and explicit JNI completion, normal O0-O3
+carrier graphs and actual JVM-loaded private-engine completion/isolation controls
+on macOS arm64. This does not qualify generated bridge entry roots or suspended
+segments, and does not satisfy the exit criterion. All foreign-output refusals
+remain closed. GC7 is not the next implementation target while GC6 is incomplete.
 
 ### GC7. Migrate consumers and retire obsolete proof machinery
 

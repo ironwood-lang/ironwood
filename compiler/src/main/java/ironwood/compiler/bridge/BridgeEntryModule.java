@@ -119,7 +119,6 @@ public final class BridgeEntryModule {
         var functions = new ArrayList<>(base.functions());
         var additions = new ArrayList<>(callbacks.proxies().functions());
         additions.addAll(carriers.functions());
-        cleanup.cleanup().ifPresent(proof -> additions.add(proof.destruction()));
         functions.addAll(additions);
         functions.addAll(callbacks.functions());
         if (functions.stream().map(IrFunction::linkageName).distinct().count() != functions.size()) {
@@ -179,7 +178,6 @@ public final class BridgeEntryModule {
         var base = callbacks.context().program();
         var additions = new ArrayList<>(proxies.functions());
         additions.addAll(carriers.functions());
-        cleanup.cleanup().ifPresent(proof -> additions.add(proof.destruction()));
         storage.destructions().forEach(entry -> additions.add(entry.function()));
         var functions = new ArrayList<>(base.functions());
         functions.addAll(lowered.values()); functions.addAll(additions);

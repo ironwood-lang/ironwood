@@ -114,7 +114,6 @@ final class BridgeCallbackCarrierNativeTests {
         admittedOwner.storage().entries().forEach(entry -> functions.add(entry.function()));
         admittedOwner.storage().destructions().forEach(entry -> functions.add(entry.function()));
         slotEntries.entries().forEach(entry -> functions.add(entry.function()));
-        functions.add(cleanup.destruction());
         functions.addAll(operations.functions());
         functions.addAll(exceptions.accessors().values());
         functions.add(exceptions.trace());
@@ -125,7 +124,6 @@ final class BridgeCallbackCarrierNativeTests {
         exports.add(holderCreate.linkageName()); exports.add(holderDestroy.linkageName());
         exports.addAll(admittedOwner.storage().entrySymbols());
         slotEntries.entries().forEach(entry -> exports.add(entry.function().linkageName()));
-        exports.add(cleanup.destruction().linkageName());
         operations.functions().forEach(function -> exports.add(function.linkageName()));
         exceptions.accessors().values().forEach(function -> exports.add(function.linkageName()));
         exports.add(exceptions.trace().linkageName());

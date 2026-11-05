@@ -10,7 +10,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-/** Protected compiler-owned carrier operations, without export or destruction permission. */
+/** Protected compiler-owned carrier operations, without foreign-lifetime admission. */
 public final class BridgeCallbackCarrierEntries {
     private final IrProgram original;
     private final List<IrFunction> functions;
@@ -28,6 +28,7 @@ public final class BridgeCallbackCarrierEntries {
     public IrFunction cause() { return functions.get(5); }
     public IrFunction secondaryCount() { return functions.get(6); }
     public IrFunction secondary() { return functions.get(7); }
+    public IrFunction takeReference() { return functions.get(8); }
     public List<IrFunction> functions() { return functions; }
     public boolean matches(CompilationArtifact artifact) {
         return artifact.valid() && artifact.program().filter(original::equals).isPresent();
@@ -41,7 +42,7 @@ public final class BridgeCallbackCarrierEntries {
         }
         List<IrFunction> functions = new ArrayList<>();
         for (var operation : List.of(bound.factory(), bound.reference(), bound.next(), bound.exhausted(),
-                bound.unchangedReference(), bound.cause(), bound.secondaryCount(), bound.secondary())) {
+                bound.unchangedReference(), bound.cause(), bound.secondaryCount(), bound.secondary(), bound.takeReference())) {
             String symbol = "ironwood_bridge_carrier_" + operation.sourceName();
             if (program.functions().stream().anyMatch(function -> function.linkageName().equals(symbol))) {
                 throw new IllegalArgumentException("callback carrier entry symbol collision: " + symbol);

@@ -1,0 +1,483 @@
+{
+  "baseline": "c76a3a75e996c091c01e6e5eccebccbbfbf346a4",
+  "branch": "codex/bdwgc-integration-plan",
+  "compiler_selections": [
+    {
+      "command": [
+        "./scripts/test.sh",
+        "--test",
+        "GC6 carriers separate exact managed linkage from JNI completion",
+        "--test",
+        "Java Bridge carrier cleanup requires complete nonescaping handler and initialization proofs"
+      ],
+      "passed": true,
+      "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout.sha256": "6ad96d80829509b5f3e30240cef3341515f63f67c0aacf7160ab00f1c42d79ce",
+      "tests": [
+        "GC6 carriers separate exact managed linkage from JNI completion",
+        "Java Bridge carrier cleanup requires complete nonescaping handler and initialization proofs"
+      ]
+    },
+    {
+      "command": [
+        "./scripts/test.sh",
+        "--test",
+        "GC5 normal emission uses one managed model and migration diagnostics",
+        "--test",
+        "GC5 final link rejects every reachable legacy managed deallocation family"
+      ],
+      "passed": true,
+      "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout.sha256": "ed8a95c7c3281adef425da2f2bfa4fb4a7fcfc580c3a96ac9b77184d067e4095",
+      "tests": [
+        "GC5 normal emission uses one managed model and migration diagnostics",
+        "GC5 final link rejects every reachable legacy managed deallocation family"
+      ]
+    }
+  ],
+  "date": "2026-11-05",
+  "foreign_output_qualified": false,
+  "format": 1,
+  "gc6_complete": false,
+  "guard_kib": 16777216,
+  "host_role": "machost",
+  "jvm_completion_and_private_images": {
+    "generated_cleanup.sha256": "3548df82a605bd35d2a1a7507cfc0d3bfed324e858554edb4cc5add41640c2b4",
+    "generated_source.sha256": "d6894c8ab0a7d8147b319609f4a3d4df7291c166bb4e0a129c6d4be6ea024ef3",
+    "limitations": "Generated completion with protected-operation doubles. No generated shim root or HotSpot reentry qualification. No ELF execution.",
+    "report": "workspace/gc6-carrier-isolation/results.json",
+    "report.sha256": "73a0d139e8b99784ebda290a94727223868c91e867c5c9d98490b7e2158f9ddb",
+    "results": [
+      {
+        "case": "generate",
+        "data": [],
+        "exit": 0,
+        "sampled_peak_rss_kib": 798720,
+        "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "case": "jvm-consumer",
+        "data": [],
+        "exit": 0,
+        "sampled_peak_rss_kib": 122416,
+        "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "case": "O0-jni-link-A",
+        "data": [],
+        "exit": 0,
+        "sampled_peak_rss_kib": 31808,
+        "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "case": "O0-exports-A",
+        "data": [],
+        "exit": 0,
+        "sampled_peak_rss_kib": 1680,
+        "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout.sha256": "7622edb5b0c52db7495ce837fbdfe61ddfb6c47462114f47b6402162d2ef57f9"
+      },
+      {
+        "case": "O0-definitions-A",
+        "data": [],
+        "exit": 0,
+        "sampled_peak_rss_kib": 1680,
+        "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout.sha256": "1d9231accfdd1a75d31fa047589839ee08914bdd26981a76a92871ebfd767252"
+      },
+      {
+        "case": "O0-imports-A",
+        "data": [],
+        "exit": 0,
+        "sampled_peak_rss_kib": 1632,
+        "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout.sha256": "64c203646e79d862020cd2f91048e74bc5d5939a8401b9f03bc021e20bc1eb90"
+      },
+      {
+        "case": "O0-jni-link-B",
+        "data": [],
+        "exit": 0,
+        "sampled_peak_rss_kib": 33488,
+        "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "case": "O0-exports-B",
+        "data": [],
+        "exit": 0,
+        "sampled_peak_rss_kib": 1680,
+        "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout.sha256": "013a3784b36add9fad574c7f726b411b4d2b974d984642007da5aca671505c6b"
+      },
+      {
+        "case": "O0-definitions-B",
+        "data": [],
+        "exit": 0,
+        "sampled_peak_rss_kib": 1520,
+        "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout.sha256": "0e2bd3063d540d7f21f19717e9b2bd74688b0ff8ee9147b541977340337fc209"
+      },
+      {
+        "case": "O0-imports-B",
+        "data": [],
+        "exit": 0,
+        "sampled_peak_rss_kib": 1616,
+        "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout.sha256": "64c203646e79d862020cd2f91048e74bc5d5939a8401b9f03bc021e20bc1eb90"
+      },
+      {
+        "case": "O0-jni-run",
+        "data": [],
+        "exit": 0,
+        "sampled_peak_rss_kib": 39888,
+        "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout.sha256": "94a6677be60ac72db8151e6ebc66087bf2e178f8bb50eaefaaa30aead5c568d6"
+      },
+      {
+        "case": "O1-jni-link-A",
+        "data": [],
+        "exit": 0,
+        "sampled_peak_rss_kib": 35520,
+        "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "case": "O1-exports-A",
+        "data": [],
+        "exit": 0,
+        "sampled_peak_rss_kib": 1776,
+        "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout.sha256": "d828bba3f220d46c830a254b8280b3bd0d4f976134097fed28c9a1142e9232b6"
+      },
+      {
+        "case": "O1-definitions-A",
+        "data": [],
+        "exit": 0,
+        "sampled_peak_rss_kib": 1648,
+        "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout.sha256": "d7d71a0a65ef1d740f065054fb07164a43cef70a84c7fe943c5ef7c42b8bef54"
+      },
+      {
+        "case": "O1-imports-A",
+        "data": [],
+        "exit": 0,
+        "sampled_peak_rss_kib": 1680,
+        "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout.sha256": "64c203646e79d862020cd2f91048e74bc5d5939a8401b9f03bc021e20bc1eb90"
+      },
+      {
+        "case": "O1-jni-link-B",
+        "data": [],
+        "exit": 0,
+        "sampled_peak_rss_kib": 91680,
+        "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "case": "O1-exports-B",
+        "data": [],
+        "exit": 0,
+        "sampled_peak_rss_kib": 1776,
+        "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout.sha256": "776f8643a4da154c63f860d898509bec0c394e02869ddcbc84ecaddea0274897"
+      },
+      {
+        "case": "O1-definitions-B",
+        "data": [],
+        "exit": 0,
+        "sampled_peak_rss_kib": 1520,
+        "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout.sha256": "d1ed817324311aa1b2a0cff0a29e97897edc8b24818fbb4999c7d911ff50b798"
+      },
+      {
+        "case": "O1-imports-B",
+        "data": [],
+        "exit": 0,
+        "sampled_peak_rss_kib": 1568,
+        "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout.sha256": "64c203646e79d862020cd2f91048e74bc5d5939a8401b9f03bc021e20bc1eb90"
+      },
+      {
+        "case": "O1-jni-run",
+        "data": [],
+        "exit": 0,
+        "sampled_peak_rss_kib": 39872,
+        "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout.sha256": "94a6677be60ac72db8151e6ebc66087bf2e178f8bb50eaefaaa30aead5c568d6"
+      },
+      {
+        "case": "O2-jni-link-A",
+        "data": [],
+        "exit": 0,
+        "sampled_peak_rss_kib": 33936,
+        "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "case": "O2-exports-A",
+        "data": [],
+        "exit": 0,
+        "sampled_peak_rss_kib": 1584,
+        "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout.sha256": "905777f60d7a05775454b848730bd41376df7a8ef85dc4ca76448a1c5c18bbd8"
+      },
+      {
+        "case": "O2-definitions-A",
+        "data": [],
+        "exit": 0,
+        "sampled_peak_rss_kib": 1680,
+        "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout.sha256": "3ee64644b45534964ab714fd80db2cd34421028b8469e9c20573fce4223e2b8b"
+      },
+      {
+        "case": "O2-imports-A",
+        "data": [],
+        "exit": 0,
+        "sampled_peak_rss_kib": 1680,
+        "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout.sha256": "64c203646e79d862020cd2f91048e74bc5d5939a8401b9f03bc021e20bc1eb90"
+      },
+      {
+        "case": "O2-jni-link-B",
+        "data": [],
+        "exit": 0,
+        "sampled_peak_rss_kib": 31520,
+        "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "case": "O2-exports-B",
+        "data": [],
+        "exit": 0,
+        "sampled_peak_rss_kib": 1712,
+        "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout.sha256": "44868a4a405fc2d40c8e08d48133776506ab022772c13bb87b7d8aabfeff094f"
+      },
+      {
+        "case": "O2-definitions-B",
+        "data": [],
+        "exit": 0,
+        "sampled_peak_rss_kib": 1680,
+        "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout.sha256": "51fb13d4d82720fa3faf9bed4608772832a62dfb70302819f7682b3b99d0c750"
+      },
+      {
+        "case": "O2-imports-B",
+        "data": [],
+        "exit": 0,
+        "sampled_peak_rss_kib": 1488,
+        "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout.sha256": "64c203646e79d862020cd2f91048e74bc5d5939a8401b9f03bc021e20bc1eb90"
+      },
+      {
+        "case": "O2-jni-run",
+        "data": [],
+        "exit": 0,
+        "sampled_peak_rss_kib": 39920,
+        "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout.sha256": "94a6677be60ac72db8151e6ebc66087bf2e178f8bb50eaefaaa30aead5c568d6"
+      },
+      {
+        "case": "O3-jni-link-A",
+        "data": [],
+        "exit": 0,
+        "sampled_peak_rss_kib": 34144,
+        "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "case": "O3-exports-A",
+        "data": [],
+        "exit": 0,
+        "sampled_peak_rss_kib": 1696,
+        "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout.sha256": "10152154fe0f4d228fb8dccfe8bcb47a0dd42dad504bf8f14609d26d2b8acb22"
+      },
+      {
+        "case": "O3-definitions-A",
+        "data": [],
+        "exit": 0,
+        "sampled_peak_rss_kib": 1680,
+        "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout.sha256": "d8306ae5e02d284f3294d802264fa0dabbba6a937bde99c847b5cfa77bd5614d"
+      },
+      {
+        "case": "O3-imports-A",
+        "data": [],
+        "exit": 0,
+        "sampled_peak_rss_kib": 1552,
+        "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout.sha256": "64c203646e79d862020cd2f91048e74bc5d5939a8401b9f03bc021e20bc1eb90"
+      },
+      {
+        "case": "O3-jni-link-B",
+        "data": [],
+        "exit": 0,
+        "sampled_peak_rss_kib": 96000,
+        "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "case": "O3-exports-B",
+        "data": [],
+        "exit": 0,
+        "sampled_peak_rss_kib": 1600,
+        "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout.sha256": "06b14efb0efd2d595fb790d885d88c508b1d3ed3415bb713a95c3be0ad063795"
+      },
+      {
+        "case": "O3-definitions-B",
+        "data": [],
+        "exit": 0,
+        "sampled_peak_rss_kib": 1680,
+        "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout.sha256": "14b82b819661becd947c14802d4045fce870cbc20508aa90327555e477420233"
+      },
+      {
+        "case": "O3-imports-B",
+        "data": [],
+        "exit": 0,
+        "sampled_peak_rss_kib": 1488,
+        "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout.sha256": "64c203646e79d862020cd2f91048e74bc5d5939a8401b9f03bc021e20bc1eb90"
+      },
+      {
+        "case": "O3-jni-run",
+        "data": [],
+        "exit": 0,
+        "sampled_peak_rss_kib": 39952,
+        "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout.sha256": "94a6677be60ac72db8151e6ebc66087bf2e178f8bb50eaefaaa30aead5c568d6"
+      }
+    ]
+  },
+  "normal_source_graphs": {
+    "generated_source.sha256": "d6894c8ab0a7d8147b319609f4a3d4df7291c166bb4e0a129c6d4be6ea024ef3",
+    "report": "workspace/gc6-carrier-final/results.json",
+    "report.sha256": "a123dc8311863a05b8e9a746d27fcf9a9c417fe298116e2067953b54e7e9c585",
+    "selected_results": [
+      {
+        "case": "O0-normal-link",
+        "data": [],
+        "exit": 0,
+        "sampled_peak_rss_kib": 879216,
+        "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout.sha256": "407a82ddbbb4889df1bd5128780486e4cfea0202397ae653af0968d6bc4933ec"
+      },
+      {
+        "case": "O0-normal-run",
+        "data": [],
+        "exit": 0,
+        "sampled_peak_rss_kib": 32,
+        "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout.sha256": "5fc12da7a95639183609a0ba132a383c8bfc0a4a31d474697401b714a80e5a11"
+      },
+      {
+        "case": "O1-normal-link",
+        "data": [],
+        "exit": 0,
+        "sampled_peak_rss_kib": 871792,
+        "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout.sha256": "93450908c0d8c63685ee42d6ca4f334df5647feb7b8ac556d463ad17d5843b5a"
+      },
+      {
+        "case": "O1-normal-run",
+        "data": [],
+        "exit": 0,
+        "sampled_peak_rss_kib": 32,
+        "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout.sha256": "5fc12da7a95639183609a0ba132a383c8bfc0a4a31d474697401b714a80e5a11"
+      },
+      {
+        "case": "O2-normal-link",
+        "data": [],
+        "exit": 0,
+        "sampled_peak_rss_kib": 875776,
+        "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout.sha256": "34e4141d8bd51c0e7dcf1c8840a007e8aaafa6d8be41f1631826fbb6ee59eb85"
+      },
+      {
+        "case": "O2-normal-run",
+        "data": [],
+        "exit": 0,
+        "sampled_peak_rss_kib": 32,
+        "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout.sha256": "5fc12da7a95639183609a0ba132a383c8bfc0a4a31d474697401b714a80e5a11"
+      },
+      {
+        "case": "O3-normal-link",
+        "data": [],
+        "exit": 0,
+        "sampled_peak_rss_kib": 876848,
+        "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout.sha256": "1458763cfb62e27ff43b839654435238cff9426adb6be10f74f9b7644c81fd4b"
+      },
+      {
+        "case": "O3-normal-run",
+        "data": [],
+        "exit": 0,
+        "sampled_peak_rss_kib": 32,
+        "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout.sha256": "5fc12da7a95639183609a0ba132a383c8bfc0a4a31d474697401b714a80e5a11"
+      }
+    ]
+  },
+  "per_child_timeout_seconds": 60,
+  "remaining_gates": [
+    "RootHandle/Roots and independent anchors/facade epochs",
+    "ListenerRegistration and exceptional committed listener stores",
+    "Exact current/suspended foreign segments and all JVM helper transitions",
+    "Strings/arrays/copy-back/ByteView and exception/finally/defer JNI root integration",
+    "schema 2/objects-gc-v1 and mandatory native build identity",
+    "complete production image exports, Linux x86-64 JVM tests and transition/performance controls"
+  ],
+  "retained_layout_control": {
+    "note": "Passed in compiler-2, whose new carrier test failed on reserved declaration source-path binding. The new test was corrected to reconstruct user source and regenerate private support, then passed in compiler-final.",
+    "passed": true,
+    "stderr.sha256": "8c6dee4cf717ece184971c8fa90b59d6a647d2352887ac80bdffdfac9a7f7da3",
+    "stdout.sha256": "20bf6bb2aa1f2c294136d9f570e34895f57b6d79976ed1c02a6c01fbfb23df2b",
+    "test": "GC2 exact layouts follow resolved storage and refuse legacy hidden links"
+  },
+  "scope": "Exact compiler-owned carrier linkage and explicit invocation-owned JNI completion only.",
+  "sdk": {
+    "USE_MARK_BYTES": 1,
+    "collector": "BDWGC 8.2.12",
+    "configuration.sha256": "fa43f3f0db660f004717b875db2d0fe41691291b1d6eb6ab6812d963bcfddffa",
+    "java": "21.0.1",
+    "llvm": "23.1.0",
+    "macos_sdk": "27.2",
+    "manifest.sha256": "f62507e005188e28e1b9bfb9b922f6d871aa6e34060bdc3c2651ac091c902451",
+    "owner_abi": 1,
+    "path": "workspace/gc5-sdk-unwind",
+    "root_abi": 2
+  },
+  "source.sha256": {
+    "AGENTS.md": "f368b0e2a81b13968b47555b962c306416b2ca72ae5ce12b6d9f936674793e57",
+    "compiler/src/main/java/ironwood/compiler/bridge/BridgeCallbackCarrierCleanup.java": "c8b5cfcb9b27d05d3272373dc9949b9ddadf5ff2af63cfcf2efebc8df0922e8d",
+    "compiler/src/main/java/ironwood/compiler/bridge/BridgeCallbackCarrierEntries.java": "25a001965640aa7dd2024b813e250be32bbf77b33bd60f28f94683de921de783",
+    "compiler/src/main/java/ironwood/compiler/bridge/BridgeCallbackCarrierNativeSources.java": "4145ee9b4fdb8793dc899cc1307f6d861b016dd51c154ea46f15dc6023c4f832",
+    "compiler/src/main/java/ironwood/compiler/bridge/BridgeCallbackCarrierPolicy.java": "84b4b605b010f2c310096a16f50e8272dcbfcedd218c0d44c8a5054a4a7d7a08",
+    "compiler/src/main/java/ironwood/compiler/bridge/BridgeCallbackCarrierSources.java": "23778dd5ec61785f3ebf959c06911c9ac9adb75b649a27b904f5f71737f1c746",
+    "compiler/src/main/java/ironwood/compiler/bridge/BridgeEntryModule.java": "fca471d72765e02f74c9caeab1b37f2904e29fabf8dee9d7f73de748a27acc54",
+    "compiler/src/main/java/ironwood/compiler/ir/IrAllocationLayout.java": "8289e997de33b1d5620361ea5eaf210a89b31ad9f1f9efc95ed263b89e938a98",
+    "compiler/src/test/java/ironwood/compiler/BridgeCallbackCarrierNativeTests.java": "664931584d13efe77dceb99dd93b26322a3c28e058477b8e6c8e06ee2b6d57b1",
+    "compiler/src/test/java/ironwood/compiler/BridgePrimitiveCallbackNativeTests.java": "3872162a597b9e2a8513691a4489ee929e1b9e9f089de179e3ad51fb670aa418",
+    "compiler/src/test/java/ironwood/compiler/CompilerTests.java": "df6311b12ea556d2d60bc95be619fe15f7838506c05ee416084a6176de3055e5",
+    "compiler/src/test/java/ironwood/compiler/Gc6CarrierTests.java": "3c6382a2c88f8c6f158be9a6a9a4cf74b1b92dea5dd418355bbb1114c8b58770",
+    "compiler/src/test/java/ironwood/compiler/semantic/BridgeCallbackCarrierLifetimeTests.java": "bb9f11acc9ff37442aa1db33b9727562f1dd81995bb69ee13e9eda8e0dd493c4",
+    "docs/BDWGC_INTEGRATION_PLAN.md": "4bcc2425703485179fa51309a2c7a02a2520d62729441f547bc9c89300d76205",
+    "docs/DECISIONS.md": "98585918f2f4e81abad830ed7302aa296f2f3596b67dbb9af30ac70d039321ce",
+    "docs/GC6_IMPLEMENTATION.md": "d3b58c82a554c7b742e42eda1746145b1b61f36f4b7d8091fc757b4e72a8aac3",
+    "docs/GC6_PRECHANGE_REVIEW.md": "2b0566ff1be5131d96149c6f23813a7626d7cd1b69add9c9272ff1ad1cf6631f",
+    "docs/JAVA_BRIDGE.md": "be9aae57d17073e9c4668ae982e9794486d855342a3c7b481087c230457a14cb",
+    "docs/JAVA_BRIDGE_USAGE.md": "5c4c38f1cbbdcef33f446a7bb30b7dbed74dd4ad11fbf3f7030099f32285f22b",
+    "docs/MEMORY.md": "3c643e76c3778d11ed960787ce19a63f55ea02e808a9e35e65a28875a3b57af5",
+    "integration-tests/native/gc6_carrier_completion.c": "5de0a73a9b2782248682df416de034583306d4e3b23bc6ed566e7c3aa190efff",
+    "scripts/java-bridge/Gc6CarrierCompletion.java": "ad13bbf094827cc9b23a7ba9bf999dddeade987e4dbbac9c3c58d85622af0714",
+    "scripts/test-gc6-carriers.py": "9ed6e4ae7682bceb6ef29b430f12860eeca2bd6a01d54944dbb466b82aa1294d"
+  },
+  "target": "macos-arm64"
+}

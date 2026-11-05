@@ -112,8 +112,8 @@ public final class BridgeCallbackCarrierLifetimeTests {
                     "unknown helper granted temporary carrier ownership");
             var invalidFree = pipeline.analyzeForBridge(List.of(SourceFile.of("Listener.iron", SOURCE.replace(
                     "catch (RuntimeException failure) {}", "catch (RuntimeException failure) { free failure; }"))));
-            check(!invalidFree.valid() && invalidFree.diagnostics().stream().anyMatch(diagnostic -> diagnostic.message().contains("cannot prove free")),
-                    "transport cleanup permission weakened source exception free: " + invalidFree.diagnostics());
+            check(!invalidFree.valid() && invalidFree.diagnostics().stream().anyMatch(diagnostic -> diagnostic.message().contains("removed")),
+                    "transport cleanup reintroduced source reclamation: " + invalidFree.diagnostics());
         }
         initializationCache();
         carrierDeclaration();
@@ -131,8 +131,9 @@ public final class BridgeCallbackCarrierLifetimeTests {
         check(artifact.valid(), artifact.diagnostics().toString());
         var bound = declaration.bind(artifact);
         check(bound.factory().returnType().equals(declaration.type())
-                && bound.reference().returnType().equals(IrType.I64) && bound.next().returnType().equals(IrType.I64),
-                "carrier operations lost their native value ABI");
+                && bound.reference().returnType().equals(IrType.I64) && bound.next().returnType().equals(declaration.type())
+                && bound.takeReference().returnType().equals(IrType.I64),
+                "carrier operations lost their exact chain or JNI ownership ABI");
         var modified = new ArrayList<>(originalSources);
         modified.add(SourceFile.of(declaration.source().path().toString(), declaration.source().content().replace(
                 "return new _ForeignFailure(reference, next);", "return null;")));

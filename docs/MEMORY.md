@@ -101,6 +101,9 @@ Normal source, class and archive compilation and the entire main/testing library
 are supported. Native bridge and shared-library output refuse until GC6 qualifies
 roots, generated cleanup, foreign transitions and JNI ownership. No RootHandle or
 listener migration is implemented here. Linux arm64 and arm64e remain gated.
+The [incomplete GC6 checkpoint](GC6_IMPLEMENTATION.md) separates internal carrier
+JNI completion from managed reclamation and describes its limited verification;
+it does not qualify foreign transitions or change these output refusals.
 GC7 owns remaining repository consumer migration and broad dead-code removal;
 GC8 owns whole-project performance and resident-memory acceptance. GC5 does not
 claim completion of the complete GC project or self-hosting readiness.

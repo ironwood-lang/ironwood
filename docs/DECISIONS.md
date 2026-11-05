@@ -8807,6 +8807,9 @@ occurrence order. If no
 
 ## D227 - Preserve native exception lifetimes for retained Java callback carriers
 
+- **GC6 partial supersession:** D321 replaces invocation-owned carrier
+  destruction with explicit JNI completion. Production foreign output remains
+  gated; the process-lifetime retention policy is not accepted for GC6.
 - **Status:** Accepted by the maintainer on 2026-09-28 during P5 implementation.
 - **Decision:** A Java exception carrier retained by native code follows the
   existing process-lifetime rule for caught or escaping native exceptions. Its
@@ -12616,3 +12619,27 @@ occurrence order. If no
   scalar-only entries with allocating initialization/failure. No RootHandle,
   listener migration or JVM reentry is implemented. Linux arm64/arm64e remain
   unqualified. GC7-GC10 and self-hosting remain separately bounded work.
+
+## D321 - Separate callback carrier JNI completion from managed storage
+
+- **Status:** Implemented internal GC6 slice, 2026-11-05. The milestone remains
+  incomplete; all native bridge/shared-library output refusals remain in force.
+- **Supersession:** Replaces D227's invocation-owned managed destruction and
+  strict destruction proof. Preserve its conservative invocation-lifetime proof
+  and D228 translation ordering/identity. The earlier process-lifetime retaining
+  fallback is not accepted as GC6 integration and remains a migration gate.
+- **Decision:** Describe nextCarrier as a typed managed reference. At the
+  existing translation/completion boundary, take and clear each native JNI
+  cookie, delete the global once and detach the invocation chain. Managed
+  carrier reachability is independent. No managed deallocation, collection,
+  source closure, user callback, Cleaner or finalization participates.
+- **Validation:** Normal source-derived O0-O3 carrier graphs plus actual JVM
+  consumers of the generated completion fragment, pending throwable identity,
+  partial/repeated completion, balanced JNI globals, two private collector
+  images and serialized Java callers. Protected-operation doubles isolate JNI
+  completion; they do not prove generated shim roots or JVM reentry. See the
+  [incomplete report](GC6_IMPLEMENTATION.md) for exact scope and remaining gates.
+- **Boundary:** No generated RootHandle/registration API, suspended segments,
+  schema activation or complete native-library acceptance. Root ABI 2 and owner
+  ABI 1 retain their foreign-segment refusals. Linux arm64/arm64e, GC7-GC10 and
+  self-hosting remain outside this checkpoint.

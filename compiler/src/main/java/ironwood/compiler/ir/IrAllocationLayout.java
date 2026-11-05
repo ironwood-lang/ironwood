@@ -29,7 +29,8 @@ public record IrAllocationLayout(String name, Shape shape, List<IrField> fields,
             if (field.ownerClass().equals("ironwood.lang.Throwable") && field.name().equals("traceState")) {
                 return refused(type.name(), "legacy Throwable.traceState hides native managed links");
             }
-            if (field.name().equals("nextCarrier") && field.ownerClass().endsWith("._ForeignFailure")) {
+            if (field.name().equals("nextCarrier") && field.ownerClass().endsWith("._ForeignFailure")
+                    && !field.type().equals(IrType.reference(field.ownerClass()))) {
                 return refused(type.name(), "legacy nextCarrier hides a managed link in long");
             }
             if (!supported(field.type())) return refused(type.name(), "unsupported physical field: " + field.name());

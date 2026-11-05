@@ -50,7 +50,7 @@ final class BridgePrimitiveCallbackNativeTests {
         var functions = new ArrayList<>(context.program().functions());
         var exported = new LinkedHashSet<String>();
         var additions = new ArrayList<>(entries);
-        additions.addAll(ownership.functions()); additions.addAll(operations.functions()); additions.add(cleanup.destruction());
+        additions.addAll(ownership.functions()); additions.addAll(operations.functions());
         functions.addAll(additions);
         additions.forEach(function -> exported.add(function.linkageName()));
         var linked = NativeLinkTransformation.apply(copy(context.program(), functions, exported)).program();
