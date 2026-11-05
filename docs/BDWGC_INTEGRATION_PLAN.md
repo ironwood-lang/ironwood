@@ -631,6 +631,13 @@ No normal GC image is emitted, no source reclamation rule is removed, and the
 required-library memory-model migration has not occurred. Continue GC5 before
 GC6; the milestone's integrated exit criterion is unmet.
 
+**Qualification follow-up, 2026-11-05:** the
+[Linux x86-64 record](GC5_LINUX_X86_64_QUALIFICATION.md) validates the implemented
+checkpoint with 17 focused compiler selections and 296 native executions,
+including preparation OOM/refusal controls at O0/O1/O2/O3. It fixes only artifact
+test scratch setup. Normal native GC activation and the coordinated library
+cutover remain incomplete; this is not a GC6-ready handoff.
+
 ### GC6. Complete foreign and library integration
 
 Migrate generated facade `free()` APIs to explicit bridge lifetime handles and

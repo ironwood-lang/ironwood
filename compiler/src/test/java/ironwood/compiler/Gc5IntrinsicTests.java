@@ -179,6 +179,7 @@ final class Gc5IntrinsicTests {
     }
 
     private static List<SourceFile> reconstructed(SourceFile source, String type) throws Exception {
+        Files.createDirectories(Path.of("workspace"));
         Path directory = Files.createTempDirectory(Path.of("workspace"), "gc5-artifacts-");
         Path loose = directory.resolve("Memory.ironclass"), archive = directory.resolve("memory.ironjar");
         var parsed = SourceParser.parse(source);

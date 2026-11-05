@@ -9,6 +9,10 @@ integrated memory-model cutover. Read with the
 [integration plan](BDWGC_INTEGRATION_PLAN.md) and
 [compact evidence](gc-evaluation/gc5-checkpoint-2026-11-04-manifest.json).
 
+The subsequent [Linux x86-64 qualification](GC5_LINUX_X86_64_QUALIFICATION.md)
+covers this implemented subset, including a fresh-export artifact-test setup fix.
+It does not satisfy the integrated GC5 exit criterion.
+
 ## Pre-change review
 
 GC5 replaces managed reclamation proofs with explicit synchronous collection.
@@ -189,7 +193,7 @@ Continue **GC5**, first unifying actual type/Throwable representations and nativ
 allocator domains, then retiring managed lowering while migrating all required
 library sources and enabling the normal verified root pipeline. Carry forward
 these paired controls and GC0 counters. Do not start GC6/GC7 or self-hosting from
-this checkpoint. Linux x86-64 retains its earlier GC4 qualification, but this new
-subset was not executed there. Linux arm64 and arm64e gates remain closed.
+this checkpoint. The separate Linux x86-64 record qualifies the implemented
+checkpoint there. Linux arm64 and arm64e gates remain closed.
 GC6's RootHandle/listener API, JNI retirement, foreign transitions, JVM reentry
 and multi-image qualification remain later work; no GC6-ready handoff is claimed.

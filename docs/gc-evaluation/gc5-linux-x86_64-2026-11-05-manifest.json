@@ -1,0 +1,444 @@
+{
+  "baseline": "3ff18cdd58fc9b3d94bb622ff112884ae9fee4f3",
+  "checks": {
+    "added_text_policy": "passed",
+    "git_diff_check": "passed",
+    "json": "passed",
+    "license": "passed with the exact macOS artifact selection and initial Linux build",
+    "local_links": "passed",
+    "overlay_matches_local_source": true,
+    "tracked_files": "passed"
+  },
+  "commands": {
+    "bounds": "900-second/8-GiB task/20-GiB free outer guard; unchanged 60-second and 16-GiB process-group child guard",
+    "compiler": "./scripts/test.sh with repeated --test arguments for the initial 17 exact names; then direct CompilerTests for the six unfinished selections and repaired artifact selection",
+    "lifetimes": "python3 scripts/test-gc-lifetimes.py --target linux-x86_64 --sdk \"$GC2_SDK\" --llvm-home \"$IRONWOOD_LLVM_HOME\" --java-home \"$JAVA_HOME\" --output workspace/gc5-owner-results",
+    "roots": "python3 scripts/test-gc-roots.py --target linux-x86_64 --sdk \"$GC2_SDK\" --llvm-home \"$IRONWOOD_LLVM_HOME\" --java-home \"$JAVA_HOME\" --output workspace/gc5-root-results"
+  },
+  "compiler": {
+    "artifact_after": {
+      "case": "artifact-after",
+      "data": [],
+      "exit": 0,
+      "sampled_peak_rss_kib": 634260,
+      "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout.sha256": "eef5b1af777e83efbd9ea35cfb2ed7277b92bc8d4595f80e53e0b191db2de097"
+    },
+    "artifact_before": {
+      "case": "artifact-before",
+      "data": [],
+      "exit": 1,
+      "sampled_peak_rss_kib": 83676,
+      "stderr.sha256": "d72237db07e221d9dd672e5ad63d500c8fb3bae7f66ba765cfdbfcce97aac1cb",
+      "stdout.sha256": "5bc14a57739b6b43dfa7c8323f71eee8ec8606bfea043e06c6b03cd6267c5d0f"
+    },
+    "artifacts.sha256": {
+      "compiler/build/ironwood-stdlib.ironjar": "65c27b0f4bd98d032ee9525f4b2060b4d110ec5a1516982a23b711f056289082",
+      "compiler/build/ironwood-testing.ironjar": "92b8b89f45f636e3a8251beeeb291232bb2d5c7b8f14ddfd7d1d965daf41c20d",
+      "compiler/build/ironwoodc.jar": "8d52f631f57b228ac4dd31cb05616a4772c7099c8390192bc65084af8adc12b3"
+    },
+    "followup": {
+      "case": "proofs",
+      "data": [],
+      "exit": 0,
+      "sampled_peak_rss_kib": 1183716,
+      "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout.sha256": "4046c5f72a6745173b03d79abed2163234b5cdc3a0b1b401c9870b6b7830ded3"
+    },
+    "fresh_scratch_parent_regression": true,
+    "initial_command_elapsed_seconds_approx": 61,
+    "initial_failed": [
+      "GC5 canonical collection intrinsic validates reconstructed declarations"
+    ],
+    "initial_guard_disposition": "combined rebuild and selection reached unchanged 60-second limit; ten passed, one fixture setup failure, six unfinished; six finished without rebuilding and the fixture passed after its parent-directory fix",
+    "initial_guard_exit": 1,
+    "initial_log.sha256": "c5d4e64c355fd957040bce405ad7581b2f7093b9031e23fca875a416f9e67caa",
+    "initial_passed": [
+      "GC5 source collection effects survive dispatch initialization defer and specialization",
+      "GC5 incomplete native cutover refuses collection without a stub or mixed heap",
+      "GC5 final link rejects every reachable legacy managed deallocation family",
+      "GC2 exact layouts follow resolved storage and refuse legacy hidden links",
+      "GC3 collection effects and explicit closure fail closed",
+      "GC4 runtime owners require exact exception layouts and effects",
+      "GC3 late verification rejects missing strategies and undescribed stack regions",
+      "deferred calls preserve exit and failure order at O3",
+      "finally preserves primary exceptions and exposes secondary exceptions",
+      "safe free accepts local allocation and ended aliases"
+    ],
+    "initial_stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "initial_stdout.sha256": "1c99e9f7baba79a9406b421e26bc5034908f35eb771f3e4bac1200782c841225",
+    "library_sources": 255,
+    "memory_embedded_source_identical": true,
+    "passed": 17,
+    "repaired_passed": [
+      "GC5 canonical collection intrinsic validates reconstructed declarations"
+    ],
+    "unfinished_passed": [
+      "safe free rejects live aliases and escaped allocations",
+      "pool release helpers preserve borrows and allocation-free reuse",
+      "pool release helper proofs preserve mandatory safety",
+      "pool release helper proofs survive artifact reconstruction",
+      "catchable allocation failure boundaries run at O3",
+      "native Throwable trace storage survives refresh release and allocation failures"
+    ]
+  },
+  "compiler_runtime_changes": false,
+  "date": "2026-11-05",
+  "format": 1,
+  "gc_protocol": {
+    "collector": "BDWGC 8.2.12",
+    "engine": "ironwood-gc-engine-2",
+    "roots": 2,
+    "runtime_owner": 1,
+    "use_mark_bytes": 1
+  },
+  "guards": {
+    "child_seconds": 60,
+    "disk_free_bytes": 111061475328,
+    "free_reserve_bytes": 21474836480,
+    "growth_bytes": 104935424,
+    "outer_runs": {
+      "artifact-after": {
+        "disk_free_bytes": 111062237184,
+        "exit": 0,
+        "task_peak_sampled_bytes": 873832448
+      },
+      "artifact-before": {
+        "disk_free_bytes": 111062347776,
+        "exit": 0,
+        "task_peak_sampled_bytes": 873754624
+      },
+      "artifact-compile": {
+        "disk_free_bytes": 111062302720,
+        "exit": 0,
+        "task_peak_sampled_bytes": 873791488
+      },
+      "compiler": {
+        "disk_free_bytes": 111080325120,
+        "exit": 1,
+        "task_peak_sampled_bytes": 855941120
+      },
+      "lifetimes": {
+        "disk_free_bytes": 111071952896,
+        "exit": 0,
+        "task_peak_sampled_bytes": 863096832
+      },
+      "offline": {
+        "disk_free_bytes": 111099437056,
+        "exit": 0,
+        "task_peak_sampled_bytes": 836874240
+      },
+      "proofs": {
+        "disk_free_bytes": 111079870464,
+        "exit": 0,
+        "task_peak_sampled_bytes": 856403968
+      },
+      "roots": {
+        "disk_free_bytes": 111062544384,
+        "exit": 0,
+        "task_peak_sampled_bytes": 872361984
+      }
+    },
+    "outer_seconds": 900,
+    "rss_kib": 16777216,
+    "task_after_bytes": 874598400,
+    "task_before_bytes": 769662976,
+    "task_cap_bytes": 8589934592
+  },
+  "helpers.sha256": {
+    "workspace/gc1-linux/guard.py": "f817c432d1d1b9034d37a492d12e01d32a23d6e9403d808cb31562a5ff6ed76b",
+    "workspace/gc5-linux-3ff18cdd-20261105/artifact_regression.py": "4cae6579f90eec7c0b18173ae56f625644fa7e1f59fe410add428ed87160b9b8",
+    "workspace/gc5-linux-3ff18cdd-20261105/check.py": "2f2d2c1d86c6210a11aab9d85fb1702a1fecef4403916287094e4a8711f1c0fe",
+    "workspace/gc5-linux-3ff18cdd-20261105/offline.py": "9b84bdf3470848117fb0aa0a3661e093882a7cd3d48adf2394d2ffd2841f9194",
+    "workspace/gc5-linux-3ff18cdd-20261105/qualification_evidence.py": "679161da86355313e0c0f78335ee5afa8047b79e5040f8593d3b2eae5e5b7bd0",
+    "workspace/gc5-linux-3ff18cdd-20261105/run.sh": "81804f959258eea99dd026fd762b1ea10cd0b2822c411303b9065c9288122777"
+  },
+  "hot_code": {
+    "ironwood.Main.scalar": {
+      "bytes": 48,
+      "identical_to_gc4": true,
+      "sha256": "6352818b493561c2c2cb6d17e3d50eb3eead93e0eda403fc4643dcff9f0d812c"
+    },
+    "ironwood.Node.read": {
+      "bytes": 5,
+      "identical_to_gc4": true,
+      "sha256": "54fd6cfb47b3e150944357d067e1c7fcbe9bc8b8b20527db61840cc59da2b262"
+    },
+    "ironwood.Node.step": {
+      "bytes": 16,
+      "identical_to_gc4": true,
+      "sha256": "ebe10d75fa6ecb87b4c0225d89e635c8bd60ee2d50a359c762a2cf5ec77c2d85"
+    }
+  },
+  "images": {
+    "O0": {
+      "map_bytes": 6000,
+      "maps_in_relro": true,
+      "maximum_glibc": "2.17",
+      "no_collector_dynamic_definitions": true,
+      "no_text_relocations": true,
+      "pie": true,
+      "sha256": "671164434f81d24b74ebd1bcfca5ecdf50ce888608198452ff2933ce2a4e5032",
+      "unwind_header": true
+    },
+    "O1": {
+      "map_bytes": 5768,
+      "maps_in_relro": true,
+      "maximum_glibc": "2.17",
+      "no_collector_dynamic_definitions": true,
+      "no_text_relocations": true,
+      "pie": true,
+      "sha256": "afd4998d353c5b4b88c65985241c48433c26559a9ff9795aa3fd657d4bcd1c4c",
+      "unwind_header": true
+    },
+    "O2": {
+      "map_bytes": 5768,
+      "maps_in_relro": true,
+      "maximum_glibc": "2.17",
+      "no_collector_dynamic_definitions": true,
+      "no_text_relocations": true,
+      "pie": true,
+      "sha256": "cf17b8fccf98b1bccc9c54fdc49e8759c1df78c5b8f3e80ac2d3b8070dd84ea7",
+      "unwind_header": true
+    },
+    "O3": {
+      "map_bytes": 6432,
+      "maps_in_relro": true,
+      "maximum_glibc": "2.17",
+      "no_collector_dynamic_definitions": true,
+      "no_text_relocations": true,
+      "pie": true,
+      "sha256": "b60f0e0adbee4144d070f160d6a412492e3774bd51cdd0823cd374c126b6621a",
+      "unwind_header": true
+    }
+  },
+  "integrated_gc5_complete": false,
+  "jni_exercised": false,
+  "mac_regression": {
+    "exact_name": "GC5 canonical collection intrinsic validates reconstructed declarations",
+    "java": "21.0.1",
+    "result": {
+      "case": "gc5-linux-artifact-fix",
+      "data": [],
+      "exit": 0,
+      "sampled_peak_rss_kib": 1304160,
+      "stderr.sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout.sha256": "e815b6748991763c4ad7d8540aed517db7f5f226c0441285434f8a0377d17769"
+    }
+  },
+  "no_dependency_rebuild": true,
+  "no_downloads": true,
+  "offline": {
+    "configuration": "443a7d4df11b69f991a7f7eebebe5d18948bd43ea19a727ab9e4d1f6f7a500e6",
+    "network_forbidden": true,
+    "payloads": 31
+  },
+  "parent": {
+    "branch": "codex/bdwgc-integration-plan",
+    "diff.sha256": "2574a91898d6f112a96cf13bfcaeb154bd4daf69e2e0fba0aaa2c0837165db74",
+    "free_bytes": 111061475328,
+    "growth_bytes": 104935424,
+    "head": "e113c12fc1993709f8bcfa542f39bea7ccba6f71",
+    "index.sha256": "f02a1e374de51134545cac5d2eaba431d8d33e2fe1dcbddd6bfea3bceb7a3400",
+    "preserved": true,
+    "protected_files.sha256": {
+      "scripts/prepare-gc.py": "231aa96587fb1d4dff25e842acca7ba8fb1afb5eab6f08b2498b72ebcef4ebfc",
+      "scripts/test-gc-engine.py": "2e95276e25b73f7b9879eaf21ce0f19d53ad212245283ec9f8390bd39c3b0e0e"
+    },
+    "status.sha256": "b29b0f6a1a5c20f83e447d9530e6ab318a35a54493c0dc7c96d76fba260e4501",
+    "task_after_bytes": 874598400,
+    "task_before_bytes": 769662976,
+    "tracked_files_verified": 5427
+  },
+  "production_gc_enabled": false,
+  "qualification": {
+    "lifetimes": {
+      "inputs.sha256": {
+        "compiler/src/main/cpp/GcNonmovingStatepoints.cpp": "72454ed7172d4eb0600fb8b2a376a048e6823892b67fe4ae3a6618343076d610",
+        "compiler/src/test/java/ironwood/compiler/GcLifetimeTests.java": "e8936d618c2cbc2fb6d693ddd5d249c0c05f7643ca9f7514c49aef160aa43479",
+        "integration-tests/cases/gc4_lifetimes.iron": "33ea9ce1ca9c6371364804430d5d55891242e11db3074cf7b9dd3f493e41203f",
+        "integration-tests/native/gc_lifetimes_probe.c": "578f44ac814b8d2f66d2cf8060782c81f5b5878c9c746ec739ca24a32de875a1",
+        "integration-tests/native/gc_scalar_exception.cpp": "cb57eaa604e7ba9d3fd54d9f9c6c23a1c0af01ec1151d83cbab10cdb18a8faed",
+        "runtime/include/ironwood_gc_lifetimes.h": "9d36a478d7f77aace92d8d5d89aa155554ecf20dcf6582e29f2e4c035bbd4254",
+        "runtime/include/ironwood_gc_roots.h": "844408e9c09ade096591fd8ce6119d2dcda737f6fd753332275616d1bf1b8c1b",
+        "runtime/src/ironwood_gc_lifetimes.c": "0df822a38c95f71bfea972a606a713f8689fdc83f49339df3d783b5fb4064d6e",
+        "runtime/src/ironwood_gc_roots.c": "b86403a03b76fed269372e10bbf116c18ba7ff6537721c6b51f20fd6cbfb7928",
+        "scripts/test-gc-lifetimes.py": "0a0dad59f7d376c87a245fb04bdb3b03d75cc070269f3f2bb1afdfe1a51b3225"
+      },
+      "native_checks": 140,
+      "optimization_levels": [
+        "O0",
+        "O1",
+        "O2",
+        "O3"
+      ],
+      "outputs.sha256": {
+        "probe-O0": "671164434f81d24b74ebd1bcfca5ecdf50ce888608198452ff2933ce2a4e5032",
+        "probe-O1": "afd4998d353c5b4b88c65985241c48433c26559a9ff9795aa3fd657d4bcd1c4c",
+        "probe-O2": "cf17b8fccf98b1bccc9c54fdc49e8759c1df78c5b8f3e80ac2d3b8070dd84ea7",
+        "probe-O3": "b60f0e0adbee4144d070f160d6a412492e3774bd51cdd0823cd374c126b6621a"
+      },
+      "positive": 84,
+      "refusals": 56,
+      "report": "workspace/gc5-linux-3ff18cdd-20261105/lifetimes/results.json",
+      "report.sha256": "eec7c6f6d5e7ef00136d6b3e444ec5b6d77de9360786b2c5ae83070b5d2a3e96",
+      "sampled_peak_group_rss_kib": 1113544,
+      "scenarios": [
+        "anchors",
+        "carrier",
+        "coverage",
+        "cycles",
+        "emergency",
+        "emergency-steps",
+        "foreign",
+        "immortal",
+        "missing",
+        "missing-unwind",
+        "nested",
+        "nested-wrappers",
+        "null-throw",
+        "oom",
+        "owner-mask",
+        "owner-version",
+        "pending",
+        "preparation",
+        "preparation-catch",
+        "preparation-corrupt",
+        "preparation-returning",
+        "published",
+        "published-success",
+        "resources",
+        "rethrow",
+        "stale",
+        "stale-function",
+        "stale-pc",
+        "stale-slot",
+        "trace",
+        "trace-fail",
+        "unwind",
+        "wrapper",
+        "writable-map",
+        "yield"
+      ]
+    },
+    "roots": {
+      "inputs.sha256": {
+        "integration-tests/cases/gc3_closure.iron": "067d5dc1edec286167b04151a65cedd090ce8568b045af60bf739338d3a3c1e8",
+        "integration-tests/native/gc_roots_probe.c": "af584f4335a1c7c6286059173b9276bee912a304dc9b211da1e3aed7d11a0f61",
+        "integration-tests/native/gc_scalar_exception.cpp": "cb57eaa604e7ba9d3fd54d9f9c6c23a1c0af01ec1151d83cbab10cdb18a8faed",
+        "runtime/include/ironwood_gc_roots.h": "844408e9c09ade096591fd8ce6119d2dcda737f6fd753332275616d1bf1b8c1b",
+        "runtime/src/ironwood_gc_roots.c": "b86403a03b76fed269372e10bbf116c18ba7ff6537721c6b51f20fd6cbfb7928",
+        "scripts/test-gc-roots.py": "8458ff37850257ee108ba628feaddcdfdb31df5c35e2f257ff987b48082e5050"
+      },
+      "native_checks": 156,
+      "optimization_levels": [
+        "O0",
+        "O1",
+        "O2",
+        "O3"
+      ],
+      "outputs.sha256": {
+        "probe-O0": "964b89d62d66a08ee7fb5752d558707075334a81f44a97212dc7f7154211b6d1",
+        "probe-O1": "61376662254e01364e04ef0a7e7ebc268b8588c6c9a747eabfb1941d8fd83df9",
+        "probe-O2": "074ac05e848c7b99b8f007c64c5430cfaf4df9fc03944b74c06682af6783d63e",
+        "probe-O3": "c9b74068b106d36350fe1425eb00d4a42133dae6bd54ddb3737cc14dc8dd5ab2"
+      },
+      "positive": 68,
+      "refusals": 88,
+      "report": "workspace/gc5-linux-3ff18cdd-20261105/roots/results.json",
+      "report.sha256": "d74f7db816db61364a55fc9cae465263c1455ef9a28f67936a95ab91db9c5134",
+      "sampled_peak_group_rss_kib": 726184,
+      "scenarios": [
+        "allocate",
+        "bad-count",
+        "bad-location",
+        "boundary",
+        "capture",
+        "constructor",
+        "derived",
+        "dispatch",
+        "endian",
+        "exception",
+        "exceptions",
+        "foreign",
+        "initialize",
+        "interior",
+        "legacy-heap",
+        "loop",
+        "merge",
+        "missing-map",
+        "missing-unwind",
+        "native",
+        "native-count",
+        "one-past",
+        "pending",
+        "recursion",
+        "scalar",
+        "scratch",
+        "stack",
+        "stack-clear",
+        "stale-abi",
+        "stale-function",
+        "stale-pc",
+        "stale-slot",
+        "stale-version",
+        "static",
+        "static-count",
+        "version",
+        "width",
+        "writable-map",
+        "yield"
+      ]
+    }
+  },
+  "remaining_gates": [
+    "GC5 normal type/Throwable/trace integration and managed allocator domains",
+    "GC5 source/stdlib reclamation cutover and native input identities",
+    "GC6 foreign/JNI/reentry/generated APIs/shared images",
+    "Linux arm64 and arm64e gates unchanged"
+  ],
+  "reporting_followups": {
+    "initial_module_name": "Private inspect.py helper shadowed Python inspect; renamed without product changes",
+    "json_lines": "Changed private reporting stdout to single-line JSON for the existing guarded runner",
+    "logs.sha256": {
+      "evidence-before-jsonline.log": "bc7fa1a4d1e94740c5ba64398315c1c40ea1b39621a2618ef4ad4e2fd6677426",
+      "evidence-final.log": "2ca19ab53b448c3be10e2363dd8df9070e866d502614b820754e42f8651f19c1",
+      "inspection-final.log": "0c35d0cf28fde804f937be5e6c6433976c789c65a2f0251375251d32492041d8",
+      "inspection.log": "cb842946e0aaa391b740fc52adae0a5c197c1ba93262aeb18e21cb485057503a"
+    }
+  },
+  "role": "x86host",
+  "sdk.sha256": {
+    "workspace/gc2-linux/sdk-first/build.json": "54c233e2e8042ebbd9632c01aa61d56e3ca49d9a25123e28b4e6f10e2d258f96",
+    "workspace/gc2-linux/sdk-first/lib/libgc.a": "83a3bd26b2bb8ff58ca3d4e422c928b11833bde1e984704534ae60c980cfbba3",
+    "workspace/gc2-linux/sdk-first/lib/libironwood_gc_engine.a": "96039a6f22531dfed4b7ff4e83113a9a12157a67dae97c414b146fcbb43499f1"
+  },
+  "source_export": {
+    "archive_bytes": 8256222,
+    "overlays.sha256": {
+      "compiler/src/test/java/ironwood/compiler/Gc5IntrinsicTests.java": "fa3a7615327cdee9dd7263fc920926e6776840bf53a64f7c1c042c86f1ec48b0"
+    },
+    "path": "workspace/gc5-linux-3ff18cdd-20261105/source-3ff18cdd.tar.gz",
+    "sha256": "8292a50cf49f6b7a01edd67e738cb652c79e750c878d625ffcfee5bcd109e15a",
+    "source_bytes": 39961107,
+    "unchanged_archive_files_verified": 5477,
+    "verified_files": 5478
+  },
+  "target": "linux-x86_64",
+  "tools": {
+    "functional_header.sha256": "4c3fa74acf59dae6c29ce8ccf6c600b03a0aea1ccf8def1042266b46040e32ed",
+    "host_cpp_flag": "--gcc-toolchain=/usr",
+    "java": "21.0.10-internal",
+    "libLLVM.sha256": "b4efaa390fb0d070b8415885b850ed082e642419a1b79c2426a33b67988b081a",
+    "libstdcxx.sha256": "e3549df69430b452252a93f037e7bb382ae1011ba247f39cf570e0927a3b3af0",
+    "lld": "23.1.0",
+    "llvm": "23.1.0",
+    "pass.sha256": {
+      "O0": "fbda43ca38240f14a2000cefd012776ee084de99852fc0d10c2c0608b54e6426",
+      "O1": "fbda43ca38240f14a2000cefd012776ee084de99852fc0d10c2c0608b54e6426",
+      "O2": "fbda43ca38240f14a2000cefd012776ee084de99852fc0d10c2c0608b54e6426",
+      "O3": "fbda43ca38240f14a2000cefd012776ee084de99852fc0d10c2c0608b54e6426"
+    },
+    "sysroot_glibc": "2.17"
+  }
+}
