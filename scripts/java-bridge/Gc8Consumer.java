@@ -21,13 +21,15 @@ public final class Gc8Consumer {
         // Trigger the verified generated loader before binding the observer.
         Graphs.initialize();
         if (args[1].equals("internal")) {
+            int blockSize = args.length > 2 ? Integer.parseInt(args[2]) : 500;
+            check(blockSize > 0 && blockSize <= 500, "bounded native block size");
             GraphPhases.run(4096, 2, 200);
             emit("internal-warm", 0, 0);
             for (int block = 1; block <= 3; block++) {
                 long[] before = observe();
-                long ns = GraphPhases.run(4096, 2, 500);
+                long ns = GraphPhases.run(4096, 2, blockSize);
                 long[] after = observe();
-                check(after[0] == before[0] + 500 && after[2] == before[2], "native block collections/survivors");
+                check(after[0] == before[0] + blockSize && after[2] == before[2], "native block collections/survivors");
                 check(Graphs.consume() == 4096L * 4095L / 2 - 4096L * 352L * 2, "native block checksum");
                 check(after[14] == before[14] && after[15] == before[15]
                         && after[16] == 0 && after[17] == 0, "native block resources");

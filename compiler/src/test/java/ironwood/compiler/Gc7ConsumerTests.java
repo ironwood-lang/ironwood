@@ -134,6 +134,7 @@ final class Gc7ConsumerTests {
     }
 
     static void artifacts() throws Exception {
+        Files.createDirectories(Path.of("workspace"));
         Path root = Files.createTempDirectory(Path.of("workspace"), "gc7-parity-");
         int index = 0;
         for (String body : graphs()) {

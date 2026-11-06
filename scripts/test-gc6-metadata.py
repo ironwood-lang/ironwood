@@ -65,7 +65,7 @@ def main():
                         value = ('\n'.join(changed) + '\n').encode('ascii')
                     archive.writestr(entry, value)
         classpath = ':'.join(map(str, (out, variant, jar.parent / 'ironwood-bridge-values.jar')))
-        run([java / 'bin/java', '-Xcheck:jni', '-cp', classpath, 'Gc6Compatibility',
+        run([java / 'bin/java', '--enable-native-access=ALL-UNNAMED', '-Xcheck:jni', '-cp', classpath, 'Gc6Compatibility',
              'pass' if changed is None else 'refuse', args.type], name,
             'GC6 compatible image loaded\n' if changed is None else 'GC6 incompatible image refused\n')
         with variant.open('rb') as stream:

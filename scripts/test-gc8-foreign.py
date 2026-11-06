@@ -24,11 +24,13 @@ def main():
     if not out.is_relative_to(ROOT / 'workspace'):
         parser.error('generated evidence must stay under ignored workspace/')
     manifest, _ = gc8.engine.gc.verify(sdk, llvm, gc8.engine.gc.host_target())
+    gc8.disk_floor(ROOT)
     out.mkdir(parents=True, exist_ok=False); raw = out / 'raw'; raw.mkdir()
     results = []
     env = {'JAVA_HOME': str(java), 'IRONWOOD_GC_HOME': str(sdk),
            'IRONWOOD_RUNTIME_HOME': str(ROOT), 'IRONWOOD_STDLIB_HOME': str(ROOT)}
     def run(name, command):
+        gc8.disk_floor(ROOT)
         results.append(gc8.engine.run(list(map(str, command)), raw, name, env))
         return (raw / (name + '.stdout')).read_text()
     sources = [ROOT / 'integration-tests/cases/gc8/BoundaryCounters.iron',
@@ -43,7 +45,7 @@ def main():
     images = []
     with zipfile.ZipFile(jar) as archive:
         for entry in archive.namelist():
-            if entry.endswith('.dylib'):
+            if entry.endswith(('.dylib', '/libbridge.so')):
                 target = out / Path(entry).name; target.write_bytes(archive.read(entry)); images.append(target)
     if len(images) != 1: raise AssertionError('expected one current native image')
     run('disassembly', [llvm / 'bin/llvm-objdump', '-d', '--no-show-raw-insn', images[0]])

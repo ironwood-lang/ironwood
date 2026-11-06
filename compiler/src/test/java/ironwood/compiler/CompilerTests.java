@@ -153,6 +153,8 @@ public final class CompilerTests {
         test("trace bookkeeping preserves allocation counts and managed results",
                 this::traceBookkeepingPreservesAllocationAndFreeRules);
         test(Gc7ConsumerTests.SYNTAX, Gc7ConsumerTests::removedSyntax);
+        test("GC native SDK profiles bind exact configurations and system inputs",
+                ironwood.compiler.backend.GcConfigurationTests::profiles);
         test(Gc7ConsumerTests.GRAPHS, Gc7ConsumerTests::aliasesAndOrigins);
         test(Gc7ConsumerTests.INITIALIZATION, Gc7ConsumerTests::initialization);
         test(Gc7ConsumerTests.NATIVE, Gc7ConsumerTests::nativeContracts);

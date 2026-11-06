@@ -12767,3 +12767,29 @@ occurrence order. If no
   cleanup. Preserve conservative admission refusals. Other physical hosts,
   Linux arm64/arm64e, older-OS distribution acceptance and self-hosting/I1/I2
   require separately authorized work; none starts with this decision.
+
+## D326 - Extend bounded GC7/GC8 qualification to native Linux x86-64
+
+- **Status:** Implemented and measured. See the
+  [native Linux report](GC7_GC8_LINUX_X86_64_QUALIFICATION.md), its
+  [pre-change plan](GC7_GC8_LINUX_X86_64_PLAN.md) and compact evidence.
+- **Supersession:** Extends D325's physical-host acceptance to this Linux x86-64
+  workload/host record. Its other-host/distribution/self-hosting boundaries
+  remain. No D320/D322/D324 memory contract or D051/D132/D133 rule is superseded.
+- **Decision:** Retain exact SDK configuration and system-input binding while
+  admitting a second named Linux profile for the verified native-host sysroot
+  receipt. Select only one listed configuration with its matching receipt;
+  missing, unknown, mixed, stale payload/source and unsupported targets refuse.
+  Keep the existing Linux and macOS profiles. This changes cold build discovery,
+  not runtime allocation, collection, root ABIs or hot-path lowering.
+- **Evidence:** Current GC7 semantic/artifact/native and retained GC2-GC6 checks
+  pass. GC8 native/foreign timings, actual ELF caller inspection, longer same-path
+  A/A controls, fully touched repeated graphs, exact retention/clearing and stable
+  allocator/resource counts establish the report's bounded acceptance. Timing
+  variability, partial native memory observations and baseline limits remain
+  explicit. No production optimization or safety exemption was needed.
+- **Boundary:** Preserve explicit synchronous eager collection, exact/suspended
+  roots, image isolation, explicit JNI/resource cleanup and conservative foreign
+  effects. Keep the 16 GiB RSS guard, bounded children and disk floor. Linux
+  arm64/arm64e, broader target/distribution readiness, GC9/GC10 and self-hosting
+  remain separately gated; no I1/I2 build or compiler-capacity claim is included.

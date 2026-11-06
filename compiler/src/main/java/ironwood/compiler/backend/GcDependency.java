@@ -22,7 +22,8 @@ record GcDependency(Path home, List<String> compileFlags, List<String> linkFlags
                 : os.equals("Linux") && arch.equals("amd64") ? "linux-x86_64" : "unqualified";
         Properties qualified = read(distribution.resolve("packaging/bdwgc-qualified.properties"));
         Properties build = read(home.resolve("build.properties"));
-        String identity = qualified.getProperty(platform + ".configuration.sha256");
+        var profile = qualifiedProfile(qualified, platform, build.getProperty("configuration.sha256"));
+        String identity = profile.identity();
         if (identity == null || !identity.matches("[a-f0-9]{64}")
                 || !"1".equals(build.getProperty("format")) || !platform.equals(build.getProperty("target"))
                 || !"23.1.0".equals(toolchain.version()) || !toolchain.version().equals(build.getProperty("llvm.version"))
@@ -72,8 +73,7 @@ record GcDependency(Path home, List<String> compileFlags, List<String> linkFlags
         List<String> compile = new ArrayList<>(), link = new ArrayList<>();
         if (platform.equals("macos-arm64")) {
             Path sdk = Path.of(TlsDependency.appleSdk());
-            String settings = qualified.getProperty(platform + ".sdk.settings.sha256");
-            if (!TlsDependency.sha256(sdk.resolve("SDKSettings.json")).equals(settings)) throw failure("unqualified Apple SDK");
+            if (!profile.matchesSystemInput(TlsDependency.sha256(sdk.resolve("SDKSettings.json")))) throw failure("unqualified Apple SDK");
             compile.addAll(List.of("-isysroot", sdk.toString(), "-mmacosx-version-min=14.0"));
         } else {
             Path sdk = toolchain.home().resolve("x86_64-conda-linux-gnu/sysroot");
@@ -89,8 +89,7 @@ record GcDependency(Path home, List<String> compileFlags, List<String> linkFlags
                 records = files.filter(path -> path.getFileName().toString().startsWith("sysroot_linux-64-"))
                         .filter(path -> path.toString().endsWith(".json")).toList();
             }
-            if (records.size() != 1 || !TlsDependency.sha256(records.getFirst())
-                    .equals(qualified.getProperty(platform + ".sysroot.record.sha256"))) {
+            if (records.size() != 1 || !profile.matchesSystemInput(TlsDependency.sha256(records.getFirst()))) {
                 throw failure("unqualified glibc sysroot package identity");
             }
             compile.add("--sysroot=" + sdk);
@@ -106,6 +105,26 @@ record GcDependency(Path home, List<String> compileFlags, List<String> linkFlags
         link.add(home.resolve("lib/libgc.a").toString());
         return new GcDependency(home, List.copyOf(compile), List.copyOf(link), identity,
                 new NativeTarget(build.getProperty("target.triple"), build.getProperty("target.data-layout")));
+    }
+
+    record QualifiedProfile(String identity, String systemInput) {
+        boolean matchesSystemInput(String actual) { return systemInput.equals(actual); }
+    }
+
+    static QualifiedProfile qualifiedProfile(Properties qualified, String platform, String identity) throws IOException {
+        List<String> profiles = platform.equals("linux-x86_64")
+                ? List.of(platform, platform + ".native-host")
+                : platform.equals("macos-arm64") ? List.of(platform) : List.of();
+        if (identity != null && identity.matches("[a-f0-9]{64}")) {
+            for (String prefix : profiles) {
+                if (!identity.equals(qualified.getProperty(prefix + ".configuration.sha256"))) continue;
+                String system = qualified.getProperty(prefix + (platform.equals("macos-arm64")
+                        ? ".sdk.settings.sha256" : ".sysroot.record.sha256"));
+                if (system != null && system.matches("[a-f0-9]{64}")) return new QualifiedProfile(identity, system);
+                throw failure("qualified build profile has no exact system-input identity");
+            }
+        }
+        throw failure("unqualified target or stale configuration/ABI");
     }
 
     private static Properties read(Path path) throws IOException {

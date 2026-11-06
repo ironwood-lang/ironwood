@@ -205,13 +205,17 @@ no unfiltered suite or equivalent traversal of all groups ran.
 
 Unexecuted coverage includes the full compiler/stdlib suite, exhaustive OOM and
 native fault matrices, every changed runnable consumer, all optimization levels
-for every fixture, the full JDK/benchmark matrix, fresh physical Linux-host
-qualification and release/distribution smoke beyond the focused changed paths.
+for every fixture, the full JDK/benchmark matrix and release/distribution smoke
+beyond the focused changed paths. The subsequent
+[native Linux x86-64 follow-up](GC7_GC8_LINUX_X86_64_QUALIFICATION.md) passes
+current GC7 compiler/artifact/native consumers and retained GC2-GC6 controls on
+physical hardware. It also extends the separately scoped GC8 measurements.
 Earlier GC2-GC6 qualification is historical evidence, not relabeled as a complete
 rerun. Linux arm64 and arm64e remain unqualified. Unsupported foreign lifetimes
 remain refused, and the single-caller/external-serialization contract is unchanged.
 
 GC7 leaves no pending consumer migration or managed-free proof retirement.
-GC8 may separately evaluate deterministic hot kernels and repeated resident graph
-phases under the same RSS bound. No GC8 capacity/performance acceptance, GC9/GC10
-work, self-hosting restart or I1/I2 build is included or implied.
+Its original verification does not itself accept GC8 capacity/performance.
+The subsequent [GC8 report](GC8_IMPLEMENTATION.md) and linked Linux follow-up
+record that separate qualification. GC9/GC10, self-hosting and I1/I2 remain
+outside these completed stages.

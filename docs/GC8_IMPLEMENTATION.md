@@ -9,6 +9,11 @@ and native resource counts stabilize. This is neither a zero-overhead claim nor
 a pre-GC regression percentage. GC9 target/distribution acceptance, GC10 and
 self-hosting remain separate and unstarted.
 
+The subsequent [native Linux x86-64 qualification](GC7_GC8_LINUX_X86_64_QUALIFICATION.md)
+adds current GC7/GC8 physical-host evidence, Linux observers and exact native
+SDK-profile admission. This original macOS record retains its measurements and
+input hashes; the follow-up describes its own changes and limits.
+
 Read the [experiment plan and pre-change review](GC8_EXPERIMENT_PLAN.md) and
 [compact verification manifest](gc-evaluation/gc8-verification.json). Work starts
 at GC7 `9d2edc20`, following `e8ea963d`, on the existing local migration branch.
@@ -23,8 +28,8 @@ Primary measurements use native Apple M5 arm64 hardware, ten physical/logical
 cores, 32 GiB RAM, macOS 27.0.1 build 26A434, AC power. Both translation and
 hypervisor indicators are zero. Observed system memory free percentage was 71%.
 This is a shared desktop without affinity, frequency locking or thermal isolation.
-There is no new physical Linux timing result and no translated control promoted
-to physical-host qualification.
+This original measurement set has no physical Linux timing result. The separately
+linked follow-up supplies one; no translated control becomes physical-host evidence.
 
 The Java bootstrap was rebuilt from current GC7 sources with Oracle Java
 21.0.1+12-LTS-29. Native executables require no JVM. Production bridge measurements

@@ -22,13 +22,13 @@ gc = builder.gc
 GUARD_KIB = 16 * 1024 * 1024
 
 
-def run(command, directory, name, extra_env=None, expected_exit=0):
+def run(command, directory, name, extra_env=None, expected_exit=0, executable=None):
     env = {key: value for key, value in os.environ.items() if not key.startswith('GC_')}
     env.update(extra_env or {})
     stdout, stderr = directory / (name + '.stdout'), directory / (name + '.stderr')
     peak = 0
     with stdout.open('w') as out, stderr.open('w') as err:
-        child = subprocess.Popen(command, env=env, stdout=out, stderr=err, start_new_session=True)
+        child = subprocess.Popen(command, executable=executable, env=env, stdout=out, stderr=err, start_new_session=True)
         start = time.monotonic()
         while child.poll() is None:
             # Include toolchain children of a guarded compiler driver, not only

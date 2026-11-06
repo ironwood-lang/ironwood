@@ -14,7 +14,9 @@ repository consumer migration and structural retirement: no managed-free proof
 fixed point, legacy reclamation IR or alternate bridge memory path remains.
 See its [disposition ledger](GC7_DISPOSITION.md) and compact verification.
 [GC8](GC8_IMPLEMENTATION.md) completes bounded native macOS arm64 critical-path
-and resident-memory qualification. GC9/GC10 and self-hosting remain unstarted.
+and resident-memory qualification, extended by the separate
+[physical Linux x86-64 record](GC7_GC8_LINUX_X86_64_QUALIFICATION.md) with current
+GC7 consumer checks. GC9/GC10 and self-hosting remain unstarted.
 
 The selected direction is BDWGC 8.2.12 with compiler-provided roots and exact
 layout metadata, synchronous `Memory.collect()`, removal of source `free` and
@@ -704,7 +706,9 @@ and retained conservative dispatch/return/GC/native/pool contracts. Initializati
 and actual final-field/array-slot value-flow replace exclusive ownership premises.
 Focused guarded compiler/native/JVM, artifact, IDE and generator controls pass.
 The earlier incomplete checkpoint is preserved byte-for-byte with its hashes.
-This completes GC7 only and does not start GC8 or self-hosting.
+The subsequent [native Linux x86-64 follow-up](GC7_GC8_LINUX_X86_64_QUALIFICATION.md)
+checks current GC7 migration/consumer contracts on physical hardware. GC7's
+original completion does not itself accept GC8 or self-hosting.
 
 ### GC8. Establish critical-path and memory evidence
 
@@ -746,7 +750,12 @@ control separates stable image memory/resources from JVM reporter warmup. The
 larger deadline-terminated candidate remains incomplete evidence. No production
 implementation or SDK input changed. This accepts the documented workload/host
 bounds, not a matched pre-GC regression percentage, other physical targets,
-distribution readiness or self-hosting. GC9 is the next separately scoped stage.
+distribution readiness or self-hosting. The subsequent
+[native Linux x86-64 report](GC7_GC8_LINUX_X86_64_QUALIFICATION.md) adds physical
+current-source timing, actual ELF callers, resident/reuse phases and stable
+native resource counts, with a rebuilt exact SDK profile. Its longer same-path
+A/A controls explain short-batch call/pool variation. Other targets and broader
+distribution readiness remain open. GC9 is the next separately scoped stage.
 
 ### GC9. Qualify supported targets and distribution
 

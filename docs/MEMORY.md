@@ -113,8 +113,10 @@ Raw shared IR, unknown foreign lifetimes, async callbacks and raw cross-image
 managed references remain unsupported. Linux arm64 and arm64e remain gated.
 GC7 completes repository consumer migration and obsolete managed-free proof removal.
 [GC8](GC8_IMPLEMENTATION.md) qualifies bounded critical kernels and repeated
-resident graph/reuse phases on native macOS arm64, including explicit-only
-collection and stable native resource balances. Its process memory, collector
-capacity and cached live counts have distinct scopes; RSS need not fall after
+resident graph/reuse phases on native macOS arm64 and, through a separate
+[Linux x86-64 follow-up](GC7_GC8_LINUX_X86_64_QUALIFICATION.md), physical Linux.
+They include explicit-only collection and stable native resource balances.
+Their process memory, collector capacity and cached live counts have distinct
+scopes; RSS need not fall after
 collection. Broader target/distribution acceptance remains GC9, and this does
 not establish self-hosting readiness.

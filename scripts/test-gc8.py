@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MIT OR Apache-2.0
-"""Bounded GC8 native timing and resident-graph qualification on macOS arm64."""
+"""Bounded GC8 native timing and resident graphs on qualified native targets."""
 import argparse
 import importlib.util
 import json
@@ -8,6 +8,7 @@ from pathlib import Path
 import platform
 import random
 import re
+import shutil
 import statistics
 import sys
 
@@ -56,13 +57,25 @@ def disassembly(text):
     """
     result = {}
     for name, body in re.findall(r'^[0-9a-f]+ <([^\n]+)>:\n(.*?)(?=\n\n|\Z)', text, re.M | re.S):
-        if name == '_ironwood_run' or name.startswith('_ironwood_bridge_entry_') or re.search(r'ironwood\.(gc8\.|org\.ironwood\.orderbook\.|Main\.|Cell\.|Builder\.)', name):
+        if name.lstrip('_') == 'ironwood_run' or name.lstrip('_').startswith('ironwood_bridge_entry_') or re.search(r'ironwood\.(gc8\.|org\.ironwood\.orderbook\.|Main\.|Cell\.|Builder\.)', name):
             lines = [re.sub(r'0x[0-9a-f]+ (<[^>]+>)', r'\1', line.split(':', 1)[1].strip())
                      for line in body.splitlines() if ':' in line]
             result[name] = lines
     if not result:
         raise AssertionError('missing measured callers in actual disassembly')
     return result
+
+
+def disk_floor(directory):
+    if shutil.disk_usage(directory).free < 30 * 1024**3:
+        raise RuntimeError('30 GiB free-space floor: ' + str(directory))
+
+
+def source_revision():
+    snapshot = ROOT / '.qualification-source.json'
+    if snapshot.exists():
+        return json.loads(snapshot.read_text())['base_revision']
+    return engine.gc.output(['git', 'rev-parse', 'HEAD'], cwd=ROOT)
 
 
 def build_identity(binary, sources, sdk, configuration):
@@ -84,12 +97,14 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     for name in ('sdk', 'llvm-home', 'java-home', 'output'):
         parser.add_argument('--' + name, type=Path, required=True)
-    parser.add_argument('--mode', choices=('build', 'observer', 'assembly', 'timing', 'memory', 'all'), default='all')
+    parser.add_argument('--mode', choices=('build', 'observer', 'assembly', 'timing', 'controls', 'memory', 'all'), default='all')
     parser.add_argument('--processes', type=int, default=6)
     parser.add_argument('--operations', type=int, default=4194304)
     args = parser.parse_args()
-    if (platform.system(), platform.machine()) != ('Darwin', 'arm64'):
-        parser.error('GC8 primary evidence currently requires native macOS arm64')
+    target = engine.gc.host_target()
+    if target not in ('macos-arm64', 'linux-x86_64'):
+        parser.error('GC8 primary evidence requires native macOS arm64 or Linux x86-64')
+    image_name = 'libbridge.dylib' if target == 'macos-arm64' else 'libbridge.so'
     if args.processes < 6:
         parser.error('at least six independent timing processes per label')
     oracle(args.operations)
@@ -97,6 +112,7 @@ def main():
     if not out.is_relative_to(ROOT / 'workspace'):
         parser.error('generated evidence must stay under ignored workspace/')
     manifest, _ = engine.gc.verify(sdk, llvm, engine.gc.host_target())
+    disk_floor(ROOT)
     out.mkdir(parents=True, exist_ok=True)
     report_path = out / ('results-' + args.mode + '.json')
     if report_path.exists():
@@ -105,16 +121,22 @@ def main():
     env = {'JAVA_HOME': str(java), 'IRONWOOD_GC_HOME': str(sdk),
            'IRONWOOD_RUNTIME_HOME': str(ROOT), 'IRONWOOD_STDLIB_HOME': str(ROOT)}
     results = []
-    report = {'format': 1, 'entry_revision': engine.gc.output(['git', 'rev-parse', 'HEAD']),
-              'host_role': 'machost', 'target': 'macos-arm64', 'guard_kib': engine.GUARD_KIB,
+    report = {'format': 1, 'entry_revision': source_revision(),
+              'host_role': 'machost' if target == 'macos-arm64' else 'x86host', 'target': target, 'guard_kib': engine.GUARD_KIB,
               'timeout_seconds': 60, 'nominal_sample_interval_ms': 50, 'sdk_configuration': manifest['gc.config.sha256'],
               'sdk_manifest_sha256': engine.gc.digest(sdk / 'build.json'), 'results': results}
-    def run(command, name, extra=None):
+    if (ROOT / '.qualification-source.json').exists():
+        report['source_snapshot_sha256'] = engine.gc.digest(ROOT / '.qualification-source.json')
+    def run(command, name, extra=None, executable=None):
+        disk_floor(ROOT)
         if (raw / (name + '.stdout')).exists():
             raise ValueError('refusing duplicate child name: ' + name)
         argv = list(map(str, command))
-        result = engine.run(argv, raw, name, {**env, **(extra or {})})
+        result = engine.run(argv, raw, name, {**env, **(extra or {})},
+                            executable=None if executable is None else str(executable))
         result['command'] = [v.replace(str(ROOT) + '/', '').replace(str(Path.home()), '/Users/developer') for v in argv]
+        if executable is not None:
+            result['executable'] = str(Path(executable).relative_to(ROOT))
         results.append(result)
         report_path.write_text(json.dumps(report, indent=2) + '\n')
         return (raw / (name + '.stdout')).read_text()
@@ -155,12 +177,12 @@ def main():
         sources = [*[ROOT / 'integration-tests/cases/gc8' / (name + '.iron') for name in ('Graphs', 'Gc8Kernels', 'GraphPhases')],
                    ROOT / 'integration-tests/native/gc8_observer.c', *[ROOT / 'compiler/src/test/java/ironwood/compiler' / (name + '.java')
                    for name in ('Gc8Qualification', 'ManagedBridgeTestBuild', 'GcTestProcesses')]]
-        (out / 'graphs/identity.json').write_text(json.dumps(build_identity(out / 'graphs/libbridge.dylib', sources, sdk,
+        (out / 'graphs/identity.json').write_text(json.dumps(build_identity(out / 'graphs' / image_name, sources, sdk,
                     manifest['gc.config.sha256']), indent=2) + '\n')
     if args.mode in ('assembly', 'build', 'all'):
         assembly = {}
         for name in ('kernels', 'orderbook', 'call-deferred-bin', 'call-nested-bin', 'pool-deferred-bin', 'pool-nested-bin', 'graphs'):
-            folder = out / name; binary = folder / ('libbridge.dylib' if name == 'graphs' else 'program')
+            folder = out / name; binary = folder / (image_name if name == 'graphs' else 'program')
             data = run([llvm / 'bin/llvm-objdump', '-d', '--no-show-raw-insn', binary], 'asm-' + name)
             normalized = disassembly(data)
             path = folder / 'actual-assembly.json'; path.write_text(json.dumps(normalized, indent=2) + '\n')
@@ -177,9 +199,10 @@ def main():
             for label in labels if repeat % 2 == 0 else reversed(labels):
                 name = 'time-' + label + '-' + str(repeat)
                 if label in labels[:5]:
-                    mode = 'rare' if label == 'rare' else 'index' if label == 'index' else 'reference'
-                    values = list(map(int, run([out / 'kernels/program', args.operations, mode,
-                                               'spaced' if label == 'spaced' else 'compact'], name).splitlines()))
+                    mode = 'rare' if label == 'rare' else 'index' if label == 'index' else 'base'
+                    values = list(map(int, run(['gc8-native', args.operations, mode,
+                                               'spaced' if label == 'spaced' else 'compact'], name,
+                                               executable=out / 'kernels/program').splitlines()))
                     batches = values[1:22:3]; checks = values[2:22:3]; counts = values[3:22:3]
                     assert len(values) == 25 and checks == [oracle(args.operations)] * 7 and values[-1] == checks[0]
                     assert counts == [args.operations // 4096 if mode == 'rare' else 0] * 7
@@ -187,13 +210,14 @@ def main():
                     cold.setdefault(label, []).append(values[0]); reuse.setdefault(label, []).append(values[-2] / operations)
                     allocation[label] = counts[0]
                 elif label.startswith(('call-', 'pool-')):
-                    values = list(map(int, run([out / (label + '-bin/program'), 32000000, 0], name).splitlines()))
+                    binary = out / (label + '-bin/program')
+                    values = list(map(int, run(['gc8-native', 32000000, 0], name, executable=binary).splitlines()))
                     assert values[5:9] == [0, 0, 0, 0]
-                    small = list(map(int, run([out / (label + '-bin/program'), 8, 0], name + '-oracle').splitlines()))
+                    small = list(map(int, run(['gc8-native', 8, 0], name + '-oracle', executable=binary).splitlines()))
                     assert dict(zip(defer.FIELDS[:-1], small[:-1], strict=True)) == defer.oracle(label.split('-')[0], 8, 0)
                     operations = 32000000; batches = [values[-1]]; allocation[label] = 0
                 else:
-                    values = list(map(int, run([out / 'orderbook/program'], name).splitlines()))
+                    values = list(map(int, run(['gc8-native'], name, executable=out / 'orderbook/program').splitlines()))
                     assert len(values) == 10
                     operations = 32000000; batches = values[1:8]
                     cold.setdefault(label, []).append(values[0]); reuse.setdefault(label, []).append(values[-1] / operations)
@@ -201,8 +225,36 @@ def main():
                 samples.setdefault(label, []).append(statistics.median(batches) / operations)
         report['timing'] = {k: summary(v) for k, v in samples.items()}
         report['cold_setup_ns'] = cold; report['reuse_ns_per_operation'] = reuse; report['allocations_per_batch'] = allocation
+    if args.mode == 'controls':
+        # Longer same-path A/A controls diagnose startup/layout and host noise.
+        count = 268435456
+        controls = {}
+        for case in ('call', 'pool'):
+            folder = out / 'controls' / case; folder.mkdir(parents=True, exist_ok=False)
+            sources = {variant: out / (case + '-' + variant + '-bin/program')
+                       for variant in ('deferred', 'nested')}
+            sources['identical'] = sources['deferred']
+            for binary in sources.values():
+                verify_identity(binary, sdk, manifest['gc.config.sha256'])
+            samples = {label: [] for label in sources}; expected = None
+            for repeat in range(args.processes):
+                for label in sources if repeat % 2 == 0 else reversed(sources):
+                    binary = folder / 'program'; shutil.copyfile(sources[label], binary); binary.chmod(0o755)
+                    name = 'control-' + case + '-' + label + '-' + str(repeat)
+                    small = list(map(int, run(['gc8-native', 8, 0], name + '-oracle', executable=binary).splitlines()))
+                    assert dict(zip(defer.FIELDS[:-1], small[:-1], strict=True)) == defer.oracle(case, 8, 0)
+                    values = list(map(int, run(['gc8-native', count, 0], name, executable=binary).splitlines()))
+                    events = count if case == 'call' else 0
+                    assert values[1:9] == [events, events, count, 0, 0, 0, 0, 0]
+                    if expected is None: expected = values[:-1]
+                    assert values[:-1] == expected
+                    samples[label].append(values[-1] / count)
+            controls[case] = {'operations': count, 'results': dict(zip(defer.FIELDS[:-1], expected, strict=True)),
+                              'binary_sha256': {k: engine.gc.digest(v) for k, v in sources.items()},
+                              'timing': {k: summary(v) for k, v in samples.items()}}
+        report['defer_controls'] = controls
     if args.mode in ('memory', 'all'):
-        image = out / 'graphs/libbridge.dylib'
+        image = out / 'graphs' / image_name
         verify_identity(image, sdk, manifest['gc.config.sha256'])
         launch = [java / 'bin/java', '-Xcheck:jni', '-Xms32m', '-Xmx128m', '-cp',
                   str(out / 'consumer') + ':' + str(out / 'graphs/permanent.jar'), 'Gc8Consumer', image]
@@ -210,7 +262,7 @@ def main():
         for nodes, scale in ((4096, 2), (16384, 8)):
             for repeat in range(3):
                 run([*launch, nodes, scale], 'resident-' + str(nodes) + '-' + str(repeat))
-        run([*launch, 'internal'], 'resident-internal')
+        run([*launch, 'internal', *(['100'] if target == 'linux-x86_64' else [])], 'resident-internal')
     report['compiler_sha256'] = engine.gc.digest(ROOT / 'compiler/build/ironwoodc.jar')
     report['inputs_sha256'] = {str(p.relative_to(ROOT)): engine.gc.digest(p) for p in [Path(__file__).resolve(),
         ROOT / 'integration-tests/cases/gc8/Gc8Kernels.iron', ROOT / 'integration-tests/cases/gc8/Graphs.iron',

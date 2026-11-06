@@ -123,7 +123,11 @@ See [GC6](GC6_IMPLEMENTATION.md), [GC7](GC7_IMPLEMENTATION.md), and
 [the bridge guide](JAVA_BRIDGE.md).
 The separate [GC8 report](GC8_IMPLEMENTATION.md) records actual O3 callers,
 critical/JNI/callback timing, collection-boundary work and repeated resident
-graphs on native macOS arm64. It does not extend target or distribution gates.
+graphs on native macOS arm64. The separate
+[Linux x86-64 record](GC7_GC8_LINUX_X86_64_QUALIFICATION.md) adds current physical
+GC7/GC8 checks and an exact named configuration/sysroot-receipt profile alongside
+the earlier accepted profile. Unknown or mixed pairs still refuse. These records
+do not extend target or distribution gates.
 
 ## IronDocs source documentation
 

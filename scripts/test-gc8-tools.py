@@ -40,6 +40,39 @@ class MeasurementTests(unittest.TestCase):
                         original.replace('_helper', '_iw_gc_poll')):
             self.assertNotEqual(gc8.disassembly(original), gc8.disassembly(changed))
 
+    def test_elf_callers_are_included(self):
+        source = '00001000 <ironwood_run>:\n1000: movq $0x20, %rax\n1004: callq 0x2000 <helper>\n\n'
+        result = gc8.disassembly(source)
+        self.assertIn('ironwood_run', result)
+        self.assertNotEqual(result, gc8.disassembly(source.replace('$0x20', '$0x21')))
+        bridge = '00001000 <ironwood_bridge_entry_7>:\n1000: retq\n\n'
+        self.assertIn('ironwood_bridge_entry_7', gc8.disassembly(bridge))
+
+    def test_disk_floor_accepts_and_refuses(self):
+        for available, refused in ((29 * 1024**3, True), (30 * 1024**3, False)):
+            with patch.object(gc8.shutil, 'disk_usage') as usage:
+                usage.return_value.free = available
+                if refused:
+                    with self.assertRaises(RuntimeError): gc8.disk_floor(Path('.'))
+                else: gc8.disk_floor(Path('.'))
+
+    def test_staged_source_identity(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory).resolve()
+            (root / '.qualification-source.json').write_text(json.dumps({'base_revision': 'snapshot-revision'}))
+            with patch.object(gc8, 'ROOT', root):
+                self.assertEqual(gc8.source_revision(), 'snapshot-revision')
+
+    def test_fixed_argv_keeps_guarded_executable(self):
+        with tempfile.TemporaryDirectory() as directory:
+            with patch.object(gc8.engine.subprocess, 'Popen') as launch:
+                launch.return_value.poll.return_value = 0
+                launch.return_value.returncode = 0
+                gc8.engine.run(['fixed-argv', '8'], Path(directory), 'probe', executable='/chosen/program')
+                self.assertEqual(launch.call_args.args[0], ['fixed-argv', '8'])
+                self.assertEqual(launch.call_args.kwargs['executable'], '/chosen/program')
+                self.assertTrue(launch.call_args.kwargs['start_new_session'])
+
     def test_stale_input_refusal(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory).resolve()

@@ -43,6 +43,9 @@ public final class Gc8Qualification {
                 .replace("(*env)->DeleteGlobalRef(env,", "gc8_global_delete(env,")
                 .replace("(*frame->env)->DeleteGlobalRef(frame->env,", "gc8_global_delete(frame->env,");
         source = """
+                #if defined(__linux__) && !defined(_POSIX_C_SOURCE)
+                #define _POSIX_C_SOURCE 200809L
+                #endif
                 #include <jni.h>
                 static jlong gc8_globals;
                 static jobject gc8_global_new(JNIEnv *env, jobject value) {

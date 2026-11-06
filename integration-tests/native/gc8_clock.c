@@ -1,4 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
+#if defined(__linux__) && !defined(_POSIX_C_SOURCE)
+#define _POSIX_C_SOURCE 200809L
+#endif
 #include <inttypes.h>
 #include <stdint.h>
 #include <stdio.h>
