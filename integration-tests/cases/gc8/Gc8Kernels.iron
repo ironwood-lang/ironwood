@@ -1,0 +1,109 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Deterministic reference rewrite and one allocation per 4096 operations.
+// All reporting, reset, warmup and explicit collection are outside timed batches.
+package gc8;
+
+import ironwood.lang.Memory;
+
+class Gc8Node {
+
+    Gc8Node next;
+
+    long value;
+
+    int index;
+
+    Gc8Node(int index) {
+
+        this.index = index;
+        this.value = index;
+    }
+}
+
+public final class Gc8Kernels {
+
+    static Gc8Node[] nodes;
+
+    static Gc8Node[] padding;
+
+    static long sink;
+
+    public static void setup(boolean spaced) {
+
+        nodes = new Gc8Node[4096];
+        padding = new Gc8Node[4096];
+        for (int i = 0; i < 4096; i++) {
+            nodes[i] = new Gc8Node(i);
+            if (spaced) padding[i] = new Gc8Node(-i);
+        }
+    }
+
+    public static void reset() {
+
+        for (int i = 0; i < 4096; i++) nodes[i].value = i;
+    }
+
+    public static long rewrite(int count, boolean rare, boolean indexed) {
+
+        long sum = 0;
+        for (int i = 0; i < count; i++) {
+            int index = (i * 17) & 4095;
+            if (rare && (i & 4095) == 0) nodes[0] = new Gc8Node(0);
+            Gc8Node item = nodes[index];
+            item.value += i & 7;
+            if (indexed) {
+                item.index = (index + 1) & 4095;
+                sum += item.value + nodes[item.index].value;
+            } else {
+                item.next = nodes[(index + 1) & 4095];
+                sum += item.value + item.next.value;
+            }
+        }
+        return sum;
+    }
+
+    static int runNative(String[] args) {
+
+        int count = Integer.parseInt(args[0]);
+        boolean rare = args[1].equals("rare");
+        boolean indexed = args[1].equals("index");
+        long start = System.nanoTime();
+        setup(args[2].equals("spaced"));
+        System.out.println(System.nanoTime() - start);
+        sink = rewrite(1048576, rare, indexed);
+        Memory.collect();
+        for (int trial = 0; trial < 7; trial++) {
+            reset();
+            long before = System.allocationCount();
+            long live = System.liveAllocationCount();
+            start = System.nanoTime();
+            sink = rewrite(count, rare, indexed);
+            long elapsed = System.nanoTime() - start;
+            long delta = System.allocationCount() - before;
+            if (delta != (rare ? (count + 4095L) / 4096L : 0L)) return 2;
+            if (System.liveAllocationCount() - live != delta) return 3;
+            System.out.println(elapsed);
+            System.out.println(sink);
+            System.out.println(delta);
+        }
+        start = System.nanoTime();
+        Memory.collect();
+        System.out.println(System.nanoTime() - start);
+        reset();
+        long before = System.allocationCount();
+        start = System.nanoTime();
+        sink = rewrite(count, rare, indexed);
+        System.out.println(System.nanoTime() - start);
+        System.out.println(sink);
+        if (System.allocationCount() - before != (rare ? (count + 4095L) / 4096L : 0L)) return 4;
+        return 0;
+    }
+}
+
+class Gc8KernelMain {
+
+    public static int main(String[] args) {
+
+        return Gc8Kernels.runNative(args);
+    }
+}

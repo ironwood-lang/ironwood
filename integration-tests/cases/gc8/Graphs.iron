@@ -1,0 +1,203 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+package gc8;
+
+import ironwood.lang.Memory;
+import ironwood.io.FileInputStream;
+import ironwood.io.IOException;
+
+// Bounded compiler-shaped resident graphs. Every payload byte is written/read.
+// Current and obsolete snapshots are separate roots; cold clearing drops actual
+// physical worklist/pool slots before explicit synchronous collection.
+public final class Graphs {
+
+    static final class Node {
+
+        Node left;
+
+        Node right;
+
+        Node type;
+
+        Node symbol;
+
+        byte[] payload;
+
+        int id;
+
+        Node(int id, int bytes) {
+
+            this.id = id;
+            this.payload = new byte[bytes];
+            for (int i = 0; i < bytes; i++) this.payload[i] = (byte) (id + i);
+        }
+    }
+
+    static final class Scratch {
+
+        Node saved;
+    }
+
+    static final class SymbolTable {
+
+        final String[] keys = {"root", "symbol"};
+
+        final Node[] values = new Node[2];
+    }
+
+    static Node[] current;
+
+    static Node[] obsolete;
+
+    static SymbolTable symbols;
+
+    static Node[] work;
+
+    static Scratch[] pool;
+
+    static long expected;
+
+    static long cleanupCount;
+
+    public Graphs() {
+
+    }
+
+    public static void initialize() {
+
+        symbols = new SymbolTable();
+        pool = new Scratch[1];
+        pool[0] = new Scratch();
+    }
+
+    public static void build(int count, int scale, boolean retain) {
+
+        if (retain) obsolete = current;
+        if (work == null || work.length != count) work = new Node[count];
+        Node[] next = new Node[count];
+        for (int i = 0; i < count; i++) next[i] = new Node(i, scale * (256 + (i & 7) * 128));
+        for (int i = 0; i < count; i++) {
+            Node item = next[i];
+            if (2 * i + 1 < count) item.left = next[2 * i + 1];
+            if (2 * i + 2 < count) item.right = next[2 * i + 2];
+            item.type = next[(i + 1) % count];
+            item.symbol = next[i & 15];
+            work[i] = item;
+        }
+        symbols.values[0] = next[0];
+        symbols.values[1] = next[15];
+        Scratch scratch = pool[0];
+        scratch.saved = next[count - 1];
+        current = next;
+        expected = consume();
+    }
+
+    public static long consume() {
+
+        long sum = 0;
+        for (int i = 0; i < current.length; i++) {
+            Node item = current[i];
+            if (item.type != current[(i + 1) % current.length] || item.symbol != current[i & 15]) throw new IllegalStateException("graph links");
+            for (int j = 0; j < item.payload.length; j++) sum += item.payload[j];
+            sum += item.id;
+        }
+        return sum;
+    }
+
+    public static void clearScratch(boolean clearObsolete) {
+
+        if (work != null) {
+            for (int i = 0; i < work.length; i++) work[i] = null;
+        }
+        Scratch scratch = pool[0];
+        scratch.saved = null;
+        if (clearObsolete) obsolete = null;
+    }
+
+    public static void drop() {
+
+        current = null;
+        obsolete = null;
+        symbols.values[0] = null;
+        symbols.values[1] = null;
+        clearScratch(true);
+    }
+
+    public static long collect() {
+
+        long start = System.nanoTime();
+        Memory.collect();
+        return System.nanoTime() - start;
+    }
+
+    public static long total() {
+
+        return System.allocationCount();
+    }
+
+    public static long live() {
+
+        return System.liveAllocationCount();
+    }
+
+    public static Graphs anchor() {
+
+        return new Graphs();
+    }
+
+    static void cleanup() {
+
+        cleanupCount++;
+    }
+
+    public static void exceptional() {
+
+        try {
+            defer cleanup();
+            throw new IllegalStateException("phase");
+        } catch (IllegalStateException expected) {
+            expected.fillInStackTrace();
+            if (!expected.getMessage().equals("phase")) throw new IllegalStateException("exception message");
+        } finally {
+            cleanupCount++;
+        }
+    }
+
+    public static boolean resource() {
+
+        try {
+            FileInputStream stream = new FileInputStream("VERSION");
+            defer stream.close();
+            return stream.read() >= 0;
+        } catch (IOException failed) {
+            return false;
+        }
+    }
+
+    static int runNative(String[] args) throws IOException {
+
+        initialize();
+        collect();
+        long baseline = live();
+        for (int round = 0; round < 8; round++) {
+            build(512, 1, round == 1);
+            clearScratch(round > 1);
+            exceptional();
+            if (!resource()) return 4;
+            collect();
+            if (consume() != expected) return 2;
+        }
+        drop();
+        collect();
+        // Worklist/map/pool capacity is deliberately retained for reuse.
+        if (live() > baseline + 32 || cleanupCount != 16) return 3;
+        return 0;
+    }
+}
+
+class Gc8GraphMain {
+
+    public static int main(String[] args) throws IOException {
+
+        return Graphs.runNative(args);
+    }
+}

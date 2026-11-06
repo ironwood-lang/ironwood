@@ -13,7 +13,8 @@ Linux arm64 and arm64e remain gated. [GC7](GC7_IMPLEMENTATION.md) completes
 repository consumer migration and structural retirement: no managed-free proof
 fixed point, legacy reclamation IR or alternate bridge memory path remains.
 See its [disposition ledger](GC7_DISPOSITION.md) and compact verification.
-GC8-GC10 and self-hosting remain unstarted by this work.
+[GC8](GC8_IMPLEMENTATION.md) completes bounded native macOS arm64 critical-path
+and resident-memory qualification. GC9/GC10 and self-hosting remain unstarted.
 
 The selected direction is BDWGC 8.2.12 with compiler-provided roots and exact
 layout metadata, synchronous `Memory.collect()`, removal of source `free` and
@@ -733,6 +734,20 @@ test. Collection cannot fix caches that intentionally keep obsolete facts alive.
 stabilizes across phases. Native resource counts also stabilize. The report
 states workload/host limits and does not claim self-hosting success.
 
+**Completed, 2026-11-06:** [Experiment plan](GC8_EXPERIMENT_PLAN.md),
+[performance/memory report](GC8_IMPLEMENTATION.md) and
+[compact evidence](gc-evaluation/gc8-verification.json) qualify current native
+Ironwood reference/rare-allocation kernels, ordinary calls/defer, pooled reuse,
+OrderBook, production critical/JNI calls, retained callbacks and collecting
+reentry. Actual O3 callers have no unexplained GC administration. Three processes
+per resident size verify intentional retention/clearing, touched payloads, exact
+survivors, explicit-only collection and capacity reuse. A 1,700-phase native
+control separates stable image memory/resources from JVM reporter warmup. The
+larger deadline-terminated candidate remains incomplete evidence. No production
+implementation or SDK input changed. This accepts the documented workload/host
+bounds, not a matched pre-GC regression percentage, other physical targets,
+distribution readiness or self-hosting. GC9 is the next separately scoped stage.
+
 ### GC9. Qualify supported targets and distribution
 
 Complete focused native tests on macOS arm64, Linux arm64 and Linux x86-64 with
@@ -831,10 +846,10 @@ checkpoints clearly. Record a concrete remaining gate at each stopping point.
 No branch creation beyond the maintainer's request, pushing, hosted jobs or
 automatic self-hosting restart is part of this document's implementation plan.
 
-GC0-GC7 are complete within their documented boundaries. Preserve exact native
+GC0-GC8 are complete within their documented boundaries. Preserve exact native
 and suspended roots, runtime owners, independent handle/registration lifetimes,
 explicit resource closure, isolated images and configuration/payload/pass
 verification. Raw shared IR and unsupported foreign lifetimes refuse. Carry
-forward Linux arm64 and arm64e gates. The bounded GC8 handoff is performance and
-resident-memory evidence under its own plan, without changing the memory model.
-GC8-GC10 and self-hosting have not started through GC7.
+forward Linux arm64 and arm64e gates. The bounded GC9 handoff is broader native
+target and distribution qualification. GC8 changes no memory-model contract and
+makes no self-hosting capacity claim. GC9/GC10 and self-hosting remain unstarted.

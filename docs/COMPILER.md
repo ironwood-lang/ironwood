@@ -121,6 +121,9 @@ macOS arm64 and Linux x86-64 remain the supported gates. Linux arm64, arm64e,
 unsupported asynchronous lifetimes and automatic collection remain excluded.
 See [GC6](GC6_IMPLEMENTATION.md), [GC7](GC7_IMPLEMENTATION.md), and
 [the bridge guide](JAVA_BRIDGE.md).
+The separate [GC8 report](GC8_IMPLEMENTATION.md) records actual O3 callers,
+critical/JNI/callback timing, collection-boundary work and repeated resident
+graphs on native macOS arm64. It does not extend target or distribution gates.
 
 ## IronDocs source documentation
 

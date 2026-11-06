@@ -1,0 +1,40 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+package org.ironwood.orderbook;
+
+import ironwood.lang.Memory;
+
+// Calls the maintained eight-operation cycle without duplicating its workload.
+// Cold setup, warmup, collection and validation are outside each timed batch.
+public final class OrderBookQualification {
+
+    public static int main(String[] args) {
+
+        long start = System.nanoTime();
+        OrderBook book = new OrderBook(8, 4);
+        System.out.println(System.nanoTime() - start);
+        long cycles = 4000000L;
+        long id = Bench.run(book, 500000L, 1L);
+        long total = 500000L;
+        Memory.collect();
+        for (int trial = 0; trial < 7; trial++) {
+            long before = System.allocationCount();
+            long live = System.liveAllocationCount();
+            start = System.nanoTime();
+            id = Bench.run(book, cycles, id);
+            long elapsed = System.nanoTime() - start;
+            total += cycles;
+            Bench.verify(book, id, total);
+            if (System.allocationCount() != before || System.liveAllocationCount() != live) return 2;
+            System.out.println(elapsed);
+        }
+        start = System.nanoTime();
+        Memory.collect();
+        System.out.println(System.nanoTime() - start);
+        long before = System.allocationCount();
+        start = System.nanoTime();
+        id = Bench.run(book, cycles, id);
+        System.out.println(System.nanoTime() - start);
+        Bench.verify(book, id, total + cycles);
+        return System.allocationCount() == before ? 0 : 3;
+    }
+}

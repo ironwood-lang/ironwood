@@ -1,0 +1,35 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+package gc8;
+
+// Qualification-only phase observations. Ordinary scalar/callback operations
+// do not call these methods; explicit collection requests alone increment calls.
+public final class BoundaryCounters {
+
+    static long calls;
+
+    public static long scalar(long seed) {
+
+        return seed * 2862933555777941757L + 3037000493L;
+    }
+
+    public static long total() {
+
+        return System.allocationCount();
+    }
+
+    public static long live() {
+
+        return System.liveAllocationCount();
+    }
+
+    public static long collections() {
+
+        return calls;
+    }
+
+    public static void collect() {
+
+        ironwood.lang.Memory.collect();
+        calls++;
+    }
+}

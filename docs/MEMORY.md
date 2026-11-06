@@ -111,6 +111,10 @@ Every independent native image owns its collector and roots. Schema 2 binds
 required protocol versions and actual SDK/payload hashes before user execution.
 Raw shared IR, unknown foreign lifetimes, async callbacks and raw cross-image
 managed references remain unsupported. Linux arm64 and arm64e remain gated.
-GC7 completes repository consumer migration and obsolete managed-free proof removal;
-GC8 owns whole-project performance and resident-memory acceptance. GC5 does not
-claim completion of the complete GC project or self-hosting readiness.
+GC7 completes repository consumer migration and obsolete managed-free proof removal.
+[GC8](GC8_IMPLEMENTATION.md) qualifies bounded critical kernels and repeated
+resident graph/reuse phases on native macOS arm64, including explicit-only
+collection and stable native resource balances. Its process memory, collector
+capacity and cached live counts have distinct scopes; RSS need not fall after
+collection. Broader target/distribution acceptance remains GC9, and this does
+not establish self-hosting readiness.

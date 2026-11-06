@@ -71,7 +71,8 @@ implementation or transpiler:
   [implementation and disposition ledger](docs/GC7_IMPLEMENTATION.md). Do not
   restore managed-free proofs, private rendering-release helpers or heap-only
   callback-retention restrictions. Final-field/slot origins do not grant exclusive
-  ownership or nonretaining effects. GC8-GC10 and self-hosting require separate work.
+  ownership or nonretaining effects. See [GC8 qualification](docs/GC8_IMPLEMENTATION.md);
+  GC9/GC10 and self-hosting require separate work.
 - Keep the mandatory runtime small; unreachable standard-library code is removed
   from the closed-world program, allowing a broad library.
 - Use UTF-8 `.iron` source, a Java 21 bootstrap compiler, and the pinned LLVM 23

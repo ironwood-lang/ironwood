@@ -12740,3 +12740,30 @@ occurrence order. If no
 - **Boundary:** Focused guarded checks establish GC7, not GC8 capacity/performance
   acceptance, GC9 distribution acceptance or self-hosting readiness. Linux
   arm64, arm64e and unsupported asynchronous/foreign lifetimes remain gated.
+
+## D325 - Accept bounded GC8 execution and resident-memory qualification
+
+- **Status:** Qualified on native macOS arm64 within the workloads and limits in
+  [GC8](GC8_IMPLEMENTATION.md), its [plan](GC8_EXPERIMENT_PLAN.md) and compact
+  evidence. GC9 target/distribution acceptance and GC10 remain separate.
+- **Supersession:** None. D320/D322/D324 define the implemented memory model;
+  D051 and D132/D133 remain mandatory. This is measurement acceptance, not a
+  language, allocator, root ABI or automatic-collection change.
+- **Decision:** Accept actual compiled reference/rare-allocation, call/defer,
+  pool and OrderBook kernels with explained O3 paths. Report matched current
+  controls separately from historical manual-heap/C/LLVM evidence. Do not infer
+  individual-operation tails from batches or a migration percentage without a
+  reproducible matched baseline. Foreign critical/JNI, batched callbacks and
+  explicitly collecting reentry have separate timing and boundary-work records.
+- **Memory:** Accept fully touched replacement graphs with defined current and
+  obsolete roots, exact clearing/reclamation, reused collector capacity and
+  stable native resources. Distinguish cached live counts, heap/free blocks,
+  native malloc observations, process RSS/peak and charged physical footprint.
+  A native-only block control separates image stabilization from JVM reporting
+  warmup. A deadline-terminated experiment is incomplete, not capacity evidence.
+- **Boundary:** No compiler/runtime optimization, new memory model or safety
+  exemption was required. Keep the 16 GiB group RSS guard and 60-second children,
+  pinned SDK/collector identities, exact/suspended roots and explicit JNI/resource
+  cleanup. Preserve conservative admission refusals. Other physical hosts,
+  Linux arm64/arm64e, older-OS distribution acceptance and self-hosting/I1/I2
+  require separately authorized work; none starts with this decision.

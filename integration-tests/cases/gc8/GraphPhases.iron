@@ -1,0 +1,23 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+package gc8;
+
+// Run whole replacement phases inside native code. Observing only between
+// blocks separates image memory from per-phase JNI/Java reporting allocations.
+public final class GraphPhases {
+
+    public static long run(int count, int scale, int rounds) {
+
+        long sum = 0;
+        for (int round = 0; round < rounds; round++) {
+            Graphs.build(count, scale, round == 1);
+            Graphs.clearScratch(round >= 3);
+            for (int i = 0; i < 32; i++) {
+                Graphs.exceptional();
+                if (!Graphs.resource()) throw new IllegalStateException("resource");
+            }
+            sum += Graphs.collect();
+            if (Graphs.consume() != Graphs.expected) throw new IllegalStateException("payload");
+        }
+        return sum;
+    }
+}
