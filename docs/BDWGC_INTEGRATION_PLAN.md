@@ -2,7 +2,7 @@
 
 # Explicit GC integration and memory-model migration
 
-Updated 2026-11-05: GC0 through GC4 are complete for their prerequisite
+Updated 2026-11-06: GC0 through GC4 are complete for their prerequisite
 closures, and **GC5's integrated normal compiler/runtime/required-library
 checkpoint is complete** on macOS arm64 and Linux x86-64. Normal native programs
 use one exact managed model with explicit synchronous Memory.collect(). See
@@ -10,6 +10,9 @@ use one exact managed model with explicit synchronous Memory.collect(). See
 managed bridges on those two targets with exact foreign/suspended roots, generated
 handle/registration lifetimes, explicit JNI cleanup and private collector images.
 Linux arm64 and arm64e remain gated. GC7-GC10 and self-hosting are not complete.
+The [GC7 checkpoint](GC7_IMPLEMENTATION.md) removes the outer managed-free proof
+loop and migrates IDE/test-harness consumers. Its structural retirement and
+repository-wide migration exit criteria remain unmet.
 
 The selected direction is BDWGC 8.2.12 with compiler-provided roots and exact
 layout metadata, synchronous `Memory.collect()`, removal of source `free` and
@@ -688,6 +691,13 @@ destruction/deallocation paths and unexpected libc frees of managed storage.
 **Exit:** there is one implemented memory model with no reachable legacy heap
 reclamation path and no retained whole-program free-proof fixed point.
 
+**Incomplete checkpoint, 2026-11-06:** [Implementation](GC7_IMPLEMENTATION.md)
+and [disposition ledger](GC7_DISPOSITION.md) record removed outer proof
+computation, principal function-level cleanup proofs, test-harness and IDE
+migration, and focused verification. Remaining shared field/return consumers,
+legacy AST/IR/bridge structures and broad executable/test migration keep GC7
+open. This checkpoint does not authorize GC8 or self-hosting.
+
 ### GC8. Establish critical-path and memory evidence
 
 Run the deterministic pooled-rewrite and rare-allocation comparisons plus
@@ -814,10 +824,10 @@ checkpoints clearly. Record a concrete remaining gate at each stopping point.
 No branch creation beyond the maintainer's request, pushing, hosted jobs or
 automatic self-hosting restart is part of this document's implementation plan.
 
-GC0-GC6 are complete within their documented boundaries. GC7 is the next
-separately authorized milestone. Preserve exact native and suspended roots,
+GC0-GC6 are complete within their documented boundaries. GC7 has an incomplete
+local checkpoint and remains the active migration boundary. Preserve exact native and suspended roots,
 runtime owners, handle/registration contracts, isolated images and configuration/
 payload/pass verification. Raw shared IR and unsupported foreign lifetimes refuse. Carry forward Linux arm64 and arm64e gates. GC7 owns
-remaining repository consumers and broad dead-proof removal; do not begin it as
-incidental cleanup. Subsequent work must retain prerequisite commits, compact
+remaining repository consumers and broad structural/proof retirement. Subsequent
+work must retain prerequisite commits, compact
 evidence and remaining gates. No self-hosting restart is implied.

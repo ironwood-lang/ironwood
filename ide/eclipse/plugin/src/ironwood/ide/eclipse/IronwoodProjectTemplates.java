@@ -9,9 +9,8 @@ import java.util.Locale;
  *
  * <p>The sample is a working program and a working test suite rather than a
  * stub, because the point of a new project is to have something that builds and
- * runs before anything is edited. The reclamation shown here is the part a
- * newcomer most needs to see, so the sample frees what it allocates and checks
- * that it did.
+ * runs before anything is edited. Managed values may be shared; reclamation
+ * occurs only at an explicit collection boundary.
  */
 public final class IronwoodProjectTemplates {
 
@@ -80,14 +79,10 @@ public final class IronwoodProjectTemplates {
                 package %1$s;
 
                 // Greets the name given as the first argument, or "world" when there is
-                // none. Every allocation is reclaimed before returning, and the live
-                // allocation count is checked against the count taken on entry, so a leak
-                // fails the run with status 2 instead of passing quietly.
+                // none. Managed results remain valid while reachable.
                 public class %2$s {
 
                     public static int main(String[] args) {
-
-                        long baseline = System.liveAllocationCount();
 
                         String name = args.length > 0 ? args[0] : "world";
                         StringBuilder builder = new StringBuilder();
@@ -95,15 +90,9 @@ public final class IronwoodProjectTemplates {
                         builder.append(name);
                         builder.append('!');
 
-                        // toString is a proven allocation-producing library call, so its
-                        // result is a value this method owns and can free.
                         String message = builder.toString();
                         System.out.println(message);
 
-                        free message;
-                        free builder;
-
-                        if (System.liveAllocationCount() != baseline) return 2;
                         return 0;
                     }
                 }
@@ -122,11 +111,6 @@ public final class IronwoodProjectTemplates {
                 // Each case marked with @Test becomes part of a native test executable
                 // whose main class is this suite: there is no separate runner.
                 //
-                // Note the order in the first case. Assertions.assertEquals takes Object
-                // parameters and compares with a virtual equals the compiler cannot
-                // devirtualize, so a String passed to it counts as escaped and can no
-                // longer be freed. Comparing through String.equals first, with the built
-                // value as the receiver, keeps the value provably owned by the test.
                 public final class %2$sTests extends TestSuite {
 
                     @Test
@@ -139,25 +123,18 @@ public final class IronwoodProjectTemplates {
                         String message = builder.toString();
                         boolean matched = message.equals("Hello, Ironwood!");
 
-                        free message;
-                        free builder;
-
-                        assertTrue("greeting text", matched);
+                        assertTrue(matched, "greeting text");
                     }
 
                     @Test
-                    private void reclaimsEveryAllocation() {
-
-                        long baseline = System.liveAllocationCount();
+                    private void preservesSharedResultsAcrossCollection() {
 
                         StringBuilder builder = new StringBuilder();
                         builder.append("Hello, Ironwood!");
                         String message = builder.toString();
-
-                        free message;
-                        free builder;
-
-                        assertEquals(baseline, System.liveAllocationCount());
+                        String alias = message;
+                        ironwood.lang.Memory.collect();
+                        assertEquals("Hello, Ironwood!", alias);
                     }
                 }
                 """.formatted(packageName, typeName);

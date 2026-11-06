@@ -8,7 +8,6 @@ import ironwood.compiler.ast.BreakStatement;
 import ironwood.compiler.ast.CallExpression;
 import ironwood.compiler.ast.ClassDeclaration;
 import ironwood.compiler.ast.ExpressionStatement;
-import ironwood.compiler.ast.FreeStatement;
 import ironwood.compiler.ast.IntegerLiteralExpression;
 import ironwood.compiler.ast.LocalVariableDeclaration;
 import ironwood.compiler.ast.MethodDeclaration;
@@ -188,9 +187,9 @@ final class TestHarnessSynthesizer {
         List<Statement> statements = new ArrayList<>();
         statements.add(new LocalVariableDeclaration(runnerType, "testRunner", span,
                 new NewExpression(runnerType, List.of(), span), span));
-        // Suite callbacks may publish this object. Its documented lifetime is
-        // the process, even when one concrete suite happens not to escape.
-        statements.add(new LocalVariableDeclaration(suiteType, false, true, "testSuite", span,
+        // The runner and suite are ordinary managed values. Test callbacks may
+        // share the suite; no generated cleanup may reclaim either allocation.
+        statements.add(new LocalVariableDeclaration(suiteType, "testSuite", span,
                 new NewExpression(suiteType, List.of(), span), span));
         for (int index = 0; index < tests.size(); index++) {
             MethodDeclaration test = tests.get(index);
@@ -206,7 +205,6 @@ final class TestHarnessSynthesizer {
                 new NameExpression("testRunner", span)), "finish", span, List.of(), span);
         statements.add(new LocalVariableDeclaration(TypeName.primitive(TypeName.Kind.INT, span),
                 "testStatus", span, finish, span));
-        statements.add(new FreeStatement(new NameExpression("testRunner", span), span));
         statements.add(new ReturnStatement(Optional.of(new NameExpression("testStatus", span)), span));
         Parameter arguments = new Parameter(TypeName.array(
                 TypeName.reference("ironwood.lang.String", span), span), "args", span, span);

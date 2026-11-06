@@ -86,11 +86,11 @@
     },
 
     "directives": {
-      "_comment": "Ironwood has no general annotations. Only @Override, @Test, and @SuppressUnfreed are built-in directives; other @names are flagged as invalid.",
+      "_comment": "Ironwood has no general annotations. Only @Override and @Test are built-in directives; other @names are flagged as invalid.",
       "patterns": [
         {
           "name": "storage.type.annotation.ironwood",
-          "match": "@(Override|Test|SuppressUnfreed)\\b"
+          "match": "@(Override|Test)\\b"
         },
         {
           "name": "invalid.illegal.directive.ironwood",
@@ -144,13 +144,8 @@
     "keywords": {
       "patterns": [
         {
-          "_comment": "free and destructor are the Ironwood-specific reclamation keywords. The extra scope segment lets a theme single them out while still inheriting keyword.control coloring by prefix match.",
-          "name": "keyword.control.reclamation.ironwood",
-          "match": "\\b(destructor|free)\\b"
-        },
-        {
           "name": "keyword.control.ironwood",
-          "match": "\\b(break|case|catch|continue|do|else|finally|for|if|return|switch|throw|try|while|yield)\\b"
+          "match": "\\b(break|case|catch|continue|defer|do|else|finally|for|if|return|switch|throw|try|while|yield)\\b"
         },
         {
           "name": "storage.modifier.ironwood",

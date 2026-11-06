@@ -63,9 +63,8 @@ def main():
     extra = copy / 'unmanifested-input'; extra.write_text('stale')
     run(link, 'extra-sdk-input', 1, {'IRONWOOD_GC_HOME': str(copy)})
     extra.unlink()
-    for option in ('--java-bridge-library', '--java-bridge-assemble', '--java-bridge-distribution'):
-        run(command + [option], option[2:], 1)
-        assert 'GC6 boundary' in (raw / (option[2:] + '.stderr')).read_text()
+    # GC6's generated-object, callback and independent-image controls replace
+    # GC5's three unconditional bridge refusals. Stale SDK inputs still refuse.
     (out / 'results.json').write_text(json.dumps({'format': 1, 'guard_kib': engine.GUARD_KIB,
         'per_child_timeout_seconds': 60, 'results': results}, indent=2) + '\n')
 

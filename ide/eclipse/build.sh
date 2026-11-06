@@ -132,7 +132,7 @@ if [[ -d "$IRONWOOD_PLUGIN_DIR/src" ]] \
         echo "  verifying compiler output parsing"
         rm -rf "$IRONWOOD_BUILD_DIR/parse-check"
         mkdir -p "$IRONWOOD_BUILD_DIR/parse-check"
-        "$IRONWOOD_JAVA" -cp "$IRONWOOD_BUILD_DIR/classes" \
+        "$IRONWOOD_JAVA" -cp "$IRONWOOD_BUILD_DIR/classes:$IRONWOOD_COMPILER_JAR" \
             "$IRONWOOD_IDE_DIR/tools/VerifyCompilerOutput.java" \
             "$IRONWOOD_ROOT/bin/ironwoodc" \
             "$IRONWOOD_BUILD_DIR/parse-check"

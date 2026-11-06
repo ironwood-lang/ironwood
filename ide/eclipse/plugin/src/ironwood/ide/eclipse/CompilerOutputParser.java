@@ -16,10 +16,10 @@ import java.util.regex.Pattern;
  * That text has a fixed shape:
  *
  * <pre>
- * error: cannot free 'a': allocation may still be observed through local 'b'
+ * error: unknown method 'missing' on type 'Main'
  *   --&gt; /path/Main.iron:9:14
  *    |
- *  9 |         free a;
+ *  9 |         a.missing();
  *    |              ^
  * </pre>
  *

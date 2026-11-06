@@ -5,7 +5,6 @@ package ironwood.lsp;
 import ironwood.compiler.ast.ClassDeclaration;
 import ironwood.compiler.ast.CompilationUnit;
 import ironwood.compiler.ast.ConstructorDeclaration;
-import ironwood.compiler.ast.DestructorDeclaration;
 import ironwood.compiler.ast.EnumConstant;
 import ironwood.compiler.ast.FieldDeclaration;
 import ironwood.compiler.ast.InterfaceDeclaration;
@@ -64,9 +63,6 @@ public final class DocumentSymbols {
                     TypeNames.renderParameterTypes(constructor.parameters()),
                     Ranges.of(constructor.span()), Ranges.of(constructor.nameSpan())));
         }
-        // A destructor has no name of its own, so it is listed by its keyword,
-        // which is also what the reader is looking for in the outline.
-        type.destructor().ifPresent(destructor -> children.add(ofDestructor(destructor)));
         for (MethodDeclaration method : type.methods()) {
             children.add(ofMethod(method));
         }
@@ -122,11 +118,6 @@ public final class DocumentSymbols {
                 + " : " + TypeNames.render(method.returnType());
         return symbol(method.name(), SymbolKind.Method, detail,
                 Ranges.of(method.span()), Ranges.of(method.nameSpan()));
-    }
-
-    private static DocumentSymbol ofDestructor(DestructorDeclaration destructor) {
-        return symbol("destructor", SymbolKind.Method, null,
-                Ranges.of(destructor.span()), Ranges.of(destructor.keywordSpan()));
     }
 
     private static DocumentSymbol symbol(String name, SymbolKind kind, String detail,

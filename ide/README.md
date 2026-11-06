@@ -32,14 +32,10 @@ or Neovim integration reuses the same server.
 Errors and warnings come from `CompilerPipeline.analyze`, the same front end `ironwoodc`
 runs, stopped before code generation. There is no second, IDE-specific
 implementation of Ironwood's rules, so an editor squiggle and a command-line
-error are always the same analysis, including ownership and reclamation errors
-that only whole-program analysis can find.
-
-Proven unfreed allocations appear as warnings by default, anchored at their
-allocation expressions. Restoring cleanup clears the warning in the unsaved
-buffer. Compiler errors retain error severity. The language server uses the
-compiler API's default warning mode; command-line `--unfreed` selections apply
-to their compiler invocation, not the editor session.
+error are always the same analysis, including whole-program dispatch, initialization,
+pool and foreign resource checks. Managed allocation needs no missing-free
+warning or suppression directive. Removed reclamation syntax receives a migration
+error in saved and unsaved buffers.
 
 The server analyzes a whole source set rather than a single file, because
 Ironwood's rules are not decidable one file at a time. It recovers the source
@@ -108,8 +104,7 @@ Ironwood builder.
 The builder runs `ironwoodc` over the whole project and turns each error into a
 workspace marker, so problems appear in the Problems view and in the file's
 ruler. It rebuilds everything on every build rather than tracking one changed
-file, because Ironwood's analysis is whole-program: an edit in one file can make
-a `free` in another provable or unprovable.
+file, because an edit can change dispatch targets and effects in other files.
 
 Run a program with Run As > Ironwood Application, from either a `.iron` file or
 the project itself. On a project it finds every runnable type, both classes
@@ -256,13 +251,12 @@ python3 ide/langserver/test-langserver.py
 
 ## Scopes worth knowing
 
-`free` and `destructor` carry `keyword.control.reclamation.ironwood`. The extra
-scope segment lets a theme single out Ironwood's reclamation keywords while
-still inheriting ordinary `keyword.control` coloring from any theme that does
-not know about Ironwood.
+`free` and `destructor` are ordinary identifiers. Method declarations and calls
+receive the same function scope as other method names. General `defer` retains
+control-flow highlighting.
 
 Cooked text blocks highlight escape sequences and raw `r"""` text blocks do not,
 matching what the lexer actually decodes.
 
-Ironwood has no general annotations, so `@Override`, `@Test`, and
-`@SuppressUnfreed` are colored as directives and any other `@Name` is marked invalid.
+Ironwood has no general annotations. `@Override` and `@Test` are directives;
+other `@Name` forms, including removed `@SuppressUnfreed`, are marked invalid.

@@ -34,10 +34,9 @@ public final class VerifyGrammar {
     private static final Map<String, String> EXPECTED_SCOPES = new LinkedHashMap<>();
 
     static {
-        // The Ironwood-specific reclamation keywords are the point of the
-        // exercise: a Java grammar would color neither.
-        EXPECTED_SCOPES.put("free", "keyword.control.reclamation.ironwood");
-        EXPECTED_SCOPES.put("destructor", "keyword.control.reclamation.ironwood");
+        // Former reclamation words are ordinary method names.
+        EXPECTED_SCOPES.put("free", "entity.name.function.ironwood");
+        EXPECTED_SCOPES.put("destructor", "entity.name.function.ironwood");
 
         EXPECTED_SCOPES.put("package", "keyword.other.ironwood");
         EXPECTED_SCOPES.put("class", "keyword.other.ironwood");
@@ -55,11 +54,10 @@ public final class VerifyGrammar {
         EXPECTED_SCOPES.put("continue", "keyword.control.ironwood");
         EXPECTED_SCOPES.put("this", "variable.language.ironwood");
 
-        // Ironwood has three built-in directives and no general
+        // Ironwood has two built-in directives and no general
         // annotations, so @Override is a directive rather than an annotation
         // of arbitrary shape.
         EXPECTED_SCOPES.put("@Override", "storage.type.annotation.ironwood");
-        EXPECTED_SCOPES.put("@SuppressUnfreed", "storage.type.annotation.ironwood");
 
         EXPECTED_SCOPES.put("0xFF_FF", "constant.numeric.hex.ironwood");
         EXPECTED_SCOPES.put("0b1010_0101", "constant.numeric.binary.ironwood");

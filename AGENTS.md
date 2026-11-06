@@ -67,8 +67,9 @@ implementation or transpiler:
   Use the generated RootHandle and ListenerRegistration lifetime APIs; preserve
   source resource closure separately. macOS arm64 and Linux x86-64 are qualified;
   Linux arm64 and arm64e remain unqualified. See [GC6](docs/GC6_IMPLEMENTATION.md).
-  GC7 consumer migration and obsolete analysis removal require separate scope;
-  do not restart self-hosting or remove scaffolding incidentally.
+  GC7 consumer migration and structural retirement are incomplete; follow the
+  [checkpoint and disposition ledger](docs/GC7_IMPLEMENTATION.md). Do not treat
+  removal of the outer proof loop as completion or restart self-hosting.
 - Keep the mandatory runtime small; unreachable standard-library code is removed
   from the closed-world program, allowing a broad library.
 - Use UTF-8 `.iron` source, a Java 21 bootstrap compiler, and the pinned LLVM 23

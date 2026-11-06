@@ -1,0 +1,457 @@
+{
+  "O3_inspection": {
+    "call": {
+      "disassembly.sha256": "f1b88eb2900a2e35b79ca60b3134e372826062b97f3d9e6fb1f40227c9e8b9d8",
+      "no_gc_tls_root_or_trace_administration_in_timed_region": true,
+      "paired_normalized_application_identical": true,
+      "timed.sha256": "9ccd5eac71312ea5673d54afb4ced7a86545c6fbd45be751b0bf9a06c8f3d69d",
+      "timed_code_lines": 30
+    },
+    "pool": {
+      "disassembly.sha256": "99997e609ec7fdc195c1408f23f7ef147de8e5458c438b91a08765cd3cc5aec3",
+      "no_gc_tls_root_or_trace_administration_in_timed_region": true,
+      "paired_normalized_application_identical": true,
+      "timed.sha256": "e69c5ed282c748d95d3f8e1b283b89e81e8a46ae89a85872a39fe4b69a2ea0e1",
+      "timed_code_lines": 117
+    }
+  },
+  "baseline": "3afea8f8ea9b004ea3d5084b20e1636beea1188d",
+  "branch": "codex/bdwgc-integration-plan",
+  "checks": {
+    "generated_grammar": "passed normal generator and TM4E",
+    "git_diff_check": "passed",
+    "hosted_workflow": false,
+    "licenses": "passed, 5 OpenJDK-derived files",
+    "new_abi": false,
+    "new_text_U+2014": "absent",
+    "push": false,
+    "self_hosting": false,
+    "tracked_files": "passed",
+    "unfiltered_suite": false
+  },
+  "collector": {
+    "USE_MARK_BYTES": 1,
+    "automatic_collection": false,
+    "version": "8.2.12"
+  },
+  "commands": {
+    "IDE": [
+      "./ide/eclipse/build.sh",
+      "python3 ide/langserver/test-langserver.py"
+    ],
+    "bytecode": "$JAVA21_HOME/bin/javap -c -p -classpath compiler/build/classes ironwood.compiler.semantic.SemanticAnalyzer",
+    "callbacks": "python3 scripts/test-gc6-callbacks.py --sdk \"$GC6_SDK_HOME\" --llvm-home \"$LLVM23_HOME\" --java-home \"$JAVA21_HOME\" --output workspace/gc7-callbacks-final --level O3",
+    "compiler": "$JAVA21_HOME/bin/java -ea -cp compiler/build/classes:compiler/build/test-classes ironwood.compiler.CompilerTests --test EXACT_NAME (each exact name in reports.compiler.exact_names, separately bounded)",
+    "environment": "JAVA21_HOME=qualified Java 21; LLVM23_HOME=qualified LLVM 23; GC6_SDK_HOME=workspace/gc6-sdk-schema2; SDKROOT=qualified Xcode SDK",
+    "inputs": "python3 scripts/test-gc-inputs.py --sdk \"$GC6_SDK_HOME\" --llvm-home \"$LLVM23_HOME\" --java-home \"$JAVA21_HOME\" --output workspace/gc7-inputs-final",
+    "native": "python3 scripts/test-gc-integrated.py --sdk \"$GC6_SDK_HOME\" --llvm-home \"$LLVM23_HOME\" --java-home \"$JAVA21_HOME\" --output workspace/gc7-native-final --case integrated --case resources --case pools --case oom --case no_collect --level O0 --level O3",
+    "objects": "python3 scripts/test-gc6-objects.py --sdk \"$GC6_SDK_HOME\" --llvm-home \"$LLVM23_HOME\" --java-home \"$JAVA21_HOME\" --output workspace/gc7-objects-final --level O3",
+    "performance": "python3 scripts/test-gc-performance.py --sdk \"$GC6_SDK_HOME\" --llvm-home \"$LLVM23_HOME\" --java-home \"$JAVA21_HOME\" --output workspace/gc7-performance-final",
+    "retirement": "./scripts/test.sh --test \"GC7 managed construction never grants legacy rollback capabilities\" --test \"@Test synthesizes deterministic TestSuite runners\" --test \"@Test rejects invalid suites and methods\"",
+    "templates": "current compiler --link --main-class helloeclipsesample.{HelloEclipseSample,HelloEclipseSampleTests} -cp ide/eclipse/target/template-check/classes:compiler/build/ironwood-testing.ironjar --llvm-home \"$LLVM23_HOME\" -{O0,O3}, then run each image"
+  },
+  "compiler.jar.sha256": "19b346998a858e5245da7da25df4c0490b0e9a6d07fa3e636fadef18933f78f1",
+  "date": "2026-11-06",
+  "format": 1,
+  "gc7_complete": false,
+  "gc_sdk_configuration": "0ac9acaa6ec276015c281b881473334ee3d457c736964070154994e18f836d5d",
+  "guard_kib": 16777216,
+  "host_role": "machost",
+  "inventory": {
+    "baseline_areas": {
+      "AGENTS.md": {
+        "files": 1,
+        "matches": 9
+      },
+      "CLA.md": {
+        "files": 1,
+        "matches": 1
+      },
+      "README.md": {
+        "files": 1,
+        "matches": 5
+      },
+      "compiler/src/main/ironwood": {
+        "files": 67,
+        "matches": 704
+      },
+      "compiler/src/main/java": {
+        "files": 79,
+        "matches": 419
+      },
+      "compiler/src/test": {
+        "files": 182,
+        "matches": 3922
+      },
+      "docs": {
+        "files": 453,
+        "matches": 4275
+      },
+      "examples": {
+        "files": 152,
+        "matches": 342
+      },
+      "ide": {
+        "files": 14,
+        "matches": 89
+      },
+      "integration-tests": {
+        "files": 252,
+        "matches": 2646
+      },
+      "packaging": {
+        "files": 1,
+        "matches": 1
+      },
+      "projects": {
+        "files": 46,
+        "matches": 159
+      },
+      "runtime": {
+        "files": 12,
+        "matches": 76
+      },
+      "scripts": {
+        "files": 63,
+        "matches": 274
+      },
+      "stdlib": {
+        "files": 25,
+        "matches": 408
+      }
+    },
+    "baseline_inventory.sha256": "919f02225ca961a2e2e7be97b095798b971c3586c5976d5244d7e5c774ba0427",
+    "meaning": "lexical candidates, incomplete semantic dispositions",
+    "raw_snapshot": "workspace/gc7/inventory.json",
+    "raw_snapshot.sha256": "50473ead790914605c62f3b225741933d9277ccf0ec8bb23531270491afa2024",
+    "script": "scripts/gc-evaluation/inventory_gc7.py"
+  },
+  "per_child_timeout_seconds": 60,
+  "protocols": {
+    "bridge_owner_abi": 2,
+    "bridge_root_abi": 3,
+    "bridge_schema": 2,
+    "bridge_surface": "objects-gc-v1",
+    "foreign_segments": 1,
+    "ordinary_owner_abi": 1,
+    "ordinary_root_abi": 2
+  },
+  "remaining": [
+    "repository consumer and Java bridge migration",
+    "legacy AST/IR and descriptor state retirement",
+    "narrower field/return/foreign protocol dependency closure",
+    "complete mixed-test disposition"
+  ],
+  "reports": {
+    "bytecode": {
+      "absent": [
+        "TemporaryBorrowAnalysis",
+        "TemporaryListBorrowAnalysis",
+        "ClosedWorldEffectAnalyzer",
+        "OwnedArrayElementAnalyzer",
+        "relowerArgumentReclaimingCallers",
+        "sameProofsAs"
+      ],
+      "cases": [
+        "semantic-bytecode"
+      ],
+      "children": 1,
+      "path": "workspace/gc7/bytecode-result.json",
+      "sampled_peak_rss_kib": 127120,
+      "sha256": "06143d7fe8f5f8c29d919edd682fc41ada6d683a52c3c3192759864a820762ce"
+    },
+    "callbacks": {
+      "cases": [
+        "consumer-javac",
+        "O3-generated-build",
+        "O3-consumer"
+      ],
+      "children": 3,
+      "path": "workspace/gc7-callbacks-final/results.json",
+      "sampled_peak_rss_kib": 1357584,
+      "sha256": "40489e4936f6fcac50720df6efbdd05cb398e2b4f693965b51ee438a5bb33930"
+    },
+    "compiler": {
+      "cases": [
+        "acceptance-0",
+        "acceptance-1",
+        "acceptance-2",
+        "acceptance-3",
+        "acceptance-4",
+        "acceptance-5",
+        "acceptance-6",
+        "acceptance-7",
+        "acceptance-8",
+        "acceptance-9",
+        "acceptance-10"
+      ],
+      "children": 11,
+      "exact_names": [
+        "GC5 canonical collection intrinsic validates reconstructed declarations",
+        "GC5 source collection effects survive dispatch initialization defer and specialization",
+        "GC5 normal emission uses one managed model and migration diagnostics",
+        "GC5 final link rejects every reachable legacy managed deallocation family",
+        "GC6 carriers separate exact managed linkage from JNI completion",
+        "GC6 foreign effects require exact versioned transition contexts",
+        "GC6 managed entries preserve aliases publication and source lifetime member names",
+        "GC6 managed callbacks bind exact contexts and invocation JNI completion",
+        "deferred calls preserve explicit-block syntax and diagnostics",
+        "deferred calls enforce invocation and checked-exception contracts",
+        "deferred calls replay typed captures across independent exits"
+      ],
+      "path": "workspace/gc7/compiler-acceptance.json",
+      "sampled_peak_rss_kib": 1051024,
+      "sha256": "65a6fb87ef49a1af544856c51aada6e06614e8c8fb6ac56bbd7c7c9b796c4851"
+    },
+    "inputs": {
+      "cases": [
+        "source-to-class",
+        "class-to-archive",
+        "classes-link",
+        "classes-run",
+        "archive-link",
+        "archive-run",
+        "root-abi",
+        "owner-abi",
+        "engine-abi",
+        "llvm-version",
+        "configuration-identity",
+        "statepoint-pass",
+        "runtime-owner-source",
+        "root-reader-source",
+        "configuration-payload",
+        "extra-sdk-input"
+      ],
+      "children": 16,
+      "path": "workspace/gc7-inputs-final/results.json",
+      "sampled_peak_rss_kib": 918272,
+      "sha256": "f7ecbfde28063e12abc81f0c6438d8f3dac32aaa0742a6833fb53d62a07939aa"
+    },
+    "native": {
+      "cases": [
+        "integrated-classes",
+        "integrated-O0-link",
+        "integrated-O0-run",
+        "integrated-O3-link",
+        "integrated-O3-run",
+        "resources-classes",
+        "resources-O0-link",
+        "resources-O0-success",
+        "resources-O0-failure",
+        "resources-O3-link",
+        "resources-O3-success",
+        "resources-O3-failure",
+        "pools-classes",
+        "pools-O0-link",
+        "pools-O0-run",
+        "pools-O3-link",
+        "pools-O3-run",
+        "oom-classes",
+        "oom-O0-link",
+        "oom-O0-allocation",
+        "oom-O0-preparation",
+        "oom-O0-constructor",
+        "oom-O3-link",
+        "oom-O3-allocation",
+        "oom-O3-preparation",
+        "oom-O3-constructor",
+        "no_collect-classes",
+        "no_collect-O0-link",
+        "no_collect-O0-run",
+        "no_collect-O3-link",
+        "no_collect-O3-run"
+      ],
+      "children": 31,
+      "path": "workspace/gc7-native-final/results.json",
+      "sampled_peak_rss_kib": 925600,
+      "sha256": "f7706b164f3b98b1f57da7d0dff4db29e3a96d10cd61db172ffdfe38f3b49429"
+    },
+    "objects": {
+      "cases": [
+        "consumer-javac",
+        "O3-generated-build",
+        "O3-consumer"
+      ],
+      "children": 3,
+      "path": "workspace/gc7-objects-final/results.json",
+      "sampled_peak_rss_kib": 1550112,
+      "sha256": "d2ecfb4bd7a41351f40a0cd1030ed0a54ac6f5b5c51b4d3f7110485b8762c95b"
+    },
+    "performance": {
+      "cases": [
+        "child-1",
+        "child-2",
+        "child-3",
+        "child-4",
+        "child-5",
+        "child-6",
+        "child-7",
+        "child-8",
+        "child-9",
+        "child-10",
+        "child-11",
+        "child-12",
+        "child-13",
+        "child-14",
+        "child-15",
+        "child-16",
+        "child-17",
+        "child-18",
+        "child-19",
+        "child-20",
+        "child-21",
+        "child-22",
+        "child-23",
+        "child-24",
+        "child-25",
+        "child-26",
+        "child-27",
+        "child-28",
+        "child-29",
+        "child-30",
+        "child-31",
+        "child-32",
+        "child-33",
+        "child-34",
+        "child-35",
+        "child-36",
+        "child-37",
+        "child-38",
+        "child-39",
+        "child-40"
+      ],
+      "children": 40,
+      "kernels": {
+        "call": {
+          "iterations": 32000000,
+          "median_ns": {
+            "deferred": 40231000.0,
+            "nested": 38102500.0
+          },
+          "normalized.sha256": "dabca1b49c01868482e521d21c1b9bdec1bec6a641c1ec20e98ba2a7978dfc20",
+          "normalized_assembly_identical": true,
+          "ns": {
+            "deferred": [
+              39586000,
+              40876000
+            ],
+            "nested": [
+              37791000,
+              38414000
+            ]
+          },
+          "results": {
+            "actions": 32000000,
+            "allocations": 0,
+            "bodies": 32000000,
+            "captures": 32000000,
+            "checksum": 8321000502409611264,
+            "failures": 0,
+            "first_allocations": 0,
+            "first_live_delta": 0,
+            "live_delta": 0
+          }
+        },
+        "pool": {
+          "iterations": 32000000,
+          "median_ns": {
+            "deferred": 81403000.0,
+            "nested": 79936000.0
+          },
+          "normalized.sha256": "43e780baf62ccb823a3ca662dd588bdf3f0337c329d5ba08979b8e0dbcdc9899",
+          "normalized_assembly_identical": true,
+          "ns": {
+            "deferred": [
+              83084000,
+              79722000
+            ],
+            "nested": [
+              80027000,
+              79845000
+            ]
+          },
+          "results": {
+            "actions": 0,
+            "allocations": 0,
+            "bodies": 32000000,
+            "captures": 0,
+            "checksum": -7167085265927709696,
+            "failures": 0,
+            "first_allocations": 0,
+            "first_live_delta": 0,
+            "live_delta": 0
+          }
+        }
+      },
+      "path": "workspace/gc7-performance-final/results.json",
+      "sampled_peak_rss_kib": 885376,
+      "sha256": "4efc85a31308380aab072d2feda313c964ed1f3186f44b671c7ad417ad120e1c"
+    },
+    "retirement": {
+      "cases": [
+        "final-retirement-tests-corrected"
+      ],
+      "children": 1,
+      "path": "workspace/gc7/final-retirement-tests.json",
+      "sampled_peak_rss_kib": 1212816,
+      "sha256": "ad650b2e5fccf61e7dbb682fb71ba4960ef7bd14af36167f08740c55ba3292ac"
+    },
+    "templates": {
+      "cases": [
+        "highlight-compile",
+        "HelloEclipseSample-O0-link",
+        "HelloEclipseSample-O0-run",
+        "HelloEclipseSample-O3-link",
+        "HelloEclipseSample-O3-run",
+        "HelloEclipseSampleTests-O0-link",
+        "HelloEclipseSampleTests-O0-run",
+        "HelloEclipseSampleTests-O3-link",
+        "HelloEclipseSampleTests-O3-run"
+      ],
+      "children": 9,
+      "path": "workspace/gc7/template-smoke.json",
+      "sampled_peak_rss_kib": 875632,
+      "sha256": "8d4cfd05905649edfe11ba790da83e16e770ebd3d631756722272e4207891f47"
+    }
+  },
+  "semantic.class.sha256": "8baeb3d98f16bd950485d372fdcedf70a0454acd2c8779f5e87b3894ea35582e",
+  "source.sha256": {
+    "compiler/src/main/java/ironwood/compiler/semantic/BridgeConstructionFacts.java": "42755d68619d96bc0bc4db1dc9e557ac9b09300de3088f041b7bdc6f72925428",
+    "compiler/src/main/java/ironwood/compiler/semantic/FunctionAnalyzer.java": "661b71ec491ce4215ac18ebaac22eaaa198819087d7e7fef462065d70292e8d7",
+    "compiler/src/main/java/ironwood/compiler/semantic/OwnedArrayFieldAnalyzer.java": "e0c68b0b566411d0a6820a7046a581eecefdab0da4630c35b596db9f48e69f05",
+    "compiler/src/main/java/ironwood/compiler/semantic/SemanticAnalyzer.java": "45b14589fc416ecb3645597bd8c335c417421b8604530fe720892646a2af14d6",
+    "compiler/src/main/java/ironwood/compiler/semantic/TestHarnessSynthesizer.java": "ec726a5f5d3cfb71efdbfe3b4125238b5ddd829151cd3210d9c6c86588970669",
+    "compiler/src/test/java/ironwood/compiler/CompilerTests.java": "91925ee6938bcd213641e80176afc4a47bbf3a91f902243039a15e0d294b732b",
+    "compiler/src/test/java/ironwood/compiler/Gc7RetirementTests.java": "fea991dcfb35e31411c26d432db2182fd6c0bfeb364a45d20592bb82dd857577",
+    "ide/eclipse/build.sh": "fd1b5b3234e5b7d12b10f93c72a253764de7c2a5ff78ea1595a1d57c55fcf898",
+    "ide/eclipse/plugin/src/ironwood/ide/eclipse/CompilerOutputParser.java": "12fd001e9c71a740469ce2605d9e3ec10474dab00b672801f5d58f2c17023b07",
+    "ide/eclipse/plugin/src/ironwood/ide/eclipse/IronwoodBuilder.java": "c1c1361d12c53ea2bcbe75db26584ab480b5e9e5044d619631e36f4abb64d8ce",
+    "ide/eclipse/plugin/src/ironwood/ide/eclipse/IronwoodProjectTemplates.java": "a0c212f4da8c47864523ae4e90b2f1e1913337f7a7f642c8fd42bdc0dc676d1e",
+    "ide/eclipse/plugin/syntaxes/ironwood.tmLanguage.json": "f985cda0ad7cac308ffe0f376209e23867d791d5d5a322bbd678acbee4c9c994",
+    "ide/eclipse/plugin/syntaxes/ironwood.tmLanguage.template.json": "c8cc4d64dbb44d3fe19008d972883abedd8b0c8a204db0b8ad069687d7739a45",
+    "ide/eclipse/tools/GenerateGrammar.java": "347c807f761b54b7377c228786549aa37dcb930510bd043dec429dc373e37978",
+    "ide/eclipse/tools/VerifyCompilerOutput.java": "6023f708833c23e8513fdd67c38a1ecc7a825520d8ea206a85529569f063dad8",
+    "ide/eclipse/tools/VerifyGrammar.java": "5d32ce7f8b0835b492e5fa614f0f8668be355bc9b23ea19ecec7586dfe14435d",
+    "ide/eclipse/tools/fixtures/Highlighting.iron": "7136f46d10154ca26b56f3400d5f011708b722ca13606b4f306d92e19789301a",
+    "ide/langserver/src/main/java/ironwood/lsp/Declarations.java": "88999dab01a0697e62294a65a9a338511807aa015928d1eb5ebf75e0ba6e80c3",
+    "ide/langserver/src/main/java/ironwood/lsp/DocumentSymbols.java": "2e2b900eef019afdb104c367791077a21be52bd0bf23df10a0178bda67071955",
+    "ide/langserver/test-langserver.py": "0956846d08b3bcbaaa1e99a3b25dbda1c6d13479a58d1cc368c802f125063f74",
+    "scripts/gc-evaluation/inventory_gc7.py": "d9e19070bde29103caae159ce9480540ee955a937955869630d8c562322f9b81",
+    "scripts/test-gc-inputs.py": "8edd58d12e73e3aaf50aa7817a3134b5ee3e8e76c386c8f74f2550296b90cdf5"
+  },
+  "status": "safe local incomplete checkpoint",
+  "target": "macos-arm64",
+  "toolchain": {
+    "java": "Oracle 21.0.1",
+    "llvm": "23.1.0",
+    "sdk": "qualified Xcode macOS 27.2 SDK, deployment 14.0"
+  },
+  "unexecuted": [
+    "full consumer/test disposition",
+    "standalone GC2-GC4 fault matrices",
+    "GC6 O0/O1/O2 matrix and separate images/carriers/critical controls",
+    "Linux requalification",
+    "Linux arm64 and arm64e qualification",
+    "GC8-GC10"
+  ]
+}

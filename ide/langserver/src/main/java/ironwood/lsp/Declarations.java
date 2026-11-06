@@ -31,7 +31,7 @@ public final class Declarations {
 
     /** What kind of thing was declared, which decides how it is rendered. */
     public enum Kind {
-        CLASS, ENUM, INTERFACE, METHOD, CONSTRUCTOR, DESTRUCTOR, FIELD, ENUM_CONSTANT
+        CLASS, ENUM, INTERFACE, METHOD, CONSTRUCTOR, FIELD, ENUM_CONSTANT
     }
 
     /**
@@ -110,9 +110,6 @@ public final class Declarations {
                     constructor.nameSpan(), constructor.span(), text.toString(),
                     Optional.of(type.name())));
         }
-        type.destructor().ifPresent(destructor -> declared.add(new Declared("destructor",
-                Kind.DESTRUCTOR, destructor.keywordSpan(), destructor.span(),
-                "destructor", Optional.of(type.name()))));
         for (MethodDeclaration method : type.methods()) {
             declared.add(method(method, type.name()));
         }

@@ -4,6 +4,12 @@ Development uses individual tests or focused groups. Full compiler/native suites
 are reserved for final release readiness or an explicit human request, as defined
 in `AGENTS.md`. Ordinary pushes and pull requests do not trigger hosted builds.
 
+The [GC7 checkpoint](GC7_IMPLEMENTATION.md) and [disposition ledger](GC7_DISPOSITION.md)
+identify current focused acceptance selections. Manual-free explanation,
+destructor and ownership selections below are historical migration backlog;
+their registration does not mean their old expectations pass under GC5/GC6.
+Do not use this backlog to reconstruct an unfiltered suite. GC7 remains open.
+
 ## Run a selected test
 
 On the Mac, list registered test names and run one by its exact displayed name:

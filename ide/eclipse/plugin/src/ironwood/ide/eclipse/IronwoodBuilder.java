@@ -24,8 +24,8 @@ import java.util.Map;
  * Compiles an Ironwood project and turns the compiler's errors into markers.
  *
  * <p>Ironwood's analysis is whole-program, so there is no useful notion of
- * rebuilding one changed file: an edit in one file can make a {@code free} in
- * another provable or unprovable. Every build therefore compiles the whole
+ * rebuilding one changed file: an edit in one file can change dispatch and effects in
+ * another. Every build therefore compiles the whole
  * project, and an incremental build differs from a full one only in that it
  * returns early when no Ironwood source changed.
  */

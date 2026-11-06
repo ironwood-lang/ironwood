@@ -138,6 +138,7 @@ public final class CompilerTests {
         test(Gc6SegmentTests.NAME, Gc6SegmentTests::proofs);
         test(Gc6ManagedBridgeTests.NAME, Gc6ManagedBridgeTests::proofs);
         test(Gc6CallbackTests.NAME, Gc6CallbackTests::proofs);
+        test(Gc7RetirementTests.NAME, Gc7RetirementTests::construction);
         test(GcLayoutTests.NAME, GcLayoutTests::proofs);
         test(GcRootTests.NAME, GcRootTests::proofs);
         test(GcLifetimeTests.NAME, GcLifetimeTests::proofs);
@@ -10776,10 +10777,10 @@ public final class CompilerTests {
                         .equals("ironwood.ironwood.testing.TestRunner.run"))
                 .count();
         assertEquals(2, (int) registrations, "generated test registration count");
-        assertEquals(1L, entry.blocks().stream()
+        assertEquals(0L, entry.blocks().stream()
                 .flatMap(block -> block.instructions().stream())
                 .filter(IrFreeInstruction.class::isInstance).count(),
-                "generated main reclaims its runner");
+                "generated main must keep runner storage managed");
         assertTrue(artifact.diagnostics().stream()
                 .noneMatch(diagnostic -> diagnostic.message().contains("'testRunner'")),
                 "generated runner must not produce an unfreed warning: " + messages(artifact));
@@ -10804,8 +10805,9 @@ public final class CompilerTests {
                     @Test private void leavesLocal() { Object leaked = new Object(); }
                 }
                 """);
-        assertContains(messages(abandoned), "allocation assigned to 'leaked' leaves scope",
-                "generated suite omission flag must not suppress test-body diagnostics");
+        assertTrue(abandoned.successful(), messages(abandoned));
+        assertTrue(abandoned.diagnostics().isEmpty(),
+                "managed test-body allocations require no reclamation directive");
     }
 
     private void invalidTestSuitesAndMethodsAreRejected() {

@@ -142,35 +142,6 @@ final class OwnedArrayFieldAnalyzer {
         if (observer != null) {
             observer.fieldEvidenceLifecycle(observerToken, failures != null, false);
         }
-        for (TypeSymbol type : types.values()) {
-            if (type.isInterface()) {
-                continue;
-            }
-            for (FieldSymbol field : type.declaredFields().values()) {
-                boolean auditedByteBufferArrayLoan = field.ownerClass()
-                        .equals("ironwood.nio.ByteBuffer")
-                        && field.declaration().name().equals("ownedStorage")
-                        && field.type().isArray();
-                Checker checker = new Checker(type, field, true,
-                        field.type().isNominalReference() || auditedByteBufferArrayLoan, true);
-                if (!field.isStatic()
-                        && field.accessModifier() == ironwood.compiler.ast.AccessModifier.PRIVATE
-                        && field.type().isReference()
-                        && checker.isOwned()) {
-                    ownedFields.add(key(field));
-                    checker.contingent.forEach(contingentFrees::putIfAbsent);
-                    for (String linkageName : checker.borrowedReturnMethods) {
-                        FieldSymbol previous = borrowedReturnFields.putIfAbsent(linkageName, field);
-                        if (previous != null && previous != field) {
-                            borrowedReturnFields.remove(linkageName);
-                            ambiguousBorrowedReturns.add(linkageName);
-                        }
-                    }
-                } else if (checker.rejectionReason != null) {
-                    rejectionReasons.put(key(field), checker.rejectionReason);
-                }
-            }
-        }
     }
 
     long observerToken() {

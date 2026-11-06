@@ -44,19 +44,19 @@ public final class VerifyCompilerOutput {
 
                     Broken owned = new Broken();
                     Broken alias = owned;
-                    free owned;
+                    owned.missingMethod();
                     return missingName;
                 }
             }
             """;
 
-    // Proposed explanation output: note locations must never become markers.
-    // M1 must also exercise this parser with the real note-aware formatter.
+    // Related note locations must never become primary markers.
+    // Exercise both printed text and the real note-aware formatter.
     private static final String EXPLAINED_OUTPUT = """
-            error: cannot free 'data': allocation may still be observed through local 'alias'
+            error: method 'inspect' is not applicable to these arguments
               --> /work/AliasDemo.iron:7:14
               |
-            7 |         free data;
+            7 |         inspect(data);
               |              ^^^^
             note: local 'alias' receives a reference to the same allocation here
               --> /work/AliasDemo.iron:6:24
@@ -68,7 +68,7 @@ public final class VerifyCompilerOutput {
               |
             3 |     inspect(data);
               |     ^^^^^^^
-            note: the ownership analysis still tracks 'alias' as an observer at this free
+            note: the argument type is declared in this related source
             """;
 
     public static void main(String[] args) throws IOException, InterruptedException {
@@ -101,22 +101,22 @@ public final class VerifyCompilerOutput {
                     + ": " + diagnostics);
         }
 
-        CompilerDiagnostic free = find(diagnostics, "cannot free");
+        CompilerDiagnostic free = find(diagnostics, "missingMethod");
         if (free == null) {
-            failures.add("the rejected free was not parsed");
+            failures.add("the invalid method call was not parsed");
         } else {
-            if (!free.message().contains("alias")) {
-                failures.add("the rejected free lost its explanation: " + free.message());
+            if (!free.message().contains("missingMethod")) {
+                failures.add("the invalid method call lost its explanation: " + free.message());
             }
             if (!free.located()) {
-                failures.add("the rejected free lost its location");
+                failures.add("the invalid method call lost its location");
             } else {
                 if (!free.path().orElseThrow().endsWith("Broken.iron")) {
-                    failures.add("the rejected free has the wrong path: " + free.path());
+                    failures.add("the invalid method call has the wrong path: " + free.path());
                 }
-                int expected = lineOf("free owned;");
+                int expected = lineOf("owned.missingMethod();");
                 if (free.line() != expected) {
-                    failures.add("the rejected free is on line " + free.line()
+                    failures.add("the invalid method call is on line " + free.line()
                             + ", expected " + expected);
                 }
             }
@@ -145,7 +145,7 @@ public final class VerifyCompilerOutput {
 
     private static void verifyNotes(List<String> failures) {
         CompilerDiagnostic primary = new CompilerDiagnostic(
-                "cannot free 'data': allocation may still be observed through local 'alias'",
+                "method 'inspect' is not applicable to these arguments",
                 Optional.of("/work/AliasDemo.iron"), 7, 14);
         for (String text : List.of(EXPLAINED_OUTPUT, actualNoteOutput())) {
             for (String newline : List.of("\n", "\r\n")) {
@@ -170,11 +170,11 @@ public final class VerifyCompilerOutput {
 
     private static String actualNoteOutput() {
         SourceFile source = SourceFile.of("/work/AliasDemo.iron",
-                "\n".repeat(5) + "        byte[] alias = data;\n        free data;\n");
+                "\n".repeat(5) + "        byte[] alias = data;\n        inspect(data);\n");
         SourceFile other = SourceFile.of("/work/Other.iron",
                 "\n".repeat(2) + "    inspect(data);\n");
         Diagnostic primary = new Diagnostic(
-                "cannot free 'data': allocation may still be observed through local 'alias'",
+                "method 'inspect' is not applicable to these arguments",
                 source, span(7, 14, 7, 18));
         Diagnostic explained = primary.withNotes(List.of(
                 new DiagnosticNote("local 'alias' receives a reference here",

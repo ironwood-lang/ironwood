@@ -32,9 +32,14 @@ public class Highlighting {
     }
 
     /* Ordinary block comment, distinct from the IronDocs scope above. */
-    destructor {
+    public void destructor() {
 
-        free this.counters;
+        this.counters[0] = 0;
+    }
+
+    public static void free(Highlighting value) {
+
+        value.destructor();
     }
 
     @Override
@@ -55,15 +60,11 @@ public class Highlighting {
         char quote = '\'';
         String escapes = "tab\thereA";
 
-        // Reclaimed directly, with no surviving alias, so the compiler accepts
-        // the free. The instanceof pattern below deliberately keeps its own
-        // allocation instead, since an alias would make that free unprovable.
+        // Ordinary method names and shared managed references need no ownership directive.
         Highlighting owned = new Highlighting("owned");
         value += owned.toString().length();
-        free owned;
-
-        // The retained pattern-test allocation is explicitly exempted from the warning.
-        @SuppressUnfreed Object probe = new Highlighting("probe");
+        defer free(owned);
+        Object probe = owned;
         if (probe instanceof Highlighting named) {
             value += named.toString().length();
         }

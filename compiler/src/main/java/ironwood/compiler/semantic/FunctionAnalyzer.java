@@ -22,7 +22,6 @@ import ironwood.compiler.ast.ClassDeclaration;
 import ironwood.compiler.ast.ConditionalExpression;
 import ironwood.compiler.ast.ContinueStatement;
 import ironwood.compiler.ast.DeferStatement;
-import ironwood.compiler.ast.DeferredFreeStatement;
 import ironwood.compiler.ast.DoWhileStatement;
 import ironwood.compiler.ast.EmptyStatement;
 import ironwood.compiler.ast.EnhancedForStatement;
@@ -32,7 +31,6 @@ import ironwood.compiler.ast.ExpressionStatement;
 import ironwood.compiler.ast.FieldAccessExpression;
 import ironwood.compiler.ast.FloatingLiteralExpression;
 import ironwood.compiler.ast.FieldDeclaration;
-import ironwood.compiler.ast.FreeStatement;
 import ironwood.compiler.ast.ForStatement;
 import ironwood.compiler.ast.IfStatement;
 import ironwood.compiler.ast.LabeledStatement;
@@ -73,7 +71,6 @@ import ironwood.compiler.ast.UpdateExpression;
 import ironwood.compiler.ast.WhileStatement;
 import ironwood.compiler.ast.YieldStatement;
 import ironwood.compiler.diagnostic.Diagnostic;
-import ironwood.compiler.diagnostic.DiagnosticNote;
 import ironwood.compiler.ir.IrThrowableTraceInstruction;
 import ironwood.compiler.ir.IrStreamInstruction;
 import ironwood.compiler.ir.IrTcpInstruction;
@@ -104,14 +101,11 @@ import ironwood.compiler.ir.IrFieldLoadInstruction;
 import ironwood.compiler.ir.IrFieldStoreInstruction;
 import ironwood.compiler.ir.IrFileInstruction;
 import ironwood.compiler.ir.IrFloatingParseInstruction;
-import ironwood.compiler.ir.IrFreeInstruction;
-import ironwood.compiler.ir.IrDestroyArrayElementsInstruction;
 import ironwood.compiler.ir.IrIdentityHashCodeInstruction;
 import ironwood.compiler.ir.IrExceptionLandingPadInstruction;
 import ironwood.compiler.ir.IrExceptionCaughtInstruction;
 import ironwood.compiler.ir.IrEnsureTypeInitializedInstruction;
 import ironwood.compiler.ir.IrFunction;
-import ironwood.compiler.ir.IrDispatchSlot;
 import ironwood.compiler.ir.IrInstanceOfInstruction;
 import ironwood.compiler.ir.IrInstruction;
 import ironwood.compiler.ir.IrInterfaceCallInstruction;
@@ -123,15 +117,11 @@ import ironwood.compiler.ir.IrNumericConversionInstruction;
 import ironwood.compiler.ir.IrObjectHashCodeInstruction;
 import ironwood.compiler.ir.IrObjectToStringInstruction;
 import ironwood.compiler.ir.IrThrowableDescriptionInstruction;
-import ironwood.compiler.ir.IrReleaseOwnedThrowableMessageInstruction;
 import ironwood.compiler.ir.IrOperand;
 import ironwood.compiler.ir.IrParameter;
 import ironwood.compiler.ir.IrPhiIncoming;
 import ironwood.compiler.ir.IrPhiInstruction;
 import ironwood.compiler.ir.IrReferenceConversionInstruction;
-import ironwood.compiler.ir.IrRawDeallocateInstruction;
-import ironwood.compiler.ir.IrReleaseOwnedToStringResultInstruction;
-import ironwood.compiler.ir.IrRollbackInstruction;
 import ironwood.compiler.ir.IrReturnTerminator;
 import ironwood.compiler.ir.IrSecondaryExceptionAtInstruction;
 import ironwood.compiler.ir.IrSecondaryExceptionCountInstruction;
@@ -177,14 +167,12 @@ import ironwood.compiler.ir.IrValueReference;
 import ironwood.compiler.ir.IrVirtualCallInstruction;
 import ironwood.compiler.ir.IrCallKind;
 import ironwood.compiler.source.SourceFile;
-import ironwood.compiler.source.SourcePosition;
 import ironwood.compiler.source.SourceSpan;
 
 import java.math.BigInteger;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.Deque;
 import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
@@ -240,16 +228,7 @@ final class FunctionAnalyzer {
     private boolean evaluatingConstructorArguments;
     private boolean loweringInstanceInitializer;
     private final List<AllocationInfo> pendingYieldAllocations = new ArrayList<>();
-    private final List<ConstructorHelperArgument> constructorHelperArguments = new ArrayList<>();
-    private List<PendingYieldEvidence> pendingYieldEvidence;
-    private SourceSpan checkedCatchOrigin;
-    private CleanupExit activeCleanupExit;
-    private final List<Reclamation> reclamations = new ArrayList<>();
-    /**
-     * Rejected frees of locals by statement span, with the local's static type. They
-     * emit no instruction, so field proofs judge their destructors by type (D296).
-     */
-    private final Map<SourceSpan, IrType> rejectedFreeTypes = new LinkedHashMap<>();
+
     private final Map<IrOperand, AllocationInfo> allocationsByOperand = new LinkedHashMap<>();
     private final Set<IrOperand> ownedHelperBorrows = new LinkedHashSet<>();
     private final Map<IrOperand, String> ownedHelperBorrowTypes = new LinkedHashMap<>();
@@ -265,21 +244,7 @@ final class FunctionAnalyzer {
     /** The fresh result recorded for the call about to be emitted; absent where it unwinds. */
     private AllocationInfo pendingFreshResult;
     private SourceSpan discardedCallSpan;
-    private UnfreedAllocationTracker<AllocationInfo> unfreed;
-    private ClosedWorldEffectAnalyzer reclamationEffects;
-    private boolean explainRejectedFree;
-    private boolean explanationReady;
-    private boolean ownershipVerdicts = true;
-    private RejectedFreeEvidence rejectedFreeEvidence;
-    private SemanticAnalysisObserver observer;
-    private final Set<IrOperand> unfreedFreshResults = new LinkedHashSet<>();
-    private final Set<IrOperand> temporaryFreshResults = new LinkedHashSet<>();
-    private final Deque<TemporaryScope> temporaryScopes = new ArrayDeque<>();
-    /** Temporaries the compiler reclaimed, by allocation, with their creation site. */
-    private final Map<AllocationInfo, SourceSpan> reclaimedTemporaries = new IdentityHashMap<>();
-    private boolean renderingToString;
-    private int expressionBranchDepth;
-    private int expressionDepth;
+
     private final Map<String, AllocationInfo> borrowedOwnedFields = new LinkedHashMap<>();
     private final Map<AllocationInfo, AllocationInfo> poolOwners = new IdentityHashMap<>();
     private final Map<IrOperand, AllocationInfo> poolValueOwners = new LinkedHashMap<>();
@@ -310,56 +275,7 @@ final class FunctionAnalyzer {
         this.constructorDelegations = constructorDelegations;
     }
 
-    FunctionAnalyzer withUnfreedChecks(ironwood.compiler.UnfreedMode mode,
-                                       ClosedWorldEffectAnalyzer reclamationEffects) {
-        // Retain effect facts for resource/pool analysis; missing-free findings are obsolete.
-        this.reclamationEffects = reclamationEffects;
-        return this;
-    }
-
-    /** Lowers without reporting ownership verdicts, which need converged closed-world facts. */
-    FunctionAnalyzer withoutOwnershipVerdicts() {
-        ownershipVerdicts = false;
-        return this;
-    }
-
-    FunctionAnalyzer withRejectedFreeExplanations(boolean enabled, boolean refinementCompleted,
-                                                  RejectedFreeEvidence.Budget budget,
-                                                  RejectedFreeEvidence.Limits limits,
-                                                  SemanticAnalysisObserver observer) {
-        explainRejectedFree = enabled;
-        explanationReady = refinementCompleted;
-        this.observer = observer;
-        if (enabled && refinementCompleted) {
-            rejectedFreeEvidence = new RejectedFreeEvidence(budget,
-                    limits == null ? RejectedFreeEvidence.DEFAULT_LOCAL_LIMIT : limits.local(),
-                    limits == null ? RejectedFreeEvidence.DEFAULT_SNAPSHOT_LIMIT : limits.snapshots());
-            pendingYieldEvidence = new ArrayList<>();
-        }
-        return this;
-    }
-
-    boolean hasRejectedFreeEvidence() {
-        return rejectedFreeEvidence != null;
-    }
-
     /** The frees of locals this lowering rejected, by statement span, with each local's static type. */
-    Map<SourceSpan, IrType> rejectedFreeTypes() {
-        return Map.copyOf(rejectedFreeTypes);
-    }
-
-    RejectedFreeEvidence rejectedFreeEvidence() {
-        return rejectedFreeEvidence;
-    }
-
-    void closeRejectedFreeEvidence() {
-        if (rejectedFreeEvidence != null) rejectedFreeEvidence.close();
-    }
-
-    private void recordAllocationOrigin(AllocationInfo allocation, SourceSpan span) {
-        if (rejectedFreeEvidence != null && rejectedFreeEvidence.origin(allocation, source, span)
-                && observer != null) observer.evidenceOrigin(source);
-    }
 
     AnonymousParentBinder.PrimaryPlanningContext anonymousParentPlanningContext() {
         return planningContext;
@@ -484,7 +400,6 @@ final class FunctionAnalyzer {
                     blocks.values().stream().map(MutableBlock::freeze).toList(), function.span());
         }
 
-
         if (AllocationResultSemantics.isThrowableDescription(function)) {
             IrValueReference result = newValue(STRING_TYPE, function.span());
             emitCall(new IrThrowableDescriptionInstruction(result,
@@ -496,8 +411,6 @@ final class FunctionAnalyzer {
                     function.returnType(), parameters,
                     blocks.values().stream().map(MutableBlock::freeze).toList(), function.span());
         }
-
-
 
         if (isSystemIdentityHashCodeIntrinsic()) {
             IrValueReference result = newValue(IrType.I32, function.span());
@@ -1043,11 +956,8 @@ final class FunctionAnalyzer {
 
         boolean reachable = lowerBlock(body, false);
         if (reachable) {
-            if (function.isDestructor()) {
-                emitSuperclassDestructorChain(body.span());
-            }
             if (function.returnType().equals(IrType.VOID)) {
-                observeUnfreed(true, true);
+
                 currentBlock.terminate(new IrReturnTerminator(Optional.empty(), body.span()));
             } else {
                 diagnostics.add(error(function.nameSpan(),
@@ -1057,10 +967,6 @@ final class FunctionAnalyzer {
         }
         exitScope();
 
-        validateConstructorHelperArguments();
-        if (unfreed != null && !Diagnostic.hasErrors(diagnostics.subList(diagnosticStart, diagnostics.size()))) {
-            diagnostics.addAll(unfreed.diagnostics());
-        }
         nullGuards.verify(controlFlow(), fieldStores(), function.linkageName());
         List<IrBasicBlock> frozenBlocks = RedundantNullChecks.omit(
                 blocks.values().stream().map(MutableBlock::freeze).toList(),
@@ -1069,35 +975,8 @@ final class FunctionAnalyzer {
                 function.returnType(), parameters, frozenBlocks, function.span());
     }
 
-    private void emitSuperclassDestructorChain(SourceSpan span) {
-        TypeSymbol superclass = currentClass.superclass().orElse(null);
-        if (superclass == null || superclass.destructor().isEmpty()) {
-            return;
-        }
-        CallableSymbol destructor = superclass.destructor().orElseThrow();
-        IrType receiverType = hierarchy.superclassType(currentClass.selfType())
-                .orElse(superclass.selfType());
-        IrOperand receiver = convertReference(thisOperand, receiverType, span);
-        currentBlock.addInstruction(new IrCallInstruction(Optional.empty(),
-                destructor.linkageName(), IrType.VOID, List.of(receiver), span));
-    }
-
     private void lowerConstructorInvocation() {
-        // The explicit invocation is one full expression: its temporaries are
-        // reclaimed after the delegated constructor returns and before any
-        // instance initializer runs. Initializer expressions and block statements
-        // open their own scopes; a wider scope would capture allocations that
-        // statement-level branching makes conditional.
-        TemporaryScope scope = new TemporaryScope(copyEnvironment(), List.copyOf(exceptionRegions), expressionBranchDepth);
-        temporaryScopes.push(scope);
-        boolean initialize;
-        try {
-            initialize = lowerExplicitConstructorInvocation();
-        } finally {
-            temporaryScopes.pop();
-        }
-        reclaimTemporaries(scope, function.nameSpan());
-        if (initialize) lowerInstanceInitializations();
+        if (lowerExplicitConstructorInvocation()) lowerInstanceInitializations();
     }
 
     /** Lowers the explicit or implicit delegation; returns whether initializers follow. */
@@ -1398,19 +1277,10 @@ final class FunctionAnalyzer {
             if (statement instanceof DeferStatement deferred) {
                 PreparedInvocation call = prepareDeferredInvocation(deferred);
                 if (call != null) {
-                    DeferredCallAction action = new DeferredCallAction(call,
-                            deferredCaptures(deferred.call(), call));
-                    try {
-                        return lowerDeferredTail(action, call.span(),
-                                statements, index + 1, enclosingBlock);
-                    } finally {
-                        if (rejectedFreeEvidence != null) {
-                            rejectedFreeEvidence.releaseTransient(action.captures().size());
-                        }
-                    }
+                    DeferredCallAction action = new DeferredCallAction(call);
+                    return lowerDeferredTail(action, call.span(),
+                            statements, index + 1, enclosingBlock);
                 }
-            } else if (statement instanceof DeferredFreeStatement deferred) {
-                diagnostics.add(error(deferred.span(), "defer free has been removed; defer an explicit resource method"));
             } else {
                 reachable = lowerStatement(statement);
             }
@@ -1441,48 +1311,6 @@ final class FunctionAnalyzer {
         return prepared;
     }
 
-    private DeferredFreeAction prepareDeferredFree(DeferredFreeStatement statement) {
-        NameExpression name = statement.target();
-        LocalSymbol target = resolve(name.name());
-        if (target == null) {
-            diagnostics.add(error(name.span(), "defer free target must be a local variable"));
-            return null;
-        }
-        IrOperand operand = environment.get(target);
-        AllocationInfo allocation = allocationOf(operand);
-        RejectedFreeExplanation.Missing missing = null;
-        boolean nonReference = !target.type().isReference();
-        if (!nonReference) {
-            if (allocation == null) {
-                missing = RejectedFreeExplanation.Missing.IDENTITY;
-            } else if (isDependentBorrow(operand)) {
-                missing = RejectedFreeExplanation.Missing.BORROW_OWNER;
-            } else if (allocation.state.mayBeFreed()) {
-                missing = RejectedFreeExplanation.Missing.SELECTED_REASON;
-            }
-        }
-        if (nonReference || missing != null) {
-            String message = "cannot defer free of '" + name.name()
-                    + "': target must be a live, proven owned local reference";
-            if (nonReference) {
-                diagnostics.add(error(name.span(), message));
-            } else {
-                rejectedDeferredRegistration(name.span(), message, missing,
-                        allocation, operand);
-            }
-            return null;
-        }
-        DeferredFreeAction duplicate = matchingDeferredFree(target, allocation);
-        if (duplicate != null) {
-            rejectedPendingDeferredFree(name.span(),
-                    "allocation already has a pending deferred free", duplicate, true);
-            return null;
-        }
-        Set<LocalSymbol> liveAfter = new LinkedHashSet<>();
-        scopes.stream().skip(1).forEach(scope -> liveAfter.addAll(scope.values()));
-        return new DeferredFreeAction(target, name.span(), statement.span(), liveAfter);
-    }
-
     /** Protect the source tail without introducing a source scope or a runtime action. */
     private boolean lowerDeferredTail(CleanupAction action, SourceSpan span,
                                       List<Statement> statements, int start,
@@ -1501,9 +1329,7 @@ final class FunctionAnalyzer {
         restoreDeque(exceptionRegions, outerExceptions);
         restoreDeque(finallyContexts, outerFinally);
         if (reachable) {
-            reachable = lowerFinallyBody(cleanup,
-                    cleanupExit("normal completion of this deferred tail",
-                            closingBraceSpan(enclosingBlock)));
+            reachable = lowerFinallyBody(cleanup);
         }
         MutableBlock normalEnd = currentBlock;
         LinkedHashMap<LocalSymbol, IrOperand> normalEnvironment = copyEnvironment();
@@ -1522,9 +1348,6 @@ final class FunctionAnalyzer {
 
     private boolean lowerStatement(Statement statement) {
         boolean reachable = lowerStatementValue(statement);
-        if (reachable && expressionDepth == 0 && currentBlock.terminator == null) {
-            observeUnfreed(false, false);
-        }
         return reachable;
     }
 
@@ -1536,7 +1359,7 @@ final class FunctionAnalyzer {
             return lowerBlock(block, true);
         }
         if (statement instanceof LocalVariableDeclaration declaration) {
-            lowerWithTemporaries(statement.span(), () -> lowerLocalVariable(declaration));
+            lowerStatementAction(statement.span(), () -> lowerLocalVariable(declaration));
             return true;
         }
         if (statement instanceof LocalClassDeclaration) {
@@ -1547,16 +1370,12 @@ final class FunctionAnalyzer {
             return true;
         }
         if (statement instanceof AssignmentStatement assignment) {
-            lowerWithTemporaries(statement.span(), () -> lowerAssignment(assignment));
+            lowerStatementAction(statement.span(), () -> lowerAssignment(assignment));
             return true;
         }
         if (statement instanceof ExpressionStatement expressionStatement) {
-            lowerWithTemporaries(statement.span(),
+            lowerStatementAction(statement.span(),
                     () -> lowerExpressionStatement(expressionStatement));
-            return true;
-        }
-        if (statement instanceof FreeStatement freeStatement) {
-            diagnostics.add(error(freeStatement.span(), "source free has been removed; use Memory.collect()"));
             return true;
         }
         if (statement instanceof ReturnStatement returnStatement) {
@@ -1582,17 +1401,6 @@ final class FunctionAnalyzer {
                     () -> lowerDoWhile(doWhileStatement, null)));
         }
         if (statement instanceof ForStatement forStatement) {
-            FieldSymbol ownedElements = function.isDestructor()
-                    ? OwnedArrayElementAnalyzer.fieldFor(currentClass, forStatement) : null;
-            if (ownedElements != null && ownedArrayFields.isOwned(ownedElements)
-                    && function.body().orElseThrow().statements().contains(forStatement)
-                    && resolve(((LocalVariableDeclaration) forStatement.initializer().orElseThrow()).name()) == null) {
-                IrValueReference array = newValue(ownedElements.type(), statement.span());
-                currentBlock.addInstruction(new IrFieldLoadInstruction(array, thisOperand,
-                        ownedElements.irField(), statement.span()));
-                currentBlock.addInstruction(new IrDestroyArrayElementsInstruction(array, statement.span()));
-                return true;
-            }
             return lowerPathSensitiveFlow(() -> lowerOpenLoop(() -> lowerFor(forStatement, null)));
         }
         if (statement instanceof EnhancedForStatement enhancedForStatement) {
@@ -1720,16 +1528,7 @@ final class FunctionAnalyzer {
                 "local variable", declaration.isFinal());
         if (symbol != null) {
             environment.put(symbol, value);
-            nameTemporary(allocationOf(value));
-            if (rejectedFreeEvidence != null) {
-                rejectedFreeEvidence.bind(symbol, allocationOf(value), source,
-                        declaration.initializer().span());
-            }
-            if (unfreed != null) {
-                AllocationInfo allocation = allocationOf(value);
-                unfreed.name(allocation, declaration.name());
-                if (declaration.hasSuppressUnfreedDirective()) unfreed.suppress(allocation);
-            }
+
             if (declaration.isFinal() && (declaredType.isIntegral()
                     || declaredType.equals(IrType.I1))
                     && initializer.integralConstant() != null
@@ -1753,7 +1552,6 @@ final class FunctionAnalyzer {
                             + name.name() + "'"));
                     return;
                 }
-                if (rejectPendingFreeWrite(symbol, name.span())) return;
                 if (!isAssignmentConvertible(symbol.type(), value)) {
                     diagnostics.add(error(assignment.value().span(),
                             "cannot assign " + typeName(value.type()) + " value to " + typeName(symbol.type())
@@ -1761,10 +1559,7 @@ final class FunctionAnalyzer {
                 }
                 IrOperand assigned = assignmentValue(value, symbol.type(), assignment.value().span(), "assignment");
                 environment.put(symbol, assigned);
-                if (rejectedFreeEvidence != null) {
-                    rejectedFreeEvidence.bind(symbol, allocationOf(assigned), source,
-                            assignment.value().span());
-                }
+
                 return;
             }
             FieldSymbol field = resolveField(currentClass.selfType(), name.name(), name.span());
@@ -1903,7 +1698,7 @@ final class FunctionAnalyzer {
 
     private void storeField(IrOperand receiver, FieldSymbol field, Expression valueExpression,
                             SourceSpan span, boolean validateReceiverAfterValue) {
-        lowerWithTemporaries(span, () -> storeFieldValue(receiver, field, valueExpression, span,
+        lowerStatementAction(span, () -> storeFieldValue(receiver, field, valueExpression, span,
                 validateReceiverAfterValue));
     }
 
@@ -1918,8 +1713,6 @@ final class FunctionAnalyzer {
         IrOperand operand = assignmentValue(value, field.type(), valueExpression.span(), "field assignment");
         if (validateReceiverAfterValue) {
             emitNullCheck(receiver, span);
-        } else {
-            checkNotFreed(receiver, span);
         }
         detachOwnedField(receiver, field, operand);
         markEscaped(operand, "allocation escapes through field '"
@@ -1928,7 +1721,7 @@ final class FunctionAnalyzer {
     }
 
     private void storeStaticField(FieldSymbol field, Expression valueExpression, SourceSpan span) {
-        lowerWithTemporaries(span, () -> storeStaticFieldValue(field, valueExpression, span));
+        lowerStatementAction(span, () -> storeStaticFieldValue(field, valueExpression, span));
     }
 
     private void storeStaticFieldValue(FieldSymbol field, Expression valueExpression,
@@ -1968,589 +1761,9 @@ final class FunctionAnalyzer {
         }
     }
 
-    private void lowerFree(FreeStatement statement) {
-        if (function.isDestructor()) {
-            FieldSymbol attached = destructorFreeField(statement.value());
-            if (attached != null) {
-                lowerDestructorFieldFree(attached, statement);
-                return;
-            }
-        }
-        LocalSymbol symbol = null;
-        IrOperand operand;
-        IrType targetType;
-        String targetName;
-        SourceSpan targetSpan = statement.value().span();
-        if (statement.value() instanceof NameExpression name) {
-            symbol = resolve(name.name());
-            if (symbol == null) {
-                diagnostics.add(error(name.span(),
-                        "free target must be a local variable, not a field or type name"));
-                return;
-            }
-            operand = environment.get(symbol);
-            targetType = symbol.type();
-            targetName = "'" + name.name() + "'";
-        } else {
-            TypedValue value = lowerExpression(statement.value());
-            operand = value.operand();
-            targetType = value.type();
-            targetName = "expression";
-        }
-        lowerFreeOperand(symbol, operand, targetType, targetName, targetSpan, statement.span(), Set.of());
-    }
-
-    private void lowerFreeOperand(LocalSymbol symbol, IrOperand operand, IrType targetType,
-                                  String targetName, SourceSpan targetSpan, SourceSpan span,
-                                  Set<LocalSymbol> expiredAliases) {
-        FreeProof proof = probeFree(symbol, operand, targetType, expiredAliases);
-        // An owned field's proof assumed this free never runs (D297); reject it.
-        String contingent = proof instanceof FreeProof.Accepted && symbol != null
-                ? ownedArrayFields.contingentFree(source, span) : null;
-        if ((contingent != null || !(proof instanceof FreeProof.Accepted)) && symbol != null
-                && targetType.isReference()) {
-            rejectedFreeTypes.put(span, targetType);
-        }
-        if (contingent != null) {
-            ownershipVerdict(error(targetSpan, "cannot free " + targetName
-                    + ": it can run a destructor while " + contingent));
-            return;
-        }
-        switch (proof) {
-            case FreeProof.Accepted accepted -> emitProvenFree(accepted.allocation(), operand, span);
-            case FreeProof.NotReference ignored -> diagnostics.add(error(targetSpan,
-                    "free target must have a class, interface, or array reference type, not "
-                            + typeName(targetType)));
-            case FreeProof.NoIdentity ignored -> rejectedMissingIdentity(symbol, operand,
-                    targetName, targetSpan);
-            case FreeProof.DependentBorrow ignored -> rejectedDependentBorrow(operand,
-                    targetName, targetSpan);
-            case FreeProof.PendingDeferredFree rejected -> rejectedPendingDeferredFree(targetSpan,
-                    "cannot free " + targetName
-                    + ": allocation has a pending deferred free", rejected.action(), false);
-            case FreeProof.RetainingOwner rejected -> rejectedRetainingOwner(
-                    rejected.allocation(), rejected.owner(), targetName, targetSpan);
-            case FreeProof.PendingDeferredCall rejected -> rejectedPendingDeferredCall(targetSpan,
-                    "cannot free " + targetName
-                    + ": allocation is retained by a pending deferred call",
-                    rejected.action(), rejected.allocation());
-            case FreeProof.PendingYield rejected -> rejectedPendingYield(
-                    rejected.allocation(), targetName, targetSpan);
-            case FreeProof.AlreadyFreed rejected -> rejectedAlreadyFreed(
-                    rejected.allocation(), targetName, targetSpan);
-            case FreeProof.Blocked rejected -> rejectedBlocked(
-                    rejected.allocation(), targetName, targetSpan);
-            case FreeProof.AttachedField rejected -> rejectedAttachedField(
-                    rejected.allocation(), targetName, targetSpan);
-            case FreeProof.ArraySlotAlias rejected -> rejectedArraySlotAlias(
-                    rejected.slot(), targetName, targetSpan);
-            case FreeProof.LocalAlias rejected -> rejectedLocalAlias(
-                    rejected.allocation(), rejected.alias(), targetName, targetSpan);
-        }
-    }
-
-    /**
-     * Decides whether freeing {@code operand} is safe without emitting instructions,
-     * diagnostics, or explanation evidence. The checks run in the same order as the
-     * diagnostics they justify, so the first failing fact is the reported one.
-     */
-    private FreeProof probeFree(LocalSymbol symbol, IrOperand operand, IrType targetType,
-                                Set<LocalSymbol> expiredAliases) {
-        if (!targetType.isReference() && !targetType.equals(IrType.NULL)) {
-            return new FreeProof.NotReference();
-        }
-        AllocationInfo allocation = allocationOf(operand);
-        if (allocation == null || !allocation.present) {
-            // An allocation absent from this path's ownership state, such as a
-            // call's fresh result where that call unwinds, has no identity here.
-            return new FreeProof.NoIdentity();
-        }
-        if (isDependentBorrow(operand)) {
-            return new FreeProof.DependentBorrow();
-        }
-        DeferredFreeAction pendingFree = matchingDeferredFree(null, allocation);
-        if (pendingFree != null) {
-            return new FreeProof.PendingDeferredFree(allocation, pendingFree);
-        }
-        // Select diagnostic witnesses by analysis order, not identity-map iteration.
-        AllocationInfo retainingOwner = retainedBorrows.entrySet().stream()
-                .filter(entry -> entry.getKey() != allocation && entry.getValue().contains(allocation))
-                .map(Map.Entry::getKey)
-                .min(Comparator.comparingInt(allocations::indexOf)).orElse(null);
-        if (retainingOwner != null) {
-            return new FreeProof.RetainingOwner(allocation, retainingOwner);
-        }
-        DeferredCallAction pendingCall = matchingDeferredCall(allocation);
-        if (pendingCall != null) {
-            return new FreeProof.PendingDeferredCall(allocation, pendingCall);
-        }
-        if (pendingYieldAllocations.contains(allocation)) {
-            return new FreeProof.PendingYield(allocation);
-        }
-        if (allocation.state == AllocationState.FREED) {
-            return new FreeProof.AlreadyFreed(allocation);
-        }
-        if (allocation.state == AllocationState.ESCAPED
-                || allocation.state == AllocationState.UNCERTAIN
-                || allocation.state == AllocationState.MAYBE_FREED) {
-            return new FreeProof.Blocked(allocation);
-        }
-        if (allocation.origin == AllocationOrigin.OWNED_FIELD && !allocation.detached) {
-            return new FreeProof.AttachedField(allocation);
-        }
-        ArraySlot storedAlias = knownArraySlots.entrySet().stream()
-                .filter(entry -> entry.getValue() == allocation)
-                .map(Map.Entry::getKey)
-                .filter(slot -> slot.container() != allocation)
-                // Prefer slot index, then container allocation order, independently of store order.
-                .min(Comparator.comparingInt(ArraySlot::index)
-                        .thenComparingInt(slot -> allocations.indexOf(slot.container())))
-                .orElse(null);
-        if (storedAlias != null) {
-            return new FreeProof.ArraySlotAlias(allocation, storedAlias);
-        }
-        LocalSymbol freedSymbol = symbol;
-        LocalSymbol alias = environment.entrySet().stream()
-                .filter(entry -> freedSymbol == null || !entry.getKey().equals(freedSymbol))
-                .filter(entry -> !expiredAliases.contains(entry.getKey()))
-                .filter(entry -> allocationOf(entry.getValue()) == allocation)
-                .filter(entry -> !isDependentBorrow(entry.getValue()))
-                .map(Map.Entry::getKey)
-                .findFirst().orElse(null);
-        if (alias != null) {
-            return new FreeProof.LocalAlias(allocation, alias);
-        }
-        FreeProof elementAlias = elementAliasOf(allocation, freedSymbol, expiredAliases);
-        if (elementAlias != null) {
-            return elementAlias;
-        }
-        return new FreeProof.Accepted(allocation);
-    }
-
-    /** Emits an accepted free and applies its ownership consequences. */
-    private void emitProvenFree(AllocationInfo allocation, IrOperand operand, SourceSpan span) {
-        currentBlock.addInstruction(new IrFreeInstruction(operand, span));
-        boolean retainedExit = activeCleanupExit != null && rejectedFreeEvidence != null
-                && rejectedFreeEvidence.reserveTransient(1);
-        reclamations.add(new Reclamation(allocation, span,
-                retainedExit ? activeCleanupExit : null,
-                activeCleanupExit != null && !retainedExit));
-        applyFreeConsequences(allocation);
-        if (rejectedFreeEvidence != null) {
-            rejectedFreeEvidence.reclaimed(allocation, source, span);
-            rejectedFreeEvidence.clearRetainingOwner(allocation);
-            rejectedFreeEvidence.retainArrayStores(knownArraySlots.keySet());
-        }
-    }
-
     /** The ownership state after a free: dead, and no longer retaining anything. */
-    private void applyFreeConsequences(AllocationInfo allocation) {
-        allocation.state = AllocationState.FREED;
-        retainedBorrows.remove(allocation);
-        knownArraySlots.keySet().removeIf(slot -> slot.container() == allocation);
-    }
-
-    private void rejectedMissingIdentity(LocalSymbol symbol, IrOperand operand,
-                                        String targetName, SourceSpan targetSpan) {
-        String reason = symbol == null
-                ? "free target must be a local variable created by new in this method "
-                + "or a proven fresh expression"
-                : "value is not a known allocation created by new in this method, "
-                + "returned by a proven fresh factory, or a proven detached private "
-                + "backing array";
-        String message = "cannot prove free of " + targetName + " safe: " + reason;
-        if (explainRejectedFree && explanationReady
-                && operand != null && operand.sourceSpan() != null) {
-            boolean parameterOrigin = symbol != null && function.parameters().stream()
-                    .anyMatch(parameter -> parameter.name().equals(symbol.name())
-                            && parameter.nameSpan().equals(operand.sourceSpan()));
-            String detail = parameterOrigin
-                    ? "parameter '" + symbol.name()
-                    + "' is supplied by its caller; no fresh allocation identity is proved"
-                    : symbol == null
-                    ? "this expression has no proven fresh allocation origin"
-                    : "the current value of '" + symbol.name()
-                    + "' has no proven fresh allocation origin at this expression";
-            List<DiagnosticNote> notes = new ArrayList<>();
-            notes.add(new DiagnosticNote(detail, source, operand.sourceSpan()));
-            RejectedFreeEvidence.FieldLoad load = rejectedFreeEvidence == null ? null
-                    : rejectedFreeEvidence.fieldLoad(operand);
-            if (load != null && !ownedArrayFields.isOwned(load.field())) {
-                notes.add(new DiagnosticNote("this value was loaded from private field '"
-                        + load.field().declaration().name() + "'; ownership of that field "
-                        + "is not proved", load.source(), load.span()));
-                appendFieldNotes(notes, fieldFailureNotes(load.field()));
-            }
-            ownershipVerdict(error(targetSpan, message).withNotes(notes));
-        } else {
-            rejectedFree(targetSpan, message, RejectedFreeExplanation.Missing.IDENTITY);
-        }
-    }
-
-    private void rejectedDependentBorrow(IrOperand operand, String targetName,
-                                        SourceSpan targetSpan) {
-        String message = "cannot free " + targetName
-                + ": value is a borrowed helper owned by another object";
-        AllocationInfo helperOwner = allocationOf(operand);
-        AllocationInfo poolOwner = poolValueOwner(operand);
-        if (explainRejectedFree && explanationReady && rejectedFreeEvidence != null
-                && poolOwner != null) {
-            AllocationInfo returned = allocationsByOperand.get(operand);
-            boolean transferred = poolOwners.get(returned) == poolOwner;
-            RejectedFreeEvidence.Site site = transferred
-                    ? rejectedFreeEvidence.retention(poolOwner, returned)
-                    : rejectedFreeEvidence.origin(operand);
-            if (site == null) {
-                rejectedFree(targetSpan, message, RejectedFreeExplanation.Missing.BORROW_OWNER);
-            } else {
-                String action = transferred
-                        ? "was passed this object through release here; release did not destroy it, "
-                        + "and the compiler conservatively blocks an independent free. "
-                        + "Returning an external object is unsupported and does not promise pool cleanup"
-                        : "lends this checked-out object here; return it to the same pool with release, "
-                        + "or successfully destroy the pool to reclaim it";
-                ownershipVerdict(error(targetSpan, message).withNotes(
-                        ownerNotes("pool", poolOwner, site.source(), site.span(), action)));
-            }
-        } else if (explainRejectedFree && explanationReady && rejectedFreeEvidence != null
-                && ownedHelperBorrows.contains(operand)
-                && helperOwner != null
-                && operand.sourceSpan() != null
-                && retainedBorrows.values().stream().noneMatch(children ->
-                children.contains(helperOwner))) {
-            ownershipVerdict(error(targetSpan, message).withNotes(
-                    ownerNotes(isKnownContainer(helperOwner) ? "container" : "owner",
-                            helperOwner, source, operand.sourceSpan(),
-                            "lends a dependent helper acquired or propagated here; "
-                            + "the helper cannot be freed independently")));
-        } else {
-            rejectedFree(targetSpan, message, RejectedFreeExplanation.Missing.BORROW_OWNER);
-        }
-    }
-
-    private void rejectedRetainingOwner(AllocationInfo allocation, AllocationInfo retainingOwner,
-                                       String targetName, SourceSpan targetSpan) {
-        String kind = isKnownContainer(retainingOwner) ? "container" : "wrapper";
-        String message = "cannot free " + targetName
-                + ": allocation is still borrowed by a live "
-                + kind;
-        RejectedFreeEvidence.Site site = rejectedFreeEvidence == null ? null
-                : rejectedFreeEvidence.retention(retainingOwner, allocation);
-        if (explainRejectedFree && explanationReady && site != null) {
-            ownershipVerdict(error(targetSpan, message).withNotes(
-                    ownerNotes(kind, retainingOwner, site.source(), site.span(),
-                            "retains this allocation through this operation")));
-        } else {
-            rejectedFree(targetSpan, message, RejectedFreeExplanation.Missing.RETAINING_OWNER);
-        }
-    }
-
-    private void rejectedPendingYield(AllocationInfo allocation, String targetName,
-                                     SourceSpan targetSpan) {
-        String message = "cannot free " + targetName
-                + ": allocation is retained by a pending yield result";
-        PendingYieldEvidence pending = pendingYieldEvidence == null ? null
-                : pendingYieldEvidence.stream()
-                .filter(item -> item.allocation() == allocation).findFirst().orElse(null);
-        if (pending == null) {
-            rejectedFree(targetSpan, message, RejectedFreeExplanation.Missing.YIELD);
-        } else {
-            ownershipVerdict(error(targetSpan, message).withNotes(List.of(
-                    new DiagnosticNote("this pending yield result still observes "
-                            + "the allocation during cleanup", source, pending.span()))));
-        }
-    }
-
-    private void rejectedAlreadyFreed(AllocationInfo allocation, String targetName,
-                                     SourceSpan targetSpan) {
-        RejectedFreeEvidence.Join joined = selectedJoin(allocation);
-        RejectedFreeEvidence.Event event = rejectedFreeEvidence == null
-                ? null : rejectedFreeEvidence.event(allocation);
-        if (joined != null) {
-            ownershipVerdict(error(targetSpan, "cannot free " + targetName
-                    + ": allocation was already freed").withNotes(joinNotes(allocation, joined)));
-        } else if (explainRejectedFree && explanationReady && event != null
-                && event.kind() == RejectedFreeEvidence.EventKind.FREE) {
-            ownershipVerdict(error(targetSpan, "cannot free " + targetName
-                    + ": allocation was already freed")
-                    .withNotes(List.of(new DiagnosticNote(
-                            "the same allocation was freed here",
-                            event.source(), event.span()))));
-        } else {
-            rejectedFree(targetSpan, "cannot free " + targetName
-                    + ": allocation was already freed",
-                    RejectedFreeExplanation.Missing.EARLIER_FREE);
-        }
-    }
-
-    private void rejectedBlocked(AllocationInfo allocation, String targetName,
-                                SourceSpan targetSpan) {
-        String message = "cannot free " + targetName + ": " + allocation.blockingReason;
-        RejectedFreeEvidence.Join joined = selectedJoin(allocation);
-        RejectedFreeEvidence.Event event = rejectedFreeEvidence == null
-                ? null : rejectedFreeEvidence.event(allocation);
-        if (joined != null) {
-            ownershipVerdict(error(targetSpan, message).withNotes(joinNotes(allocation, joined)));
-        } else if (explainRejectedFree && explanationReady && event != null
-                && event.kind() == RejectedFreeEvidence.EventKind.REASON
-                && event.reason().equals(allocation.blockingReason)
-                && event.source() != null && event.span() != null) {
-            List<DiagnosticNote> notes = new ArrayList<>();
-            if (event.call() == null) {
-                notes.add(new DiagnosticNote(selectedReasonNote(event.reason()),
-                        event.source(), event.span()));
-            } else {
-                notes.addAll(SummaryCallExplanation.notes(escapeSummaries, event));
-            }
-            if (event.reason().equals("allocation is borrowed by an escaped wrapper")) {
-                List<AllocationInfo> possibleOwners = retainedBorrows.entrySet().stream()
-                        .filter(entry -> entry.getValue().contains(allocation)
-                                && entry.getKey().state == AllocationState.ESCAPED)
-                        .map(Map.Entry::getKey).toList();
-                if (possibleOwners.size() == 1) {
-                    AllocationInfo owner = possibleOwners.getFirst();
-                    RejectedFreeEvidence.Site relation = rejectedFreeEvidence.retention(
-                            owner, allocation);
-                    if (relation != null) {
-                        notes.addAll(ownerNotes(isKnownContainer(owner) ? "container" : "wrapper",
-                                owner, relation.source(), relation.span(),
-                                "retained this allocation before escaping"));
-                    }
-                }
-            }
-            ownershipVerdict(error(targetSpan, message).withNotes(notes));
-        } else {
-            rejectedFree(targetSpan, message, RejectedFreeExplanation.Missing.SELECTED_REASON);
-        }
-    }
-
-    private void rejectedAttachedField(AllocationInfo allocation, String targetName,
-                                      SourceSpan targetSpan) {
-        String message = "cannot free " + targetName
-                + ": allocation is still reachable through private field '"
-                + allocation.ownedFieldName + "'";
-        RejectedFreeEvidence.Site origin = rejectedFreeEvidence == null ? null
-                : rejectedFreeEvidence.origin(allocation);
-        if (explainRejectedFree && explanationReady && origin != null) {
-            List<DiagnosticNote> notes = new ArrayList<>();
-            notes.add(new DiagnosticNote(
-                    "private field '" + allocation.ownedFieldName
-                    + "' is still attached to this object; its value was loaded here",
-                    origin.source(), origin.span()));
-            RejectedFreeEvidence.FieldLoad load = rejectedFreeEvidence.fieldLoad(allocation);
-            if (load != null) {
-                appendFieldNotes(notes, fieldFailureNotes(load.field()));
-            }
-            ownershipVerdict(error(targetSpan, message).withNotes(notes));
-        } else {
-            rejectedFree(targetSpan, message, RejectedFreeExplanation.Missing.ATTACHED_FIELD);
-        }
-    }
-
-    private void rejectedArraySlotAlias(ArraySlot storedAlias, String targetName,
-                                       SourceSpan targetSpan) {
-        String message = "cannot free " + targetName
-                + ": allocation is still reachable through known array element ["
-                + storedAlias.index() + "]";
-        RejectedFreeEvidence.Site store = rejectedFreeEvidence == null
-                ? null : rejectedFreeEvidence.arrayStore(storedAlias);
-        if (explainRejectedFree && explanationReady && store != null) {
-            ownershipVerdict(error(targetSpan, message).withNotes(List.of(new DiagnosticNote(
-                    "array element [" + storedAlias.index()
-                            + "] receives a reference to this allocation here",
-                    store.source(), store.span()))));
-        } else {
-            rejectedFree(targetSpan, message, RejectedFreeExplanation.Missing.ARRAY_SLOT);
-        }
-    }
-
-    private void rejectedLocalAlias(AllocationInfo allocation, LocalSymbol alias,
-                                   String targetName, SourceSpan targetSpan) {
-        String reason = "allocation may still be observed through local '" + alias.name() + "'";
-        RejectedFreeEvidence.Binding binding = rejectedFreeEvidence == null
-                ? null : rejectedFreeEvidence.binding(alias);
-        if (explainRejectedFree && explanationReady && binding != null
-                && binding.allocation() == allocation) {
-            ownershipVerdict(error(targetSpan, "cannot free " + targetName + ": " + reason)
-                    .withNotes(List.of(new DiagnosticNote(
-                            "local '" + alias.name()
-                                    + "' receives a reference to the same allocation here",
-                            binding.source(), binding.span()),
-                            new DiagnosticNote("the ownership analysis still tracks '"
-                                    + alias.name() + "' as an observer at this free"))));
-        } else {
-            rejectedFree(targetSpan, "cannot free " + targetName + ": " + reason,
-                    RejectedFreeExplanation.Missing.LOCAL_ALIAS);
-        }
-    }
-
-    private List<DiagnosticNote> ownerNotes(String kind, AllocationInfo owner,
-                                            SourceFile operationSource, SourceSpan operationSpan,
-                                            String action) {
-        LocalSymbol currentName = environment.entrySet().stream()
-                .filter(entry -> !entry.getKey().name().startsWith("\u0000"))
-                .filter(entry -> !isDependentBorrow(entry.getValue()))
-                .filter(entry -> allocationOf(entry.getValue()) == owner)
-                .map(Map.Entry::getKey)
-                .min(Comparator.comparingInt(LocalSymbol::id)).orElse(null);
-        String label = currentName == null
-                ? kind + " of type '" + (owner.constructedType == null
-                ? "unknown" : owner.constructedType.displayName()) + "'"
-                : kind + " '" + currentName.name() + "'";
-        List<DiagnosticNote> notes = new ArrayList<>();
-        notes.add(new DiagnosticNote(label + " " + action, operationSource, operationSpan));
-        RejectedFreeEvidence.Site creation = rejectedFreeEvidence.origin(owner);
-        if (currentName == null && creation != null
-                && (!creation.source().equals(operationSource)
-                || !creation.span().equals(operationSpan))) {
-            notes.add(new DiagnosticNote("the retaining " + kind + " was created here",
-                    creation.source(), creation.span()));
-        }
-        return List.copyOf(notes);
-    }
-
-    private RejectedFreeEvidence.Join selectedJoin(AllocationInfo allocation) {
-        if (!explainRejectedFree || !explanationReady || rejectedFreeEvidence == null) return null;
-        RejectedFreeEvidence.Join joined = rejectedFreeEvidence.join(allocation);
-        return joined != null && joined.state().equals(allocation.state.name())
-                && java.util.Objects.equals(joined.reason(), allocation.blockingReason)
-                ? joined : null;
-    }
-
-    private List<DiagnosticNote> joinNotes(AllocationInfo allocation,
-                                           RejectedFreeEvidence.Join joined) {
-        List<DiagnosticNote> notes = new ArrayList<>();
-        for (RejectedFreeEvidence.JoinAlternative alternative : joined.alternatives()) {
-            RejectedFreeEvidence.Event event = alternative.event();
-            if (event != null && event.source() != null && event.span() != null) {
-                String detail;
-                if (event.kind() == RejectedFreeEvidence.EventKind.FREE) {
-                    detail = "the same allocation was freed here";
-                } else if (event.reason() != null && event.reason().startsWith(
-                        "allocation escapes through static field '")) {
-                    detail = event.reason().replaceFirst("allocation escapes through ",
-                            "the reference is stored in ") + " here";
-                } else {
-                    detail = selectedReasonNote(event.reason());
-                }
-                notes.add(new DiagnosticNote(alternative.label() + ", " + detail,
-                        event.source(), event.span()));
-            } else {
-                String detail = switch (alternative.state()) {
-                    case "ACTIVE" -> "the analysis records no escape on this incoming path to this join";
-                    case "ABSENT" -> "this allocation is absent from this incoming path";
-                    case "BORROWED_FROM_OWNER" -> "this helper is borrowed from the affected owner";
-                    case "BORROWED_FROM_OTHER_OWNER" -> "this helper is borrowed from another owner";
-                    case "NULL_REFERENCE" -> "this path supplies a null helper";
-                    case "UNBORROWED_REFERENCE" -> "this path has no recorded dependent borrow";
-                    default -> "detailed source evidence for this incoming ownership state is unavailable";
-                };
-                notes.add(new DiagnosticNote(alternative.label() + ", " + detail,
-                        alternative.anchorSource(), alternative.anchorSpan()));
-            }
-        }
-        if (joined.classification().equals("borrowed helper conflict")) {
-            RejectedFreeEvidence.Site origin = rejectedFreeEvidence.origin(allocation);
-            if (origin != null) {
-                notes.add(new DiagnosticNote("the affected owner was allocated here",
-                        origin.source(), origin.span()));
-            }
-        }
-        if (!joined.complete()) {
-            notes.add(new DiagnosticNote("some incoming source evidence was unavailable; "
-                    + "no all-path conclusion is available"));
-        } else if (joined.classification().equals("all direct stores")) {
-            long destinations = joined.alternatives().stream()
-                    .map(RejectedFreeEvidence.JoinAlternative::reason)
-                    .filter(java.util.Objects::nonNull).distinct().count();
-            String detail = destinations > 1
-                    ? "the analysis records stores on all incoming paths; their destination fields differ"
-                    : "the analysis records a store on every incoming path";
-            notes.add(new DiagnosticNote(detail));
-        } else if (joined.classification().equals("all escape")) {
-            notes.add(new DiagnosticNote("the analysis records escape on all incoming paths; "
-                    + "call effects may be conservative"));
-        } else if (joined.classification().equals("some escape")) {
-            notes.add(new DiagnosticNote("the analysis records escape on some incoming paths "
-                    + "and no escape on others"));
-        }
-        if (joined.omitted() > 0) {
-            notes.add(new DiagnosticNote(joined.omitted()
-                    + " incoming alternatives were omitted by the explanation limit"));
-        }
-        return List.copyOf(notes);
-    }
-
-    private FieldSymbol destructorFreeField(Expression expression) {
-        String fieldName;
-        if (expression instanceof NameExpression name) {
-            if (resolve(name.name()) != null) {
-                return null;
-            }
-            fieldName = name.name();
-        } else if (expression instanceof FieldAccessExpression access
-                && access.receiver() instanceof ThisExpression) {
-            fieldName = access.fieldName();
-        } else {
-            return null;
-        }
-        FieldSymbol field = currentClass.declaredFields().get(fieldName);
-        return field != null && !field.isStatic() ? field : null;
-    }
-
-    private void lowerDestructorFieldFree(FieldSymbol field, FreeStatement statement) {
-        if (!field.type().isReference()) {
-            diagnostics.add(error(statement.value().span(),
-                    "destructor free target must have a reference type, not "
-                            + typeName(field.type())));
-            return;
-        }
-        if (!ownedArrayFields.isOwned(field)) {
-            String message = "cannot prove destructor free of field '"
-                    + field.declaration().name() + "' safe: field ownership is uncertain";
-            List<DiagnosticNote> failure = explainRejectedFree && explanationReady
-                    ? fieldFailureNotes(field) : List.of();
-            if (!failure.isEmpty()) {
-                ownershipVerdict(error(statement.value().span(), message)
-                        .withNotes(failure));
-            } else {
-                rejectedFree(statement.value().span(), message,
-                        RejectedFreeExplanation.Missing.FIELD_PROOF);
-            }
-            return;
-        }
-        // A nested operand call may retire the attached-loan lookup entry before
-        // activation. The captured allocation still retains its field provenance.
-        DeferredCallAction pendingCall = matchingDeferredFieldCall(field);
-        if (pendingCall != null) {
-            AllocationInfo captured = pendingCall.invocation().operands().stream()
-                    .map(this::allocationOf).filter(value -> value != null
-                            && value.origin == AllocationOrigin.OWNED_FIELD
-                            && !value.detached
-                            && field.declaration().name().equals(value.ownedFieldName))
-                    .findFirst().orElseThrow();
-            rejectedPendingDeferredCall(statement.value().span(), "cannot free field '"
-                    + field.declaration().name() + "': allocation is retained by a pending deferred call",
-                    pendingCall, captured);
-            return;
-        }
-        IrValueReference value = newValue(field.type(), statement.value().span());
-        currentBlock.addInstruction(new IrFieldLoadInstruction(value, thisOperand,
-                field.irField(), statement.value().span()));
-        currentBlock.addInstruction(new IrFieldStoreInstruction(thisOperand, field.irField(),
-                defaultValue(field.type(), statement.value().span()), statement.value().span()));
-        nullGuards.stored(field.irField());
-        currentBlock.addInstruction(new IrFreeInstruction(value, statement.span()));
-    }
 
     private void lowerReturn(ReturnStatement statement) {
-        if (function.isDestructor()) {
-            statement.value().ifPresent(this::lowerExpression);
-            diagnostics.add(error(statement.span(),
-                    "return is not permitted in a destructor"));
-            completeReturn(Optional.empty(), statement.span());
-            return;
-        }
         if (function.sourceName().equals("<clinit>")) {
             statement.value().ifPresent(this::lowerExpression);
             diagnostics.add(error(statement.span(),
@@ -2603,7 +1816,7 @@ final class FunctionAnalyzer {
     private void completeReturnThrough(List<FinallyContext> pending, int index,
                                        Optional<IrOperand> value, SourceSpan span) {
         if (index >= pending.size()) {
-            observeUnfreed(true, true);
+
             currentBlock.terminate(new IrReturnTerminator(value, span));
             return;
         }
@@ -2616,8 +1829,7 @@ final class FunctionAnalyzer {
         try {
             restoreDeque(exceptionRegions, context.outerExceptionRegions());
             restoreDeque(finallyContexts, context.outerFinallyContexts());
-            boolean reachable = emitCleanupAction(context,
-                    cleanupExit("this return", span));
+            boolean reachable = emitCleanupAction(context);
             if (reachable) {
                 completeReturnThrough(pending, index + 1, value, span);
             }
@@ -2727,20 +1939,14 @@ final class FunctionAnalyzer {
 
         List<BranchFlow> normalFlows = new ArrayList<>();
         List<OwnershipSnapshot> normalOwnerships = new ArrayList<>();
-        List<JoinPath> normalPaths = rejectedFreeEvidence == null ? List.of() : new ArrayList<>();
+        List<JoinPath> normalPaths = List.of();
         if (tryReachable) {
             restoreOwnership(tryOwnership);
-            boolean afterFinally = finallyContext == null || lowerFinallyBody(finallyContext,
-                    cleanupExit("normal completion of this try body",
-                            closingBraceSpan(statement.body().span())));
+            boolean afterFinally = finallyContext == null || lowerFinallyBody(finallyContext);
             if (afterFinally) {
                 normalFlows.add(new BranchFlow(true, currentBlock, copyEnvironment(), snapshotOwnership()));
                 normalOwnerships.add(snapshotOwnership());
-                if (rejectedFreeEvidence != null) {
-                    normalPaths.add(new JoinPath(normalOwnerships.getLast(),
-                            "normal completion of the try body", source,
-                            statement.body().span()));
-                }
+
             }
         }
 
@@ -2949,20 +2155,11 @@ final class FunctionAnalyzer {
             restoreDeque(exceptionRegions, outerExceptions);
             restoreDeque(finallyContexts, outerFinally);
             if (reachable) {
-                boolean afterFinally = finallyContext == null || lowerFinallyBody(finallyContext,
-                        cleanupExit("normal completion of this catch body",
-                                closingBraceSpan(clause.body().span())));
+                boolean afterFinally = finallyContext == null || lowerFinallyBody(finallyContext);
                 if (afterFinally) {
                     normalFlows.add(new BranchFlow(true, currentBlock, copyEnvironment(), snapshotOwnership()));
                     normalOwnerships.add(snapshotOwnership());
-                    if (rejectedFreeEvidence != null) {
-                        String catchTypes = clause.types().stream()
-                                .map(TypeName::displayName)
-                                .collect(java.util.stream.Collectors.joining(" | "));
-                        normalPaths.add(new JoinPath(normalOwnerships.getLast(),
-                                "normal completion of catch (" + catchTypes + ")",
-                                source, clause.body().span()));
-                    }
+
                 }
             }
             currentBlock = next;
@@ -3019,16 +2216,8 @@ final class FunctionAnalyzer {
             finallyContexts.push(finallyContext);
         }
         int diagnosticStart = diagnostics.size();
-        SourceSpan previousOrigin = checkedCatchOrigin;
-        checkedCatchOrigin = rejectedFreeEvidence == null ? null : clause.variableNameSpan();
-        boolean reachable;
-        try {
-            reachable = lowerBlock(clause.body(), false);
-            exitScope();
-        } finally {
-            addCheckedCatchNotes(diagnosticStart, checkedCatchOrigin);
-            checkedCatchOrigin = previousOrigin;
-        }
+        boolean reachable = lowerBlock(clause.body(), false);
+        exitScope();
         if (reachable) {
             currentBlock.terminate(new IrUnreachable(clause.span()));
         }
@@ -3041,21 +2230,7 @@ final class FunctionAnalyzer {
                                             OwnershipSnapshot ownershipBefore,
                                             SourceSpan span) {
         currentBlock = region.landingPad;
-        List<JoinPath> paths = rejectedFreeEvidence == null ? List.of()
-                : region.edges.stream().map(edge -> {
-                    if (edge.block().terminator instanceof IrInvokeTerminator invoke) {
-                        return new JoinPath(edge.ownership(),
-                                "possible exception edge from this operation", source,
-                                invoke.sourceSpan());
-                    }
-                    if (edge.block().terminator instanceof IrThrowTerminator thrown) {
-                        return new JoinPath(edge.ownership(), "exception edge from this throw",
-                                source, thrown.sourceSpan());
-                    }
-                    return new JoinPath(edge.ownership(),
-                            "exception edge from this protected region", source,
-                            edge.block().span);
-                }).toList();
+        List<JoinPath> paths = List.of();
         mergeOwnership(ownershipBefore, region.edges.stream()
                         .map(ExceptionEdge::ownership).toList(),
                 "allocation has conflicting ownership across exceptional paths", paths);
@@ -3091,80 +2266,8 @@ final class FunctionAnalyzer {
         return merged;
     }
 
-    private CleanupExit cleanupExit(String description, SourceSpan span) {
-        if (rejectedFreeEvidence == null || !explanationReady) return null;
-        return new CleanupExit(description, span,
-                rejectedFreeEvidence.reserveTransient(1));
-    }
-
-    private SourceSpan closingBraceSpan(SourceSpan region) {
-        int end = region.end().offset();
-        if (end <= region.start().offset() || end > source.content().length()
-                || source.content().charAt(end - 1) != '}'
-                || region.end().column() <= 1) return region;
-        SourcePosition before = new SourcePosition(end - 1, region.end().line(),
-                region.end().column() - 1);
-        return new SourceSpan(before, region.end());
-    }
-
-    private boolean eligibleCleanupDiagnostic(Diagnostic diagnostic) {
-        if (!diagnostic.isError() || diagnostic.source() == null
-                || diagnostic.span() == null || diagnostic.notes().isEmpty()) return false;
-        String message = diagnostic.message();
-        return message.startsWith("cannot free ")
-                || message.startsWith("cannot prove free ")
-                || message.startsWith("cannot defer free ")
-                || message.equals("allocation already has a pending deferred free");
-    }
-
-    private void addCleanupExitNotes(int fromIndex, CleanupExit exit) {
-        if (exit == null) return;
-        for (int index = fromIndex; index < diagnostics.size(); index++) {
-            Diagnostic diagnostic = diagnostics.get(index);
-            if (!eligibleCleanupDiagnostic(diagnostic) || diagnostic.notes().stream()
-                    .anyMatch(note -> note.message().startsWith(
-                            "this cleanup is checked for ")
-                            || note.message().startsWith(
-                            "this catch is checked even though "))) continue;
-            List<DiagnosticNote> notes = new ArrayList<>(diagnostic.notes());
-            if (notes.size() > 6) {
-                notes = new ArrayList<>(notes.subList(0, 6));
-                notes.add(new DiagnosticNote("other explanation detail was omitted "
-                        + "to preserve this cleanup exit context"));
-            }
-            String description = exit.description() + (checkedCatchOrigin == null ? ""
-                    : " inside a catch with no recorded incoming exception edge");
-            notes.add(new DiagnosticNote("this cleanup is checked for "
-                    + description, source, exit.span()));
-            diagnostics.set(index, diagnostic.withNotes(notes));
-        }
-    }
-
-    private void addCheckedCatchNotes(int fromIndex, SourceSpan origin) {
-        if (origin == null) return;
-        for (int index = fromIndex; index < diagnostics.size(); index++) {
-            Diagnostic diagnostic = diagnostics.get(index);
-            if (!eligibleCleanupDiagnostic(diagnostic) || diagnostic.notes().stream()
-                    .anyMatch(note -> note.message().startsWith(
-                            "this cleanup is checked for ")
-                            || note.message().startsWith(
-                            "this catch is checked even though "))) continue;
-            List<DiagnosticNote> notes = new ArrayList<>(diagnostic.notes());
-            if (notes.size() > 6) {
-                notes = new ArrayList<>(notes.subList(0, 6));
-                notes.add(new DiagnosticNote("other explanation detail was omitted "
-                        + "to preserve this checked-catch context"));
-            }
-            notes.add(new DiagnosticNote("this catch is checked even though no "
-                    + "exception edge from its try body was recorded", source, origin));
-            diagnostics.set(index, diagnostic.withNotes(notes));
-        }
-    }
-
-    private boolean emitCleanupAction(FinallyContext context, CleanupExit exit) {
+    private boolean emitCleanupAction(FinallyContext context) {
         int diagnosticStart = diagnostics.size();
-        CleanupExit previousExit = activeCleanupExit;
-        activeCleanupExit = exit;
         List<List<IrType>> savedChecked = List.copyOf(checkedCatchScopes);
         List<Set<IrType>> savedObserved = List.copyOf(observedTryBodyExceptions);
         restoreDeque(checkedCatchScopes, context.checkedCatchScopes());
@@ -3173,34 +2276,21 @@ final class FunctionAnalyzer {
             if (context.action() instanceof SourceFinallyAction sourceFinally) {
                 return lowerBlock(sourceFinally.body(), true);
             }
-            if (context.action() instanceof DeferredFreeAction free) {
-                // Only this exiting scope and its nested scopes have expired.
-                // Keep outer aliases and every other pending free's bound local;
-                // saved call operands and pending results are checked separately.
-                Set<LocalSymbol> expired = new LinkedHashSet<>(environment.keySet());
-                expired.removeAll(free.liveAfter());
-                pendingDeferredFrees().forEach(action -> expired.remove(action.target()));
-                lowerFreeOperand(free.target(), environment.get(free.target()), free.target().type(),
-                        "'" + free.target().name() + "'", free.targetSpan(), free.span(), expired);
-                return true;
-            }
             emitPreparedInvocation(((DeferredCallAction) context.action()).invocation());
             return true;
         } finally {
-            activeCleanupExit = previousExit;
             restoreDeque(checkedCatchScopes, savedChecked);
             restoreDeque(observedTryBodyExceptions, savedObserved);
-            addCleanupExitNotes(diagnosticStart, exit);
-            if (exit != null && exit.accounted()) rejectedFreeEvidence.releaseTransient(1);
+
         }
     }
 
-    private boolean lowerFinallyBody(FinallyContext context, CleanupExit exit) {
+    private boolean lowerFinallyBody(FinallyContext context) {
         List<ExceptionRegion> savedExceptions = List.copyOf(exceptionRegions);
         List<FinallyContext> savedFinally = List.copyOf(finallyContexts);
         restoreDeque(exceptionRegions, context.outerExceptionRegions());
         restoreDeque(finallyContexts, context.outerFinallyContexts());
-        boolean reachable = emitCleanupAction(context, exit);
+        boolean reachable = emitCleanupAction(context);
         restoreDeque(exceptionRegions, savedExceptions);
         restoreDeque(finallyContexts, savedFinally);
         return reachable;
@@ -3218,9 +2308,7 @@ final class FunctionAnalyzer {
         FinallyContext protectedContext = new FinallyContext(context.action(), cleanupExceptions,
                 context.outerFinallyContexts(), context.checkedCatchScopes(), context.observedExceptions());
 
-        boolean afterFinally = lowerFinallyBody(protectedContext,
-                cleanupExit("exceptional unwinding of this protected region; "
-                        + "this copy may combine exceptional predecessors", span));
+        boolean afterFinally = lowerFinallyBody(protectedContext);
         if (afterFinally) {
             emitThrow(primary, span);
         }
@@ -3364,20 +2452,14 @@ final class FunctionAnalyzer {
         }
 
         List<OwnershipSnapshot> incomingOwnership = new ArrayList<>();
-        List<JoinPath> joinPaths = rejectedFreeEvidence == null ? List.of() : new ArrayList<>();
+        List<JoinPath> joinPaths = List.of();
         if (thenFlow.reachable()) {
             incomingOwnership.add(thenOwnership);
-            if (rejectedFreeEvidence != null) {
-                joinPaths.add(new JoinPath(thenOwnership, "when the condition is true",
-                        source, statement.condition().span()));
-            }
+
         }
         if (elseFlow.reachable()) {
             incomingOwnership.add(elseOwnership);
-            if (rejectedFreeEvidence != null) {
-                joinPaths.add(new JoinPath(elseOwnership, "when the condition is false",
-                        source, statement.condition().span()));
-            }
+
         }
         mergeOwnership(ownershipBefore, incomingOwnership,
                 "allocation has conflicting ownership across if branches", joinPaths);
@@ -3445,47 +2527,11 @@ final class FunctionAnalyzer {
                 && (!everySourceIsBorrowed || borrowedOwners.size() != 1)) {
             String reason = "allocation has conflicting borrowed-helper ownership across control flow";
             for (AllocationInfo owner : borrowedOwners) {
-                if (selectUncertain(owner, reason)) {
-                    captureBorrowedOwnerJoin(symbol, incoming, paths, owner, reason);
-                }
+                selectUncertain(owner, reason);
             }
         }
         mergeAllocationIdentity(result, sources);
         return result;
-    }
-
-    private void captureBorrowedOwnerJoin(LocalSymbol symbol, List<BranchFlow> incoming,
-                                          List<JoinPath> paths, AllocationInfo owner,
-                                          String reason) {
-        if (rejectedFreeEvidence == null || paths.size() != incoming.size()) return;
-        List<RejectedFreeEvidence.JoinAlternative> alternatives = new ArrayList<>();
-        int omitted = 0;
-        boolean complete = true;
-        for (int index = 0; index < incoming.size(); index++) {
-            JoinPath path = paths.get(index);
-            IrOperand value = incoming.get(index).environment().get(symbol);
-            boolean borrowed = isDependentBorrow(value);
-            AllocationInfo sourceOwner = borrowed ? allocationOf(value) : null;
-            String role = borrowed && sourceOwner == owner ? "BORROWED_FROM_OWNER"
-                    : borrowed ? "BORROWED_FROM_OTHER_OWNER"
-                    : value instanceof IrNull ? "NULL_REFERENCE" : "UNBORROWED_REFERENCE";
-            RejectedFreeEvidence.Binding binding = rejectedFreeEvidence.binding(
-                    path.snapshot(), symbol);
-            boolean located = binding != null && binding.source() != null
-                    && binding.span() != null;
-            complete &= !borrowed || located;
-            RejectedFreeEvidence.JoinAlternative alternative =
-                    new RejectedFreeEvidence.JoinAlternative(
-                            path.label() + ", local '" + symbol.name() + "'",
-                            located ? binding.source() : path.anchorSource(),
-                            located ? binding.span() : path.anchorSpan(),
-                            role, null, null);
-            if (alternatives.size() < 5) alternatives.add(alternative);
-            else omitted++;
-        }
-        rejectedFreeEvidence.joined(owner, new RejectedFreeEvidence.Join(
-                owner.state.name(), reason, alternatives, omitted,
-                "borrowed helper conflict", complete));
     }
 
     private void mergeAllocationIdentity(IrOperand result, List<IrOperand> sources) {
@@ -3528,63 +2574,8 @@ final class FunctionAnalyzer {
         // turn a potentially dangling reference back into an unchecked value.
         alternatives.stream().filter(value -> value.origin == AllocationOrigin.ONE_OF)
                 .forEach(this::observeElements);
-        boolean possiblyFreed = alternatives.stream()
-                .anyMatch(value -> mayBeFreedIdentity(value) != null);
         alternatives.forEach(value -> selectBlocked(value,
                 "allocation may still be observed through a merged reference", expressionSpan));
-        if (possiblyFreed) {
-            AllocationInfo merged = new AllocationInfo(controlFlowDepth);
-            merged.state = AllocationState.MAYBE_FREED;
-            merged.blockingReason = "merged reference may designate an allocation that was freed";
-            if (rejectedFreeEvidence != null) {
-                rejectedFreeEvidence.selectedReason(merged, merged.blockingReason);
-            }
-            allocations.add(merged);
-            allocationsByOperand.put(result, merged);
-        }
-    }
-
-    private String switchArmName(List<SwitchLabel> labels) {
-        List<String> names = new ArrayList<>();
-        for (SwitchLabel label : labels) {
-            if (names.size() == 3) break;
-            int start = label.span().start().offset();
-            int end = Math.min(label.span().end().offset(), start + 80);
-            names.add(source.content().substring(start, end));
-        }
-        return String.join(" or ", names) + (labels.size() > names.size()
-                ? " or other grouped labels" : "");
-    }
-
-    private SourceSpan transferSpan(BranchFlow flow) {
-        return flow.block().terminator instanceof IrJump jump
-                ? jump.sourceSpan() : flow.block().span;
-    }
-
-    private JoinPath switchExitPath(BranchFlow flow, List<SwitchGroup> groups) {
-        SourceSpan site = transferSpan(flow);
-        int offset = site.start().offset();
-        for (SwitchGroup group : groups) {
-            if (group.span().start().offset() <= offset
-                    && offset < group.span().end().offset()) {
-                return new JoinPath(flow.ownership(), "from " + switchArmName(group.labels()),
-                        source, site);
-            }
-        }
-        return new JoinPath(flow.ownership(), "from this switch transfer", source, site);
-    }
-
-    private JoinPath switchRuleExitPath(BranchFlow flow, List<SwitchRule> rules) {
-        SourceSpan site = transferSpan(flow);
-        int offset = site.start().offset();
-        for (SwitchRule rule : rules) {
-            if (rule.span().start().offset() <= offset
-                    && offset < rule.span().end().offset()) {
-                return new JoinPath(flow.ownership(), "from " + switchArmName(rule.labels()),
-                        source, site);
-            }
-        }
-        return new JoinPath(flow.ownership(), "from this switch transfer", source, site);
     }
 
     private boolean lowerSwitch(SwitchStatement statement) {
@@ -3614,24 +2605,12 @@ final class FunctionAnalyzer {
             MutableBlock groupBlock = groupBlocks.get(index);
             List<BranchFlow> incoming = new ArrayList<>(dispatchIncoming(
                     dispatchEdges, groupBlock.label, before));
-            List<JoinPath> incomingPaths = rejectedFreeEvidence == null
-                    ? List.of() : new ArrayList<>();
-            if (rejectedFreeEvidence != null) {
-                for (BranchFlow flow : incoming) {
-                    incomingPaths.add(new JoinPath(flow.ownership(),
-                            "direct dispatch to " + switchArmName(group.labels()),
-                            source, group.labels().getFirst().span()));
-                }
-            }
+            List<JoinPath> incomingPaths = List.of();
+
             if (fallthrough != null && fallthrough.reachable()) {
                 fallthrough.block().terminate(new IrJump(groupBlock.label, group.span()));
                 incoming.add(fallthrough);
-                if (rejectedFreeEvidence != null) {
-                    SwitchGroup previous = statement.groups().get(index - 1);
-                    incomingPaths.add(new JoinPath(fallthrough.ownership(),
-                            "fallthrough from " + switchArmName(previous.labels()),
-                            source, previous.span()));
-                }
+
             }
 
             currentBlock = groupBlock;
@@ -3651,30 +2630,17 @@ final class FunctionAnalyzer {
         exitScope();
 
         List<BranchFlow> exits = new ArrayList<>(switchContext.breakFlows);
-        List<JoinPath> exitPaths = rejectedFreeEvidence == null ? List.of() : new ArrayList<>();
-        if (rejectedFreeEvidence != null) {
-            for (BranchFlow flow : exits) {
-                exitPaths.add(switchExitPath(flow, statement.groups()));
-            }
-        }
+        List<JoinPath> exitPaths = List.of();
+
         if (fallthrough != null && fallthrough.reachable()) {
             fallthrough.block().terminate(new IrJump(exit.label, statement.span()));
             exits.add(fallthrough);
-            if (rejectedFreeEvidence != null) {
-                SwitchGroup last = statement.groups().getLast();
-                exitPaths.add(new JoinPath(fallthrough.ownership(),
-                        "fallthrough from " + switchArmName(last.labels()), source, last.span()));
-            }
+
         }
         if (labels.defaultTarget() == null) {
             List<BranchFlow> unmatched = dispatchIncoming(dispatchEdges, exit.label, before);
             exits.addAll(unmatched);
-            if (rejectedFreeEvidence != null) {
-                for (BranchFlow flow : unmatched) {
-                    exitPaths.add(new JoinPath(flow.ownership(), "when no case matches",
-                            source, statement.selector().span()));
-                }
-            }
+
         }
 
         currentBlock = exit;
@@ -3712,17 +2678,14 @@ final class FunctionAnalyzer {
         BreakContext switchContext = new BreakContext(exit.label, List.copyOf(finallyContexts));
         breakContexts.push(switchContext);
         List<BranchFlow> exits = new ArrayList<>();
-        List<JoinPath> exitPaths = rejectedFreeEvidence == null ? List.of() : new ArrayList<>();
+        List<JoinPath> exitPaths = List.of();
         enterScope();
         for (int index = 0; index < statement.rules().size(); index++) {
             SwitchRule rule = statement.rules().get(index);
             MutableBlock ruleBlock = ruleBlocks.get(index);
             List<BranchFlow> incoming = dispatchIncoming(
                     dispatchEdges, ruleBlock.label, before);
-            List<JoinPath> incomingPaths = rejectedFreeEvidence == null
-                    ? List.of() : incoming.stream().map(flow -> new JoinPath(
-                    flow.ownership(), "direct dispatch to " + switchArmName(rule.labels()),
-                    source, rule.labels().getFirst().span())).toList();
+            List<JoinPath> incomingPaths = List.of();
             currentBlock = ruleBlock;
             environment = mergeEnvironment(before, incoming, rule.span(), ruleBlock,
                     incomingPaths);
@@ -3745,29 +2708,17 @@ final class FunctionAnalyzer {
                 BranchFlow flow = new BranchFlow(true, currentBlock, copyEnvironment(), snapshotOwnership());
                 currentBlock.terminate(new IrJump(exit.label, rule.span()));
                 exits.add(flow);
-                if (rejectedFreeEvidence != null) {
-                    exitPaths.add(new JoinPath(flow.ownership(),
-                            "from " + switchArmName(rule.labels()), source, rule.span()));
-                }
+
             }
         }
         exitScope();
         breakContexts.pop();
         exits.addAll(switchContext.breakFlows);
-        if (rejectedFreeEvidence != null) {
-            for (BranchFlow flow : switchContext.breakFlows) {
-                exitPaths.add(switchRuleExitPath(flow, statement.rules()));
-            }
-        }
+
         if (labels.defaultTarget() == null) {
             List<BranchFlow> unmatched = dispatchIncoming(dispatchEdges, exit.label, before);
             exits.addAll(unmatched);
-            if (rejectedFreeEvidence != null) {
-                for (BranchFlow flow : unmatched) {
-                    exitPaths.add(new JoinPath(flow.ownership(), "when no case matches",
-                            source, statement.selector().span()));
-                }
-            }
+
         }
 
         currentBlock = exit;
@@ -3868,10 +2819,7 @@ final class FunctionAnalyzer {
             MutableBlock ruleBlock = ruleBlocks.get(index);
             List<BranchFlow> incoming = dispatchIncoming(
                     dispatchEdges, ruleBlock.label, before);
-            List<JoinPath> paths = rejectedFreeEvidence == null ? List.of()
-                    : incoming.stream().map(flow -> new JoinPath(flow.ownership(),
-                    "direct dispatch to " + switchArmName(rule.labels()), source,
-                    rule.labels().getFirst().span())).toList();
+            List<JoinPath> paths = List.of();
             currentBlock = ruleBlock;
             environment = mergeEnvironment(before, incoming, rule.span(), ruleBlock, paths);
             if (rule.body() instanceof SwitchRuleExpression result) {
@@ -3904,23 +2852,12 @@ final class FunctionAnalyzer {
             MutableBlock groupBlock = groupBlocks.get(index);
             List<BranchFlow> incoming = new ArrayList<>(dispatchIncoming(
                     dispatchEdges, groupBlock.label, before));
-            List<JoinPath> paths = rejectedFreeEvidence == null ? List.of() : new ArrayList<>();
-            if (rejectedFreeEvidence != null) {
-                for (BranchFlow flow : incoming) {
-                    paths.add(new JoinPath(flow.ownership(),
-                            "direct dispatch to " + switchArmName(group.labels()), source,
-                            group.labels().getFirst().span()));
-                }
-            }
+            List<JoinPath> paths = List.of();
+
             if (fallthrough != null && fallthrough.reachable()) {
                 fallthrough.block().terminate(new IrJump(groupBlock.label, group.span()));
                 incoming.add(fallthrough);
-                if (rejectedFreeEvidence != null) {
-                    SwitchGroup previous = expression.groups().get(index - 1);
-                    paths.add(new JoinPath(fallthrough.ownership(),
-                            "fallthrough from " + switchArmName(previous.labels()), source,
-                            previous.span()));
-                }
+
             }
             currentBlock = groupBlock;
             environment = mergeEnvironment(before, incoming, group.span(), groupBlock, paths);
@@ -3966,21 +2903,12 @@ final class FunctionAnalyzer {
         }
         AllocationInfo retained = allocationOf(value.operand());
         pendingYieldAllocations.add(retained);
-        boolean recorded = pendingYieldEvidence != null && retained != null
-                && rejectedFreeEvidence.reserveTransient(1);
-        if (recorded) {
-            pendingYieldEvidence.add(new PendingYieldEvidence(retained,
-                    statement.value().span()));
-        }
         try {
             completeYieldThrough(current.subList(0, cleanupCount), 0, context, value,
                     statement.value().span(), statement.span());
         } finally {
             pendingYieldAllocations.removeLast();
-            if (recorded) {
-                pendingYieldEvidence.removeLast();
-                rejectedFreeEvidence.releaseTransient(1);
-            }
+
         }
         return false;
     }
@@ -4001,8 +2929,7 @@ final class FunctionAnalyzer {
         restoreDeque(exceptionRegions, cleanup.outerExceptionRegions());
         restoreDeque(finallyContexts, cleanup.outerFinallyContexts());
         try {
-            if (emitCleanupAction(cleanup,
-                    cleanupExit("this yield", yieldSpan))) {
+            if (emitCleanupAction(cleanup)) {
                 completeYieldThrough(pending, index + 1, context, value,
                         span, yieldSpan);
             }
@@ -4014,36 +2941,12 @@ final class FunctionAnalyzer {
         }
     }
 
-    private JoinPath switchExpressionYieldPath(SwitchExpression expression,
-                                               YieldFlow flow, OwnershipSnapshot ownership) {
-        int offset = flow.span().start().offset();
-        if (expression.arrowRules()) {
-            for (SwitchRule rule : expression.rules()) {
-                if (rule.span().start().offset() <= offset
-                        && offset < rule.span().end().offset()) {
-                    return new JoinPath(ownership, "yield from " + switchArmName(rule.labels()),
-                            source, flow.span());
-                }
-            }
-        } else {
-            for (SwitchGroup group : expression.groups()) {
-                if (group.span().start().offset() <= offset
-                        && offset < group.span().end().offset()) {
-                    return new JoinPath(ownership, "yield from " + switchArmName(group.labels()),
-                            source, flow.span());
-                }
-            }
-        }
-        return new JoinPath(ownership, "from switch-expression recovery", source,
-                expression.span());
-    }
-
     private TypedValue finishSwitchExpression(SwitchExpression expression,
                                               SwitchExpressionContext context) {
         IrType resultType = switchExpressionType(context.yields, context.expectedType,
                 expression.span());
         List<BranchFlow> incoming = new ArrayList<>();
-        List<JoinPath> paths = rejectedFreeEvidence == null ? List.of() : new ArrayList<>();
+        List<JoinPath> paths = List.of();
         List<IrPhiIncoming> resultIncoming = new ArrayList<>();
         for (YieldFlow flow : context.yields) {
             currentBlock = flow.block();
@@ -4061,10 +2964,7 @@ final class FunctionAnalyzer {
                     : defaultValue(resultType, flow.span());
             currentBlock.terminate(new IrJump(context.merge.label, flow.span()));
             incoming.add(new BranchFlow(true, currentBlock, copyEnvironment(), snapshotOwnership()));
-            if (rejectedFreeEvidence != null) {
-                paths.add(switchExpressionYieldPath(expression, flow,
-                        incoming.getLast().ownership()));
-            }
+
             resultIncoming.add(new IrPhiIncoming(currentBlock.label, operand));
         }
         currentBlock = context.merge;
@@ -4612,7 +3512,6 @@ final class FunctionAnalyzer {
         MutableBlock preheader = currentBlock;
         LinkedHashMap<LocalSymbol, IrOperand> before = copyEnvironment();
         OwnershipSnapshot loopOwnership = snapshotOwnership();
-        int firstReclamation = reclamations.size();
         MutableBlock header = createBlock("while.header", statement.condition().span());
         MutableBlock body = createBlock("while.body", statement.body().span());
         MutableBlock exit = createBlock("while.exit", statement.span());
@@ -4669,7 +3568,6 @@ final class FunctionAnalyzer {
                         flow.block().label, flow.environment().get(entry.getKey())));
             }
         }
-        validateLoopBackEdges(loopOwnership, before, loop.continueFlows, firstReclamation);
         List<BranchFlow> backEdges = loop.continueFlows;
 
         currentBlock = exit;
@@ -4688,7 +3586,7 @@ final class FunctionAnalyzer {
             exitPaths.add(new JoinPath(conditionOwnership, "when the while condition is false",
                     source, statement.condition().span()));
         }
-        addLoopBreakPaths(exitPaths, loop.breakFlows, "while");
+
         List<JoinPath> joinPaths = new ArrayList<>(exitPaths);
         joinPaths.addAll(loopContinuationPaths(backEdges, bodyFlow, "while",
                 statement.body().span()));
@@ -4711,7 +3609,6 @@ final class FunctionAnalyzer {
         MutableBlock preheader = currentBlock;
         LinkedHashMap<LocalSymbol, IrOperand> before = copyEnvironment();
         OwnershipSnapshot loopOwnership = snapshotOwnership();
-        int firstReclamation = reclamations.size();
         MutableBlock body = createBlock("do.body", statement.body().span());
         MutableBlock conditionBlock = createBlock("do.condition", statement.condition().span());
         MutableBlock exit = createBlock("do.exit", statement.span());
@@ -4785,8 +3682,6 @@ final class FunctionAnalyzer {
                         conditionEnvironment.get(entry.getKey())));
             }
         }
-
-        validateLoopBackEdges(loopOwnership, before, backEdges, firstReclamation);
         for (Map.Entry<LocalSymbol, MutablePhi> entry : loopPhis.entrySet()) {
             AllocationInfo initial = allocationOf(before.get(entry.getKey()));
             if (initial != null && conditionFlow != null
@@ -4812,7 +3707,7 @@ final class FunctionAnalyzer {
                     "when the do-while condition is false", source,
                     statement.condition().span()));
         }
-        addLoopBreakPaths(exitPaths, loop.breakFlows, "do-while");
+
         mergeFlowOwnership(exits, exitPaths);
         environment = new LinkedHashMap<>();
         for (LocalSymbol symbol : before.keySet()) {
@@ -4830,7 +3725,6 @@ final class FunctionAnalyzer {
         MutableBlock preheader = currentBlock;
         LinkedHashMap<LocalSymbol, IrOperand> before = copyEnvironment();
         OwnershipSnapshot loopOwnership = snapshotOwnership();
-        int firstReclamation = reclamations.size();
         MutableBlock header = createBlock("for.header",
                 statement.condition().map(Expression::span).orElse(statement.span()));
         MutableBlock body = createBlock("for.body", statement.body().span());
@@ -4922,7 +3816,7 @@ final class FunctionAnalyzer {
                     diagnostics.add(error(updateExpression.span(),
                             "for update must be an assignment, increment, decrement, method call, or object creation"));
                 }
-                lowerWithTemporaries(updateExpression.span(), () -> lowerExpression(updateExpression));
+                lowerStatementAction(updateExpression.span(), () -> lowerExpression(updateExpression));
             }
             updateEnvironment = copyEnvironment();
             exitScope();
@@ -4934,7 +3828,6 @@ final class FunctionAnalyzer {
                         environment.get(entry.getKey())));
             }
         }
-        validateLoopBackEdges(loopOwnership, before, backEdges, firstReclamation);
 
         currentBlock = exit;
         List<BranchFlow> exits = new ArrayList<>();
@@ -4953,7 +3846,7 @@ final class FunctionAnalyzer {
             exitPaths.add(new JoinPath(conditionOwnership, "when the for condition is false",
                     source, statement.condition().map(Expression::span).orElse(statement.span())));
         }
-        addLoopBreakPaths(exitPaths, loop.breakFlows, "for");
+
         List<JoinPath> joinPaths = new ArrayList<>(exitPaths);
         for (BranchFlow flow : backEdges) {
             joinPaths.add(new JoinPath(flow.ownership(), "for update back edge",
@@ -5017,7 +3910,6 @@ final class FunctionAnalyzer {
         MutableBlock preheader = currentBlock;
         LinkedHashMap<LocalSymbol, IrOperand> before = copyEnvironment();
         OwnershipSnapshot loopOwnership = snapshotOwnership();
-        int firstReclamation = reclamations.size();
         MutableBlock header = createBlock("enhanced.header", statement.iterable().span());
         MutableBlock body = createBlock("enhanced.body", statement.body().span());
         MutableBlock update = createBlock("enhanced.update", statement.span());
@@ -5152,7 +4044,6 @@ final class FunctionAnalyzer {
                 indexPhi.addIncoming(new IrPhiIncoming(updateEnd.label, nextIndex));
             }
         }
-        validateLoopBackEdges(loopOwnership, before, backEdges, firstReclamation);
 
         currentBlock = exit;
         List<BranchFlow> exits = new ArrayList<>();
@@ -5161,7 +4052,7 @@ final class FunctionAnalyzer {
         List<JoinPath> exitPaths = new ArrayList<>();
         exitPaths.add(new JoinPath(conditionOwnership,
                 "when enhanced-for iteration ends", this.source, statement.iterable().span()));
-        addLoopBreakPaths(exitPaths, loop.breakFlows, "enhanced-for");
+
         List<JoinPath> joinPaths = new ArrayList<>(exitPaths);
         for (BranchFlow flow : backEdges) {
             joinPaths.add(new JoinPath(flow.ownership(), "enhanced-for update back edge",
@@ -5204,22 +4095,12 @@ final class FunctionAnalyzer {
         boolean reachable = lowerStatement(statement.body());
         labeledContexts.pop();
         List<BranchFlow> incoming = new ArrayList<>(target.breakFlows);
-        List<JoinPath> paths = rejectedFreeEvidence == null ? List.of() : new ArrayList<>();
-        if (rejectedFreeEvidence != null) {
-            for (BranchFlow flow : incoming) {
-                paths.add(new JoinPath(flow.ownership(),
-                        "break to label '" + statement.label() + "'", source,
-                        transferSpan(flow)));
-            }
-        }
+        List<JoinPath> paths = List.of();
+
         if (reachable) {
             currentBlock.terminate(new IrJump(exit.label, statement.span()));
             incoming.add(new BranchFlow(true, currentBlock, copyEnvironment(), snapshotOwnership()));
-            if (rejectedFreeEvidence != null) {
-                paths.add(new JoinPath(incoming.getLast().ownership(),
-                        "normal completion of labeled statement '" + statement.label() + "'",
-                        source, statement.body().span()));
-            }
+
         }
         currentBlock = exit;
         if (incoming.isEmpty()) {
@@ -5361,7 +4242,7 @@ final class FunctionAnalyzer {
         restoreDeque(exceptionRegions, context.outerExceptionRegions());
         restoreDeque(finallyContexts, context.outerFinallyContexts());
         try {
-            if (emitCleanupAction(context, cleanupExit(description, span))) {
+            if (emitCleanupAction(context)) {
                 completeTransferThrough(pending, index + 1, target, flows,
                         span, description);
             }
@@ -5378,22 +4259,7 @@ final class FunctionAnalyzer {
     }
 
     private TypedValue lowerExpression(Expression expression, Optional<IrType> expectedType) {
-        expressionDepth++;
-        try {
-            TypedValue value = lowerExpressionValue(expression, expectedType);
-            // Constructors may roll back on failure. Register only the completed result.
-            if (unfreed != null && expression instanceof NewExpression) {
-                unfreed.register(allocationsByOperand.get(value.operand()), expression.span(),
-                        "new allocation", true);
-            }
-            if (expression instanceof NewExpression) {
-                registerTemporary(allocationsByOperand.get(value.operand()), value.operand(),
-                        expression.span());
-            }
-            return value;
-        } finally {
-            expressionDepth--;
-        }
+        return lowerExpressionValue(expression, expectedType);
     }
 
     private TypedValue lowerExpressionValue(Expression expression, Optional<IrType> expectedType) {
@@ -5538,12 +4404,6 @@ final class FunctionAnalyzer {
         LocalSymbol symbol = resolve(expression.name());
         if (symbol != null) {
             IrOperand operand = readLocal(symbol, expression.span());
-            AllocationInfo allocation = allocationOf(operand);
-            AllocationInfo freed = allocation == null ? null : mayBeFreedIdentity(allocation);
-            if (freed != null) {
-                ownershipVerdict(useAfterFree(expression.span(), "cannot use '" + expression.name()
-                        + "' after its allocation was freed", freed));
-            }
             return new TypedValue(symbol.type(), operand);
         }
         FieldSymbol field = resolveField(currentClass.selfType(), expression.name(), expression.span());
@@ -5856,10 +4716,9 @@ final class FunctionAnalyzer {
                 lengthOperand, expression.span()), expression.span());
         AllocationInfo allocation = new AllocationInfo(controlFlowDepth);
         allocations.add(allocation);
-        recordAllocationOrigin(allocation, expression.span());
+
         allocationsByOperand.put(result, allocation);
-        if (unfreed != null) unfreed.register(allocation, expression.span(), "array allocation", true);
-        registerTemporary(allocation, result, expression.span());
+
         return new TypedValue(arrayType, result);
     }
 
@@ -5873,10 +4732,8 @@ final class FunctionAnalyzer {
                 length, expression.span()), expression.span());
         AllocationInfo allocation = new AllocationInfo(controlFlowDepth);
         allocations.add(allocation);
-        recordAllocationOrigin(allocation, expression.span());
+
         allocationsByOperand.put(result, allocation);
-        if (unfreed != null) unfreed.register(allocation, expression.span(), "array allocation", true);
-        registerTemporary(allocation, result, expression.span());
 
         for (int index = 0; index < expression.elements().size(); index++) {
             Expression elementExpression = expression.elements().get(index);
@@ -6026,10 +4883,6 @@ final class FunctionAnalyzer {
                 "constructor argument");
 
         if (function.isConstructor()) {
-            for (int index = 0; index < arguments.values().size(); index++) {
-                constructorHelperArguments.add(new ConstructorHelperArgument(constructor, index,
-                        arguments.values().get(index).operand(), arguments.spans().get(index)));
-            }
         }
 
         ensureTypeInitialized(targetClass.name(), expression.span());
@@ -6039,7 +4892,7 @@ final class FunctionAnalyzer {
         AllocationInfo allocation = new AllocationInfo(controlFlowDepth);
         allocation.constructedType = referenceType;
         allocations.add(allocation);
-        recordAllocationOrigin(allocation, expression.span());
+
         allocationsByOperand.put(result, allocation);
         List<IrOperand> operands = new ArrayList<>();
         operands.add(result);
@@ -6101,94 +4954,25 @@ final class FunctionAnalyzer {
         operands.addAll(arguments.operands());
         markConstructorPublications(constructor, targetClass, arguments.values(),
                 arguments.spans());
-        emitConstructorCallWithRollback(new IrCallInstruction(Optional.empty(), constructor.linkageName(),
+        emitConstructorCall(new IrCallInstruction(Optional.empty(), constructor.linkageName(),
                 IrType.VOID, operands, IrCallKind.DIRECT, Optional.empty(),
                 selected.inference().substitutions(), expression.span()), result,
                 expression.span());
         if (escapeSummaries.summary(constructor).thisEscapes()) {
-            selectEscape(allocation, "allocation escapes from constructor '"
-                    + targetClass.name() + "'", expression.span());
+            allocation.escape("constructor publishes the result");
         }
         for (TypeSymbol constructedType = targetClass.superclass().orElse(null);
              constructedType != null;
              constructedType = constructedType.superclass().orElse(null)) {
             if (constructedType.constructors().stream()
                     .anyMatch(candidate -> escapeSummaries.summary(candidate).thisEscapes())) {
-                selectEscape(allocation, "allocation escapes from constructor '"
-                        + constructedType.name() + "'", expression.span());
+                allocation.escape("superclass constructor publishes the result");
                 break;
             }
         }
         recordConstructorBorrows(constructor, allocation, arguments.values(),
                 arguments.spans());
         return new TypedValue(referenceType, result);
-    }
-
-    private record ConstructorHelperArgument(CallableSymbol constructor, int index,
-                                             IrOperand value, SourceSpan span) { }
-
-    private void validateConstructorHelperArguments() {
-        // Publication is legal under GC5; initialization and native protocol checks remain separate.
-    }
-
-    private boolean isConstructingThisAlias(IrOperand value, Set<IrOperand> visited) {
-        if (value == null || thisOperand == null || !visited.add(value)) return false;
-        if (value.equals(thisOperand)) return true;
-        for (MutableBlock block : blocks.values()) {
-            for (MutablePhi phi : block.phis) {
-                if (phi.result.equals(value)) {
-                    return phi.incoming.stream().anyMatch(incoming -> isConstructingThisAlias(incoming.value(), visited));
-                }
-            }
-            for (IrInstruction instruction : block.instructions) {
-                if (instruction instanceof IrReferenceConversionInstruction conversion && conversion.result().equals(value)) {
-                    return isConstructingThisAlias(conversion.value(), visited);
-                }
-                if (instruction instanceof IrPhiInstruction phi && phi.result().equals(value)) {
-                    return phi.incoming().stream().anyMatch(incoming -> isConstructingThisAlias(incoming.value(), visited));
-                }
-                if (callReturnsConstructingThis(instruction, value, visited)) return true;
-            }
-            if (block.terminator instanceof IrInvokeTerminator invoke
-                    && callReturnsConstructingThis(invoke.call(), value, visited)) return true;
-        }
-        return false;
-    }
-
-    private boolean callReturnsConstructingThis(IrInstruction instruction, IrOperand result, Set<IrOperand> visited) {
-        if (instruction instanceof IrCallInstruction call && call.result().filter(result::equals).isPresent()) {
-            return targetReturnsConstructingThis(call.targetLinkageName(), call.arguments(), visited);
-        }
-        IrDispatchSlot slot;
-        List<IrOperand> arguments;
-        if (instruction instanceof IrVirtualCallInstruction call && call.result().filter(result::equals).isPresent()) {
-            slot = call.slot();
-            arguments = call.arguments();
-        } else if (instruction instanceof IrInterfaceCallInstruction call && call.result().filter(result::equals).isPresent()) {
-            slot = call.slot();
-            arguments = call.arguments();
-        } else {
-            return false;
-        }
-        if (arguments.isEmpty() || !arguments.getFirst().type().isNominalReference()) return false;
-        for (TypeSymbol concrete : hierarchy.concreteSubtypes(arguments.getFirst().type().referenceName())) {
-            CallableSymbol target = hierarchy.resolveDispatchImplementation(concrete, slot.key()).orElse(null);
-            if (target != null && targetReturnsConstructingThis(target.linkageName(), arguments, visited)) return true;
-        }
-        return false;
-    }
-
-    private boolean targetReturnsConstructingThis(String linkage, List<IrOperand> arguments, Set<IrOperand> visited) {
-        CallableSymbol target = escapeSummaries.callable(linkage);
-        EscapeSummaryAnalyzer.EscapeSummary effects = escapeSummaries.summary(linkage);
-        if (target == null || effects == null) return false;
-        for (ReturnOrigin origin : effects.returnedOrigins()) {
-            int index = origin.kind() == ReturnOrigin.Kind.THIS ? 0
-                    : origin.kind() == ReturnOrigin.Kind.PARAMETER ? origin.parameterIndex() + (target.isStatic() ? 0 : 1) : -1;
-            if (index >= 0 && index < arguments.size()
-                    && isConstructingThisAlias(arguments.get(index), visited)) return true;
-        }
-        return false;
     }
 
     private TypedValue lowerNew(NewExpression expression) {
@@ -6305,16 +5089,12 @@ final class FunctionAnalyzer {
         AllocationInfo allocation = new AllocationInfo(controlFlowDepth);
         allocation.constructedType = referenceType;
         allocations.add(allocation);
-        recordAllocationOrigin(allocation, expression.span());
+
         allocationsByOperand.put(result, allocation);
         if (constructor == null) {
             return new TypedValue(referenceType, result);
         }
         if (function.isConstructor()) {
-            for (int index = 0; index < arguments.size(); index++) {
-                constructorHelperArguments.add(new ConstructorHelperArgument(constructor, index,
-                        arguments.get(index).operand(), expression.arguments().get(index).span()));
-            }
         }
         checkCheckedExceptions(constructor, expression.span());
         if (!isAccessible(constructor.accessModifier(), targetClass.name(), targetClass.name(), false)) {
@@ -6352,20 +5132,18 @@ final class FunctionAnalyzer {
         List<SourceSpan> argumentSpans = expression.arguments().stream()
                 .map(Expression::span).toList();
         markConstructorPublications(constructor, targetClass, arguments, argumentSpans);
-        emitConstructorCallWithRollback(new IrCallInstruction(Optional.empty(),
+        emitConstructorCall(new IrCallInstruction(Optional.empty(),
                 constructor.linkageName(), IrType.VOID, operands, expression.span()), result,
                 expression.span());
         if (escapeSummaries.summary(constructor).thisEscapes()) {
-            selectEscape(allocation, "allocation escapes from constructor '"
-                    + targetClass.name() + "'", expression.span());
+            allocation.escape("constructor publishes the result");
         }
         for (TypeSymbol constructedType = targetClass.superclass().orElse(null);
              constructedType != null;
              constructedType = constructedType.superclass().orElse(null)) {
             if (constructedType.constructors().stream()
                     .anyMatch(candidate -> escapeSummaries.summary(candidate).thisEscapes())) {
-                selectEscape(allocation, "allocation escapes from constructor '"
-                        + constructedType.name() + "'", expression.span());
+                allocation.escape("superclass constructor publishes the result");
                 break;
             }
         }
@@ -6423,7 +5201,7 @@ final class FunctionAnalyzer {
 
         AllocationInfo allocation = new AllocationInfo(controlFlowDepth);
         allocations.add(allocation);
-        recordAllocationOrigin(allocation, expression.span());
+
         allocationsByOperand.put(result, allocation);
         return new TypedValue(referenceType, result);
     }
@@ -7248,29 +6026,23 @@ final class FunctionAnalyzer {
 
     private TypedValue emitStringConcatenation(List<TypedValue> values, SourceSpan span) {
         List<IrStringConcatPart> parts = new ArrayList<>();
-        List<RenderedStringCleanup> renderedStrings = new ArrayList<>();
         for (TypedValue value : values) {
-            parts.add(stringConcatenationPart(value, span, renderedStrings));
+            parts.add(stringConcatenationPart(value, span));
         }
         IrValueReference result = newValue(STRING_TYPE, span);
-        emitWithRenderedStringCleanup(renderedStrings, () -> {
-            emitCall(new IrStringConcatInstruction(result, parts, span), span);
-            return null;
-        }, span);
-        releaseRenderedStrings(renderedStrings, span);
+        emitCall(new IrStringConcatInstruction(result, parts, span), span);
+
         AllocationInfo allocation = new AllocationInfo(controlFlowDepth);
         allocations.add(allocation);
-        recordAllocationOrigin(allocation, span);
+
         allocationsByOperand.put(result, allocation);
-        if (unfreed != null) unfreed.register(allocation, span, "concatenation result", true);
-        registerTemporary(allocation, result, span);
+
         return new TypedValue(STRING_TYPE, result);
     }
 
     private IrStringConcatPart stringConcatenationPart(
-            TypedValue value, SourceSpan span,
-            List<RenderedStringCleanup> renderedStrings) {
-        checkNotFreed(value.operand(), span);
+            TypedValue value, SourceSpan span) {
+
         if (value.type().equals(STRING_TYPE)) {
             return new IrStringConcatPart(IrStringConcatPartKind.STRING, value.operand());
         }
@@ -7294,12 +6066,8 @@ final class FunctionAnalyzer {
             return new IrStringConcatPart(IrStringConcatPartKind.DOUBLE, value.operand());
         }
         if (value.type().isReference()) {
-            RenderedStringConversion conversion = emitWithRenderedStringCleanup(
-                    renderedStrings, () -> lowerReferenceStringConversion(value, span), span);
-            renderedStrings.add(new RenderedStringCleanup(
-                    conversion.object(), conversion.result()));
-            return new IrStringConcatPart(IrStringConcatPartKind.STRING,
-                    conversion.result());
+            IrOperand converted = lowerReferenceStringConversion(value, span);
+            return new IrStringConcatPart(IrStringConcatPartKind.STRING, converted);
         }
         diagnostics.add(error(span, "String concatenation cannot convert "
                 + typeName(value.type()) + " value"));
@@ -7307,7 +6075,7 @@ final class FunctionAnalyzer {
                 new IrNull(STRING_TYPE, span));
     }
 
-    private RenderedStringConversion lowerReferenceStringConversion(
+    private IrOperand lowerReferenceStringConversion(
             TypedValue value, SourceSpan span) {
         IrOperand receiver = requireValue(value, value.type(), span,
                 "String concatenation operand");
@@ -7333,18 +6101,7 @@ final class FunctionAnalyzer {
         merge.addPhi(new MutablePhi(result, List.of(
                 new IrPhiIncoming(valueEnd.label, converted),
                 new IrPhiIncoming(nullBlock.label, nullText)), span));
-        return new RenderedStringConversion(receiver, result);
-    }
-
-    private <T> T emitWithRenderedStringCleanup(
-            List<RenderedStringCleanup> renderedStrings,
-            Supplier<T> emitter, SourceSpan span) {
-        return emitter.get();
-    }
-
-    private void releaseRenderedStrings(
-            List<RenderedStringCleanup> renderedStrings, SourceSpan span) {
-        // Rendered results are ordinary managed references.
+        return result;
     }
 
     private IrOperand emitToStringConversion(TypedValue value, IrOperand receiver,
@@ -7371,38 +6128,28 @@ final class FunctionAnalyzer {
         Set<String> targets = value.type().isArray()
                 ? Set.of(target.linkageName())
                 : hierarchy.dispatchTargets(value.type(), target);
-        // The rendering protocol owns and conditionally releases this result; it is
-        // never an unnamed temporary of the enclosing statement.
-        renderingToString = true;
-        try {
-            if (targets.size() == 1) {
-                String linkageName = targets.iterator().next();
-                EscapeSummaryAnalyzer.EscapeSummary summary = escapeSummaries.summary(linkageName);
-                recordResolvedCall(summary == null
-                                ? EscapeSummaryAnalyzer.EscapeSummary.unknown(target) : summary,
-                        linkageName, receiver, List.of(), result, target.sourceName());
-                emitCall(new IrCallInstruction(result, linkageName, target.returnType(),
-                        List.of(receiver), owner.isInterface()
-                        ? IrCallKind.DEVIRTUALIZED_INTERFACE : IrCallKind.DEVIRTUALIZED_VIRTUAL,
-                        Optional.of(lookupType.referenceName() + "." + target.signatureKey()), span),
-                        span);
-            } else if (owner.isInterface()) {
-                recordUnknownCallEscapes(receiver, List.of(), target.sourceName(), span);
-                emitCall(new IrInterfaceCallInstruction(result, owner.name(),
-                        hierarchy.dispatchSlot(target), target.returnType(), List.of(receiver), span),
-                        span);
-            } else {
-                recordUnknownCallEscapes(receiver, List.of(), target.sourceName(), span);
-                emitCall(new IrVirtualCallInstruction(result, hierarchy.dispatchSlot(target),
-                        target.returnType(), List.of(receiver), span), span);
-            }
-        } finally {
-            renderingToString = false;
+        if (targets.size() == 1) {
+            String linkageName = targets.iterator().next();
+            EscapeSummaryAnalyzer.EscapeSummary summary = escapeSummaries.summary(linkageName);
+            recordResolvedCall(summary == null
+                            ? EscapeSummaryAnalyzer.EscapeSummary.unknown(target) : summary,
+                    linkageName, receiver, List.of(), result, target.sourceName());
+            emitCall(new IrCallInstruction(result, linkageName, target.returnType(),
+                    List.of(receiver), owner.isInterface()
+                    ? IrCallKind.DEVIRTUALIZED_INTERFACE : IrCallKind.DEVIRTUALIZED_VIRTUAL,
+                    Optional.of(lookupType.referenceName() + "." + target.signatureKey()), span),
+                    span);
+        } else if (owner.isInterface()) {
+            recordUnknownCallEscapes(receiver, List.of(), target.sourceName(), span);
+            emitCall(new IrInterfaceCallInstruction(result, owner.name(),
+                    hierarchy.dispatchSlot(target), target.returnType(), List.of(receiver), span),
+                    span);
+        } else {
+            recordUnknownCallEscapes(receiver, List.of(), target.sourceName(), span);
+            emitCall(new IrVirtualCallInstruction(result, hierarchy.dispatchSlot(target),
+                    target.returnType(), List.of(receiver), span), span);
         }
-        if (unfreed != null && unfreedFreshResults.contains(callResult)) {
-            // This is an implicit rendering with compiler-emitted conditional cleanup.
-            unfreed.consumed(allocationsByOperand.get(callResult));
-        }
+
         return target.returnType().equals(STRING_TYPE) ? callResult
                 : convertReference(callResult, STRING_TYPE, span);
     }
@@ -7446,11 +6193,7 @@ final class FunctionAnalyzer {
         List<BranchFlow> incoming = List.of(
                 new BranchFlow(true, rightEnd, rightEnvironment, rightOwnership),
                 new BranchFlow(true, shortBlock, shortEnvironment, ownershipBefore));
-        List<JoinPath> paths = rejectedFreeEvidence == null ? List.of() : List.of(
-                new JoinPath(rightOwnership, "when the right operand is evaluated",
-                        source, expression.right().span()),
-                new JoinPath(ownershipBefore, "when the right operand is skipped",
-                        source, expression.left().span()));
+        List<JoinPath> paths = List.of();
         mergeFlowOwnership(incoming, paths);
         environment = new LinkedHashMap<>();
         for (LocalSymbol symbol : before.keySet()) {
@@ -7557,13 +6300,7 @@ final class FunctionAnalyzer {
         List<BranchFlow> incoming = List.of(
                 new BranchFlow(true, trueEnd, trueEnvironment, trueOwnership),
                 new BranchFlow(true, falseEnd, falseEnvironment, snapshotOwnership()));
-        List<JoinPath> paths = rejectedFreeEvidence == null ? List.of() : List.of(
-                new JoinPath(incoming.get(0).ownership(),
-                        "when the conditional expression is true", source,
-                        expression.condition().span()),
-                new JoinPath(incoming.get(1).ownership(),
-                        "when the conditional expression is false", source,
-                        expression.condition().span()));
+        List<JoinPath> paths = List.of();
         mergeFlowOwnership(incoming, paths);
         environment = new LinkedHashMap<>();
         for (LocalSymbol symbol : before.keySet()) {
@@ -7685,16 +6422,6 @@ final class FunctionAnalyzer {
             operand = defaultValue(target.type(), expression.value().span());
         }
         target.write().accept(operand, expression.span(), expression.value().span());
-        if (expression.target() instanceof NameExpression name) {
-            LocalSymbol symbol = resolve(name.name());
-            if (symbol != null) {
-                nameTemporary(allocationOf(operand));
-                if (rejectedFreeEvidence != null) {
-                    rejectedFreeEvidence.bind(symbol, allocationOf(operand), source,
-                            expression.value().span());
-                }
-            }
-        }
         return new TypedValue(target.type(), operand);
     }
 
@@ -7878,7 +6605,6 @@ final class FunctionAnalyzer {
         if (expression instanceof NameExpression name) {
             LocalSymbol symbol = resolve(name.name());
             if (symbol != null) {
-                if (rejectPendingFreeWrite(symbol, name.span())) return null;
                 if (symbol.isFinal()) {
                     diagnostics.add(error(name.span(),
                             "cannot assign to or update final variable '" + name.name() + "'"));
@@ -8044,8 +6770,6 @@ final class FunctionAnalyzer {
         }, (value, writeSpan, valueSpan) -> {
             if (validateReceiverOnWrite) {
                 emitNullCheck(receiver, writeSpan);
-            } else {
-                checkNotFreed(receiver, writeSpan);
             }
             detachOwnedField(receiver, field, value);
             markEscaped(value, "allocation escapes through field '"
@@ -8105,7 +6829,7 @@ final class FunctionAnalyzer {
     }
 
     private void emitNullCheck(IrOperand reference, SourceSpan span) {
-        checkNotFreed(reference, span);
+
         if (provenNonNullOperands.contains(reference)
                 || nullGuards.guarded(reference, currentBlock.label, currentBlock.instructions.size(),
                 List.copyOf(openLoops), this::controlFlow)) {
@@ -8165,7 +6889,7 @@ final class FunctionAnalyzer {
     }
 
     private void emitArrayBoundsCheck(IrOperand array, IrOperand index, SourceSpan span) {
-        checkNotFreed(array, span);
+
         IrValueReference valid = newValue(IrType.I1, span);
         currentBlock.addInstruction(new IrArrayBoundsCheckInstruction(valid, array, index, span));
         emitRuntimeSafetyBranch(valid, "array.bounds.valid", "array.bounds.failure",
@@ -8232,7 +6956,6 @@ final class FunctionAnalyzer {
         }
         // A later argument can execute switch/yield cleanup after an earlier
         // reference argument was evaluated. Check the saved values at use time.
-        operands.forEach(operand -> checkNotFreed(operand, operand.sourceSpan()));
         return new LoweredInvocationArguments(values, operands, spans);
     }
 
@@ -8358,10 +7081,7 @@ final class FunctionAnalyzer {
                         retainedBorrows.getOrDefault(owner, Set.of()));
                 borrowed.add(argument);
                 retainedBorrows.put(owner, Set.copyOf(borrowed));
-                if (rejectedFreeEvidence != null) {
-                    rejectedFreeEvidence.retain(owner, argument, source,
-                            argumentSpans.get(index));
-                }
+
                 if (field.isFinal()) { owner.finalBorrowedFields.put(ownedFieldKey(field), argument); }
             } else if (summary.parameterEscapes(index)) {
                 markEscaped(arguments.get(index).operand(),
@@ -8483,9 +7203,7 @@ final class FunctionAnalyzer {
         Set<String> targets = direct || prepared.arrayReceiver()
                 ? Set.of(target.linkageName()) : hierarchy.dispatchTargets(prepared.dispatchType(), target);
         boolean returnsToOrigin = escapeSummaries.returnsToOriginatingPool(function, span);
-        CallSites callSites = rejectedFreeEvidence == null ? null
-                : new CallSites(prepared.nullCheckSpan() == null ? span : prepared.nullCheckSpan(),
-                        prepared.argumentSpans());
+        CallSites callSites = null;
         if (targets.size() == 1) {
             String linkage = targets.iterator().next();
             if (!returnsToOrigin) recordResolvedCall(prepared.specializedEffects()
@@ -9244,9 +7962,7 @@ final class FunctionAnalyzer {
                 ? summary.thisEscapesWithoutReturn()
                 : summary.thisEscapes() || summary.thisEscapesWithoutReturn())) {
             markEscaped(receiver, "allocation escapes through receiver of method '" + methodName + "'",
-                    callSites == null ? null : callSites.receiver(),
-                    selectedCall(possibleTargets, -1, summary.thisEscapesWithoutReturn(),
-                            possibleDispatch));
+                    callSites == null ? null : callSites.receiver());
         }
         for (int index = 0; index < arguments.size(); index++) {
             if (handledArguments != null && handledArguments.contains(index)) { continue; }
@@ -9260,9 +7976,7 @@ final class FunctionAnalyzer {
                 }
                 markEscaped(arguments.get(index).operand(), "allocation escapes through argument "
                         + (index + 1) + " of method '" + methodName + "'",
-                        callSites == null ? null : callSites.argument(index),
-                        selectedCall(possibleTargets, index,
-                                summary.parameterEscapesWithoutReturn(index), possibleDispatch));
+                        callSites == null ? null : callSites.argument(index));
             }
         }
         FieldSymbol borrowedField = useTargetMetadata
@@ -9307,9 +8021,7 @@ final class FunctionAnalyzer {
                     // proved pool identity. Keep its lifetime dependency only.
                     if (!isDependentBorrow(source)) {
                         poolValueOwners.put(borrowed, owner);
-                        if (rejectedFreeEvidence != null && borrowed.sourceSpan() != null) {
-                            rejectedFreeEvidence.origin(borrowed, this.source, borrowed.sourceSpan());
-                        }
+
                     }
                 } else if (!exactBorrow.helperType().equals(PoolSemantics.DYNAMIC_BORROW)) {
                     ownedHelperBorrowTypes.put(borrowed, exactBorrow.helperType());
@@ -9321,14 +8033,9 @@ final class FunctionAnalyzer {
             AllocationInfo allocation = AllocationInfo.freshCall(controlFlowDepth);
             allocations.add(allocation);
             pendingFreshResult = allocation;
-            recordAllocationOrigin(allocation, result.orElseThrow().sourceSpan());
+
             allocationsByOperand.put(result.orElseThrow(), allocation);
-            if (unfreed != null && !summary.mayReturnNull()) {
-                unfreed.register(allocation, result.orElseThrow().sourceSpan(),
-                        "fresh result of '" + methodName + "'", false);
-                unfreedFreshResults.add(result.orElseThrow());
-            }
-            if (!summary.mayReturnNull()) temporaryFreshResults.add(result.orElseThrow());
+
             return;
         }
         if (exactOrigin == null || result.isEmpty()) {
@@ -9345,14 +8052,6 @@ final class FunctionAnalyzer {
             allocationsByOperand.put(result.orElseThrow(), allocation);
             propagateOwnedHelperBorrow(result.orElseThrow(), source);
         }
-    }
-
-    private RejectedFreeEvidence.Call selectedCall(List<CallableSymbol> possibleTargets,
-                                                   int role, boolean nonReturn,
-                                                   boolean possibleDispatch) {
-        return rejectedFreeEvidence == null ? null
-                : SummaryCallExplanation.selectCall(escapeSummaries, possibleTargets,
-                role, nonReturn, possibleDispatch);
     }
 
     private static boolean isKnownContainer(AllocationInfo allocation) {
@@ -9475,7 +8174,7 @@ final class FunctionAnalyzer {
         }
         allocations.add(owner);
         pendingFreshResult = owner;
-        recordAllocationOrigin(owner, result.orElseThrow().sourceSpan());
+
         allocationsByOperand.put(result.orElseThrow(), owner);
         List<WrapperBorrow> borrows = new ArrayList<>();
         List<FreshBorrowingFactoryAnalysis.Input> inputs = new ArrayList<>(proof.borrows().values());
@@ -9538,12 +8237,7 @@ final class FunctionAnalyzer {
             }
         }
         pendingFactoryBorrows = List.copyOf(borrows);
-        if (unfreed != null) {
-            unfreed.register(owner, result.orElseThrow().sourceSpan(),
-                    "fresh result of '" + method.sourceName() + "'", false);
-            unfreedFreshResults.add(result.orElseThrow());
-        }
-        temporaryFreshResults.add(result.orElseThrow());
+
         return true;
     }
 
@@ -9602,7 +8296,7 @@ final class FunctionAnalyzer {
         owner.constructedType = result.orElseThrow().type();
         allocations.add(owner);
         pendingFreshResult = owner;
-        recordAllocationOrigin(owner, result.orElseThrow().sourceSpan());
+
         allocationsByOperand.put(result.orElseThrow(), owner);
         AllocationInfo backing = allocationOf(arguments.getFirst().operand());
         if (backing != null) {
@@ -9620,9 +8314,7 @@ final class FunctionAnalyzer {
         Set<AllocationInfo> borrowed = new LinkedHashSet<>(retainedBorrows.getOrDefault(owner, Set.of()));
         borrowed.add(child);
         retainedBorrows.put(owner, Set.copyOf(borrowed));
-        if (rejectedFreeEvidence != null && site != null) {
-            rejectedFreeEvidence.retain(owner, child, source, site);
-        }
+
     }
 
     private boolean recordReceiverBorrow(CallableSymbol resolved,
@@ -9651,7 +8343,7 @@ final class FunctionAnalyzer {
     private void finishContainerCall(AllocationInfo cleared, WrapperBorrow wrapper) {
         if (cleared != null) {
             retainedBorrows.remove(cleared);
-            if (rejectedFreeEvidence != null) rejectedFreeEvidence.clearRetainingOwner(cleared);
+
         }
         if (wrapper != null) {
             addRetainedBorrow(wrapper.owner(), wrapper.child(), wrapper.site());
@@ -9739,7 +8431,7 @@ final class FunctionAnalyzer {
     private void recordUnknownCallEscapes(IrOperand receiver, List<TypedValue> arguments,
                                           String methodName, SourceSpan span) {
         recordUnknownCallEscapes(receiver, arguments, methodName, span,
-                rejectedFreeEvidence == null ? null : new CallSites(span, List.of()));
+                null);
     }
 
     private void recordUnknownCallEscapes(IrOperand receiver, List<TypedValue> arguments,
@@ -9955,7 +8647,7 @@ final class FunctionAnalyzer {
     }
 
     private IrOperand requireValue(TypedValue value, IrType expectedType, SourceSpan span, String context) {
-        checkNotFreed(value.operand(), span);
+
         if (value.type().equals(IrType.VOID) || value.operand() == null) {
             diagnostics.add(error(span, "void expression cannot be used as a value in " + context));
             return defaultValue(expectedType, span);
@@ -12021,8 +10713,7 @@ final class FunctionAnalyzer {
     private void exitScope() {
         Map<String, LocalSymbol> removed = scopes.pop();
         removed.values().forEach(environment::remove);
-        if (rejectedFreeEvidence != null) removed.values().forEach(rejectedFreeEvidence::unbind);
-        if (expressionDepth == 0 && currentBlock.terminator == null) observeUnfreed(true, false);
+
     }
 
     private java.util.stream.Stream<IrOperand> pendingDeferredOperands() {
@@ -12032,449 +10723,23 @@ final class FunctionAnalyzer {
                 .flatMap(call -> call.operands().stream());
     }
 
-    private List<DeferredCapture> deferredCaptures(CallExpression expression,
-                                                    PreparedInvocation call) {
-        if (rejectedFreeEvidence == null || !explanationReady) return List.of();
-        List<DeferredCapture> captures = new ArrayList<>();
-        if (!call.target().isStatic() && call.receiver() != null) {
-            Expression receiver = expression.receiver().orElse(null);
-            if (rejectedFreeEvidence.reserveTransient(1)) {
-                captures.add(new DeferredCapture(call.receiver(), "receiver",
-                        receiver == null ? expression.methodNameSpan() : receiver.span(),
-                        receiver instanceof NameExpression name ? name.name() : null));
-            }
-        }
-        for (int index = 0; index < Math.min(expression.arguments().size(),
-                call.arguments().size()); index++) {
-            IrOperand value = call.arguments().get(index).operand();
-            AllocationInfo allocation = value == null ? null : allocationOf(value);
-            if (allocation == null || call.operands().stream()
-                    .noneMatch(operand -> allocationOf(operand) == allocation)) continue;
-            Expression argument = expression.arguments().get(index);
-            if (rejectedFreeEvidence.reserveTransient(1)) {
-                captures.add(new DeferredCapture(value, "argument " + (index + 1),
-                        argument.span(), argument instanceof NameExpression name
-                        ? name.name() : null));
-            }
-        }
-        return List.copyOf(captures);
+    private void lowerStatementAction(SourceSpan span, Runnable body) {
+        body.run();
     }
 
-    private DeferredCallAction matchingDeferredCall(AllocationInfo allocation) {
-        return finallyContexts.stream().map(FinallyContext::action)
-                .filter(DeferredCallAction.class::isInstance)
-                .map(DeferredCallAction.class::cast)
-                .filter(action -> action.invocation().operands().stream()
-                        .anyMatch(operand -> allocationOf(operand) == allocation))
-                .findFirst().orElse(null);
-    }
-
-    private DeferredCallAction matchingDeferredFieldCall(FieldSymbol field) {
-        return finallyContexts.stream().map(FinallyContext::action)
-                .filter(DeferredCallAction.class::isInstance)
-                .map(DeferredCallAction.class::cast)
-                .filter(action -> action.invocation().operands().stream()
-                        .map(this::allocationOf).anyMatch(captured ->
-                                captured != null
-                                && captured.origin == AllocationOrigin.OWNED_FIELD
-                                && !captured.detached
-                                && field.declaration().name().equals(captured.ownedFieldName)))
-                .findFirst().orElse(null);
-    }
-
-    private void rejectedPendingDeferredCall(SourceSpan span, String message,
-                                             DeferredCallAction action,
-                                             AllocationInfo allocation) {
-        DeferredCapture capture = action.captures().stream()
-                .filter(item -> allocationOf(item.operand()) == allocation)
-                .findFirst().orElse(null);
-        if (!explainRejectedFree || !explanationReady || capture == null) {
-            rejectedFree(span, message, RejectedFreeExplanation.Missing.DEFERRED_CALL);
-            return;
-        }
-        String detail = capture.role() + " of this deferred call captured the allocation here"
-                + (capture.bindingName() == null ? "" : ", when '"
-                + capture.bindingName() + "' still referred to it");
-        ownershipVerdict(error(span, message).withNotes(List.of(
-                new DiagnosticNote(detail, source, capture.span()))));
-    }
-
-    private java.util.stream.Stream<DeferredFreeAction> pendingDeferredFrees() {
-        return finallyContexts.stream().map(FinallyContext::action)
-                .filter(DeferredFreeAction.class::isInstance).map(DeferredFreeAction.class::cast);
-    }
-
-    private DeferredFreeAction matchingDeferredFree(LocalSymbol target,
-                                                    AllocationInfo allocation) {
-        return pendingDeferredFrees().filter(action -> target != null
-                && action.target().equals(target)
-                || allocationOf(environment.get(action.target())) == allocation)
-                .findFirst().orElse(null);
-    }
-
-    private void rejectedPendingDeferredFree(SourceSpan span, String message,
-                                             DeferredFreeAction action, boolean duplicate) {
-        if (!explainRejectedFree || !explanationReady || rejectedFreeEvidence == null) {
-            rejectedFree(span, message, duplicate
-                    ? RejectedFreeExplanation.Missing.DUPLICATE_DEFER
-                    : RejectedFreeExplanation.Missing.DEFERRED_FREE);
-            return;
-        }
-        String detail = duplicate
-                ? "this earlier deferred free is bound to '" + action.target().name()
-                + "' and already schedules reclamation of the same allocation"
-                : "this deferred free is bound to '" + action.target().name()
-                + "' and schedules reclamation of the same allocation at block exit";
-        ownershipVerdict(error(span, message).withNotes(List.of(
-                new DiagnosticNote(detail, source, action.targetSpan()))));
-    }
-
-    private void rejectedDeferredRegistration(SourceSpan span, String message,
-                                              RejectedFreeExplanation.Missing missing,
-                                              AllocationInfo allocation, IrOperand operand) {
-        if (!explainRejectedFree || !explanationReady || rejectedFreeEvidence == null) {
-            rejectedFree(span, message, missing);
-            return;
-        }
-        if (missing == RejectedFreeExplanation.Missing.IDENTITY) {
-            ownershipVerdict(error(span, message).withNotes(List.of(new DiagnosticNote(
-                    "this local has no compiler-proven allocation identity at deferred-free "
-                            + "registration", source, span))));
-            return;
-        }
-        if (missing == RejectedFreeExplanation.Missing.BORROW_OWNER
-                && operand.sourceSpan() != null) {
-            ownershipVerdict(error(span, message).withNotes(List.of(new DiagnosticNote(
-                    "this dependent helper was acquired here; it is borrowed from its owner "
-                            + "and cannot be deferred for independent reclamation",
-                    source, operand.sourceSpan()))));
-            return;
-        }
-        if (missing == RejectedFreeExplanation.Missing.SELECTED_REASON) {
-            RejectedFreeEvidence.Join joined = selectedJoin(allocation);
-            RejectedFreeEvidence.Event event = rejectedFreeEvidence.event(allocation);
-            if (joined != null) {
-                ownershipVerdict(error(span, message).withNotes(joinNotes(allocation, joined)));
-                return;
-            }
-            if (event != null && event.kind() == RejectedFreeEvidence.EventKind.FREE
-                    && event.source() != null && event.span() != null) {
-                ownershipVerdict(error(span, message).withNotes(List.of(new DiagnosticNote(
-                        "the same allocation was already freed here",
-                        event.source(), event.span()))));
-                return;
-            }
-        }
-        rejectedFree(span, message, missing);
-    }
-
-    private boolean rejectPendingFreeWrite(LocalSymbol symbol, SourceSpan span) {
-        if (pendingDeferredFrees().noneMatch(action -> action.target().equals(symbol))) return false;
-        ownershipVerdict(error(span, "cannot assign to or update local '" + symbol.name()
-                + "' while its deferred free is pending"));
-        return true;
-    }
-
-    private void observeUnfreed(boolean scopeExit, boolean methodExit) {
-        if (unfreed == null) return;
-        Set<AllocationInfo> retained = locallyRetained(methodExit);
-        unfreed.observe(allocation -> allocation.present && allocation.state == AllocationState.ACTIVE
-                && allocation.origin != AllocationOrigin.OWNED_FIELD && !retained.contains(allocation), scopeExit);
-    }
-
-    /** Allocations a local, slot, container, pool, pending action, or result still holds. */
-    private Set<AllocationInfo> locallyRetained(boolean methodExit) {
-        Set<AllocationInfo> retained = new LinkedHashSet<>(knownArraySlots.values());
-        retainedBorrows.values().forEach(retained::addAll);
-        retained.addAll(poolOwners.keySet());
-        retained.addAll(pendingYieldAllocations);
-        pendingDeferredOperands().map(this::allocationOf)
-                .filter(java.util.Objects::nonNull).forEach(retained::add);
-        pendingDeferredFrees().map(action -> allocationOf(environment.get(action.target())))
-                .filter(java.util.Objects::nonNull).forEach(retained::add);
-        if (!methodExit) environment.values().stream().map(this::allocationOf)
-                .filter(java.util.Objects::nonNull).forEach(retained::add);
-        return retained;
-    }
-
-    private boolean locallyObserved(AllocationInfo allocation) {
-        return locallyRetained(false).contains(allocation);
-    }
-
-    /**
-     * Lowers one full-expression statement and then reclaims the unnamed temporaries
-     * it created. A temporary is a fresh allocation that no local, field, array slot,
-     * container, pool, deferred operation, or pending result observes when the
-     * statement completes. Reclamation uses the ordinary safe-free proof; a declined
-     * temporary keeps today's behavior and diagnostics.
-     */
-    private void lowerWithTemporaries(SourceSpan span, Runnable body) {
-        TemporaryScope scope = new TemporaryScope(copyEnvironment(), List.copyOf(exceptionRegions), expressionBranchDepth);
-        temporaryScopes.push(scope);
-        try {
-            body.run();
-        } finally {
-            temporaryScopes.pop();
-        }
-        reclaimTemporaries(scope, span);
-    }
-
-    /**
-     * Lowers an expression whose operands run conditionally. A fresh allocation made
-     * inside it does not dominate the end of the statement, so it is not a candidate.
-     */
     private TypedValue lowerBranchingExpression(Supplier<TypedValue> body) {
-        expressionBranchDepth++;
-        try {
-            return body.get();
-        } finally {
-            expressionBranchDepth--;
-        }
+        return body.get();
     }
 
-    /**
-     * Lowers a full expression whose value moves on: a returned, yielded, or thrown
-     * value, a switch selector, or an enhanced-for source. The value's own allocation
-     * is never reclaimed here; temporaries consumed while computing it are.
-     */
     private TypedValue lowerTransferOperand(SourceSpan span, Supplier<TypedValue> body) {
-        TemporaryScope scope = new TemporaryScope(copyEnvironment(), List.copyOf(exceptionRegions), expressionBranchDepth);
-        temporaryScopes.push(scope);
-        TypedValue value;
-        try {
-            value = body.get();
-        } finally {
-            temporaryScopes.pop();
-        }
-        if (value != null && value.operand() != null) {
-            AllocationInfo transferred = allocationOf(value.operand());
-            if (transferred != null) scope.cancelled.add(transferred);
-        }
-        reclaimTemporaries(scope, span);
-        return value;
+        return body.get();
     }
 
-    /**
-     * Lowers a statement condition as a full expression. A condition that binds pattern
-     * variables activates them only after evaluation, so its allocations are not
-     * candidates; the bound value must outlive the condition.
-     */
     private TypedValue lowerCondition(Expression condition, PatternFlow.Result patternFlow) {
-        TemporaryScope scope = new TemporaryScope(copyEnvironment(), List.copyOf(exceptionRegions), expressionBranchDepth);
-        temporaryScopes.push(scope);
-        TypedValue value;
-        try {
-            value = lowerExpression(condition);
-        } finally {
-            temporaryScopes.pop();
-        }
-        // A pattern variable is activated only after the condition and must outlive
-        // it, so the value it binds is exempt; other temporaries of the condition,
-        // such as an argument consumed by a call in it, are reclaimed as usual.
-        if (patternFlow != null) {
-            for (PatternFlow.Binding binding : patternFlow.whenTrue()) exemptPatternValue(scope, binding);
-            for (PatternFlow.Binding binding : patternFlow.whenFalse()) exemptPatternValue(scope, binding);
-        }
-        reclaimTemporaries(scope, condition.span());
-        return value;
-    }
-
-    private void exemptPatternValue(TemporaryScope scope, PatternFlow.Binding binding) {
-        PatternLocal local = patternLocals.get(binding.expression());
-        AllocationInfo bound = local == null ? null : allocationOf(local.operand);
-        if (bound != null) scope.cancelled.add(bound);
-    }
-
-    /** Records a completed fresh allocation as a candidate of the innermost full expression. */
-    private void registerTemporary(AllocationInfo allocation, IrOperand operand, SourceSpan span) {
-        // GC5: full-expression allocations are managed, without implicit destruction.
-    }
-
-    private void completeTemporaryCall(IrInstruction call) {
-        Optional<IrValueReference> result = switch (call) {
-            case IrCallInstruction direct -> direct.result();
-            case IrVirtualCallInstruction virtual -> virtual.result();
-            case IrInterfaceCallInstruction itf -> itf.result();
-            default -> Optional.empty();
-        };
-        result.filter(temporaryFreshResults::remove).ifPresent(value -> {
-            if (!renderingToString) {
-                registerTemporary(allocationsByOperand.get(value), value, value.sourceSpan());
-            }
-        });
-    }
-
-    /**
-     * A local held the allocation at some point in the open expressions. It may still
-     * be reclaimed once the name is cleared, but a declined proof keeps the ordinary
-     * findings: the discarded report is for allocations nothing ever observed.
-     */
-    private void nameTemporary(AllocationInfo allocation) {
-        if (allocation == null) return;
-        for (TemporaryScope scope : temporaryScopes) {
-            scope.named.add(allocation);
-        }
-    }
-
-    /** A callee or protocol that may reclaim this allocation itself excludes it from the rule. */
-    private void cancelTemporary(AllocationInfo allocation) {
-        if (allocation == null) return;
-        for (TemporaryScope scope : temporaryScopes) {
-            scope.cancelled.add(allocation);
-        }
-    }
-
-    private void reclaimTemporaries(TemporaryScope scope, SourceSpan span) {
-        List<TemporaryCandidate> candidates = scope.candidates;
-        if (candidates.isEmpty()) return;
-        Set<TemporaryCandidate> accepted = currentBlock.terminator == null
-                ? reclaimInOrder(scope, null, candidate -> {
-                    emitProvenFree(candidate.allocation(), candidate.operand(), candidate.span());
-                    reclaimedTemporaries.put(candidate.allocation(), candidate.span());
-                    if (unfreed != null) unfreed.consumed(candidate.allocation());
-                }, true)
-                : Set.of();
-        // Close the regions innermost first. Each pad reclaims, in dependency order,
-        // every temporary the normal path reclaimed that is also provably free at
-        // every edge into that pad, then rethrows into the enclosing region.
-        for (int index = candidates.size() - 1; index >= 0; index--) {
-            TemporaryCandidate candidate = candidates.get(index);
-            if (exceptionRegions.peek() != candidate.region()) {
-                throw new IllegalStateException("temporary cleanup region nesting violated at "
-                        + candidate.span());
-            }
-            restoreDeque(exceptionRegions, candidate.outerRegions());
-            if (candidate.region().edges.isEmpty()) {
-                candidate.region().landingPad.terminate(new IrUnreachable(candidate.span()));
-                continue;
-            }
-            // Ownership snapshots carry explanation evidence, so take one only when a
-            // pad is emitted, and merge the edges from the first edge's own state.
-            MutableBlock normal = currentBlock;
-            LinkedHashMap<LocalSymbol, IrOperand> normalEnvironment = copyEnvironment();
-            OwnershipSnapshot normalOwnership = snapshotOwnership();
-            // The normal path decides nothing for the pad: an alias such as
-            // `use(saved = new K(), boom(), saved = null)` exists where boom throws
-            // and is gone at the end of the statement. Simulate reclamation in each
-            // edge's own state and keep only what every edge accepts. Simulating the
-            // whole set lets a child created after its wrapper, as in
-            // `new Holder().set(new K(), boom())`, be released by the wrapper's free.
-            Set<TemporaryCandidate> reclaimOnUnwind = null;
-            for (ExceptionEdge edge : candidate.region().edges) {
-                environment = new LinkedHashMap<>(edge.environment());
-                restoreOwnership(edge.ownership());
-                Set<TemporaryCandidate> atEdge = reclaimInOrder(scope, accepted,
-                        reclaimed -> applyFreeConsequences(reclaimed.allocation()), false);
-                if (reclaimOnUnwind == null) {
-                    reclaimOnUnwind = atEdge;
-                } else {
-                    reclaimOnUnwind.retainAll(atEdge);
-                }
-            }
-            environment = normalEnvironment;
-            restoreOwnership(normalOwnership);
-            IrOperand exception = beginExceptionHandler(candidate.region(),
-                    scope.environmentBefore, candidate.region().edges.getFirst().ownership(),
-                    candidate.span());
-            reclaimInOrder(scope, reclaimOnUnwind, reclaimed -> emitProvenFree(
-                    reclaimed.allocation(), reclaimed.operand(), reclaimed.span()), false);
-            // Rethrow past this statement's other temporary regions, into the region
-            // that enclosed the statement. This pad has reclaimed everything provably
-            // free at its edges, so an earlier temporary's pad has nothing left to do
-            // on this path; and that pad must see only its own direct edges, where
-            // the earlier temporaries are still live, or its intersection would be
-            // empty and leak them on its own edges.
-            restoreDeque(exceptionRegions, scope.regionsBefore);
-            emitThrow(exception, candidate.span());
-            restoreDeque(exceptionRegions, candidate.outerRegions());
-            currentBlock = normal;
-            environment = normalEnvironment;
-            restoreOwnership(normalOwnership);
-        }
-    }
-
-    /**
-     * Reclaims the eligible candidates the proof accepts in the current state, in
-     * reverse creation order, retrying while a reclaimed owner releases another.
-     * A wrapper created after its argument is freed first and releases the
-     * argument; an array container created before its elements is freed first and
-     * releases its slots. Returns the reclaimed set. With {@code report}, an
-     * unobserved candidate the proof cannot decide is reported as abandoned.
-     */
-    private Set<TemporaryCandidate> reclaimInOrder(
-            TemporaryScope scope, Set<TemporaryCandidate> eligible,
-            java.util.function.Consumer<TemporaryCandidate> reclaim, boolean report) {
-        List<TemporaryCandidate> candidates = scope.candidates;
-        Set<TemporaryCandidate> reclaimed = new LinkedHashSet<>();
-        boolean progress = true;
-        while (progress) {
-            progress = false;
-            for (int index = candidates.size() - 1; index >= 0; index--) {
-                TemporaryCandidate candidate = candidates.get(index);
-                if (reclaimed.contains(candidate) || scope.cancelled.contains(candidate.allocation())
-                        || eligible != null && !eligible.contains(candidate)) {
-                    continue;
-                }
-                FreeProof proof = probeFree(null, candidate.operand(),
-                        candidate.operand().type(), Set.of());
-                if (proof instanceof FreeProof.Accepted) {
-                    reclaim.accept(candidate);
-                    reclaimed.add(candidate);
-                    progress = true;
-                } else if (report && unfreed != null && proof instanceof FreeProof.Blocked blocked
-                        && blocked.allocation().state != AllocationState.ESCAPED
-                        && !scope.named.contains(candidate.allocation())
-                        && !locallyObserved(candidate.allocation())) {
-                    // Nothing ever observed the allocation, yet the proof is uncertain,
-                    // so it can never be reclaimed. Report it now with the blocking
-                    // fact; the ordinary observation skips non-active states. An
-                    // allocation a name held at any point keeps its ordinary finding,
-                    // as on main, even when the name was cleared again.
-                    unfreed.abandoned(candidate.allocation(), temporaryDeclineReason(proof));
-                }
-            }
-        }
-        return reclaimed;
+        return lowerExpression(condition);
     }
 
     /** The blocking fact of a declined temporary, in the wording of the rejected-free message. */
-    private String temporaryDeclineReason(FreeProof proof) {
-        return switch (proof) {
-            case FreeProof.Accepted ignored -> throw new IllegalArgumentException("accepted proof");
-            case FreeProof.NotReference ignored -> "value is not a reference";
-            case FreeProof.NoIdentity ignored -> "value is not a known allocation";
-            case FreeProof.DependentBorrow ignored ->
-                    "value is a borrowed helper owned by another object";
-            case FreeProof.PendingDeferredFree ignored -> "allocation has a pending deferred free";
-            case FreeProof.RetainingOwner rejected -> "allocation is still borrowed by a live "
-                    + (isKnownContainer(rejected.owner()) ? "container" : "wrapper");
-            case FreeProof.PendingDeferredCall ignored ->
-                    "allocation is retained by a pending deferred call";
-            case FreeProof.PendingYield ignored -> "allocation is retained by a pending yield result";
-            case FreeProof.AlreadyFreed ignored -> "allocation was already freed";
-            case FreeProof.Blocked rejected -> rejected.allocation().blockingReason;
-            case FreeProof.AttachedField rejected ->
-                    "allocation is still reachable through private field '"
-                    + rejected.allocation().ownedFieldName + "'";
-            case FreeProof.ArraySlotAlias rejected ->
-                    "allocation is still reachable through known array element ["
-                    + rejected.slot().index() + "]";
-            case FreeProof.LocalAlias rejected ->
-                    "allocation may still be observed through local '" + rejected.alias().name() + "'";
-        };
-    }
-
-    private void completeUnfreedCall(IrInstruction call) {
-        if (unfreed == null) return;
-        Optional<IrValueReference> result = switch (call) {
-            case IrCallInstruction direct -> direct.result();
-            case IrVirtualCallInstruction virtual -> virtual.result();
-            case IrInterfaceCallInstruction itf -> itf.result();
-            default -> Optional.empty();
-        };
-        result.filter(unfreedFreshResults::contains)
-                .ifPresent(value -> unfreed.completed(allocationsByOperand.get(value)));
-    }
 
     private void emitCall(IrInstruction call, SourceSpan span) {
         PoolTransfer transfer = pendingPoolTransfer;
@@ -12495,21 +10760,7 @@ final class FunctionAnalyzer {
                     .map(IrStringConcatPart::value).toList();
             default -> List.of();
         };
-        operands.forEach(operand -> checkNotFreed(operand, span));
-        if (unfreed != null && reclamationEffects != null) {
-            java.util.BitSet reclaimed = reclamationEffects.possiblyReclaimedArguments(call);
-            for (int index = reclaimed.nextSetBit(0); index >= 0;
-                 index = reclaimed.nextSetBit(index + 1)) {
-                if (index < operands.size()) unfreed.consumed(allocationOf(operands.get(index)));
-            }
-        }
-        if (reclamationEffects != null) {
-            java.util.BitSet reclaimed = reclamationEffects.possiblyReclaimedArguments(call);
-            for (int index = reclaimed.nextSetBit(0); index >= 0;
-                 index = reclaimed.nextSetBit(index + 1)) {
-                if (index < operands.size()) cancelTemporary(allocationOf(operands.get(index)));
-            }
-        }
+
         ExceptionRegion region = exceptionRegions.peek();
         if (region == null) {
             currentBlock.addInstruction(call);
@@ -12517,16 +10768,15 @@ final class FunctionAnalyzer {
             finishContainerCall(cleared, wrapper);
             factoryBorrows.forEach(borrow -> addRetainedBorrow(borrow.owner(), borrow.child(),
                     borrow.site()));
-            completeUnfreedCall(call);
-            completeTemporaryCall(call);
+
             return;
         }
         MutableBlock predecessor = currentBlock;
         MutableBlock normal = createBlock("invoke.continue", span);
         predecessor.terminate(new IrInvokeTerminator(call, normal.label,
                 region.landingPad.label, span));
-        // The call's own fresh result does not exist where the call unwinds, so
-        // an enclosing temporary's pad must not see it as reclaimable.
+        // The result has no identity on an exceptional edge. Preserve only
+        // reference and pool provenance available before successful completion.
         if (freshResult != null) freshResult.present = false;
         OwnershipSnapshot unwindOwnership = snapshotOwnership();
         if (freshResult != null) freshResult.present = true;
@@ -12536,11 +10786,10 @@ final class FunctionAnalyzer {
         finishContainerCall(cleared, wrapper);
         factoryBorrows.forEach(borrow -> addRetainedBorrow(borrow.owner(), borrow.child(),
                 borrow.site()));
-        completeUnfreedCall(call);
-        completeTemporaryCall(call);
+
     }
 
-    private void emitConstructorCallWithRollback(IrInstruction call,
+    private void emitConstructorCall(IrInstruction call,
                                                  IrOperand allocation,
                                                  SourceSpan span) {
         // Failed construction leaves a zero-initialized managed graph, including published aliases.
@@ -12606,9 +10855,7 @@ final class FunctionAnalyzer {
             return;
         }
         poolOwners.put(value, owner);
-        if (rejectedFreeEvidence != null && transfer.span() != null) {
-            rejectedFreeEvidence.retain(owner, value, source, transfer.span());
-        }
+
         Set<AllocationInfo> dependencies = new LinkedHashSet<>(retainedBorrows.getOrDefault(owner, Set.of()));
         dependencies.addAll(retainedBorrows.getOrDefault(value, Set.of()));
         retainedBorrows.remove(value);
@@ -12628,7 +10875,7 @@ final class FunctionAnalyzer {
             AllocationInfo registry = poolValueOwner(source);
             if (registry != null) {
                 poolValueOwners.put(target, registry);
-                propagatePoolCheckoutSite(target, source);
+
             }
             String concreteType = ownedHelperBorrowTypes.get(source);
             if (concreteType != null) {
@@ -12648,12 +10895,7 @@ final class FunctionAnalyzer {
         AllocationInfo registry = poolValueOwner(sources.getFirst());
         if (registry != null && sources.stream().allMatch(source -> poolValueOwner(source) == registry)) {
             poolValueOwners.put(target, registry);
-            RejectedFreeEvidence.Site first = rejectedFreeEvidence == null ? null
-                    : rejectedFreeEvidence.origin(sources.getFirst());
-            if (first != null && sources.stream().allMatch(source ->
-                    first.equals(rejectedFreeEvidence.origin(source)))) {
-                rejectedFreeEvidence.origin(target, first.source(), first.span());
-            }
+
         }
         String concreteType = ownedHelperBorrowTypes.get(sources.getFirst());
         if (concreteType != null && sources.stream().allMatch(source ->
@@ -12662,26 +10904,17 @@ final class FunctionAnalyzer {
         }
     }
 
-    private void propagatePoolCheckoutSite(IrOperand target, IrOperand source) {
-        if (rejectedFreeEvidence == null) return;
-        RejectedFreeEvidence.Site site = rejectedFreeEvidence.origin(source);
-        if (site != null) rejectedFreeEvidence.origin(target, site.source(), site.span());
-    }
-
     /**
      * Names a load of a final instance field by its receiver and field, so a null test of
      * one load guards the others (D287). Constructors store final fields, so their loads
-     * stay unnamed; a destructor stores null when it frees an owned field of its class.
+     * stay unnamed until construction completes.
      */
     private void noteFinalFieldLoad(IrOperand loaded, IrOperand receiver, FieldSymbol field) {
         if (!field.isFinal() || field.isStatic() || !loaded.type().isReference()
                 || function.isConstructor()) {
             return;
         }
-        boolean mayStore = function.isDestructor()
-                && field.ownerClass().equals(currentClass.name())
-                && ownedArrayFields.isOwned(field);
-        nullGuards.loadedFinalField(loaded, receiver, field.irField(), mayStore);
+        nullGuards.loadedFinalField(loaded, receiver, field.irField(), false);
     }
 
     private void trackOwnedFieldLoad(IrOperand loaded, IrOperand receiver, FieldSymbol field) {
@@ -12705,9 +10938,9 @@ final class FunctionAnalyzer {
             // Neither the receiver nor the children it retains are temporaries once a
             // field of the receiver is read: the loaded value may observe them after
             // the statement, and the receiver's destructor may release them.
-            cancelTemporary(owner);
+
             Set<AllocationInfo> children = retainedBorrows.getOrDefault(owner, Set.of());
-            children.forEach(this::cancelTemporary);
+
             if (ownedArrayFields.isOwned(field)) {
                 // The receiver's destructor releases this field: the loaded value is
                 // the receiver's own storage, a distinct allocation the analyzer does
@@ -12737,19 +10970,15 @@ final class FunctionAnalyzer {
             return;
         }
         if (!ownedArrayFields.isOwned(field)) {
-            if (rejectedFreeEvidence != null) {
-                rejectedFreeEvidence.fieldLoad(loaded, field, source, loaded.sourceSpan());
-            }
+
             String rejectionReason = ownedArrayFields.rejectionReason(field);
             if (rejectionReason != null) {
                 AllocationInfo allocation = AllocationInfo.borrowedField(controlFlowDepth,
                         field.declaration().name());
                 allocations.add(allocation);
-                recordAllocationOrigin(allocation, loaded.sourceSpan());
+
                 allocationsByOperand.put(loaded, allocation);
-                if (rejectedFreeEvidence != null) {
-                    rejectedFreeEvidence.fieldLoad(allocation, field, source, loaded.sourceSpan());
-                }
+
             }
             return;
         }
@@ -12760,7 +10989,7 @@ final class FunctionAnalyzer {
                     field.declaration().name());
             borrowedOwnedFields.put(key, allocation);
             allocations.add(allocation);
-            recordAllocationOrigin(allocation, loaded.sourceSpan());
+
         }
         allocationsByOperand.put(loaded, allocation);
     }
@@ -12809,19 +11038,12 @@ final class FunctionAnalyzer {
         OwnershipSnapshot snapshot = new OwnershipSnapshot(snapshotAllocationStates(),
                 knownArraySlots,
                 new LinkedHashMap<>(borrowedOwnedFields), new IdentityHashMap<>(retainedBorrows),
-                new IdentityHashMap<>(poolOwners), Set.copyOf(exposedContainerContents),
-                unfreed == null ? Set.of() : unfreed.snapshot());
-        if (rejectedFreeEvidence != null) {
-            int associations = rejectedFreeEvidence.save(snapshot);
-            if (observer != null) observer.evidenceSnapshot(true, false, associations);
-        } else if (observer != null) {
-            observer.evidenceSnapshot(true, true, 0);
-        }
+                new IdentityHashMap<>(poolOwners), Set.copyOf(exposedContainerContents));
         return snapshot;
     }
 
     private void restoreOwnership(OwnershipSnapshot snapshot) {
-        if (unfreed != null) unfreed.restore(snapshot.unfreedLive());
+
         allocations.forEach(allocation -> allocation.present = false);
         for (Map.Entry<AllocationInfo, AllocationStateSnapshot> entry
                 : snapshot.states().entrySet()) {
@@ -12842,12 +11064,6 @@ final class FunctionAnalyzer {
         poolOwners.putAll(snapshot.poolOwners());
         exposedContainerContents.clear();
         exposedContainerContents.addAll(snapshot.exposedContainerContents());
-        if (rejectedFreeEvidence != null) {
-            boolean restored = rejectedFreeEvidence.restore(snapshot);
-            if (observer != null) observer.evidenceSnapshot(false, false, restored ? 1 : -1);
-        } else if (observer != null) {
-            observer.evidenceSnapshot(false, true, 0);
-        }
     }
 
     private void mergeOwnership(OwnershipSnapshot before,
@@ -12860,7 +11076,7 @@ final class FunctionAnalyzer {
                                 List<OwnershipSnapshot> incoming,
                                 String conflictReason, List<JoinPath> paths) {
         restoreOwnership(before);
-        if (rejectedFreeEvidence != null) rejectedFreeEvidence.merge(incoming);
+
         Set<AllocationInfo> joined = java.util.Collections.newSetFromMap(new IdentityHashMap<>());
         incoming.forEach(snapshot -> joined.addAll(snapshot.states().keySet()));
         for (AllocationInfo allocation : joined) {
@@ -12877,14 +11093,8 @@ final class FunctionAnalyzer {
                 allocation.blockingReason = first.blockingReason();
                 allocation.detached = first.detached();
             } else {
-                allocation.state = states.stream().anyMatch(state -> state.state().mayBeFreed())
-                        ? AllocationState.MAYBE_FREED : AllocationState.UNCERTAIN;
-                allocation.blockingReason = allocation.state == AllocationState.MAYBE_FREED
-                        ? "allocation may have been freed on an incoming control-flow path"
-                        : conflictReason;
-                if (rejectedFreeEvidence != null) {
-                    rejectedFreeEvidence.selectedReason(allocation, allocation.blockingReason);
-                }
+                allocation.state = AllocationState.UNCERTAIN;
+                allocation.blockingReason = conflictReason;
                 allocation.detached = states.stream().allMatch(AllocationStateSnapshot::detached);
             }
         }
@@ -12908,16 +11118,14 @@ final class FunctionAnalyzer {
                 }
             }
         }
-        if (rejectedFreeEvidence != null) {
-            rejectedFreeEvidence.retainArrayStores(knownArraySlots.keySet());
-        }
+
         poolOwners.clear();
         for (OwnershipSnapshot path : incoming) {
             path.poolOwners().forEach((value, owner) -> {
                 AllocationInfo previous = poolOwners.putIfAbsent(value, owner);
                 if (previous != null && previous != owner) {
-                    selectBlocked(previous, "object has conflicting pool owners across control flow");
-                    selectBlocked(owner, "object has conflicting pool owners across control flow");
+                    selectBlocked(previous, "object has conflicting pool origins across control flow");
+                    selectBlocked(owner, "object has conflicting pool origins across control flow");
                 }
             });
         }
@@ -12938,93 +11146,21 @@ final class FunctionAnalyzer {
                 if (knownArraySlots.get(slot) != allocation) {
                     String reason = "allocation may still be observed through "
                             + "an array element on an incoming control-flow path";
-                    RejectedFreeEvidence.Site store = uniqueIncomingArrayStore(incoming, slot, allocation);
                     // A stored one-of identity stands for the allocations it may be;
                     // those are what the lost slot may still hold.
                     if (allocation.origin == AllocationOrigin.ONE_OF) {
-                        allocation.mayBe.forEach(candidate -> selectBlocked(candidate, reason, store));
+                        allocation.mayBe.forEach(candidate -> selectBlocked(candidate, reason));
                     } else {
-                        selectBlocked(allocation, reason, store);
+                        selectBlocked(allocation, reason);
                     }
                 }
             });
         }
-        if (unfreed != null) unfreed.merge(incoming.stream().map(OwnershipSnapshot::unfreedLive).toList());
-        captureJoinEvidence(paths);
+
     }
 
     private record JoinPath(OwnershipSnapshot snapshot, String label,
                             SourceFile anchorSource, SourceSpan anchorSpan) {
-    }
-
-    private void captureJoinEvidence(List<JoinPath> paths) {
-        if (rejectedFreeEvidence == null || paths.size() < 2) return;
-        for (AllocationInfo allocation : allocations) {
-            if (!allocation.present || allocation.state == AllocationState.ACTIVE
-                    || paths.stream().noneMatch(path -> path.snapshot().states().containsKey(allocation))) {
-                continue;
-            }
-            List<RejectedFreeEvidence.JoinAlternative> alternatives = new ArrayList<>();
-            int omitted = 0;
-            int escaped = 0;
-            int active = 0;
-            boolean complete = true;
-            boolean allDirectStores = true;
-            for (JoinPath path : paths) {
-                AllocationStateSnapshot state = path.snapshot().states().get(allocation);
-                if (state != null && state.state() == AllocationState.ESCAPED) escaped++;
-                if (state != null && state.state() == AllocationState.ACTIVE) active++;
-                RejectedFreeEvidence.Join previous = rejectedFreeEvidence.join(
-                        path.snapshot(), allocation);
-                if (previous != null && state != null
-                        && previous.state().equals(state.state().name())
-                        && java.util.Objects.equals(previous.reason(), state.blockingReason())) {
-                    for (RejectedFreeEvidence.JoinAlternative prior : previous.alternatives()) {
-                        RejectedFreeEvidence.JoinAlternative nested =
-                                new RejectedFreeEvidence.JoinAlternative(
-                                        path.label() + ", " + prior.label(),
-                                        prior.anchorSource(), prior.anchorSpan(), prior.state(),
-                                        prior.reason(), prior.event());
-                        if (alternatives.size() < 6) alternatives.add(nested);
-                        else omitted++;
-                    }
-                    omitted += previous.omitted();
-                    complete &= previous.complete();
-                    allDirectStores &= previous.classification().equals("all direct stores");
-                    continue;
-                }
-                RejectedFreeEvidence.Event event = rejectedFreeEvidence.event(
-                        path.snapshot(), allocation);
-                String stateName = state == null ? "ABSENT" : state.state().name();
-                String reason = state == null ? null : state.blockingReason();
-                if (state != null && state.state() != AllocationState.ACTIVE
-                        && (event == null || event.source() == null || event.span() == null)) {
-                    complete = false;
-                }
-                allDirectStores &= event != null && event.kind()
-                        == RejectedFreeEvidence.EventKind.REASON && event.reason() != null
-                        && event.reason().startsWith("allocation escapes through static field '");
-                RejectedFreeEvidence.JoinAlternative alternative =
-                        new RejectedFreeEvidence.JoinAlternative(path.label(),
-                                path.anchorSource(), path.anchorSpan(), stateName, reason, event);
-                if (alternatives.size() < 6) alternatives.add(alternative);
-                else omitted++;
-            }
-            if (omitted == 0 && alternatives.stream().allMatch(alternative ->
-                    alternative.event() == alternatives.getFirst().event()
-                    && alternative.state().equals(alternatives.getFirst().state())
-                    && java.util.Objects.equals(alternative.reason(),
-                            alternatives.getFirst().reason()))) {
-                continue;
-            }
-            String classification = escaped == paths.size() && allDirectStores
-                    ? "all direct stores" : escaped == paths.size() ? "all escape"
-                    : escaped > 0 && active + escaped == paths.size() ? "some escape"
-                    : "mixed or unavailable";
-            rejectedFreeEvidence.joined(allocation, new RejectedFreeEvidence.Join(
-                    allocation.state.name(), allocation.blockingReason, alternatives,
-                    omitted, classification, complete));
-        }
     }
 
     private void mergeFlowOwnership(List<BranchFlow> incoming) {
@@ -13053,26 +11189,8 @@ final class FunctionAnalyzer {
     private List<JoinPath> loopContinuationPaths(List<BranchFlow> flows,
                                                  BranchFlow normalBody,
                                                  String kind, SourceSpan bodySpan) {
-        if (rejectedFreeEvidence == null) return List.of();
-        List<JoinPath> paths = new ArrayList<>();
-        for (BranchFlow flow : flows) {
-            boolean normal = flow == normalBody;
-            paths.add(new JoinPath(flow.ownership(),
-                    normal ? "normal completion of the " + kind + " body"
-                            : "continue transfer in the " + kind + " loop",
-                    source, normal ? bodySpan : transferSpan(flow)));
-        }
-        return paths;
-    }
-
-    private void addLoopBreakPaths(List<JoinPath> paths, List<BranchFlow> breaks,
-                                   String kind) {
-        if (rejectedFreeEvidence == null) return;
-        for (BranchFlow flow : breaks) {
-            paths.add(new JoinPath(flow.ownership(), "break from the " + kind + " loop",
-                    source, transferSpan(flow)));
-        }
-    }
+return List.of();
+}
 
     // A body-local allocation is recreated on each iteration. An allocation already
     // visible at entry is not: replaying a free requires the same live ownership
@@ -13107,103 +11225,9 @@ final class FunctionAnalyzer {
         }
     }
 
-    private void validateLoopBackEdges(OwnershipSnapshot entry,
-                                       LinkedHashMap<LocalSymbol, IrOperand> before,
-                                       List<BranchFlow> backEdges, int firstReclamation) {
-        // An element read with a computed index inside the body may be any element
-        // the array holds at the back edge; one stored only by a later iteration
-        // sits in a slot the entry state lacks, which the loop exit's join blocks.
-        for (BranchFlow flow : backEdges) {
-            for (LocalSymbol local : before.keySet()) {
-                AllocationInfo held = allocationOf(flow.environment().get(local));
-                // A one-of identity is carried dead as soon as any allocation it may be is.
-                AllocationInfo carried = held == null ? null : held.origin == AllocationOrigin.ONE_OF
-                        ? held.mayBe.stream().filter(candidate -> {
-                            AllocationStateSnapshot candidateState = flow.ownership().states().get(candidate);
-                            return candidateState != null && candidateState.state().mayBeFreed();
-                        }).findFirst().orElse(null)
-                        : held;
-                AllocationStateSnapshot state = carried == null ? null
-                        : flow.ownership().states().get(carried);
-                AllocationStateSnapshot initial = carried == null ? null : entry.states().get(carried);
-                boolean alreadyDead = initial != null && initial.state().mayBeFreed()
-                        && allocationOf(before.get(local)) == carried;
-                if (state != null && state.state().mayBeFreed() && !alreadyDead) {
-                    String message = "cannot carry freed allocation in local '"
-                            + local.name() + "' across loop back edge";
-                    if (rejectedFreeEvidence == null || !explanationReady) {
-                        rejectedFree(flow.block().span, message,
-                                RejectedFreeExplanation.Missing.LOOP_CARRIED);
-                    } else {
-                        RejectedFreeEvidence.Event event = rejectedFreeEvidence.event(
-                                flow.ownership(), carried);
-                        DiagnosticNote note = event != null
-                                && event.kind() == RejectedFreeEvidence.EventKind.FREE
-                                && event.source() != null && event.span() != null
-                                ? new DiagnosticNote("this predecessor freed the carried allocation here",
-                                event.source(), event.span())
-                                : new DiagnosticNote(state.state() == AllocationState.MAYBE_FREED
-                                ? "this incoming loop path may carry a freed allocation; "
-                                + "a unique earlier free is unavailable"
-                                : "the earlier free on this incoming loop path was not retained");
-                        ownershipVerdict(error(flow.block().span, message).withNotes(List.of(note)));
-                    }
-                }
-            }
-        }
-        for (Reclamation reclamation : reclamations.subList(firstReclamation, reclamations.size())) {
-            AllocationInfo allocation = reclamation.allocation();
-            AllocationStateSnapshot initial = entry.states().get(allocation);
-            if (initial == null) {
-                continue;
-            }
-            BranchFlow blocking = null;
-            for (BranchFlow flow : backEdges) {
-                boolean changed = !initial.equals(flow.ownership().states().get(allocation))
-                        || before.entrySet().stream().anyMatch(local ->
-                        mayAlias(allocationOf(local.getValue()), allocation)
-                        != mayAlias(allocationOf(flow.environment().get(local.getKey())), allocation))
-                        || flow.ownership().knownArraySlots().values().stream()
-                        .anyMatch(value -> mayAlias(value, allocation));
-                if (changed) {
-                    blocking = flow;
-                    break;
-                }
-            }
-            if (blocking != null) {
-                String message = "cannot prove free safe across loop back edge: "
-                        + "the next iteration may observe a freed, escaped, or different allocation";
-                if (rejectedFreeEvidence == null || !explanationReady) {
-                    rejectedFree(reclamation.span(), message,
-                            RejectedFreeExplanation.Missing.LOOP_RECLAMATION);
-                } else {
-                    AllocationStateSnapshot state = blocking.ownership().states().get(allocation);
-                    String detail = state == null
-                            ? "this loop back edge no longer has the same proven allocation"
-                            : state.state() == AllocationState.MAYBE_FREED
-                            ? "this loop back edge may carry an already freed allocation"
-                            : state.state() == AllocationState.FREED
-                            ? "this loop back edge carries an already freed allocation"
-                            : "this loop back edge changes the required ownership or alias state";
-                    List<DiagnosticNote> notes = new ArrayList<>();
-                    notes.add(new DiagnosticNote(detail, source, transferSpan(blocking)));
-                    if (reclamation.exit() != null) {
-                        notes.add(new DiagnosticNote("this free was reached during cleanup for "
-                                + reclamation.exit().description(), source,
-                                reclamation.exit().span()));
-                    } else if (reclamation.cleanupExitOmitted()) {
-                        notes.add(new DiagnosticNote("this free was reached during cleanup; "
-                                + "its exit detail was omitted by the evidence storage limit"));
-                    }
-                    ownershipVerdict(error(reclamation.span(), message).withNotes(notes));
-                }
-            }
-        }
-    }
-
     private void trackArrayElementStore(IrOperand array, IrOperand index, IrOperand value,
                                         SourceSpan valueSpan) {
-        checkNotFreed(array, array.sourceSpan());
+
         if (!array.type().isArray() || !array.type().elementType().isReference()) {
             return;
         }
@@ -13218,77 +11242,22 @@ final class FunctionAnalyzer {
         }
         ArraySlot slot = new ArraySlot(container, constantIndex);
         knownArraySlots.remove(slot);
-        if (rejectedFreeEvidence != null) rejectedFreeEvidence.clearArrayStore(slot);
+
         if (stored != null) {
             knownArraySlots.put(slot, stored);
-            if (rejectedFreeEvidence != null) {
-                rejectedFreeEvidence.arrayStore(slot, source, valueSpan);
-            }
+
         }
     }
 
-    private RejectedFreeEvidence.Site uniqueIncomingArrayStore(
-            List<OwnershipSnapshot> incoming, ArraySlot slot, AllocationInfo allocation) {
-        if (rejectedFreeEvidence == null) return null;
-        RejectedFreeEvidence.Site selected = null;
-        for (OwnershipSnapshot path : incoming) {
-            if (path.knownArraySlots().get(slot) != allocation) continue;
-            RejectedFreeEvidence.Site site = rejectedFreeEvidence.arrayStore(path, slot);
-            if (site == null || selected != null && !selected.equals(site)) return null;
-            selected = site;
-        }
-        return selected;
-    }
-
-    private void checkNotFreed(IrOperand operand, SourceSpan span) {
-        AllocationInfo allocation = allocationOf(operand);
-        if (allocation == null) return;
-        AllocationInfo freed = mayBeFreedIdentity(allocation);
-        if (freed != null) {
-            ownershipVerdict(useAfterFree(span,
-                    "cannot use evaluated reference after its allocation was freed", freed));
-        }
-    }
-
-    /**
-     * The allocation this identity may refer to that may have been freed, or null. A
-     * one-of identity is never freed itself; it is dangling as soon as any allocation
-     * it may be is, as when a later argument frees an element an earlier argument
-     * already loaded.
-     */
-    private static AllocationInfo mayBeFreedIdentity(AllocationInfo allocation) {
-        if (allocation.state.mayBeFreed()) return allocation;
-        if (allocation.origin == AllocationOrigin.ONE_OF) {
-            return allocation.mayBe.stream().filter(candidate -> candidate.state.mayBeFreed())
-                    .findFirst().orElse(null);
-        }
-        return null;
-    }
-
-    /**
-     * A use-after-free error. When the compiler itself reclaimed the allocation as an
-     * unnamed temporary, the program contains no `free`, so the error says where the
-     * temporary was created and how to keep it.
-     */
-    private Diagnostic useAfterFree(SourceSpan span, String message, AllocationInfo allocation) {
-        SourceSpan creation = reclaimedTemporaries.get(allocation);
-        if (creation == null) {
-            return error(span, message);
-        }
-        return error(span, message).withNotes(List.of(new DiagnosticNote(
-                "this value belongs to the unnamed temporary created here, which the compiler "
-                        + "reclaimed at the end of that statement; bind the temporary to a local "
-                        + "variable to keep it alive", source, creation)));
-    }
 
     private void trackArrayElementLoad(IrOperand result, IrOperand array, IrOperand index) {
         if (result.type().isReference() && !isDependentBorrow(array)
                 && escapeSummaries.isDetachedFreshArrayElement(function.linkageName(), result.sourceSpan())) {
             AllocationInfo element = AllocationInfo.freshCall(controlFlowDepth);
             allocations.add(element);
-            recordAllocationOrigin(element, result.sourceSpan());
+
             allocationsByOperand.put(result, element);
-            if (unfreed != null) unfreed.register(element, result.sourceSpan(), "detached fresh array element", true);
+
             return;
         }
         if (result.type().isReference() && isDependentBorrow(array)) {
@@ -13343,11 +11312,6 @@ final class FunctionAnalyzer {
         }
     }
 
-    /** Whether {@code held} is {@code allocation} or a one-of identity that may be it. */
-    private static boolean mayAlias(AllocationInfo held, AllocationInfo allocation) {
-        return held == allocation || mayBeElement(held, allocation);
-    }
-
     /**
      * A value that may be one of several allocations has left the analyzer's sight,
      * through an escape or a merged identity. The allocations it may be can no longer
@@ -13372,11 +11336,6 @@ final class FunctionAnalyzer {
         return result;
     }
 
-    private static boolean mayBeElement(AllocationInfo held, AllocationInfo allocation) {
-        return held != null && held.origin == AllocationOrigin.ONE_OF
-                && held.mayBe.contains(allocation);
-    }
-
     /**
      * Gives {@code operand} an identity that may be any of {@code mayBe}. It cannot be
      * freed itself, and while anything holds it, none of those allocations can be
@@ -13387,7 +11346,7 @@ final class FunctionAnalyzer {
         if (mayBe.isEmpty()) return;
         AllocationInfo identity = AllocationInfo.oneOf(controlFlowDepth, mayBe);
         allocations.add(identity);
-        recordAllocationOrigin(identity, span);
+
         selectUncertain(identity, "value is an element loaded with a non-constant "
                 + "index and may be any element of that array");
         allocationsByOperand.put(operand, identity);
@@ -13408,9 +11367,9 @@ final class FunctionAnalyzer {
                                          FieldSymbol field) {
         Set<AllocationInfo> mayBe = identitySet();
         for (AllocationInfo candidate : receiver.mayBe) {
-            cancelTemporary(candidate);
+
             Set<AllocationInfo> children = retainedBorrows.getOrDefault(candidate, Set.of());
-            children.forEach(this::cancelTemporary);
+
             if (ownedArrayFields.isOwned(field)) {
                 mayBe.add(candidate);
                 continue;
@@ -13450,53 +11409,12 @@ final class FunctionAnalyzer {
     }
 
     /**
-     * Whether something live may still hold this allocation through a value loaded
-     * with a non-constant index (D187): a local in scope, a known array slot, a
-     * retaining wrapper, a pending deferred call, or a pending yield. Such a value
-     * behaves as an alias of every element it may be, for as long as it is held.
-     */
-    private FreeProof elementAliasOf(AllocationInfo allocation, LocalSymbol freedSymbol,
-                                     Set<LocalSymbol> expiredAliases) {
-        LocalSymbol local = environment.entrySet().stream()
-                .filter(entry -> freedSymbol == null || !entry.getKey().equals(freedSymbol))
-                .filter(entry -> !expiredAliases.contains(entry.getKey()))
-                .filter(entry -> mayBeElement(allocationOf(entry.getValue()), allocation))
-                .map(Map.Entry::getKey)
-                .findFirst().orElse(null);
-        if (local != null) return new FreeProof.LocalAlias(allocation, local);
-        ArraySlot slot = knownArraySlots.entrySet().stream()
-                .filter(entry -> mayBeElement(entry.getValue(), allocation))
-                .map(Map.Entry::getKey)
-                .min(Comparator.comparingInt(ArraySlot::index)
-                        .thenComparingInt(candidate -> allocations.indexOf(candidate.container())))
-                .orElse(null);
-        if (slot != null) return new FreeProof.ArraySlotAlias(allocation, slot);
-        AllocationInfo owner = retainedBorrows.entrySet().stream()
-                .filter(entry -> entry.getValue().stream()
-                        .anyMatch(child -> mayBeElement(child, allocation)))
-                .map(Map.Entry::getKey)
-                .min(Comparator.comparingInt(allocations::indexOf)).orElse(null);
-        if (owner != null) return new FreeProof.RetainingOwner(allocation, owner);
-        DeferredCallAction deferred = finallyContexts.stream().map(FinallyContext::action)
-                .filter(DeferredCallAction.class::isInstance)
-                .map(DeferredCallAction.class::cast)
-                .filter(action -> action.invocation().operands().stream()
-                        .anyMatch(operand -> mayBeElement(allocationOf(operand), allocation)))
-                .findFirst().orElse(null);
-        if (deferred != null) return new FreeProof.PendingDeferredCall(allocation, deferred);
-        if (pendingYieldAllocations.stream().anyMatch(held -> mayBeElement(held, allocation))) {
-            return new FreeProof.PendingYield(allocation);
-        }
-        return null;
-    }
-
-    /**
      * An element loaded with a non-constant index carries no allocation identity, so
      * the loaded value may observe any known element after the statement. Neither
      * the array nor its known elements, nor the elements of those, are temporaries.
      */
     private void cancelTemporaryArray(AllocationInfo container) {
-        cancelTemporary(container);
+
         knownArraySlots.entrySet().stream()
                 .filter(entry -> entry.getKey().container() == container)
                 .map(Map.Entry::getValue)
@@ -13526,113 +11444,40 @@ final class FunctionAnalyzer {
     }
 
     private void markEscaped(IrOperand operand, String reason, SourceSpan eventSpan) {
-        markEscaped(operand, reason, eventSpan, null);
-    }
-
-    private void markEscaped(IrOperand operand, String reason, SourceSpan eventSpan,
-                             RejectedFreeEvidence.Call call) {
         AllocationInfo allocation = allocationOf(operand);
-        if (allocation != null) {
-            markEscaped(allocation, reason,
-                    Collections.newSetFromMap(new IdentityHashMap<>()), eventSpan, call);
-        }
+        if (allocation != null) markEscaped(allocation, reason, identitySet(), eventSpan);
     }
 
-    private void markEscaped(AllocationInfo allocation, String reason,
-                             Set<AllocationInfo> visited) {
+    private void markEscaped(AllocationInfo allocation, String reason, Set<AllocationInfo> visited) {
         markEscaped(allocation, reason, visited, null);
     }
 
     private void markEscaped(AllocationInfo allocation, String reason,
                              Set<AllocationInfo> visited, SourceSpan eventSpan) {
-        markEscaped(allocation, reason, visited, eventSpan, null);
-    }
-
-    private void markEscaped(AllocationInfo allocation, String reason,
-                             Set<AllocationInfo> visited, SourceSpan eventSpan,
-                             RejectedFreeEvidence.Call call) {
-        if (!visited.add(allocation)) {
-            return;
-        }
-        // An allocation observed on any path is not a temporary. A join with an
-        // unobserved path later blurs the state to UNCERTAIN, so record the
-        // observation where it happens; cancellation survives every join.
-        cancelTemporary(allocation);
+        if (!visited.add(allocation)) return;
+        allocation.escape(reason);
         if (allocation.origin == AllocationOrigin.ONE_OF) observeElements(allocation);
-        selectEscape(allocation, reason, eventSpan, call);
         retainedBorrows.getOrDefault(allocation, Set.of()).forEach(child ->
-                markEscaped(child, "allocation is borrowed by an escaped wrapper", visited,
-                        eventSpan));
+                markEscaped(child, "allocation is borrowed by an escaped wrapper", visited, eventSpan));
         knownArraySlots.entrySet().stream()
                 .filter(entry -> entry.getKey().container() == allocation)
                 .map(Map.Entry::getValue)
                 .forEach(child -> markEscaped(child,
-                        "allocation escapes through an element of an escaped array", visited,
-                        eventSpan));
-    }
-
-    private void selectEscape(AllocationInfo allocation, String reason) {
-        selectEscape(allocation, reason, null);
-    }
-
-    private static String selectedReasonNote(String reason) {
-        if (reason.equals("allocation is borrowed by an escaped wrapper")) {
-            return "the retaining wrapper escaped through this operation";
-        }
-        if (reason.equals("allocation escapes through an element of an escaped array")) {
-            return "the retaining array escaped through this operation";
-        }
-        if (reason.startsWith("allocation escapes through argument ")
-                || reason.startsWith("allocation escapes through receiver of method ")
-                || reason.startsWith("allocation escapes through constructor argument ")
-                || reason.startsWith("allocation escapes from constructor ")) {
-            return "the final call summary permits this escape: " + reason
-                    + "; a callee source path is unavailable";
-        }
-        if (reason.startsWith("cannot prove argument ")
-                || reason.startsWith("cannot prove receiver of polymorphic method ")) {
-            return "the final call effect cannot prove this operand non-retaining: " + reason;
-        }
-        return "this operation established the selected ownership reason: " + reason;
-    }
-
-    private void selectEscape(AllocationInfo allocation, String reason, SourceSpan eventSpan) {
-        selectEscape(allocation, reason, eventSpan, null);
-    }
-
-    private void selectEscape(AllocationInfo allocation, String reason, SourceSpan eventSpan,
-                              RejectedFreeEvidence.Call call) {
-        if (allocation.escape(reason) && rejectedFreeEvidence != null) {
-            if (eventSpan == null) rejectedFreeEvidence.selectedReason(allocation, reason);
-            else rejectedFreeEvidence.selectedReason(allocation, reason, source, eventSpan, call);
-        }
+                        "allocation escapes through an element of an escaped array", visited, eventSpan));
     }
 
     private boolean selectUncertain(AllocationInfo allocation, String reason) {
         boolean selected = allocation.makeUncertain(reason);
-        if (selected && rejectedFreeEvidence != null) {
-            rejectedFreeEvidence.selectedReason(allocation, reason);
-        }
+
         return selected;
     }
 
     private void selectBlocked(AllocationInfo allocation, String reason) {
-        selectBlocked(allocation, reason, (SourceSpan) null);
-    }
-
-    private void selectBlocked(AllocationInfo allocation, String reason,
-                               RejectedFreeEvidence.Site site) {
-        if (allocation.blockReclamation(reason) && rejectedFreeEvidence != null) {
-            if (site == null) rejectedFreeEvidence.selectedReason(allocation, reason);
-            else rejectedFreeEvidence.selectedReason(allocation, reason, site.source(), site.span());
-        }
+        allocation.blockReclamation(reason);
     }
 
     private void selectBlocked(AllocationInfo allocation, String reason, SourceSpan site) {
-        if (allocation.blockReclamation(reason) && rejectedFreeEvidence != null) {
-            if (site == null) rejectedFreeEvidence.selectedReason(allocation, reason);
-            else rejectedFreeEvidence.selectedReason(allocation, reason, source, site);
-        }
+        allocation.blockReclamation(reason);
     }
 
     private LinkedHashMap<LocalSymbol, IrOperand> copyEnvironment() {
@@ -13663,55 +11508,8 @@ final class FunctionAnalyzer {
         return Diagnostic.error(source, span, message);
     }
 
-    private List<DiagnosticNote> fieldFailureNotes(FieldSymbol field) {
-        OwnedArrayFieldAnalyzer.Failure failure = ownedArrayFields.failure(field);
-        if (failure == null) return List.of();
-        List<DiagnosticNote> notes = new ArrayList<>();
-        notes.add(new DiagnosticNote(
-                "the ownership proof for field '" + field.declaration().name()
-                        + "' failed: " + failure.detail(), failure.source(), failure.span()));
-        if (failure.call() != null) {
-            RejectedFreeEvidence.Event event = new RejectedFreeEvidence.Event(
-                    RejectedFreeEvidence.EventKind.REASON, null, failure.source(),
-                    failure.span(), failure.call());
-            appendFieldNotes(notes, SummaryCallExplanation.notes(escapeSummaries, event));
-        }
-        return List.copyOf(notes);
-    }
-
-    private static void appendFieldNotes(List<DiagnosticNote> notes,
-                                         List<DiagnosticNote> addition) {
-        int available = 8 - notes.size();
-        if (addition.size() <= available) {
-            notes.addAll(addition);
-        } else if (available > 0) {
-            notes.addAll(addition.subList(0, available - 1));
-            notes.add(new DiagnosticNote("further field call evidence was omitted at "
-                    + "the eight-note limit"));
-        }
-    }
-
     private void ownershipVerdict(Diagnostic diagnostic) {
-        if (ownershipVerdicts) {
-            diagnostics.add(diagnostic);
-        }
-    }
-
-    private void rejectedFree(SourceSpan span, String message,
-                              RejectedFreeExplanation.Missing missing) {
-        if (explainRejectedFree && explanationReady && rejectedFreeEvidence != null
-                && (rejectedFreeEvidence.localTruncated()
-                || rejectedFreeEvidence.invocationStopped())) {
-            ownershipVerdict(error(span, message).withNotes(List.of(new DiagnosticNote(
-                    rejectedFreeEvidence.invocationStopped()
-                            ? "the invocation evidence storage limit was reached; detailed "
-                            + "source evidence was omitted for this rejection"
-                            : "the function evidence storage limit was reached; detailed "
-                            + "source evidence was omitted for this rejection"))));
-            return;
-        }
-        ownershipVerdict(RejectedFreeExplanation.attach(error(span, message),
-                explainRejectedFree, missing));
+        diagnostics.add(diagnostic);
     }
 
     private boolean isPrintStreamWriteIntrinsic() {
@@ -13764,77 +11562,6 @@ final class FunctionAnalyzer {
                 && function.sourceName().equals("nativeCheckError") && !function.isStatic()
                 && function.returnType().equals(IrType.I1)
                 && function.parameterTypes().isEmpty();
-    }
-
-    private boolean isReleaseOwnedThrowableMessageIntrinsic() {
-        return isReleaseOwnedThrowableMessageIntrinsic(function);
-    }
-
-    private static boolean isReleaseOwnedThrowableMessageIntrinsic(CallableSymbol callable) {
-        return callable.ownerType().equals("ironwood.lang.Throwable")
-                && callable.sourceName().equals("releaseLocalizedMessage") && callable.isStatic()
-                && callable.accessModifier() == AccessModifier.PRIVATE
-                && callable.returnType().equals(IrType.VOID)
-                && callable.parameterTypes().equals(List.of(
-                        IrType.reference("ironwood.lang.Throwable"), STRING_TYPE));
-    }
-
-    private boolean isReleaseOwnedToStringResultIntrinsic() {
-        return isReleaseOwnedToStringResultIntrinsic(function);
-    }
-
-    private static boolean isReleaseOwnedToStringResultIntrinsic(CallableSymbol callable) {
-        return (callable.ownerType().equals("ironwood.lang.StringBuilder")
-                || callable.ownerType().equals("ironwood.lang.String")
-                || callable.ownerType().equals("ironwood.lang.Throwable")
-                || callable.ownerType().equals("ironwood.time.format.DateTimeParseException")
-                || callable.ownerType().equals("ironwood.io.PrintStream")
-                || callable.ownerType().equals("ironwood.io.PrintWriter"))
-                && callable.sourceName().equals("releaseRenderedString")
-                && callable.isStatic()
-                && callable.accessModifier() == AccessModifier.PRIVATE
-                && callable.returnType().equals(IrType.VOID)
-                && callable.parameterTypes().equals(List.of(
-                IrType.reference("ironwood.lang.Object"),
-                IrType.reference("ironwood.lang.String")));
-    }
-
-    private boolean isReleaseOwnedFileAllocationIntrinsic() {
-        return isReleaseOwnedFileAllocationIntrinsic(function);
-    }
-
-    private static boolean isReleaseOwnedFileAllocationIntrinsic(CallableSymbol callable) {
-        if (!callable.ownerType().equals("ironwood.nio.file.Files")
-                || !callable.isStatic()
-                || callable.accessModifier() != AccessModifier.PRIVATE
-                || !callable.returnType().equals(IrType.VOID)) {
-            return false;
-        }
-        if (callable.sourceName().equals("releaseOwnedLine")
-                && callable.parameterTypes().equals(List.of(
-                IrType.reference("ironwood.lang.String")))) {
-            return true;
-        }
-        if (callable.sourceName().equals("releaseVisitedPath")
-                && callable.parameterTypes().equals(List.of(
-                IrType.reference("ironwood.nio.file.Path")))) {
-            return true;
-        }
-        if (callable.sourceName().equals("releaseVisitedAttributes")
-                && callable.parameterTypes().equals(List.of(
-                IrType.reference("ironwood.nio.file.attribute.BasicFileAttributes")))) {
-            return true;
-        }
-        if (callable.sourceName().equals("releaseVisitedDirectoryStream")
-                && callable.parameterTypes().equals(List.of(
-                IrType.reference("ironwood.nio.file.UnixDirectoryStream")))) {
-            return true;
-        }
-        return callable.sourceName().equals("releaseOwnedLineList")
-                && callable.isStatic()
-                && callable.parameterTypes().equals(List.of(
-                IrType.reference("ironwood.ds.ArrayList",
-                        List.of(IrType.reference("ironwood.lang.String")))));
     }
 
     private boolean isSystemIdentityHashCodeIntrinsic() {
@@ -14411,12 +12138,6 @@ final class FunctionAnalyzer {
         }
     }
 
-    private record RenderedStringConversion(IrOperand object, IrOperand result) {
-    }
-
-    private record RenderedStringCleanup(IrOperand object, IrOperand result) {
-    }
-
     private record LoweredInvocationArguments(List<TypedValue> values,
                                               List<IrOperand> operands,
                                               List<SourceSpan> spans) {
@@ -14457,15 +12178,7 @@ final class FunctionAnalyzer {
     }
 
     private enum AllocationState {
-        ACTIVE,
-        UNCERTAIN,
-        ESCAPED,
-        FREED,
-        MAYBE_FREED;
-
-        private boolean mayBeFreed() {
-            return this == FREED || this == MAYBE_FREED;
-        }
+        ACTIVE, UNCERTAIN, ESCAPED
     }
 
     private enum AllocationOrigin {
@@ -14480,23 +12193,6 @@ final class FunctionAnalyzer {
      * Outcome of the side-effect-free reclamation proof for one operand. A rejection
      * carries the witness its diagnostic renders; it records nothing itself.
      */
-    private sealed interface FreeProof {
-        record Accepted(AllocationInfo allocation) implements FreeProof {}
-        record NotReference() implements FreeProof {}
-        record NoIdentity() implements FreeProof {}
-        record DependentBorrow() implements FreeProof {}
-        record PendingDeferredFree(AllocationInfo allocation,
-                                   DeferredFreeAction action) implements FreeProof {}
-        record RetainingOwner(AllocationInfo allocation, AllocationInfo owner) implements FreeProof {}
-        record PendingDeferredCall(AllocationInfo allocation,
-                                   DeferredCallAction action) implements FreeProof {}
-        record PendingYield(AllocationInfo allocation) implements FreeProof {}
-        record AlreadyFreed(AllocationInfo allocation) implements FreeProof {}
-        record Blocked(AllocationInfo allocation) implements FreeProof {}
-        record AttachedField(AllocationInfo allocation) implements FreeProof {}
-        record ArraySlotAlias(AllocationInfo allocation, ArraySlot slot) implements FreeProof {}
-        record LocalAlias(AllocationInfo allocation, LocalSymbol alias) implements FreeProof {}
-    }
 
     private static final class AllocationInfo {
         private final int creationControlFlowDepth;
@@ -14559,12 +12255,9 @@ final class FunctionAnalyzer {
         }
 
         private boolean escape(String reason) {
-            if (!state.mayBeFreed()) {
-                state = AllocationState.ESCAPED;
-                blockingReason = reason;
-                return true;
-            }
-            return false;
+            state = AllocationState.ESCAPED;
+            blockingReason = reason;
+            return true;
         }
     }
 
@@ -14578,8 +12271,7 @@ final class FunctionAnalyzer {
             Map<String, AllocationInfo> borrowedOwnedFields,
             Map<AllocationInfo, Set<AllocationInfo>> retainedBorrows,
             Map<AllocationInfo, AllocationInfo> poolOwners,
-            Set<AllocationInfo> exposedContainerContents,
-            Set<AllocationInfo> unfreedLive) {
+            Set<AllocationInfo> exposedContainerContents) {
         private OwnershipSnapshot {
             states = Map.copyOf(states);
             knownArraySlots = copyArraySlots(knownArraySlots);
@@ -14587,7 +12279,6 @@ final class FunctionAnalyzer {
             retainedBorrows = Map.copyOf(retainedBorrows);
             poolOwners = Map.copyOf(poolOwners);
             exposedContainerContents = Set.copyOf(exposedContainerContents);
-            unfreedLive = Set.copyOf(unfreedLive);
         }
 
         private static Map<ArraySlot, AllocationInfo> copyArraySlots(
@@ -14631,35 +12322,7 @@ final class FunctionAnalyzer {
                               OwnershipSnapshot ownership) {
     }
 
-    private record Reclamation(AllocationInfo allocation, SourceSpan span,
-                               CleanupExit exit, boolean cleanupExitOmitted) {
-    }
-
     /** Candidates of one full-expression statement, with its entry environment for unwind pads. */
-    private static final class TemporaryScope {
-        private final List<TemporaryCandidate> candidates = new ArrayList<>();
-        private final Set<AllocationInfo> cancelled = java.util.Collections.newSetFromMap(
-                new IdentityHashMap<>());
-        /** Allocations a local held at some point in the expression; never reported as declined. */
-        private final Set<AllocationInfo> named = java.util.Collections.newSetFromMap(
-                new IdentityHashMap<>());
-        private final LinkedHashMap<LocalSymbol, IrOperand> environmentBefore;
-        /** The exception regions enclosing the full expression; its pads rethrow there. */
-        private final List<ExceptionRegion> regionsBefore;
-        private final int branchDepth;
-
-        private TemporaryScope(LinkedHashMap<LocalSymbol, IrOperand> environmentBefore,
-                               List<ExceptionRegion> regionsBefore, int branchDepth) {
-            this.environmentBefore = environmentBefore;
-            this.regionsBefore = regionsBefore;
-            this.branchDepth = branchDepth;
-        }
-    }
-
-    private record TemporaryCandidate(AllocationInfo allocation, IrOperand operand,
-                                      SourceSpan span, ExceptionRegion region,
-                                      List<ExceptionRegion> outerRegions) {
-    }
 
     private record ExceptionEdge(MutableBlock block,
                                  LinkedHashMap<LocalSymbol, IrOperand> environment,
@@ -14693,34 +12356,13 @@ final class FunctionAnalyzer {
         }
     }
 
-    private sealed interface CleanupAction permits SourceFinallyAction, DeferredCallAction, DeferredFreeAction {
+    private sealed interface CleanupAction permits SourceFinallyAction, DeferredCallAction {
     }
 
     private record SourceFinallyAction(Block body) implements CleanupAction {
     }
 
-    private record PendingYieldEvidence(AllocationInfo allocation, SourceSpan span) {
-    }
-
-    private record CleanupExit(String description, SourceSpan span, boolean accounted) {
-    }
-
-    private record DeferredCapture(IrOperand operand, String role,
-                                   SourceSpan span, String bindingName) {
-    }
-
-    private record DeferredCallAction(PreparedInvocation invocation,
-                                      List<DeferredCapture> captures) implements CleanupAction {
-        private DeferredCallAction {
-            captures = List.copyOf(captures);
-        }
-    }
-
-    private record DeferredFreeAction(LocalSymbol target, SourceSpan targetSpan, SourceSpan span,
-                                      Set<LocalSymbol> liveAfter) implements CleanupAction {
-        private DeferredFreeAction {
-            liveAfter = Set.copyOf(liveAfter);
-        }
+    private record DeferredCallAction(PreparedInvocation invocation) implements CleanupAction {
     }
 
     private record FinallyContext(CleanupAction action, List<ExceptionRegion> outerExceptionRegions,

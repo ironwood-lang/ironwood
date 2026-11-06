@@ -12679,3 +12679,27 @@ occurrence order. If no
   references, unknown borrows and unloading remain unsupported. External
   serialization permits sequential Java threads. GC7 consumer migration and
   obsolete proof deletion, GC8-GC10 and self-hosting require separate work.
+
+## D323 - Stop computing the obsolete managed-free refinement fixed point
+
+- **Status:** Implemented checkpoint, not complete GC7 acceptance. See
+  [GC7 implementation](GC7_IMPLEMENTATION.md) and
+  [dispositions](GC7_DISPOSITION.md).
+- **Supersession:** D320 remains the implemented managed lifetime contract.
+  D278's managed-free refinement readiness and D296/D297's rejected-free inputs
+  no longer control semantic lowering. Their historical evidence is preserved;
+  initialization, declaration errors, dispatch and pool/foreign contracts are
+  not superseded. D051, D132 and D133 remain mandatory.
+- **Decision:** Ordinary/bridge semantic analysis must not run exclusive-field,
+  temporary-free and return refinements to converge merely to justify managed
+  reclamation. Remove principal function-level managed-free proofs, temporary
+  cleanup and witness bookkeeping. Keep actual reference retention/dispatch,
+  initialization, GC effects and native/resource protocols conservative.
+- **Legacy capability boundary:** The absence of computed owned fields does not
+  prove an empty rollback contract. Legacy constructor rollback capability is
+  unknown; managed bridge admission uses GC6's actual roots/layouts and foreign
+  contracts. No physical runtime/root/owner ABI changes in this checkpoint.
+- **Incomplete work:** Legacy AST/IR structures, field/protocol analysis coupling,
+  old bridge paths and broad repository/test migration remain in the ledger.
+  Focused successful controls do not complete that closure. GC8-GC10 and
+  self-hosting remain gated.

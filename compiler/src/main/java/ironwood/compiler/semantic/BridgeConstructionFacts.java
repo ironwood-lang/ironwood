@@ -97,20 +97,10 @@ public final class BridgeConstructionFacts {
                 borrowed.put(id, Set.copyOf(inputs));
                 returnOnly.put(id, Set.copyOf(returnedInputs));
             }
-            if (!function.constructor()) continue;
-            if (!unchanged || callable == null || owner == null || summary == null) {
-                facts.put(id, BridgeProof.unknown("construction facts require unchanged resolved semantic effects"));
-            } else if (summary.thisEscapes() || summary.thisEscapesWithoutReturn()
-                    || !escapes.constructorCleanupIsConfined(callable)) {
-                facts.put(id, BridgeProof.unknown("receiver publication or cleanup confinement is not proved"));
-            } else {
-                var fields = ownership.ownedInstanceFields(owner);
-                Set<ironwood.compiler.ir.IrField> elements = fields.stream()
-                        .filter(field -> OwnedArrayElementAnalyzer.fields(types.get(field.ownerClass())).contains(field))
-                        .map(FieldSymbol::irField).collect(Collectors.toUnmodifiableSet());
-                facts.put(id, BridgeProof.proved(new BridgeConstructionContract(id,
-                        fields.stream().map(FieldSymbol::irField).toList(), elements),
-                        "final escape, owned-field and closed-world construction validation passed"));
+            if (function.constructor()) {
+                // Managed constructors use exact zeroed layouts and roots. Retired
+                // exclusive-field proofs cannot certify a legacy rollback capability.
+                facts.put(id, BridgeProof.unknown("managed construction supplies no legacy rollback capability"));
             }
         }
         return new BridgeConstructionFacts(specialized, facts, borrowed, returnOnly, statics, finals, constructible, results, Map.of(),

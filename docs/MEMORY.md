@@ -59,6 +59,10 @@ use the same managed lifetime as all other objects. Final linking rejects
 reachable obsolete managed-deallocation IR, even in programs without collection.
 Dead AST/IR/proof scaffolding remains for GC7; it grants no reclamation behavior.
 Optimization, initialization, native acquisition and pool safety analysis remain.
+The [GC7 checkpoint](GC7_IMPLEMENTATION.md) removes the old outer free-proof
+refinement loop and principal function-level reclamation proofs. Remaining
+shared consumers and structural retirement keep GC7 incomplete. Legacy bridge
+rollback capabilities are not inferred from empty ownership facts.
 
 ## Defer, exceptions and resources
 

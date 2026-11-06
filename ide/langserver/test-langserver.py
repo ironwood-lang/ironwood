@@ -21,8 +21,7 @@ DEFAULT_ECLIPSE_HOME = Path("/Applications/Eclipse-2026-03.app/Contents/Eclipse"
 DEFAULT_JAVA = Path("/Library/Java/JavaVirtualMachines/jdk-21.0.1.jdk/Contents/Home/bin/java")
 
 # A file with two errors the compiler can only find with real analysis: an
-# undefined name, and a free the ownership proof must reject because a live
-# alias can still reach the allocation. It also calls into a second file, so a
+# undefined name and an unresolved method. It also calls into a second file, so a
 # clean result proves the whole source set was analyzed rather than this file
 # alone.
 BROKEN_SOURCE = """\
@@ -34,7 +33,7 @@ public class Broken {
 
         Broken owned = new Broken();
         Broken alias = owned;
-        free owned;
+        owned.missingMethod();
         return missingName + Helper.value();
     }
 }
@@ -48,7 +47,6 @@ public class Broken {
     public static int main(String[] args) {
 
         Broken owned = new Broken();
-        free owned;
         return Helper.value();
     }
 }
@@ -69,13 +67,13 @@ public class Helper {
 """
 
 # Exercises every member shape the outline knows how to render, including the
-# destructor, which has no name of its own, and carries documentation comments
+# ordinary methods named free/destructor, and carries documentation comments
 # so that hover has something to report.
 OUTLINE_SOURCE = """\
 package demo;
 
 /**
- * Holds a buffer it reclaims itself.
+ * Holds a managed buffer.
  */
 public class Outline {
 
@@ -88,9 +86,14 @@ public class Outline {
         this.buffer = new int[size];
     }
 
-    destructor {
+    public void destructor() {
 
-        free this.buffer;
+        this.buffer[0] = 0;
+    }
+
+    public void free() {
+
+        destructor();
     }
 
     /** Reports how many slots the buffer has. */
@@ -277,18 +280,18 @@ def main():
                   failures)
             check(any("missingName" in message for message in messages),
                   "the undefined name is reported", failures)
-            check(any("alias" in message and "free" in message for message in messages),
-                  "the rejected free explains the surviving alias", failures)
+            check(any("missingMethod" in message for message in messages),
+                  "the unresolved method is reported", failures)
 
             free_diagnostic = next(
-                (entry for entry in diagnostics if "alias" in entry["message"]), None)
+                (entry for entry in diagnostics if "missingMethod" in entry["message"]), None)
             if free_diagnostic is None:
-                check(False, "the rejected free carries a range", failures)
+                check(False, "the unresolved method carries a range", failures)
             else:
                 start = free_diagnostic["range"]["start"]
-                # 'free owned;' is line 9 of the fixture, which is line index 8.
+                # The method call is line 9 of the fixture, which is line index 8.
                 check(start["line"] == 8,
-                      f"the rejected free is anchored on its own line (got {start['line']})",
+                      f"the unresolved method is anchored on its own line (got {start['line']})",
                       failures)
                 check(free_diagnostic.get("source") == "ironwood",
                       "diagnostics are labelled as coming from ironwood", failures)
@@ -306,25 +309,21 @@ def main():
             check(source_path.read_text(encoding="utf-8") == BROKEN_SOURCE,
                   "the file on disk was never written", failures)
 
-            # Omitted cleanup is a warning by default, including in unsaved buffers.
-            unfreed_source = FIXED_SOURCE.replace("        free owned;\n", "")
+            # Old syntax still receives a useful migration diagnostic in unsaved buffers.
+            migration_source = FIXED_SOURCE.replace("return Helper.value();", "free owned; return Helper.value();")
             connection.notify("textDocument/didChange", {
                 "textDocument": {"uri": uri, "version": 3},
-                "contentChanges": [{"text": unfreed_source}],
+                "contentChanges": [{"text": migration_source}],
             })
-            warnings = connection.await_diagnostics(uri)
-            check(len(warnings) == 1 and warnings[0].get("severity") == 2
-                  and "owned" in warnings[0]["message"] and "without being freed" in warnings[0]["message"],
-                  f"unfreed allocation is an LSP warning (got {warnings})", failures)
-            if warnings:
-                check(warnings[0]["range"]["start"] == position_of(unfreed_source, "new Broken()"),
-                      "unfreed warning points to the allocation", failures)
+            migration = connection.await_diagnostics(uri)
+            check(any("source free has been removed" in entry["message"] for entry in migration),
+                  f"removed syntax has a migration diagnostic (got {migration})", failures)
             connection.notify("textDocument/didChange", {
                 "textDocument": {"uri": uri, "version": 4},
                 "contentChanges": [{"text": FIXED_SOURCE}],
             })
             check(connection.await_diagnostics(uri) == [],
-                  "restoring free clears the warning", failures)
+                  "managed allocation without collection has no missing-free warning", failures)
 
             # The outline is built from the syntax tree, so it is requested on a
             # separate file to keep it independent of the diagnostics checks.
@@ -351,6 +350,7 @@ def main():
                 "buffer": 8,
                 "Outline": 9,
                 "destructor": 6,
+                "free": 6,
                 "size": 6,
             }
             for name, kind in expected_members.items():
@@ -394,7 +394,7 @@ def main():
             type_text = (type_hover or {}).get("contents", {}).get("value", "")
             check("public class Outline" in type_text,
                   f"hover on a type shows its declaration (got {type_text!r})", failures)
-            check("Holds a buffer it reclaims itself." in type_text,
+            check("Holds a managed buffer." in type_text,
                   "hover on a type shows its IronDocs comment", failures)
 
             # Go to definition crosses files: Helper is declared in a file the

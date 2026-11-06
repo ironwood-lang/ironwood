@@ -40,10 +40,9 @@ public final class GenerateGrammar {
     private static final Map<String, Set<String>> CATEGORIES = new LinkedHashMap<>();
 
     static {
-        category("reclamation", "free", "destructor");
         category("control", "if", "else", "while", "do", "for", "switch", "case",
                 "break", "continue", "return", "yield", "throw", "try", "catch",
-                "finally");
+                "finally", "defer");
         category("modifier", "public", "protected", "private", "abstract",
                 "static", "final", "default", "throws");
         category("primitive", "byte", "short", "int", "long", "char", "float",
