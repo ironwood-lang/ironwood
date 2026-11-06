@@ -37,6 +37,20 @@ public final class BridgeCallbackCarrierLifetime {
     public Set<String> retentionReasons() { return retentionReasons; }
 
     public static BridgeCallbackCarrierLifetime analyze(IrProgram program, BridgeRootSet requested) {
+        return analyze(program, requested, false);
+    }
+
+    public static BridgeCallbackCarrierLifetime analyzeManaged(ironwood.compiler.CompilationArtifact artifact,
+            ironwood.compiler.bridge.BridgeListenerProxies proxies, BridgeRootSet requested) {
+        var associations = BridgeRetentionAnalyzer.managedCarrierAssociations(artifact, proxies, requested);
+        var result = analyze(artifact.program().orElseThrow(), requested, associations.status() == ironwood.compiler.bridge.BridgeProof.Status.PROVED);
+        if (associations.status() == ironwood.compiler.bridge.BridgeProof.Status.PROVED) return result;
+        var reasons = new LinkedHashSet<>(result.retentionReasons());
+        reasons.add(associations.reason());
+        return new BridgeCallbackCarrierLifetime(result.program, result.roots, reasons);
+    }
+
+    private static BridgeCallbackCarrierLifetime analyze(IrProgram program, BridgeRootSet requested, boolean containedAssociations) {
         var roots = requested.revalidate(program);
         if (!roots.resolved()) throw new IllegalArgumentException("carrier lifetime requires resolved native roots");
         var calls = new BridgeCallTargets(program);
@@ -63,7 +77,7 @@ public final class BridgeCallbackCarrierLifetime {
             if (!visited.add(function.linkageName())) continue;
             var effect = reachability.functions().get(BridgeCallableId.of(function));
             if (!effect.complete()) reasons.addAll(effect.unknown());
-            inspectHandlerUses(function, reasons);
+            inspectHandlerUses(function, reasons, containedAssociations);
             operations(function).forEach(operation -> {
                 if (operation instanceof IrForeignCallInstruction) return;
                 if (operation instanceof IrEnsureTypeInitializedInstruction ensure) {
@@ -106,7 +120,7 @@ public final class BridgeCallbackCarrierLifetime {
         }
     }
 
-    private static void inspectHandlerUses(IrFunction function, Set<String> reasons) {
+    private static void inspectHandlerUses(IrFunction function, Set<String> reasons, boolean containedAssociations) {
         var operations = operations(function).toList();
         var aliases = new LinkedHashSet<Integer>();
         for (var operation : operations) {
@@ -123,12 +137,15 @@ public final class BridgeCallbackCarrierLifetime {
                 } else if (operation instanceof IrPhiInstruction phi
                         && phi.incoming().stream().anyMatch(incoming -> alias(incoming.value(), aliases))) {
                     changed |= aliases.add(phi.result().id());
+                } else if (containedAssociations && operation instanceof IrAddSecondaryExceptionInstruction association
+                        && alias(association.secondary(), aliases) && association.primary() instanceof IrValueReference reference) {
+                    changed |= aliases.add(reference.id());
                 }
             }
         } while (changed);
         if (aliases.isEmpty()) return;
         for (var operation : operations) {
-            if (observation(operation)) continue;
+            if (observation(operation) || containedAssociations && operation instanceof IrAddSecondaryExceptionInstruction) continue;
             boolean[] used = {false};
             new IrCfgRenamer(value -> {
                 used[0] |= aliases.contains(value.id());

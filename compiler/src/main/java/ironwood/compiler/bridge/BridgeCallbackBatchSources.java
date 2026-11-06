@@ -29,7 +29,21 @@ final class BridgeCallbackBatchSources {
         String original = sources.get(path);
         sources.put(path, original.substring(0, original.lastIndexOf('}')) + methods + "}\n");
         return new BridgeJavaSources(sources, declarations.bindings(), declarations.generatedTypes(), declarations.ensureMethod(),
-                declarations.facadeRegistrations(), declarations.rootDestructions());
+                declarations.facadeRegistrations(), declarations.rootDestructions(), declarations.supportNatives());
+    }
+
+    static String managedNativeCallbacks(BridgeCallbackBatching batching) {
+        if (batching.entries().isEmpty()) return "";
+        var text = new StringBuilder("_Static_assert(offsetof(struct iw_callback_frame, batch_data) == "
+                + ironwood.compiler.ir.IrBridgeBatchAppendInstruction.DATA_OFFSET + ", \"managed batch data ABI\");\n");
+        for (var entry : ordered(batching)) text.append("static jmethodID ").append(entry.methodField()).append(";\n")
+                .append("void ").append(entry.callbackSymbol()).append("(int64_t invocation, int64_t handle, int64_t rows) {\n")
+                .append("    struct iw_callback_frame *frame = (struct iw_callback_frame *)(uintptr_t)invocation;\n")
+                .append("    JNIEnv *env = frame->env;\n")
+                .append("    const jvalue arguments[] = {{.l = (jobject)(uintptr_t)handle}, {.l = frame->batch_buffer}, {.i = (jint)rows}};\n")
+                .append("    (*env)->CallStaticVoidMethodA(env, iw_callback_dispatch, ").append(entry.methodField()).append(", arguments);\n")
+                .append("    if ((*env)->ExceptionCheck(env)) iw_callback_capture(frame);\n}\n");
+        return text.toString();
     }
 
     static String nativeCallbacks(BridgeCallbackBatching batching) {

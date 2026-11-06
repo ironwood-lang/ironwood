@@ -16,6 +16,11 @@ public final class BridgeCallbackCarrierNativeSources {
                 .replace("@EXHAUSTED@", entries.exhausted().linkageName());
     }
 
+    static String generateManaged(CompilationArtifact artifact, BridgeCallbackCarrierEntries entries) {
+        return generate(artifact, entries).replace("void *created_carriers;", "void *created_carriers;\n"
+                + "    jobject batch_buffer;\n    jlong *batch_data;\n    void *root_slot;\n    struct iw_gc_foreign_root roots;");
+    }
+
     public static String cleanup(CompilationArtifact artifact, BridgeCallbackCarrierEntries entries,
             BridgeRootSet roots, BridgeCallbackCarrierPolicy policy) {
         if (!entries.matches(artifact) || !policy.matches(artifact, roots)) {

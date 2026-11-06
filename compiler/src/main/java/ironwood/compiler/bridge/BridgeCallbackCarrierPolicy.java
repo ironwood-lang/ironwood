@@ -42,6 +42,16 @@ public final class BridgeCallbackCarrierPolicy {
 
     public static BridgeCallbackCarrierPolicy prove(CompilationArtifact artifact,
             BridgeCallbackCarrierSources source, BridgeRootSet requested) {
+        return prove(artifact, source, requested, null);
+    }
+
+    public static BridgeCallbackCarrierPolicy proveManaged(CompilationArtifact artifact,
+            BridgeCallbackCarrierSources source, BridgeRootSet requested, BridgeListenerProxies proxies) {
+        return prove(artifact, source, requested, java.util.Objects.requireNonNull(proxies));
+    }
+
+    private static BridgeCallbackCarrierPolicy prove(CompilationArtifact artifact,
+            BridgeCallbackCarrierSources source, BridgeRootSet requested, BridgeListenerProxies proxies) {
         source.bind(artifact);
         var program = artifact.program().orElseThrow();
         var roots = requested.revalidate(program);
@@ -49,13 +59,16 @@ public final class BridgeCallbackCarrierPolicy {
         var lifetimes = new java.util.LinkedHashMap<BridgeCallableId, BridgeCallbackCarrierLifetime>();
         var owned = new ArrayList<BridgeCallableId>();
         for (var root : roots.roots()) {
-            var lifetime = BridgeCallbackCarrierLifetime.analyze(program, BridgeRootSet.resolve(program, List.of(root.callable())));
+            var selected = BridgeRootSet.resolve(program, List.of(root.callable()));
+            var lifetime = proxies == null ? BridgeCallbackCarrierLifetime.analyze(program, selected)
+                    : BridgeCallbackCarrierLifetime.analyzeManaged(artifact, proxies, selected);
             lifetimes.put(root.callable(), lifetime);
             if (lifetime.invocationOwned()) owned.add(root.callable());
         }
         var reclaimable = BridgeRootSet.resolve(program, owned);
         var cleanup = owned.isEmpty() ? Optional.<BridgeCallbackCarrierCleanup>empty()
-                : Optional.of(BridgeCallbackCarrierCleanup.prove(artifact, source, reclaimable));
+                : Optional.of(proxies == null ? BridgeCallbackCarrierCleanup.prove(artifact, source, reclaimable)
+                        : BridgeCallbackCarrierCleanup.proveManaged(artifact, source, reclaimable, proxies));
         return new BridgeCallbackCarrierPolicy(program, roots, reclaimable, lifetimes, cleanup);
     }
 }

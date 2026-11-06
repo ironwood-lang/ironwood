@@ -52,8 +52,24 @@ public final class BridgeEnumConversions {
     }
 
     public static BridgeEnumConversions forSurface(CompilationArtifact artifact, BridgeExportSurface surface) {
-        var selected = BridgeExportSurface.objectValues(artifact,
-                surface.types().stream().map(BridgeApiFacts.Type::packageName).distinct().sorted().toList());
+        return forSurface(artifact, surface, false);
+    }
+
+    public static BridgeEnumConversions forManagedSurface(CompilationArtifact artifact, BridgeExportSurface surface) {
+        return forSurface(artifact, surface, true);
+    }
+
+    public static BridgeEnumConversions forManagedSurface(CompilationArtifact artifact, BridgeExportSurface surface, BridgeListenerProxies listeners) {
+        return forSurface(artifact, surface, true, listeners);
+    }
+
+    private static BridgeEnumConversions forSurface(CompilationArtifact artifact, BridgeExportSurface surface, boolean managed) {
+        return forSurface(artifact, surface, managed, null);
+    }
+
+    private static BridgeEnumConversions forSurface(CompilationArtifact artifact, BridgeExportSurface surface, boolean managed, BridgeListenerProxies listeners) {
+        var exports = surface.types().stream().map(BridgeApiFacts.Type::packageName).distinct().sorted().toList();
+        var selected = managed ? BridgeExportSurface.managedObjects(artifact, exports, listeners) : BridgeExportSurface.objectValues(artifact, exports);
         if (selected.surface().isEmpty() || !selected.surface().orElseThrow().equals(surface)) {
             throw new IllegalArgumentException("enum conversion requires the complete current object/value signature surface");
         }

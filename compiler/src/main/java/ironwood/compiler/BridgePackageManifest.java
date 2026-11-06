@@ -38,6 +38,10 @@ final class BridgePackageManifest {
     static byte[] create(BridgeGeneration generation, BridgeGeneration.NativeBuild build, BridgeJavaSources java,
             Map<String, String> platform, String imagePath, Map<String, byte[]> entries) {
         var properties = new TreeMap<>(generation.manifest());
+        if (generation.managedHeap()) {
+            BridgeGeneration.validateManagedBuild(build.target(), build.inputs());
+            properties.put("gc.config.sha256", build.inputs().get("gc.config.sha256"));
+        }
         properties.put("java.module", moduleName(generation));
         properties.put("java.ensure", java.ensureMethod());
         properties.put("native.target", build.target()); properties.put("native.build", build.identity());

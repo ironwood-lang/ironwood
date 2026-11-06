@@ -62,11 +62,13 @@ implementation or transpiler:
   methods and identifiers named `free` or `destructor` are legal. Preserve exact
   layouts, root ABI 2, owner ABI 1, nonmoving statepoints and fail-closed metadata
   verification. See [the GC5 contract](docs/MEMORY.md).
-- Refuse native bridge/shared-library outputs until GC6 qualifies roots, generated
-  cleanup, foreign transitions and JNI ownership. Linux arm64 and arm64e remain
-  unqualified. Do not restart self-hosting or remove GC7 scaffolding incidentally.
-  The [GC6 carrier checkpoint](docs/GC6_IMPLEMENTATION.md) is incomplete and does
-  not authorize lifting those refusals or starting GC7.
+- Native bridge outputs require GC6 managed admission, schema 2 / objects-gc-v1,
+  root ABI 3 / owner ABI 2, exact foreign/suspended roots and private image exports.
+  Use the generated RootHandle and ListenerRegistration lifetime APIs; preserve
+  source resource closure separately. macOS arm64 and Linux x86-64 are qualified;
+  Linux arm64 and arm64e remain unqualified. See [GC6](docs/GC6_IMPLEMENTATION.md).
+  GC7 consumer migration and obsolete analysis removal require separate scope;
+  do not restart self-hosting or remove scaffolding incidentally.
 - Keep the mandatory runtime small; unreachable standard-library code is removed
   from the closed-world program, allowing a broad library.
 - Use UTF-8 `.iron` source, a Java 21 bootstrap compiler, and the pinned LLVM 23

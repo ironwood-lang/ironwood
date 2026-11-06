@@ -1,0 +1,1325 @@
+{
+  "baseline": "a91a13cd8ae25e2ec1e1c50b7450c1b3e8db2934",
+  "branch": "codex/bdwgc-integration-plan",
+  "checks": {
+    "GC6_Python_syntax": "passed",
+    "git_diff_check": "passed",
+    "hosted_workflows_run": false,
+    "licenses": "passed, 5 OpenJDK-derived files unchanged in provenance",
+    "new_text_U+2014": "absent",
+    "tracked_files": "passed",
+    "unfiltered_suite_run": false
+  },
+  "collector": {
+    "USE_MARK_BYTES": 1,
+    "allocation_collection": false,
+    "collection": "explicit synchronous eager",
+    "version": "8.2.12"
+  },
+  "date": "2026-11-05",
+  "foreign_output_qualified": true,
+  "format": 1,
+  "gc5_baseline": "c76a3a75e996c091c01e6e5eccebccbbfbf346a4",
+  "gc6_complete": true,
+  "guard_kib": 16777216,
+  "machost": {
+    "O3_inspection": {
+      "batch": "stores/arithmetic/branches in append loop; roots and dispatch at flush",
+      "disassembly.sha256": {
+        "workspace/gc6-scalar-controls/O3-batch-disassembly.txt": "f6a0299d6715b9e776d083b32f70395b497b177ed2c2fce4dced675c808e7476",
+        "workspace/gc6-scalar-controls/O3-disassembly.txt": "0da8991e5f94d63971a775b8f2ae6083289bfd502d26186c993bf49cd9f11f53",
+        "workspace/gc6-scalar-controls/scalar-native-body.txt": "c96bb42aa292706a1951f162e91caa9693e504e926f5414bd409995637dceb77"
+      },
+      "scalar": "protected entry call and outlined failure only; no new root registration, TLS, registry, polling or administration helper on valid scalar/critical path"
+    },
+    "collector_imports": [],
+    "jdk_assembly_producer": "Temurin 23.0.2+7",
+    "jdk_critical": "Oracle 23.0.1",
+    "jdk_jni": "Oracle 21.0.1",
+    "native_inputs": {
+      "compiler.sha256": "35d4b414c840ec30abe22bea1fc9870bc21952d35172318ad0ef86c56c1b5542",
+      "foreign.segments.version": "1",
+      "gc.config.sha256": "0ac9acaa6ec276015c281b881473334ee3d457c736964070154994e18f836d5d",
+      "generation": "19f19b343f579a026b7b139624c4f7595a920797d223e03f77beaced84d33ff6",
+      "layout.version": "1",
+      "memory.abi": "ironwood-native-gc-1",
+      "native.input.adapter.flags": "-std\\u003dc11\\u0020-Wall\\u0020-Wextra\\u0020-Werror\\u0020-fPIC\\u0020-fexceptions\\u0020-fvisibility\\u003dhidden\\u0020-O3",
+      "native.input.bootstrap.template.sha256": "0dd386a05fe87bb2599643b04d81fd82b96abccb165e5bbbea79c671a157bc91",
+      "native.input.clang.version": "Homebrew\\u0020clang\\u0020version\\u002023.1.0",
+      "native.input.cpu": "default-baseline",
+      "native.input.deployment.environment": "default",
+      "native.input.distribution": "6a8b0a8a5c005660435182d2b6f36b2aff7fe0f6b1abb60d60e922ecf6a9b948",
+      "native.input.foreign.segments.version": "1",
+      "native.input.gc.adapter.sha256": "3758e426df9a4a14aa557b202adf59cea1d9acccb75805d7443d8b5606d9f85a",
+      "native.input.gc.archive.sha256": "a2ba905dda9fac9b15e1fe7f0fa7b2049c8c06623cdac30c0de2f628d9e59335",
+      "native.input.gc.config.sha256": "0ac9acaa6ec276015c281b881473334ee3d457c736964070154994e18f836d5d",
+      "native.input.gc.isolation": "private-per-image",
+      "native.input.gc.root-reader.sha256": "258026b9085d50de6f8bc3885002da325c708c7379372eda6072157f515fa687",
+      "native.input.gc.sdk.manifest.sha256": "9ce8733467a7cf0a4a1f7372c30e215f180087c843960f1d86e99e90627601f5",
+      "native.input.java.projection.sha256": "9c78d7b0b71afafb5e127f689daf676e9afafcd012ff7eeae2313181ca0b0043",
+      "native.input.jdk.jni.sha256": "99e64ebbe749e6df284f852f11b3c73f6ea97baf15120428f40f887fe0616e61",
+      "native.input.jdk.jni_md.sha256": "88cb5c33e306900dd35a78d5a439087123b8e91b0986bb5acb42cc9bd2fcc42e",
+      "native.input.jdk.vendor": "Eclipse\\u0020Adoptium",
+      "native.input.jdk.version": "23.0.2+7",
+      "native.input.layout.version": "1",
+      "native.input.linker.sha256": "7f7041b1bb30e5e6a815a55edf374065d5c82e1ab93f84d5b6ed5656ded24bcf",
+      "native.input.linker.version": "@(\\u0023)PROGRAM\\u003ald\\u0020PROJECT\\u003ald-27106.1",
+      "native.input.llvm.ir.sha256": "37de15978de1b2df05ff6624920f3a098402162937a0f62e2424ec945e188151",
+      "native.input.llvm.stackmap.version": "3",
+      "native.input.llvm.version": "23.1.0",
+      "native.input.memory.abi": "ironwood-native-gc-1",
+      "native.input.object.adapters.sha256": "a6e47b401c6a2013fbcbff89593eec8ffb96604d9ff0c87de91d95e32b251749",
+      "native.input.optimization": "O3",
+      "native.input.producer.compiler": "35d4b414c840ec30abe22bea1fc9870bc21952d35172318ad0ef86c56c1b5542",
+      "native.input.producer.runtime": "8e2c4e686e291f8f6e67d6707bdd1157c59e6f2caec342fd8de4893cbae778b3",
+      "native.input.roots.version": "3",
+      "native.input.runtime.owner.version": "2",
+      "native.input.sdk.libSystem.sha256": "530128010020e5d9a9f76baddabf8a93dc0607632ba3787b7e43ced0152f5df5",
+      "native.input.sdk.libcxx.sha256": "b1bf25405e122bfcf3ca00c6cd458f0a51b14d170ce196def6893a320f7074d2",
+      "native.input.sdk.settings.sha256": "b6e59c06888f5778bb28c0c3856b057c1639670ce5076fb9ed1b60e34d997f99",
+      "native.input.sdk.version": "27.2",
+      "native.input.target.layout": "e-m\\u003ao-p270\\u003a32\\u003a32-p271\\u003a32\\u003a32-p272\\u003a64\\u003a64-i64\\u003a64-i128\\u003a128-n32\\u003a64-S128-Fn32",
+      "native.input.target.triple": "arm64-apple-macosx27.0.0",
+      "projection": "objects-gc-v1",
+      "roots.version": "3",
+      "runtime.owner.version": "2",
+      "runtime.sha256": "8e2c4e686e291f8f6e67d6707bdd1157c59e6f2caec342fd8de4893cbae778b3",
+      "schema": "2"
+    },
+    "performance_controls": {
+      "batch": {
+        "data": [
+          {
+            "batch_disabled": false,
+            "checksum": 134184960,
+            "events": 65536,
+            "managed_allocations": 0,
+            "median_ns": 204708
+          }
+        ],
+        "report": "workspace/gc6-batch-controls/batch.json",
+        "report.sha256": "1506cf1d0fa555a35e5b72ebf2d88ad4e6c61053f9b5f9bfab30cc3098a17ab0"
+      },
+      "batch-jni": {
+        "data": [
+          {
+            "batch_disabled": true,
+            "checksum": 134184960,
+            "events": 65536,
+            "managed_allocations": 0,
+            "median_ns": 174358625
+          }
+        ],
+        "report": "workspace/gc6-batch-controls/jni.json",
+        "report.sha256": "e0cc11e2fc646e4fff4bdca8758f3928bd5ca32b516fd0308666a0b9b9397ede"
+      },
+      "critical": {
+        "data": [
+          {
+            "calls": 500000,
+            "checksum": 125008250000,
+            "managed_allocations": 0,
+            "median_ns": 1532208,
+            "transport": "critical"
+          }
+        ],
+        "report": "workspace/gc6-scalar-controls/critical.json",
+        "report.sha256": "a8ffa595f9b160526f96959f2bffb484d32d004b85c1339c139c66ae83e20f36"
+      },
+      "jni": {
+        "data": [
+          {
+            "calls": 500000,
+            "checksum": 125008250000,
+            "managed_allocations": 0,
+            "median_ns": 2140375,
+            "transport": "jni"
+          }
+        ],
+        "report": "workspace/gc6-scalar-controls/jni.json",
+        "report.sha256": "e17682d9a52484088e25bcc4bdf125f297180fea60415a9b6b1bec41ced8d277"
+      }
+    },
+    "production_exports": [
+      "JNI_OnLoad",
+      "Java_ironwood_bridge_generated_g19f19b343f579a026b7b139624c4f7595a920797d223e03f77beaced84d33ff6_Support_bootstrap"
+    ],
+    "reports": [
+      {
+        "case_count": 34,
+        "cases": [
+          "typed-pipeline",
+          "jvm-consumer",
+          "ironwood_gc_roots",
+          "ironwood_gc_lifetimes",
+          "O0-contract",
+          "O0-link-A",
+          "O0-link-B",
+          "O0-reentry",
+          "O0-refusal-2",
+          "O0-refusal-3",
+          "O0-refusal-4",
+          "O1-contract",
+          "O1-link-A",
+          "O1-link-B",
+          "O1-reentry",
+          "O1-refusal-2",
+          "O1-refusal-3",
+          "O1-refusal-4",
+          "O2-contract",
+          "O2-link-A",
+          "O2-link-B",
+          "O2-reentry",
+          "O2-refusal-2",
+          "O2-refusal-3",
+          "O2-refusal-4",
+          "O3-contract",
+          "O3-link-A",
+          "O3-link-B",
+          "O3-reentry",
+          "O3-refusal-2",
+          "O3-refusal-3",
+          "O3-refusal-4",
+          "O3-transition-performance",
+          "O3-disassembly"
+        ],
+        "expected_refusals": {
+          "O0-refusal-2": 86,
+          "O0-refusal-3": 86,
+          "O0-refusal-4": 86,
+          "O1-refusal-2": 86,
+          "O1-refusal-3": 86,
+          "O1-refusal-4": 86,
+          "O2-refusal-2": 86,
+          "O2-refusal-3": 86,
+          "O2-refusal-4": 86,
+          "O3-refusal-2": 86,
+          "O3-refusal-3": 86,
+          "O3-refusal-4": 86
+        },
+        "max_sampled_peak_rss_kib": 448752,
+        "owner_abi": 2,
+        "performance": {
+          "O3-transition-performance": [
+            {
+              "calls": 20000,
+              "scalar_ns": 3077709,
+              "transition_ns": 93901625
+            }
+          ]
+        },
+        "report": "workspace/gc6-schema2-segments/results.json",
+        "report.sha256": "dcfa6e1d40360741e7795a6b077ecc0fbc8f356d9a351acbe3624c957f55078c",
+        "root_abi": 3,
+        "sdk_configuration": "0ac9acaa6ec276015c281b881473334ee3d457c736964070154994e18f836d5d"
+      },
+      {
+        "case_count": 3,
+        "cases": [
+          "consumer-javac",
+          "O0-generated-build",
+          "O0-consumer"
+        ],
+        "max_sampled_peak_rss_kib": 1075072,
+        "report": "workspace/gc6-resources-first/results.json",
+        "report.sha256": "7471a533e4bf99367eda59735fa81af2b99df61631edfe268e46fdc7cc407b03",
+        "sdk_configuration": "0ac9acaa6ec276015c281b881473334ee3d457c736964070154994e18f836d5d"
+      },
+      {
+        "case_count": 7,
+        "cases": [
+          "consumer-javac",
+          "O1-generated-build",
+          "O1-consumer",
+          "O2-generated-build",
+          "O2-consumer",
+          "O3-generated-build",
+          "O3-consumer"
+        ],
+        "max_sampled_peak_rss_kib": 1134736,
+        "report": "workspace/gc6-resources-optimized/results.json",
+        "report.sha256": "0e36e2bc1eec86b716378af1e6b723660747dad44acda118cb1674a9e49897d8",
+        "sdk_configuration": "0ac9acaa6ec276015c281b881473334ee3d457c736964070154994e18f836d5d"
+      },
+      {
+        "case_count": 4,
+        "cases": [
+          "consumer-javac",
+          "O3-generated-build",
+          "O3-consumer",
+          "O3-jni-fallback"
+        ],
+        "max_sampled_peak_rss_kib": 1106096,
+        "report": "workspace/gc6-resources-critical/results.json",
+        "report.sha256": "a3e7ac7cf3d7d4c7cf61b91291e31cac0e3497b91576ba63b223cf54cf00f1ea",
+        "sdk_configuration": "0ac9acaa6ec276015c281b881473334ee3d457c736964070154994e18f836d5d"
+      },
+      {
+        "case_count": 13,
+        "cases": [
+          "consumer-javac",
+          "O0-generated-build",
+          "O0-consumer",
+          "O0-batch-fallback",
+          "O1-generated-build",
+          "O1-consumer",
+          "O1-batch-fallback",
+          "O2-generated-build",
+          "O2-consumer",
+          "O2-batch-fallback",
+          "O3-generated-build",
+          "O3-consumer",
+          "O3-batch-fallback"
+        ],
+        "max_sampled_peak_rss_kib": 1263632,
+        "report": "workspace/gc6-callback-final/results.json",
+        "report.sha256": "28cb80f2ed1b199d1bb28d335073cdf054f9f0285264beee203e95dd41b652fa",
+        "sdk_configuration": "0ac9acaa6ec276015c281b881473334ee3d457c736964070154994e18f836d5d"
+      },
+      {
+        "case_count": 49,
+        "cases": [
+          "compiler-pipeline",
+          "ironwood_gc_roots-compile",
+          "ironwood_gc_lifetimes-compile",
+          "gc_lifetimes_probe-compile",
+          "gc_scalar_exception-compile",
+          "O0-contract",
+          "O0-link",
+          "O0-anchors",
+          "O0-pending",
+          "O0-preparation-catch",
+          "O0-preparation-corrupt",
+          "O0-nested-wrappers",
+          "O0-emergency-steps",
+          "O0-carrier",
+          "O0-trace-fail",
+          "O0-oom",
+          "O1-contract",
+          "O1-link",
+          "O1-anchors",
+          "O1-pending",
+          "O1-preparation-catch",
+          "O1-preparation-corrupt",
+          "O1-nested-wrappers",
+          "O1-emergency-steps",
+          "O1-carrier",
+          "O1-trace-fail",
+          "O1-oom",
+          "O2-contract",
+          "O2-link",
+          "O2-anchors",
+          "O2-pending",
+          "O2-preparation-catch",
+          "O2-preparation-corrupt",
+          "O2-nested-wrappers",
+          "O2-emergency-steps",
+          "O2-carrier",
+          "O2-trace-fail",
+          "O2-oom",
+          "O3-contract",
+          "O3-link",
+          "O3-anchors",
+          "O3-pending",
+          "O3-preparation-catch",
+          "O3-preparation-corrupt",
+          "O3-nested-wrappers",
+          "O3-emergency-steps",
+          "O3-carrier",
+          "O3-trace-fail",
+          "O3-oom"
+        ],
+        "expected_refusals": {
+          "O0-preparation-corrupt": 86,
+          "O1-preparation-corrupt": 86,
+          "O2-preparation-corrupt": 86,
+          "O3-preparation-corrupt": 86
+        },
+        "max_sampled_peak_rss_kib": 1158672,
+        "owner_abi": "ironwood-gc-runtime-1",
+        "report": "workspace/gc6-owner-current/results.json",
+        "report.sha256": "ace6320e0256d435385a8e3951abaf241c93b4d5f87ad2542a85d5a1af357638",
+        "root_abi": "ironwood-gc-roots-2",
+        "sdk_configuration": "0ac9acaa6ec276015c281b881473334ee3d457c736964070154994e18f836d5d"
+      },
+      {
+        "case_count": 13,
+        "cases": [
+          "compiler-descriptions",
+          "layout-c-0",
+          "layout-c-1",
+          "layout-assemble",
+          "layout-optimize",
+          "layout-codegen",
+          "layout-link",
+          "layouts",
+          "arrays",
+          "sidecars",
+          "metadata",
+          "failure",
+          "overflow"
+        ],
+        "mark_stack_recovery": {
+          "numeric_target_checks": 65536,
+          "overflow_events": 120,
+          "recovery_returned_successfully": true,
+          "stack_entries_at_overflow": [
+            4096
+          ]
+        },
+        "max_sampled_peak_rss_kib": 880384,
+        "report": "workspace/gc6-layout-current/results.json",
+        "report.sha256": "26633a9c47ddd8db4b28c65c9d884bee5588924f36a2e031c3db4c4c1ca7b2c9"
+      },
+      {
+        "case_count": 15,
+        "cases": [
+          "proof-0",
+          "proof-1",
+          "proof-2",
+          "proof-3",
+          "proof-4",
+          "proof-5",
+          "proof-6",
+          "proof-7",
+          "proof-8",
+          "proof-9",
+          "proof-10",
+          "proof-11",
+          "proof-12",
+          "proof-13",
+          "proof-14"
+        ],
+        "max_sampled_peak_rss_kib": 1567504,
+        "report": "workspace/gc6-focused-final/results.json",
+        "report.sha256": "d9f33a080d2a38939386cdea1cabf8f1cec086e62f8b1afdf06a47c6a8a37898"
+      },
+      {
+        "case_count": 1,
+        "cases": [
+          "late-verification"
+        ],
+        "max_sampled_peak_rss_kib": 90096,
+        "report": "workspace/gc6-focused-final/late-verification.json",
+        "report.sha256": "d0aa38d782a8ff6a1200f561b68105fcfa1659ca32ff05d5698c882ca0461d87"
+      },
+      {
+        "case_count": 1,
+        "cases": [
+          "primary-test"
+        ],
+        "max_sampled_peak_rss_kib": 1297472,
+        "report": "workspace/gc6-final-build/primary-test.json",
+        "report.sha256": "44025b7cbd3643fcac3ada3ae7ecdc653099e0f1b021f6dd9e918f8e9766ff91"
+      },
+      {
+        "case_count": 2,
+        "cases": [
+          "class",
+          "archive"
+        ],
+        "max_sampled_peak_rss_kib": 665280,
+        "report": "workspace/gc6-cli-reconstruction/results.json",
+        "report.sha256": "4cc629c45b45532fe15ebcf95e915127fe2ec1cf398b9b95bb388082bf80ff31"
+      },
+      {
+        "case_count": 3,
+        "cases": [
+          "build",
+          "test-javac",
+          "cli"
+        ],
+        "max_sampled_peak_rss_kib": 1293856,
+        "report": "workspace/gc6-packaging-final/results.json",
+        "report.sha256": "64607eca319f07c3f1b4f041ec6189a77752b6567f5ebedbe41d36b4bef11741"
+      },
+      {
+        "case_count": 1,
+        "cases": [
+          "package"
+        ],
+        "max_sampled_peak_rss_kib": 933456,
+        "report": "workspace/gc6-assembly-macos/results.json",
+        "report.sha256": "030aea4536712e43eb3fb9db9d4042a55b9c9966f85629227c756c31c2e2cf9b"
+      },
+      {
+        "case_count": 32,
+        "cases": [
+          "original",
+          "missing-schema",
+          "stale-schema",
+          "missing-projection",
+          "stale-projection",
+          "missing-memory.abi",
+          "stale-memory.abi",
+          "missing-layout.version",
+          "stale-layout.version",
+          "missing-roots.version",
+          "stale-roots.version",
+          "missing-runtime.owner.version",
+          "stale-runtime.owner.version",
+          "missing-foreign.segments.version",
+          "stale-foreign.segments.version",
+          "missing-gc.config.sha256",
+          "stale-gc.config.sha256",
+          "missing-native.input.gc.config.sha256",
+          "stale-native.input.gc.config.sha256",
+          "missing-native.input.gc.archive.sha256",
+          "stale-native.input.gc.archive.sha256",
+          "missing-native.input.gc.adapter.sha256",
+          "stale-native.input.gc.adapter.sha256",
+          "missing-native.input.gc.root-reader.sha256",
+          "stale-native.input.gc.root-reader.sha256",
+          "missing-native.input.gc.sdk.manifest.sha256",
+          "stale-native.input.gc.sdk.manifest.sha256",
+          "missing-native.input.llvm.stackmap.version",
+          "stale-native.input.llvm.stackmap.version",
+          "missing-native.input.gc.isolation",
+          "stale-native.input.gc.isolation",
+          "missing-manifest"
+        ],
+        "max_sampled_peak_rss_kib": 51584,
+        "report": "workspace/gc6-metadata-compact-final/results.json",
+        "report.sha256": "bac7ba11ca1b729f334bf21ce3f2792c6ba986618c324d5048d32e85473041c6"
+      },
+      {
+        "case_count": 1,
+        "cases": [
+          "build-A"
+        ],
+        "max_sampled_peak_rss_kib": 1417120,
+        "report": "workspace/gc6-production-images/build-A.json",
+        "report.sha256": "4f9814842a78f97a87e85a361710999707b46a84f17d0a13c787e38806cf9c3e"
+      },
+      {
+        "case_count": 1,
+        "cases": [
+          "build-B"
+        ],
+        "max_sampled_peak_rss_kib": 1326208,
+        "report": "workspace/gc6-production-images/build-B.json",
+        "report.sha256": "01a8f3290e77d3acef377b6780a87edec396fb558e7d43cc5a57efbf28b9077b"
+      },
+      {
+        "case_count": 1,
+        "cases": [
+          "consumer"
+        ],
+        "max_sampled_peak_rss_kib": 88000,
+        "report": "workspace/gc6-production-images/consumer.json",
+        "report.sha256": "f5712d35645359d46e83649ab94767e1629298c8e9a6f1c77da592c7b1501c8c"
+      },
+      {
+        "case_count": 2,
+        "cases": [
+          "transport-javac",
+          "transport-consumer"
+        ],
+        "max_sampled_peak_rss_kib": 122880,
+        "report": "workspace/gc6-production-images/transport-results.json",
+        "report.sha256": "5d1de5f132fd786a8e9bc0127d2d3a4aaccdfc0553ea5e7259a22a54b2d1b7f0"
+      }
+    ],
+    "target": "macos-arm64"
+  },
+  "not_started": [
+    "GC7",
+    "GC8",
+    "GC9",
+    "GC10",
+    "self-hosting"
+  ],
+  "notes": [
+    "Focused driver gc6_complete=false describes evidence scope only; this aggregate records milestone qualification.",
+    "Actual cross-target assembly used matching Temurin 23.0.2 tools and loaded on Linux; mismatched Javadoc common content refused.",
+    "Performance controls are bounded observations, not whole-application GC8 acceptance.",
+    "No fetch, push, PR, hosted workflow, branch/worktree switch or main integration."
+  ],
+  "per_child_timeout_seconds": 60,
+  "protocols": {
+    "bridge_owner": 2,
+    "bridge_roots": 3,
+    "foreign_segments": 1,
+    "layout": 1,
+    "memory": "ironwood-native-gc-1",
+    "ordinary_owner": 1,
+    "ordinary_roots": 2,
+    "projection": "objects-gc-v1",
+    "schema": 2
+  },
+  "remaining_refusals": [
+    "linux-arm64",
+    "arm64e",
+    "async/concurrent callbacks outside external serialization",
+    "raw cross-image managed references",
+    "unknown retained borrows/carrier lifetimes",
+    "unloading/hot reload",
+    "raw shared IR without managed admission",
+    "stale/missing/incompatible metadata"
+  ],
+  "source.sha256": {
+    "compiler/src/main/cpp/GcNonmovingStatepoints.cpp": "e02de411d077b3519655d8fd547b98ef72a11b06420fa94788d1d650733de50e",
+    "compiler/src/main/java/ironwood/compiler/BridgeAssembler.java": "b150fdfa1fb294683bc0254784acd86a1d09510c738e32d6059a995ebfa8c800",
+    "compiler/src/main/java/ironwood/compiler/BridgeDistributionInputs.java": "c62d1e1b374ddf909ae396a9eeef22556dd4d168b30ec507731f25318a3fe1c4",
+    "compiler/src/main/java/ironwood/compiler/BridgeExceptionClosure.java": "ada2a775c3dada44b1a4b40f58ae85e10b037f288936bfc145d2b40e4857179b",
+    "compiler/src/main/java/ironwood/compiler/BridgeFinalNonReclamation.java": "8252b710b6e320b09a259bdd122dee20e4e3a0d776f64671c4662762b66578f5",
+    "compiler/src/main/java/ironwood/compiler/BridgeFinalRootRetention.java": "e69b5bf9ead1f6ac884edce1ad4ee59a509befb15a4fd38b483bfaed42753e98",
+    "compiler/src/main/java/ironwood/compiler/BridgeObjectAdmission.java": "ea2902ceb27b5f8005a09c495ab6e3a31cb955108ca5d3178276271d19efb974",
+    "compiler/src/main/java/ironwood/compiler/BridgePackageManifest.java": "89a6c21775df952a61268913f07b0bcdee0aae0ea695923f9169e8080b430d64",
+    "compiler/src/main/java/ironwood/compiler/BridgePairedArchive.java": "cd8baba8d4299c399d696ef731daa1dae3b229b4924ab1cba1f353bcd37e9bbd",
+    "compiler/src/main/java/ironwood/compiler/BridgeProducer.java": "e6015ce350f3d3abe203a989a128bfc95bb3bf0f4c280546c3eb6facdbe87d0b",
+    "compiler/src/main/java/ironwood/compiler/BridgeProducerCommand.java": "e4d5f6740b3b5f626078c4dc9e54f95ed0aee7e2e2efb851d0d4d50ad2548fe6",
+    "compiler/src/main/java/ironwood/compiler/Main.java": "d61ff2473b047b3967f3aa3f790a794c4c93012309d010c1436d3a10204234ad",
+    "compiler/src/main/java/ironwood/compiler/NativeLinkPipeline.java": "96c12b80ae665acdce29f101baf0c5e8f5165d3e9971e8c8759717e0b4e76b8b",
+    "compiler/src/main/java/ironwood/compiler/NativeLinkTransformation.java": "879296d3e9b50eea4e9bdcc59701e0e8048f78937ed5bb40fdc00d9a8c8550ae",
+    "compiler/src/main/java/ironwood/compiler/backend/BridgeGcBuildInputs.java": "26ea7e3d96073fc314b5e58eaa3773c70bd7fb733b3a571d5bef9db3de80546d",
+    "compiler/src/main/java/ironwood/compiler/backend/GcDependency.java": "b86de5916f2b23170070793ebe82f14f40aaf644f32e9965e7247338588f4e70",
+    "compiler/src/main/java/ironwood/compiler/backend/GcExperimentalClosure.java": "a8dec69933ea3d408d228990a842ac74a5a2b17977bbaa77b2141f5e097ded4c",
+    "compiler/src/main/java/ironwood/compiler/backend/GcManagedHeapVerifier.java": "bef86f32ab9f5882f8d0fa9d5569ed5f25c8ceedc1ce0ab55c043d1b40f48341",
+    "compiler/src/main/java/ironwood/compiler/backend/LlvmEmitter.java": "0cd8310c3e07fc6d0cf833b9203c48f0529d8aad3256f31ea216bbafa933f639",
+    "compiler/src/main/java/ironwood/compiler/backend/NativeBackend.java": "ccfb39a0eefd9a67b2102ab666bbbfedc3471553773bf7198fe200dbb23db0f2",
+    "compiler/src/main/java/ironwood/compiler/bridge/BridgeArrayInputSources.java": "9aae71552ac853ef2f7b59d71566b2f2760275478640e587879fd24fe08aafcf",
+    "compiler/src/main/java/ironwood/compiler/bridge/BridgeArrayValueSources.java": "09bb2de3f41e5d37670d22dd8717987c2ab7084ccd3eb19c72b7e7f7c417d408",
+    "compiler/src/main/java/ironwood/compiler/bridge/BridgeByteViewInputSources.java": "8647993b124839aa1c2f3bbf344b3539eb288245ff6fa0d70a7547bd45679b7c",
+    "compiler/src/main/java/ironwood/compiler/bridge/BridgeCallbackBatchSources.java": "9ba353e5a865eac868769b3e05cdc5a9809f94fe45ffdf5eb80a93fd21238e8f",
+    "compiler/src/main/java/ironwood/compiler/bridge/BridgeCallbackBatching.java": "c851bfedabb944f58565d38f1f4307cd9883126ee4b76d7083f3a135ab85e765",
+    "compiler/src/main/java/ironwood/compiler/bridge/BridgeCallbackCarrierCleanup.java": "ecd253873eac81a475a11eda73d38d82433c8429fbf6b2086c897926d014dead",
+    "compiler/src/main/java/ironwood/compiler/bridge/BridgeCallbackCarrierNativeSources.java": "7f2c14856f23751177810baaa78ec34198cf8bd9f25e4dc2ec1eef53ef643283",
+    "compiler/src/main/java/ironwood/compiler/bridge/BridgeCallbackCarrierPolicy.java": "dec63ffd8b289d352dde85cf9e4988e082ad935e8a1fd2347d7c041b08790a37",
+    "compiler/src/main/java/ironwood/compiler/bridge/BridgeCallbackDispatchSources.java": "006e6118d00e802df057f1a81b4dcb4d22c04bc9f2102f0bb4b227d4348803ac",
+    "compiler/src/main/java/ironwood/compiler/bridge/BridgeCallbackNativeSources.java": "2abfeed6ee24b4e2b04f8dda7ced7036d993271cfbc3be32b7b3b6d6d7be4f1e",
+    "compiler/src/main/java/ironwood/compiler/bridge/BridgeCriticalSources.java": "ae11ee87de76f15e33d4789c69513167145d4e68a0b67e0ed4fa0b3b8f85e455",
+    "compiler/src/main/java/ironwood/compiler/bridge/BridgeCustomSnapshotNativeSources.java": "4f793c1a75304e0de90e12de0b818172e71166a8b8ff621be1843bdec51aad93",
+    "compiler/src/main/java/ironwood/compiler/bridge/BridgeEntryModule.java": "494c658f9ca6e3a726837ae693374c9994a9f7aa751655078eae4532a39724c0",
+    "compiler/src/main/java/ironwood/compiler/bridge/BridgeEnumConversions.java": "265257908176585e8d832baee9325e626d2ae101ac402c7a64755036be2afcc4",
+    "compiler/src/main/java/ironwood/compiler/bridge/BridgeEnumEntryLowering.java": "2865b979b3ef6924c5568af009de53af3c274dead89ca6c2eee0b61fae535c3f",
+    "compiler/src/main/java/ironwood/compiler/bridge/BridgeEnumJavaSources.java": "589d53ab62df3b528edead18f2fa3a7bdfe609bddc5da39bbd8bfc2ee6723903",
+    "compiler/src/main/java/ironwood/compiler/bridge/BridgeExceptionEntries.java": "e1e017f0963198fe096418083815128b9b3d618f70acd8671f2828dad447b020",
+    "compiler/src/main/java/ironwood/compiler/bridge/BridgeExceptionNativeSources.java": "cf71a1d20ed98265c7955ffc3a7cf363cea6fdc0d10c8677c46464cd71274122",
+    "compiler/src/main/java/ironwood/compiler/bridge/BridgeExceptionProjection.java": "91066522e7a7693e5c80d5e2f771d42ae280241d69f205b4e8fd777da9390d2b",
+    "compiler/src/main/java/ironwood/compiler/bridge/BridgeExportSurface.java": "74bd18a4e8274fe5abaec88561a02c58c1ffa3da7ba5b8a0697c7c215eb2da4a",
+    "compiler/src/main/java/ironwood/compiler/bridge/BridgeGcAnchorSources.java": "0619444bfe0a75e0f2e73e34f43435dc73d1cf8306ca10750bdfe2ed20025363",
+    "compiler/src/main/java/ironwood/compiler/bridge/BridgeGcCallbacks.java": "7335c5621a9ab87a15ed1262b10825625a0bf0c2bec1def3f9dedb525a0f1f5d",
+    "compiler/src/main/java/ironwood/compiler/bridge/BridgeGcJavaSources.java": "a64b5c1cfcc2008905e4bb6afd8316f13733200d24ec274fc3302dd275cb4d98",
+    "compiler/src/main/java/ironwood/compiler/bridge/BridgeGcListenerSources.java": "3f14fa899f8c4fe59f09f525842eff00227659153b3495430948d44d27035ba7",
+    "compiler/src/main/java/ironwood/compiler/bridge/BridgeGcRegistrationSources.java": "64be9a0dd722b1f558f2cd2f6912b26d866e5af37d04b553f45ef46031157346",
+    "compiler/src/main/java/ironwood/compiler/bridge/BridgeGcTransitions.java": "b19e92a81d537c5997148704329990130166d5689a725f2d05e90f6f20aa5956",
+    "compiler/src/main/java/ironwood/compiler/bridge/BridgeGeneration.java": "f630810bc81c43814795d5c450468a76a3277bb62eb985600e4962c6fd7b04db",
+    "compiler/src/main/java/ironwood/compiler/bridge/BridgeListenerProxies.java": "f2187c15f5d41181f275aedf96ba12a17a4e9300ae87aee24ad1e31a494dfac8",
+    "compiler/src/main/java/ironwood/compiler/bridge/BridgeLoaderSources.java": "413b66c548759fc66a90082b4d1fb046e0144c10e10314350a26e21473334d06",
+    "compiler/src/main/java/ironwood/compiler/bridge/BridgePermanentJavaSources.java": "bba9f1d0576a3dae41bdda99d9ad8432a8777922687f619bd261422e1d1a67a9",
+    "compiler/src/main/java/ironwood/compiler/bridge/BridgePermanentNativeSources.java": "450688abad048115c5a272ab9a8b4f72e5995f76cb90ae42796b020abc9f2a85",
+    "compiler/src/main/java/ironwood/compiler/bridge/BridgeProtectedEntryLowering.java": "958239038b94c6a92401fe7b1a186f998e6bdd2bc5d45d71b2eb6e3155b8ae05",
+    "compiler/src/main/java/ironwood/compiler/bridge/BridgeRootCalls.java": "b64e935e1409e577d4271d7f536d1fe43fcfbf130ca5c691c5e6ea1ff3ddc46a",
+    "compiler/src/main/java/ironwood/compiler/bridge/BridgeRootEntryLowering.java": "11f2bcd593a2cc76b32ae44177b7d04717acc83b584caa1c2f6fa098f2fa6114",
+    "compiler/src/main/java/ironwood/compiler/bridge/BridgeStringEntryLowering.java": "bc481f1ad34fab361db5db88cc5a51e565ddb0dd0990d71180e748896ae42bcd",
+    "compiler/src/main/java/ironwood/compiler/bridge/BridgeStringResultContract.java": "ab0c530217a38a1ecc5aa6ee26791ad9b2e4013eee9a21ba2ddf49ba0e817346",
+    "compiler/src/main/java/ironwood/compiler/ir/GcEffects.java": "740918c29b22a185fdf79b7901eb03698a05bf5198d75329d12ecd10e6729185",
+    "compiler/src/main/java/ironwood/compiler/ir/IrBridgeResultStoreInstruction.java": "89023e8a5bc645fbcd5b8d1db9374629782d8cd8e474b4c3b971f1186fe9360a",
+    "compiler/src/main/java/ironwood/compiler/semantic/BridgeArrayInputs.java": "e2ffda1f7421e05633ffa1a0f6f7b7eb99db0611f2f945b33c6e29fdaa29343b",
+    "compiler/src/main/java/ironwood/compiler/semantic/BridgeByteViews.java": "4035c07c3bc788d8ccb5d0b4fc9e066a2cd72a81d5237b3a91c7f0c21327d8e7",
+    "compiler/src/main/java/ironwood/compiler/semantic/BridgeCallbackCarrierLifetime.java": "9daf9c9b89ad5eada11bfe6217802b55235452af822744d21af6d6c63051b928",
+    "compiler/src/main/java/ironwood/compiler/semantic/BridgeCallbackReachability.java": "2f795ea68e401ff472d803bf24fa971d31f27d2987099327bf8b526e521cc52d",
+    "compiler/src/main/java/ironwood/compiler/semantic/BridgeConstructionFacts.java": "072c7a09e81868ac4f31a169ba952408adad36497f4455414d5601bc86e1d6cc",
+    "compiler/src/main/java/ironwood/compiler/semantic/BridgeRetentionAnalyzer.java": "d176af0c6df332a7117d150c61d82c6aaa94c037f242b2bcd9dab7c89d905bfa",
+    "compiler/src/test/java/ironwood/compiler/BridgeGeneratedJarTests.java": "802d01bd0f4ce1d4c0dc25296f045fcc13f03fe57d10994d750da880c273cdb1",
+    "compiler/src/test/java/ironwood/compiler/BridgeSecondaryRetentionTests.java": "98d3bdbead4d95fc83105ecbac91938d57b1e358acc45906e93bd06defd105ca",
+    "compiler/src/test/java/ironwood/compiler/CompilerTests.java": "eb1fd87fc5fc981fa23e1039fd4d4930ffad7f36324be3c05d054d288f33edc1",
+    "compiler/src/test/java/ironwood/compiler/Gc6AssemblyTests.java": "fba9f5bf1b5b62831ebd0a7bf763b1c7927c2309681ba092eebf079ab0500c57",
+    "compiler/src/test/java/ironwood/compiler/Gc6CallbackTests.java": "44e4a1e1c54ec70883a721d604b384a4bb706c590cf374954c3dc2c6c6411943",
+    "compiler/src/test/java/ironwood/compiler/Gc6CliTests.java": "4d42e81930bbb0b0cca1bd695d4a8f429c4477c097b60d597fdd22c21389647b",
+    "compiler/src/test/java/ironwood/compiler/Gc6ManagedBridgeTests.java": "a2602eb548ca1af9afdac5aea916f5928df6c5f17835437018f3cfdd4fda8b3a",
+    "compiler/src/test/java/ironwood/compiler/Gc6PackageTests.java": "64ba30382a308e0f61efaf48cbeab7377b30b5b2fd0ce5870043e16dd05abb3b",
+    "compiler/src/test/java/ironwood/compiler/Gc6SegmentTests.java": "a42e53e4dfe371bb2665919e3a6454763c8814b970ff3653560c3bea23545dc2",
+    "packaging/bdwgc-qualified.properties": "72624b26733c82cb0500420ee6f05b5c756831aadbf440eb8bb7ebbc4ab73ae1",
+    "packaging/bdwgc.json": "9fe371a0e50a11fee89f13fa78333cc2ab13b6f8391669f9589e9091ccf9504e",
+    "runtime/README.md": "dfbc7254a8b3fdc46f4ccc7392e21d35e5ea98bd6d5c75c07e7bddf33b524458",
+    "runtime/include/ironwood_gc_roots.h": "2d19cee299b0a618baa26c007cb804a701c1ac253e44fe058e90d84ed3d0a2ae",
+    "runtime/src/ironwood_gc_roots.c": "258026b9085d50de6f8bc3885002da325c708c7379372eda6072157f515fa687",
+    "runtime/src/ironwood_runtime.c": "e8a0779ee3298745fff71a1c4b8ac578b83bf08dd82945603434ec29e144080f",
+    "scripts/java-bridge/Gc6BatchControl.java": "aed7c9d4fd17bd15975c9563c39e5ecc881e0b01bea2f2f9b6296be5432af82f",
+    "scripts/java-bridge/Gc6Callbacks.java": "7307f9082a5045a41cccaf00700635065bb57ad8e6f63139aaa1e1f98b9370b7",
+    "scripts/java-bridge/Gc6Compatibility.java": "34ff5d547ff009ba25fd5ea64dadc0631fcc9120a338dc44a0f1e9c6c4fde7ec",
+    "scripts/java-bridge/Gc6Images.java": "b28d4f8684ebe096ca566fc8b599bbde6ec6474ff768a6146475ad47eb41311e",
+    "scripts/java-bridge/Gc6Objects.java": "8c049045aa0a6ed7952824e618eb4caf2ac70b40aeee539f73ab520c2d5bd8d3",
+    "scripts/java-bridge/Gc6ScalarControl.java": "a3fe94bcb3402dc662168c295c6f08452b65d175d61eb617cc9fea86dacf9407",
+    "scripts/java-bridge/Gc6Segments.java": "76fd1dd1183de8cb9c0bbca8e989af7ed4318f126de6f4a33c367033f1e0efdc",
+    "scripts/prepare-gc.py": "c566b921b518f51a6a5994db0fea5037f59c24c5b37e0791ed3b03738d7da2dd",
+    "scripts/test-gc6-callbacks.py": "f3d1420a1eea90049009f74314bfeb930e62e42da5acfa64683614806d600819",
+    "scripts/test-gc6-images.py": "aeff075de89e05ae706c3e169d858ad1e3cf996a99e69ad4f9d1d54b124a444a",
+    "scripts/test-gc6-metadata.py": "0496b3d7c1287b0b02485886bd751b1aad9b23f0991d1b8cedd0adcbcb25a745",
+    "scripts/test-gc6-objects.py": "3ddb78f8dba5d58fb78e1540c984feb7c577a46fd31d8e61ee5632cae300eb0e",
+    "scripts/test-gc6-segments.py": "2e2f38d65a8e316745d31bae1c857fd4b35ce62f6efe3c7dd44b4774c34c4713"
+  },
+  "x86host": {
+    "cleanup": {
+      "free_gib_after_cleanup": 97,
+      "preserved": "jars, native images, raw logs, result reports, unrelated checkout work",
+      "reclaimed_bytes": 1243931535,
+      "removed_redundant_generated_files": 630
+    },
+    "evidence": {
+      "assembly-production-results.json": {
+        "cases": 1,
+        "data": {},
+        "exit_counts": {
+          "0": 1
+        },
+        "max_sampled_peak_rss_kib": 1947436,
+        "sha256": "d7c2c2381959cd6e32b7ed8683d0a83a1bc7fbbad48768864129188fa11a0032"
+      },
+      "assembly23-metadata/results.json": {
+        "cases": 32,
+        "data": {},
+        "exit_counts": {
+          "0": 32
+        },
+        "max_sampled_peak_rss_kib": 56420,
+        "sha256": "9cb043dfa6bf6eb0804d2c1af09b5d32a001a10daa819d4010c7695d55c03ef2"
+      },
+      "callbacks-complete/results.json": {
+        "cases": 13,
+        "data": {},
+        "exit_counts": {
+          "0": 13
+        },
+        "max_sampled_peak_rss_kib": 1273376,
+        "sdk_configuration": "9abad06077e76cab4b4bedac641caa3705a53e82e5e5759b58106c7d65ecc263",
+        "sha256": "b08b42acf5263050c896e1913a29388628d1af10eae075e32aaa8a2d45fbcfaf"
+      },
+      "cli-production-results.json": {
+        "cases": 1,
+        "data": {},
+        "exit_counts": {
+          "0": 1
+        },
+        "max_sampled_peak_rss_kib": 1478164,
+        "sha256": "e564eb1e3c42c9b3c369b39ac6a36aec725239ef3179e57133ee64f0eda77513"
+      },
+      "collector_imports": [],
+      "controls/results.json": {
+        "cases": 10,
+        "data": {
+          "batch": [
+            {
+              "batch_disabled": false,
+              "checksum": 134184960,
+              "events": 65536,
+              "managed_allocations": 0,
+              "median_ns": 118583
+            }
+          ],
+          "batch-jni": [
+            {
+              "batch_disabled": true,
+              "checksum": 134184960,
+              "events": 65536,
+              "managed_allocations": 0,
+              "median_ns": 69559391
+            }
+          ],
+          "scalar-critical": [
+            {
+              "calls": 500000,
+              "checksum": 125008250000,
+              "managed_allocations": 0,
+              "median_ns": 3171742,
+              "transport": "critical"
+            }
+          ],
+          "scalar-jni": [
+            {
+              "calls": 500000,
+              "checksum": 125008250000,
+              "managed_allocations": 0,
+              "median_ns": 5626489,
+              "transport": "jni"
+            }
+          ]
+        },
+        "exit_counts": {
+          "0": 10
+        },
+        "max_sampled_peak_rss_kib": 120604,
+        "sha256": "2780cad75e92aa496e39bdca9a919e5377cb86b037825a58b2ad3ed05b16ab7a"
+      },
+      "critical-23/results.json": {
+        "cases": 4,
+        "data": {},
+        "exit_counts": {
+          "0": 4
+        },
+        "max_sampled_peak_rss_kib": 1224704,
+        "sdk_configuration": "9abad06077e76cab4b4bedac641caa3705a53e82e5e5759b58106c7d65ecc263",
+        "sha256": "efa06bc159cef9e9b3dcee7906ac4823035cb1837cc79703cc5f8a246a719055"
+      },
+      "exports": [
+        "0000000000023c10 T JNI_OnLoad",
+        "0000000000023c30 T Java_ironwood_bridge_generated_g19f19b343f579a026b7b139624c4f7595a920797d223e03f77beaced84d33ff6_Support_bootstrap"
+      ],
+      "free_gib": 96,
+      "layout-current/results.json": {
+        "cases": 13,
+        "data": {
+          "arrays": [
+            {
+              "case": "arrays_strings",
+              "inline_string": true,
+              "multidimensional": true,
+              "primitive_kinds": 8,
+              "reference_kind": true
+            }
+          ],
+          "failure": [
+            {
+              "automatic_collections": 0,
+              "case": "described_allocation_failure",
+              "failed_allocation_events": 0,
+              "families": 4
+            }
+          ],
+          "layouts": [
+            {
+              "c_llvm_agreement": 21,
+              "case": "compiler_layouts",
+              "described_kinds": 2,
+              "footer_bytes": 0,
+              "types": 1024
+            }
+          ],
+          "metadata": [
+            {
+              "approximation": false,
+              "budget_bytes": 4096,
+              "case": "metadata_exhaustion",
+              "large_descriptors_before_refusal": 5
+            }
+          ],
+          "overflow": [
+            {
+              "case": "overflow_recovery",
+              "children": 65536,
+              "exact_live": 131073,
+              "free_list_cells_excluded": true,
+              "numeric_targets_reclaimed": 65536
+            }
+          ],
+          "sidecars": [
+            {
+              "administration": 6,
+              "case": "sidecars",
+              "internal": 4,
+              "language": 2,
+              "subsequent_allocation_formula": true
+            }
+          ]
+        },
+        "exit_counts": {
+          "0": 13
+        },
+        "mark_stack_recovery": {
+          "numeric_target_checks": 65536,
+          "overflow_events": 120,
+          "recovery_returned_successfully": true,
+          "stack_entries_at_overflow": [
+            4096
+          ]
+        },
+        "max_sampled_peak_rss_kib": 637156,
+        "sha256": "ca6388253c2f88e3a7f9aab4f65d4deaedbe94b29d5c5d02138608920df46ddf"
+      },
+      "metadata-packaging/results.json": {
+        "cases": 32,
+        "data": {},
+        "exit_counts": {
+          "0": 32
+        },
+        "max_sampled_peak_rss_kib": 52292,
+        "sha256": "aa4873cd5b11f655503f6cf03fec8e6e325f6e76e9adaa23cd13ab22de4947f6"
+      },
+      "native_inputs": {
+        "compiler.sha256": "35d4b414c840ec30abe22bea1fc9870bc21952d35172318ad0ef86c56c1b5542",
+        "foreign.segments.version": "1",
+        "gc.config.sha256": "9abad06077e76cab4b4bedac641caa3705a53e82e5e5759b58106c7d65ecc263",
+        "generation": "19f19b343f579a026b7b139624c4f7595a920797d223e03f77beaced84d33ff6",
+        "layout.version": "1",
+        "memory.abi": "ironwood-native-gc-1",
+        "native.input.adapter.flags": "-std\\u003dc11\\u0020-Wall\\u0020-Wextra\\u0020-Werror\\u0020-fPIC\\u0020-fexceptions\\u0020-fvisibility\\u003dhidden\\u0020-O3",
+        "native.input.bootstrap.template.sha256": "0dd386a05fe87bb2599643b04d81fd82b96abccb165e5bbbea79c671a157bc91",
+        "native.input.clang.version": "clang\\u0020version\\u002023.1.0\\u0020(https\\u003a//github.com/conda-forge/clangdev-feedstock\\u002028ab51758156090b64f141cb7080164e57dbed08)",
+        "native.input.cpu": "default-baseline",
+        "native.input.cpu.tuning": "-mattr\\u003d-slow-unaligned-mem-16",
+        "native.input.distribution": "a31548e13fb63c38f9bf3e0c038c6e982d7829431e1221cd7cf370e5f9f00c3e",
+        "native.input.foreign.segments.version": "1",
+        "native.input.gc.adapter.sha256": "4e4c52f7d20a33590547d219584bf53334898e7699ca04c6b3b53be0040488b7",
+        "native.input.gc.archive.sha256": "83a3bd26b2bb8ff58ca3d4e422c928b11833bde1e984704534ae60c980cfbba3",
+        "native.input.gc.config.sha256": "9abad06077e76cab4b4bedac641caa3705a53e82e5e5759b58106c7d65ecc263",
+        "native.input.gc.isolation": "private-per-image",
+        "native.input.gc.root-reader.sha256": "258026b9085d50de6f8bc3885002da325c708c7379372eda6072157f515fa687",
+        "native.input.gc.sdk.manifest.sha256": "5611a38852e3f785c1e7341e63f55e377712ca15b6f9c51fd50fa858c05d6df6",
+        "native.input.java.projection.sha256": "9c78d7b0b71afafb5e127f689daf676e9afafcd012ff7eeae2313181ca0b0043",
+        "native.input.jdk.jni.sha256": "99e64ebbe749e6df284f852f11b3c73f6ea97baf15120428f40f887fe0616e61",
+        "native.input.jdk.jni_md.sha256": "88cb5c33e306900dd35a78d5a439087123b8e91b0986bb5acb42cc9bd2fcc42e",
+        "native.input.jdk.vendor": "Eclipse\\u0020Adoptium",
+        "native.input.jdk.version": "23.0.2+7",
+        "native.input.layout.version": "1",
+        "native.input.libc": "glibc-2.17",
+        "native.input.link.binding": "now",
+        "native.input.llvm.ir.sha256": "37de15978de1b2df05ff6624920f3a098402162937a0f62e2424ec945e188151",
+        "native.input.llvm.stackmap.version": "3",
+        "native.input.llvm.version": "23.1.0",
+        "native.input.memory.abi": "ironwood-native-gc-1",
+        "native.input.object.adapters.sha256": "a6e47b401c6a2013fbcbff89593eec8ffb96604d9ff0c87de91d95e32b251749",
+        "native.input.optimization": "O3",
+        "native.input.producer.compiler": "35d4b414c840ec30abe22bea1fc9870bc21952d35172318ad0ef86c56c1b5542",
+        "native.input.producer.runtime": "8e2c4e686e291f8f6e67d6707bdd1157c59e6f2caec342fd8de4893cbae778b3",
+        "native.input.roots.version": "3",
+        "native.input.runtime.owner.version": "2",
+        "native.input.support.compile.flags": "--no-default-config\\u0020--sysroot\\u003d<pinned-glibc-2.17>\\u0020--gcc-toolchain\\u003d<pinned-llvm>",
+        "native.input.support.manifest.sha256": "468c18db4b88ec54c95b39e7a0e039133ac2d51de2076b930d2889ca052e286e",
+        "native.input.target.layout": "e-m\\u003ae-p270\\u003a32\\u003a32-p271\\u003a32\\u003a32-p272\\u003a64\\u003a64-i64\\u003a64-i128\\u003a128-f80\\u003a128-n8\\u003a16\\u003a32\\u003a64-S128",
+        "native.input.target.triple": "x86_64-conda-linux-gnu",
+        "projection": "objects-gc-v1",
+        "roots.version": "3",
+        "runtime.owner.version": "2",
+        "runtime.sha256": "8e2c4e686e291f8f6e67d6707bdd1157c59e6f2caec342fd8de4893cbae778b3",
+        "schema": "2"
+      },
+      "objects-isolated/results.json": {
+        "cases": 9,
+        "data": {},
+        "exit_counts": {
+          "0": 9
+        },
+        "max_sampled_peak_rss_kib": 1270544,
+        "sdk_configuration": "9abad06077e76cab4b4bedac641caa3705a53e82e5e5759b58106c7d65ecc263",
+        "sha256": "a4efc826226466e63850d06833411341245ef79dc17dd85931277f27e45466ca"
+      },
+      "owner-current/results.json": {
+        "cases": 65,
+        "data": {
+          "O0-anchors": [
+            {
+              "case": "anchors",
+              "collections": 302,
+              "language_live": 0,
+              "native_resources": 0,
+              "sidecars": 0
+            }
+          ],
+          "O0-carrier": [
+            {
+              "case": "carrier",
+              "collections": 3,
+              "language_live": 0,
+              "native_resources": 0,
+              "sidecars": 0
+            }
+          ],
+          "O0-emergency-steps": [
+            {
+              "case": "emergency-steps",
+              "collections": 17,
+              "language_live": 0,
+              "native_resources": 0,
+              "sidecars": 0
+            }
+          ],
+          "O0-missing-unwind": [
+            {
+              "case": "missing-unwind",
+              "refused_before_collection": true
+            }
+          ],
+          "O0-nested-wrappers": [
+            {
+              "case": "nested-wrappers",
+              "collections": 5,
+              "language_live": 0,
+              "native_resources": 0,
+              "sidecars": 0
+            }
+          ],
+          "O0-oom": [
+            {
+              "case": "oom",
+              "collections": 4,
+              "language_live": 0,
+              "native_resources": 0,
+              "sidecars": 0
+            }
+          ],
+          "O0-pending": [
+            {
+              "case": "pending",
+              "collections": 3,
+              "language_live": 0,
+              "native_resources": 0,
+              "sidecars": 0
+            }
+          ],
+          "O0-preparation-catch": [
+            {
+              "case": "preparation-catch",
+              "caught": true,
+              "native_resources": 0,
+              "subsequent_collection": true
+            }
+          ],
+          "O0-preparation-corrupt": [
+            {
+              "case": "preparation-corrupt",
+              "refused_before_collection": true
+            },
+            {
+              "case": "preparation-corrupt",
+              "native_resources": 0,
+              "refused_before_collection": true
+            }
+          ],
+          "O0-trace-fail": [
+            {
+              "case": "trace-fail",
+              "collections": 8,
+              "language_live": 0,
+              "native_resources": 0,
+              "sidecars": 0
+            }
+          ],
+          "O0-writable-map": [
+            {
+              "case": "writable-map",
+              "refused_before_collection": true
+            }
+          ],
+          "O1-anchors": [
+            {
+              "case": "anchors",
+              "collections": 302,
+              "language_live": 0,
+              "native_resources": 0,
+              "sidecars": 0
+            }
+          ],
+          "O1-carrier": [
+            {
+              "case": "carrier",
+              "collections": 3,
+              "language_live": 0,
+              "native_resources": 0,
+              "sidecars": 0
+            }
+          ],
+          "O1-emergency-steps": [
+            {
+              "case": "emergency-steps",
+              "collections": 17,
+              "language_live": 0,
+              "native_resources": 0,
+              "sidecars": 0
+            }
+          ],
+          "O1-missing-unwind": [
+            {
+              "case": "missing-unwind",
+              "refused_before_collection": true
+            }
+          ],
+          "O1-nested-wrappers": [
+            {
+              "case": "nested-wrappers",
+              "collections": 5,
+              "language_live": 0,
+              "native_resources": 0,
+              "sidecars": 0
+            }
+          ],
+          "O1-oom": [
+            {
+              "case": "oom",
+              "collections": 4,
+              "language_live": 0,
+              "native_resources": 0,
+              "sidecars": 0
+            }
+          ],
+          "O1-pending": [
+            {
+              "case": "pending",
+              "collections": 3,
+              "language_live": 0,
+              "native_resources": 0,
+              "sidecars": 0
+            }
+          ],
+          "O1-preparation-catch": [
+            {
+              "case": "preparation-catch",
+              "caught": true,
+              "native_resources": 0,
+              "subsequent_collection": true
+            }
+          ],
+          "O1-preparation-corrupt": [
+            {
+              "case": "preparation-corrupt",
+              "refused_before_collection": true
+            },
+            {
+              "case": "preparation-corrupt",
+              "native_resources": 0,
+              "refused_before_collection": true
+            }
+          ],
+          "O1-trace-fail": [
+            {
+              "case": "trace-fail",
+              "collections": 8,
+              "language_live": 0,
+              "native_resources": 0,
+              "sidecars": 0
+            }
+          ],
+          "O1-writable-map": [
+            {
+              "case": "writable-map",
+              "refused_before_collection": true
+            }
+          ],
+          "O2-anchors": [
+            {
+              "case": "anchors",
+              "collections": 302,
+              "language_live": 0,
+              "native_resources": 0,
+              "sidecars": 0
+            }
+          ],
+          "O2-carrier": [
+            {
+              "case": "carrier",
+              "collections": 3,
+              "language_live": 0,
+              "native_resources": 0,
+              "sidecars": 0
+            }
+          ],
+          "O2-emergency-steps": [
+            {
+              "case": "emergency-steps",
+              "collections": 17,
+              "language_live": 0,
+              "native_resources": 0,
+              "sidecars": 0
+            }
+          ],
+          "O2-missing-unwind": [
+            {
+              "case": "missing-unwind",
+              "refused_before_collection": true
+            }
+          ],
+          "O2-nested-wrappers": [
+            {
+              "case": "nested-wrappers",
+              "collections": 5,
+              "language_live": 0,
+              "native_resources": 0,
+              "sidecars": 0
+            }
+          ],
+          "O2-oom": [
+            {
+              "case": "oom",
+              "collections": 4,
+              "language_live": 0,
+              "native_resources": 0,
+              "sidecars": 0
+            }
+          ],
+          "O2-pending": [
+            {
+              "case": "pending",
+              "collections": 3,
+              "language_live": 0,
+              "native_resources": 0,
+              "sidecars": 0
+            }
+          ],
+          "O2-preparation-catch": [
+            {
+              "case": "preparation-catch",
+              "caught": true,
+              "native_resources": 0,
+              "subsequent_collection": true
+            }
+          ],
+          "O2-preparation-corrupt": [
+            {
+              "case": "preparation-corrupt",
+              "refused_before_collection": true
+            },
+            {
+              "case": "preparation-corrupt",
+              "native_resources": 0,
+              "refused_before_collection": true
+            }
+          ],
+          "O2-trace-fail": [
+            {
+              "case": "trace-fail",
+              "collections": 8,
+              "language_live": 0,
+              "native_resources": 0,
+              "sidecars": 0
+            }
+          ],
+          "O2-writable-map": [
+            {
+              "case": "writable-map",
+              "refused_before_collection": true
+            }
+          ],
+          "O3-anchors": [
+            {
+              "case": "anchors",
+              "collections": 302,
+              "language_live": 0,
+              "native_resources": 0,
+              "sidecars": 0
+            }
+          ],
+          "O3-carrier": [
+            {
+              "case": "carrier",
+              "collections": 3,
+              "language_live": 0,
+              "native_resources": 0,
+              "sidecars": 0
+            }
+          ],
+          "O3-emergency-steps": [
+            {
+              "case": "emergency-steps",
+              "collections": 17,
+              "language_live": 0,
+              "native_resources": 0,
+              "sidecars": 0
+            }
+          ],
+          "O3-missing-unwind": [
+            {
+              "case": "missing-unwind",
+              "refused_before_collection": true
+            }
+          ],
+          "O3-nested-wrappers": [
+            {
+              "case": "nested-wrappers",
+              "collections": 5,
+              "language_live": 0,
+              "native_resources": 0,
+              "sidecars": 0
+            }
+          ],
+          "O3-oom": [
+            {
+              "case": "oom",
+              "collections": 4,
+              "language_live": 0,
+              "native_resources": 0,
+              "sidecars": 0
+            }
+          ],
+          "O3-pending": [
+            {
+              "case": "pending",
+              "collections": 3,
+              "language_live": 0,
+              "native_resources": 0,
+              "sidecars": 0
+            }
+          ],
+          "O3-preparation-catch": [
+            {
+              "case": "preparation-catch",
+              "caught": true,
+              "native_resources": 0,
+              "subsequent_collection": true
+            }
+          ],
+          "O3-preparation-corrupt": [
+            {
+              "case": "preparation-corrupt",
+              "refused_before_collection": true
+            },
+            {
+              "case": "preparation-corrupt",
+              "native_resources": 0,
+              "refused_before_collection": true
+            }
+          ],
+          "O3-trace-fail": [
+            {
+              "case": "trace-fail",
+              "collections": 8,
+              "language_live": 0,
+              "native_resources": 0,
+              "sidecars": 0
+            }
+          ],
+          "O3-writable-map": [
+            {
+              "case": "writable-map",
+              "refused_before_collection": true
+            }
+          ]
+        },
+        "exit_counts": {
+          "0": 57,
+          "86": 8
+        },
+        "max_sampled_peak_rss_kib": 1084720,
+        "owner_abi": "ironwood-gc-runtime-1",
+        "root_abi": "ironwood-gc-roots-2",
+        "sdk_configuration": "9abad06077e76cab4b4bedac641caa3705a53e82e5e5759b58106c7d65ecc263",
+        "sha256": "ae10fa7d8cbd8a07921a1405db66db3a09e80e77976e3b072a9ef72bdc4ae528"
+      },
+      "production-images-hidden/results.json": {
+        "cases": 4,
+        "data": {},
+        "exit_counts": {
+          "0": 4
+        },
+        "max_sampled_peak_rss_kib": 1790872,
+        "sdk_configuration": "9abad06077e76cab4b4bedac641caa3705a53e82e5e5759b58106c7d65ecc263",
+        "sha256": "f32c0190ffcfba523343ea73e82719a18fca9ecba1ab1a50fc3eb94ee23e644b"
+      },
+      "segments-schema2/results.json": {
+        "cases": 34,
+        "data": {
+          "O3-transition-performance": [
+            {
+              "calls": 20000,
+              "scalar_ns": 4094543,
+              "transition_ns": 18649608
+            }
+          ]
+        },
+        "exit_counts": {
+          "0": 22,
+          "86": 12
+        },
+        "max_sampled_peak_rss_kib": 516264,
+        "owner_abi": 2,
+        "root_abi": 3,
+        "sdk_configuration": "9abad06077e76cab4b4bedac641caa3705a53e82e5e5759b58106c7d65ecc263",
+        "sha256": "81aa3f78f97c377051ba7755cec14fbc539a43d8c2c0a6345e37aecef355a4de"
+      }
+    },
+    "jdk_critical_and_assembly_producer": "Temurin 23.0.2+7",
+    "jdk_jni": "OpenJDK 21.0.10-internal",
+    "raw_base": "workspace/gc6-qualification-20261105",
+    "target": "linux-x86_64"
+  }
+}

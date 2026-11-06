@@ -36,7 +36,9 @@ constructor throws. Failed construction does not run managed rollback. A caller
 must still close native acquisitions on exceptional paths and obey initialization
 and native lifetime rules. Collection does not promise any source destruction.
 
-Root ABI 2, runtime-owner ABI 1, exact source/runtime layouts, qualified target
+Ordinary executables use root ABI 2 / runtime-owner ABI 1. GC6 managed libraries
+use root ABI 3 / runtime-owner ABI 2 and saved foreign segments version 1. Exact
+source/runtime layouts, qualified target
 configuration and the required LLVM 23 nonmoving statepoint pass are bound into
 the verified inputs and image. Missing, corrupt or incompatible metadata refuses
 before reclamation. Root scratch exhaustion validates the remaining metadata,
@@ -98,12 +100,14 @@ scratch and fixed image objects are outside these language counts.
 ## Temporary boundaries
 
 Normal source, class and archive compilation and the entire main/testing library
-are supported. Native bridge and shared-library output refuse until GC6 qualifies
-roots, generated cleanup, foreign transitions and JNI ownership. No RootHandle or
-listener migration is implemented here. Linux arm64 and arm64e remain gated.
-The [incomplete GC6 checkpoint](GC6_IMPLEMENTATION.md) separates internal carrier
-JNI completion from managed reclamation and describes its limited verification;
-it does not qualify foreign transitions or change these output refusals.
+are supported. [GC6 managed bridges](GC6_IMPLEMENTATION.md) are qualified on macOS
+arm64 and Linux x86-64. Generated RootHandle anchors and ListenerRegistration
+ownership are explicit and independent of source closure and collection. Exact
+current/suspended segments cover collecting JVM reentry without unwinding Java.
+Every independent native image owns its collector and roots. Schema 2 binds
+required protocol versions and actual SDK/payload hashes before user execution.
+Raw shared IR, unknown foreign lifetimes, async callbacks and raw cross-image
+managed references remain unsupported. Linux arm64 and arm64e remain gated.
 GC7 owns remaining repository consumer migration and broad dead-code removal;
 GC8 owns whole-project performance and resident-memory acceptance. GC5 does not
 claim completion of the complete GC project or self-hosting readiness.

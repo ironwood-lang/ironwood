@@ -79,8 +79,8 @@ final class BridgeSecondaryRetentionTests {
                         }
                     }
                     """)));
-            check(!unsafe.valid() && unsafe.diagnostics().stream().anyMatch(diagnostic -> diagnostic.message().contains("cannot free 'value'")),
-                    "caught provenance weakened free proof: " + unsafe.diagnostics());
+            check(!unsafe.valid() && unsafe.diagnostics().stream().anyMatch(diagnostic -> diagnostic.message().contains("source free has been removed")),
+                    "caught alias bypassed the managed-deallocation migration boundary: " + unsafe.diagnostics());
         }
         var analyzed = new CompilerPipeline(UnfreedMode.OFF).analyzeForBridge(List.of(SourceFile.of("Effects.iron", SOURCE)));
         var original = analyzed.program().orElseThrow();

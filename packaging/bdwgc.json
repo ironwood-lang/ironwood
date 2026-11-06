@@ -60,5 +60,8 @@
       "isolation": "ELF hidden definitions; local:* version map; -Bsymbolic; --exclude-libs,ALL"
     }
   },
-  "runtime.owner.version": 1
+  "runtime.owner.version": 1,
+  "foreign.roots.version": 3,
+  "foreign.runtime.owner.version": 2,
+  "foreign.segments.version": 1
 }

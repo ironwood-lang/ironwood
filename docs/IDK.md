@@ -4,8 +4,10 @@
 GC5 migration-branch status: normal executables use the single exact managed
 heap and explicit synchronous Memory.collect(). Source reclamation and managed
 destruction are removed. Historical manual-heap descriptions below are superseded
-by [the GC5 contract](MEMORY.md). Native bridge/shared-library output remains refused
-until GC6. Packaging/distribution and other-target qualification remain GC9 work.
+by [the GC5 contract](MEMORY.md). [GC6 managed bridges](GC6_IMPLEMENTATION.md) qualify
+macOS arm64 and Linux x86-64 with separate root ABI 3 / owner ABI 2 and isolated
+collector images. Full IDK/distribution and other-target qualification remain GC9
+work. Ordinary executables retain root ABI 2 / owner ABI 1.
 The selected GC SDK is staged at toolchain/ironwood-gc, with verified source,
 licenses, root/owner ABIs and exact build identities.
 
@@ -406,5 +408,6 @@ No dependency is downloaded by normal linking or offline verification.
 
 Prepare pinned BDWGC 8.2.12 with scripts/prepare-gc.py. GC5's exact profile keeps
 USE_MARK_BYTES=1. See [the current implementation report](GC5_IMPLEMENTATION.md).
-Full IDK/native distribution qualification remains GC9, and bridge output remains
-refused until GC6. Linux arm64 and arm64e remain unqualified.
+Full IDK/native distribution qualification remains GC9. GC6 paired bridges
+bind their separate root/owner/segment protocol and actual GC SDK payload hashes;
+paired artifacts include complete BDWGC source/notices. Linux arm64 and arm64e remain unqualified.

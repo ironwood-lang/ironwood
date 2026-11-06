@@ -48,10 +48,11 @@ public final class Main {
             return 0;
         }
 
-        if (java.util.Arrays.stream(args).anyMatch(argument -> argument.startsWith("--java-bridge"))) {
-            err.println("error: GC6 boundary: native bridge/shared-library outputs are not qualified for managed roots and foreign transitions");
-            return 1;
-        }
+        var arguments = java.util.Arrays.asList(args);
+        if (arguments.contains("--java-bridge-values")) return BridgeValuesLibrary.run(args, out, err);
+        if (arguments.contains("--java-bridge-assemble")) return BridgeAssembler.run(args, out, err);
+        if (arguments.contains("--java-bridge-distribution")) return BridgeDistributionCommand.run(args, out, err);
+        if (arguments.contains("--java-bridge")) return BridgeProducerCommand.run(args, out, err);
 
         CommandLine commandLine = CommandLine.parse(args, err);
         if (commandLine == null) {

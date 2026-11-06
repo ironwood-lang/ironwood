@@ -155,10 +155,33 @@ public final class BridgeCriticalSources {
 
     /** Appended after the JNI adapters, whose failure translation it reuses. */
     static String nativeSupport(int count) {
+        return nativeSupport(count, false);
+    }
+
+    static String nativeSupport(int count, boolean managed) {
         var table = new StringBuilder();
         for (int index = 0; index < count; index++) table.append(index == 0 ? "" : ", ").append("(void *)iw_critical_").append(index);
-        return NATIVE.replace("@TABLE@", table).replace("@COUNT@", Integer.toString(count));
+        String source = NATIVE.replace("@TABLE@", table).replace("@COUNT@", Integer.toString(count));
+        if (!managed) return source;
+        return source.replace("iw_critical_pending.status = 0; iw_critical_pending.exception = NULL;",
+                "void *slots[] = {&exception}; struct iw_gc_foreign_root roots __attribute__((cleanup(iw_gc_foreign_root_close))) = {0};\n"
+                + "    if (!iw_gc_foreign_root_open(&roots, slots, 1)) iw_gc_transition_refuse();\n"
+                + "    iw_critical_pending.status = 0; iw_critical_pending.exception = NULL; iw_gc_foreign_root_close(&iw_critical_pending.root);")
+                .replace("__atomic_fetch_sub(&iw_critical_failures, 1, __ATOMIC_SEQ_CST);", "iw_critical_failures = 0;");
     }
+
+    /** The existing serialization contract permits image state, with administration on failure only. */
+    static final String MANAGED_FAILURE = """
+            static int32_t iw_critical_failures;
+            static struct { int32_t status; void *exception, *slot; struct iw_gc_foreign_root root; } iw_critical_pending;
+            __attribute__((noinline, cold)) static void iw_critical_failure(int32_t status, void *exception) {
+                if (iw_critical_pending.status == 0) {
+                    iw_critical_pending.slot = &iw_critical_pending.exception;
+                    if (!iw_gc_foreign_root_open(&iw_critical_pending.root, &iw_critical_pending.slot, 1)) iw_gc_transition_refuse();
+                }
+                iw_critical_pending.status = status; iw_critical_pending.exception = exception; iw_critical_failures = 1;
+            }
+            """;
 
     /** Precedes the critical adapters. Only a failing call touches thread-local storage. */
     static final String NATIVE_FAILURE = """

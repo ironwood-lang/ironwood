@@ -152,8 +152,9 @@ destruction or managed constructor rollback. Removed syntax, `--unfreed`,
 `--explain-rejected-free` and `@SuppressUnfreed` produce migration diagnostics.
 Close files and sockets explicitly; collection never closes them. See
 [Memory management](docs/MEMORY_MANAGEMENT.md) for scheduling and reuse guidance.
-Native bridge/shared-library output remains refused until GC6, and Linux arm64
-and arm64e remain unqualified. Old repository consumers using reclamation syntax
+GC6 managed bridges are qualified on macOS arm64 and Linux x86-64 with explicit
+[RootHandle and listener registration lifetimes](docs/GC6_IMPLEMENTATION.md).
+Linux arm64 and arm64e remain unqualified. Old repository consumers using reclamation syntax
 are scheduled for GC7 migration; self-hosting has not restarted.
 
 ## Deterministic Cleanup with `defer`
@@ -251,7 +252,14 @@ See the [TCP client/server guide](docs/SIMPLE_TCP_ECHO.md) for more details and 
 
 ## Transparent Java Bridge
 
-Ironwood native libraries can be called from Java through the Java Bridge. Compile the Ironwood classes as usual into machine code, then run `ironwoodc --java-bridge` on them: it produces a jar for the current platform that contains the native library and Java classes with the same API, and those classes load the native code themselves. A Java program puts the jar on its classpath and calls the classes like any other Java library, with no JNI code to write; it can also pass listeners that the native code calls back. The [step-by-step example](docs/JAVA_BRIDGE_EXAMPLE.md) builds a small counter library and calls it from Java.
+Ironwood native libraries can be called from Java through the Java Bridge. GC6
+uses Roots constructor factories, independent RootHandle results and preacquired
+ListenerRegistration owners for retaining calls. Source methods preserve their
+behavior; anchor release never closes resources. See the [current API migration
+and qualified platforms](docs/GC6_IMPLEMENTATION.md). The older example and
+measurements below await GC7 consumer migration and do not qualify GC6 performance.
+
+Run `ironwoodc --java-bridge` on source or compiled Ironwood inputs to produce a host jar containing the native image and Java facades. Java consumers need no handwritten JNI. The [step-by-step example](docs/JAVA_BRIDGE_EXAMPLE.md) records the earlier API; use the GC6 lifetime projection when adapting it.
 
 ## Performance Benchmark
 

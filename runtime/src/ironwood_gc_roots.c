@@ -53,6 +53,10 @@ static struct iw_gc_root_config configuration;
 static void **scratch;
 static size_t root_count, last_count, last_frames, max_frames;
 static int started;
+static struct iw_gc_segment *active_segment;
+static struct iw_gc_foreign_root *foreign_roots;
+static size_t foreign_root_count;
+static int segment_failure;
 static int scratch_exhausted;
 static void (*preparation_oom)(void);
 extern const uint32_t iw_gc_root_abi;
@@ -297,6 +301,10 @@ static int slot_table(void *const *slots, size_t count) {
 }
 
 void iw_gc_roots_stop(void) {
+    if (active_segment != NULL || foreign_roots != NULL) {
+        fputs("GC root shutdown refused with an active foreign segment\n", stderr);
+        exit(86);
+    }
     if (started) (void)iw_gc_roots(NULL, 0);
     if (scratch != NULL) memset(scratch, 0, configuration.scratch_capacity * sizeof(void *));
     free(scratch); free(records);
@@ -312,11 +320,11 @@ int iw_gc_roots_start(const struct iw_gc_root_config *config) {
     const uint16_t endian = 1;
 #if !(defined(__APPLE__) && defined(__aarch64__) && !defined(__arm64e__)) \
         && !(defined(__linux__) && defined(__x86_64__))
-    if (config != NULL && config->version == 2) return 0; /* GC4 native qualification gate. */
+    if (config != NULL && config->version >= 2) return 0; /* Native qualification gate. */
 #endif
     if (started || !IW_ROOT_TARGET_QUALIFIED || config == NULL || !iw_gc_snapshot().disabled
             || sizeof(void *) != 8 || *(const unsigned char *)&endian != 1
-            || (config->version != 1 && config->version != 2) || config->pointer_bytes != 8 || config->little_endian != 1
+            || (config->version < 1 || config->version > 3) || config->pointer_bytes != 8 || config->little_endian != 1
             || config->stackmap_version != 3 || iw_gc_root_abi != config->version || config->native_boundary == NULL
             || config->static_slots != iw_gc_static_roots || config->static_count != iw_gc_static_root_count
             || config->native_slots != iw_gc_native_roots || config->native_count != iw_gc_native_root_count
@@ -326,6 +334,8 @@ int iw_gc_roots_start(const struct iw_gc_root_config *config) {
             || config->foreign_owners || config->owners != NULL)) return 0;
     if (config->version == 2 && (iw_gc_owner_requirements != 7 || config->exception_owners != 3
             || config->foreign_owners != 4 || config->owners == NULL)) return 0;
+    if (config->version == 3 && (iw_gc_owner_requirements != 15 || config->exception_owners != 3
+            || config->foreign_owners != 12 || config->owners == NULL)) return 0;
     configuration = *config;
     if (!image_maps(&map, &bytes) || !map_integrity(map, bytes) || !parse_maps(map, bytes)
             || !in_image((uintptr_t)config->native_boundary, 1, 0, 1)
@@ -333,16 +343,17 @@ int iw_gc_roots_start(const struct iw_gc_root_config *config) {
             || !slot_table(config->native_slots, config->native_count)) {
         iw_gc_roots_stop(); return 0;
     }
-    if (config->version == 2 && (!in_image((uintptr_t)config->owners, sizeof(*config->owners), 0, 0)
-            || config->owners->version != 1 || config->owners->coverage != iw_gc_owner_requirements
-            || config->owners->foreign_segments || config->owners->reserved
+    if (config->version >= 2 && (!in_image((uintptr_t)config->owners, sizeof(*config->owners), 0, 0)
+            || config->owners->version != (config->version == 3 ? 2u : 1u)
+            || config->owners->coverage != iw_gc_owner_requirements
+            || config->owners->foreign_segments != (config->version == 3 ? 1u : 0u) || config->owners->reserved
             || !in_image((uintptr_t)config->owners->enumerate, 1, 0, 1)
             || config->owners->immortal_count > IW_MAX_MAP_ITEMS
             || !in_image((uintptr_t)config->owners->immortal_bases,
                     config->owners->immortal_count * sizeof(void *), 0, 0))) {
         iw_gc_roots_stop(); return 0;
     }
-    if (config->version == 2) for (size_t i = 0; i < config->owners->immortal_count; ++i) {
+    if (config->version >= 2) for (size_t i = 0; i < config->owners->immortal_count; ++i) {
         if (!in_image((uintptr_t)config->owners->immortal_bases[i], sizeof(void *), 0, 0)) {
             iw_gc_roots_stop(); return 0;
         }
@@ -354,7 +365,7 @@ int iw_gc_roots_start(const struct iw_gc_root_config *config) {
 }
 
 int iw_gc_roots_set_preparation_oom(void (*raise)(void)) {
-    if (!started || configuration.version != 2 || preparation_oom != NULL
+    if (!started || configuration.version < 2 || preparation_oom != NULL
             || raise == NULL || !in_image((uintptr_t)raise, 1, 0, 1)) return 0;
     preparation_oom = raise;
     return 1;
@@ -427,6 +438,259 @@ static const struct root_record *caller_record(uintptr_t pc, uintptr_t function)
     return NULL;
 }
 
+struct iw_gc_saved_frame {
+    const struct root_record *record;
+    struct root_cursor cursor;
+    uintptr_t high;
+};
+struct segment_capture {
+    struct iw_gc_segment *segment;
+    uintptr_t transition;
+    size_t steps;
+    int passed, complete;
+};
+#ifdef IW_GC_ROOT_FAILURE_TESTS
+/* Qualification only; absent from ordinary runtime objects. */
+size_t iw_gc_test_capture_failure;
+#endif
+
+/* Mach-O compact unwind may coalesce adjacent native helper functions. The
+ * range identifies code coverage; exact managed callers still require their
+ * own immutable return-PC/function map. ELF provides the exact FDE start. */
+static int covers_code(uintptr_t pc, uintptr_t function, uintptr_t limit, uintptr_t code) {
+    return function == code || (limit > function && function <= code && code <= pc && pc < limit
+            && in_image(limit - 1, 1, 0, 1));
+}
+
+static int boundary_state(const struct iw_gc_segment *segment, uintptr_t sp, uintptr_t fp) {
+#if defined(__linux__) && defined(__x86_64__)
+    return fp == segment->boundary_sp && sp <= fp && fp - sp <= 16 * 1024 * 1024;
+#else
+    (void)fp;
+    return sp == segment->boundary_sp;
+#endif
+}
+
+/* This inventory contains machine state only. Managed values are neither read
+ * nor registered until an explicit collection revisits the suspended segment.
+ */
+static int capture_frame(struct segment_capture *walk, uintptr_t pc, uintptr_t function,
+        uintptr_t sp, uintptr_t fp, uintptr_t limit) {
+    struct iw_gc_segment *segment = walk->segment;
+#ifdef IW_GC_ROOT_DIAGNOSTICS
+    fprintf(stderr, "GC6 capture step=%zu pc=%p function=%p transition=%p boundary=%p sp=%p expected=%p mapped=%p\n",
+            walk->steps, (void *)pc, (void *)function, (void *)walk->transition, (void *)(uintptr_t)configuration.native_boundary,
+            (void *)sp, (void *)segment->boundary_sp, (void *)caller_record(pc, function));
+#endif
+    if (++walk->steps > IW_MAX_MAP_ITEMS || !in_image(function, 1, 0, 1)) return 0;
+    if (segment->count != 0) {
+        struct iw_gc_saved_frame *pending = &segment->frames[segment->count - 1];
+        if (sp <= pending->cursor.sp || sp - pending->cursor.sp > 16 * 1024 * 1024) return 0;
+        pending->high = sp;
+    }
+    if (covers_code(pc, function, limit, walk->transition)) walk->passed = 1;
+    if (covers_code(pc, function, limit, (uintptr_t)configuration.native_boundary)
+            && boundary_state(segment, sp, fp)) {
+        walk->complete = walk->passed && segment->count != 0;
+        segment->boundary_frame_sp = sp;
+        return 0;
+    }
+    if (sp >= segment->boundary_sp) {
+        return 0;
+    }
+    const struct root_record *record = caller_record(pc, function);
+    if (record == NULL && segment->count == 0) {
+        /* A generated JNI helper may have intervening native adapter frames.
+         * The complete immutable LLVM catalog distinguishes them from a managed
+         * frame missing its required map. Never skip an unmapped managed frame.
+         */
+        for (uint64_t i = 0; i < iw_gc_function_catalog_count; ++i)
+            if (iw_gc_function_catalog[i].address == function) return 0;
+        return walk->steps < 128;
+    }
+    if (record == NULL || sp >= segment->boundary_sp) return 0;
+    if (segment->count == segment->capacity) {
+#ifdef IW_GC_ROOT_FAILURE_TESTS
+        if (iw_gc_test_capture_failure && --iw_gc_test_capture_failure == 0) {
+            segment_failure = IW_GC_SEGMENT_OOM; return 0;
+        }
+#endif
+        size_t next = segment->capacity ? segment->capacity * 2 : 16;
+        if (next > IW_MAX_MAP_ITEMS || next > SIZE_MAX / sizeof(*segment->frames)) { segment_failure = IW_GC_SEGMENT_OOM; return 0; }
+        void *frames = realloc(segment->frames, next * sizeof(*segment->frames));
+        if (frames == NULL) { segment_failure = IW_GC_SEGMENT_OOM; return 0; }
+        segment->frames = frames;
+        segment->capacity = next;
+    }
+    segment->frames[segment->count++] = (struct iw_gc_saved_frame){record, {sp, fp}, 0};
+    return 1;
+}
+
+#if defined(__linux__) && defined(__x86_64__)
+static _Unwind_Reason_Code capture_elf_frame(struct _Unwind_Context *context, void *argument) {
+    return capture_frame(argument, (uintptr_t)_Unwind_GetIP(context), (uintptr_t)_Unwind_GetRegionStart(context),
+            (uintptr_t)_Unwind_GetCFA(context), (uintptr_t)_Unwind_GetGR(context, 6), 0) ? _URC_NO_REASON : _URC_END_OF_STACK;
+}
+#endif
+
+__attribute__((noinline)) static int capture_segment(struct segment_capture *walk) {
+#if defined(__APPLE__) && defined(__aarch64__)
+    unw_context_t context;
+    unw_cursor_t cursor;
+    if (unw_getcontext(&context) != 0 || unw_init_local(&cursor, &context) != 0) return 0;
+    for (;;) {
+        unw_word_t pc, sp, fp;
+        unw_proc_info_t info;
+        if (unw_get_reg(&cursor, UNW_REG_IP, &pc) != 0 || unw_get_reg(&cursor, UNW_REG_SP, &sp) != 0
+                || unw_get_reg(&cursor, 29, &fp) != 0 || unw_get_proc_info(&cursor, &info) != 0) return 0;
+        if (!capture_frame(walk, (uintptr_t)pc, (uintptr_t)info.start_ip, (uintptr_t)sp, (uintptr_t)fp, (uintptr_t)info.end_ip)) break;
+        if (unw_step(&cursor) <= 0) return 0;
+    }
+#elif defined(__linux__) && defined(__x86_64__)
+    (void)_Unwind_Backtrace(capture_elf_frame, walk);
+#else
+    (void)walk;
+    return 0;
+#endif
+    return walk->complete;
+}
+
+static uint64_t frame_state_hash(const struct iw_gc_segment *segment) {
+    uint64_t hash = UINT64_C(0xcbf29ce484222325);
+    hash = (hash ^ segment->boundary_sp) * UINT64_C(0x100000001b3);
+    hash = (hash ^ segment->boundary_frame_sp) * UINT64_C(0x100000001b3);
+    hash = (hash ^ (uintptr_t)segment->previous) * UINT64_C(0x100000001b3);
+    hash = (hash ^ segment->count) * UINT64_C(0x100000001b3);
+    for (size_t i = 0; i < segment->count; ++i) {
+        const struct iw_gc_saved_frame *frame = &segment->frames[i];
+        hash = (hash ^ (uintptr_t)frame->record) * UINT64_C(0x100000001b3);
+        hash = (hash ^ frame->cursor.sp) * UINT64_C(0x100000001b3);
+        hash = (hash ^ frame->cursor.fp) * UINT64_C(0x100000001b3);
+        hash = (hash ^ frame->high) * UINT64_C(0x100000001b3);
+    }
+    return hash;
+}
+
+int iw_gc_segment_enter(struct iw_gc_segment *segment, uintptr_t boundary_sp) {
+    segment_failure = IW_GC_SEGMENT_INVALID;
+    if (!started || configuration.version != 3 || segment == NULL || segment->state
+            || segment->frames != NULL || segment->previous != NULL || segment->count || segment->capacity
+            || segment->boundary_sp || segment->boundary_frame_sp || segment->state_hash || boundary_sp == 0 || boundary_sp % 16
+            || (active_segment != NULL && (active_segment->state != 2 || boundary_sp >= active_segment->boundary_sp))) return 0;
+    segment->boundary_sp = boundary_sp;
+    segment->previous = active_segment;
+    segment->state = 1;
+    active_segment = segment;
+    segment_failure = IW_GC_SEGMENT_OK;
+    return 1;
+}
+
+int iw_gc_segment_suspend(struct iw_gc_segment *segment, void (*transition)(void)) {
+    segment_failure = IW_GC_SEGMENT_INVALID;
+    if (segment == NULL || segment != active_segment || segment->state != 1
+            || !in_image((uintptr_t)transition, 1, 0, 1)) return 0;
+    segment->count = 0;
+    struct segment_capture walk = {.segment = segment, .transition = (uintptr_t)transition};
+    if (!capture_segment(&walk)) { segment->count = 0; return 0; }
+    segment->state_hash = frame_state_hash(segment);
+    segment->state = 2;
+    segment_failure = IW_GC_SEGMENT_OK;
+    return 1;
+}
+
+int iw_gc_segment_resume(struct iw_gc_segment *segment) {
+    if (segment == NULL || segment != active_segment || segment->state != 2
+            || segment->count > segment->capacity || segment->count > IW_MAX_MAP_ITEMS
+            || frame_state_hash(segment) != segment->state_hash) return 0;
+    segment->state = 1;
+    segment->count = 0;
+    segment->state_hash = 0;
+    return 1;
+}
+
+int iw_gc_segment_leave(struct iw_gc_segment *segment) {
+    if (segment == NULL || segment != active_segment || segment->state != 1 || segment->count) return 0;
+    active_segment = segment->previous;
+    free(segment->frames);
+    *segment = (struct iw_gc_segment){0};
+    return 1;
+}
+
+struct iw_gc_segment *iw_gc_segment_current(void) { return active_segment; }
+int iw_gc_segment_failure(void) { return segment_failure; }
+
+int iw_gc_foreign_root_open(struct iw_gc_foreign_root *root, void *const *slots, size_t count) {
+    if (!started || configuration.version != 3 || root == NULL || root->active || count > IW_MAX_MAP_ITEMS
+            || (count && slots == NULL)) return 0;
+    for (size_t i = 0; i < count; ++i) if (slots[i] == NULL || (uintptr_t)slots[i] % sizeof(void *)) return 0;
+    root->previous = NULL;
+    root->next = foreign_roots;
+    root->slots = slots;
+    root->count = count;
+    if (foreign_roots != NULL) foreign_roots->previous = root;
+    foreign_roots = root;
+    root->active = 1;
+    ++foreign_root_count;
+    return 1;
+}
+
+void iw_gc_foreign_root_close(struct iw_gc_foreign_root *root) {
+    if (root == NULL || !root->active) return;
+    if (root->previous != NULL) root->previous->next = root->next;
+    else foreign_roots = root->next;
+    if (root->next != NULL) root->next->previous = root->previous;
+    *root = (struct iw_gc_foreign_root){0};
+    --foreign_root_count;
+}
+
+size_t iw_gc_foreign_root_count(void) { return foreign_root_count; }
+
+static int scan_foreign_roots(void) {
+    size_t count = 0;
+    const struct iw_gc_foreign_root *previous = NULL;
+    for (const struct iw_gc_foreign_root *root = foreign_roots; root != NULL; root = root->next) {
+        if (++count > foreign_root_count || !root->active || root->previous != previous
+                || root->count > IW_MAX_MAP_ITEMS || (root->count && root->slots == NULL)) return 0;
+        for (size_t i = 0; i < root->count; ++i) {
+            uintptr_t base;
+            if (root->slots[i] == NULL || (uintptr_t)root->slots[i] % sizeof(void *)) return 0;
+            memcpy(&base, root->slots[i], sizeof(base));
+            if (!append_root(base)) return 0;
+        }
+        previous = root;
+    }
+    return count == foreign_root_count;
+}
+
+static int current_boundary(uintptr_t pc, uintptr_t function, uintptr_t limit, uintptr_t sp, uintptr_t fp) {
+    if (configuration.version != 3) return function == (uintptr_t)configuration.native_boundary;
+    return active_segment != NULL && active_segment->state == 1
+            && covers_code(pc, function, limit, (uintptr_t)configuration.native_boundary)
+            && boundary_state(active_segment, sp, fp);
+}
+
+static int scan_suspended_segments(void) {
+    if (configuration.version != 3) return active_segment == NULL;
+    if (active_segment == NULL || active_segment->state != 1) return 0;
+    size_t segments = 0;
+    for (const struct iw_gc_segment *segment = active_segment->previous; segment != NULL; segment = segment->previous) {
+        if (++segments > IW_MAX_MAP_ITEMS || segment->state != 2 || segment->count > segment->capacity
+                || segment->count > IW_MAX_MAP_ITEMS || (segment->count && segment->frames == NULL)
+                || frame_state_hash(segment) != segment->state_hash) return 0;
+        for (size_t i = 0; i < segment->count; ++i) {
+            const struct iw_gc_saved_frame *frame = &segment->frames[i];
+            uintptr_t record = (uintptr_t)frame->record;
+            if (record < (uintptr_t)records || record - (uintptr_t)records >= record_count * sizeof(*records)
+                    || (record - (uintptr_t)records) % sizeof(*records)
+                    || frame->high != (i + 1 < segment->count ? segment->frames[i + 1].cursor.sp : segment->boundary_frame_sp)
+                    || segment->boundary_frame_sp > segment->boundary_sp
+                    || !scan_frame(&frame->cursor, frame->record, frame->cursor.sp, frame->high)) return 0;
+            ++last_frames;
+        }
+    }
+    return 1;
+}
+
 #if defined(__linux__) && defined(__x86_64__)
 struct elf_walk {
     const struct root_record *pending;
@@ -456,7 +720,8 @@ static _Unwind_Reason_Code elf_frame(struct _Unwind_Context *context, void *argu
         if (!scan_frame(&walk->cursor, walk->pending, walk->cursor.sp, sp)) return _URC_END_OF_STACK;
         ++last_frames;
     }
-    if (function == (uintptr_t)configuration.native_boundary) {
+    uintptr_t boundary_fp = function == (uintptr_t)configuration.native_boundary ? (uintptr_t)_Unwind_GetGR(context, 6) : 0;
+    if (current_boundary(pc, function, 0, sp, boundary_fp)) {
         walk->complete = 1;
         return _URC_END_OF_STACK;
     }
@@ -499,7 +764,7 @@ __attribute__((noinline)) void iw_gc_experiment_collect(void) {
         reason = "unwind registers/coverage";
         if (unw_get_reg(&cursor, UNW_REG_IP, &pc) != 0 || unw_get_reg(&cursor, UNW_REG_SP, &sp) != 0
                 || unw_get_proc_info(&cursor, &info) != 0) goto refused;
-        if (info.start_ip == (unw_word_t)(uintptr_t)configuration.native_boundary) { complete = 1; break; }
+        if (current_boundary((uintptr_t)pc, (uintptr_t)info.start_ip, (uintptr_t)info.end_ip, (uintptr_t)sp, 0)) { complete = 1; break; }
         const struct root_record *record = caller_record((uintptr_t)pc, (uintptr_t)info.start_ip);
 #ifdef IW_GC_ROOT_DIAGNOSTICS
         fprintf(stderr, "GC3 frame pc=%p function=%p mapped=%p sp=%p\n", (void *)(uintptr_t)pc,
@@ -532,6 +797,8 @@ __attribute__((noinline)) void iw_gc_experiment_collect(void) {
     reason = "unqualified native unwinder";
     goto refused;
 #endif
+    reason = "suspended native segment coverage/state";
+    if (!scan_suspended_segments()) goto refused;
     if (last_frames > max_frames) max_frames = last_frames;
     for (size_t table = 0; table < 2; ++table) {
         void *const *slots = table ? configuration.native_slots : configuration.static_slots;
@@ -545,6 +812,8 @@ __attribute__((noinline)) void iw_gc_experiment_collect(void) {
     }
     reason = "native owner coverage/base or scratch capacity";
     if (configuration.owners != NULL && !configuration.owners->enumerate(append_root)) goto refused;
+    reason = "foreign native slot inventory/base";
+    if (!scan_foreign_roots()) goto refused;
     if (scratch_exhausted) {
         reason = "root scratch capacity";
         if (!iw_gc_roots(NULL, 0)) goto refused;

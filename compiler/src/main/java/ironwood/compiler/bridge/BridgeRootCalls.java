@@ -19,6 +19,7 @@ final class BridgeRootCalls {
 
     static Optional<IrType> reservation(BridgeObjectAdmission admission, BridgeCallableId callable) {
         if (admission.roots().isEmpty()) return Optional.empty();
+        if (admission.managedHeap() && rooted(admission, callable.result())) return Optional.of(BridgeGenericDomain.storage(callable.result()));
         var protocol = admission.roots().orElseThrow().protocol();
         if (callable.kind() == IrCallableKind.CONSTRUCTOR) {
             var type = IrType.reference(callable.owner());
@@ -29,6 +30,7 @@ final class BridgeRootCalls {
     }
 
     static boolean receiverState(BridgeObjectAdmission admission, BridgeCallableId callable, boolean instance) {
+        if (admission.managedHeap()) return false;
         if (!instance || !rooted(admission, IrType.reference(callable.owner()))) return false;
         if (BridgeRootRetentionSources.slots(admission, callable).stream().anyMatch(slot -> slot.holderInput() == 0 || slot.valueInputs().contains(0))) return true;
         if (!rooted(admission, callable.result())) return false;
@@ -37,6 +39,8 @@ final class BridgeRootCalls {
     }
 
     static String documentation(BridgeObjectAdmission admission, BridgeCallableId callable) {
+        if (admission.managedHeap()) return reservation(admission, callable).isPresent()
+                ? "Returns an independent foreign anchor; close its RootHandle when finished." : "";
         if (admission.roots().isEmpty()) return "";
         if (callable.kind() == IrCallableKind.CONSTRUCTOR && reservation(admission, callable).isPresent()) {
             return "Creates an owning native root. Call free() when its lifetime is complete and it is eligible.";

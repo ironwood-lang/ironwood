@@ -24,6 +24,7 @@ import java.util.TreeMap;
 final class BridgeAssembler {
     private static final String NATIVE = "META-INF/ironwood/native/";
     private static final String SOURCES = "META-INF/ironwood/java-sources/";
+    private static final String GC_CONFIGURATIONS = "META-INF/ironwood/source/BDWGC/configurations/";
     private BridgeAssembler() {}
 
     static int run(String[] arguments, PrintStream out, PrintStream err) {
@@ -73,6 +74,10 @@ final class BridgeAssembler {
                 if (!Arrays.equals(common.get(name), other.get(name))) throw new IOException("assembly common content differs: " + name + " in " + host.path());
             }
             for (var entry : host.entries().entrySet()) {
+                if (entry.getKey().startsWith(GC_CONFIGURATIONS)) {
+                    byte[] previous = entries.putIfAbsent(entry.getKey(), entry.getValue());
+                    if (previous != null && !Arrays.equals(previous, entry.getValue())) throw new IOException("collector configuration content mismatch");
+                }
                 if (entry.getKey().startsWith(NATIVE) && entries.putIfAbsent(entry.getKey(), entry.getValue()) != null) {
                     throw new IOException("duplicate assembled native resource: " + entry.getKey());
                 }
@@ -80,6 +85,7 @@ final class BridgeAssembler {
             host.metadata().forEach((key, value) -> {
                 if (key.startsWith("native.")) metadata.put("target." + host.payload().build().target() + "." + key.substring(7), value);
             });
+            metadata.put("target." + host.payload().build().target() + ".gc.config.sha256", host.metadata().get("gc.config.sha256"));
         }
         List<String> types = indexed(first.metadata(), "java.type.");
         var declarations = new ArrayList<BridgeJavaSources.NativeDeclaration>();
@@ -237,14 +243,15 @@ final class BridgeAssembler {
     private static Map<String, byte[]> common(Map<String, byte[]> entries, String support) {
         var result = new TreeMap<String, byte[]>();
         entries.forEach((name, bytes) -> {
-            if (!name.startsWith(NATIVE) && !name.equals(support + ".class") && !name.equals(SOURCES + support + ".java")) result.put(name, bytes);
+            if (!name.startsWith(NATIVE) && !name.startsWith(GC_CONFIGURATIONS)
+                    && !name.equals(support + ".class") && !name.equals(SOURCES + support + ".java")) result.put(name, bytes);
         });
         return result;
     }
 
     private static Map<String, String> commonMetadata(Map<String, String> metadata) {
         var result = new TreeMap<String, String>();
-        metadata.forEach((key, value) -> { if (!key.startsWith("native.") && !key.startsWith("content.sha256.")) result.put(key, value); });
+        metadata.forEach((key, value) -> { if (!key.startsWith("native.") && !key.startsWith("content.sha256.") && !key.equals("gc.config.sha256")) result.put(key, value); });
         return result;
     }
 }

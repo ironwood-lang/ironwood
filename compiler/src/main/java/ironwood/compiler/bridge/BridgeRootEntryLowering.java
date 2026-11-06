@@ -174,14 +174,11 @@ final class BridgeRootEntryLowering {
         for (int acquired = 0; acquired < copies.size(); acquired++) failure("failure.copy." + acquired, constructor, null, acquired);
         blocks.add(new IrBasicBlock("snapshot.complete", List.of(), returned(1), span));
         var handle = value(IrType.EXCEPTION);
-        var exception = value(IrType.EXCEPTION);
+        var exception = value(IrType.reference("ironwood.lang.Throwable"));
         blocks.add(new IrBasicBlock("snapshot.failure", List.of(new IrExceptionLandingPadInstruction(handle, exception, span),
                 new IrExceptionCaughtInstruction(exception, span)), returned(2), span));
         if (!enumIndices.isEmpty() || enumResult.isPresent()) {
             List<IrInstruction> invalid = new ArrayList<>();
-            for (int index = copies.size() - 1; index >= 0; index--) {
-                if (copies.get(index) instanceof IrBridgeStringCopyInstruction copy) invalid.add(new IrRawDeallocateInstruction(copy.result(), span));
-            }
             if (constructor) invalid.add(new IrBridgeResultStoreInstruction(frame, IrBridgeResultStoreInstruction.Slot.VALUE,
                     new IrNull(callable.parameters().getFirst(), span), span));
             else if (callable.result().isReference()) invalid.add(new IrBridgeResultStoreInstruction(frame,
@@ -202,28 +199,14 @@ final class BridgeRootEntryLowering {
 
     private void successCleanup(List<IrInstruction> success, Optional<IrValueReference> result) {
         for (int index = 0; index < copies.size(); index++) {
-            if (!(copies.get(index) instanceof IrBridgeStringCopyInstruction copy)) {
-                if (aliasResult()) blocks.add(new IrBasicBlock("cleanup." + index, List.of(),
-                        new IrJump(index + 1 == copies.size() ? "success" : "cleanup." + (index + 1), span), span));
-                continue;
-            }
-            if (!aliasResult()) {
-                success.add(new IrRawDeallocateInstruction(copy.result(), span));
-                continue;
-            }
-            var retained = value(IrType.I1);
-            String after = index + 1 == copies.size() ? "success" : "cleanup." + (index + 1);
-            blocks.add(new IrBasicBlock("cleanup." + index, List.of(new IrBinaryInstruction(retained,
-                    IrBinaryOperator.EQUAL, copy.result(), result.orElseThrow(), span)),
-                    new IrBranch(retained, after, "release." + index, span), span));
-            blocks.add(new IrBasicBlock("release." + index, List.of(new IrRawDeallocateInstruction(copy.result(), span)),
-                    new IrJump(after, span), span));
+            if (aliasResult()) blocks.add(new IrBasicBlock("cleanup." + index, List.of(),
+                    new IrJump(index + 1 == copies.size() ? "success" : "cleanup." + (index + 1), span), span));
         }
     }
 
     private void failure(String label, boolean omitConstructedRoot, IrValueReference rollback, int acquired) {
         var handle = value(IrType.EXCEPTION);
-        var exception = value(IrType.EXCEPTION);
+        var exception = value(IrType.reference("ironwood.lang.Throwable"));
         List<IrInstruction> failure = new ArrayList<>();
         failure.add(new IrExceptionLandingPadInstruction(handle, exception, span));
         failure.add(new IrExceptionCaughtInstruction(exception, span));
@@ -232,14 +215,8 @@ final class BridgeRootEntryLowering {
                 new IrNull(root.callable().parameters().getFirst(), span), span));
         else if (root.callable().result().isReference()) failure.add(new IrBridgeResultStoreInstruction(frame,
                 IrBridgeResultStoreInstruction.Slot.VALUE, absentResult(), span));
-        if (rollback != null) failure.add(new IrRollbackInstruction(rollback, span));
-        for (int index = acquired - 1; index >= 0; index--) {
-            if (copies.get(index) instanceof IrBridgeStringCopyInstruction copy) {
-                failure.add(new IrRawDeallocateInstruction(copy.result(), span));
-            }
-        }
         blocks.add(new IrBasicBlock(label, failure, new IrJump(label + ".slots.0", span), span));
-        snapshots(label + ".slots", omitConstructedRoot, label + ".snapshot");
+        snapshots(label + ".slots", omitConstructedRoot && rollback == null, label + ".snapshot");
         blocks.add(new IrBasicBlock(label + ".snapshot", List.of(), new IrInvokeTerminator(
                 new IrBridgeFailureSnapshotInstruction(exception, frame, span), "snapshot.complete", "snapshot.failure", span), span));
     }

@@ -61,6 +61,7 @@ public final class BridgeLoaderSources {
                 throw new IllegalArgumentException("loader payload generation mismatch");
             }
             if (targets.putIfAbsent(payload.build().target(), payload) != null) throw new IllegalArgumentException("duplicate loader target");
+            if (generation.managedHeap()) BridgeGeneration.validateManagedBuild(payload.build().target(), payload.build().inputs());
         }
         if (targets.isEmpty()) throw new IllegalArgumentException("loader requires a payload");
         if (!generatedTypes.contains(generation.supportPackage() + ".Support")) {
@@ -78,12 +79,59 @@ public final class BridgeLoaderSources {
         boolean views = nativeDeclarations.stream().anyMatch(binding -> binding.descriptor().contains("Lironwood/bridge/ByteView;"));
         String inventory = targets.values().stream().map(payload -> row(payload.build().target(), payload.build().identity(),
                 payload.minimumOs(), payload.filename())).collect(java.util.stream.Collectors.joining(",\n            "));
+        var nativeInputs = new java.util.ArrayList<String>();
+        for (var payload : targets.values()) payload.build().inputs().forEach((key, value) -> nativeInputs.add(row(payload.build().target(), key, value)));
+        var contract = new TreeMap<>(BridgeGeneration.managedContract());
+        contract.put("schema", SCHEMA_VERSION); contract.put("projection", "objects-gc-v1");
+        contract.put("generation", generation.identity()); contract.put("api", generation.apiIdentity());
         return TEMPLATE.replace("@PACKAGE@", generation.supportPackage())
                 .replace("@GENERATION@", generation.identity()).replace("@API@", generation.apiIdentity())
                 .replace("@SCHEMA@", BridgeGeneration.SCHEMA).replace("@PAYLOADS@", inventory).replace("@FILES@", String.join(",\n            ", files))
                 .replace("@VIEW_HELPERS@", views ? VIEW_HELPERS : "").replace("@VIEW_VERIFY@", views ? "verifyByteView(loader);" : "")
+                .replace("@PAIRING_HELPERS@", generation.managedHeap() ? PAIRING_HELPERS
+                        .replace("@CONTRACT@", contract.entrySet().stream().map(entry -> row(entry.getKey(), entry.getValue())).collect(java.util.stream.Collectors.joining(", ")))
+                        .replace("@NATIVE_INPUTS@", String.join(", ", nativeInputs)) : "")
+                .replace("@PAIRING_VERIFY@", generation.managedHeap() ? "verifyPairing(payload);" : "")
                 .replace("@TYPES@", classes).replace("@BINDINGS@", bindings).replace("@ENSURE@", ensureMethod);
     }
+
+    private static final String SCHEMA_VERSION = BridgeGeneration.SCHEMA;
+    private static final String PAIRING_HELPERS = """
+                private static final String[][] CONTRACT = {@CONTRACT@};
+                private static final String[][] NATIVE_INPUTS = {@NATIVE_INPUTS@};
+                private static void verifyPairing(String[] payload) throws IOException {
+                    Properties metadata = new Properties();
+                    try (InputStream input = Support.class.getResourceAsStream("/META-INF/ironwood/bridge.properties")) {
+                        if (input == null) throw new IOException("missing managed bridge pairing manifest");
+                        metadata.load(input);
+                    }
+                    for (String[] field : CONTRACT) {
+                        if (!field[1].equals(metadata.getProperty(field[0]))) throw new IOException("incompatible bridge field: " + field[0]);
+                    }
+                    boolean host = metadata.containsKey("native.target");
+                    String prefix = host ? "native." : "target." + payload[0] + ".";
+                    if (host && !payload[0].equals(metadata.getProperty("native.target"))) throw new IOException("native target mismatch");
+                    if (!payload[1].equals(metadata.getProperty(prefix + "build"))
+                            || !"64".equals(metadata.getProperty(prefix + "pointer.bits"))
+                            || !"little".equals(metadata.getProperty(prefix + "endian"))) throw new IOException("native build or machine mismatch");
+                    int expected = 0;
+                    for (String[] field : NATIVE_INPUTS) {
+                        if (!field[0].equals(payload[0])) continue;
+                        expected++;
+                        if (!field[2].equals(metadata.getProperty(prefix + "input." + field[1])))
+                            throw new IOException("incompatible native input: " + field[1]);
+                        if (field[1].equals("gc.config.sha256") && !field[2].equals(metadata.getProperty(host
+                                ? "gc.config.sha256" : prefix + "gc.config.sha256"))) throw new IOException("collector configuration mismatch");
+                    }
+                    final String inputs = prefix + "input.";
+                    if (metadata.stringPropertyNames().stream().filter(key -> key.startsWith(inputs)).count() != expected)
+                        throw new IOException("incomplete native input inventory");
+                    String resource = "META-INF/ironwood/native/" + payload[0] + "/" + GENERATION + "/" + payload[3];
+                    if (!resource.equals(metadata.getProperty(prefix + "resource"))) throw new IOException("native resource mismatch");
+                    for (String[] file : FILES) if (file[0].equals(payload[0]) && file[1].equals(payload[3])
+                            && !file[2].equals(metadata.getProperty(prefix + "sha256"))) throw new IOException("native payload digest mismatch");
+                }
+            """;
 
     private static final String VIEW_HELPERS = """
             private static Class<?> byteViewClass;
@@ -128,6 +176,7 @@ public final class BridgeLoaderSources {
             @Identity("@GENERATION@")
             public final class Support {
                 @VIEW_HELPERS@
+                @PAIRING_HELPERS@
                 private static final String GENERATION = "@GENERATION@";
                 private static final String API = "@API@";
                 private static final String SCHEMA = "@SCHEMA@";
@@ -159,6 +208,7 @@ public final class BridgeLoaderSources {
                         @VIEW_VERIFY@
                         Class<?>[] types = preflight(loader);
                         String[] payload = requireHost();
+                        @PAIRING_VERIFY@
                         Path image = extract(payload);
                         System.load(image.toString());
                         bootstrap(loader, types, GENERATION, SCHEMA, API, payload[1]);

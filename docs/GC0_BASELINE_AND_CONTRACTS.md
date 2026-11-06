@@ -5,6 +5,10 @@
 
 Historical prerequisite record. GC5 replaces its manual-heap production rules;
 see [the current managed contract](MEMORY.md) and [GC5 report](GC5_IMPLEMENTATION.md).
+GC6 implements this document's foreign lifetime, crossing and image requirements
+with root ABI 3 / owner ABI 2 and segment version 1. See [GC6](GC6_IMPLEMENTATION.md)
+for the generated API, per-target configuration binding, qualification and limits.
+Future-tense implementation gates below record the original GC0 baseline.
 
 Date: 2026-11-04. **GC0 complete; production GC is not implemented.**
 Baseline: `bb0fbab690871cbdba00b0770532653ebdba713d`, including the planning

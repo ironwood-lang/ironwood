@@ -67,7 +67,8 @@ final class BridgeProducer {
         var producer = BridgeProducerInputs.discover();
         var support = macos ? null : BridgeNativeSupport.discover(toolchain);
         var macTools = macos ? MacNativeTools.discover() : null;
-        var distribution = BridgeDistributionInputs.discover(artifact, packaging);
+        if (objects == null || !objects.managedHeap()) throw new IOException("native bridge production requires complete managed admission");
+        var distribution = BridgeDistributionInputs.discover(artifact, packaging).withGc(toolchain);
         var projection = projection(artifact, surface, objects, callbacks, owners, criticalCalls, destination.getFileName().toString(), producer);
         var generation = projection.generation(); var java = projection.java();
         if (criticalCalls) {
@@ -85,7 +86,7 @@ final class BridgeProducer {
             }
         }
         if (NativeLinkRequirements.from(projection.program()).tls()) throw new IOException("Java Bridge does not package optional TLS dependencies");
-        String llvm = new LlvmEmitter().emit(projection.program());
+        String llvm = new LlvmEmitter().emit(objects);
         Files.createDirectories(destination.getParent());
         Path stage = Files.createTempDirectory(destination.getParent(), ".ironwood-bridge-build-");
         try {
@@ -95,15 +96,16 @@ final class BridgeProducer {
             String filename = macos ? "libbridge.dylib" : "libbridge.so";
             Path llvmFile = stage.resolve("program.ll"), adapter = stage.resolve("adapter.c"), object = stage.resolve("adapter.o"), image = stage.resolve(filename);
             Files.writeString(llvmFile, llvm);
-            Files.writeString(adapter, projection.adapters() + projection.bootstrap().apply(build));
+            Files.writeString(adapter, BridgeGcTransitions.compose(objects, projection.adapters() + projection.bootstrap().apply(build)));
             var adapterCommand = new ArrayList<>(List.of(toolchain.clang().toString(), "-std=c11", "-Wall", "-Wextra", "-Werror",
-                    "-fPIC", "-fvisibility=hidden", "--target=" + inputs.get("target.triple"), optimization.clangArgument(),
+                    "-fPIC", "-fexceptions", "-fvisibility=hidden", "--target=" + inputs.get("target.triple"), optimization.clangArgument(),
                     "-I" + javaHome.resolve("include"), "-I" + javaHome.resolve(macos ? "include/darwin" : "include/linux"), "-I" + runtime.resolve("include"),
                     "-c", adapter.toString(), "-o", object.toString()));
             if (support != null) adapterCommand.addAll(support.compileFlags());
             if (macTools != null) adapterCommand.addAll(macTools.compileFlags());
             BridgeBuildTools.run(stage, "JNI adapter compilation", adapterCommand);
-            var linked = new NativeBackend().linkShared(toolchain, llvmFile, image, optimization, List.of(object), macTools);
+            var linked = new NativeBackend().linkManagedBridge(toolchain, objects, image, optimization, List.of(object),
+                    List.of("JNI_OnLoad", "Java_" + generation.supportPackage().replace('.', '_') + "_Support_bootstrap"));
             if (!linked.success()) throw new IOException("Java Bridge native link failed: " + linked.output());
             if (!linked.output().isBlank()) diagnostics.println(linked.output());
             byte[] payload = Files.readAllBytes(image);
@@ -176,7 +178,7 @@ final class BridgeProducer {
             }
             add(entries, imagePath, payload);
             add(entries, BridgePackageManifest.PATH, BridgePackageManifest.create(generation, build, java, platform, imagePath, entries));
-            if (!BridgeProducerInputs.discover().equals(producer) || !BridgeDistributionInputs.discover(artifact, packaging).identity().equals(distribution.identity())) {
+            if (!BridgeProducerInputs.discover().equals(producer) || !BridgeDistributionInputs.discover(artifact, packaging).withGc(toolchain).identity().equals(distribution.identity())) {
                 throw new IOException("Java Bridge producer/runtime/distribution inputs changed during the build; previous output preserved");
             }
             if (views) BridgeValuesLibrary.copy(stage.resolve(BridgeByteViewSources.JAR_NAME),
@@ -197,6 +199,14 @@ final class BridgeProducer {
     private static Projection projection(CompilationArtifact artifact, BridgeExportSurface surface, BridgeObjectAdmission objects,
             BridgeCallbackAdmission callbacks, BridgeOwnedCallbackAdmission owners, boolean criticalCalls,
             String artifactName, BridgeProducerInputs producer) throws IOException {
+        if (objects != null && objects.managedHeap()) {
+            var generation = BridgeGeneration.createObjects(artifactName, artifact, objects,
+                    producer.compilerVersion(), producer.compilerIdentity(), producer.runtimeIdentity(), criticalCalls);
+            var java = BridgePermanentJavaSources.generateRoots(artifact, objects, generation);
+            var nativeSources = BridgePermanentNativeSources.generateRoots(artifact, objects, generation, java);
+            return new Projection(objects.emissionProgram(), generation, java.declarations(), nativeSources.source(),
+                    build -> BridgeBootstrapSources.generate(generation, build, java.declarations(), nativeSources));
+        }
         if (owners != null) {
             if (!owners.matches(artifact, surface)) throw new IOException("owner callback projection identity mismatch");
             var generation = BridgeGeneration.createOwnedCallbacks(artifactName, owners,
@@ -257,9 +267,10 @@ final class BridgeProducer {
         inputs.put("target.triple", target.triple()); inputs.put("target.layout", target.dataLayout());
         inputs.put("llvm.version", toolchain.version()); inputs.put("clang.version", toolchain.clangVersion());
         inputs.put("optimization", optimization.toString()); inputs.put("cpu", "default-baseline");
+        if (generation.managedHeap()) inputs.putAll(BridgeGcBuildInputs.discover(toolchain));
         var tuning = NativeBackend.portableTuning(target.triple());
         if (!tuning.isEmpty()) inputs.put("cpu.tuning", String.join(" ", tuning));
-        inputs.put("adapter.flags", "-std=c11 -Wall -Wextra -Werror -fPIC -fvisibility=hidden " + optimization.clangArgument());
+        inputs.put("adapter.flags", "-std=c11 -Wall -Wextra -Werror -fPIC -fexceptions -fvisibility=hidden " + optimization.clangArgument());
         if (macos) {
             inputs.putAll(macTools.identity());
             inputs.put("deployment.environment", System.getenv().getOrDefault("MACOSX_DEPLOYMENT_TARGET", "default"));
@@ -287,9 +298,8 @@ final class BridgeProducer {
         String os = System.getProperty("os.name"), arch = System.getProperty("os.arch");
         boolean arm = Set.of("aarch64", "arm64").contains(arch);
         if (os.equals("Mac OS X") && arm) return "macos-arm64";
-        if (os.equals("Linux") && arm) return "linux-arm64";
         if (os.equals("Linux") && Set.of("amd64", "x86_64").contains(arch)) return "linux-x86_64";
-        throw new IOException("Java Bridge producer requires macos-arm64, linux-arm64 or linux-x86_64; detected " + os + " " + arch);
+        throw new IOException("managed Java Bridge producer requires qualified macos-arm64 or linux-x86_64; detected " + os + " " + arch);
     }
 
     private static Map<String, byte[]> directory(Path root) throws IOException {

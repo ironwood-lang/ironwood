@@ -22,12 +22,14 @@ public final class GcEffects {
     private static final Effect UNKNOWN = new Effect(true, true);
     private final IrProgram program;
     private final boolean runtimeOwners;
+    private final boolean foreignOwners;
     private final Map<String, Effect> functions = new LinkedHashMap<>();
     private final Map<String, Effect> initializations = new LinkedHashMap<>();
 
-    private GcEffects(IrProgram program, boolean runtimeOwners) {
+    private GcEffects(IrProgram program, boolean runtimeOwners, boolean foreignOwners) {
         this.program = program;
         this.runtimeOwners = runtimeOwners;
+        this.foreignOwners = foreignOwners;
         for (var function : program.functions()) {
             if (functions.putIfAbsent(function.linkageName(), LEAF) != null) {
                 throw new IllegalArgumentException("duplicate function in GC effect graph");
@@ -60,14 +62,21 @@ public final class GcEffects {
         } while (changed);
     }
 
-    public static GcEffects analyze(IrProgram program) { return new GcEffects(program, false); }
+    public static GcEffects analyze(IrProgram program) { return new GcEffects(program, false, false); }
     /** Only the GC4 admitted runtime has noncollecting exception transport. */
-    public static GcEffects analyzeRuntimeOwners(IrProgram program) { return new GcEffects(program, true); }
+    public static GcEffects analyzeRuntimeOwners(IrProgram program) { return new GcEffects(program, true, false); }
+    /** ABI-3 transition contexts admit foreign execution as collecting, never as a leaf. */
+    public static GcEffects analyzeForeignOwners(IrProgram program) { return new GcEffects(program, true, true); }
     public Effect function(String symbol) { return functions.getOrDefault(symbol, UNKNOWN); }
     public Effect initialization(String type) { return initializations.getOrDefault(type, UNKNOWN); }
     public Map<String, Effect> functions() { return Map.copyOf(functions); }
 
     public Effect instruction(IrInstruction instruction) {
+        if (foreignOwners && instruction instanceof IrForeignCallInstruction call && call.invocationContext().isPresent()) return COLLECT;
+        if (foreignOwners && (instruction instanceof IrBridgeArrayCopyInstruction || instruction instanceof IrBridgeStringCopyInstruction
+                || instruction instanceof IrBridgeResultStoreInstruction || instruction instanceof IrBridgeSlotStoreInstruction
+                || instruction instanceof IrBridgeFailureSnapshotInstruction || instruction instanceof IrBridgeBatchAppendInstruction
+                || instruction instanceof IrByteViewInstruction)) return LEAF;
         if (runtimeOwners && (instruction instanceof IrGcUnwindInstruction || instruction instanceof IrExceptionLandingPadInstruction
                 || instruction instanceof IrExceptionCaughtInstruction || instruction instanceof IrAddSecondaryExceptionInstruction
                 || instruction instanceof IrSecondaryExceptionAtInstruction || instruction instanceof IrSecondaryExceptionCountInstruction

@@ -23,6 +23,10 @@ public final class NativeLinkTransformation {
 
     /** Execute the real passes; callers cannot attest an independently modified output. */
     public static NativeLinkTransformation apply(IrProgram input) {
+        return apply(input, false);
+    }
+
+    static NativeLinkTransformation apply(IrProgram input, boolean managedBridge) {
         Map<String, BridgeCallableId> sources = new LinkedHashMap<>();
         for (var function : input.functions()) {
             if (sources.putIfAbsent(function.linkageName(), BridgeCallableId.of(function)) != null) {
@@ -35,7 +39,7 @@ public final class NativeLinkTransformation {
                 throw new IllegalArgumentException("native transformation has an unresolved or colliding clone origin");
             }
         });
-        var program = NativeLinkPipeline.finish(optimized);
+        var program = NativeLinkPipeline.finish(optimized, managedBridge);
         Map<BridgeCallableId, BridgeCallableId> origins = new LinkedHashMap<>();
         for (IrFunction function : program.functions()) {
             var id = BridgeCallableId.of(function);

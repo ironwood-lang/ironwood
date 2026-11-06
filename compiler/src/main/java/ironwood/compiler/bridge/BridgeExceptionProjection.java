@@ -61,8 +61,17 @@ public final class BridgeExceptionProjection {
         return project(artifact, requested, true);
     }
 
+    public static BridgeProof<BridgeExceptionProjection> managedSnapshots(CompilationArtifact artifact, Collection<String> requested) {
+        return project(artifact, requested, true, true);
+    }
+
     private static BridgeProof<BridgeExceptionProjection> project(CompilationArtifact artifact,
             Collection<String> requested, boolean customSnapshots) {
+        return project(artifact, requested, customSnapshots, false);
+    }
+
+    private static BridgeProof<BridgeExceptionProjection> project(CompilationArtifact artifact,
+            Collection<String> requested, boolean customSnapshots, boolean stableSnapshotIds) {
         if (requested.isEmpty()) return BridgeProof.rejected("exception projection requires at least one type");
         if (!artifact.valid() || artifact.bridgeConstructionFacts().isEmpty()) {
             return BridgeProof.unknown("exception projection requires successful bridge analysis");
@@ -149,7 +158,9 @@ public final class BridgeExceptionProjection {
                 if (fields.size() != 1) return BridgeProof.unknown("interrupted-I/O transfer-count field is unresolved");
                 properties.add(new Property("bytesTransferred", IrType.I32, Optional.empty(), Optional.of(fields.getFirst()), false));
             }
-            projected.add(new Type(name, BridgeJavaTypes.binaryName(IrType.reference(name)), type.typeId(), properties));
+            // The C translator maps native nominal names to these private wire IDs.
+            // Native heap type IDs remain image-specific and never enter common Java.
+            projected.add(new Type(name, BridgeJavaTypes.binaryName(IrType.reference(name)), stableSnapshotIds ? projected.size() + 1 : type.typeId(), properties));
         }
         return BridgeProof.proved(new BridgeExceptionProjection(program, projected, BridgeRootSet.resolve(program, List.copyOf(accessors)), customTypes),
                 "exception hierarchy, exact getters and String ownership resolved from final semantic facts");

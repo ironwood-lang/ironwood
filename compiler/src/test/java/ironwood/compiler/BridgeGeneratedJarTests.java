@@ -28,6 +28,18 @@ final class BridgeGeneratedJarTests {
     static Path build(Path folder, Path llvm, LlvmToolchain toolchain, OptimizationLevel level,
             BridgeGeneration generation, BridgeGeneration.NativeBuild build, BridgeJavaSources declarations,
             String nativeSource, Map<String, String> overrides) throws Exception {
+        return build(folder, llvm, toolchain, level, generation, build, declarations, nativeSource, overrides, null);
+    }
+
+    static Path build(Path folder, Path llvm, LlvmToolchain toolchain, OptimizationLevel level,
+            BridgeGeneration generation, BridgeGeneration.NativeBuild build, BridgeJavaSources declarations,
+            String nativeSource, Map<String, String> overrides, BridgeObjectAdmission managed) throws Exception {
+        return build(folder, llvm, toolchain, level, generation, build, declarations, nativeSource, overrides, managed, List.of());
+    }
+
+    static Path build(Path folder, Path llvm, LlvmToolchain toolchain, OptimizationLevel level,
+            BridgeGeneration generation, BridgeGeneration.NativeBuild build, BridgeJavaSources declarations,
+            String nativeSource, Map<String, String> overrides, BridgeObjectAdmission managed, List<String> testExports) throws Exception {
         Files.createDirectories(folder);
         String host = target(); boolean mac = host.equals("macos-arm64");
         if (!build.target().equals(host)) throw new AssertionError("fixture build identity does not match host: " + build.target() + " / " + host);
@@ -38,9 +50,15 @@ final class BridgeGeneratedJarTests {
         var compile = new ArrayList<>(List.of(toolchain.clang().toString(), "-std=c11", "-Wall", "-Wextra", "-Werror", "-fPIC", "-fvisibility=hidden",
                 level.clangArgument(), "-I" + javaHome.resolve("include"), "-I" + javaHome.resolve(mac ? "include/darwin" : "include/linux"),
                 "-I" + Path.of("runtime/include").toAbsolutePath(), "-c", c.toString(), "-o", object.toString()));
+        if (managed != null) compile.add("-fexceptions");
+        if (managed != null && mac) { compile.addAll(MacNativeTools.discover().compileFlags()); compile.add("-mmacosx-version-min=14.0"); }
         if (support != null) compile.addAll(support.compileFlags());
         BridgeEntryTests.run(folder, compile, "compile");
-        var linked = new NativeBackend().linkShared(toolchain, llvm, image, level, List.of(object));
+        var exports = new ArrayList<>(List.of("JNI_OnLoad", "Java_" + generation.supportPackage().replace('.', '_') + "_Support_bootstrap"));
+        exports.addAll(testExports);
+        var linked = managed == null ? new NativeBackend().linkShared(toolchain, llvm, image, level, List.of(object))
+                : new NativeBackend().linkManagedBridge(toolchain, managed, image, level, List.of(object),
+                        exports);
         Files.writeString(folder.resolve("link.log"), linked.output());
         if (!linked.success()) throw new AssertionError(linked.output());
         if (mac) BridgeEntryTests.run(folder, List.of("/usr/bin/codesign", "--verify", "--strict", image.toString()), "codesign");
@@ -60,6 +78,7 @@ final class BridgeGeneratedJarTests {
         }
         Files.write(folder.resolve("payload.properties"), BridgePackageManifest.serialize(identity));
         var sources = new java.util.TreeMap<>(declarations.sources());
+        if (BridgeByteViewSources.required(declarations)) sources.put(BridgeByteViewSources.SOURCE_PATH, BridgeByteViewSources.SOURCE);
         sources.putAll(overrides);
         sources.put(generation.supportPackage().replace('.', '/') + "/Support.java", BridgeLoaderSources.generate(generation, declarations,
                 new BridgeLoaderSources.Payload(build, minimum, sha, extracted)));
@@ -70,14 +89,34 @@ final class BridgeGeneratedJarTests {
             Files.writeString(file, entry.getValue()); javac.add(file.toString());
         }
         BridgeEntryTests.run(folder, javac, "javac");
+        if (BridgeByteViewSources.required(declarations)) {
+            var licenses = new java.util.TreeMap<String, byte[]>();
+            for (String name : List.of("LICENSE", "LICENSE-MIT", "LICENSE-APACHE"))
+                licenses.put("META-INF/ironwood/licenses/" + name, Files.readAllBytes(Path.of(name)));
+            Path byteView = classes.resolve(BridgeByteViewSources.CLASS_PATH);
+            byte[] values = BridgeValuesLibrary.packageClass(folder, Files.readAllBytes(byteView), licenses);
+            Files.delete(byteView);
+            Path paired = classes.resolve(BridgeByteViewSources.RESOURCE); Files.createDirectories(paired.getParent()); Files.write(paired, values);
+        }
         Path nativeRoot = classes.resolve("META-INF/ironwood/native/" + host + "/" + generation.identity());
         Path resource = nativeRoot.resolve(imageName());
         Files.createDirectories(resource.getParent()); Files.copy(image, resource);
         for (var entry : supportEntries.entrySet()) {
             Path file = nativeRoot.resolve(entry.getKey()); Files.createDirectories(file.getParent()); Files.write(file, entry.getValue());
         }
+        if (managed != null) {
+            Path manifest = classes.resolve("META-INF/MANIFEST.MF");
+            Files.write(manifest, BridgePackageManifest.javaManifest(generation));
+            var inventory = new java.util.TreeMap<String, byte[]>();
+            try (var files = Files.walk(classes)) {
+                for (Path file : files.filter(Files::isRegularFile).toList())
+                    inventory.put(classes.relativize(file).toString(), Files.readAllBytes(file));
+            }
+            Files.write(classes.resolve(BridgePackageManifest.PATH), BridgePackageManifest.create(generation, build, declarations, identity,
+                    classes.relativize(resource).toString(), inventory));
+        }
         Path jar = folder.resolve("permanent.jar");
-        BridgeEntryTests.run(folder, List.of(javaHome.resolve("bin/jar").toString(), "--create", "--file", jar.toString(), "-C", classes.toString(), "."), "jar");
+        BridgeEntryTests.run(folder, List.of(javaHome.resolve("bin/jar").toString(), "--create", "--no-manifest", "--file", jar.toString(), "-C", classes.toString(), "."), "jar");
         Files.writeString(folder.resolve("jar.sha256"), BridgeGeneration.bytesDigest(Files.readAllBytes(jar)) + "\n");
         return jar;
     }

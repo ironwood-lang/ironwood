@@ -139,6 +139,7 @@ public final class LlvmEmitter {
     private ironwood.compiler.ir.GcEffects gcEffects;
     private IrProgram gcProgram;
     private boolean experimental;
+    private boolean foreignImage;
     private List<ironwood.compiler.ir.IrAllocationLayout> gcLayouts = List.of();
     private List<IrValueReference> gcSlots = List.of();
     private TracePlan tracePlan;
@@ -156,8 +157,12 @@ public final class LlvmEmitter {
     }
 
     public String emitGcExperiment(IrProgram program, boolean runtimeOwners) {
+        return emitGcExperiment(program, runtimeOwners, false);
+    }
+
+    public String emitGcExperiment(IrProgram program, boolean runtimeOwners, boolean foreignSegments) {
         experimental = true;
-        gcEffects = GcExperimentalClosure.validate(program, runtimeOwners);
+        gcEffects = GcExperimentalClosure.validate(program, runtimeOwners, foreignSegments);
         gcProgram = program;
         gcLayouts = ironwood.compiler.ir.IrAllocationLayout.of(program);
         bridgeEntries = program.exportRoots();
@@ -166,8 +171,8 @@ public final class LlvmEmitter {
         throwHelpers.clear();
         StringBuilder output = new StringBuilder("; experimental exact-root development closure\n");
         output.append("source_filename = \"").append(escapeString(program.moduleName())).append("\"\n");
-        output.append("@iw_gc_root_abi = hidden constant i32 ").append(runtimeOwners ? 2 : 1).append('\n');
-        output.append("@iw_gc_owner_requirements = hidden constant i32 ").append(runtimeOwners ? 7 : 0).append('\n');
+        output.append("@iw_gc_root_abi = hidden constant i32 ").append(foreignSegments ? 3 : runtimeOwners ? 2 : 1).append('\n');
+        output.append("@iw_gc_owner_requirements = hidden constant i32 ").append(foreignSegments ? 15 : runtimeOwners ? 7 : 0).append('\n');
         output.append("%\"ironwood.array\" = type { ptr, i64, i64, i32, i32, [0 x i8] }\n");
         for (var type : program.classes()) if (type.isClass()) emitClass(output, type);
         output.append(GcLayoutEmitter.llvm(program));
@@ -204,6 +209,7 @@ public final class LlvmEmitter {
         output.append("@iw_gc_static_root_count = hidden constant i64 ").append(staticSlots.size()).append('\n');
         output.append("@iw_gc_static_roots = hidden constant [").append(staticSlots.size()).append(" x ptr] [")
                 .append(staticSlots.stream().map(slot -> "ptr " + slot).collect(Collectors.joining(", "))).append("]\n");
+        if (foreignSegments) emitForeignDeclarations(output, program);
         for (var initialization : program.typeInitializations()) emitGcInitializer(output, initialization);
         for (var function : program.functions()) emitFunction(output, function);
         tracePlan.emitDebugMetadata(output);
@@ -379,14 +385,27 @@ public final class LlvmEmitter {
         return emit(module.program(), true, module.entrySymbols());
     }
 
+    public String emit(ironwood.compiler.BridgeObjectAdmission admission) {
+        if (!admission.managedHeap()) throw new IllegalArgumentException("GC bridge requires managed admission");
+        return emit(admission.emissionProgram(), true, admission.emissionProgram().exportRoots(), true);
+    }
+
     private String emit(IrProgram program, boolean selectiveInlining, Set<String> bridgeEntries) {
-        GcManagedHeapVerifier.verify(program);
-        if (!bridgeEntries.isEmpty()) throw new IllegalArgumentException("GC6 boundary: native bridge/shared outputs are not qualified");
+        return emit(program, selectiveInlining, bridgeEntries, false);
+    }
+
+    private String emit(IrProgram program, boolean selectiveInlining, Set<String> bridgeEntries, boolean managedBridge) {
+        if (managedBridge) GcManagedHeapVerifier.verifyBridge(program);
+        else GcManagedHeapVerifier.verify(program);
+        if (!bridgeEntries.isEmpty() && !managedBridge) throw new IllegalArgumentException("native bridge emission requires verified managed admission");
         experimental = false;
+        foreignImage = managedBridge;
         gcProgram = program;
-        gcLayouts = ironwood.compiler.ir.IrAllocationLayout.of(program);
+        gcLayouts = ironwood.compiler.ir.IrAllocationLayout.of(program).stream()
+                .filter(layout -> !managedBridge || !layout.name().equals(ironwood.compiler.ir.IrByteViewInstruction.TYPE.referenceName())).toList();
         gcLayouts.forEach(ironwood.compiler.ir.IrAllocationLayout::requireSupported);
-        gcEffects = ironwood.compiler.ir.GcEffects.analyzeRuntimeOwners(program);
+        gcEffects = managedBridge ? ironwood.compiler.ir.GcEffects.analyzeForeignOwners(program)
+                : ironwood.compiler.ir.GcEffects.analyzeRuntimeOwners(program);
         gcSlots = List.of();
         this.bridgeEntries = Set.copyOf(bridgeEntries);
         tracePlan = new TracePlan(program);
@@ -407,10 +426,10 @@ public final class LlvmEmitter {
             }
         }
         output.append('\n');
-        output.append(GcLayoutEmitter.llvm(program));
+        output.append(GcLayoutEmitter.llvm(gcLayouts));
         int typeCount = program.classes().stream().mapToInt(IrClass::typeId).max().orElse(-1) + 1;
         for (IrClass irClass : program.classes()) {
-            if (irClass.isClass()) {
+            if (irClass.isClass() && !(managedBridge && irClass.name().equals(ironwood.compiler.ir.IrByteViewInstruction.TYPE.referenceName()))) {
                 emitTypeMetadata(output, irClass, typeCount,
                         program.dispatchSlots().size());
             }
@@ -657,11 +676,15 @@ public final class LlvmEmitter {
     }
 
     private void emitBridgeBootstrap(StringBuilder output) {
-        output.append("\n@ironwood_bridge_initialized = internal global i1 false\n")
-                .append("define hidden void @ironwood_bridge_bootstrap() {\n")
+        output.append("\n@iw_gc_bridge_boundary = external hidden global ptr\n")
+                .append("@ironwood_bridge_initialized = internal global i1 false\n")
+                .append("define hidden void @ironwood_bridge_bootstrap() \"gc-leaf-function\" {\n")
                 .append("entry:\n  %ready = load i1, ptr @ironwood_bridge_initialized\n")
                 .append("  br i1 %ready, label %done, label %initialize\n")
-                .append("initialize:\n  call void @ironwood_trace_register_current(ptr @ironwood_trace_sites, i32 ")
+                .append("initialize:\n  call void @ironwood_gc_start()\n  call void @ironwood_gc_bind_layouts()\n")
+                .append("  %boundary = load ptr, ptr @iw_gc_bridge_boundary\n")
+                .append("  call void @ironwood_gc_start_roots(ptr %boundary, ptr addrspace(1) ").append(allocationFailureName()).append(")\n")
+                .append("  call void @ironwood_trace_register_current(ptr @ironwood_trace_sites, i32 ")
                 .append(tracePlan.sites().size()).append(")\n")
                 .append("  store i1 true, ptr @ironwood_bridge_initialized\n  br label %done\n")
                 .append("done:\n  ret void\n}\n");
@@ -1397,7 +1420,7 @@ public final class LlvmEmitter {
             return;
         }
         if (instruction instanceof IrNullCheckInstruction check) {
-            output.append(operand(check.result())).append(" = icmp ne ").append(managedPointer()).append(' ')
+            output.append(operand(check.result())).append(" = icmp ne ").append(llvmType(check.receiver().type())).append(' ')
                     .append(operand(check.receiver())).append(", null");
             return;
         }
@@ -1631,6 +1654,9 @@ public final class LlvmEmitter {
                 return;
             }
             IrType operandType = binary.left().type();
+            if (operandType.equals(IrType.NULL)) operandType = binary.right().type();
+            if (binary.left().type().equals(ironwood.compiler.ir.IrByteViewInstruction.TYPE)
+                    || binary.right().type().equals(ironwood.compiler.ir.IrByteViewInstruction.TYPE)) operandType = ironwood.compiler.ir.IrByteViewInstruction.TYPE;
             boolean floating = operandType.isFloating();
             output.append(operand(binary.result())).append(" = ");
             switch (binary.operator()) {
@@ -1719,7 +1745,9 @@ public final class LlvmEmitter {
             return;
         }
         if (instruction instanceof IrReferenceConversionInstruction conversion) {
-            output.append(operand(conversion.result())).append(" = getelementptr i8, ").append(managedPointer()).append(' ')
+            if (!(conversion.value() instanceof IrNull) && !llvmType(conversion.result().type()).equals(llvmType(conversion.value().type())))
+                throw new IllegalArgumentException("native descriptor cannot cross into managed reference storage");
+            output.append(operand(conversion.result())).append(" = getelementptr i8, ").append(llvmType(conversion.result().type())).append(' ')
                     .append(operand(conversion.value())).append(", i64 0");
             return;
         }
@@ -2632,8 +2660,8 @@ public final class LlvmEmitter {
 
     private void emitGcImageMetadata(StringBuilder output, IrProgram program,
                                      List<IrImmortalObject> objects, List<IrEnumConstant> enums) {
-        output.append("@iw_gc_root_abi = hidden constant i32 2\n")
-                .append("@iw_gc_owner_requirements = hidden constant i32 7\n")
+        output.append("@iw_gc_root_abi = hidden constant i32 ").append(foreignImage ? 3 : 2).append('\n')
+                .append("@iw_gc_owner_requirements = hidden constant i32 ").append(foreignImage ? 15 : 7).append('\n')
                 .append("declare i32 @iw_gc_bind_type(ptr, ptr) \"gc-leaf-function\"\n")
                 .append("declare void @ironwood_gc_start() \"gc-leaf-function\"\n")
                 .append("declare void @ironwood_gc_start_roots(ptr, ptr addrspace(1)) \"gc-leaf-function\"\n")
@@ -2886,7 +2914,7 @@ public final class LlvmEmitter {
                 .append(functionName(call.targetLinkageName())).append("(i64 ")
                 .append(operand(call.invocationContext().orElseThrow()));
         call.arguments().forEach(argument -> output.append(", ").append(llvmType(argument.type())).append(' ').append(operand(argument)));
-        output.append(')').append(suffix);
+        output.append(')').append(gcBundle(call)).append(suffix);
     }
 
     private static boolean writesTraceLine(IrInstruction instruction) {
@@ -3150,6 +3178,7 @@ public final class LlvmEmitter {
     }
 
     private String llvmType(IrType type) {
+        if (type.equals(ironwood.compiler.ir.IrByteViewInstruction.TYPE)) return "ptr";
         if (gcProgram != null && (type.isReference() || type.equals(IrType.NULL))) return "ptr addrspace(1)";
         return switch (type.kind()) {
             case I1 -> "i1";

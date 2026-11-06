@@ -24,8 +24,42 @@ final class BridgeProducerCommand {
     private BridgeProducerCommand() {}
 
     static int run(String[] arguments, PrintStream out, PrintStream err) {
-        err.println("error: GC6 boundary: native bridge/shared-library outputs are not qualified for managed roots, cleanup and foreign transitions");
-        return 1;
+        Options options;
+        try { options = parse(arguments); }
+        catch (IllegalArgumentException invalid) { err.println("error: " + invalid.getMessage()); usage(err); return 2; }
+        var loaded = new SourceSetLoader(options.sources(), options.classes()).loadBridge(options.inputs(), options.exports());
+        if (!loaded.diagnostics().isEmpty()) { diagnostics(loaded.diagnostics(), err); return 1; }
+        var pipeline = new CompilerPipeline(options.unfreed(), options.explain(), null);
+        var artifact = pipeline.analyzeForBridge(loaded.sources());
+        diagnostics(artifact.diagnostics(), err);
+        if (!artifact.valid()) return 1;
+        try {
+            var selected = options.exports();
+            boolean foreign = artifact.bridgeApiFacts().orElseThrow().types().values().stream()
+                    .anyMatch(type -> type.accessible() && selected.contains(type.packageName())
+                            && type.kind() == ironwood.compiler.semantic.BridgeApiFacts.Kind.INTERFACE);
+            BridgeListenerProxies listeners = null;
+            BridgeCallbackCarrierSources carrier = null;
+            if (foreign) {
+                var sources = new ArrayList<>(loaded.sources());
+                carrier = BridgeCallbackCarrierSources.discover(artifact);
+                sources.add(carrier.source());
+                var withCarrier = pipeline.analyzeForBridge(sources);
+                if (!withCarrier.valid()) { diagnostics(withCarrier.diagnostics(), err); return 1; }
+                listeners = BridgeListenerProxies.discover(withCarrier, selected);
+                artifact = pipeline.analyzeForBridge(sources, listeners);
+                if (!artifact.valid()) { diagnostics(artifact.diagnostics(), err); return 1; }
+            }
+            var proof = BridgeObjectAdmission.proveManaged(artifact, selected, listeners, carrier);
+            if (proof.contract().isEmpty()) { err.println("error: managed Java Bridge admission failed: " + proof.reason()); return 1; }
+            var tools = LlvmToolchain.discover(options.llvmHome());
+            if (!tools.successful()) { err.println("error: " + tools.error()); return 1; }
+            BridgeProducer.build(artifact, proof.contract().orElseThrow(), options.output(), tools.toolchain().orElseThrow(), options.optimization(),
+                    new BridgeDistributionInputs.Options(options.classes(), options.licenses()), options.criticalCalls(), err);
+            out.println("built " + options.output().toAbsolutePath().normalize()); return 0;
+        } catch (IOException | IllegalArgumentException failure) {
+            err.println("error: Java Bridge build failed: " + failure.getMessage()); return 1;
+        }
     }
 
     private record Options(List<Path> inputs, List<Path> sources, List<Path> classes, List<String> exports, Path output,
@@ -53,7 +87,7 @@ final class BridgeProducerCommand {
                     case "-O2" -> optimization = OptimizationLevel.O2;
                     case "-O3" -> optimization = OptimizationLevel.O3;
                     case "--explain-rejected-free" -> throw new IllegalArgumentException("manual reclamation options have been removed");
-                    case "--help", "-h" -> throw new IllegalArgumentException("Java Bridge host builds support proved roots/views and bounded retention, permanent objects, enums, copied snapshots and primitive/String APIs on macos-arm64, linux-arm64 and linux-x86_64");
+                    case "--help", "-h" -> throw new IllegalArgumentException("managed Java Bridge host builds support exact handles, listener registrations, copied values and borrowed views on qualified macos-arm64 and linux-x86_64");
                     default -> {
                         if (option.startsWith("--unfreed=")) throw new IllegalArgumentException("--unfreed has been removed");
                         else if (option.equals("--critical-calls=on")) criticalCalls = true;

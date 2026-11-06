@@ -82,6 +82,9 @@ def context(llvm, target):
         'adapter.abi': pins['adapter.abi'], 'memory.abi': pins['memory.abi'],
         'layout.version': pins['layout.version'], 'roots.version': pins['roots.version'],
         'runtime.owner.version': pins['runtime.owner.version'],
+        'foreign.roots.version': pins['foreign.roots.version'],
+        'foreign.runtime.owner.version': pins['foreign.runtime.owner.version'],
+        'foreign.segments.version': pins['foreign.segments.version'],
         'statepoint.pass.sha256': digest(ROOT / ADAPTER[2]),
         'target': target, 'target.triple': triple, 'target.data-layout': layout,
         'pointer.width': width, 'endianness': 'little', 'llvm.version': pins['llvm.version'],
@@ -293,6 +296,8 @@ def prepare(prefix, llvm, target, cache, jobs):
                       'target.triple': config['target.triple'], 'target.data-layout': config['target.data-layout'],
                       'llvm.version': config['llvm.version'], 'adapter.abi': config['adapter.abi'],
                       'roots.version': str(config['roots.version']), 'runtime.owner.version': str(config['runtime.owner.version'])}
+        properties.update({key: str(config[key]) for key in
+                           ('foreign.roots.version', 'foreign.runtime.owner.version', 'foreign.segments.version')})
         properties.update({'sha256.' + str(p.relative_to(staged)): digest(p)
                            for p in sorted(staged.rglob('*')) if p.is_file()})
         (staged / 'build.properties').write_text('# SPDX-License-Identifier: MIT OR Apache-2.0\n'

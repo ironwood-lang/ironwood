@@ -41,6 +41,26 @@ record BridgePairedArchive(BridgeGeneration generation, Map<String, String> meta
             throw new IOException("paired content inventory mismatch: " + path);
         }
         BridgeValuesLibrary.validate(metadata, entries);
-        return new BridgePairedArchive(BridgeGeneration.fromManifest(metadata), metadata, entries);
+        try {
+            var generation = BridgeGeneration.fromManifest(metadata);
+            if (!generation.managedHeap()) throw new IllegalArgumentException("paired native image requires objects-gc-v1");
+            if (metadata.containsKey("native.target")) verifyBuild(generation, metadata, metadata.get("native.target"), "native.", "gc.config.sha256");
+            else {
+                var targets = metadata.keySet().stream().filter(key -> key.startsWith("target.") && key.endsWith(".build"))
+                        .map(key -> key.substring(7, key.length() - 6)).toList();
+                if (targets.isEmpty()) throw new IllegalArgumentException("missing native managed targets");
+                for (String target : targets) verifyBuild(generation, metadata, target, "target." + target + ".", "target." + target + ".gc.config.sha256");
+            }
+            return new BridgePairedArchive(generation, metadata, entries);
+        } catch (IllegalArgumentException invalid) { throw new IOException("incompatible paired image: " + invalid.getMessage(), invalid); }
+    }
+
+    private static void verifyBuild(BridgeGeneration generation, Map<String, String> metadata, String target, String prefix, String configuration) {
+        var inputs = new TreeMap<String, String>();
+        String inputPrefix = prefix + "input.";
+        metadata.forEach((key, value) -> { if (key.startsWith(inputPrefix)) inputs.put(key.substring(inputPrefix.length()), value); });
+        var build = generation.nativeBuild(target, inputs);
+        if (!build.identity().equals(metadata.get(prefix + "build")) || !inputs.get("gc.config.sha256").equals(metadata.get(configuration)))
+            throw new IllegalArgumentException("native collector configuration/build mismatch");
     }
 }

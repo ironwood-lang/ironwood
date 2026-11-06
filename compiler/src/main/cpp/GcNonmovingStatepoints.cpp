@@ -23,8 +23,14 @@ struct NonmovingStatepoints : PassInfoMixin<NonmovingStatepoints> {
     PreservedAnalyses run(Module &module, ModuleAnalysisManager &analyses) {
         auto *abi = module.getGlobalVariable("iw_gc_root_abi");
         auto *version = abi && abi->hasInitializer() ? dyn_cast<ConstantInt>(abi->getInitializer()) : nullptr;
-        if (!version || version->getZExtValue() != 2)
-            report_fatal_error("Ironwood nonmoving statepoints require root ABI 2");
+        if (!version || (version->getZExtValue() != 2 && version->getZExtValue() != 3))
+            report_fatal_error("Ironwood nonmoving statepoints require root ABI 2 or 3");
+        if (version->getZExtValue() == 3) {
+            auto *owners = module.getGlobalVariable("iw_gc_owner_requirements");
+            auto *coverage = owners && owners->hasInitializer() ? dyn_cast<ConstantInt>(owners->getInitializer()) : nullptr;
+            if (!coverage || coverage->getZExtValue() != 15)
+                report_fatal_error("Ironwood foreign statepoints require complete owner coverage");
+        }
         RewriteStatepointsForGC().run(module, analyses);
         // Itanium landingpads carry {exception,selector}, not the token type
         // required by gc.relocate. Identity replacement is valid in this heap,

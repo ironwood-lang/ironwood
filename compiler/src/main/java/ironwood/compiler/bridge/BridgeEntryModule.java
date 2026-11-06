@@ -28,6 +28,7 @@ public final class BridgeEntryModule {
 
     private final IrProgram program;
     private final Optional<IrProgram> callbackOriginal;
+    private final Optional<BridgeGcCallbacks> gcCallbacks;
     private final List<Entry> entries;
     private final Optional<BridgeRootRetentionContract> rootRetention;
     private final List<Destruction> destructions;
@@ -71,6 +72,7 @@ public final class BridgeEntryModule {
             Optional<BridgePermanentContract> permanent, Map<BridgeCallableId, BridgeStringResultContract> stringResults,
             Optional<BridgeEnumInvocation> enumInvocation, Optional<BridgeEnumConversions> enumConversions) {
         this.callbackOriginal = Optional.empty();
+        this.gcCallbacks = Optional.empty();
         this.entries = List.copyOf(entries);
         this.rootRetention = rootRetention;
         this.destructions = List.copyOf(destructions);
@@ -84,6 +86,7 @@ public final class BridgeEntryModule {
     }
 
     public IrProgram program() { return program; }
+    public Optional<BridgeGcCallbacks> gcCallbacks() { return this.gcCallbacks; }
     public List<Entry> entries() { return entries; }
     public List<Entry> primaryEntries() { return entries.stream().filter(entry -> entry.fixedEnums().isEmpty()).toList(); }
     public Optional<BridgeRootRetentionContract> rootRetention() { return rootRetention; }
@@ -92,6 +95,66 @@ public final class BridgeEntryModule {
     public Map<BridgeCallableId, BridgeStringResultContract> stringResults() { return stringResults; }
     public Optional<BridgeEnumInvocation> enumInvocation() { return enumInvocation; }
     public Optional<BridgeEnumConversions> enumConversions() { return enumConversions; }
+
+    /** GC storage has no managed dependency ledger or destruction capabilities.
+     * Foreign descriptor confinement remains a distinct admission requirement.
+     */
+    public static BridgeEntryModule managed(CompilationArtifact artifact, BridgeExportSurface surface) {
+        return managed(artifact, surface, Optional.empty());
+    }
+
+    public static BridgeEntryModule managed(CompilationArtifact artifact, BridgeExportSurface surface, Optional<BridgeGcCallbacks> callbacks) {
+        if (!artifact.valid() || artifact.program().isEmpty()) throw new IllegalArgumentException("managed bridge requires valid source");
+        var original = artifact.program().orElseThrow();
+        if (callbacks.isEmpty() && surface.types().stream().anyMatch(type -> type.kind() == ironwood.compiler.semantic.BridgeApiFacts.Kind.INTERFACE))
+            throw new IllegalArgumentException("managed listeners require exact proxy and JNI completion capabilities");
+        var base = callbacks.map(value -> value.context().program()).orElse(original);
+        var roots = surface.roots().revalidate(original);
+        if (!roots.resolved()) throw new IllegalArgumentException("unresolved managed bridge roots");
+        var mappings = BridgeEnumConversions.forManagedSurface(artifact, surface, callbacks.map(BridgeGcCallbacks::listeners).orElse(null));
+        var rootTypes = surface.types().stream().filter(type -> type.kind() == ironwood.compiler.semantic.BridgeApiFacts.Kind.CLASS
+                && !type.throwable()).map(type -> IrType.reference(type.binaryName())).collect(Collectors.toSet());
+        var retention = new java.util.LinkedHashMap<BridgeCallableId, BridgeRetentionContract>();
+        var origins = new java.util.LinkedHashMap<BridgeCallableId, BridgeResultOriginContract>();
+        var results = new java.util.LinkedHashMap<BridgeCallableId, BridgeStringResultContract>();
+        var generated = new ArrayList<Entry>();
+        var functions = new ArrayList<>(base.functions());
+        callbacks.ifPresent(value -> functions.addAll(value.support()));
+        var calls = new BridgeCallTargets(original);
+        for (var root : roots.roots()) {
+            var id = root.callable();
+            if (id.parameters().stream().anyMatch(ironwood.compiler.semantic.BridgeByteViews::view)) {
+                var proof = ironwood.compiler.semantic.BridgeByteViews.analyzeManaged(artifact, id,
+                        callbacks.map(BridgeGcCallbacks::listeners).orElse(null));
+                if (proof.status() != BridgeProof.Status.PROVED) throw new IllegalArgumentException(proof.reason());
+            }
+            var slots = callbacks.map(value -> value.slots().get(id)).orElse(new BridgeRetentionContract(List.of()));
+            retention.put(id, slots);
+            var origin = artifact.bridgeConstructionFacts().orElseThrow().resultOrigins().get(id);
+            if (origin != null && origin.status() == BridgeProof.Status.PROVED) origins.put(id, origin.contract().orElseThrow());
+            if (id.result().equals(IrType.reference("ironwood.lang.String")))
+                results.put(id, new BridgeStringResultContract(id, BridgeStringResultContract.Kind.MANAGED, Set.of()));
+            var initialization = calls.initializers(id.owner());
+            if (!initialization.complete()) throw new IllegalArgumentException("unresolved bridge initialization");
+            var target = callbacks.map(value -> value.context().entries().get(id)).orElseGet(() -> original.functions().stream()
+                    .filter(value -> value.linkageName().equals(id.linkage())).findFirst().orElseThrow());
+            var targetRoot = BridgeRootSet.resolve(base, List.of(BridgeCallableId.of(target))).roots().getFirst();
+            var stringResult = Optional.ofNullable(results.get(id)).map(value -> new BridgeStringResultContract(targetRoot.callable(), value.kind(), value.inputs()));
+            var function = BridgeRootEntryLowering.lower(targetRoot, "ironwood_bridge_entry_" + generated.size(), slots,
+                    !initialization.targets().isEmpty(), stringResult,
+                    mappings.parameters().getOrDefault(id, List.of()), Optional.ofNullable(mappings.results().get(id)));
+            functions.add(function);
+            generated.add(new Entry(root, function));
+        }
+        var owners = rootTypes.stream().collect(Collectors.toMap(type -> type, type -> Set.of(type)));
+        var protocol = new BridgeRootRetentionContract(original, roots, rootTypes, retention, Map.of(), Map.of(), origins,
+                Set.of(), owners, Optional.empty(), Optional.empty());
+        var module = new BridgeEntryModule(new IrProgram(base.moduleName(), base.classes(), base.staticFields(), base.typeInitializations(),
+                base.arrayTypes(), base.stringConstants(), base.dispatchSlots(), functions, Optional.empty(), base.allocationFailure()),
+                generated, Optional.of(protocol), List.of(), Optional.empty(), results, Optional.empty(), Optional.of(mappings));
+        return callbacks.isEmpty() ? module : new BridgeEntryModule(module, callbacks.orElseThrow().support().stream()
+                .map(IrFunction::linkageName).collect(Collectors.toSet()), original, callbacks);
+    }
     public Set<String> entrySymbols() {
         return java.util.stream.Stream.concat(entries.stream().map(Entry::function), destructions.stream().map(Destruction::function))
                 .map(IrFunction::linkageName).collect(Collectors.toUnmodifiableSet());
@@ -192,7 +255,12 @@ public final class BridgeEntryModule {
     }
 
     private BridgeEntryModule(BridgeEntryModule module, Set<String> support, IrProgram original) {
+        this(module, support, original, module.gcCallbacks);
+    }
+
+    private BridgeEntryModule(BridgeEntryModule module, Set<String> support, IrProgram original, Optional<BridgeGcCallbacks> callbacks) {
         callbackOriginal = Optional.of(original);
+        this.gcCallbacks = callbacks;
         entries = module.entries;
         rootRetention = module.rootRetention;
         destructions = module.destructions;

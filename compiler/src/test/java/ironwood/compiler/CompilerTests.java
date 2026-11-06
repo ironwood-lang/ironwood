@@ -135,6 +135,9 @@ public final class CompilerTests {
         test(Gc5IntrinsicTests.REFUSAL, Gc5IntrinsicTests::refusal);
         test(Gc5IntrinsicTests.FINAL_LINK, Gc5IntrinsicTests::finalLink);
         test(Gc6CarrierTests.NAME, Gc6CarrierTests::proofs);
+        test(Gc6SegmentTests.NAME, Gc6SegmentTests::proofs);
+        test(Gc6ManagedBridgeTests.NAME, Gc6ManagedBridgeTests::proofs);
+        test(Gc6CallbackTests.NAME, Gc6CallbackTests::proofs);
         test(GcLayoutTests.NAME, GcLayoutTests::proofs);
         test(GcRootTests.NAME, GcRootTests::proofs);
         test(GcLifetimeTests.NAME, GcLifetimeTests::proofs);

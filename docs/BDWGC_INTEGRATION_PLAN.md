@@ -6,10 +6,10 @@ Updated 2026-11-05: GC0 through GC4 are complete for their prerequisite
 closures, and **GC5's integrated normal compiler/runtime/required-library
 checkpoint is complete** on macOS arm64 and Linux x86-64. Normal native programs
 use one exact managed model with explicit synchronous Memory.collect(). See
-[the GC5 report](GC5_IMPLEMENTATION.md). Bridge/shared-library output, Linux
-arm64 and arm64e remain gated. GC6-GC10 and self-hosting are not complete.
-An [incomplete GC6 carrier checkpoint](GC6_IMPLEMENTATION.md) implements exact
-carrier linkage and separate JNI completion, without qualifying foreign output.
+[the GC5 report](GC5_IMPLEMENTATION.md). [GC6](GC6_IMPLEMENTATION.md) completes
+managed bridges on those two targets with exact foreign/suspended roots, generated
+handle/registration lifetimes, explicit JNI cleanup and private collector images.
+Linux arm64 and arm64e remain gated. GC7-GC10 and self-hosting are not complete.
 
 The selected direction is BDWGC 8.2.12 with compiler-provided roots and exact
 layout metadata, synchronous `Memory.collect()`, removal of source `free` and
@@ -656,12 +656,15 @@ Inspect the scalar noncollecting entry path for new TLS, helper calls or lookups
 explicitly reviewed compatibility change. Do not quietly ship regressions by
 omitting formerly exported members or changing resource methods into traps.
 
-**Incomplete checkpoint, 2026-11-05:** [Carrier migration and remaining gates](GC6_IMPLEMENTATION.md)
-records exact managed carrier links and explicit JNI completion, normal O0-O3
-carrier graphs and actual JVM-loaded private-engine completion/isolation controls
-on macOS arm64. This does not qualify generated bridge entry roots or suspended
-segments, and does not satisfy the exit criterion. All foreign-output refusals
-remain closed. GC7 is not the next implementation target while GC6 is incomplete.
+**Completed, 2026-11-05:** [Implementation, migration and exact verification](GC6_IMPLEMENTATION.md)
+records schema 2 / objects-gc-v1, RootHandle and ListenerRegistration projections,
+root ABI 3 / owner ABI 2, saved native segments, explicit JNI ownership and
+actual production Mach-O/ELF private images. Actual JVM consumers at O0-O3 cover
+reentry, roots, callbacks, failures, borrowed resources and reclamation on macOS
+arm64 and Linux x86-64; Java 23 also exercises critical calls and JNI fallback.
+The reviewed final-slot listener ownership convention is documented explicitly.
+Qualified managed output routes are enabled; raw shared IR, unsupported lifetimes
+and unqualified targets remain refused. GC7 is a separate bounded handoff.
 
 ### GC7. Migrate consumers and retire obsolete proof machinery
 
@@ -811,10 +814,10 @@ checkpoints clearly. Record a concrete remaining gate at each stopping point.
 No branch creation beyond the maintainer's request, pushing, hosted jobs or
 automatic self-hosting restart is part of this document's implementation plan.
 
-GC0-GC5 are complete within their documented boundaries. The next separately
-authorized milestone is GC6. Preserve exact native roots, runtime owners,
-configuration/pass verification and explicit bridge/shared-library refusals until
-that qualification exists. Carry forward Linux arm64 and arm64e gates. GC7 owns
+GC0-GC6 are complete within their documented boundaries. GC7 is the next
+separately authorized milestone. Preserve exact native and suspended roots,
+runtime owners, handle/registration contracts, isolated images and configuration/
+payload/pass verification. Raw shared IR and unsupported foreign lifetimes refuse. Carry forward Linux arm64 and arm64e gates. GC7 owns
 remaining repository consumers and broad dead-proof removal; do not begin it as
 incidental cleanup. Subsequent work must retain prerequisite commits, compact
 evidence and remaining gates. No self-hosting restart is implied.

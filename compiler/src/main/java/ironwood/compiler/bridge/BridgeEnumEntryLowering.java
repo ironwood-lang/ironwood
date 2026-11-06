@@ -65,7 +65,7 @@ final class BridgeEnumEntryLowering {
                 new IrBridgeResultStoreInstruction(frame, IrBridgeResultStoreInstruction.Slot.VALUE, value, span)))
                 .orElse(List.of()), new IrReturnTerminator(Optional.of(new IrConstant(IrType.I32, 0, span)), span), span));
         var handle = new IrValueReference(next++, IrType.EXCEPTION, span);
-        var exception = new IrValueReference(next++, IrType.EXCEPTION, span);
+        var exception = new IrValueReference(next++, IrType.reference("ironwood.lang.Throwable"), span);
         blocks.add(new IrBasicBlock("failure", List.of(new IrExceptionLandingPadInstruction(handle, exception, span),
                 new IrExceptionCaughtInstruction(exception, span), new IrBridgeResultStoreInstruction(frame,
                 IrBridgeResultStoreInstruction.Slot.EXCEPTION, exception, span)), new IrInvokeTerminator(
@@ -73,7 +73,7 @@ final class BridgeEnumEntryLowering {
         blocks.add(new IrBasicBlock("snapshot.complete", List.of(),
                 new IrReturnTerminator(Optional.of(new IrConstant(IrType.I32, 1, span)), span), span));
         var snapshotHandle = new IrValueReference(next++, IrType.EXCEPTION, span);
-        var snapshotException = new IrValueReference(next, IrType.EXCEPTION, span);
+        var snapshotException = new IrValueReference(next, IrType.reference("ironwood.lang.Throwable"), span);
         blocks.add(new IrBasicBlock("snapshot.failure", List.of(new IrExceptionLandingPadInstruction(snapshotHandle, snapshotException, span),
                 new IrExceptionCaughtInstruction(snapshotException, span)),
                 new IrReturnTerminator(Optional.of(new IrConstant(IrType.I32, 2, span)), span), span));

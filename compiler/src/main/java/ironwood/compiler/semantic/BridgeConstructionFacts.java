@@ -126,6 +126,19 @@ public final class BridgeConstructionFacts {
         return withGeneratedEntries(entries, Optional.of(exceptions));
     }
 
+    /** Context specialization changes dispatch. Do not project obsolete ownership or
+     * borrowing facts onto that transformed managed program. Native/resource proofs
+     * were checked against the original source before these entries were composed.
+     */
+    public BridgeConstructionFacts forManagedBridge(ironwood.compiler.CompilationArtifact artifact,
+            BridgeEntryModule entries, BridgeExceptionEntries exceptions) {
+        if (!matches(artifact.program().orElseThrow()) || !entries.matchesOriginal(artifact) || !entries.destructions().isEmpty())
+            throw new IllegalArgumentException("managed construction facts require exact source and non-destructive entries");
+        ironwood.compiler.backend.GcManagedHeapVerifier.verifyBridge(exceptions.program());
+        return new BridgeConstructionFacts(exceptions.program(), Map.of(), Map.of(), Map.of(), Set.of(), Set.of(), Set.of(),
+                Map.of(), Map.of(), Map.of());
+    }
+
     private BridgeConstructionFacts withGeneratedEntries(BridgeEntryModule entries, Optional<BridgeExceptionEntries> exceptions) {
         List<IrFunction> additions = new ArrayList<>();
         entries.entries().forEach(entry -> additions.add(entry.function()));

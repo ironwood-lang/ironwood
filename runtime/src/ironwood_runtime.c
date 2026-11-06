@@ -4385,6 +4385,7 @@ _Noreturn void ironwood_uncaught_exception(void *object, size_t message_offset) 
 
 /* GC5 image startup is cold. No user callbacks or collection occur here. */
 extern const char iw_gc_expected_configuration[];
+extern const uint32_t iw_gc_root_abi;
 extern const uint64_t iw_gc_static_root_count, iw_gc_immortal_count, iw_gc_runtime_layouts[10];
 extern void *const iw_gc_static_roots[], *const iw_gc_immortal_bases[];
 const uint64_t iw_gc_native_root_count = 0;
@@ -4462,7 +4463,8 @@ void ironwood_gc_start_roots(void (*boundary)(void), void *allocation_failure) {
     };
     if (memcmp(expected, iw_gc_runtime_layouts, sizeof(expected))) ironwood_gc_invalid_layout();
     static struct iw_gc_owner_protocol owners;
-    owners = (struct iw_gc_owner_protocol){1, 7, 0, 0, enumerate_runtime_owners,
+    int foreign = iw_gc_root_abi == 3;
+    owners = (struct iw_gc_owner_protocol){foreign ? 2u : 1u, foreign ? 15u : 7u, foreign ? 1u : 0u, 0, enumerate_runtime_owners,
         iw_gc_immortal_bases, (size_t)iw_gc_immortal_count};
     collection_allocation_failure = allocation_failure;
     size_t capacity = 65536;
@@ -4473,8 +4475,8 @@ void ironwood_gc_start_roots(void (*boundary)(void), void *allocation_failure) {
         if (*configured == '\0' || *end || parsed < 1 || parsed > 1048576) ironwood_gc_invalid_layout();
         capacity = (size_t)parsed;
     }
-    const struct iw_gc_root_config config = {2, 8, 1, 3, boundary, iw_gc_static_roots,
-        (size_t)iw_gc_static_root_count, iw_gc_native_roots, 0, capacity, 3, 4, &owners};
+    const struct iw_gc_root_config config = {foreign ? 3u : 2u, 8, 1, 3, boundary, iw_gc_static_roots,
+        (size_t)iw_gc_static_root_count, iw_gc_native_roots, 0, capacity, 3, foreign ? 12u : 4u, &owners};
     if (!iw_gc_roots_start(&config)) ironwood_gc_invalid_layout();
     if (!iw_gc_register_immortals(iw_gc_immortal_bases, (size_t)iw_gc_immortal_count)
             || !iw_gc_weak_native(&implicit_failure_metadata)

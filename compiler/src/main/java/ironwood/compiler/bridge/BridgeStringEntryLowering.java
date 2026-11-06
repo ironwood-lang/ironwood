@@ -68,23 +68,9 @@ final class BridgeStringEntryLowering {
                 "failure." + copies.size(), span), span));
         List<IrInstruction> success = new ArrayList<>();
         for (int index = 0; index < copies.size(); index++) {
-            // Array state belongs to the adapter through result/failure delivery.
-            if (!(copies.get(index) instanceof IrBridgeStringCopyInstruction copy)) {
-                if (alias) blocks.add(new IrBasicBlock("cleanup." + index, List.of(),
-                        new IrJump(index + 1 == copies.size() ? "success" : "cleanup." + (index + 1), span), span));
-                continue;
-            }
-            if (!alias) {
-                success.add(new IrRawDeallocateInstruction(copy.result(), span));
-                continue;
-            }
-            var retained = new IrValueReference(next++, IrType.I1, span);
-            String after = index + 1 == copies.size() ? "success" : "cleanup." + (index + 1);
-            blocks.add(new IrBasicBlock("cleanup." + index, List.of(new IrBinaryInstruction(retained,
-                    IrBinaryOperator.EQUAL, copy.result(), result.orElseThrow(), span)),
-                    new IrBranch(retained, after, "release." + index, span), span));
-            blocks.add(new IrBasicBlock("release." + index, List.of(new IrRawDeallocateInstruction(copy.result(), span)),
-                    new IrJump(after, span), span));
+            // Converted storage is managed. Native/JNI ownership ends separately.
+            if (alias) blocks.add(new IrBasicBlock("cleanup." + index, List.of(),
+                    new IrJump(index + 1 == copies.size() ? "success" : "cleanup." + (index + 1), span), span));
         }
         result.ifPresent(value -> success.add(new IrBridgeResultStoreInstruction(frame,
                 IrBridgeResultStoreInstruction.Slot.VALUE, value, span)));
@@ -92,15 +78,10 @@ final class BridgeStringEntryLowering {
                 new IrReturnTerminator(Optional.of(new IrConstant(IrType.I32, 0, span)), span), span));
         for (int acquired = 0; acquired <= copies.size(); acquired++) {
             var handle = new IrValueReference(next++, IrType.EXCEPTION, span);
-            var exception = new IrValueReference(next++, IrType.EXCEPTION, span);
+            var exception = new IrValueReference(next++, IrType.reference("ironwood.lang.Throwable"), span);
             List<IrInstruction> failure = new ArrayList<>();
             failure.add(new IrExceptionLandingPadInstruction(handle, exception, span));
             failure.add(new IrExceptionCaughtInstruction(exception, span));
-            for (int index = acquired - 1; index >= 0; index--) {
-                if (copies.get(index) instanceof IrBridgeStringCopyInstruction copy) {
-                    failure.add(new IrRawDeallocateInstruction(copy.result(), span));
-                }
-            }
             failure.add(new IrBridgeResultStoreInstruction(frame, IrBridgeResultStoreInstruction.Slot.EXCEPTION, exception, span));
             blocks.add(new IrBasicBlock("failure." + acquired, failure,
                     new IrInvokeTerminator(new IrBridgeFailureSnapshotInstruction(exception, frame, span),
@@ -109,7 +90,7 @@ final class BridgeStringEntryLowering {
         blocks.add(new IrBasicBlock("snapshot.complete", List.of(),
                 new IrReturnTerminator(Optional.of(new IrConstant(IrType.I32, 1, span)), span), span));
         var snapshotHandle = new IrValueReference(next++, IrType.EXCEPTION, span);
-        var snapshotException = new IrValueReference(next, IrType.EXCEPTION, span);
+        var snapshotException = new IrValueReference(next, IrType.reference("ironwood.lang.Throwable"), span);
         blocks.add(new IrBasicBlock("snapshot.failure", List.of(new IrExceptionLandingPadInstruction(snapshotHandle, snapshotException, span),
                 new IrExceptionCaughtInstruction(snapshotException, span)),
                 new IrReturnTerminator(Optional.of(new IrConstant(IrType.I32, 2, span)), span), span));

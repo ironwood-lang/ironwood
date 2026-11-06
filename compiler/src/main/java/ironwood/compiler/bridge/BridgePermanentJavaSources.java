@@ -53,6 +53,7 @@ public final class BridgePermanentJavaSources {
         if (!generation.matchesObjects(artifact, admission) || admission.roots().isEmpty()) {
             throw new IllegalArgumentException("root Java facades require matching final root admission and generation");
         }
+        if (admission.managedHeap()) return BridgeGcJavaSources.generate(artifact, admission, generation);
         return generateAdmitted(artifact, admission, generation, new RootContext(generation.supportPackage() + ".RootState", new ArrayList<>()));
     }
 

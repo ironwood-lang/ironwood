@@ -2,10 +2,14 @@
 
 # Native Ironwood for Java
 
-On the GC migration branch, native bridge/shared-library production currently
-refuses until GC6 qualifies exact foreign roots and lifetimes. The
-[incomplete carrier checkpoint](GC6_IMPLEMENTATION.md) does not lift that gate.
-The historical pre-GC qualification and usage below do not qualify GC images.
+GC6 managed bridge production is qualified on macOS arm64 and Linux x86-64.
+The [current contract, API migration and verification](GC6_IMPLEMENTATION.md)
+supersede manual facade ownership and the historical platform statements below.
+Use Roots factories and RootHandle results; acquire ListenerRegistration before
+retaining operations. Source close remains resource closure. Linux arm64 and
+arm64e remain unqualified. Java 21 JNI and Java 23 critical/JNI transports were
+exercised; earlier Java 21-25 records do not broaden GC6 qualification. The
+pre-GC material below is historical pending GC7 consumer migration.
 
 > **Implementation status, 2026-10-03:** The Java Bridge producer is implemented
 > for Java 21-25 on macOS ARM64, Linux ARM64 and Linux x86-64. P5's bounded

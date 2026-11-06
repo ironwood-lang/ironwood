@@ -20,6 +20,22 @@ public final class BridgeByteViews {
     }
 
     public static BridgeProof<Contract> analyze(CompilationArtifact artifact, BridgeCallableId callable) {
+        return analyze(artifact, callable, false);
+    }
+
+    public static BridgeProof<Contract> analyzeManaged(CompilationArtifact artifact, BridgeCallableId callable) {
+        return analyze(artifact, callable, true);
+    }
+
+    public static BridgeProof<Contract> analyzeManaged(CompilationArtifact artifact, BridgeCallableId callable, BridgeListenerProxies listeners) {
+        return analyze(artifact, callable, true, listeners);
+    }
+
+    private static BridgeProof<Contract> analyze(CompilationArtifact artifact, BridgeCallableId callable, boolean managed) {
+        return analyze(artifact, callable, managed, null);
+    }
+
+    private static BridgeProof<Contract> analyze(CompilationArtifact artifact, BridgeCallableId callable, boolean managed, BridgeListenerProxies listeners) {
         if (!artifact.valid() || artifact.bridgeConstructionFacts().isEmpty() || artifact.bridgeApiFacts().isEmpty()
                 || !artifact.bridgeConstructionFacts().orElseThrow().matches(artifact.program().orElseThrow())
                 || !artifact.bridgeApiFacts().orElseThrow().matches(artifact.program().orElseThrow())) {
@@ -34,6 +50,7 @@ public final class BridgeByteViews {
             return BridgeProof.rejected("byte views are call-scoped method inputs only");
         }
         var program = artifact.program().orElseThrow();
+        var foreignBodies = listeners == null ? Set.<String>of() : listeners.foreignBodies(artifact);
         if (!confinedStorage(program)) {
             return BridgeProof.rejected("byte views cannot appear in fields, statics or containers");
         }
@@ -47,9 +64,12 @@ public final class BridgeByteViews {
             inputs.add(i);
         }
         if (inputs.isEmpty()) return BridgeProof.rejected("byte view proof requires a view input");
-        var lifetime = BridgeNonReclamationAnalyzer.analyze(program, roots, IrByteViewInstruction.TYPE, facts);
-        if (lifetime.status() != BridgeProof.Status.PROVED) return failed(lifetime.status(), lifetime.reason());
-        var retention = BridgeRetentionAnalyzer.analyze(program, roots, facts).get(callable);
+        if (!managed) {
+            var lifetime = BridgeNonReclamationAnalyzer.analyze(program, roots, IrByteViewInstruction.TYPE, facts);
+            if (lifetime.status() != BridgeProof.Status.PROVED) return failed(lifetime.status(), lifetime.reason());
+        }
+        var retention = (listeners == null ? BridgeRetentionAnalyzer.analyze(program, roots, facts)
+                : BridgeRetentionAnalyzer.managedListeners(artifact, listeners, roots)).get(callable);
         if (retention.status() != BridgeProof.Status.PROVED) return failed(retention.status(), retention.reason());
         if (retention.contract().orElseThrow().slots().stream().anyMatch(slot -> slot.valueInputs().stream().anyMatch(inputs::contains))) {
             return BridgeProof.rejected("byte view enters retaining storage");
@@ -68,6 +88,7 @@ public final class BridgeByteViews {
                 var instructions = new ArrayList<>(block.instructions());
                 if (block.terminator() instanceof IrInvokeTerminator invoke) instructions.add(invoke.call());
                 for (var instruction : instructions) {
+                    if (instruction instanceof IrForeignCallInstruction && foreignBodies.contains(function.linkageName())) continue;
                     if (instruction instanceof IrReferenceConversionInstruction conversion
                             && (view(conversion.value().type()) || view(conversion.result().type()))
                             && !conversion.value().type().equals(conversion.result().type())
@@ -76,6 +97,11 @@ public final class BridgeByteViews {
                     }
                     if (instruction instanceof IrInstanceOfInstruction test && view(test.value().type())) {
                         return BridgeProof.rejected("byte view runtime type operations are unsupported");
+                    }
+                    if (instruction instanceof IrBinaryInstruction binary && (view(binary.left().type()) || view(binary.right().type()))
+                            && (!(view(binary.left().type()) || binary.left() instanceof IrNull)
+                                || !(view(binary.right().type()) || binary.right() instanceof IrNull))) {
+                        return BridgeProof.rejected("byte view cannot be compared with an object representation");
                     }
                     var call = targets.resolve(instruction);
                     if (instruction instanceof IrRollbackInstruction rollback) call = targets.cleanup(rollback.allocation(), true);
@@ -89,7 +115,7 @@ public final class BridgeByteViews {
                         }
                     } else if (instruction instanceof IrArrayStoreInstruction store) {
                         if (!store.array().type().elementType().isPrimitive()) return BridgeProof.unknown("reference-array write in byte-view closure");
-                    } else if (!BridgeArrayInputs.localEffect(instruction)) {
+                    } else if (!BridgeArrayInputs.localEffect(instruction) && !(managed && instruction instanceof IrGcCollectInstruction)) {
                         return BridgeProof.unknown("unclassified byte-view effect " + instruction.getClass().getSimpleName());
                     }
                     if (instruction instanceof IrBinaryInstruction binary

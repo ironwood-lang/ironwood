@@ -8,7 +8,11 @@ free, destructor, implicit temporary destruction or managed constructor rollback
 General defer, initialization, native resource and pool protocols remain.
 Historical proof discussions and examples mentioning those removed forms are
 pre-GC5 records awaiting GC7 consumer migration, not alternate supported semantics.
-Native bridge/shared-library output remains refused until GC6 qualification.
+Managed bridge output requires [GC6 admission and isolated images](GC6_IMPLEMENTATION.md),
+root ABI 3 / owner ABI 2 and schema 2. macOS arm64 and Linux x86-64 are qualified.
+Ordinary executables retain root ABI 2 / owner ABI 1. Linux arm64 and arm64e remain
+unqualified. Historical manual bridge ownership descriptions are superseded by
+the GC6 handle/registration projection.
 
 ## Launcher JVM configuration
 
@@ -872,7 +876,12 @@ closure and protected unwind edges, while removing unreachable source methods.
 Export signatures are revalidated after optimization, and pre-optimization
 semantic facts are not attached to transformed IR as newly proved contracts.
 `NativeOutputKind` selects executable or shared-library linking; the latter
-accepts separately compiled adapters and uses eager ELF binding on Linux.
+requires verified managed bridge admission and explicit image exports, accepts
+separately compiled adapters and uses eager ELF binding on Linux. Root ABI 3 /
+owner ABI 2 capture current and suspended managed segments before executable JNI
+helpers; Java frames are never unwound. Schema 2 binds actual SDK configuration
+and payload hashes. Mach-O and ELF exports/imports are audited after linking.
+Legacy raw shared IR remains refused. See [GC6](GC6_IMPLEMENTATION.md).
 Linux shared links validate the prepared `BridgeNativeSupport` SDK, preserve
 the glibc 2.17 sysroot explicitly, and deliver private shared dependencies plus
 their source/notices under a relative loader path. A missing or changed SDK

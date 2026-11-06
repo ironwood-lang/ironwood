@@ -27,11 +27,15 @@ import java.util.Set;
  * provenance across recursive calls. Unimplemented effects remain unknown.
  */
 public final class BridgeRetentionAnalyzer {
-    private enum Mode { ROOTS, COPIED_STRINGS, ENUM_VALUES }
+    private enum Mode { ROOTS, COPIED_STRINGS, ENUM_VALUES, MANAGED_LISTENERS }
     private enum Kind { INPUT, LOADED, NULL, FRESH, IMMORTAL, PERMANENT, UNKNOWN }
-    private record Origin(Kind kind, int input, IrType primitiveArray) {
-        static Origin of(Kind kind) { return new Origin(kind, -1, null); }
-        Origin typed(IrType type) { return primitiveArray(type) ? new Origin(kind, input, type) : this; }
+    private record Origin(Kind kind, int input, IrType primitiveArray, boolean foreign, IrType nominalType) {
+        static Origin of(Kind kind) { return new Origin(kind, -1, null, false, null); }
+        Origin typed(IrType type) {
+            return new Origin(kind, input, primitiveArray(type) ? type : primitiveArray, foreign,
+                    nominalType == null && type.isReference() ? type : nominalType);
+        }
+        Origin listener() { return kind == Kind.NULL ? this : new Origin(kind, input, primitiveArray, true, nominalType); }
         private static boolean primitiveArray(IrType type) { return type.isArray() && !type.elementType().isReference(); }
     }
     private record Store(Origin holder, IrField field, Origin value, BridgeRetentionContract.Site site) {}
@@ -62,6 +66,9 @@ public final class BridgeRetentionAnalyzer {
     private final Set<IrField> ownedFields;
     private final Set<IrType> permanentTypes;
     private final Mode mode;
+    private Set<IrType> listenerTypes = Set.of();
+    private Set<String> listenerBodies = Set.of();
+    private Set<String> listenerTargets = Set.of();
 
     private BridgeRetentionAnalyzer(IrProgram program, BridgeConstructionFacts facts) {
         this(program, facts, null, Mode.ROOTS);
@@ -87,6 +94,94 @@ public final class BridgeRetentionAnalyzer {
     public static Map<BridgeCallableId, BridgeProof<BridgeRetentionContract>> analyze(
             IrProgram program, BridgeRootSet roots, BridgeConstructionFacts facts) {
         return analyze(program, roots, facts, null, true, Mode.ROOTS);
+    }
+
+    /** Managed graph sharing does not waive attribution of JNI-owning listener values. */
+    public static Map<BridgeCallableId, BridgeProof<BridgeRetentionContract>> managedListeners(
+            ironwood.compiler.CompilationArtifact artifact, ironwood.compiler.bridge.BridgeListenerProxies proxies,
+            BridgeRootSet roots) {
+        return analyze(artifact.program().orElseThrow(), roots, artifact.bridgeConstructionFacts().orElseThrow(), true,
+                listenerAnalyzer(artifact, proxies));
+    }
+
+    private static BridgeRetentionAnalyzer listenerAnalyzer(ironwood.compiler.CompilationArtifact artifact,
+            ironwood.compiler.bridge.BridgeListenerProxies proxies) {
+        proxies.validateArtifact(artifact);
+        var program = artifact.program().orElseThrow();
+        var analyzer = new BridgeRetentionAnalyzer(program, artifact.bridgeConstructionFacts().orElseThrow(), null, Mode.MANAGED_LISTENERS);
+        analyzer.listenerTypes = proxies.proxies().stream().map(proxy -> IrType.reference(proxy.listener().binaryName()))
+                .collect(java.util.stream.Collectors.toUnmodifiableSet());
+        var owners = proxies.proxies().stream().map(ironwood.compiler.bridge.BridgeListenerProxies.Proxy::binaryName)
+                .collect(java.util.stream.Collectors.toSet());
+        analyzer.listenerBodies = program.functions().stream().filter(function -> owners.contains(function.ownerClass()))
+                .filter(function -> function.kind() == IrCallableKind.METHOD).map(IrFunction::linkageName)
+                .collect(java.util.stream.Collectors.toUnmodifiableSet());
+        analyzer.listenerTargets = program.functions().stream().filter(function -> analyzer.listenerBodies.contains(function.linkageName()))
+                .flatMap(function -> function.blocks().stream()).flatMap(block -> GcEffects.operations(block).stream())
+                .filter(IrForeignCallInstruction.class::isInstance).map(IrForeignCallInstruction.class::cast)
+                .map(IrForeignCallInstruction::targetLinkageName).collect(java.util.stream.Collectors.toUnmodifiableSet());
+        return analyzer;
+    }
+
+    /** Secondary links may refer only to invocation-contained throwable graphs. */
+    static BridgeProof<Boolean> managedCarrierAssociations(ironwood.compiler.CompilationArtifact artifact,
+            ironwood.compiler.bridge.BridgeListenerProxies proxies, BridgeRootSet requested) {
+        var analyzer = listenerAnalyzer(artifact, proxies);
+        var program = artifact.program().orElseThrow();
+        var roots = requested.revalidate(program);
+        if (!roots.resolved()) throw new IllegalArgumentException("carrier associations require resolved roots");
+        analyzer.solve();
+        var throwable = program.classes().stream().filter(type -> type.name().equals("ironwood.lang.Throwable")).findFirst().orElseThrow();
+        var throwableTypes = program.classes().stream().filter(type -> type.typeMembership().contains(throwable.typeId())).toList();
+        java.util.function.Predicate<Origin> possiblyThrowable = origin -> {
+            if (origin.kind() == Kind.NULL) return false;
+            var type = origin.nominalType();
+            if (type == null || type.isTypeParameter()) return true;
+            if (!type.isNominalReference()) return false;
+            var nominal = program.classes().stream().filter(value -> value.name().equals(type.referenceName())).findFirst();
+            return nominal.isEmpty() || throwableTypes.stream().anyMatch(value -> value.typeMembership().contains(nominal.orElseThrow().typeId()));
+        };
+        for (var root : roots.roots()) {
+            var summary = analyzer.summary(analyzer.functions.get(root.callable().linkage()));
+            if (summary.associations().isEmpty()) continue;
+            // Initialization can cache an otherwise fresh throwable outside this
+            // invocation. Do not attach invocation-bound carriers to that cache.
+            if (!analyzer.callTargets.initializers(root.callable().owner()).targets().isEmpty())
+                return BridgeProof.rejected("entry initialization can retain the primary exception");
+            var pending = new ArrayList<IrFunction>();
+            var visited = new LinkedHashSet<String>();
+            pending.add(analyzer.functions.get(root.callable().linkage()));
+            for (int index = 0; index < pending.size(); index++) {
+                var function = pending.get(index);
+                if (!visited.add(function.linkageName())) continue;
+                for (var block : function.blocks()) for (var operation : GcEffects.operations(block)) {
+                    if (operation instanceof IrForeignCallInstruction foreign && analyzer.listenerBodies.contains(function.linkageName())
+                            && analyzer.listenerTargets.contains(foreign.targetLinkageName())) continue;
+                    if (operation instanceof IrEnsureTypeInitializedInstruction ensure
+                            && !analyzer.callTargets.initializers(ensure.typeName()).targets().isEmpty())
+                        return BridgeProof.rejected("initialization can retain the primary exception: " + ensure.typeName());
+                    var edge = analyzer.callTargets.resolve(operation);
+                    if (edge != null) {
+                        if (!edge.complete()) return BridgeProof.unknown("unresolved carrier association edge: "
+                                + function.linkageName() + ":" + operation.getClass().getSimpleName());
+                        pending.addAll(edge.targets());
+                    }
+                }
+            }
+            if (summary.associations().stream().anyMatch(value -> !independent(value.primary())))
+                return BridgeProof.rejected("secondary association has an external or unknown primary");
+            if (summary.publications().values().stream().flatMap(Set::stream).anyMatch(possiblyThrowable))
+                return BridgeProof.rejected("primary exception graph can be published outside the invocation");
+            for (var store : summary.stores()) {
+                if (!possiblyThrowable.test(store.value())) continue;
+                var owner = analyzer.functions.get(store.site().callable());
+                boolean constructor = owner != null && owner.constructor()
+                        && ironwood.compiler.bridge.BridgeExportSurface.builtinThrowableNames().contains(owner.ownerClass());
+                if (!constructor || store.holder().kind() != Kind.FRESH)
+                    return BridgeProof.rejected("primary exception graph can enter external storage: " + store.site());
+            }
+        }
+        return BridgeProof.proved(Boolean.TRUE, "secondary exception graphs remain invocation-contained");
     }
 
     /** Cleanup dispatch does not implicitly initialize the receiver's class again. */
@@ -178,6 +273,12 @@ public final class BridgeRetentionAnalyzer {
     private static Map<BridgeCallableId, BridgeProof<BridgeRetentionContract>> analyze(
             IrProgram program, BridgeRootSet roots, BridgeConstructionFacts facts, BridgePermanentContract permanent,
             boolean entryInitialization, Mode mode) {
+        return analyze(program, roots, facts, entryInitialization, new BridgeRetentionAnalyzer(program, facts, permanent, mode));
+    }
+
+    private static Map<BridgeCallableId, BridgeProof<BridgeRetentionContract>> analyze(
+            IrProgram program, BridgeRootSet roots, BridgeConstructionFacts facts,
+            boolean entryInitialization, BridgeRetentionAnalyzer analyzer) {
         if (facts != null && !facts.matches(program)) {
             throw new IllegalArgumentException("retention owned-field facts do not match the program");
         }
@@ -185,7 +286,6 @@ public final class BridgeRetentionAnalyzer {
         if (!checked.resolved()) {
             throw new IllegalArgumentException("retention analysis requires resolved bridge roots");
         }
-        var analyzer = new BridgeRetentionAnalyzer(program, facts, permanent, mode);
         analyzer.solve();
         Map<BridgeCallableId, BridgeProof<BridgeRetentionContract>> result = new LinkedHashMap<>();
         for (var root : checked.roots()) {
@@ -240,6 +340,7 @@ public final class BridgeRetentionAnalyzer {
     private BridgeProof<BridgeRetentionContract> contract(Set<Store> stores, Set<ArrayCopy> copies,
             Set<Association> associations, Map<BridgeRetentionContract.Site, Set<Origin>> publications, Set<Failure> failures) {
         for (var publication : publications.entrySet()) {
+            if (mode == Mode.MANAGED_LISTENERS && publication.getValue().stream().noneMatch(Origin::foreign)) continue;
             if (mode == Mode.COPIED_STRINGS && !publication.getValue().isEmpty()
                     && publication.getValue().stream().allMatch(BridgeRetentionAnalyzer::notCopiedInput)) continue;
             if (mode == Mode.ENUM_VALUES && !publication.getValue().isEmpty()
@@ -248,6 +349,7 @@ public final class BridgeRetentionAnalyzer {
                     "untracked static/array reference store at " + publication.getKey()));
         }
         for (var association : associations) {
+            if (mode == Mode.MANAGED_LISTENERS && !association.primary().foreign() && !association.secondary().foreign()) continue;
             if (!independent(association.primary()) || !independent(association.secondary())) {
                 failures.add(new Failure(BridgeProof.Status.UNKNOWN,
                         "unproved secondary-exception retention (" + association.primary().kind() + " / "
@@ -255,6 +357,7 @@ public final class BridgeRetentionAnalyzer {
             }
         }
         for (var copy : copies) {
+            if (mode == Mode.MANAGED_LISTENERS && !copy.source().foreign() && !copy.destination().foreign()) continue;
             if (copy.source().primitiveArray() == null
                     || !copy.source().primitiveArray().equals(copy.destination().primitiveArray())) {
                 failures.add(new Failure(BridgeProof.Status.UNKNOWN,
@@ -265,6 +368,11 @@ public final class BridgeRetentionAnalyzer {
         Set<SlotKey> clears = new LinkedHashSet<>();
         Map<SlotKey, Set<BridgeRetentionContract.Site>> sites = new LinkedHashMap<>();
         for (Store store : stores) {
+            if (mode == Mode.MANAGED_LISTENERS && !listenerTypes.contains(store.field().type())) {
+                if (store.value().foreign()) failures.add(new Failure(BridgeProof.Status.REJECTED,
+                        "listener enters an erased or untracked field at " + store.site()));
+                continue;
+            }
             if (mode == Mode.COPIED_STRINGS) {
                 if (!notCopiedInput(store.value())) failures.add(new Failure(BridgeProof.Status.REJECTED,
                         "copied String input may enter retaining storage at " + store.site()));
@@ -277,7 +385,7 @@ public final class BridgeRetentionAnalyzer {
                     || store.holder().kind() == Kind.IMMORTAL)) continue;
             // Existing whole-program ownership proves that these private fields
             // contain internal storage, never independently retained input roots.
-            if (ownedFields.contains(store.field())
+            if (mode != Mode.MANAGED_LISTENERS && ownedFields.contains(store.field())
                     && (store.value().kind() == Kind.FRESH || store.value().kind() == Kind.NULL)) continue;
             // A newly allocated holder starts with no incoming-root dependency.
             // Null, immortal data and another fresh allocation do not introduce
@@ -386,7 +494,7 @@ public final class BridgeRetentionAnalyzer {
         for (int index = 0; index < function.parameters().size(); index++) {
             var parameter = function.parameters().get(index).value();
             values.put(parameter.id(), Set.of(permanentTypes.contains(parameter.type()) ? Origin.of(Kind.PERMANENT)
-                    : new Origin(Kind.INPUT, index, null).typed(parameter.type())));
+                    : new Origin(Kind.INPUT, index, null, listenerTypes.contains(parameter.type()), null).typed(parameter.type())));
         }
         Map<IrInstruction, BridgeCallTargets.Call> calls = new LinkedHashMap<>();
         for (IrInstruction instruction : instructions) {
@@ -462,6 +570,7 @@ public final class BridgeRetentionAnalyzer {
         for (IrInstruction instruction : instructions) {
             var site = new BridgeRetentionContract.Site(function.linkageName(), function.sourceFileName(),
                     instruction.sourceSpan());
+            if (instruction instanceof IrForeignCallInstruction && listenerBodies.contains(function.linkageName())) continue;
             if (instruction instanceof IrFieldStoreInstruction store && store.field().type().isReference()) {
                 for (Origin holder : complete ? completeOrigins(store.receiver(), values) : origins(store.receiver(), values)) {
                     for (Origin value : complete ? completeOrigins(store.value(), values) : origins(store.value(), values)) {
@@ -568,6 +677,11 @@ public final class BridgeRetentionAnalyzer {
 
     private Set<Origin> raised(IrInstruction instruction, Map<IrInstruction, BridgeCallTargets.Call> calls,
             Map<Integer, Set<Origin>> values, boolean complete) {
+        if (mode == Mode.MANAGED_LISTENERS && instruction instanceof IrForeignCallInstruction foreign
+                && listenerTargets.contains(foreign.targetLinkageName())) {
+            // This mode is constructed only after validating every canonical proxy body.
+            return Set.of(Origin.of(Kind.FRESH).typed(IrType.reference("ironwood.lang.Throwable")));
+        }
         var call = calls.get(instruction);
         if (call != null) {
             Set<Origin> result = new LinkedHashSet<>();
@@ -575,7 +689,7 @@ public final class BridgeRetentionAnalyzer {
             for (var target : call.targets()) result.addAll(substitute(summary(target).raised(), call.arguments(), values, complete));
             return result;
         }
-        if (instruction instanceof IrAllocateInstruction || instruction instanceof IrArrayAllocateInstruction
+        if (instruction instanceof IrAllocateInstruction || instruction instanceof IrArrayAllocateInstruction || instruction instanceof IrGcCollectInstruction
                 || freshStringResult(instruction) != null) {
             // These audited helpers can raise only the compiler-owned implicit
             // OOM occurrence. This is independence, not ownership or fresh cleanup.
@@ -654,6 +768,9 @@ public final class BridgeRetentionAnalyzer {
             case IrExceptionCaughtInstruction ignored -> true;
             case IrAllocationCountInstruction ignored -> true;
             case IrLiveAllocationCountInstruction ignored -> true;
+            // Collection publishes no references and invokes no source or JNI cleanup.
+            // Collection effects and exact roots are proved by their separate consumers.
+            case IrGcCollectInstruction ignored -> true;
             // Capture stores only copied native PCs in private trace storage;
             // release frees that storage, not the Throwable or an input root.
             case IrThrowableTraceInstruction trace -> trace.operation() == IrThrowableTraceInstruction.Operation.CAPTURE
@@ -682,7 +799,7 @@ public final class BridgeRetentionAnalyzer {
     private static Set<Origin> origins(IrOperand value, Map<Integer, Set<Origin>> values) {
         if (value instanceof IrNull) return Set.of(Origin.of(Kind.NULL));
         if (value instanceof IrEnumConstant || value instanceof IrImmortalObject || value instanceof IrStringConstant) {
-            return Set.of(Origin.of(Kind.IMMORTAL));
+            return Set.of(Origin.of(Kind.IMMORTAL).typed(value.type()));
         }
         if (value instanceof IrValueReference reference) return values.getOrDefault(reference.id(), Set.of());
         return Set.of(Origin.of(Kind.UNKNOWN));
@@ -701,6 +818,7 @@ public final class BridgeRetentionAnalyzer {
         if (!value.type().isReference() && !value.type().equals(IrType.EXCEPTION)) return false;
         if (!added.isEmpty() && permanentTypes.contains(value.type())) added = Set.of(Origin.of(Kind.PERMANENT));
         boolean defined = values.containsKey(value.id());
+        if (listenerTypes.contains(value.type())) added = added.stream().map(Origin::listener).collect(java.util.stream.Collectors.toSet());
         Set<Origin> merged = new LinkedHashSet<>(values.getOrDefault(value.id(), Set.of()));
         boolean changed = merged.addAll(added.stream().map(origin -> origin.typed(value.type())).toList());
         if (defined && !changed) return false;

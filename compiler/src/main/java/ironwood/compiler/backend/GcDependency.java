@@ -28,6 +28,9 @@ record GcDependency(Path home, List<String> compileFlags, List<String> linkFlags
                 || !"23.1.0".equals(toolchain.version()) || !toolchain.version().equals(build.getProperty("llvm.version"))
                 || !"ironwood-gc-engine-3".equals(build.getProperty("adapter.abi"))
                 || !"2".equals(build.getProperty("roots.version")) || !"1".equals(build.getProperty("runtime.owner.version"))
+                || !"3".equals(build.getProperty("foreign.roots.version"))
+                || !"2".equals(build.getProperty("foreign.runtime.owner.version"))
+                || !"1".equals(build.getProperty("foreign.segments.version"))
                 || !identity.equals(build.getProperty("configuration.sha256"))
                 || !identity.equals(TlsDependency.sha256(home.resolve("configuration.json")))) {
             throw failure("unqualified target or stale configuration/ABI at " + home);
@@ -48,7 +51,8 @@ record GcDependency(Path home, List<String> compileFlags, List<String> linkFlags
                 "runtime/include/ironwood_gc_engine.h", "runtime/src/ironwood_gc_engine.c",
                 "compiler/src/main/cpp/GcNonmovingStatepoints.cpp", "scripts/prepare-gc.py",
                 "runtime/src/ironwood_runtime.c", "runtime/include/ironwood_runtime.h",
-                "runtime/src/ironwood_gc_roots.c", "runtime/include/ironwood_gc_roots.h")) {
+                "runtime/src/ironwood_gc_roots.c", "runtime/include/ironwood_gc_roots.h",
+                "sources/gc-8.2.12.tar.gz", "licenses/BDWGC-NOTICES.txt", "configuration-audit.json")) {
             if (!expected.contains(required)) throw failure("missing required input: " + required);
         }
         try (var files = Files.walk(home)) {

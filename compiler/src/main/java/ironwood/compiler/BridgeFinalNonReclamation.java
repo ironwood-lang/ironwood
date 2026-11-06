@@ -36,6 +36,17 @@ public final class BridgeFinalNonReclamation {
     public BridgeConstructionFacts constructionFacts() { return constructionFacts; }
     public boolean matches(BridgeEntryModule entries, IrProgram candidate) { return module == entries && program.equals(candidate); }
 
+    static BridgeFinalNonReclamation managed(CompilationArtifact artifact, BridgeEntryModule module, BridgeExportSurface surface) {
+        var closure = BridgeExceptionClosure.managedSnapshots(artifact, module, surface);
+        if (closure.status() != BridgeProof.Status.PROVED) throw new IllegalArgumentException(closure.reason());
+        var exceptions = closure.contract().orElseThrow();
+        var transformation = NativeLinkTransformation.apply(exceptions.entries().program(), true);
+        var program = transformation.program();
+        ironwood.compiler.backend.GcManagedHeapVerifier.verifyBridge(program);
+        var facts = artifact.bridgeConstructionFacts().orElseThrow().forManagedBridge(artifact, module, exceptions.entries()).afterNativeLink(transformation);
+        return new BridgeFinalNonReclamation(module, exceptions, program, Map.of(), facts);
+    }
+
     public static BridgeProof<BridgeFinalNonReclamation> prove(CompilationArtifact artifact, BridgeEntryModule module) {
         return prove(artifact, module, java.util.Optional.empty());
     }

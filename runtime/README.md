@@ -4,8 +4,10 @@
 GC5 migration-branch status: normal executables use the single exact managed
 heap and explicit synchronous Memory.collect(). Source reclamation and managed
 destruction are removed. Historical manual-heap descriptions below are superseded
-by [the GC5 contract](../docs/MEMORY.md). Native bridge/shared-library output remains refused
-until GC6. Packaging/distribution and other-target qualification remain GC9 work.
+by [the GC5 contract](../docs/MEMORY.md). [GC6 managed bridges](../docs/GC6_IMPLEMENTATION.md) qualify
+macOS arm64 and Linux x86-64 with separate root ABI 3 / owner ABI 2 and isolated
+collector images. Full IDK/distribution and other-target qualification remain GC9
+work. Ordinary executables retain root ABI 2 / owner ABI 1.
 The selected GC SDK is staged at toolchain/ironwood-gc, with verified source,
 licenses, root/owner ABIs and exact build identities.
 
@@ -317,6 +319,7 @@ Caller-provided native acquisition records reserve before acquisition, arm on
 success and transfer ownership at commit. Explicit failure cleanup releases
 remaining native acquisitions in reverse order without allocation or collection.
 Collection never runs these releases, source destructors, finalizers or JNI
-cleanup. Anchor closure releases a root, never a source resource. Full generated
-bridge lifetimes, JNI retirement and suspended JVM crossings remain GC6 work.
+cleanup. Anchor closure releases a root, never a source resource. Generated
+bridge lifetimes, explicit JNI retirement and saved JVM crossings are qualified
+by [GC6](../docs/GC6_IMPLEMENTATION.md); no collection-time cleanup is permitted.
 See [GC4 contracts, evidence and limits](../docs/GC4_RUNTIME_LIFETIMES.md).

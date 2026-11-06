@@ -35,6 +35,12 @@ public final class BridgeFinalRootRetention {
     public Map<BridgeCallableId, BridgeCleanupContract> rollback() { return rollback; }
     public boolean matches(BridgeEntryModule entries, IrProgram candidate) { return module == entries && lifetime.matches(entries, candidate); }
 
+    static BridgeFinalRootRetention managed(BridgeEntryModule module, BridgeFinalNonReclamation lifetime) {
+        if (!module.destructions().isEmpty() || !lifetime.matches(module, lifetime.program()))
+            throw new IllegalArgumentException("managed bridge cannot carry destruction capabilities");
+        return new BridgeFinalRootRetention(module, lifetime, Map.of(), Map.of());
+    }
+
     public static BridgeProof<BridgeFinalRootRetention> prove(CompilationArtifact artifact, BridgeEntryModule module) {
         return prove(artifact, module, Optional.empty());
     }

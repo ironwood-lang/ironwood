@@ -4,7 +4,8 @@
 GC5 migration-branch checkpoint: the normal compiler and complete required
 library now use [explicit synchronous collection](GC5_IMPLEMENTATION.md), with
 one managed model and preserved general defer. Earlier free/destructor milestones
-below are historical. GC6 bridge/shared-library qualification remains gated;
+below are historical. [GC6 managed bridge qualification](GC6_IMPLEMENTATION.md)
+is complete on macOS arm64 and Linux x86-64;
 GC7-GC10 and self-hosting have not started through this work.
 
 For the consolidated current support matrix, deferred language/library work,

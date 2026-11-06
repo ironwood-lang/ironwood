@@ -3,6 +3,8 @@
 package ironwood.compiler.bridge;
 
 import ironwood.compiler.BridgeOwnedCallbackAdmission;
+import ironwood.compiler.BridgeObjectAdmission;
+import ironwood.compiler.semantic.BridgeCallbackContextLowering;
 import ironwood.compiler.ir.*;
 
 import java.util.ArrayList;
@@ -46,35 +48,48 @@ public final class BridgeCallbackBatching {
     @Override public int hashCode() { return java.util.Objects.hash(original, program, entries); }
 
     public static BridgeCallbackBatching prove(BridgeOwnedCallbackAdmission admission) {
-        var original = admission.program();
+        var requested = admission.callbacks().entries().stream().filter(entry -> entry.guardedInputs().equals(List.of(0)))
+                .map(entry -> entry.callable()).toList();
+        return prove(admission.program(), admission.surface(), admission.listeners(), admission.callbacks().context(), admission.entries(), requested);
+    }
+
+    public static BridgeCallbackBatching proveManaged(BridgeObjectAdmission admission) {
+        if (!admission.managedHeap()) throw new IllegalArgumentException("managed batching requires managed admission");
+        var callbacks = admission.entries().gcCallbacks().orElseThrow();
+        return prove(admission.program(), admission.surface(), callbacks.listeners(), callbacks.context(), admission.entries(),
+                admission.surface().roots().roots().stream().map(BridgeRootSet.Root::callable).toList());
+    }
+
+    private static BridgeCallbackBatching prove(IrProgram original, BridgeExportSurface surface, BridgeListenerProxies listeners,
+            BridgeCallbackContextLowering.Result contexts, BridgeEntryModule module, List<BridgeCallableId> requested) {
         var functions = new ArrayList<>(original.functions());
         var byName = new HashMap<String, IrFunction>();
         functions.forEach(function -> byName.put(function.linkageName(), function));
         var entries = new LinkedHashMap<BridgeCallableId, Entry>();
         var roots = new HashSet<>(original.exportRoots());
-        for (var entry : admission.callbacks().entries()) {
-            var id = entry.callable();
-            boolean instance = admission.surface().types().stream().flatMap(type -> type.callables().stream())
+        for (var id : requested) {
+            boolean instance = surface.types().stream().flatMap(type -> type.callables().stream())
                     .anyMatch(method -> method.target().equals(Optional.of(id)) && !method.isStatic()
                             && method.kind() == IrCallableKind.METHOD);
             // One local owner, primitive inputs and a primitive/void result.
-            if (!instance || !entry.guardedInputs().equals(List.of(0)) || id.parameters().isEmpty()
+            if (!instance || id.parameters().isEmpty()
                     || !id.parameters().getFirst().equals(IrType.reference(id.owner()))
                     || id.parameters().stream().skip(1).anyMatch(type -> !type.isPrimitive())
                     || (!id.result().isPrimitive() && !id.result().equals(IrType.VOID))) continue;
-            var context = admission.callbacks().context().entries().get(id);
+            var context = contexts.entries().get(id);
+            if (context == null) continue;
             var target = byName.get(context.linkageName());
             if (target == null) continue;
             var candidates = target.blocks().stream().flatMap(block -> block.instructions().stream())
                     .filter(IrCallInstruction.class::isInstance).map(IrCallInstruction.class::cast)
-                    .filter(call -> admission.listeners().proxies().stream().anyMatch(proxy ->
+                    .filter(call -> listeners.proxies().stream().anyMatch(proxy ->
                             byName.containsKey(call.targetLinkageName())
                                     && proxy.binaryName().equals(byName.get(call.targetLinkageName()).ownerClass())))
                     .toList();
             if (candidates.size() != 1) continue;
             var callback = candidates.getFirst();
             var proxy = byName.get(callback.targetLinkageName());
-            var listener = admission.listeners().proxies().stream()
+            var listener = listeners.proxies().stream()
                     .filter(value -> value.binaryName().equals(proxy.ownerClass())).findFirst().orElseThrow();
             int arity = callback.arguments().size() - 2;
             if (!callback.returnType().equals(IrType.VOID) || arity < 1 || arity > 4
@@ -85,7 +100,7 @@ public final class BridgeCallbackBatching {
             var foreign = proxy.blocks().stream().flatMap(block -> block.instructions().stream())
                     .filter(IrForeignCallInstruction.class::isInstance).map(IrForeignCallInstruction.class::cast).toList();
             if (foreign.size() != 1 || foreign.getFirst().invocationContext().isEmpty()) continue;
-            var protectedEntry = byName.get(admission.entries().entries().stream()
+            var protectedEntry = byName.get(module.entries().stream()
                     .filter(value -> value.root().callable().equals(id)).findFirst().orElseThrow().function().linkageName());
             if (protectedEntry == null) continue;
             String suffix = "$batch" + entries.size();

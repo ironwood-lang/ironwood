@@ -33,6 +33,15 @@ public final class BridgeListenerProxies {
     public List<Proxy> proxies() { return proxies; }
     public List<SourceFile> sources() { return proxies.stream().map(Proxy::source).toList(); }
 
+    /** Validated proxy bodies only; this says nothing about collection or Java reentry. */
+    public Set<String> foreignBodies(CompilationArtifact artifact) {
+        validateArtifact(artifact);
+        var owners = proxies.stream().map(Proxy::binaryName).collect(java.util.stream.Collectors.toSet());
+        return artifact.program().orElseThrow().functions().stream()
+                .filter(function -> owners.contains(function.ownerClass()) && function.kind() == IrCallableKind.METHOD)
+                .map(IrFunction::linkageName).collect(java.util.stream.Collectors.toUnmodifiableSet());
+    }
+
     /** Rebind generated ownership operations only to the complete original input inventory. */
     public void validateArtifact(CompilationArtifact artifact) {
         if (!artifact.valid() || artifact.bridgeApiFacts().isEmpty()
@@ -66,7 +75,7 @@ public final class BridgeListenerProxies {
         var facts = artifact.bridgeApiFacts().orElseThrow();
         var packages = Set.copyOf(exports);
         List<Proxy> result = new ArrayList<>();
-        for (var type : facts.types().values()) {
+        for (var type : facts.types().values().stream().sorted(java.util.Comparator.comparing(BridgeApiFacts.Type::binaryName)).toList()) {
             if (!packages.contains(type.packageName()) || !type.accessible()
                     || type.kind() != BridgeApiFacts.Kind.INTERFACE) continue;
             if (type.generic() || !type.fields().isEmpty()) {

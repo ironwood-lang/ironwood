@@ -44,6 +44,13 @@ final class BridgeDistributionInputs {
     Map<String, String> hashes() { return hashes; }
     String identity() { return BridgeGeneration.contentIdentity(hashes); }
 
+    BridgeDistributionInputs withGc(ironwood.compiler.backend.LlvmToolchain toolchain) throws IOException {
+        var combined = new TreeMap<>(entries());
+        for (var input : ironwood.compiler.backend.BridgeGcBuildInputs.distribution(toolchain).entrySet())
+            if (combined.putIfAbsent(input.getKey(), input.getValue()) != null) throw new IOException("duplicate collector distribution input");
+        return new BridgeDistributionInputs(combined);
+    }
+
     static BridgeDistributionInputs discover(CompilationArtifact artifact) throws IOException {
         return discover(artifact, new Options(List.of(), List.of()));
     }

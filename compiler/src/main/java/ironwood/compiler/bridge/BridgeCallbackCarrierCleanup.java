@@ -23,10 +23,21 @@ public final class BridgeCallbackCarrierCleanup {
 
     public static BridgeCallbackCarrierCleanup prove(CompilationArtifact artifact,
             BridgeCallbackCarrierSources source, BridgeRootSet requested) {
+        return prove(artifact, source, requested, null);
+    }
+
+    static BridgeCallbackCarrierCleanup proveManaged(CompilationArtifact artifact,
+            BridgeCallbackCarrierSources source, BridgeRootSet requested, BridgeListenerProxies proxies) {
+        return prove(artifact, source, requested, java.util.Objects.requireNonNull(proxies));
+    }
+
+    private static BridgeCallbackCarrierCleanup prove(CompilationArtifact artifact,
+            BridgeCallbackCarrierSources source, BridgeRootSet requested, BridgeListenerProxies proxies) {
         source.bind(artifact);
         var program = artifact.program().orElseThrow();
         var roots = requested.revalidate(program);
-        var lifetime = BridgeCallbackCarrierLifetime.analyze(program, roots);
+        var lifetime = proxies == null ? BridgeCallbackCarrierLifetime.analyze(program, roots)
+                : BridgeCallbackCarrierLifetime.analyzeManaged(artifact, proxies, roots);
         if (!lifetime.invocationOwned()) {
             throw new IllegalArgumentException("callback carrier may outlive invocation: " + lifetime.retentionReasons());
         }

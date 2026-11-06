@@ -38,9 +38,9 @@ public final class BridgeProtectedEntryLowering {
         Optional<IrValueReference> result = callable.result().equals(IrType.VOID) ? Optional.empty()
                 : Optional.of(new IrValueReference(next++, callable.result(), span));
         var handle = new IrValueReference(next++, IrType.EXCEPTION, span);
-        var exception = new IrValueReference(next++, IrType.EXCEPTION, span);
+        var exception = new IrValueReference(next++, IrType.reference("ironwood.lang.Throwable"), span);
         var snapshotHandle = new IrValueReference(next++, IrType.EXCEPTION, span);
-        var snapshotException = new IrValueReference(next, IrType.EXCEPTION, span);
+        var snapshotException = new IrValueReference(next, IrType.reference("ironwood.lang.Throwable"), span);
         List<IrBasicBlock> blocks = List.of(
                 new IrBasicBlock("entry", preparation, initialize ? new IrInvokeTerminator(
                         new IrEnsureTypeInitializedInstruction(callable.owner(), span), "target", "failure", span)

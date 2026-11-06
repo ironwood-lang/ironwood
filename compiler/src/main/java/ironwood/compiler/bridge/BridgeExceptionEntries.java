@@ -121,7 +121,7 @@ public final class BridgeExceptionEntries {
 
     private static void failure(List<IrBasicBlock> blocks, int firstValue, int oomTypeId, SourceSpan span) {
         var handle = new IrValueReference(firstValue, IrType.EXCEPTION, span);
-        var exception = new IrValueReference(firstValue + 1, IrType.EXCEPTION, span);
+        var exception = new IrValueReference(firstValue + 1, IrType.reference("ironwood.lang.Throwable"), span);
         var allocation = new IrValueReference(firstValue + 2, IrType.I1, span);
         blocks.add(new IrBasicBlock("failure", List.of(new IrExceptionLandingPadInstruction(handle, exception, span),
                 new IrExceptionCaughtInstruction(exception, span), new IrInstanceOfInstruction(allocation, exception,

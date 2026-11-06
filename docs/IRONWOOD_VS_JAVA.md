@@ -8,7 +8,9 @@ free, destructor, implicit temporary destruction or managed constructor rollback
 General defer, initialization, native resource and pool protocols remain.
 Historical proof discussions and examples mentioning those removed forms are
 pre-GC5 records awaiting GC7 consumer migration, not alternate supported semantics.
-Native bridge/shared-library output remains refused until GC6 qualification.
+[GC6 managed bridges](GC6_IMPLEMENTATION.md) qualify macOS arm64 and Linux
+x86-64 with explicit RootHandle/ListenerRegistration lifetimes, exact suspended
+roots and isolated native images. Linux arm64 and arm64e remain unqualified.
 
 ## Purpose
 

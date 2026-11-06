@@ -132,6 +132,8 @@ public final class BridgeCallbackReachability {
     private static boolean fixedNative(IrInstruction instruction) {
         return switch (instruction) {
             case IrAllocateInstruction ignored -> true;
+            // Collection scans exact native state and never invokes Java or source cleanup.
+            case IrGcCollectInstruction ignored -> true;
             case IrArrayAllocateInstruction ignored -> true;
             case IrAllocationCountInstruction ignored -> true;
             case IrLiveAllocationCountInstruction ignored -> true;
@@ -160,6 +162,9 @@ public final class BridgeCallbackReachability {
             // LLVM reads one UTF-16 code unit directly. Bounds/null behavior
             // belongs to the surrounding typed operations; no user dispatch.
             case IrStringCharAtInstruction ignored -> true;
+            // A bounded descriptor operation can raise a native exception, but
+            // performs no Java dispatch. Confinement is checked separately.
+            case IrByteViewInstruction ignored -> true;
             case IrFloatingBitsInstruction ignored -> true;
             case IrExceptionLandingPadInstruction ignored -> true;
             case IrExceptionCaughtInstruction ignored -> true;

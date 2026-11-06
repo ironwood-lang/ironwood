@@ -23,6 +23,12 @@ public final class NativeBackend {
 
     public LinkResult compileGcExperiment(LlvmToolchain toolchain, ironwood.compiler.ir.IrProgram program,
                                           NativeTarget target, Path directory, OptimizationLevel level, boolean runtimeOwners) {
+        return compileGcExperiment(toolchain, program, target, directory, level, runtimeOwners, false);
+    }
+
+    public LinkResult compileGcExperiment(LlvmToolchain toolchain, ironwood.compiler.ir.IrProgram program,
+                                          NativeTarget target, Path directory, OptimizationLevel level, boolean runtimeOwners,
+                                          boolean foreignSegments) {
         boolean macho = target.triple().startsWith("arm64-apple-macosx")
                 && target.dataLayout().equals("e-m:o-p270:32:32-p271:32:32-p272:64:64-i64:64-i128:128-n32:64-S128-Fn32");
         boolean elf = target.triple().equals("x86_64-unknown-linux-gnu")
@@ -36,7 +42,7 @@ public final class NativeBackend {
             Path input = directory.resolve("program.ll"), bitcode = directory.resolve("program.bc"),
                     optimized = directory.resolve("program.opt.ll"), traced = directory.resolve("program.traced.ll"),
                     rooted = directory.resolve("program.roots.ll"), object = directory.resolve("program.o");
-            Files.writeString(input, target.applyTo(new LlvmEmitter().emitGcExperiment(program, runtimeOwners)), StandardCharsets.UTF_8);
+            Files.writeString(input, target.applyTo(new LlvmEmitter().emitGcExperiment(program, runtimeOwners, foreignSegments)), StandardCharsets.UTF_8);
             LinkResult result = run("GC3 LLVM assembly", List.of(toolchain.llvmAs().toString(), input.toString(), "-o", bitcode.toString()));
             if (!result.success()) return result;
             var optimize = new java.util.ArrayList<>(List.of(toolchain.opt().toString(), "-passes=" + level.optPassPipeline()));
@@ -141,6 +147,23 @@ public final class NativeBackend {
                 TargetMachine.DEFAULT, null, null, null, NativeOutputKind.SHARED_LIBRARY, List.copyOf(adapterObjects), macTools);
     }
 
+    /** Managed shared image with verified foreign roots and an explicit export policy. */
+    public LinkResult linkManagedBridge(LlvmToolchain toolchain, ironwood.compiler.BridgeObjectAdmission admission,
+            Path output, OptimizationLevel level, List<Path> adapters, List<String> exports) {
+        if (!admission.managedHeap() || exports.isEmpty() || exports.stream().anyMatch(s -> !s.matches("[A-Za-z_][A-Za-z0-9_]*")))
+            return new LinkResult(false, "managed bridge requires managed admission and explicit native exports");
+        Path scratch = null;
+        try {
+            scratch = Files.createTempDirectory("ironwood-gc6-qualified-");
+            Path llvm = scratch.resolve("program.ll");
+            Files.writeString(llvm, new LlvmEmitter().emit(admission), StandardCharsets.UTF_8);
+            return linkImage(toolchain, llvm, output, level, NativeLinkRequirements.NONE, TargetMachine.DEFAULT,
+                    null, null, null, NativeOutputKind.SHARED_LIBRARY, List.copyOf(adapters), null, exports);
+        } catch (IOException | IllegalArgumentException failure) {
+            return new LinkResult(false, "managed bridge refused: " + failure.getMessage());
+        } finally { deleteTree(scratch); }
+    }
+
     public LinkResult link(LlvmToolchain toolchain, Path llvmIr, Path output,
                            OptimizationLevel optimizationLevel, NativeLinkRequirements requirements,
                            TargetMachine targetMachine, NativeOutputKind kind, List<Path> adapterObjects) {
@@ -155,8 +178,17 @@ public final class NativeBackend {
                                  OptimizationLevel optimizationLevel, NativeLinkRequirements requirements,
                                  TargetMachine targetMachine, Integer inlineThreshold, Boolean partialInlining,
                                  Path optimizationReport, NativeOutputKind kind, List<Path> adapterObjects, MacNativeTools selectedMacTools) {
-        if (kind != NativeOutputKind.EXECUTABLE || !adapterObjects.isEmpty()) {
-            return new LinkResult(false, "GC6 boundary: shared-library/native bridge output is not qualified for managed roots and foreign transitions");
+        return linkImage(toolchain, llvmIr, output, optimizationLevel, requirements, targetMachine, inlineThreshold,
+                partialInlining, optimizationReport, kind, adapterObjects, selectedMacTools, List.of());
+    }
+
+    private LinkResult linkImage(LlvmToolchain toolchain, Path llvmIr, Path output,
+                                 OptimizationLevel optimizationLevel, NativeLinkRequirements requirements,
+                                 TargetMachine targetMachine, Integer inlineThreshold, Boolean partialInlining,
+                                 Path optimizationReport, NativeOutputKind kind, List<Path> adapterObjects, MacNativeTools selectedMacTools,
+                                 List<String> foreignExports) {
+        if (foreignExports.isEmpty() && (kind != NativeOutputKind.EXECUTABLE || !adapterObjects.isEmpty())) {
+            return new LinkResult(false, "shared-library output requires verified managed bridge admission and image exports");
         }
         boolean shared = kind == NativeOutputKind.SHARED_LIBRARY;
         Path temporaryDirectory = null;
@@ -285,8 +317,11 @@ public final class NativeBackend {
             LinkResult contractBuild = run("verified root contract compilation", contractCommand);
             if (!contractBuild.success()) return contractBuild;
             Path rootObject = temporaryDirectory.resolve("ironwood_gc_roots.o");
+            var rootFlags = new java.util.ArrayList<>(targetFlags);
+            if (!foreignExports.isEmpty() && Boolean.getBoolean("ironwood.gc.rootDiagnostics")) rootFlags.add("-DIW_GC_ROOT_DIAGNOSTICS");
+            if (!foreignExports.isEmpty() && Boolean.getBoolean("ironwood.gc.rootFailureTests")) rootFlags.add("-DIW_GC_ROOT_FAILURE_TESTS");
             LinkResult rootBuild = prepareRuntimeObject(toolchain, distribution.resolve("runtime/src/ironwood_gc_roots.c"),
-                    optimizationLevel, rootObject, targetFlags, gc.identity());
+                    optimizationLevel, rootObject, rootFlags, gc.identity());
             if (!rootBuild.success()) return rootBuild;
             if (System.getProperty("os.name").equals("Linux")) {
                 LinkResult rename = run("retained GC root section naming", List.of(toolchain.llvmObjcopy().toString(),
@@ -325,7 +360,9 @@ public final class NativeBackend {
                     tcpObjectFile.toString(), hostObjectFile.toString()));
             linkCommand.add(contractObject.toString());
             linkCommand.add(rootObject.toString());
-            linkCommand.addAll(gc.linkFlags());
+            linkCommand.addAll(gc.linkFlags().stream().filter(flag -> (!shared || !flag.equals("-pie"))
+                    && (bridgeSupport == null || !flag.equals("-L" + toolchain.home().resolve("lib"))
+                        && !flag.equals("-Wl,-rpath," + toolchain.home().resolve("lib")))).toList());
             if (System.getProperty("os.name").equals("Linux")) {
                 Path script = temporaryDirectory.resolve("root-contract.ld");
                 Files.writeString(script, GcRootSections.elfLinkerScript());
@@ -338,6 +375,17 @@ public final class NativeBackend {
                 linkCommand.addAll(List.of("-Xlinker", "-install_name", "-Xlinker", "@rpath/" + output.getFileName()));
             }
             if (shared && System.getProperty("os.name").startsWith("Linux")) linkCommand.add("-Wl,-z,now");
+            if (!foreignExports.isEmpty()) {
+                Path policy = temporaryDirectory.resolve("native-exports");
+                if (System.getProperty("os.name").startsWith("Mac")) {
+                    Files.writeString(policy, foreignExports.stream().map(s -> "_" + s + "\n").collect(java.util.stream.Collectors.joining()));
+                    linkCommand.addAll(List.of("-Wl,-exported_symbols_list," + policy, "-Wl,-twolevel_namespace"));
+                } else {
+                    Files.writeString(policy, "{ global: " + String.join("; ", foreignExports) + "; local: *; };\n");
+                    linkCommand.addAll(List.of("-Wl,--version-script=" + policy,
+                            "-Wl,-Bsymbolic,--exclude-libs,ALL,-z,defs,-z,relro,-z,start-stop-visibility=hidden"));
+                }
+            }
             if (bridgeSupport != null) linkCommand.addAll(bridgeSupport.linkFlags());
             adapterObjects.forEach(object -> linkCommand.add(object.toString()));
             if (tls != null) {
@@ -355,6 +403,10 @@ public final class NativeBackend {
             linkCommand.addAll(List.of(System.getProperty("os.name").startsWith("Mac")
                     ? "-Wl,-dead_strip" : "-Wl,--gc-sections", "-o", output.toString()));
             LinkResult linked = run("native link", linkCommand);
+            if (linked.success() && !foreignExports.isEmpty()) {
+                var audit = auditForeignImage(toolchain, output, foreignExports);
+                if (!audit.success()) return audit;
+            }
             if (linked.success() && bridgeSupport != null) bridgeSupport.deliver(output);
             return linked;
         } catch (IOException | IllegalArgumentException exception) {
@@ -362,6 +414,32 @@ public final class NativeBackend {
         } finally {
             deleteTree(temporaryDirectory);
         }
+    }
+
+    private static LinkResult auditForeignImage(LlvmToolchain toolchain, Path image, List<String> expected) {
+        boolean mac = System.getProperty("os.name").startsWith("Mac");
+        Path tools = toolchain.home().resolve("bin");
+        var table = run("native export audit", mac
+                ? List.of(tools.resolve("llvm-objdump").toString(), "--macho", "--exports-trie", image.toString())
+                : List.of(tools.resolve("llvm-nm").toString(), "--dynamic", "--defined-only", "--extern-only", image.toString()));
+        if (!table.success()) return table;
+        var observed = new java.util.ArrayList<String>();
+        for (String line : table.output().lines().toList()) {
+            String trimmed = line.strip();
+            if (trimmed.isEmpty() || mac && !trimmed.matches("0x[0-9A-Fa-f]+\\s+.*")) continue;
+            var fields = trimmed.split("\\s+");
+            observed.add(fields[fields.length - 1]);
+        }
+        var wanted = expected.stream().map(name -> mac ? "_" + name : name).sorted().toList();
+        if (!observed.stream().sorted().toList().equals(wanted)) return new LinkResult(false, "native image export policy mismatch: " + observed);
+        var arguments = new java.util.ArrayList<>(List.of(tools.resolve("llvm-nm").toString()));
+        if (!mac) arguments.add("--dynamic");
+        arguments.addAll(List.of("--undefined-only", image.toString()));
+        var imports = run("native collector import audit", arguments);
+        if (!imports.success()) return imports;
+        if (java.util.regex.Pattern.compile("\\b_?(?:GC_|iw_gc_)\\w+").matcher(imports.output()).find())
+            return new LinkResult(false, "native image imports a collector or root adapter");
+        return new LinkResult(true, "");
     }
 
     /**

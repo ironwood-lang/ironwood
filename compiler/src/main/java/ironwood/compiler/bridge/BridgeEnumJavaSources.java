@@ -54,11 +54,13 @@ final class BridgeEnumJavaSources {
             for (int index = 0; index < method.parameters().size(); index++) {
                 formals.add(BridgePermanentJavaSources.javaType(method.parameters().get(index), surface) + " " + method.parameterNames().get(index));
             }
+            boolean handle = admission.managedHeap() && BridgeGcJavaSources.handle(admission, method.result());
             String result = BridgePermanentJavaSources.javaType(method.result(), surface);
+            if (handle) result = stateType.substring(0, stateType.lastIndexOf('.')) + ".RootHandle<" + result + ">";
             var parameters = BridgeEnumArgumentSources.generate(text, artifact, admission, method, occupied, indent);
             String thrown = method.thrownTypes().isEmpty() ? "" : " throws " + method.thrownTypes().stream()
                     .map(value -> BridgePermanentJavaSources.javaType(value, surface)).collect(Collectors.joining(", "));
-            String prefix = method.result().equals(IrType.VOID) ? "" : "return ";
+            String prefix = method.result().equals(IrType.VOID) ? "" : "return " + (handle ? "(" + result + ") " : "");
             var natives = new LinkedHashMap<BridgeCallableId, String>();
             if (method.isStatic()) natives.put(method.target().orElseThrow(), BridgePermanentJavaSources.unique(occupied, "$ironwood$native$" + bindings.size()));
             else for (var target : dispatch.targets()) {
@@ -68,6 +70,7 @@ final class BridgeEnumJavaSources {
             String ownership = natives.keySet().stream().map(callable -> BridgeRootCalls.documentation(admission, callable))
                     .filter(value -> !value.isEmpty()).distinct().collect(Collectors.joining(" "));
             if (!ownership.isEmpty()) text.append(indent).append("    /** ").append(ownership).append(" */\n");
+            if (handle) text.append(indent).append("    @SuppressWarnings(\"unchecked\")\n");
             text.append(indent).append("    public ").append(method.isStatic() ? "static " : "").append(result).append(' ').append(method.name())
                     .append('(').append(String.join(", ", formals)).append(')').append(thrown).append(" {\n");
             var arguments = new ArrayList<>(parameters.arguments());
@@ -95,15 +98,17 @@ final class BridgeEnumJavaSources {
             text.append(indent).append("    }\n");
             var nativeFormals = new ArrayList<>(parameters.nativeFormals());
             if (!method.isStatic()) nativeFormals.addFirst("int " + receiver);
-            String descriptor = "(" + (method.isStatic() ? "" : "I") + parameters.descriptor() + ")" + BridgeJavaTypes.descriptor(method.result());
+            String descriptor = "(" + (method.isStatic() ? "" : "I") + parameters.descriptor() + ")" + (handle
+                    ? "L" + stateType.substring(0, stateType.lastIndexOf('.')).replace('.', '/') + "/RootHandle;" : BridgeJavaTypes.descriptor(method.result()));
             for (var nativeMethod : natives.entrySet()) {
                 String entry = entries.get(nativeMethod.getKey());
                 if (entry == null) throw new IllegalArgumentException("enum declaration lacks its proved exact entry");
-                boolean reserve = BridgeRootCalls.reservation(admission, nativeMethod.getKey()).isPresent();
+                boolean reserve = !admission.managedHeap() && BridgeRootCalls.reservation(admission, nativeMethod.getKey()).isPresent();
                 var privateFormals = new ArrayList<>(nativeFormals);
                 if (reserve) privateFormals.addFirst(stateType + " " + state);
                 String privateDescriptor = reserve ? "(L" + stateType.replace('.', '/') + ";" + descriptor.substring(1) : descriptor;
-                text.append(indent).append("    private static native ").append(result).append(' ').append(nativeMethod.getValue())
+                String nativeResult = handle ? stateType.substring(0, stateType.lastIndexOf('.')) + ".RootHandle<?>" : result;
+                text.append(indent).append("    private static native ").append(nativeResult).append(' ').append(nativeMethod.getValue())
                         .append('(').append(String.join(", ", privateFormals)).append(')').append(thrown).append(";\n");
                 bindings.add(new BridgeJavaSources.Binding(type.binaryName(), nativeMethod.getValue(), privateDescriptor, method, entry, "", parameters.tokens()));
             }
@@ -112,6 +117,7 @@ final class BridgeEnumJavaSources {
     }
 
     private static String arguments(BridgeObjectAdmission admission, BridgeCallableId callable, List<String> arguments, String stateType) {
+        if (admission.managedHeap()) return String.join(", ", arguments);
         if (BridgeRootCalls.reservation(admission, callable).isEmpty()) return String.join(", ", arguments);
         var prepared = new ArrayList<>(arguments); prepared.addFirst("new " + stateType + "()"); return String.join(", ", prepared);
     }

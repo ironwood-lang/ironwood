@@ -2,10 +2,14 @@
 
 # Java Bridge producer
 
-The GC migration branch currently refuses all bridge/shared-library output,
-including scalar-only images, pending GC6 qualification. See the
-[incomplete implementation report](GC6_IMPLEMENTATION.md). The pre-GC API and
-platform descriptions below are historical until their GC migration passes.
+GC6 production supports managed bridges, including scalar-only images, on
+macOS arm64 and Linux x86-64. See the [current API migration and verification](GC6_IMPLEMENTATION.md).
+Construct through generated Roots factories, scope independent RootHandle results
+with try-with-resources, and acquire a ListenerRegistration through Listeners.open
+before retaining calls. Source resource close remains separate. Both SDKs must
+match the actual configuration and payload hashes; stale schema/metadata refuse
+before user execution. Linux arm64 and arm64e remain unqualified. The pre-GC API
+examples/platform descriptions below are historical pending GC7 migration.
 
 The producer builds host-target Java dependencies for macOS ARM64,
 Linux ARM64 and Linux x86-64, exposing primitive,

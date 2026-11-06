@@ -37,7 +37,11 @@ free, destructor, implicit temporary destruction or managed constructor rollback
 General defer, initialization, native resource and pool protocols remain.
 Historical proof discussions and examples mentioning those removed forms are
 pre-GC5 records awaiting GC7 consumer migration, not alternate supported semantics.
-Native bridge/shared-library output remains refused until GC6 qualification.
+Managed bridge output requires [GC6 admission and isolated images](GC6_IMPLEMENTATION.md),
+root ABI 3 / owner ABI 2 and schema 2. macOS arm64 and Linux x86-64 are qualified.
+Ordinary executables retain root ABI 2 / owner ABI 1. Linux arm64 and arm64e remain
+unqualified. Historical manual bridge ownership descriptions are superseded by
+the GC6 handle/registration projection.
 
 ## Current language model
 
@@ -463,7 +467,9 @@ Temporary values and failed constructions are not destroyed. Exact statepoints,
 root ABI 2 and runtime-owner ABI 1 bind real representations. Preparation OOM
 is catchable with no reclamation; corrupt metadata refuses before collection.
 Counter reads do not collect. Source free/destructor syntax and related options
-are removed. Native bridge/shared-library output remains refused until GC6.
+are removed. GC6 managed bridges use exact foreign/suspended roots and separate
+RootHandle/ListenerRegistration operations; collection never performs JNI or
+source resource cleanup. See [GC6](GC6_IMPLEMENTATION.md).
 
 
 ## Current standard library

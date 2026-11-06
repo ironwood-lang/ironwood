@@ -25,7 +25,7 @@ import java.util.TreeMap;
 
 /** Target-independent generation identity, separate from API compatibility and image bytes. */
 public final class BridgeGeneration {
-    public static final String SCHEMA = "1";
+    public static final String SCHEMA = "2";
     private static final String CRITICAL_CALLS = "critical-v1";
     private final Map<String, String> manifest;
 
@@ -34,6 +34,11 @@ public final class BridgeGeneration {
     }
 
     public Map<String, String> manifest() { return manifest; }
+    public boolean managedHeap() { return "objects-gc-v1".equals(manifest.get("projection")); }
+    public static Map<String, String> managedContract() {
+        return Map.of("memory.abi", "ironwood-native-gc-1", "layout.version", "1", "roots.version", "3",
+                "runtime.owner.version", "2", "foreign.segments.version", "1");
+    }
     public String identity() { return manifest.get("generation"); }
     public String apiIdentity() { return manifest.get("api"); }
     public String supportPackage() { return "ironwood.bridge.generated.g" + identity(); }
@@ -48,11 +53,11 @@ public final class BridgeGeneration {
             String value = packaged.get(key); requireText(value, "generation " + key); manifest.put(key, value);
         }
         if (packaged.containsKey("projection")) {
-            if (!Set.of("objects-v1", "callbacks-v1", "owner-callbacks-v1").contains(packaged.get("projection"))) throw new IllegalArgumentException("unsupported bridge projection");
+            if (!Set.of("objects-v1", "objects-gc-v1", "callbacks-v1", "owner-callbacks-v1").contains(packaged.get("projection"))) throw new IllegalArgumentException("unsupported bridge projection");
             manifest.put("projection", packaged.get("projection"));
         }
         if (packaged.containsKey("calls")) {
-            if (!CRITICAL_CALLS.equals(packaged.get("calls")) || !"objects-v1".equals(packaged.get("projection"))) {
+            if (!CRITICAL_CALLS.equals(packaged.get("calls")) || !Set.of("objects-v1", "objects-gc-v1").contains(packaged.get("projection"))) {
                 throw new IllegalArgumentException("unsupported bridge call transport");
             }
             manifest.put("calls", CRITICAL_CALLS);
@@ -62,6 +67,12 @@ public final class BridgeGeneration {
             throw new IllegalArgumentException("unsupported bridge generation contract");
         }
         for (String key : List.of("compiler.sha256", "runtime.sha256", "program", "api")) requireHash(manifest.get(key));
+        if ("objects-gc-v1".equals(manifest.get("projection"))) {
+            managedContract().forEach((key, value) -> {
+                if (!value.equals(packaged.get(key))) throw new IllegalArgumentException("incompatible managed bridge field: " + key);
+                manifest.put(key, value);
+            });
+        }
         String identity = digest(manifest);
         if (!identity.equals(packaged.get("generation"))) throw new IllegalArgumentException("bridge generation manifest digest mismatch");
         manifest.put("generation", identity);
@@ -75,7 +86,7 @@ public final class BridgeGeneration {
     }
 
     public boolean matchesObjects(CompilationArtifact artifact, BridgeObjectAdmission admission) {
-        return "objects-v1".equals(manifest.get("projection")) && admission.matches(artifact, admission.surface())
+        return (admission.managedHeap() ? managedHeap() : "objects-v1".equals(manifest.get("projection"))) && admission.matches(artifact, admission.surface())
                 && manifest.equals(createObjects(manifest.get("artifact"), artifact, admission,
                         manifest.get("compiler.version"), manifest.get("compiler.sha256"), manifest.get("runtime.sha256"),
                         criticalCalls()).manifest);
@@ -156,8 +167,9 @@ public final class BridgeGeneration {
             }
             api.put("type." + type.binaryName() + ".projection", role);
         }
+        String projection = admission.managedHeap() ? "objects-gc-v1" : "objects-v1";
         return create(artifactName, artifact, compilerVersion, compilerHash, runtimeHash, api,
-                criticalCalls ? Map.of("projection", "objects-v1", "calls", CRITICAL_CALLS) : Map.of("projection", "objects-v1"));
+                criticalCalls ? Map.of("projection", projection, "calls", CRITICAL_CALLS) : Map.of("projection", projection));
     }
 
     private static BridgeGeneration create(String artifactName, CompilationArtifact artifact, String compilerVersion,
@@ -184,6 +196,7 @@ public final class BridgeGeneration {
         manifest.put("program", digest(programInputs));
         manifest.put("api", digest(api));
         manifest.putAll(projection);
+        if ("objects-gc-v1".equals(projection.get("projection"))) manifest.putAll(managedContract());
         manifest.put("generation", digest(manifest));
         return new BridgeGeneration(manifest);
     }
@@ -192,6 +205,7 @@ public final class BridgeGeneration {
     public NativeBuild nativeBuild(String target, Map<String, String> buildInputs) {
         requireText(target, "native target");
         if (buildInputs.isEmpty()) throw new IllegalArgumentException("native build requires its input inventory");
+        if (managedHeap()) validateManagedBuild(target, buildInputs);
         var inputs = new TreeMap<String, String>();
         buildInputs.forEach((key, value) -> {
             requireText(key, "native input key");
@@ -205,6 +219,17 @@ public final class BridgeGeneration {
         // The result can be embedded in the image. Hash the signed final bytes
         // separately at packaging, never feed that digest back into this identity.
         return new NativeBuild(identity(), apiIdentity(), target, digest(inputs), buildInputs);
+    }
+
+    public static void validateManagedBuild(String target, Map<String, String> inputs) {
+        if (!Set.of("macos-arm64", "linux-x86_64").contains(target)) throw new IllegalArgumentException("unqualified managed bridge target: " + target);
+        managedContract().forEach((key, value) -> {
+            if (!value.equals(inputs.get(key))) throw new IllegalArgumentException("missing or incompatible native managed field: " + key);
+        });
+        for (String key : List.of("gc.config.sha256", "gc.sdk.manifest.sha256", "gc.archive.sha256", "gc.adapter.sha256", "gc.root-reader.sha256"))
+            requireHash(inputs.get(key));
+        if (!"3".equals(inputs.get("llvm.stackmap.version")) || !"private-per-image".equals(inputs.get("gc.isolation")))
+            throw new IllegalArgumentException("incomplete native root format or image isolation contract");
     }
 
     public record NativeBuild(String generation, String api, String target, String identity,

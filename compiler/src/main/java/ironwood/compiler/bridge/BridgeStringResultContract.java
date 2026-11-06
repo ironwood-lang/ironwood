@@ -8,7 +8,7 @@ import java.util.Set;
 
 /** Cleanup authority only after the exact String result has been copied to Java. */
 public record BridgeStringResultContract(BridgeCallableId callable, Kind kind, Set<Integer> inputs) {
-    public enum Kind { FRESH, INPUT_ALIAS, IMMORTAL, BORROWED }
+    public enum Kind { FRESH, INPUT_ALIAS, IMMORTAL, BORROWED, MANAGED }
 
     public BridgeStringResultContract {
         inputs = Set.copyOf(inputs);
@@ -23,6 +23,6 @@ public record BridgeStringResultContract(BridgeCallableId callable, Kind kind, S
         }
     }
 
-    /** Only freshly owned results or surviving temporary input copies may be released. */
-    public boolean releaseAfterCopy() { return kind == Kind.FRESH || kind == Kind.INPUT_ALIAS; }
+    /** Historical query: copying a managed String never grants deallocation. */
+    public boolean releaseAfterCopy() { return false; }
 }

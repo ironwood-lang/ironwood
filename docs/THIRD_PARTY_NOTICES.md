@@ -170,7 +170,9 @@ OpenJDK or HotSpot implementation is imported. Source/tool packages carry the
 recipe and pins. An explicitly selected SDK is bundled whole at
 `runtime/gc-sdk/`, with configuration and payload hashes in
 `packaging/gc-inputs.json`. Ordinary programs do not link this engine in GC1 or GC2.
-Future distributed native/bridge outputs must retain these source/notices too;
-that activation is not implemented here. See `docs/GC1_ENGINE_PREPARATION.md`
+GC5 normal executable and GC6 paired bridge inputs retain these source/notices.
+GC6 paired native artifacts include the full unmodified release archive, verbatim
+notices and actual SDK configuration/build inventory. Full IDK release
+qualification remains GC9. See `docs/GC1_ENGINE_PREPARATION.md`
 and `docs/GC2_LAYOUTS_AND_QUALIFICATION.md` for the original adapter/layout
 qualification and unmodified collector configuration.

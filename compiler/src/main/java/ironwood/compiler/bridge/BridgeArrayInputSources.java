@@ -55,9 +55,9 @@ final class BridgeArrayInputSources {
     static String release(List<IrType> parameters) {
         var text = new StringBuilder();
         for (int index : indices(parameters).reversed()) {
-            // Alias state stays empty; each allocation is released exactly once.
-            text.append("    ironwood_deallocate(array_state").append(index).append(".converted);\n")
-                    .append("    free((void *)array_state").append(index).append(".elements);\n");
+            // Native scratch has matched cleanup. Converted managed arrays may
+            // already have been published by the completed source invocation.
+            text.append("    free((void *)array_state").append(index).append(".elements);\n");
         }
         return text.toString();
     }

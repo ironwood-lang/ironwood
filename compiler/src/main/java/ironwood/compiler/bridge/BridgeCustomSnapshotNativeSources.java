@@ -7,6 +7,10 @@ final class BridgeCustomSnapshotNativeSources {
     private BridgeCustomSnapshotNativeSources() {}
 
     static String generate(BridgeExceptionProjection projection, BridgeCustomSnapshotLayout layout, BridgeExceptionEntries entries) {
+        return generate(projection, layout, entries, false);
+    }
+
+    static String generate(BridgeExceptionProjection projection, BridgeCustomSnapshotLayout layout, BridgeExceptionEntries entries, boolean managed) {
         var text = new StringBuilder();
         for (var type : projection.types()) {
             var values = layout.values().get(type.nativeName());
@@ -14,8 +18,11 @@ final class BridgeCustomSnapshotNativeSources {
             text.append("static int iw_exception_custom_").append(type.typeId()).append("(JNIEnv *env,\n")
                     .append("        const struct iw_exception_metadata *metadata, void *node, jobjectArray copied_numbers,\n")
                     .append("        jobjectArray copied_texts, jint index, jint *number) {\n")
-                    .append("    (void)node; (void)number;\n")
-                    .append("    jlongArray numbers = (*env)->NewLongArray(env, ").append(layout.slots().size()).append(");\n")
+                    .append("    (void)node; (void)number;\n");
+            if (managed) text.append("    void *pending = NULL; void *native_slots[] = {&node, &pending};\n")
+                    .append("    struct iw_gc_foreign_root native_roots __attribute__((cleanup(iw_gc_foreign_root_close))) = {0};\n")
+                    .append("    if (!iw_gc_foreign_root_open(&native_roots, native_slots, 2)) iw_gc_transition_refuse();\n");
+            text.append("    jlongArray numbers = (*env)->NewLongArray(env, ").append(layout.slots().size()).append(");\n")
                     .append("    if (numbers == NULL) return 0;\n")
                     .append("    jobjectArray texts = (*env)->NewObjectArray(env, ").append(layout.slots().size())
                     .append(", metadata->classes[IW_EX_STRING], NULL);\n")
@@ -29,10 +36,10 @@ final class BridgeCustomSnapshotNativeSources {
                 text.append("    if (!iw_exception_status(env, metadata, ").append(entry.linkageName())
                         .append("(node, (int64_t)(uintptr_t)&result))) return 0;\n");
                 if (property.type().kind() == ironwood.compiler.ir.IrType.Kind.REFERENCE) {
+                    if (managed) text.append("    pending = result.value.reference;\n");
                     text.append("    const struct ironwood_string *string").append(slot).append(" = result.value.reference;\n")
                             .append("    jstring value").append(slot).append(" = string").append(slot).append(" == NULL ? NULL : (*env)->NewString(env, string")
                             .append(slot).append("->units, string").append(slot).append("->utf16_length);\n");
-                    if (property.ownedString()) text.append("    ironwood_deallocate(result.value.reference);\n");
                     text.append("    if ((*env)->ExceptionCheck(env)) return 0;\n")
                             .append("    (*env)->SetObjectArrayElement(env, texts, ").append(slot).append(", value").append(slot).append(");\n")
                             .append("    (*env)->DeleteLocalRef(env, value").append(slot).append(");\n");

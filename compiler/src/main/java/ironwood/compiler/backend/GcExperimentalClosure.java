@@ -16,7 +16,12 @@ public final class GcExperimentalClosure {
     }
 
     public static GcEffects validate(IrProgram program, boolean runtimeOwners) {
-        GcManagedHeapVerifier.verify(program);
+        return validate(program, runtimeOwners, false);
+    }
+
+    public static GcEffects validate(IrProgram program, boolean runtimeOwners, boolean foreignSegments) {
+        if (foreignSegments && !runtimeOwners) throw new IllegalArgumentException("foreign segments require runtime owners");
+        GcManagedHeapVerifier.verify(program, foreignSegments);
         if (program.entryPoint().isPresent() || program.allocationFailure().isPresent()
                 || !program.stringConstants().isEmpty() || program.exportRoots().isEmpty()) {
             throw new IllegalArgumentException("GC3 requires explicit standalone roots without legacy entry/exception owners");
@@ -39,7 +44,8 @@ public final class GcExperimentalClosure {
             }
         }
         if (runtimeOwners) requireRuntimeLayout(program);
-        var effects = runtimeOwners ? GcEffects.analyzeRuntimeOwners(program) : GcEffects.analyze(program);
+        var effects = foreignSegments ? GcEffects.analyzeForeignOwners(program)
+                : runtimeOwners ? GcEffects.analyzeRuntimeOwners(program) : GcEffects.analyze(program);
         for (var function : program.functions()) {
             requireType(function.returnType(), classes);
             function.parameters().forEach(parameter -> requireType(parameter.value().type(), classes));
@@ -78,7 +84,8 @@ public final class GcExperimentalClosure {
                             : !(block.terminator() instanceof IrUnreachable) || block.instructions().getLast() != instruction)) {
                         throw new IllegalArgumentException("GC4 invalid native cleanup/resume block");
                     }
-                    if (!supported(instruction) && !(runtimeOwners && runtimeInstruction(instruction))) {
+                    if (!supported(instruction) && !(runtimeOwners && runtimeInstruction(instruction))
+                            && !(foreignSegments && instruction instanceof IrForeignCallInstruction call && call.invocationContext().isPresent())) {
                         throw new IllegalArgumentException("GC3 unsupported root/lowering owner: " + instruction.getClass().getSimpleName());
                     }
                     if (instruction instanceof IrExceptionLandingPadInstruction && (block.instructions().isEmpty()

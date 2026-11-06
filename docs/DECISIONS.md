@@ -12643,3 +12643,39 @@ occurrence order. If no
   schema activation or complete native-library acceptance. Root ABI 2 and owner
   ABI 1 retain their foreign-segment refusals. Linux arm64/arm64e, GC7-GC10 and
   self-hosting remain outside this checkpoint.
+
+## D322 - Qualify managed foreign lifetimes and isolated native images
+
+- **Status:** Implemented and qualified, 2026-11-05, on macOS arm64 and Linux
+  x86-64 with actual Java 21 JNI and Java 23 critical/JNI consumers.
+- **Supersession:** Completes D315's frozen GC0 foreign contract and supersedes
+  D321's incomplete status and D320's blanket foreign-output boundary. Replaces
+  D189/D190 generated managed ownership/reclamation with independent RootHandle
+  anchors and preacquired ListenerRegistration ownership. Supersedes the D227
+  process-lifetime JNI fallback with proved invocation completion; preserves
+  D228 exception identity/order, D194 initialization and D132/D133 hot paths.
+  GC5 ordinary executable root ABI 2 / owner ABI 1 remains supported.
+- **Decision:** Every escaping non-immortal managed reference receives its own
+  anchor. Generated support factories replace owning facade constructors. Anchor
+  release never collects, destroys, closes source resources or invokes callbacks.
+  Reconcile actual listener slots on success and exception. Final bindings
+  matching supplied listener identities belong to that operation, with newer
+  nested retaining operations taking precedence over older operations in flight.
+  Skipped stores with different inputs preserve their old bindings. This is a
+  final-identity ownership convention, without per-source-store bookkeeping.
+- **Roots and images:** Root ABI 3 / owner ABI 2 and segment version 1 preserve
+  exact current and suspended managed frames across executable JNI helpers.
+  Never unwind Java frames. Each image has a private collector, transition chain,
+  roots, anchors and counters, with actual Mach-O/ELF symbol audits. Schema 2 /
+  objects-gc-v1 requires protocol versions and actual target SDK/payload hashes,
+  including scalar-only libraries. Assembly binds configuration per target.
+- **Validation:** O0-O3 actual generated JNI libraries cover nesting, A/B/A,
+  register/derived/outer-only roots, pending values, exceptions, defer, listeners,
+  views, copy-back, allocation failures, stale facades and reclamation. Production
+  packagers, Java reconstruction parity, metadata refusals, O3 code inspection,
+  deterministic controls and prior exact owner/failure controls pass. Full source
+  and dependency notices accompany native images. See [GC6](GC6_IMPLEMENTATION.md).
+- **Boundary:** Linux arm64/arm64e, async/concurrent callbacks, raw cross-image
+  references, unknown borrows and unloading remain unsupported. External
+  serialization permits sequential Java threads. GC7 consumer migration and
+  obsolete proof deletion, GC8-GC10 and self-hosting require separate work.

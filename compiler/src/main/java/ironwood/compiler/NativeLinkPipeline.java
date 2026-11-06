@@ -20,8 +20,13 @@ final class NativeLinkPipeline {
     }
 
     static IrProgram finish(IrProgram program) {
+        return finish(program, false);
+    }
+
+    static IrProgram finish(IrProgram program, boolean managedBridge) {
         var finished = UnreadFieldStoreEliminator.eliminate(ClosedWorldPruner.prune(program));
-        ironwood.compiler.backend.GcManagedHeapVerifier.verify(finished);
+        if (managedBridge) ironwood.compiler.backend.GcManagedHeapVerifier.verifyBridge(finished);
+        else ironwood.compiler.backend.GcManagedHeapVerifier.verify(finished);
         return finished;
     }
 }

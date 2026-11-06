@@ -14,8 +14,32 @@ public final class BridgeExceptionNativeSources {
         return generate(artifact, projection, entries, null);
     }
 
+    static String generateManaged(CompilationArtifact artifact, BridgeExceptionProjection projection, BridgeExceptionEntries entries) {
+        return generateManaged(artifact, projection, entries, null);
+    }
+
+    static String generateManaged(CompilationArtifact artifact, BridgeExceptionProjection projection, BridgeExceptionEntries entries,
+            BridgeCallbackCarrierEntries carriers) {
+        String source = generate(artifact, projection, entries, carriers, true);
+        if (carriers != null) source = BridgeGcListenerSources.supportAliases(carriers, source);
+        int count = BridgeExceptionGraphSources.NODE_LIMIT;
+        String nodes = "void *nodes[" + count + "] = {root};";
+        String roots = nodes + "\n    void *pending = NULL; void *native_slots[" + (count + 1) + "];\n"
+                + "    for (size_t i = 0; i < " + count + "; i++) native_slots[i] = &nodes[i];\n"
+                + "    native_slots[" + count + "] = &pending;\n"
+                + "    struct iw_gc_foreign_root native_roots __attribute__((cleanup(iw_gc_foreign_root_close))) = {0};\n"
+                + "    if (!iw_gc_foreign_root_open(&native_roots, native_slots, " + (count + 1) + ")) iw_gc_transition_refuse();";
+        return source.replace(nodes, roots)
+                .replace("const struct ironwood_string *string = result.value.reference;", "pending = result.value.reference;\n                        const struct ironwood_string *string = pending;");
+    }
+
     public static String generate(CompilationArtifact artifact, BridgeExceptionProjection projection, BridgeExceptionEntries entries,
             BridgeCallbackCarrierEntries carriers) {
+        return generate(artifact, projection, entries, carriers, false);
+    }
+
+    private static String generate(CompilationArtifact artifact, BridgeExceptionProjection projection, BridgeExceptionEntries entries,
+            BridgeCallbackCarrierEntries carriers, boolean managed) {
         if (!artifact.valid() || !projection.matches(artifact.program().orElseThrow()) || !entries.matches(projection)) {
             throw new IllegalArgumentException("native exception transport requires matching projected entries");
         }
@@ -88,7 +112,7 @@ public final class BridgeExceptionNativeSources {
                 .replace("@CUSTOM_CLASSES@", custom == null ? "" : "IW_EX_LONG_ARRAY, IW_EX_STRING_ARRAY, ")
                 .replace("@CUSTOM_NAMES@", custom == null ? "" : ", \"[J\", \"[Ljava/lang/String;\"")
                 .replace("@CUSTOM_DESCRIPTOR@", custom == null ? "" : "[[J[[Ljava/lang/String;")
-                .replace("@CUSTOM_HELPERS@", custom == null ? "" : BridgeCustomSnapshotNativeSources.generate(projection, custom, entries))
+                .replace("@CUSTOM_HELPERS@", custom == null ? "" : BridgeCustomSnapshotNativeSources.generate(projection, custom, entries, managed))
                 .replace("@CUSTOM_ARRAYS@", custom == null ? "" : """
                         jobjectArray copied_numbers = (*env)->NewObjectArray(env, @LIMIT@, metadata->classes[IW_EX_LONG_ARRAY], NULL);
                         if (copied_numbers == NULL) goto done;
@@ -345,7 +369,6 @@ public final class BridgeExceptionNativeSources {
                         if (!iw_exception_status(env, metadata, type->text[i](nodes[index], (int64_t)(uintptr_t)&result))) goto node_failure;
                         const struct ironwood_string *string = result.value.reference;
                         jstring value = string == NULL ? NULL : (*env)->NewString(env, string->units, string->utf16_length);
-                        if (type->owned & (1u << i)) ironwood_deallocate(result.value.reference);
                         if ((*env)->ExceptionCheck(env)) goto node_failure;
                         (*env)->SetObjectArrayElement(env, texts[i], index, value);
                         (*env)->DeleteLocalRef(env, value);

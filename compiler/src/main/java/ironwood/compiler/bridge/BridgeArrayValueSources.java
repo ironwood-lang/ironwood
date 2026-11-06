@@ -10,8 +10,16 @@ final class BridgeArrayValueSources {
     private BridgeArrayValueSources() {}
 
     static BridgeArrayInputs.Contract contract(CompilationArtifact artifact, BridgeCallableId callable) {
+        return contract(artifact, callable, false);
+    }
+
+    static BridgeArrayInputs.Contract contract(CompilationArtifact artifact, BridgeCallableId callable, boolean managed) {
+        return contract(artifact, callable, managed, null);
+    }
+
+    static BridgeArrayInputs.Contract contract(CompilationArtifact artifact, BridgeCallableId callable, boolean managed, BridgeListenerProxies listeners) {
         if (!callable.result().isArray() && BridgeArrayInputSources.indices(callable.parameters()).isEmpty()) return null;
-        var proof = BridgeArrayInputs.values(artifact, callable);
+        var proof = managed ? BridgeArrayInputs.managedValues(artifact, callable, listeners) : BridgeArrayInputs.values(artifact, callable);
         if (proof.status() != BridgeProof.Status.PROVED) throw new IllegalArgumentException(proof.reason());
         return proof.contract().orElseThrow();
     }
@@ -19,14 +27,14 @@ final class BridgeArrayValueSources {
     static void finish(StringBuilder text, BridgeArrayInputs.Contract contract, String frame, String failure,
                        String exit, boolean pendingCommit, boolean ownedStringResult) {
         if (contract == null || !contract.mutable() || contract.inputs().isEmpty()) {
-            text.append("    if (status != 0) { ").append(failure).append("(env, status, ").append(frame)
-                    .append(".exception);\n");
+            text.append("    if (status != 0) { ").append(failure).append("(env, status, status == 1 ? ").append(frame)
+                    .append(".exception : NULL);\n");
             if (contract != null) text.append(BridgeArrayInputSources.release(contract.callable().parameters()));
             text.append("        ").append(exit).append(" }\n");
             return;
         }
         text.append("    jthrowable array_primary = NULL;\n")
-                .append("    if (status != 0) ").append(failure).append("(env, status, ").append(frame).append(".exception);\n")
+                .append("    if (status != 0) ").append(failure).append("(env, status, status == 1 ? ").append(frame).append(".exception : NULL);\n")
                 .append("    if (").append(pendingCommit ? "(*env)->ExceptionCheck(env)" : "status != 0").append(") {\n")
                 .append("        array_primary = (*env)->ExceptionOccurred(env); (*env)->ExceptionClear(env);\n    }\n");
         // Only the first occurrence owns a converted buffer. Even on failure each
@@ -45,7 +53,6 @@ final class BridgeArrayValueSources {
                     .append("            if (failure != array_primary) (*env)->DeleteLocalRef(env, failure);\n        }\n    }\n");
         }
         text.append("    if (array_primary != NULL) {\n");
-        if (fresh(contract) || ownedStringResult) text.append("        if (status == 0) ironwood_deallocate(").append(frame).append(".value.reference);\n");
         text.append(BridgeArrayInputSources.release(contract.callable().parameters()))
                 .append("        (*env)->Throw(env, array_primary); (*env)->DeleteLocalRef(env, array_primary);\n")
                 .append("        ").append(exit).append("\n    }\n");
@@ -72,8 +79,7 @@ final class BridgeArrayValueSources {
                     .append("        if (copied == NULL) iw_exception_error(env, &iw_exceptions, 1, \"Ironwood array result allocation failed\");\n")
                     .append("        else if (value->length != 0) (*env)->Set").append(kind)
                     .append("ArrayRegion(env, copied, 0, (jsize)value->length, (const j")
-                    .append(BridgeJavaTypes.sourceName(type.elementType())).append(" *)value->data);\n    }\n")
-                    .append("    ironwood_deallocate(").append(frame).append(".value.reference);\n");
+                    .append(BridgeJavaTypes.sourceName(type.elementType())).append(" *)value->data);\n    }\n");
         } else if (origin.kind() != BridgeResultOriginContract.Kind.NULL_ONLY) {
             throw new IllegalArgumentException("unproved copied array result");
         }

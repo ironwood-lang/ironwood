@@ -49,6 +49,6 @@ public final class BridgeCallbackDispatchSources {
             throw new IllegalArgumentException("callback dispatch collides with generated declarations");
         }
         return new BridgeJavaSources(sources, declarations.bindings(), new ArrayList<>(types), declarations.ensureMethod(),
-                declarations.facadeRegistrations(), declarations.rootDestructions());
+                declarations.facadeRegistrations(), declarations.rootDestructions(), declarations.supportNatives());
     }
 }

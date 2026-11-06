@@ -36,12 +36,30 @@ public final class BridgeArrayInputs {
         return analyze(artifact, callable, true);
     }
 
+    public static BridgeProof<Contract> managedValues(CompilationArtifact artifact, BridgeCallableId callable) {
+        return analyze(artifact, callable, true, true);
+    }
+
+    public static BridgeProof<Contract> managedValues(CompilationArtifact artifact, BridgeCallableId callable, BridgeListenerProxies listeners) {
+        return analyze(artifact, callable, true, true, listeners);
+    }
+
     private static BridgeProof<Contract> analyze(CompilationArtifact artifact, BridgeCallableId callable, boolean mutableValues) {
+        return analyze(artifact, callable, mutableValues, false);
+    }
+
+    private static BridgeProof<Contract> analyze(CompilationArtifact artifact, BridgeCallableId callable, boolean mutableValues, boolean managed) {
+        return analyze(artifact, callable, mutableValues, managed, null);
+    }
+
+    private static BridgeProof<Contract> analyze(CompilationArtifact artifact, BridgeCallableId callable, boolean mutableValues, boolean managed,
+            BridgeListenerProxies listeners) {
         if (!artifact.valid() || artifact.bridgeConstructionFacts().isEmpty()
                 || !artifact.bridgeConstructionFacts().orElseThrow().matches(artifact.program().orElseThrow())) {
             return BridgeProof.unknown("array inputs require matching final semantic facts");
         }
         var program = artifact.program().orElseThrow();
+        var foreignBodies = listeners == null ? Set.<String>of() : listeners.foreignBodies(artifact);
         var facts = artifact.bridgeConstructionFacts().orElseThrow();
         var roots = BridgeRootSet.resolve(program, java.util.List.of(callable));
         if (!roots.resolved()) return BridgeProof.unknown("array inputs require an exact resolved root");
@@ -57,8 +75,10 @@ public final class BridgeArrayInputs {
             if (!(arrayResult ? facts.borrowsThroughResult(callable, index) : facts.borrowsInput(callable, index))) {
                 return BridgeProof.rejected("array input may escape, be returned or invalidated: parameter " + index);
             }
-            var lifetime = BridgeNonReclamationAnalyzer.analyze(program, roots, type, facts);
-            if (lifetime.status() != BridgeProof.Status.PROVED) return failed(lifetime.status(), lifetime.reason());
+            if (!managed) {
+                var lifetime = BridgeNonReclamationAnalyzer.analyze(program, roots, type, facts);
+                if (lifetime.status() != BridgeProof.Status.PROVED) return failed(lifetime.status(), lifetime.reason());
+            }
             inputs.add(index);
         }
         if (inputs.isEmpty() && !arrayResult) return BridgeProof.rejected("array proof requires an array input or result");
@@ -73,11 +93,14 @@ public final class BridgeArrayInputs {
                     || !callable.parameters().get(index).equals(callable.result()))) {
                 return BridgeProof.rejected("array result requires an exact input alias or invocation-owned allocation");
             }
-            var lifetime = BridgeNonReclamationAnalyzer.analyze(program, roots, callable.result(), facts);
-            if (lifetime.status() != BridgeProof.Status.PROVED) return failed(lifetime.status(), lifetime.reason());
+            if (!managed) {
+                var lifetime = BridgeNonReclamationAnalyzer.analyze(program, roots, callable.result(), facts);
+                if (lifetime.status() != BridgeProof.Status.PROVED) return failed(lifetime.status(), lifetime.reason());
+            }
             result = Optional.of(contract);
         }
-        var retention = BridgeRetentionAnalyzer.analyze(program, roots, facts).get(callable);
+        var retention = (listeners == null ? BridgeRetentionAnalyzer.analyze(program, roots, facts)
+                : BridgeRetentionAnalyzer.managedListeners(artifact, listeners, roots)).get(callable);
         if (retention.status() != BridgeProof.Status.PROVED) return failed(retention.status(), retention.reason());
         for (var slot : retention.contract().orElseThrow().slots()) {
             if (slot.valueInputs().stream().anyMatch(inputs::contains)) {
@@ -98,6 +121,7 @@ public final class BridgeArrayInputs {
                 var instructions = new java.util.ArrayList<>(block.instructions());
                 if (block.terminator() instanceof IrInvokeTerminator invoke) instructions.add(invoke.call());
                 for (var instruction : instructions) {
+                    if (instruction instanceof IrForeignCallInstruction && foreignBodies.contains(function.linkageName())) continue;
                     var call = targets.resolve(instruction);
                     // Compiler rollback may itself call cleanup code. P0 proves
                     // reclamation; its complete effects still belong to this closure.
@@ -111,11 +135,11 @@ public final class BridgeArrayInputs {
                         if (!primitiveArray(store.array().type())) return BridgeProof.unknown("nonprimitive array write in copied-value closure");
                         mutable = true;
                     } else if (instruction instanceof IrByteViewInstruction) {
-                        var views = BridgeByteViews.analyze(artifact, callable);
+                        var views = managed ? BridgeByteViews.analyzeManaged(artifact, callable, listeners) : BridgeByteViews.analyze(artifact, callable);
                         if (views.status() != BridgeProof.Status.PROVED) return failed(views.status(), views.reason());
                     } else if (instruction instanceof IrSystemArrayCopyInstruction) {
                         return BridgeProof.unknown("arraycopy requires a separately proved checked runtime boundary");
-                    } else if (!localEffect(instruction)) {
+                    } else if (!localEffect(instruction) && !(managed && instruction instanceof IrGcCollectInstruction)) {
                         return BridgeProof.unknown("unclassified array-call effect " + instruction.getClass().getSimpleName()
                                 + " at " + function.linkageName());
                     }

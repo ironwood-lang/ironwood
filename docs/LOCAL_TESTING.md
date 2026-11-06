@@ -1466,3 +1466,37 @@ and [Linux x86-64](GC4_LINUX_X86_64_QUALIFICATION.md); Linux additionally checks
 stripped unwind tables and removed RELRO protection in every mode. Linux host
 pass compilation needs installed GCC C++ development headers under `/usr`.
 This is experimental coverage, not production GC or JNI reentry. Linux arm64 refuses.
+
+## GC6 managed foreign integration
+
+After a normal focused compiler build, use the current verified engine-3 SDK:
+
+```sh
+./scripts/test.sh \
+  --test 'GC6 foreign effects require exact versioned transition contexts' \
+  --test 'GC6 managed entries preserve aliases publication and source lifetime member names' \
+  --test 'GC6 managed callbacks bind exact contexts and invocation JNI completion'
+python3 scripts/test-gc6-segments.py --sdk "$IRONWOOD_GC_HOME" \
+  --llvm-home "$IRONWOOD_LLVM_HOME" --java-home "$JAVA_HOME" \
+  --output workspace/gc6-segments-reproduce
+python3 scripts/test-gc6-objects.py --sdk "$IRONWOOD_GC_HOME" \
+  --llvm-home "$IRONWOOD_LLVM_HOME" --java-home "$JAVA_HOME" \
+  --output workspace/gc6-objects-reproduce
+python3 scripts/test-gc6-callbacks.py --sdk "$IRONWOOD_GC_HOME" \
+  --llvm-home "$IRONWOOD_LLVM_HOME" --java-home "$JAVA_HOME" \
+  --batch-fallback --output workspace/gc6-callbacks-reproduce
+python3 scripts/test-gc6-images.py --sdk "$IRONWOOD_GC_HOME" \
+  --llvm-home "$IRONWOOD_LLVM_HOME" --java-home "$JAVA_HOME" \
+  --output workspace/gc6-images-reproduce
+```
+
+Drivers guard each child at 16 GiB process-group RSS and 60 seconds. Their
+`gc6_complete=false` field denotes focused evidence, not a milestone verdict.
+Use Java 23 with objects `--critical --level O3` to exercise actual FFM and JNI
+fallback. `test-gc6-metadata.py --jar <paired.jar> --type <type-with-live> ...`
+loads valid and corrupted manifests in separate real JVMs. Scalar and batch
+controls are `scripts/java-bridge/Gc6ScalarControl.java` and
+`Gc6BatchControl.java`; transition capture is measured by the segment driver.
+Keep raw output ignored. See [GC6](GC6_IMPLEMENTATION.md) for exact coverage,
+configuration identities, limits and the compact manifest. These commands do
+not authorize GC7 migration, unfiltered suites or hosted workflows.

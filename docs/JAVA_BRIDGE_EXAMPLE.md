@@ -2,6 +2,11 @@
 
 # Java Bridge, step by step
 
+This pre-GC example awaits GC7 consumer migration. The current [GC6 API](GC6_IMPLEMENTATION.md)
+uses Roots factories, independent RootHandle results and ListenerRegistration
+owners; its qualified targets are macOS arm64 and Linux x86-64. The old facade
+constructor/reclamation calls below are historical, not current runnable usage.
+
 This walks through [examples/java-bridge/basics](../examples/java-bridge/basics):
 a native Ironwood counter that a Java program calls, and then it calls a Java
 listener back. Every command runs from that directory. The scripts there do the
